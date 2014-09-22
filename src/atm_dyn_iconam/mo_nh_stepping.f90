@@ -251,10 +251,11 @@ MODULE mo_nh_stepping
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
   TYPE(t_simulation_status)            :: simulation_status
 
-!!$  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$    &  routine = 'mo_nh_stepping:perform_nh_stepping'
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    &  routine = 'mo_nh_stepping:perform_nh_stepping'
 
   INTEGER                              :: jg
+  INTEGER                              :: ierr
   REAL(wp)                             :: zdt_shift
 
 !!$  INTEGER omp_get_num_threads
@@ -367,6 +368,17 @@ MODULE mo_nh_stepping
       CALL write_name_list_output(jstep=0)
     END IF
 
+    ! sample meteogram output
+    DO jg = 1, n_dom
+      IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
+        & meteogram_is_sample_step(                                                        &
+        & meteogram_output_config(jg), 0, 0, iadv_rcf=iadv_rcf) ) THEN
+        CALL meteogram_sample_vars(jg, 0, datetime, ierr)
+        IF (ierr /= SUCCESS) THEN
+          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
+        ENDIF
+      END IF
+    END DO
 
     !AD: Also output special diagnostics for LES on torus
      IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN

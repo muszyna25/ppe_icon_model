@@ -125,15 +125,15 @@ MODULE mo_meteogram_output
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, &
     &                                 MAX_CHAR_LENGTH
+  USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
-  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
-    &                                 t_nh_metrics
+  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global
-  USE mo_math_constants,        ONLY: pi
   USE mo_util_string,           ONLY: int2string
+  USE mo_util_uuid,             ONLY: t_uuid, uuid_unparse, uuid_string_length
   USE mo_netcdf_read,           ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
@@ -142,11 +142,12 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
+    &                                 number_of_grid_used
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_util_phys,             ONLY: rel_hum
+  USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
   
   IMPLICIT NONE
@@ -298,11 +299,13 @@ MODULE mo_meteogram_output
   !! Data structure specifying output file for meteogram data.
   !!
   TYPE t_meteogram_file
-    INTEGER                         :: ftype         !< file type (NetCDF, ...)
-    LOGICAL                         :: ldistributed  !< Flag. Separate files for each PE
-    CHARACTER(len=MAX_NAME_LENGTH)  :: zname         !< file name string
-    INTEGER                         :: file_id       !< meteogram file ID
-    TYPE(t_cf_global)               :: cf            !< meta info
+    INTEGER                          :: ftype         !< file type (NetCDF, ...)
+    LOGICAL                          :: ldistributed  !< Flag. Separate files for each PE
+    CHARACTER(len=MAX_NAME_LENGTH)   :: zname         !< file name string
+    INTEGER                          :: file_id       !< meteogram file ID
+    CHARACTER(len=uuid_string_length):: uuid_string   !< unparsed grid UUID
+    INTEGER                          :: number_of_grid_used  !< as it says
+    TYPE(t_cf_global)                :: cf            !< meta info
   END TYPE t_meteogram_file
 
   !>
@@ -349,7 +352,8 @@ MODULE mo_meteogram_output
   INTEGER,            SAVE              :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
 
   ! several variable indices, stored for convenience (when computing additional diagnostics)
-  INTEGER, DIMENSION(1:max_dom), SAVE   :: i_T, i_REL_HUM, i_QV, i_PEXNER
+  INTEGER, DIMENSION(1:max_dom), SAVE   :: i_T, i_REL_HUM, i_QV, i_PEXNER, i_SWDIR_S,  &
+    &                                      i_ALB, i_SWDIFD_S, i_SOBS
 
 CONTAINS
 
@@ -363,27 +367,29 @@ CONTAINS
     ! atmosphere external data
     TYPE(t_external_data),               INTENT(IN) :: ext_data
     ! nonhydrostatic state
-    TYPE(t_nh_state), TARGET,            INTENT(IN)  :: p_nh_state
+    TYPE(t_nh_state), TARGET,            INTENT(IN) :: p_nh_state
     ! physical model state and other auxiliary variables
-    TYPE(t_nwp_phy_diag), INTENT(IN), OPTIONAL       :: prm_diag
+    TYPE(t_nwp_phy_diag), INTENT(IN), OPTIONAL      :: prm_diag
     ! model state for the NWP land physics
-    TYPE(t_lnd_state), TARGET,           INTENT(IN)  :: p_lnd_state
+    TYPE(t_lnd_state), TARGET,           INTENT(IN) :: p_lnd_state
     ! patch index
     INTEGER,                             INTENT(IN) :: jg
 
     TYPE(t_nh_prog)          , POINTER :: prog
     TYPE(t_nh_diag)          , POINTER :: diag
-    TYPE(t_nh_metrics)       , POINTER :: metrics
     TYPE(t_lnd_prog)         , POINTER :: p_lnd_prog
     TYPE(t_lnd_diag)         , POINTER :: p_lnd_diag
 
     diag       => p_nh_state%diag
     prog       => p_nh_state%prog(nnow(jg))
-    metrics    => p_nh_state%metrics
     p_lnd_prog => p_lnd_state%prog_lnd(nnow(jg))
     p_lnd_diag => p_lnd_state%diag_lnd
 
-    i_REL_HUM(jg) = 0
+    i_REL_HUM (jg) = 0
+    i_SWDIR_S (jg) = 0
+    i_ALB     (jg) = 0
+    i_SWDIFD_S(jg) = 0
+    i_SOBS    (jg) = 0
 
     ! -- atmosphere
 
@@ -423,33 +429,33 @@ CONTAINS
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVH", "m**2/s", &
       &               "turbulent diffusion coefficients for heat", &
       &               jg, prm_diag%tkvh(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "Phalf", "Pa", "Pressure on the half levels", &
+    CALL add_atmo_var(VAR_GROUP_ATMO_HL, "PHALF", "Pa", "Pressure on the half levels", &
       &               jg, diag%pres_ifc(:,:,:))
 
     ! -- soil related
 
     IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-      CALL add_atmo_var(VAR_GROUP_SOIL_MLp2, "t_so", "K", "soil temperature", &
+      CALL add_atmo_var(VAR_GROUP_SOIL_MLp2, "T_SO", "K", "soil temperature", &
         &               jg, p_lnd_diag%t_so(:,:,:))
-      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so", "m H2O", &
+      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "W_SO", "m H2O", &
         &               "total water content (ice + liquid water)", &
         &               jg, p_lnd_diag%w_so(:,:,:))
-      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "w_so_ice", "m H2O", "ice content", &
+      CALL add_atmo_var(VAR_GROUP_SOIL_ML, "W_SO_ICE", "m H2O", "ice content", &
         &               jg, p_lnd_diag%w_so_ice(:,:,:))
 
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_Cov", "-", "ground fraction covered by plants", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "PL_COV", "-", "ground fraction covered by plants", &
         &              jg, ext_data%atm%plcov(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_Ind", "-", "leaf area index (vegetation period)", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "LA_IND", "-", "leaf area index (vegetation period)", &
         &              jg, ext_data%atm%lai(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_Dept", "-", "root depth", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "RO_DEPT", "m", "root depth", &
         &              jg, ext_data%atm%rootdp(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", &
                        jg, prm_diag%gz0(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "qv_s", "kg/kg", "specific humidity at the surface", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "QV_S", "kg/kg", "specific humidity at the surface", &
         &              jg, p_lnd_diag%qv_s(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_i", "m H2O", "water content of interception water", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "W_I", "m H2O", "water content of interception water", &
         &              jg, p_lnd_diag%w_i(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "w_snow", "m H2O", "water content of snow", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "W_SNOW", "m H2O", "water content of snow", &
         &              jg, p_lnd_diag%w_snow(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "RUNOFF_S", "kg/m2",   &
         &              "surface water runoff; sum over forecast", &
@@ -457,11 +463,11 @@ CONTAINS
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "RUNOFF_G", "kg/m2",   &
         &              "soil water runoff; sum over forecast",    &
         &              jg, p_lnd_diag%runoff_g(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_snow", "K", "temperature of the snow-surface", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "T_SNOW", "K", "temperature of the snow-surface", &
         &              jg, p_lnd_diag%t_snow(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_s", "K", "temperature of the ground surface", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "T_S", "K", "temperature of the ground surface", &
         &              jg, p_lnd_diag%t_s(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "t_g", "K", "weighted surface temperature", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "T_G", "K", "weighted surface temperature", &
         &              jg, p_lnd_prog%t_g(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "FRESHSNW", "-",              &
         &              "indicator for age of snow in top of snow layer", &
@@ -470,7 +476,7 @@ CONTAINS
         &              jg, p_lnd_diag%rho_snow(:,:))
       CALL add_sfc_var(VAR_GROUP_SURFACE,  "H_SNOW", "m", "snow height", &
         &              jg, p_lnd_diag%h_snow(:,:))
-      CALL add_sfc_var(VAR_GROUP_SURFACE,  "fr_seaice", "-", "fraction of sea ice", &
+      CALL add_sfc_var(VAR_GROUP_SURFACE,  "FR_SEAICE", "-", "fraction of sea ice", &
         &              jg, p_lnd_diag%fr_seaice(:,:))
     ENDIF
 
@@ -517,6 +523,30 @@ CONTAINS
     CALL add_sfc_var(VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
       &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
 
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "CLCT", "%", "total cloud cover", &
+      &              jg, prm_diag%clct(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "CLCL", "%", "low level cloud cover", &
+      &              jg, prm_diag%clcl(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "CLCM", "%", "mid level cloud cover", &
+      &              jg, prm_diag%clcm(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
+      &              jg, prm_diag%clch(:,:))
+
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "UMFL_S", "N m-2", "u-momentum flux at the surface", &
+      &              jg, prm_diag%umfl_s(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "VMFL_S", "N m-2", "v-momentum flux at the surface", &
+      &              jg, prm_diag%vmfl_s(:,:))
+
+   CALL add_sfc_var(VAR_GROUP_SURFACE, "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
+      &              jg, prm_diag%swflx_up_sfc(:,:))
+   CALL add_sfc_var(VAR_GROUP_SURFACE, "SWDIFD_S", "W m-2", "shortwave diffuse downward flux at surface", &
+      &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
+   CALL add_sfc_var(VAR_GROUP_SURFACE, "PAB_S", "W m-2", "photosynthetically active shortwave downward flux at surface", &
+      &              jg, prm_diag%swflx_par_sfc(:,:))
+
+   CALL add_sfc_var(IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), "SWDIR_S", "W m-2", "shortwave direct downward flux at surface", &
+      &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
+
     IF (inextra_2d > 0) THEN
       ! Variable: Extra 2D
       CALL add_sfc_var (VAR_GROUP_SURFACE, "EXTRA2D","","-", jg, diag%extra_2d(:,:,1:inextra_2d))
@@ -528,10 +558,14 @@ CONTAINS
 
     ! several variable indices, stored for convenience (when computing
     ! additional diagnostics):
-    i_T      (jg) = get_var("T"      , jg)
-    i_QV     (jg) = get_var("QV"     , jg)
-    i_REL_HUM(jg) = get_var("REL_HUM", jg)
-    i_PEXNER (jg) = get_var("PEXNER" , jg)
+    i_T       (jg) = get_var("T"       , jg)
+    i_QV      (jg) = get_var("QV"      , jg)
+    i_REL_HUM (jg) = get_var("REL_HUM" , jg)
+    i_PEXNER  (jg) = get_var("PEXNER"  , jg)
+    i_SWDIR_S (jg) = get_sfcvar("SWDIR_S" , jg)
+    i_ALB     (jg) = get_sfcvar("ALB"     , jg)
+    i_SWDIFD_S(jg) = get_sfcvar("SWDIFD_S", jg)
+    i_SOBS    (jg) = get_sfcvar("SOBS"    , jg)
 
   END SUBROUTINE meteogram_setup_variables
 
@@ -549,6 +583,7 @@ CONTAINS
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER                         :: ilev
     REAL(wp)                        :: temp, qv, p_ex
+    REAL(wp)                        :: albedo, swdifd_s, sobs
 
     IF (i_REL_HUM(jg) == 0) RETURN
 
@@ -566,6 +601,12 @@ CONTAINS
 !CDIR NEXPAND
       station%var(i_REL_HUM(jg))%values(ilev, i_tstep) = rel_hum(temp, qv, p_ex)
     END DO
+
+    ! compute shortwave direct downward flux at surface
+    albedo   = station%sfc_var(i_ALB(jg))%values(i_tstep)
+    swdifd_s = station%sfc_var(i_SWDIFD_S(jg))%values(i_tstep)
+    sobs     = station%sfc_var(i_SOBS(jg))%values(i_tstep)
+    station%sfc_var(i_SWDIR_S(jg))%values(i_tstep) = swdir_s(albedo, swdifd_s, sobs) 
     
   END SUBROUTINE compute_diagnostics
 
@@ -583,7 +624,8 @@ CONTAINS
   !!
   SUBROUTINE meteogram_init(meteogram_output_config, jg,     &
     &                       ptr_patch, ext_data, p_nh_state, &
-    &                       prm_diag, p_lnd_state, iforcing)
+    &                       prm_diag, p_lnd_state, iforcing, &
+    &                       grid_uuid, number_of_grid_used)
     ! station data from namelist
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     ! patch index
@@ -601,6 +643,9 @@ CONTAINS
     ! parameterized forcing (right hand side) of dynamics, affects
     ! topography specification, see "mo_extpar_config"
     INTEGER,                   INTENT(IN), OPTIONAL :: iforcing
+    TYPE(t_uuid),              INTENT(IN), OPTIONAL :: grid_uuid
+    ! number of grid used
+    INTEGER,                   INTENT(IN), OPTIONAL :: number_of_grid_used
 
     ! local variables:
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:meteogram_init")
@@ -616,7 +661,6 @@ CONTAINS
     REAL(gk)     :: min_dist(nproma,meteogram_output_config%nblks)    !< minimal distance
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     INTEGER      :: tri_idx(2,nproma,meteogram_output_config%nblks)
-    REAL(wp)     :: pi_180
     INTEGER      :: max_var_size, max_sfcvar_size
     REAL(wp)     :: grid_sphere_radius_mtg
     REAL(wp), ALLOCATABLE              :: hlevels(:)
@@ -625,7 +669,7 @@ CONTAINS
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
 
-    pi_180 = ATAN(1._wp)/45._wp
+
 
     !-- define the different roles in the MPI communication inside
     !-- this module
@@ -655,7 +699,7 @@ CONTAINS
       END IF
     END IF
 
-    ! Consistency check: If this is NOT a pure I/O PE, then patch data
+    ! Consistency check I: If this is NOT a pure I/O PE, then patch data
     ! must be available:
     IF (.NOT. l_pure_io_pe .AND. &
       & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
@@ -663,6 +707,14 @@ CONTAINS
       &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing)) )) THEN
       CALL finish (routine, 'Missing argument(s)!')      
     END IF
+
+    ! Consistency check II: If this is a pure I/O PE, then number_of_grid_used 
+    ! and grid_uuid must be available.
+    IF (l_pure_io_pe .AND. &
+      & ( (.NOT. PRESENT(number_of_grid_used) .OR. &
+      &   (.NOT. PRESENT(grid_uuid)) ) ) ) THEN
+      CALL finish (routine, 'I/O PE Missing argument(s)!')
+    ENDIF
 
     meteogram_data => meteogram_local_data(jg)
 
@@ -676,6 +728,8 @@ CONTAINS
     cf%source      = 'icon-dev'
     cf%history     = ''
     meteogram_file_info(jg)%ldistributed = meteogram_output_config%ldistributed
+    CALL uuid_unparse(grid_uuid, meteogram_file_info(jg)%uuid_string)
+    meteogram_file_info(jg)%number_of_grid_used = number_of_grid_used
 
     ! ------------------------------------------------------------
     ! Distribute stations, determine number of stations located on
@@ -1557,6 +1611,14 @@ CONTAINS
       &                     LEN_TRIM(cf%comment),     TRIM(cf%comment)), modname)
     CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'references',  &
       &                     LEN_TRIM(cf%references),  TRIM(cf%references)), modname)
+
+    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'uuidOfHGrid',  &
+      &                     LEN_TRIM(meteogram_file_info(jg)%uuid_string),  &
+      &                     TRIM(meteogram_file_info(jg)%uuid_string)), modname)
+    CALL nf(nf_put_att_int (ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
+      &                     nf_int,  1, meteogram_file_info(jg)%number_of_grid_used), modname)
+
+
 
     ! for the definition of a character-string variable define
     ! character-position dimension for strings

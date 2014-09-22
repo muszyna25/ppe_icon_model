@@ -1006,15 +1006,19 @@ CONTAINS
     INTEGER             :: jg, jstep, i
     TYPE(t_par_output_event), POINTER :: ev
 
-    ! setup of meteogram output
-    DO jg =1,n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_init(meteogram_output_config(jg), jg)
-      END IF
-    END DO
 
     ! Initialize name list output, this is a collective call for all PEs
     CALL init_name_list_output(sim_step_info)
+
+    ! setup of meteogram output
+    DO jg =1,n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_init(meteogram_output_config(jg), jg,    &
+          &                 grid_uuid=patch_info(jg)%grid_uuid, &
+          &                 number_of_grid_used=patch_info(jg)%number_of_grid_used)
+      END IF
+    END DO
+
 
     ! Append the chosen p-levels, z-levels, i-levels to the levels
     ! sets for the corresponding domains:

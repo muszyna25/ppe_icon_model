@@ -33,7 +33,8 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
-  &                                iqv, iqc, iqt
+  &                                iqv, iqc, iqt,        &
+  &                                number_of_grid_used
 USE mo_dynamics_config,      ONLY: iequations, nnow
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -301,27 +302,6 @@ CONTAINS
     ENDIF
 
 
-    !---------------------------------------------------------------------
-    !     Setup of meteogram output
-    !---------------------------------------------------------------------
-
-    IF (output_mode%l_nml) THEN
-      DO jg =1,n_dom
-        IF (meteogram_output_config(jg)%lenabled) THEN
-          ! For dry test cases: do not sample moist variables
-          ! (but allow for TORUS moist runs; see also mo_mtgrm_output.F90)
-          IF (ltestcase .and. .not. is_plane_torus) THEN
-            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
-              &                ext_data(jg), p_nh_state(jg),                  &
-              &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
-          ELSE
-            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
-              &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
-              &                p_lnd_state(jg), iforcing)
-          END IF
-        END IF
-      END DO
-    END IF
 
     !------------------------------------------------------------------
     ! Prepare initial conditions for time integration.
@@ -423,6 +403,31 @@ CONTAINS
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)
+
+      !---------------------------------------------------------------------
+      !     Setup of meteogram output
+      !---------------------------------------------------------------------
+      DO jg =1,n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          ! For dry test cases: do not sample moist variables
+          ! (but allow for TORUS moist runs; see also mo_mtgrm_output.F90)
+          IF (ltestcase .and. .not. is_plane_torus) THEN
+            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+              &                ext_data(jg), p_nh_state(jg),                  &
+              &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing,&
+              &                grid_uuid=p_patch(jg)%grid_uuid,               &
+              &                number_of_grid_used=number_of_grid_used(jg) )
+          ELSE
+            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+              &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
+              &                p_lnd_state(jg), iforcing,                     &
+              &                grid_uuid=p_patch(jg)%grid_uuid,               &
+              &                number_of_grid_used=number_of_grid_used(jg) )
+          END IF
+        END IF
+      END DO
+
+
       IF (iequations/=ihs_ocean) THEN ! atm
         CALL create_mipz_level_selections(output_file)
       END IF

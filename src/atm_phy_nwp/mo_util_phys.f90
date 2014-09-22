@@ -44,6 +44,7 @@ MODULE mo_util_phys
   PUBLIC :: nwp_con_gust
   PUBLIC :: virtual_temp
   PUBLIC :: vap_pres
+  PUBLIC :: swdir_s
   PUBLIC :: rel_hum
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
@@ -215,6 +216,25 @@ CONTAINS
 
   END SUBROUTINE virtual_temp
 
+
+
+  !> POINTWISE computation of shortwave direct downward flux as
+  !! swdir_s = (1+ (\alpha/(1-\alpha))) * sobs - swdifd_s
+  !! in W m**-2
+  !!
+  !! (domain independent and elemental)
+  !!
+  !! @par Revision History
+  !! Initial revision by D. Reinert, DWD (2014-09-18) 
+  ELEMENTAL FUNCTION swdir_s(albedo, swdifd_s, sobs)
+    REAL(wp)             :: swdir_s
+    REAL(wp), INTENT(IN) :: albedo      ! shortwave broadband albedo
+    REAL(wp), INTENT(IN) :: swdifd_s    ! shortwave diffuse downward flux (sfc)
+    REAL(wp), INTENT(IN) :: sobs        ! shortwave net flux (sfc)
+
+    swdir_s = (1._wp + albedo/(1._wp - albedo)) * sobs - swdifd_s
+
+  END FUNCTION swdir_s 
 
 
   !> POINTWISE computation of relative humidity as r=100. * e/e_sat,
