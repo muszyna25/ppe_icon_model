@@ -999,7 +999,7 @@ CONTAINS
       ! the sea ice model as well as the lake model.
       !
       ! Furthermore, note that filling t_ice with t_so(1) only makes 
-      ! sense when running without tiles. When using tiles, contains 
+      ! sense when running without tiles. When using tiles, t_ice contains 
       ! the temperatures of sea-ice tiles and frozen lake tiles. Mixing this field 
       ! with aggeregated t_so values makes no sense from my point of view.
       IF ( (ntiles_total == 1) .AND. (atm_phy_nwp_config(jg)%inwp_surface > 0)) THEN

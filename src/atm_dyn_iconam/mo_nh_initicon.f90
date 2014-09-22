@@ -1414,10 +1414,10 @@ MODULE mo_nh_initicon
       CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
       IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
-        ana_default_txt = "ANA_inc (default)"
+        ana_default_txt = "ANA_inc (expected)"
         ana_this_txt    = "ANA_inc (this run)"
       ELSE
-        ana_default_txt = "ANA (default)"
+        ana_default_txt = "ANA (expected)"
         ana_this_txt    = "ANA (this run)"
       ENDIF
       CALL add_column(bool_table, "FG (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
@@ -1483,6 +1483,9 @@ MODULE mo_nh_initicon
   !! For Analysis (increments)
   !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
   !!   match the uuidOfHgrid of the horizontal grid file.
+  !! - For MODE_DWDANA, MODE_COMBINED, and MODE_COSMODE check validity of 
+  !!   analysis validity time:  The analysis field's validity time must match 
+  !!   the model start time
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
