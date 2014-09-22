@@ -87,7 +87,7 @@ CONTAINS
     zprefix(:)               =     "METEOGRAM_"
     ftype(:)                 =     FTYPE_NETCDF
     ldistributed(:)          =           .TRUE.
-    n0_mtgrm(:)              =               1
+    n0_mtgrm(:)              =               0
     ninc_mtgrm(:)            =               1
     stationlist_tot(:)%lon   = 0._wp
     stationlist_tot(:)%lat   = 0._wp

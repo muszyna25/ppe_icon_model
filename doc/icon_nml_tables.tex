@@ -2625,8 +2625,9 @@ Flag. Separate files for each PE.&
 %\hline
 n0\_mtgrm&
 I(n\_dom) &
-1&&
-initial time step for meteogram output&
+0&&
+initial time step for meteogram output.\\
+Note: must be an integer multiple of \emph{iadv\_rcf}, since meteogram output is written only at advection time steps. &
 \tabularnewline
 
 %\hline
