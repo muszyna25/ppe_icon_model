@@ -826,6 +826,7 @@ run/exp.test_oce_numeric -text
 run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
 run/exp.test_oce_parallel -text
+run/exp.test_oce_testbed_read -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
