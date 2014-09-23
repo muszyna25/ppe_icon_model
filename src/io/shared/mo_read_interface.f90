@@ -44,7 +44,8 @@ MODULE mo_read_interface
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
     &                                   var_data_2d_int, var_data_2d_wp, &
-    &                                   var_data_3d_int, var_data_3d_wp
+    &                                   var_data_3d_int, var_data_3d_wp, &
+    &                                   distrib_inq_var_dims
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
 
@@ -333,8 +334,8 @@ CONTAINS
         ALLOCATE(tmp_pointer(nproma, &
           (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
         tmp_pointer(:,:) = 0.0_wp
-        IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
       ENDIF
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
         &               stream_id%read_info(location)%dist_read_info)
@@ -403,7 +404,19 @@ CONTAINS
          & extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
-      CALL finish(method_name, "read_netcdf_distribute_method not implemented for 2D_extdim")
+      IF (PRESENT(fill_array)) THEN
+        tmp_pointer => fill_array
+      ELSE
+        ALLOCATE(tmp_pointer(nproma, &
+          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1, &
+          end_extdim - start_extdim + 1))
+        tmp_pointer(:,:,:) = 0.0_wp
+      ENDIF
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               end_extdim - start_extdim + 1, &
+        &               stream_id%read_info(location)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -464,6 +477,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsDimName
 
+    INTEGER :: var_ndims, var_dimlen(3)
     REAL(wp), POINTER  :: tmp_pointer(:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_extdim_streamid'
@@ -477,7 +491,22 @@ CONTAINS
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
-      CALL finish(method_name, "read_netcdf_distribute_method not implemented for 3D_extdim")
+      IF (PRESENT(fill_array)) THEN
+        tmp_pointer => fill_array
+      ELSE
+        CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
+          &                       var_dimlen)
+        ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
+          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1, &
+          end_extdim - start_extdim + 1))
+        tmp_pointer(:,:,:,:) = 0.0_wp
+      ENDIF
+
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               var_dimlen(2:3), &
+        &               stream_id%read_info(location)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
