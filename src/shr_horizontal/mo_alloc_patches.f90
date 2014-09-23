@@ -291,6 +291,12 @@ CONTAINS
 
     CALL deallocate_patch_cartesian( p_patch )
 
+    IF (ASSOCIATED(p_patch%radiation_cells)) THEN
+      DEALLOCATE( p_patch%radiation_cells, stat=ist )
+      IF(ist/=success) &
+        CALL finish  (routine,  'deallocate for patch vertex f_v failed')
+    END IF
+
   CONTAINS
 
     SUBROUTINE deallocate_decomp_info( decomp_info )

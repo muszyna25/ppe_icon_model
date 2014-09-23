@@ -98,9 +98,6 @@ CONTAINS
     CALL reorder_array_pos(pp%cells%area,            idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%center,          idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%cartesian_center,idx_old2new,      pp%nblks_c, pp%npromz_c)
-!    IF (ASSOCIATED(pp%cells%radiation_owner)) THEN
-!      CALL reorder_array_pos(pp%cells%radiation_owner, idx_old2new,      pp%n_patch_cells)
-!    END IF
     CALL reorder_decomp_info(pp%cells%decomp_info, idx_old2new, &
       &                      pp%n_patch_cells, pp%nblks_c, pp%npromz_c)
 

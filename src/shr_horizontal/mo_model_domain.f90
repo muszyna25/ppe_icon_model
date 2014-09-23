@@ -289,10 +289,6 @@ MODULE mo_model_domain
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info
 
-    ! The owner when running the radiation
-    ! only used with redistributed radiation
-    INTEGER, POINTER :: radiation_owner(:)
-
     ! Please note that the following array is only needed on local parent patches
     ! for storing the corresponding variable from nh_metrics.
     ! It is not allocated/deallocated with the regular patch (de)allocation routines
@@ -841,6 +837,10 @@ MODULE mo_model_domain
       & edges
     TYPE(t_grid_vertices) ::  &
       & verts
+
+    ! Cells processed when running the radiation
+    ! (only used with redistributed radiation)
+    INTEGER, POINTER :: radiation_cells(:)
 
     !
     ! communication patterns for parallelization

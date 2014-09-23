@@ -114,8 +114,11 @@ CONTAINS
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
+    INTEGER, POINTER :: radiation_owner(:)
 
     CALL message(routine, 'start of domain decomposition')
+
+    NULLIFY(radiation_owner)
 
     ! This subroutine has 2 different operating modes:
     !
@@ -271,7 +274,7 @@ CONTAINS
       IF (my_process_is_mpi_parallel()) THEN
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
              p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_pre, &
-             p_patch(jg)%cells%radiation_owner)
+             radiation_owner)
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
       END IF
@@ -302,13 +305,20 @@ CONTAINS
       END SELECT
 
       ! CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
-      CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)
+      CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, &
+        &               radiation_owner, n_ghost_rows, order_type_of_halos, &
+        &               p_pe_work)
+
+      IF (ASSOCIATED(radiation_owner)) THEN
+        DEALLOCATE(radiation_owner)
+        NULLIFY(radiation_owner)
+      END IF
 
       IF(jg > n_dom_start) THEN
         order_type_of_halos = 0
-        ! CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
-        CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), cell_owner_p, 1, &
-          & order_type_of_halos,  p_pe_work)
+        CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), &
+          &               cell_owner_p, radiation_owner, 1, &
+          &               order_type_of_halos,  p_pe_work)
 
         CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
         IF (jgp > n_dom_start) THEN
@@ -440,8 +450,6 @@ CONTAINS
     ! since this might be the test PE which is never calling this routine
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
-
-    NULLIFY(radiation_owner)
 
     IF (division_method(patch_no) == div_from_file     .OR. &
         division_method(patch_no) == ext_div_from_file .OR. &
@@ -712,13 +720,15 @@ CONTAINS
   !! Major rewrite to reduce memory consumption, Thomas Jahns and Moritz Hanke, Sep 2013
 
   SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, cell_owner, &
-    &                     n_boundary_rows, order_type_of_halos, my_proc)
+    &                     radiation_owner, n_boundary_rows, &
+    &                     order_type_of_halos, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
     TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
 
     INTEGER, POINTER :: cell_owner(:)
+    INTEGER, POINTER :: radiation_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
     INTEGER, INTENT(IN) :: order_type_of_halos
     INTEGER, INTENT(IN) :: my_proc
@@ -1048,6 +1058,23 @@ CONTAINS
       END DO
     END DO
 
+    IF (ASSOCIATED(radiation_owner)) THEN
+
+      ALLOCATE(wrk_p_patch%radiation_cells( &
+        COUNT(radiation_owner(:) == p_pe_work)))
+
+      i = 1
+
+      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+
+        IF (radiation_owner(j) == p_pe_work) THEN
+
+          wrk_p_patch%radiation_cells(i) = j
+          i = i + 1
+        END IF
+      END DO
+    END IF
+
   CONTAINS
 
     SUBROUTINE prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
@@ -1111,6 +1138,8 @@ CONTAINS
       wrk_p_patch%nshift_total       = wrk_p_patch_pre%nshift_total
       wrk_p_patch%nshift_child       = wrk_p_patch_pre%nshift_child
       wrk_p_patch%grid_uuid          = wrk_p_patch_pre%grid_uuid
+
+      NULLIFY(wrk_p_patch%radiation_cells)
 
       !-----------------------------------------------------------------------------------------------
       ! Allocate the required data arrays in patch

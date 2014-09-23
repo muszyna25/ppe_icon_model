@@ -70,7 +70,6 @@ MODULE mo_rrtm_data_interface
     TYPE(t_lnd_prog),     POINTER :: lnd_prog_now
 
     ! communication patterns
-    INTEGER, POINTER :: global_index(:), dynamics_owner(:)    
     INTEGER :: radiation_recv_comm_pattern, radiation_send_comm_pattern
     
     !------------------------------------------
@@ -183,12 +182,11 @@ CONTAINS
     
     TYPE(t_patch), POINTER :: patch
     TYPE(t_rrtm_data), POINTER :: rrtm_model_data
-
-    INTEGER :: my_radiation_cells
     
     INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
-    INTEGER :: return_status, file_id, j
-    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER :: return_status, file_id, i, j
+    INTEGER, ALLOCATABLE, TARGET :: radiation_owner(:), radiation_cells_(:)
+    INTEGER, POINTER :: radiation_cells(:)
     
     CHARACTER(*), PARAMETER :: method_name = "construct_rrtm_model_repart"
 
@@ -200,7 +198,6 @@ CONTAINS
     rrtm_model_data%pt_patch => patch
     IF (patch%id /= patch_no) &
       & CALL finish(method_name, "patch%id /= patch_no")
-    radiation_owner => patch%cells%radiation_owner
         
     my_mpi_work_id           = get_my_mpi_work_id()
     my_mpi_work_comm_size    = get_my_mpi_work_comm_size()
@@ -243,59 +240,53 @@ CONTAINS
         CLOSE(file_id)
         
       ENDIF
-      
+
+      !-------------------------------
+      ! some checks
+      IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
+        & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
+        WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
+        & " MINAVAL=", MINVAL(radiation_owner(:)), &
+          " MAXVAL=",  MAXVAL(radiation_owner(:))
+        CALL finish(method_name,'Invalid redistribution')
+      ENDIF
+
       CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
+
+      ALLOCATE(radiation_cells_(COUNT(radiation_owner(:) == my_mpi_work_id)))
+
+      i = 1
+
+      DO j = 1, patch%n_patch_cells_g
+
+        IF (radiation_owner(j) == my_mpi_work_id) THEN
+
+          radiation_cells_(i) = j
+          i = i + 1
+        END IF
+      END DO
+
+      DEALLOCATE(radiation_owner)
+
+      radiation_cells => radiation_cells_
     
-    CASE(ext_div_medial_redrad, ext_div_medial_redrad_cluster)      
+    CASE(ext_div_medial_redrad, ext_div_medial_redrad_cluster)
+      radiation_cells => patch%radiation_cells
        !  radiation_owner should be already filled   
     CASE DEFAULT
       CALL finish(method_name, &
         & 'value of division_method not compatible with redistributed radiation')
     END SELECT
-      
-
-    !-------------------------------
-    ! some checks
-    IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
-      & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
-      WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
-      & " MINAVAL=", MINVAL(radiation_owner(:)), &
-        " MAXVAL=",  MAXVAL(radiation_owner(:))
-      CALL finish(method_name,'Invalid redistribution')
-    ENDIF
-    
-    !-------------------------------
-    ! get my radiation cells
-    my_radiation_cells = 0
-    DO j=1, patch%n_patch_cells_g
-      IF (radiation_owner(j) == my_mpi_work_id) THEN
-        my_radiation_cells = my_radiation_cells + 1
-        ! keep the global index in the first part of the radiation_owner
-        radiation_owner(my_radiation_cells) = j      
-      ENDIF
-    ENDDO
-    
-    ALLOCATE(rrtm_model_data%global_index(my_radiation_cells), STAT=return_status)
-    IF (return_status /= 0 ) &
-      CALL finish (method_name,'ALLOCATE(global_index) failed')
-    rrtm_model_data%global_index(1:my_radiation_cells) = radiation_owner(1:my_radiation_cells)
-    DEALLOCATE(radiation_owner)
-
-    !-------------------------------
-    ! get the dymamics owners of my radiation cells
-    ALLOCATE(rrtm_model_data%dynamics_owner(my_radiation_cells), STAT=return_status)
-    rrtm_model_data%dynamics_owner(:) = &
-      dist_dir_get_owners(patch%cells%decomp_info%owner_dist_dir, &
-        &                 rrtm_model_data%dynamics_owner(1:my_radiation_cells))
 
     ! create the receive communicator from the dynamics
-    rrtm_model_data%radiation_recv_comm_pattern =                   &
-      & new_icon_comm_pattern(                                      &
-      & total_no_of_points = my_radiation_cells,                    &
-      & receive_from_owner = rrtm_model_data%dynamics_owner,        &
-      & my_global_index = rrtm_model_data%global_index,             &
-      & send_glb2loc_index = patch%cells%decomp_info%glb2loc_index, &
-      & allow_send_to_myself = .true. ,                             &
+    rrtm_model_data%radiation_recv_comm_pattern =                      &
+      & new_icon_comm_pattern(                                         &
+      & total_no_of_points = SIZE(radiation_cells),                    &
+      & receive_from_owner = dist_dir_get_owners(                      &
+      &   patch%cells%decomp_info%owner_dist_dir, radiation_cells(:)), &
+      & my_global_index = radiation_cells(:),                          &
+      & send_glb2loc_index = patch%cells%decomp_info%glb2loc_index,    &
+      & allow_send_to_myself = .true. ,                                &
       & name = "radiation_rcv_from_dynamics" )
 
     ! create the inverse communicator, from radiation to dynamics
@@ -311,11 +302,13 @@ CONTAINS
 
     ! now allocate the data for the radiation interface
     CALL init_rrtm_data( &
-      & rrtm_data   = rrtm_model_data   , &
-      & no_of_cells = my_radiation_cells, &
-      & full_levels = patch%nlev,         &
-      & half_levels = patch%nlevp1,       &
+      & rrtm_data   = rrtm_model_data   ,          &
+      & no_of_cells = SIZE(radiation_cells), &
+      & full_levels = patch%nlev,                  &
+      & half_levels = patch%nlevp1,                &
       & block_size  = nproma)
+
+    IF (ALLOCATED(radiation_cells_)) DEALLOCATE(radiation_cells_)
 
   END SUBROUTINE construct_rrtm_model_repart
   !-----------------------------------------
