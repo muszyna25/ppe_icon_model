@@ -52,6 +52,10 @@ MODULE mo_read_netcdf_distributed
     MODULE PROCEDURE distrib_read_int_2d_multi_var
     MODULE PROCEDURE distrib_read_real_1d_multi_var
     MODULE PROCEDURE distrib_read_real_2d_multi_var
+    MODULE PROCEDURE distrib_read_int_1d
+    MODULE PROCEDURE distrib_read_int_2d
+    MODULE PROCEDURE distrib_read_real_1d
+    MODULE PROCEDURE distrib_read_real_2d
   END INTERFACE distrib_read
   
   INTEGER, PARAMETER :: nf_read = nf_nowrite
@@ -355,7 +359,26 @@ CONTAINS
   END SUBROUTINE check_basic_data_index
   
   !-------------------------------------------------------------------------
-  
+
+  SUBROUTINE distrib_read_int_1d(ncid, var_name, local_buffer_1d, &
+    &                            local_buffer_2d, var_data, io_data)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    INTEGER, INTENT(INOUT) :: local_buffer_1d(:)
+    INTEGER, INTENT(INOUT) :: local_buffer_2d(:, :)
+    INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:) ! idx, blk
+    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+
+    TYPE(var_data_1d_int) :: var_data_(1)
+
+    var_data_(1)%data => var_data
+
+    CALL distrib_read_int_1d_multi_var(ncid, var_name, local_buffer_1d, &
+      &                                local_buffer_2d, var_data_, (/io_data/))
+
+  END SUBROUTINE distrib_read_int_1d
+
   SUBROUTINE distrib_read_int_1d_multi_var(ncid, var_name, local_buffer_1d, &
     & local_buffer_2d, var_data, io_data)
     
@@ -401,7 +424,26 @@ CONTAINS
   END SUBROUTINE distrib_read_int_1d_multi_var
   
   !-------------------------------------------------------------------------
-  
+
+  SUBROUTINE distrib_read_real_1d(ncid, var_name, local_buffer_1d, &
+    &                             local_buffer_2d, var_data, io_data)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    REAL(wp), INTENT(INOUT) :: local_buffer_1d(:)
+    REAL(wp), INTENT(INOUT) :: local_buffer_2d(:, :)
+    REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:) ! idx, blk
+    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+
+    TYPE(var_data_1d_wp) :: var_data_(1)
+
+    var_data_(1)%data => var_data
+
+    CALL distrib_read_real_1d_multi_var(ncid, var_name, local_buffer_1d, &
+      &                                 local_buffer_2d, var_data_, (/io_data/))
+
+  END SUBROUTINE distrib_read_real_1d
+
   SUBROUTINE distrib_read_real_1d_multi_var(ncid, var_name, local_buffer_1d, &
     & local_buffer_2d, var_data, io_data)
     
@@ -447,7 +489,30 @@ CONTAINS
   END SUBROUTINE distrib_read_real_1d_multi_var
   
   !-------------------------------------------------------------------------
-  
+
+  SUBROUTINE distrib_read_int_2d(ncid, var_name, local_buffer_2d, &
+    &                            local_buffer_3d, var_data, dim_order, io_data)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    INTEGER, INTENT(INOUT) :: local_buffer_2d(:,:) ! (n io points, nlev)
+    INTEGER, INTENT(INOUT) :: local_buffer_3d(:,:,:) ! if (dim_order == IDX_BLK_LVL) 
+                                                     !   dimensions(nproma, n io blk, nlev)
+                                                     ! if (dim_order == IDX_LVL_BLK) 
+                                                     !   dimensions(nproma, nlev, n io blk)
+    INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:,:)
+    INTEGER, INTENT(IN) :: dim_order
+    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    TYPE(var_data_3d_int) :: var_data_(1)
+
+    var_data_(1)%data => var_data
+
+    CALL distrib_read_int_2d_multi_var(ncid, var_name, local_buffer_2d, &
+      &                                local_buffer_3d, var_data_, dim_order, &
+      &                                (/io_data/))
+
+  END SUBROUTINE distrib_read_int_2d
+
   SUBROUTINE distrib_read_int_2d_multi_var(ncid, var_name, local_buffer_2d, &
     & local_buffer_3d, var_data, dim_order, &
     & io_data)
@@ -531,7 +596,30 @@ CONTAINS
   END SUBROUTINE distrib_read_int_2d_multi_var
   
   !-------------------------------------------------------------------------
-  
+
+  SUBROUTINE distrib_read_real_2d(ncid, var_name, local_buffer_2d, &
+    &                             local_buffer_3d, var_data, dim_order, io_data)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    REAL(wp), INTENT(INOUT) :: local_buffer_2d(:,:) ! (n io points, nlev)
+    REAL(wp), INTENT(INOUT) :: local_buffer_3d(:,:,:) ! if (dim_order == IDX_BLK_LVL) 
+                                                     !   dimensions(nproma, n io blk, nlev)
+                                                     ! if (dim_order == IDX_LVL_BLK) 
+                                                     !   dimensions(nproma, nlev, n io blk)
+    REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:,:)
+    INTEGER, INTENT(IN) :: dim_order
+    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    TYPE(var_data_3d_wp) :: var_data_(1)
+
+    var_data_(1)%data => var_data
+
+    CALL distrib_read_real_2d_multi_var(ncid, var_name, local_buffer_2d, &
+      &                                 local_buffer_3d, var_data_, dim_order, &
+      &                                 (/io_data/))
+
+  END SUBROUTINE distrib_read_real_2d
+
   SUBROUTINE distrib_read_real_2d_multi_var(ncid, var_name, local_buffer_2d, &
     & local_buffer_3d, var_data, dim_order, &
     & io_data)
