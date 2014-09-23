@@ -22,7 +22,7 @@ MODULE mo_bc_ozone
   USE mo_kind,                     ONLY: wp
   USE mo_model_domain,             ONLY: t_patch
   USE mo_parallel_config,          ONLY: p_test_run
-  USE mo_netcdf_read,              ONLY: nf, netcdf_open_input, &
+  USE mo_read_netcdf_broadcast,    ONLY: nf, netcdf_open_input, &
   &                                      netcdf_read_3D_time, &
   &                                      netcdf_close
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &

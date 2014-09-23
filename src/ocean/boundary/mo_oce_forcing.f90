@@ -63,7 +63,7 @@ MODULE mo_oce_forcing
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_netcdf_read,        ONLY: read_netcdf_data
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data
 
   IMPLICIT NONE
   PRIVATE

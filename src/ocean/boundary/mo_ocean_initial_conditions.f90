@@ -53,7 +53,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_netcdf_read,        ONLY: read_netcdf_data
+  USE mo_read_netcdf_broadcast, ONLY: nf, read_netcdf_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
@@ -63,7 +63,6 @@ MODULE mo_ocean_initial_conditions
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
-  USE mo_netcdf_read,        ONLY: nf
   IMPLICIT NONE
   PRIVATE
   INCLUDE 'netcdf.inc'

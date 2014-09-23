@@ -28,7 +28,7 @@
 !#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
 !#define define_fill_target REAL(wp), POINTER, OPTIONAL
 
-MODULE mo_netcdf_read
+MODULE mo_read_netcdf_broadcast
 
   USE mo_kind
   USE mo_scatter,            ONLY: scatter_array, scatter_time_array, &
@@ -145,7 +145,7 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp)     :: zlocal(1)
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_0D_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf_broadcast:netcdf_read_REAL_0D_fileid'
 
 
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -176,7 +176,7 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
     INTEGER :: return_status
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_1D_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf_broadcast:netcdf_read_REAL_1D_fileid'
 
     ! trivial return value.
     NULLIFY(res)
@@ -244,7 +244,7 @@ CONTAINS
     INTEGER :: return_status
 
     CHARACTER(LEN=*), PARAMETER :: &
-      method_name = 'mo_netcdf_read:netcdf_read_REAL_1D_extdim_time_fileid'
+      method_name = 'mo_read_netcdf_broadcast:netcdf_read_REAL_1D_extdim_time_fileid'
 
     ! trivial return value.
     NULLIFY(res)
@@ -346,7 +346,7 @@ CONTAINS
     INTEGER :: idim
     INTEGER :: return_status
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_1D_extdim_extdim_time_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf_broadcast:netcdf_read_REAL_1D_extdim_extdim_time_fileid'
 
     ! trivial return value.
     NULLIFY(res)
@@ -445,7 +445,7 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:)
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_2D_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_netcdf_broadcast:netcdf_read_REAL_2D_fileid'
 
     ! trivial return value.
     NULLIFY(res)
@@ -551,7 +551,8 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:,:)
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_2D_extdim_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast:netcdf_read_REAL_2D_extdim_fileid'
 
     NULLIFY(res)
 
@@ -671,7 +672,7 @@ CONTAINS
     REAL(wp), POINTER :: tmp_array(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_netcdf_read:netcdf_read_REAL_3D_fileid'
+      'mo_read_netcdf_broadcast:netcdf_read_REAL_3D_fileid'
 
     NULLIFY(res)
 
@@ -811,7 +812,8 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:,:,:)
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_3D_extdim_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast:netcdf_read_REAL_3D_extdim_fileid'
 
     NULLIFY(res)
 
@@ -1481,4 +1483,4 @@ CONTAINS
 
   END SUBROUTINE nf
 
-END MODULE mo_netcdf_read
+END MODULE mo_read_netcdf_broadcast

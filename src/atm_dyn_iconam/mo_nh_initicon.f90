@@ -52,7 +52,7 @@ MODULE mo_nh_initicon
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_netcdf_read,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, read_netcdf_data_single, nf
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp

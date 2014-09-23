@@ -45,7 +45,6 @@ MODULE mo_ocean_postprocessing
 
   USE mo_read_interface
   USE mo_statistics
-!  USE mo_netcdf_read
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE

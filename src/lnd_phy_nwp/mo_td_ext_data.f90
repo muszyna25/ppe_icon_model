@@ -34,7 +34,7 @@ MODULE mo_td_ext_data
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
-  USE mo_netcdf_read,         ONLY: read_netcdf_data, nf
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf
   USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rlcell_int

@@ -134,7 +134,7 @@ MODULE mo_meteogram_output
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global
   USE mo_util_string,           ONLY: int2string
   USE mo_util_uuid,             ONLY: t_uuid, uuid_unparse, uuid_string_length
-  USE mo_netcdf_read,           ONLY: nf
+  USE mo_read_netcdf_broadcast, ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
   USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree, &

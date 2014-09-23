@@ -28,7 +28,7 @@ MODULE mo_echam_phy_init
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
 
-  USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close, netcdf_read_2D
+  USE mo_read_netcdf_broadcast,ONLY: netcdf_open_input, netcdf_close, netcdf_read_2D
 
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma

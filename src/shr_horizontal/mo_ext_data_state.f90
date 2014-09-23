@@ -79,7 +79,7 @@ MODULE mo_ext_data_state
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_netcdf_read,        ONLY: read_netcdf_data, nf
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,                         &

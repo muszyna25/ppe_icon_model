@@ -1,5 +1,5 @@
 !>
-!! @brief tests the mo_netcdf_read methods
+!! @brief tests the mo_read_netcdf_broadcast methods
 !!
 !! @author
 !!  Leonidas Linardakis (MPI-M)
@@ -26,7 +26,7 @@ MODULE mo_test_netcdf_read
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
-  USE mo_netcdf_read
+  USE mo_read_netcdf_broadcast
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -321,7 +321,7 @@ CONTAINS
 
     INTEGER :: file_id
     INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_filename'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'netcdf_write_REAL_ONCELLS_3D_time_filename'
 
     netcdf_write_REAL_ONCELLS_2D_time_filename = 0
 
@@ -345,7 +345,7 @@ CONTAINS
 
     INTEGER :: file_id
     INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_filename'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'netcdf_write_REAL_ONCELLS_3D_time_filename'
 
     netcdf_write_REAL_ONCELLS_3D_time_filename = 0
 
@@ -376,7 +376,7 @@ CONTAINS
     INTEGER :: start_timestep, end_timestep, timestep
 
 !    INTEGER                      :: i,j,t
-    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'netcdf_write_REAL_ONCELLS_3D_time_fileid'
 
     netcdf_write_REAL_ONCELLS_2D_time_fileid = 0
 
@@ -449,7 +449,7 @@ CONTAINS
     INTEGER :: start_timestep, end_timestep, timestep, nlev
 
 !    INTEGER                      :: i,j,t
-    CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
+    CHARACTER(LEN=*), PARAMETER  :: method_name = 'netcdf_write_REAL_ONCELLS_3D_time_fileid'
 
     netcdf_write_REAL_ONCELLS_3D_time_fileid = 0
 

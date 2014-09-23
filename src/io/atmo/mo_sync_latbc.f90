@@ -48,8 +48,8 @@ MODULE mo_sync_latbc
   USE mo_nh_vert_interp,      ONLY: vert_interp
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
-  USE mo_netcdf_read,         ONLY: nf, read_netcdf_data_single,        &
-                                    read_netcdf_data
+  USE mo_read_netcdf_broadcast, ONLY: nf, read_netcdf_data_single,        &
+                                      read_netcdf_data
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
