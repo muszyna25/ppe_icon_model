@@ -34,7 +34,8 @@ MODULE mo_alloc_patches
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
-    &                              t_glb2loc_index_lookup
+    &                              t_glb2loc_index_lookup, &
+    &                              deallocate_glb2loc_index_lookup
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
@@ -50,7 +51,6 @@ MODULE mo_alloc_patches
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: deallocate_patch
-  PUBLIC :: deallocate_glb2loc_index_lookup
   PUBLIC :: destruct_patches
   PUBLIC :: allocate_basic_patch
   PUBLIC :: allocate_pre_patch
@@ -316,22 +316,6 @@ CONTAINS
     END SUBROUTINE deallocate_decomp_info
 
   END SUBROUTINE deallocate_patch
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE deallocate_glb2loc_index_lookup(glb2loc)
-
-    TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
-
-    INTEGER :: ist
-
-    DEALLOCATE(glb2loc%inner_glb_index, &
-      &        glb2loc%inner_glb_index_to_loc, &
-      &        glb2loc%outer_glb_index, &
-      &        glb2loc%outer_glb_index_to_loc, stat=ist)
-    IF(ist/=success) &
-      CALL finish  ('deallocate_glb2loc_index_lookup', 'deallocate failed')
-
-  END SUBROUTINE deallocate_glb2loc_index_lookup
 
   !-------------------------------------------------------------------------
 

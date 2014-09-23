@@ -50,6 +50,7 @@ MODULE mo_decomposition_tools
   PUBLIC :: init_glb2loc_index_lookup
   PUBLIC :: set_inner_glb_index
   PUBLIC :: set_outer_glb_index
+  PUBLIC :: deallocate_glb2loc_index_lookup
 
   PRIVATE
 
@@ -1576,6 +1577,23 @@ CONTAINS
     CALL quicksort(glb2loc%outer_glb_index(:), &
       &            glb2loc%outer_glb_index_to_loc(:))
   END SUBROUTINE set_outer_glb_index
+
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE deallocate_glb2loc_index_lookup(glb2loc)
+
+    TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
+
+    INTEGER :: ist
+
+    DEALLOCATE(glb2loc%inner_glb_index, &
+      &        glb2loc%inner_glb_index_to_loc, &
+      &        glb2loc%outer_glb_index, &
+      &        glb2loc%outer_glb_index_to_loc, stat=ist)
+    IF(ist/=success) &
+      CALL finish  ('deallocate_glb2loc_index_lookup', 'deallocate failed')
+
+  END SUBROUTINE deallocate_glb2loc_index_lookup
 
 END MODULE mo_decomposition_tools
 

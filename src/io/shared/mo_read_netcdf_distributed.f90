@@ -23,11 +23,11 @@ MODULE mo_read_netcdf_distributed
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &
     & init_glb2loc_index_lookup, &
-    & set_inner_glb_index
+    & set_inner_glb_index, &
+    & deallocate_glb2loc_index_lookup
   USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
     & setup_comm_pattern, delete_comm_pattern, &
     & exchange_data
-  USE mo_alloc_patches, ONLY: deallocate_glb2loc_index_lookup
   USE mo_parallel_config, ONLY: nproma
   
   IMPLICIT NONE
