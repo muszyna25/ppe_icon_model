@@ -50,9 +50,9 @@ MODULE mo_read_netcdf_broadcast
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
     MODULE PROCEDURE read_netcdf_2d_int
+    MODULE PROCEDURE read_netcdf_2d_time
     MODULE PROCEDURE read_netcdf_3d
-    MODULE PROCEDURE read_netcdf_4d
-    MODULE PROCEDURE read_netcdf_time
+    MODULE PROCEDURE read_netcdf_3d_time
   END INTERFACE read_netcdf_data
 
   INTERFACE read_netcdf_data_single
@@ -397,9 +397,9 @@ CONTAINS
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for 4 D by Kristina Froehlich, MPI-M (2011-06-16)
   !!
-  SUBROUTINE read_netcdf_4d (file_id, varname, glb_arr_len, &
-       &                     loc_arr_len, glb_index, &
-       &                     nlevs, ntime,      var_out)
+  SUBROUTINE read_netcdf_3d_time (file_id, varname, glb_arr_len, &
+       &                          loc_arr_len, glb_index, &
+       &                          nlevs, ntime,      var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -415,7 +415,7 @@ CONTAINS
       &  var_out(:,:,:,:)                !< dimensions: nproma, nlevs, nblks, ntime
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_util_netcdf:read_netcdf_4d'
+      routine = 'mo_util_netcdf:read_netcdf_3d_time'
 
     INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
     REAL(wp):: z_dummy_array(glb_arr_len,nlevs,ntime)!< local dummy array
@@ -453,7 +453,7 @@ CONTAINS
        ENDDO
     ENDDO
 
-  END SUBROUTINE read_netcdf_4d
+  END SUBROUTINE read_netcdf_3d_time
 
 
   !-------------------------------------------------------------------------
@@ -465,9 +465,9 @@ CONTAINS
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for time periods by Stephan Lorenz, MPI-M (2012-02-22)
   !!
-  SUBROUTINE read_netcdf_time (file_id, varname, glb_arr_len, &
-       &                       loc_arr_len, glb_index,     &
-       &                       ntime, nstart, ncount, var_out)
+  SUBROUTINE read_netcdf_2d_time (file_id, varname, glb_arr_len, &
+       &                          loc_arr_len, glb_index,     &
+       &                          ntime, nstart, ncount, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -484,7 +484,7 @@ CONTAINS
       &  var_out(:,:,:)                  !< dimensions: nproma, nblks, ntime
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_util_netcdf:read_netcdf_time'
+      routine = 'mo_util_netcdf:read_netcdf_2d_time'
 
     INTEGER :: varid, mpi_comm, j, jl, jb, jt
     REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
@@ -530,7 +530,7 @@ CONTAINS
     !  write(0,*) 'jt=',jt,' val:',(z_dummy_array(j+4*64,jt),j=1,5)
     !enddo
 
-  END SUBROUTINE read_netcdf_time
+  END SUBROUTINE read_netcdf_2d_time
 
   SUBROUTINE nf(STATUS, routine, warnonly, silent)
 
