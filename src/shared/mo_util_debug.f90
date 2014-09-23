@@ -25,11 +25,11 @@ MODULE mo_util_debug
   !
   ! debugging utilities
   !
-  USE mo_kind,                  ONLY: wp
-  USE mo_util_string,           ONLY: int2string
-  USE mo_read_netcdf_broadcast, ONLY: nf
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,             ONLY: finish
+  USE mo_kind,           ONLY: wp
+  USE mo_util_string,    ONLY: int2string
+  USE mo_read_interface, ONLY: nf
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
+  USE mo_exception,      ONLY: finish
 
   IMPLICIT NONE
   !

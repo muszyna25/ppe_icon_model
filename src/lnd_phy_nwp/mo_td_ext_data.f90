@@ -34,8 +34,9 @@ MODULE mo_td_ext_data
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf, netcdf_open_input, &
-    &                                 netcdf_close
+  USE mo_io_config,           ONLY: default_read_method
+  USE mo_read_interface,      ONLY: nf, openInputFile, closeFile, onCells, &
+    &                               t_stream_id, read_2D
   USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rlcell_int
@@ -245,7 +246,8 @@ CONTAINS
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(LEN=filename_max) :: extpar_file 
-    INTEGER                     :: file_id, jg, mpi_comm
+    INTEGER                     :: jg, mpi_comm
+    TYPE(t_stream_id)           :: stream_id
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = 'mo_td_ext_data:read_td_ext_data_file:'
 
@@ -267,65 +269,53 @@ CONTAINS
             & 'Hexagonal grid is not supported, yet.')
 
         ENDIF
-        WRITE( message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, jg, TRIM(p_patch(jg)%grid_filename)
+        WRITE( message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
+          &                              jg, TRIM(p_patch(jg)%grid_filename)
         CALL message  (routine, TRIM(message_text))
+
         !! READ SST files
-        extpar_file = generate_td_filename(sst_td_filename,                &
-          &                             model_base_dir,                    &
-          &                             TRIM(p_patch(jg)%grid_filename),   &
-          &                             m1,y1                   )
+        extpar_file = generate_td_filename(sst_td_filename,                   &
+          &                                model_base_dir,                    &
+          &                                TRIM(p_patch(jg)%grid_filename),   &
+          &                                m1,y1                   )
 
         CALL message  (routine, TRIM(extpar_file))
-        file_id = netcdf_open_input(extpar_file)
-      
-        !
-        CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm_td%sst_m(:,:,1))
+        stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id, onCells, 'SST', &
+          &          ext_data(jg)%atm_td%sst_m(:,:,1))
+        CALL closeFile(stream_id)
 
-        CALL netcdf_close(file_id)
-
-        extpar_file = generate_td_filename(sst_td_filename,                &
-          &                             model_base_dir,                    &
-          &                             TRIM(p_patch(jg)%grid_filename),   &
-          &                             m2, y2                   )
+        extpar_file = generate_td_filename(sst_td_filename,                   &
+          &                                model_base_dir,                    &
+          &                                TRIM(p_patch(jg)%grid_filename),   &
+          &                                m2, y2                   )
         CALL message  (routine, TRIM(extpar_file))
-        file_id = netcdf_open_input(extpar_file)
-
-        CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm_td%sst_m(:,:,2))
-
-        CALL netcdf_close(file_id)
+        stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id, onCells, 'SST', &
+          &          ext_data(jg)%atm_td%sst_m(:,:,2))
+        CALL closeFile(stream_id)
 
         !! READ CI files
 
-        extpar_file = generate_td_filename(ci_td_filename,                &
-          &                             model_base_dir,                    &
-          &                             TRIM(p_patch(jg)%grid_filename),   &
-          &                             m1,y1                   )
+        extpar_file = generate_td_filename(ci_td_filename,                  &
+          &                                model_base_dir,                  &
+          &                                TRIM(p_patch(jg)%grid_filename), &
+          &                                m1,y1                   )
         CALL message  (routine, TRIM(extpar_file))
-        file_id = netcdf_open_input(extpar_file)
-
-        !
-        CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm_td%fr_ice_m(:,:,1))
-
-        CALL netcdf_close(file_id)
+        stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id, onCells, 'CI', &
+          &          ext_data(jg)%atm_td%fr_ice_m(:,:,1))
+        CALL closeFile(stream_id)
 
         extpar_file = generate_td_filename(ci_td_filename,                &
           &                             model_base_dir,                    &
           &                             TRIM(p_patch(jg)%grid_filename),   &
           &                             m2,y2                   )
         CALL message  (routine, TRIM(extpar_file))
-        file_id = netcdf_open_input(extpar_file)
-
-        CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm_td%fr_ice_m(:,:,2))
-
-        CALL netcdf_close(file_id)
+        stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id, onCells, 'CI', &
+          &          ext_data(jg)%atm_td%fr_ice_m(:,:,2))
+        CALL closeFile(stream_id)
       ENDDO  ! jg
 
   END SUBROUTINE read_td_ext_data_file

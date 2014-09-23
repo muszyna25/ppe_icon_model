@@ -79,8 +79,10 @@ MODULE mo_ext_data_state
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf, netcdf_open_input, &
-    &                                 netcdf_close
+  USE mo_io_config,          ONLY: default_read_method
+  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, onCells, &
+    &                              t_stream_id, read_2D, read_2D_int, &
+    &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,                         &
@@ -1809,7 +1811,8 @@ CONTAINS
 
     INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
     INTEGER :: jk
-    INTEGER :: ncid, file_id, varid, vlist_id, ret
+    INTEGER :: ncid, varid, vlist_id, ret
+    TYPE(t_stream_id) :: stream_id
 
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk   !> blocks
@@ -1947,14 +1950,14 @@ CONTAINS
 
       DO jg = 1,n_dom
 
-        file_id = netcdf_open_input(p_patch(jg)%grid_filename)
+        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), &
+          &                       default_read_method)
 
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_netcdf_data (file_id, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm%lsm_ctr_c)
+        CALL read_2D_int(stream_id, onCells, 'cell_sea_land_mask', &
+          &              ext_data(jg)%atm%lsm_ctr_c)
 
         ! get topography [m]
         ! - The hydrostatic AMIP setup grows the topography form zero to the elevation
@@ -1965,23 +1968,21 @@ CONTAINS
         SELECT CASE (iequations)
         CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
           ! Read topography
-          CALL read_netcdf_data (file_id, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                    ext_data(jg)%atm%elevation_c)
+          CALL read_2D(stream_id, onCells, 'cell_elevation', &
+            &          ext_data(jg)%atm%elevation_c)
           ! Mask out ocean
           ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp, &
             &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
         CASE (inh_atmosphere) ! iequations
           ! Read topography
-          CALL read_netcdf_data (file_id, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                    ext_data(jg)%atm%topography_c)
+          CALL read_2D(stream_id, onCells, 'cell_elevation', &
+            &          ext_data(jg)%atm%topography_c)
           ! Mask out ocean
           ext_data(jg)%atm%topography_c(:,:) = MERGE(ext_data(jg)%atm%topography_c(:,:), 0._wp, &
             &                                        ext_data(jg)%atm%lsm_ctr_c(:,:)   > 0     )
         END SELECT ! iequations
 
-        CALL netcdf_close(file_id)
+        CALL closeFile(stream_id)
 
         ! LW surface emissivity
         !
@@ -2420,14 +2421,10 @@ CONTAINS
             &                                           ext_data(jg)%atm_td%phoz(i+1)
         ENDDO
 
-        file_id = netcdf_open_input(ozone_file)
+        stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
 
-        CALL read_netcdf_data (file_id, TRIM(o3name), & ! &
-          &                    p_patch(jg)%n_patch_cells_g,  &
-          &                    p_patch(jg)%n_patch_cells,    &
-          &                    p_patch(jg)%cells%decomp_info%glb_index,  & 
-          &                    nlev_o3,  nmonths,          &
-          &                    ext_data(jg)%atm_td%O3)
+        CALL read_3D_extdim(stream_id, onCells, TRIM(o3name), &
+          &                 ext_data(jg)%atm_td%O3)
 
         WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
           &                         MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
@@ -2443,7 +2440,7 @@ CONTAINS
           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
 
         ! close file
-        CALL netcdf_close(file_id)
+        CALL closeFile(stream_id)
 
       ENDDO ! ndom
     END IF ! irad_o3
@@ -2480,13 +2477,11 @@ CONTAINS
 
          ENDIF
 
-         file_id = netcdf_open_input(sst_td_file)
-
-         CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm_td%sst_m(:,:,im)) 
-
-         CALL netcdf_close(file_id)
+         stream_id = openInputFile(sst_td_file, p_patch(jg), &
+          &                        default_read_method)
+         CALL read_2D (stream_id, onCells, 'SST', &
+          &            ext_data(jg)%atm_td%sst_m(:,:,im)) 
+         CALL closeFile(stream_id)
 
          ci_td_file= generate_td_filename(ci_td_filename,                  &
            &                             model_base_dir,                   &
@@ -2504,13 +2499,10 @@ CONTAINS
 
          ENDIF
 
-         file_id = netcdf_open_input(ci_td_file)
-
-         CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
-
-         CALL netcdf_close(file_id)
+         stream_id = openInputFile(ci_td_file, p_patch(jg), default_read_method)
+         CALL read_2D(stream_id, onCells, 'CI', &
+          &           ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
+         CALL closeFile(stream_id)
 
         END DO 
  

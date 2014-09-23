@@ -52,8 +52,10 @@ MODULE mo_nh_initicon
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, read_netcdf_data_single, nf, &
-    &                                 netcdf_open_input, netcdf_close
+  USE mo_io_config,           ONLY: default_read_method
+  USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
+    &                               read_2d_1time, read_2d_1lev_1time, &
+    &                               read_3d_1time, onCells, onEdges
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
@@ -1652,7 +1654,8 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, file_id, dimid, varid, mpi_comm
+    INTEGER :: ncid, dimid, varid, mpi_comm
+    TYPE(t_stream_id) :: stream_id
     INTEGER :: ist
 
     CHARACTER(LEN=10) :: psvar 
@@ -1783,7 +1786,8 @@ MODULE mo_nh_initicon
       !
       ! open file
       !
-      file_id = netcdf_open_input(ifs2icon_file(jg))
+      stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
+        &                       default_read_method)
 
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test 
@@ -1815,76 +1819,48 @@ MODULE mo_nh_initicon
 
       ! start reading atmospheric fields
       !
-      CALL read_netcdf_data_single (file_id, 'T', p_patch(jg)%n_patch_cells_g,           &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%temp)
-
+      CALL read_3d_1time(stream_id, onCells, 'T', fill_array=initicon(jg)%atm_in%temp)
 
       IF (lread_vn) THEN
         ALLOCATE(initicon(jg)%atm_in%vn(nproma,nlev_in,p_patch(jg)%nblks_e), STAT=ist)
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'allocation of atm_in%vn failed')
         ENDIF
-        CALL read_netcdf_data_single (file_id, 'VN', p_patch(jg)%n_patch_edges_g,          &
-          &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%decomp_info%glb_index, &
-          &                     nlev_in,initicon(jg)%atm_in%vn)
+        CALL read_3d_1time(stream_id, onEdges, 'VN', fill_array=initicon(jg)%atm_in%vn)
       ELSE
-        CALL read_netcdf_data_single (file_id, 'U', p_patch(jg)%n_patch_cells_g,           &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     nlev_in,initicon(jg)%atm_in%u)
+        CALL read_3d_1time(stream_id, onCells, 'U', fill_array=initicon(jg)%atm_in%u)
 
-        CALL read_netcdf_data_single (file_id, 'V', p_patch(jg)%n_patch_cells_g,           &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     nlev_in,initicon(jg)%atm_in%v)
+        CALL read_3d_1time(stream_id, onCells, 'V', fill_array=initicon(jg)%atm_in%v)
       ENDIF
 
 
       IF (init_mode == MODE_COSMODE) THEN
-        CALL read_netcdf_data_single (file_id, 'W', p_patch(jg)%n_patch_cells_g,           &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     nlev_in+1,initicon(jg)%atm_in%w_ifc)
+        CALL read_3d_1time(stream_id, onCells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
       ELSE
         ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
-        CALL read_netcdf_data_single (file_id, 'W', p_patch(jg)%n_patch_cells_g,           &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                     nlev_in,initicon(jg)%atm_in%omega)
+        CALL read_3d_1time(stream_id, onCells, 'W', fill_array=initicon(jg)%atm_in%omega)
       ENDIF
 
-      CALL read_netcdf_data_single (file_id, 'QV', p_patch(jg)%n_patch_cells_g,          &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%qv)
-
-      CALL read_netcdf_data_single (file_id, 'QC', p_patch(jg)%n_patch_cells_g,          &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%qc)
-
-      CALL read_netcdf_data_single (file_id, 'QI', p_patch(jg)%n_patch_cells_g,          &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%qi)
+      CALL read_3d_1time(stream_id, onCells, 'QV', fill_array=initicon(jg)%atm_in%qv)
+      CALL read_3d_1time(stream_id, onCells, 'QC', fill_array=initicon(jg)%atm_in%qc)
+      CALL read_3d_1time(stream_id, onCells, 'QI', fill_array=initicon(jg)%atm_in%qi)
 
       IF (lread_qr) THEN
-        CALL read_netcdf_data_single (file_id, 'QR', p_patch(jg)%n_patch_cells_g,          &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%qr)
+        CALL read_3d_1time(stream_id, onCells, 'QR', fill_array=initicon(jg)%atm_in%qr)
       ELSE
         initicon(jg)%atm_in%qr(:,:,:)=0._wp
       ENDIF
 
       IF (lread_qs) THEN
-        CALL read_netcdf_data_single (file_id, 'QS', p_patch(jg)%n_patch_cells_g,          &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%qs)
+        CALL read_3d_1time(stream_id, onCells, 'QS', fill_array=initicon(jg)%atm_in%qs)
       ELSE
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
-      CALL read_netcdf_data (file_id, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%atm_in%psfc)
-
-      CALL read_netcdf_data (file_id, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%atm_in%phi_sfc)
+      CALL read_2d_1lev_1time(stream_id, onCells, TRIM(psvar), &
+        &                     fill_array=initicon(jg)%atm_in%psfc)
+      CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
+        &                     fill_array=initicon(jg)%atm_in%phi_sfc)
 
 
       ! Allocate and read in vertical coordinate tables
@@ -1927,13 +1903,8 @@ MODULE mo_nh_initicon
 
       ELSE ! in case of COSMO-DE initial data
 
-        CALL read_netcdf_data_single (file_id, 'HHL', p_patch(jg)%n_patch_cells_g,       &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in+1,initicon(jg)%atm_in%z3d_ifc)
-
-        CALL read_netcdf_data_single (file_id, 'P', p_patch(jg)%n_patch_cells_g,       &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%pres)
+        CALL read_3d_1time(stream_id, onCells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
+        CALL read_3d_1time(stream_id, onCells, 'P', fill_array=initicon(jg)%atm_in%pres)
 
         ! Interpolate input 'z3d' and 'w' from interface levels to main levels
 !$OMP PARALLEL
@@ -1963,7 +1934,7 @@ MODULE mo_nh_initicon
       ! close file
       !
       IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
-      CALL netcdf_close(file_id)
+      CALL closeFile(stream_id)
 
     ENDDO ! loop over model domains
 
@@ -1993,7 +1964,8 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, file_id, dimid, varid, mpi_comm
+    INTEGER :: ncid, dimid, varid, mpi_comm
+    TYPE(t_stream_id) :: stream_id
 
     CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
 
@@ -2104,7 +2076,8 @@ MODULE mo_nh_initicon
       !
       ! open file
       !
-      file_id = netcdf_open_input(ifs2icon_file(jg))
+      stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
+        &                       default_read_method)
 
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test 
@@ -2119,90 +2092,55 @@ MODULE mo_nh_initicon
       ! allocate data structure
       CALL allocate_ifs_sfc(jg, p_patch(jg)%nblks_c, initicon)
 
-
       ! start reading surface fields
       !
-      CALL read_netcdf_data (file_id, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%phi)
+      CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+        &                     fill_array=initicon(jg)%sfc_in%phi)
+      CALL read_2d_1time(stream_id, onCells, 'SKT', &
+        &                fill_array=initicon(jg)%sfc_in%tskin)
 
-      CALL read_netcdf_data (file_id, 'SKT', p_patch(jg)%n_patch_cells_g,                &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%tskin)
       IF ( l_sst_in) THEN
-       CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g,                &
-         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-         &                     initicon(jg)%sfc_in%sst)
+        CALL read_2d_1time(stream_id, onCells, 'SST', &
+          &                fill_array=initicon(jg)%sfc_in%sst)
       ELSE 
        initicon(jg)%sfc_in%sst(:,:)=0.0_wp
       END IF
 
-      CALL read_netcdf_data (file_id, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%tsnow)
-
-      CALL read_netcdf_data (file_id,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,    &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%snowalb)
- 
-      CALL read_netcdf_data (file_id, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%snowweq)
-
-      CALL read_netcdf_data (file_id,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,            &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%snowdens)
-
-      CALL read_netcdf_data (file_id, 'W_I', p_patch(jg)%n_patch_cells_g,                &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%skinres)
-
-      CALL read_netcdf_data (file_id, 'LSM', p_patch(jg)%n_patch_cells_g,                &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%ls_mask)
-
-      CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g,                 &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%seaice)
-
-      CALL read_netcdf_data (file_id, 'STL1', p_patch(jg)%n_patch_cells_g,               &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%tsoil(:,:,1))
-
-      CALL read_netcdf_data (file_id, 'STL2', p_patch(jg)%n_patch_cells_g,               &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%tsoil(:,:,2))
-
-      CALL read_netcdf_data (file_id, 'STL3', p_patch(jg)%n_patch_cells_g,               &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%tsoil(:,:,3))
-
-      CALL read_netcdf_data (file_id, 'STL4', p_patch(jg)%n_patch_cells_g,               &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%tsoil(:,:,4))
-
-      CALL read_netcdf_data (file_id, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%wsoil(:,:,1))
-
-      CALL read_netcdf_data (file_id, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%wsoil(:,:,2))
-
-      CALL read_netcdf_data (file_id, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%wsoil(:,:,3))
-
-      CALL read_netcdf_data (file_id, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     initicon(jg)%sfc_in%wsoil(:,:,4))
-
-
+      CALL read_2d_1time(stream_id, onCells, 'T_SNOW', &
+        &                fill_array=initicon(jg)%sfc_in%tsnow)
+      CALL read_2d_1time(stream_id, onCells, TRIM(alb_snow_var), &
+        &                fill_array=initicon(jg)%sfc_in%snowalb)
+      CALL read_2d_1time(stream_id, onCells, 'W_SNOW', &
+        &                fill_array=initicon(jg)%sfc_in%snowweq)
+      CALL read_2d_1time(stream_id, onCells, 'RHO_SNOW', &
+        &                fill_array=initicon(jg)%sfc_in%snowdens)
+      CALL read_2d_1time(stream_id, onCells, 'W_I', &
+        &                fill_array=initicon(jg)%sfc_in%skinres)
+      CALL read_2d_1time(stream_id, onCells, 'LSM', &
+        &                fill_array=initicon(jg)%sfc_in%ls_mask)
+      CALL read_2d_1time(stream_id, onCells, 'CI', &
+        &                fill_array=initicon(jg)%sfc_in%seaice)
+      CALL read_2d_1lev_1time(stream_id, onCells, 'STL1', &
+        &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,1))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'STL2', &
+        &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,2))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'STL3', &
+        &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,3))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'STL4', &
+        &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,4))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL1', &
+        &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,1))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL2', &
+        &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,2))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL3', &
+        &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,3))
+      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL4', &
+        &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,4))
 
       ! close file
       !
       IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
-      CALL netcdf_close(file_id)
+      CALL closeFile(stream_id)
 
 
       ! In addition, copy climatological deep-soil temperature to soil level nlev_soil

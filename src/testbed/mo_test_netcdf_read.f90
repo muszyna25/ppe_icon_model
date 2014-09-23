@@ -1,5 +1,5 @@
 !>
-!! @brief tests the mo_read_netcdf_broadcast methods
+!! @brief tests the mo_read_interface methods
 !!
 !! @author
 !!  Leonidas Linardakis (MPI-M)

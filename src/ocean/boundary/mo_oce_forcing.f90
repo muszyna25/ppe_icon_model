@@ -63,8 +63,8 @@ MODULE mo_oce_forcing
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, netcdf_open_input, &
-    &                                 netcdf_close
+  USE mo_read_interface,     ONLY: openInputFile, closeFile, t_stream_id, &
+    &                              onCells, read_2D_1lev_1time
 
   IMPLICIT NONE
   PRIVATE
@@ -467,7 +467,8 @@ CONTAINS
     LOGICAL :: l_exist
     INTEGER :: i_lev, no_cells, no_levels, jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: ncid, file_id, dimid
+    INTEGER :: ncid, dimid
+    TYPE(t_stream_id) :: stream_id
 
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_surfRelax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -549,15 +550,14 @@ CONTAINS
       !
       !-------------------------------------------------------
 
-      file_id = netcdf_open_input(relax_init_file)
+      stream_id = openInputFile(relax_init_file, patch_2d)
 
       ! triangle center and edges
 
       ! read temperature
       !  - read one data set, annual mean only
       !  - "T": annual mean temperature
-      CALL read_netcdf_data (file_id, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-        & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
+      CALL read_2D_1lev_1time(stream_id, onCells, 'T', z_surfRelax)
 
       IF (no_tracer>=1) THEN
         atmos_fluxes%data_surfRelax_Temp(:,:) = z_surfRelax(:,:)
@@ -568,13 +568,12 @@ CONTAINS
       ! read salinity
       !  - "S": annual mean salinity
       IF (no_tracer > 1) THEN
-        CALL read_netcdf_data (file_id, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-          & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
+        CALL read_2D_1lev_1time(stream_id, onCells, 'S', z_surfRelax)
         atmos_fluxes%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
       END IF
 
       ! close file
-      CALL netcdf_close(file_id)
+      CALL closeFile(stream_id)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)

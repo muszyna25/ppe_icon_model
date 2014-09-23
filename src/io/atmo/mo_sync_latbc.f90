@@ -48,9 +48,10 @@ MODULE mo_sync_latbc
   USE mo_nh_vert_interp,      ONLY: vert_interp
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
-  USE mo_read_netcdf_broadcast, ONLY: nf, read_netcdf_data_single,        &
-                                      read_netcdf_data, netcdf_open_input, &
-                                      netcdf_close
+  USE mo_io_config,           ONLY: default_read_method
+  USE mo_read_interface,      ONLY: nf, openInputFile, closeFile, read_3D, &
+                                    read_2D_1lev_1time, t_stream_id, onCells, &
+                                    onEdges
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -297,7 +298,8 @@ MODULE mo_sync_latbc
 
     ! local variables
     INTEGER                             :: mpi_comm, dimid, no_cells, &
-                                           latbc_ncid, latbc_fileid, no_levels
+                                           latbc_ncid, no_levels
+    TYPE(t_stream_id)                   :: latbc_stream_id
     LOGICAL                             :: l_exist
     REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
     INTEGER                             :: tlev
@@ -360,50 +362,31 @@ MODULE mo_sync_latbc
 
     END IF ! my_process_is_stdio()
 
-    latbc_fileid = netcdf_open_input(latbc_full_filename)
+    latbc_stream_id = openInputFile(latbc_full_filename, p_patch, &
+      &                             default_read_method)
     !
     ! read prognostic 3d fields
     !
-    CALL read_netcdf_data_single( latbc_fileid, 'temp',   p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%temp   )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'u',      p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm_in%u   )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'v',      p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm_in%v   )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'w',      p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlevp1,         p_latbc_data(tlev)%atm%w      )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'pres',   p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%pres   )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'qv',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qv     )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'qc',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qc     )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'qi',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qi     )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'qr',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qr     )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'qs',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
-      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qs     )
-
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='temp', fill_array=p_latbc_data(tlev)%atm%temp)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='u', fill_array=p_latbc_data(tlev)%atm_in%u)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='v', fill_array=p_latbc_data(tlev)%atm_in%v)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='w', fill_array=p_latbc_data(tlev)%atm%w)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='pres', fill_array=p_latbc_data(tlev)%atm%pres)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='qv', fill_array=p_latbc_data(tlev)%atm%qv)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='qc', fill_array=p_latbc_data(tlev)%atm%qc)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='qi', fill_array=p_latbc_data(tlev)%atm%qi)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='qr', fill_array=p_latbc_data(tlev)%atm%qr)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='qs', fill_array=p_latbc_data(tlev)%atm%qs)
     !
     ! Convert u and v on cell points to vn at edge points
     !
@@ -439,7 +422,7 @@ MODULE mo_sync_latbc
       CALL message(TRIM(routine), message_text)
       CALL nf(nf_close(latbc_ncid), routine)
     END IF
-    CALL netcdf_close(latbc_fileid)
+    CALL closeFile(latbc_stream_id)
 
   END SUBROUTINE read_latbc_icon_data
   !-------------------------------------------------------------------------
@@ -465,8 +448,8 @@ MODULE mo_sync_latbc
 
     ! local variables
     INTEGER                             :: mpi_comm, dimid, no_cells, &
-                                           latbc_ncid, latbc_fileid, &
-                                           no_levels, varid
+                                           latbc_ncid, no_levels, varid
+    TYPE(t_stream_id)                   :: latbc_stream_id
     LOGICAL                             :: l_exist, lconvert_omega2w
     INTEGER                             :: jc, jk, jb, i_endidx
 
@@ -583,45 +566,38 @@ MODULE mo_sync_latbc
     CALL p_bcast(lread_qr, p_io, mpi_comm)
     CALL p_bcast(lread_vn, p_io, mpi_comm)
 
-    latbc_fileid = netcdf_open_input(latbc_full_filename)
+    latbc_stream_id = openInputFile(latbc_full_filename, p_patch, &
+      &                             default_read_method)
 
     !
     ! read IFS data
     !
-    CALL read_netcdf_data_single( latbc_fileid, 'T', p_patch%n_patch_cells_g,           &
-                                  p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,       &
-                                  nlev_in, p_latbc_data(tlev)%atm_in%temp )
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='T', fill_array=p_latbc_data(tlev)%atm_in%temp)
 
     IF (lread_vn) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'VN', p_patch%n_patch_edges_g,        &
-        &                     p_patch%n_patch_edges, p_patch%edges%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%vn )
+      CALL read_3D(stream_id=latbc_stream_id, location=onEdges, &
+        &          variable_name='VN', fill_array= p_latbc_data(tlev)%atm_in%vn)
     ELSE
-      CALL read_netcdf_data_single( latbc_fileid, 'U', p_patch%n_patch_cells_g,         &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%u )
-
-      CALL read_netcdf_data_single( latbc_fileid, 'V', p_patch%n_patch_cells_g,         &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%v )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='U', fill_array=p_latbc_data(tlev)%atm_in%u)
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='V', fill_array=p_latbc_data(tlev)%atm_in%v)
     ENDIF
 
     IF (init_mode /= MODE_COSMODE) THEN
       lconvert_omega2w = .TRUE.
-      CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,           &
-          &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-          &                     nlev_in, p_latbc_data(tlev)%atm_in%omega )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%omega)
     ELSE
       lconvert_omega2w = .FALSE.
-      CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,         &
-        &                     p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,         &
-        &                     nlev_in+1, p_latbc_data(tlev)%atm_in%w_ifc )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%w_ifc)
     ENDIF
 
     IF (init_mode == MODE_COSMODE) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'HHL', p_patch%n_patch_cells_g,         &
-        &                     p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,         &
-        &                     nlev_in+1, p_latbc_data(tlev)%atm_in%z3d_ifc )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='HHL', fill_array=p_latbc_data(tlev)%atm_in%z3d_ifc)
       
       ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
       !
@@ -653,48 +629,38 @@ MODULE mo_sync_latbc
 
     ENDIF
 
-
-    CALL read_netcdf_data_single( latbc_fileid, 'QV', p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%qv )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'QC', p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%qc )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'QI', p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%qi )
-
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='QV', fill_array=p_latbc_data(tlev)%atm_in%qv)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='QC', fill_array=p_latbc_data(tlev)%atm_in%qc)
+    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+      &          variable_name='QI', fill_array=p_latbc_data(tlev)%atm_in%qi)
     IF (lread_qr) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'QR', p_patch%n_patch_cells_g,        &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%qr )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='QR', fill_array=p_latbc_data(tlev)%atm_in%qr)
     ELSE
       p_latbc_data(tlev)%atm_in%qr(:,:,:)=0._wp
     ENDIF
 
     IF (lread_qs) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'QS', p_patch%n_patch_cells_g,        &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%qs )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='QS', fill_array=p_latbc_data(tlev)%atm_in%qs)
     ELSE
       p_latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
     ENDIF
 
-    CALL read_netcdf_data( latbc_fileid, TRIM(psvar), p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     p_latbc_data(tlev)%atm_in%psfc )
+    CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=onCells, &
+      &                     variable_name=TRIM(psvar), &
+      &                     fill_array=p_latbc_data(tlev)%atm_in%psfc)
 
     IF (init_mode == MODE_COSMODE) THEN
-      CALL read_netcdf_data( latbc_fileid, 'P', p_patch%n_patch_cells_g,                &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%pres )
+      CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+        &          variable_name='P', fill_array=p_latbc_data(tlev)%atm_in%pres)
     ENDIF
 
-    CALL read_netcdf_data( latbc_fileid, TRIM(geop_ml_var), p_patch%n_patch_cells_g,    &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     p_latbc_data(tlev)%atm_in%phi_sfc )
+    CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=onCells, &
+      &                     variable_name=TRIM(geop_ml_var), &
+      &                     fill_array=p_latbc_data(tlev)%atm_in%phi_sfc)
       
     !
     ! close file
@@ -704,7 +670,7 @@ MODULE mo_sync_latbc
       CALL message(TRIM(routine), message_text)
       CALL nf(nf_close(latbc_ncid), routine)
     END IF
-    CALL netcdf_close(latbc_fileid)
+    CALL closeFile(latbc_stream_id)
 
     !
     ! perform vertical interpolation of horizonally interpolated analysis data

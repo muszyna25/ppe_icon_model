@@ -69,6 +69,7 @@ MODULE mo_read_interface
   PUBLIC :: read_1D_extdim_time
   PUBLIC :: read_1D_extdim_extdim_time
   PUBLIC :: read_2D
+  PUBLIC :: read_2D_int
   PUBLIC :: read_2D_time
   PUBLIC :: read_2D_1time
   PUBLIC :: read_2D_1lev_1time

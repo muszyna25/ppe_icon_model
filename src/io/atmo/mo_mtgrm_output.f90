@@ -134,7 +134,7 @@ MODULE mo_meteogram_output
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global
   USE mo_util_string,           ONLY: int2string
   USE mo_util_uuid,             ONLY: t_uuid, uuid_unparse, uuid_string_length
-  USE mo_read_netcdf_broadcast, ONLY: nf
+  USE mo_read_interface,        ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
   USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree, &
@@ -1326,7 +1326,6 @@ CONTAINS
       &            jb, jc, i_startidx, i_endidx,         &
       &            istation, ivar, nlevs, icurrent_recv, &
       &            itime
-    INTEGER     :: myrank
     INTEGER     :: istep_sndrcv(MAX_TIME_STAMPS)
     CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
@@ -1350,9 +1349,6 @@ CONTAINS
         l_owner( global_idx(istation) ) = .TRUE.
       END DO
     END DO
-
-    ! get global rank and MPI communicator
-    myrank = get_my_mpi_all_id()
 
     ! global time stamp index
     ! Note: We assume that this value is identical for all PEs
