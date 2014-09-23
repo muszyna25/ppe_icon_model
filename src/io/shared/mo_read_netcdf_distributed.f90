@@ -19,7 +19,7 @@ MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp
   USE mo_exception, ONLY: finish, message, em_warn
-  USE mo_mpi, ONLY: p_n_work, p_pe_work
+  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &
     & init_glb2loc_index_lookup, &
@@ -43,6 +43,7 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: var_data_2d_int, var_data_2d_wp
   PUBLIC :: var_data_3d_int, var_data_3d_wp
   PUBLIC :: var_data_4d_int, var_data_4d_wp
+  PUBLIC :: distrib_inq_var_dims
 
   INCLUDE 'netcdf.inc'
 
@@ -909,6 +910,42 @@ CONTAINS
     DEALLOCATE(local_buffer_3d, local_buffer_4d)
 
   END SUBROUTINE distrib_read_real_4d_multi_var
+
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE distrib_inq_var_dims(file_id, var_name, var_ndims, var_dimlen)
+    INTEGER, INTENT(IN) :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    
+    INTEGER, INTENT(OUT) :: var_ndims
+    INTEGER, INTENT(OUT) :: var_dimlen(:)
+
+    INTEGER :: varid, temp(1), i
+    INTEGER :: temp_var_dimlen(NF_MAX_VAR_DIMS), var_dimids(NF_MAX_VAR_DIMS)
+
+    IF ( p_pe_work == 0 ) THEN
+      CALL nf(nf_inq_varid(file_id, var_name, varid))
+      CALL nf(nf_inq_varndims(file_id, varid, var_ndims))
+      CALL nf(nf_inq_vardimid(file_id, varid, var_dimids))
+      DO i=1, var_ndims
+        CALL nf(nf_inq_dimlen(file_id, var_dimids(i), temp_var_dimlen(i)))
+      ENDDO
+      temp(1) = var_ndims
+    END IF
+
+#ifndef NOMPI
+    CALL p_bcast(temp, 0, p_comm_work)
+    CALL p_bcast(temp_var_dimlen(1:var_ndims), 0, p_comm_work)
+    temp(1) = var_ndims
+#endif
+
+    IF (SIZE(var_dimlen) < var_ndims) &
+      CALL finish("distrib_inq_var_dims", &
+        &         "array size of argument var_dimlen is too small")
+
+    var_dimlen(1:var_ndims) = temp_var_dimlen(1:var_ndims)
+
+  END SUBROUTINE distrib_inq_var_dims
 
   !-------------------------------------------------------------------------
 
