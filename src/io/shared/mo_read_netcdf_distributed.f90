@@ -40,21 +40,21 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: setup_distrib_read
   PUBLIC :: delete_distrib_read
   PUBLIC :: t_distrib_read_data
-  PUBLIC :: var_data_1d_int, var_data_1d_wp
   PUBLIC :: var_data_2d_int, var_data_2d_wp
+  PUBLIC :: var_data_3d_int, var_data_3d_wp
   PUBLIC :: idx_blk_lvl, idx_lvl_blk
 
   INCLUDE 'netcdf.inc'
 
   INTERFACE distrib_read
-    MODULE PROCEDURE distrib_read_int_1d_multi_var
     MODULE PROCEDURE distrib_read_int_2d_multi_var
-    MODULE PROCEDURE distrib_read_real_1d_multi_var
+    MODULE PROCEDURE distrib_read_int_3d_multi_var
     MODULE PROCEDURE distrib_read_real_2d_multi_var
-    MODULE PROCEDURE distrib_read_int_1d
+    MODULE PROCEDURE distrib_read_real_3d_multi_var
     MODULE PROCEDURE distrib_read_int_2d
-    MODULE PROCEDURE distrib_read_real_1d
+    MODULE PROCEDURE distrib_read_int_3d
     MODULE PROCEDURE distrib_read_real_2d
+    MODULE PROCEDURE distrib_read_real_3d
   END INTERFACE distrib_read
 
   INTEGER, PARAMETER :: nf_read = nf_nowrite
@@ -80,16 +80,16 @@ MODULE mo_read_netcdf_distributed
 
   END TYPE t_distrib_read_data
 
-  TYPE var_data_1d_int
+  TYPE var_data_2d_int
     INTEGER, POINTER :: DATA(:,:) ! idx, blk
   END TYPE
-  TYPE var_data_1d_wp
+  TYPE var_data_2d_wp
     REAL(wp), POINTER :: DATA(:,:) ! idx, blk
   END TYPE
-  TYPE var_data_2d_int
+  TYPE var_data_3d_int
     INTEGER, POINTER :: DATA(:,:,:) ! idx, lvl, blk
   END TYPE
-  TYPE var_data_2d_wp
+  TYPE var_data_3d_wp
     REAL(wp), POINTER :: DATA(:,:,:) ! idx, lvl, blk
   END TYPE
 
@@ -359,26 +359,26 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-  SUBROUTINE distrib_read_int_1d(ncid, var_name, var_data, io_data)
+  SUBROUTINE distrib_read_int_2d(ncid, var_name, var_data, io_data)
 
     INTEGER, INTENT(IN) :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: var_name
     INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:) ! idx, blk
     TYPE(t_distrib_read_data), INTENT(IN) :: io_data
 
-    TYPE(var_data_1d_int) :: var_data_(1)
+    TYPE(var_data_2d_int) :: var_data_(1)
 
     var_data_(1)%data => var_data
 
-    CALL distrib_read_int_1d_multi_var(ncid, var_name, var_data_, (/io_data/))
+    CALL distrib_read_int_2d_multi_var(ncid, var_name, var_data_, (/io_data/))
 
-  END SUBROUTINE distrib_read_int_1d
+  END SUBROUTINE distrib_read_int_2d
 
-  SUBROUTINE distrib_read_int_1d_multi_var(ncid, var_name, var_data, io_data)
+  SUBROUTINE distrib_read_int_2d_multi_var(ncid, var_name, var_data, io_data)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(var_data_1d_int), INTENT(inout) :: var_data(:)
+    TYPE(var_data_2d_int), INTENT(inout) :: var_data(:)
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
 
     INTEGER, ALLOCATABLE :: local_buffer_1d(:)
@@ -391,7 +391,7 @@ CONTAINS
     IF (SIZE(io_data) == 0) RETURN
 
     IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_int_1d_multi_var", "var_data too small")
+      & CALL finish("distrib_read_int_2d_multi_var", "var_data too small")
 
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
@@ -422,30 +422,30 @@ CONTAINS
 
     DEALLOCATE(local_buffer_1d, local_buffer_2d)
 
-  END SUBROUTINE distrib_read_int_1d_multi_var
+  END SUBROUTINE distrib_read_int_2d_multi_var
 
   !-------------------------------------------------------------------------
 
-  SUBROUTINE distrib_read_real_1d(ncid, var_name, var_data, io_data)
+  SUBROUTINE distrib_read_real_2d(ncid, var_name, var_data, io_data)
 
     INTEGER, INTENT(IN) :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: var_name
     REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:) ! idx, blk
     TYPE(t_distrib_read_data), INTENT(IN) :: io_data
 
-    TYPE(var_data_1d_wp) :: var_data_(1)
+    TYPE(var_data_2d_wp) :: var_data_(1)
 
     var_data_(1)%data => var_data
 
-    CALL distrib_read_real_1d_multi_var(ncid, var_name, var_data_, (/io_data/))
+    CALL distrib_read_real_2d_multi_var(ncid, var_name, var_data_, (/io_data/))
 
-  END SUBROUTINE distrib_read_real_1d
+  END SUBROUTINE distrib_read_real_2d
 
-  SUBROUTINE distrib_read_real_1d_multi_var(ncid, var_name, var_data, io_data)
+  SUBROUTINE distrib_read_real_2d_multi_var(ncid, var_name, var_data, io_data)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(var_data_1d_wp), INTENT(inout) :: var_data(:)
+    TYPE(var_data_2d_wp), INTENT(inout) :: var_data(:)
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
 
     REAL(wp), ALLOCATABLE :: local_buffer_1d(:)
@@ -458,7 +458,7 @@ CONTAINS
     IF (SIZE(io_data) == 0) RETURN
 
     IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_real_1d_multi_var", "var_data too small")
+      & CALL finish("distrib_read_real_2d_multi_var", "var_data too small")
 
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
@@ -489,11 +489,11 @@ CONTAINS
 
     DEALLOCATE(local_buffer_1d, local_buffer_2d)
 
-  END SUBROUTINE distrib_read_real_1d_multi_var
+  END SUBROUTINE distrib_read_real_2d_multi_var
 
   !-------------------------------------------------------------------------
 
-  SUBROUTINE distrib_read_int_2d(ncid, var_name, var_data, nlev, dim_order, &
+  SUBROUTINE distrib_read_int_3d(ncid, var_name, var_data, nlev, dim_order, &
     &                            io_data)
 
     INTEGER, INTENT(IN) :: ncid
@@ -506,17 +506,17 @@ CONTAINS
 
     var_data_(1)%data => var_data
 
-    CALL distrib_read_int_2d_multi_var(ncid, var_name, var_data_, nlev, &
+    CALL distrib_read_int_3d_multi_var(ncid, var_name, var_data_, nlev, &
       &                                dim_order, (/io_data/))
 
-  END SUBROUTINE distrib_read_int_2d
+  END SUBROUTINE distrib_read_int_3d
 
-  SUBROUTINE distrib_read_int_2d_multi_var(ncid, var_name, var_data,  nlev, &
+  SUBROUTINE distrib_read_int_3d_multi_var(ncid, var_name, var_data,  nlev, &
     &                                      dim_order, io_data)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(var_data_2d_int), INTENT(inout) :: var_data(:)
+    TYPE(var_data_3d_int), INTENT(inout) :: var_data(:)
     INTEGER, INTENT(IN) :: nlev
     INTEGER, INTENT(IN) :: dim_order
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
@@ -534,10 +534,10 @@ CONTAINS
     IF (SIZE(io_data) == 0) RETURN
 
     IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_int_2d_multi_var", "var_data too small")
+      & CALL finish("distrib_read_int_3d_multi_var", "var_data too small")
 
     IF (dim_order /= idx_blk_lvl .AND. dim_order /= idx_lvl_blk) &
-      & CALL finish("distrib_read_int_2d_multi_var", "invalid argument dim_order")
+      & CALL finish("distrib_read_int_3d_multi_var", "invalid argument dim_order")
 
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
@@ -591,11 +591,11 @@ CONTAINS
 
     DEALLOCATE(local_buffer_2d, local_buffer_3d)
 
-  END SUBROUTINE distrib_read_int_2d_multi_var
+  END SUBROUTINE distrib_read_int_3d_multi_var
 
   !-------------------------------------------------------------------------
 
-  SUBROUTINE distrib_read_real_2d(ncid, var_name, var_data, nlev, dim_order, &
+  SUBROUTINE distrib_read_real_3d(ncid, var_name, var_data, nlev, dim_order, &
     &                             io_data)
 
     INTEGER, INTENT(IN) :: ncid
@@ -608,17 +608,17 @@ CONTAINS
 
     var_data_(1)%data => var_data
 
-    CALL distrib_read_real_2d_multi_var(ncid, var_name, var_data_, nlev, &
+    CALL distrib_read_real_3d_multi_var(ncid, var_name, var_data_, nlev, &
       &                                 dim_order, (/io_data/))
 
-  END SUBROUTINE distrib_read_real_2d
+  END SUBROUTINE distrib_read_real_3d
 
-  SUBROUTINE distrib_read_real_2d_multi_var(ncid, var_name, var_data, nlev, &
+  SUBROUTINE distrib_read_real_3d_multi_var(ncid, var_name, var_data, nlev, &
     &                                       dim_order, io_data)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
-    TYPE(var_data_2d_wp), INTENT(inout) :: var_data(:)
+    TYPE(var_data_3d_wp), INTENT(inout) :: var_data(:)
     INTEGER, INTENT(IN) :: nlev
     INTEGER, INTENT(IN) :: dim_order
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
@@ -635,10 +635,10 @@ CONTAINS
     IF (SIZE(io_data) == 0) RETURN
 
     IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_real_2d_multi_var", "var_data too small")
+      & CALL finish("distrib_read_real_3d_multi_var", "var_data too small")
 
     IF (dim_order /= idx_blk_lvl .AND. dim_order /= idx_lvl_blk) &
-      & CALL finish("distrib_read_real_2d_multi_var", "invalid argument dim_order")
+      & CALL finish("distrib_read_real_3d_multi_var", "invalid argument dim_order")
 
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
@@ -692,7 +692,7 @@ CONTAINS
 
     DEALLOCATE(local_buffer_2d, local_buffer_3d)
 
-  END SUBROUTINE distrib_read_real_2d_multi_var
+  END SUBROUTINE distrib_read_real_3d_multi_var
 
   !-------------------------------------------------------------------------
 
