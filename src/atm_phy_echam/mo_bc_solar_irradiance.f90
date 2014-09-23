@@ -18,11 +18,11 @@
 !!
 MODULE mo_bc_solar_irradiance
 
-  USE mo_kind,                 ONLY: dp
-  USE mo_exception,            ONLY: finish, message
-  USE mo_read_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
-       &                             p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
-       &                             nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
+  USE mo_kind,            ONLY: dp
+  USE mo_exception,       ONLY: finish, message
+  USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
+       &                        p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
+       &                        nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
   USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
   IMPLICIT NONE

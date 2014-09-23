@@ -21,7 +21,7 @@
 !! headers of the routines.
 !!
 !!
-MODULE mo_read_netcdf_parallel
+MODULE mo_netcdf_parallel
 !-------------------------------------------------------------------------
 !
 !    ProTeX FORTRAN source: Style 2
@@ -626,4 +626,4 @@ END FUNCTION p_nf_get_vara_double
 
 !-------------------------------------------------------------------------
 
-END MODULE mo_read_netcdf_parallel
+END MODULE mo_netcdf_parallel

@@ -25,9 +25,9 @@ MODULE mo_grid_config
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
-! mo_read_netcdf_parallel where only 1 processor is reading
-! and broadcasting the results
-USE mo_read_netcdf_parallel, ONLY:                &
+! mo_netcdf_parallel where only 1 processor is reading and
+! broadcasting the results
+USE mo_netcdf_parallel, ONLY:                     &
    nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
    nf_open            => p_nf_open,               &
    nf_close           => p_nf_close,              &

@@ -10,10 +10,10 @@ MODULE mo_lrtm_netcdf
 
   USE mo_exception,            ONLY: finish
 
-  USE mo_read_netcdf_parallel, ONLY: p_nf_open, p_nf_close, &
-    &                                p_nf_inq_varid,        &
-    &                                p_nf_get_vara_double,  &
-    &                                nf_read, nf_noerr
+  USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_close, &
+    &                           p_nf_inq_varid,        &
+    &                           p_nf_get_vara_double,  &
+    &                           nf_read, nf_noerr
 
   IMPLICIT NONE
 
