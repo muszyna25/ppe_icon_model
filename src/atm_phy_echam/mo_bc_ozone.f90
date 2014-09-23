@@ -22,9 +22,9 @@ MODULE mo_bc_ozone
   USE mo_kind,                     ONLY: wp
   USE mo_model_domain,             ONLY: t_patch
   USE mo_parallel_config,          ONLY: p_test_run
-  USE mo_read_netcdf_broadcast_2,  ONLY: nf, netcdf_open_input, &
-  &                                      netcdf_read_3D_time, &
-  &                                      netcdf_close
+  USE mo_io_config,                ONLY: default_read_method
+  USE mo_read_interface,           ONLY: nf, openInputFile, closeFile, &
+  &                                      read_3D_time, t_stream_id, onCells
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
@@ -51,8 +51,7 @@ CONTAINS
     TYPE(t_patch), INTENT(in)         :: p_patch
 
     CHARACTER(len=16)                 :: fname
-    INTEGER                           :: file_id
-    INTEGER                           :: return_status
+    TYPE(t_stream_id)                 :: stream_id
     CHARACTER(len=4)                  :: cyear
     CHARACTER(len=25)                 :: subprog_name
     INTEGER                           :: ncid, varid, mpi_comm
@@ -65,50 +64,45 @@ CONTAINS
         write(cyear,'(i4)') year
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
-        file_id = netcdf_open_input(fname)
-        zo3_plev=>netcdf_read_3D_time(file_id=file_id,variable_name='O3', &
-                  n_g=p_patch%n_patch_cells_g, &
-                  glb_index=p_patch%cells%decomp_info%glb_index, &
-                  start_timestep=2,end_timestep=12)
-        return_status = netcdf_close(file_id)
+        stream_id = openInputFile(fname, p_patch, default_read_method)
+        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+          &               variable_name='O3', return_pointer=zo3_plev, &
+          &               start_timestep=2,end_timestep=12)
+        CALL closeFile(stream_id)
         o3_plev(:,:,:,2:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:11)
         write(cyear,'(i4)') year+1
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
-        file_id = netcdf_open_input(fname)
-        zo3_plev=>netcdf_read_3D_time(file_id=file_id,variable_name='O3', &
-                  n_g=p_patch%n_patch_cells_g, &
-                  glb_index=p_patch%cells%decomp_info%glb_index, &
-                  start_timestep=1, end_timestep=1)
-        return_status = netcdf_close(file_id)
+        stream_id = openInputFile(fname, p_patch, default_read_method)
+        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+          &               variable_name='O3', return_pointer=zo3_plev, &
+          &               start_timestep=1,end_timestep=1)
+        CALL closeFile(stream_id)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
       ELSE
         write(cyear,'(i4)') year
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
-        file_id = netcdf_open_input(fname)
-        zo3_plev=>netcdf_read_3D_time(file_id=file_id,variable_name='O3', &
-                  n_g=p_patch%n_patch_cells_g, &
-                  glb_index=p_patch%cells%decomp_info%glb_index)
-        return_status = netcdf_close(file_id)
+        stream_id = openInputFile(fname, p_patch, default_read_method)
+        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+          &               variable_name='O3', return_pointer=zo3_plev)
+        CALL closeFile(stream_id)
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
         write(cyear,'(i4)') year-1
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
-        file_id = netcdf_open_input(fname)
-        zo3_plev=>netcdf_read_3D_time(file_id=file_id,variable_name='O3', &
-                  n_g=p_patch%n_patch_cells_g, &
-                  glb_index=p_patch%cells%decomp_info%glb_index, &
-                  start_timestep=12,end_timestep=12)
-        return_status = netcdf_close(file_id)
+        stream_id = openInputFile(fname, p_patch, default_read_method)
+        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+          &               variable_name='O3', return_pointer=zo3_plev, &
+          &               start_timestep=12,end_timestep=12)
+        CALL closeFile(stream_id)
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
         write(cyear,'(i4)') year+1
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
-        file_id = netcdf_open_input(fname)
-        zo3_plev=>netcdf_read_3D_time(file_id=file_id,variable_name='O3', &
-                  n_g=p_patch%n_patch_cells_g, &
-                  glb_index=p_patch%cells%decomp_info%glb_index, &
-                  start_timestep=1,end_timestep=1)
-        return_status = netcdf_close(file_id)
+        stream_id = openInputFile(fname, p_patch, default_read_method)
+        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+          &               variable_name='O3', return_pointer=zo3_plev, &
+          &               start_timestep=1,end_timestep=1)
+        CALL closeFile(stream_id)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
       END IF
 

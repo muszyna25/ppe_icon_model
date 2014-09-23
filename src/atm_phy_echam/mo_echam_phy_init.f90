@@ -28,7 +28,9 @@ MODULE mo_echam_phy_init
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
 
-  USE mo_read_netcdf_broadcast_2,ONLY: netcdf_open_input, netcdf_close, netcdf_read_2D
+  USE mo_io_config,            ONLY: default_read_method
+  USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
+    &                                t_stream_id, onCells
 
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
@@ -120,10 +122,9 @@ CONTAINS
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:), ceta(:)
     TYPE(t_datetime),INTENT(in) :: current_date
 
-    REAL(wp), POINTER     :: return_pointer(:,:)
-
     INTEGER :: khydromet, ktrac
-    INTEGER :: jg, ndomain, stream_id
+    INTEGER :: jg, ndomain
+    TYPE(t_stream_id) :: stream_id
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
@@ -259,90 +260,57 @@ CONTAINS
 !      DO jg= 1,ndomain ! only one file is defined, ie only for domain 1
       jg = 1
            ! by default it will create an error if it cannot open/read the file
-           stream_id = netcdf_open_input(filename = land_frac_fn)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='land',                      &
-             & fill_array    = prm_field(jg)%lsmask(:,:),  &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='glac',                      &
-             & fill_array    = prm_field(jg)% glac(:,:),   &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id        = stream_id,                 &
-             & variable_name ='lake',                      &
-             & fill_array    = prm_field(jg)% alake(:,:),  &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           stream_id = netcdf_close(stream_id)
+           stream_id = openInputFile(land_frac_fn, p_patch(jg), &
+            &                        default_read_method)
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='land', &
+            &           fill_array=prm_field(jg)%lsmask(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='glac', &
+            &           fill_array=prm_field(jg)% glac(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='lake', &
+            &           fill_array=prm_field(jg)% alake(:,:))
+           CALL closeFile(stream_id)
 
      ! roughness length and background albedo
-           stream_id = netcdf_open_input(filename = land_phys_fn)
+           stream_id = openInputFile(land_phys_fn, p_patch(jg), &
+            &                        default_read_method)
            IF (phy_config%lvdiff) THEN
-           return_pointer => netcdf_read_2D(    &
-             & file_id       = stream_id,               &
-             & variable_name ='z0',                     &
-             & fill_array    = prm_field(jg)% z0m(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
+             CALL read_2D(stream_id=stream_id, location=onCells, &
+              &           variable_name='z0', &
+              &           fill_array=prm_field(jg)% z0m(:,:))
            END IF
-           return_pointer => netcdf_read_2D(    &
-             & file_id       = stream_id,               &
-             & variable_name ='albedo',                 &
-             & fill_array    = prm_field(jg)% alb(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           stream_id = netcdf_close(stream_id)
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='albedo', &
+            &           fill_array=prm_field(jg)% alb(:,:))
+           CALL closeFile(stream_id)
 
      ! orography
-           stream_id = netcdf_open_input(filename = land_sso_fn)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='oromea',                    &
-             & fill_array    = prm_field(jg)% oromea(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='orostd',                    &
-             & fill_array    = prm_field(jg)% orostd(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='orosig',                    &
-             & fill_array    = prm_field(jg)% orosig(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='orogam',                    &
-             & fill_array    = prm_field(jg)% orogam(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='orothe',                    &
-             & fill_array    = prm_field(jg)% orothe(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='oropic',                    &
-             & fill_array    = prm_field(jg)% oropic(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           return_pointer => netcdf_read_2D(       &
-             & file_id       = stream_id,                  &
-             & variable_name ='oroval',                    &
-             & fill_array    = prm_field(jg)% oroval(:,:), &
-             & n_g           = p_patch(jg)%n_patch_cells_g,&
-             & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
-           stream_id = netcdf_close(stream_id)
+           stream_id = openInputFile(land_sso_fn, p_patch(jg), &
+            &                        default_read_method)
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='oromea', &
+            &           fill_array=prm_field(jg)% oromea(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='orostd', &
+            &           fill_array=prm_field(jg)% orostd(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='orosig', &
+            &           fill_array= prm_field(jg)% orosig(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='orogam', &
+            &           fill_array=prm_field(jg)% orogam(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='orothe', &
+            &           fill_array=prm_field(jg)% orothe(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='oropic', &
+            &           fill_array=prm_field(jg)% oropic(:,:))
+           CALL read_2D(stream_id=stream_id, location=onCells, &
+            &           variable_name='oroval', &
+            &           fill_array=prm_field(jg)% oroval(:,:))
+           CALL closeFile(stream_id)
         ! ENDDO
 
     ! add lake mask to land sea mask to remove lakes again

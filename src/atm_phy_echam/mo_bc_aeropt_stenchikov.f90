@@ -22,10 +22,9 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_lrtm_par,               ONLY: nbndlw
   USE mo_srtm_config,            ONLY: nbndsw=>jpsw
   USE mo_exception,              ONLY: finish
-  USE mo_read_netcdf_broadcast_2,ONLY: netcdf_open_input, netcdf_close, &
-    &                                  netcdf_read_1D_extdim_time, &
-    &                                  netcdf_read_1D_extdim_extdim_time, &
-    &                                  netcdf_read_1D
+  USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
+    &                                  read_1D_extdim_time, &
+    &                                  read_1D_extdim_extdim_time
   USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
@@ -448,7 +447,7 @@ END SUBROUTINE pressure_index
 
 !!$  CHARACTER(len=*), INTENT(in), OPTIONAL     :: casl ! name of variable containing altitude of layer centres
 
-  INTEGER                        :: ifile_id, kreturn
+  INTEGER                        :: ifile_id
   REAL(wp), POINTER              :: zvar2d(:,:,:), zvar3d(:,:,:,:)
   REAL(wp), POINTER              :: zpmid(:), zlat(:)
 !!$  REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
@@ -463,29 +462,33 @@ END SUBROUTINE pressure_index
   END IF
   WRITE(ckyear,*) kyear
   cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
-  ifile_id=netcdf_open_input(cfname)
+  ifile_id=openInputFile(cfname)
   cdim_names(1)=cwave_dim
   cdim_names(2)=clat_dim
   cdim_names(3)='time'
-  zvar2d=>netcdf_read_1D_extdim_time(file_id=ifile_id, variable_name='tauttl', &
-         dim_names=cdim_names(1:3), start_timestep=kmonth, end_timestep=kmonth)
+  CALL read_1D_extdim_time(file_id=ifile_id, variable_name='tauttl', &
+         &                 return_pointer=zvar2d, dim_names=cdim_names(1:3), &
+         &                 start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar2d(:,:,1),'aod',ktime_step)
   cdim_names(4)=cdim_names(3)
   cdim_names(3)=clev_dim
-  zvar3d=>netcdf_read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='exts', &
-         dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
+  CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='exts', &
+    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'ext',ktime_step)
-  zvar3d=>netcdf_read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='omega', &
-         dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
+  CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='omega', &
+    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'ssa',ktime_step)
-  zvar3d=>netcdf_read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='asymm', &
-         dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
+  CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='asymm', &
+    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'asy',ktime_step)
-  zpmid=>netcdf_read_1D(file_id=ifile_id, variable_name=clev_dim)
+  CALL read_1D(file_id=ifile_id, variable_name=clev_dim, return_pointer=zpmid)
 ! convert pressure into Pa from hPa
   zpmid=100._wp*zpmid
   CALL p_lim_stenchikov(zpmid)
-  zlat=>netcdf_read_1D(file_id=ifile_id, variable_name=clat_dim)
+  CALL read_1D(file_id=ifile_id, variable_name=clat_dim, return_pointer=zlat)
   IF (SIZE(zlat)/=lat_clim) THEN
     WRITE(ci_length,*) SIZE(zlat)
     WRITE(cj_length,*) lat_clim
@@ -499,7 +502,7 @@ END SUBROUTINE pressure_index
   r_lat_shift=r_lat_clim(1)                      ! this is the value at the N-pole (so +89)
   r_rdeltalat=ABS(1.0_wp/(r_lat_clim(2)-r_lat_clim(1)))
   DEALLOCATE(zpmid,zlat,zvar2d,zvar3d)
-  kreturn=netcdf_close(ifile_id)
+  CALL closeFile(ifile_id)
   END SUBROUTINE read_months_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
 ! 

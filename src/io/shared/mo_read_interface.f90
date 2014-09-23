@@ -80,6 +80,8 @@ MODULE mo_read_interface
 
   PUBLIC :: onCells, onVertices, onEdges
 
+  PUBLIC :: nf
+
   !--------------------------------------------------------
 
   INTEGER, PARAMETER :: onCells = 1
