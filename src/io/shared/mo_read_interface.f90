@@ -70,6 +70,10 @@ MODULE mo_read_interface
   PUBLIC :: read_1D_extdim_extdim_time
   PUBLIC :: read_2D
   PUBLIC :: read_2D_time
+  PUBLIC :: read_2D_1time
+  PUBLIC :: read_2D_1lev_1time
+  PUBLIC :: read_3D
+  PUBLIC :: read_3D_1time
   PUBLIC :: read_3D_time
   PUBLIC :: read_2D_extdim
   PUBLIC :: read_3D_extdim
@@ -137,6 +141,14 @@ MODULE mo_read_interface
     MODULE PROCEDURE read_dist_REAL_2D_multivar_streamid
   END INTERFACE read_2D
 
+  INTERFACE read_2D_1time
+    MODULE PROCEDURE read_dist_REAL_2D_1time_streamid
+  END INTERFACE read_2D_1time
+
+  INTERFACE read_2D_1lev_1time
+    MODULE PROCEDURE read_dist_REAL_2D_1lev_1time_streamid
+  END INTERFACE read_2D_1lev_1time
+
   INTERFACE read_2D_time
     MODULE PROCEDURE read_dist_REAL_2D_time_streamid
   END INTERFACE read_2D_time
@@ -148,6 +160,10 @@ MODULE mo_read_interface
   INTERFACE read_3D
     MODULE PROCEDURE read_dist_REAL_3D_streamid
   END INTERFACE read_3D
+
+  INTERFACE read_3D_1time
+    MODULE PROCEDURE read_dist_REAL_3D_1time_streamid
+  END INTERFACE read_3D_1time
 
   INTERFACE read_3D_time
     MODULE PROCEDURE read_dist_REAL_3D_time_streamid
@@ -514,6 +530,132 @@ CONTAINS
   ! By default the netcdf input has the structure :
   !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
   ! The fill_array  has the structure:
+  !       fill_array(nproma, blocks)
+  SUBROUTINE read_dist_REAL_2D_1time_streamid(stream_id, location, &
+    &                                         variable_name, fill_array, &
+    &                                         return_pointer)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target   :: fill_array(:,:)
+    define_return_pointer        :: return_pointer(:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_2D_1time_streamid'
+
+    INTEGER :: array_shape(2)
+
+    IF (PRESENT(fill_array)) THEN
+      array_shape = SHAPE(fill_array)
+    ELSE
+      array_shape = (/0,0/)
+    END IF
+
+    CALL read_dist_REAL_2D_1time_streamid_(stream_id, location, &
+    &                                      variable_name, array_shape, &
+    &                                      fill_array, return_pointer)
+
+  END SUBROUTINE read_dist_REAL_2D_1time_streamid
+
+  SUBROUTINE read_dist_REAL_2D_1time_streamid_(stream_id, location, &
+    &                                          variable_name, array_shape, &
+    &                                          fill_array, return_pointer)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    INTEGER, INTENT(IN)          :: array_shape(2)
+    define_fill_target           :: fill_array(array_shape(1), &
+      &                                        array_shape(2), 1)
+    define_return_pointer        :: return_pointer(:,:)
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_dist_REAL_2D_1time_streamid_'
+
+    REAL(wp), POINTER :: return_pointer_(:,:,:)
+
+    IF (PRESENT(return_pointer)) THEN
+      CALL read_dist_REAL_2D_extdim_streamid( &
+        & stream_id=stream_id, location=location, variable_name=variable_name, &
+        & fill_array=fill_array, return_pointer=return_pointer_, &
+        & start_extdim=1, end_extdim=1, extdim_name="time" )
+
+      return_pointer => return_pointer_(:,:,1)
+    ELSE
+      CALL read_dist_REAL_2D_extdim_streamid( &
+        & stream_id=stream_id, location=location, variable_name=variable_name, &
+        & fill_array=fill_array, start_extdim=1, end_extdim=1, &
+        & extdim_name="time" )
+    END IF
+
+  END SUBROUTINE read_dist_REAL_2D_1time_streamid_
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, blocks)
+  SUBROUTINE read_dist_REAL_2D_1lev_1time_streamid(stream_id, location, &
+    &                                              variable_name, fill_array, &
+    &                                              return_pointer)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target   :: fill_array(:,:)
+    define_return_pointer        :: return_pointer(:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_2D_1lev_1time_streamid'
+
+    INTEGER :: array_shape(2)
+
+    IF (PRESENT(fill_array)) THEN
+      array_shape = SHAPE(fill_array)
+    ELSE
+      array_shape = (/0,0/)
+    END IF
+
+    CALL read_dist_REAL_2D_1lev_1time_streamid_(stream_id, location, &
+    &                                           variable_name, array_shape, &
+    &                                           fill_array, return_pointer)
+
+  END SUBROUTINE read_dist_REAL_2D_1lev_1time_streamid
+
+  SUBROUTINE read_dist_REAL_2D_1lev_1time_streamid_(stream_id, location, &
+    &                                               variable_name, array_shape,&
+    &                                               fill_array, return_pointer)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    INTEGER, INTENT(IN)          :: array_shape(2)
+    define_fill_target           :: fill_array(array_shape(1), 1, &
+      &                                        array_shape(2), 1)
+    define_return_pointer        :: return_pointer(:,:)
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_dist_REAL_2D_1lev_1time_streamid_'
+
+    REAL(wp), POINTER :: return_pointer_(:,:,:,:)
+
+    IF (PRESENT(return_pointer)) THEN
+      CALL read_dist_REAL_3D_extdim_streamid( &
+        & stream_id=stream_id, location=location, variable_name=variable_name, &
+        & fill_array=fill_array, return_pointer=return_pointer_, &
+        & start_extdim=1, end_extdim=1, extdim_name="time" )
+
+      return_pointer => return_pointer_(:,1,:,1)
+    ELSE
+      CALL read_dist_REAL_3D_extdim_streamid( &
+        & stream_id=stream_id, location=location, variable_name=variable_name, &
+        & fill_array=fill_array, start_extdim=1, end_extdim=1, &
+        & extdim_name="time" )
+    END IF
+
+  END SUBROUTINE read_dist_REAL_2D_1lev_1time_streamid_
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
+  ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
   SUBROUTINE read_dist_REAL_2D_time_streamid(stream_id, location, &
     &                                        variable_name, fill_array, &
@@ -686,6 +828,87 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE read_dist_REAL_3D_streamid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, levels, blocks)
+  SUBROUTINE read_dist_REAL_3D_1time_streamid(stream_id, location, &
+    &                                         variable_name, fill_array, &
+    &                                         return_pointer, levelsDimName)
+
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)              :: location
+    CHARACTER(LEN=*), INTENT(IN)     :: variable_name
+    define_fill_target               :: fill_array(:,:,:)
+    define_return_pointer            :: return_pointer(:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
+
+    INTEGER :: array_shape(3)
+
+    IF (PRESENT(fill_array)) THEN
+      array_shape = SHAPE(fill_array)
+    ELSE
+      array_shape = (/0,0,0/)
+    END IF
+
+    CALL read_dist_REAL_3D_1time_streamid_(stream_id, location, &
+    &                                      variable_name, array_shape, &
+    &                                      fill_array, return_pointer, &
+    &                                      levelsDimName)
+
+  END SUBROUTINE read_dist_REAL_3D_1time_streamid
+
+  SUBROUTINE read_dist_REAL_3D_1time_streamid_(stream_id, location, &
+    &                                          variable_name, array_shape, &
+    &                                          fill_array, return_pointer, &
+    &                                          levelsDimName)
+
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)              :: location
+    CHARACTER(LEN=*), INTENT(IN)     :: variable_name
+    INTEGER, INTENT(IN)              :: array_shape(3)
+    define_fill_target               :: fill_array(array_shape(1), &
+      &                                            array_shape(2), &
+      &                                            array_shape(3), 1)
+    define_return_pointer            :: return_pointer(:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_3D_1time_streamid_'
+
+    REAL(wp), POINTER :: return_pointer_(:,:,:,:)
+
+    IF (PRESENT(return_pointer)) THEN
+
+      CALL read_dist_REAL_3D_extdim_streamid(  &
+        & stream_id=stream_id,                 &
+        & location=location,                   &
+        & variable_name=variable_name,         &
+        & fill_array=fill_array,               &
+        & return_pointer=return_pointer_,      &
+        & start_extdim=1,                      &
+        & end_extdim=1,                        &
+        & levelsDimName=levelsDimName,         &
+        & extdim_name="time")
+
+      return_pointer => return_pointer_(:,:,:,1)
+    ELSE
+
+      CALL read_dist_REAL_3D_extdim_streamid(  &
+        & stream_id=stream_id,                 &
+        & location=location,                   &
+        & variable_name=variable_name,         &
+        & fill_array=fill_array,               &
+        & start_extdim=1,                      &
+        & end_extdim=1,                        &
+        & levelsDimName=levelsDimName,         &
+        & extdim_name="time")
+    END IF
+
+  END SUBROUTINE read_dist_REAL_3D_1time_streamid_
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
