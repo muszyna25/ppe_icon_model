@@ -42,7 +42,6 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: t_distrib_read_data
   PUBLIC :: var_data_2d_int, var_data_2d_wp
   PUBLIC :: var_data_3d_int, var_data_3d_wp
-  PUBLIC :: idx_blk_lvl, idx_lvl_blk
 
   INCLUDE 'netcdf.inc'
 
@@ -57,7 +56,6 @@ MODULE mo_read_netcdf_distributed
     MODULE PROCEDURE distrib_read_real_3d
   END INTERFACE distrib_read
 
-  INTEGER, PARAMETER :: nf_read = nf_nowrite
   INTEGER, PARAMETER :: idx_lvl_blk = 1
   INTEGER, PARAMETER :: idx_blk_lvl = 2
 
