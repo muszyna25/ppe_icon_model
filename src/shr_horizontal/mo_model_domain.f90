@@ -88,6 +88,7 @@ MODULE mo_model_domain
   USE mo_util_uuid,      ONLY: t_uuid
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data
 
   IMPLICIT NONE
 
@@ -288,6 +289,9 @@ MODULE mo_model_domain
 
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info
+
+    ! information for distributed read operation
+    TYPE(t_distrib_read_data) :: dist_io_data
 
     ! Please note that the following array is only needed on local parent patches
     ! for storing the corresponding variable from nh_metrics.
@@ -553,6 +557,9 @@ MODULE mo_model_domain
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info
 
+    ! information for distributed read operation
+    TYPE(t_distrib_read_data) :: dist_io_data
+
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
     TYPE(t_subset_range) :: owned         ! these are the owned entities
@@ -674,6 +681,9 @@ MODULE mo_model_domain
 
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info
+
+    ! information for distributed read operation
+    TYPE(t_distrib_read_data) :: dist_io_data
 
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos

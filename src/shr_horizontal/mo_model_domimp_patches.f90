@@ -127,6 +127,7 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel
   USE mo_complete_subdivision, ONLY: complete_parallel_setup
+  USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
@@ -418,6 +419,8 @@ CONTAINS
   !! - allocating the remaining arrays
   !! - reading the remaining arrays which are not in the basic patch
   !! - calculating arrays which are not read from input file
+  !! - generate basic data structures required for the distributed
+  !!   read operation
 
   SUBROUTINE complete_patches(patch, is_ocean_decomposition)
 
@@ -436,6 +439,31 @@ CONTAINS
       CALL allocate_remaining_patch(patch(jg),3)
       IF (jg > n_dom_start)  &
         CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
+    ENDDO
+
+    DO jg = n_dom_start, n_dom
+
+      CALL setup_distrib_read(patch(jg)%n_patch_cells_g, &
+                              patch(jg)%cells%decomp_info, &
+                              patch(jg)%cells%dist_io_data)
+      CALL setup_distrib_read(patch(jg)%n_patch_edges_g, &
+                              patch(jg)%edges%decomp_info, &
+                              patch(jg)%edges%dist_io_data)
+      CALL setup_distrib_read(patch(jg)%n_patch_verts_g, &
+                              patch(jg)%verts%decomp_info, &
+                              patch(jg)%verts%dist_io_data)
+      IF (jg > n_dom_start) THEN
+
+        CALL setup_distrib_read(p_patch_local_parent(jg)%n_patch_cells_g, &
+                                p_patch_local_parent(jg)%cells%decomp_info, &
+                                p_patch_local_parent(jg)%cells%dist_io_data)
+        CALL setup_distrib_read(p_patch_local_parent(jg)%n_patch_edges_g, &
+                                p_patch_local_parent(jg)%edges%decomp_info, &
+                                p_patch_local_parent(jg)%edges%dist_io_data)
+        CALL setup_distrib_read(p_patch_local_parent(jg)%n_patch_verts_g, &
+                                p_patch_local_parent(jg)%verts%decomp_info, &
+                                p_patch_local_parent(jg)%verts%dist_io_data)
+      END IF
     ENDDO
 
     ! Fill the subsets information

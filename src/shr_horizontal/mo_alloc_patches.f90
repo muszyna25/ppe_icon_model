@@ -43,6 +43,7 @@ MODULE mo_alloc_patches
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_mpi,                ONLY: my_process_is_mpi_seq
+  USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
 
   IMPLICIT NONE
 
@@ -126,6 +127,10 @@ CONTAINS
 ! GZ: this directive should not be needed here, but the NEC compiler crashes otherwise (internal error in optimization phase)
 !CDIR NOIEXPAND
     CALL deallocate_basic_patch(p_patch)
+
+    call delete_distrib_read(p_patch%cells%dist_io_data)
+    call delete_distrib_read(p_patch%edges%dist_io_data)
+    call delete_distrib_read(p_patch%verts%dist_io_data)
 
     call deallocate_decomp_info(p_patch%cells%decomp_info)
     call deallocate_decomp_info(p_patch%edges%decomp_info)

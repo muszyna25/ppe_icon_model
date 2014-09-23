@@ -248,6 +248,17 @@ CONTAINS
         &                           stream_id%read_info(location)%glb_index)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
+      IF (PRESENT(fill_array)) THEN
+        tmp_pointer => fill_array
+      ELSE
+        ALLOCATE(tmp_pointer(nproma, &
+          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
+        tmp_pointer(:,:) = 0.0_wp
+        IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+      ENDIF
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               stream_id%read_info(location)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -313,6 +324,7 @@ CONTAINS
          & extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
+      CALL finish(method_name, "read_netcdf_distribute_method not implemented for 2D_extdim")
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -386,6 +398,7 @@ CONTAINS
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
+      CALL finish(method_name, "read_netcdf_distribute_method not implemented for 3D_extdim")
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -432,28 +445,25 @@ CONTAINS
 
     CASE (read_netcdf_distribute_method)
 
-      CALL finish(method_name, "read_netcdf_distribute_method input_method" // &
-        &         "not yet supported")
-
       openInputFile_dist%file_id = distrib_nf_open(TRIM(filename))
 
-      ! this is not yet part of t_patch
-      ! openInputFile_dist%read_info(onCells)%dist_read_info = &
-      !  patch%cells%dist_read_info
+      openInputFile_dist%read_info(onCells)%dist_read_info => &
+        patch%cells%dist_io_data
       openInputFile_dist%read_info(onCells)%n_g = -1
-      NULLIFY(openInputFile_dist%read_info(onCells)%glb_index)
+      openInputFile_dist%read_info(onCells)%glb_index => &
+        patch%cells%decomp_info%glb_index
 
-      ! this is not yet part of t_patch
-      ! openInputFile_dist%read_info(onVertices)%dist_read_info = &
-      !  patch%verts%dist_read_info
+      openInputFile_dist%read_info(onVertices)%dist_read_info => &
+        patch%verts%dist_io_data
       openInputFile_dist%read_info(onVertices)%n_g = -1
-      NULLIFY(openInputFile_dist%read_info(onVertices)%glb_index)
+      openInputFile_dist%read_info(onVertices)%glb_index => &
+        patch%verts%decomp_info%glb_index
 
-      ! this is not yet part of t_patch
-      ! openInputFile_dist%read_info(onEdges)%dist_read_info = &
-      !  patch%edges%dist_read_info
+      openInputFile_dist%read_info(onEdges)%dist_read_info => &
+        patch%edges%dist_io_data
       openInputFile_dist%read_info(onEdges)%n_g = -1
-      NULLIFY(openInputFile_dist%read_info(onEdges)%glb_index)
+      openInputFile_dist%read_info(onEdges)%glb_index => &
+        patch%edges%decomp_info%glb_index
 
     CASE default
       CALL finish(method_name, "unknown input_method")
