@@ -237,11 +237,11 @@ CONTAINS
   END FUNCTION get_basic_distrib_read_data
 
   !-------------------------------------------------------------------------
-  
+
   INTEGER FUNCTION distrib_nf_open(path)
-    
+
     CHARACTER(LEN=*), INTENT(in) :: path
-    
+
     INTEGER :: n_io_processes, io_process_stride
 
     n_io_processes = NINT(SQRT(REAL(p_n_work)))
@@ -252,9 +252,9 @@ CONTAINS
     ELSE
       distrib_nf_open = -1
     END IF
-    
+
   END FUNCTION distrib_nf_open
-  
+
   !-------------------------------------------------------------------------
 
   SUBROUTINE distrib_nf_close(ncid)
@@ -378,7 +378,7 @@ CONTAINS
 
     TYPE(var_data_3d_int), INTENT(in) :: var_data(:)
     INTEGER, INTENT(in) :: ext_dim_size
-  
+
     INTEGER :: i
 
     IF (SIZE(var_data) < 1) THEN
@@ -398,14 +398,13 @@ CONTAINS
          CALL finish("determine_dim_order_int", "invalid var_data")
     END DO
 
-
   END FUNCTION determine_dim_order_int
 
   INTEGER FUNCTION determine_dim_order_wp(var_data, ext_dim_size)
 
     TYPE(var_data_3d_wp), INTENT(in) :: var_data(:)
     INTEGER, INTENT(in) :: ext_dim_size
-  
+
     INTEGER :: i
 
     IF (SIZE(var_data) < 1) THEN
@@ -545,11 +544,9 @@ CONTAINS
     ! read data from file into io decomposition
     IF (basic_io_data%COUNT > 0) THEN
       CALL nf(nf_inq_varid(ncid, var_name, varid))
-
       ! only read io_decomp part
       CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start/), &
         & (/basic_io_data%COUNT/), local_buffer_1d(:)))
-
       DO i = 1, SIZE(local_buffer_1d(:))
         local_buffer_2d(idx_no(i),blk_no(i)) = local_buffer_1d(i)
       END DO
@@ -721,7 +718,6 @@ CONTAINS
     IF (basic_io_data%COUNT > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
-
       ! only read io_decomp part
       CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1/), &
         & (/basic_io_data%COUNT, ext_dim_size/), &
@@ -928,7 +924,7 @@ CONTAINS
   SUBROUTINE distrib_inq_var_dims(file_id, var_name, var_ndims, var_dimlen)
     INTEGER, INTENT(IN) :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: var_name
-    
+
     INTEGER, INTENT(OUT) :: var_ndims
     INTEGER, INTENT(OUT) :: var_dimlen(:)
 

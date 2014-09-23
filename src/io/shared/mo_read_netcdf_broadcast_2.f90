@@ -1,5 +1,5 @@
 !>
-!! This module provides basic methods for reading 
+!! This module provides basic methods for reading
 !! a NetCDF file in parallel or sequential in a transparent way.
 !!
 !! Contains routines for reading data from netcdf-Files of various shape.
@@ -33,7 +33,8 @@ MODULE mo_read_netcdf_broadcast_2
   USE mo_kind
   USE mo_scatter,            ONLY: scatter_array, scatter_time_array, &
     &                              broadcast_array
-  USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
+  USE mo_exception,          ONLY: message_text, message, warning, finish, &
+    &                              em_warn
   USE mo_impl_constants,     ONLY: success
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max
@@ -131,6 +132,7 @@ CONTAINS
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
         &                 var_size, var_dim_name)
+
       CALL nf(nf_get_var_double(file_id, varid, zlocal(:)), variable_name)
     ENDIF
 
@@ -144,7 +146,8 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_1D_fileid(file_id, variable_name, fill_array) result(res)
+  FUNCTION netcdf_read_REAL_1D_fileid(file_id, variable_name, fill_array) &
+    result(res)
 
     REAL(wp), POINTER            :: res(:)
 
@@ -245,7 +248,8 @@ CONTAINS
       IF (PRESENT(dim_names)) THEN
         DO idim = 1, 2
           IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
-            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),' but dimension name', &
+            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
+                       ' but dimension name', &
                        TRIM(ADJUSTL(dim_names(idim))),' was expected'
             CALL finish(method_name, 'dimension name mismatch')
           END IF
@@ -298,8 +302,9 @@ CONTAINS
     IF( my_process_is_mpi_workroot()) THEN
       start_read_index = (/1,1,start_time/)
       count_read_index = (/var_size(1),var_size(2),time_steps/)
-      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, &
-              res(:,:,:)), variable_name)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+        &                        count_read_index, res(:,:,:)), &
+        &     variable_name)
     ENDIF
 
     ! broadcast...
@@ -348,7 +353,8 @@ CONTAINS
       IF (PRESENT(dim_names)) THEN
         DO idim = 1, 3
           IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
-            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),' but dimension name ', &
+            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
+                       ' but dimension name ', &
                        TRIM(ADJUSTL(dim_names(idim))),' was expected'
             CALL finish(method_name, 'dimension name mismatch')
           END IF
@@ -387,10 +393,9 @@ CONTAINS
     ELSE
       ALLOCATE( res(var_size(1),var_size(2), &
                 var_size(3),time_steps), stat=return_status )
-      IF (return_status /= success) THEN
+      IF (return_status /= success) &
         CALL finish (method_name, &
           &          'ALLOCATE( netcdf_read_REAL_1D_extdim_extdim_time_fileid )')
-      ENDIF
       res(:,:,:,:)=0.0_wp
     ENDIF
 
@@ -403,8 +408,9 @@ CONTAINS
     IF( my_process_is_mpi_workroot()) THEN
       start_read_index = (/1,1,1,start_time/)
       count_read_index = (/var_size(1),var_size(2),var_size(3),time_steps/)
-      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, &
-              res(:,:,:,:)), variable_name)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+        &                        count_read_index, res(:,:,:,:)), &
+        &     variable_name)
     ENDIF
 
     ! broadcast...
@@ -458,7 +464,8 @@ CONTAINS
     ENDIF
 
     IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), variable_name)
+      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), &
+        &     variable_name)
     ENDIF
 
     IF (PRESENT(fill_array)) THEN
@@ -479,7 +486,7 @@ CONTAINS
   END FUNCTION netcdf_read_REAL_2D_fileid
   !-------------------------------------------------------------------------
 
-  
+
   !-------------------------------------------------------------------------
   !>
   ! By default the netcdf input has the structure :
@@ -556,13 +563,15 @@ CONTAINS
       ! check if the dimensions have reasonable names
       IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
         write(0,*) var_dim_name(1)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), " /= std_cells_dim_name"
+        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
+          &                   " /= std_cells_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
       IF (PRESENT(extdim_name)) THEN
         IF (TRIM(extdim_name) /= TRIM(var_dim_name(2))) THEN
-          WRITE(message_text,*) variable_name, ":", TRIM(extdim_name), "/=", TRIM(var_dim_name(2))
+          WRITE(message_text,*) variable_name, ":", TRIM(extdim_name), "/=", &
+            &                   TRIM(var_dim_name(2))
           CALL finish(method_name, message_text)
         ENDIF
       ENDIF
@@ -608,7 +617,8 @@ CONTAINS
     ENDIF
     start_allocated_step = LBOUND(res, 3)
     end_allocated_step   = UBOUND(res, 3)
-    ALLOCATE( tmp_array(n_g, start_allocated_step:end_allocated_step), stat=return_status )
+    ALLOCATE( tmp_array(n_g, start_allocated_step:end_allocated_step), &
+      &       stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
@@ -617,14 +627,15 @@ CONTAINS
     !-----------------------
 
     IF( my_process_is_mpi_workroot()) THEN
-  !    CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:)), variable_name)
+
       start_read_index = (/ 1, start_time /)
-      count_read_index      = (/ n_g, time_steps /)
-      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, tmp_array(:,:)), variable_name)
+      count_read_index = (/ n_g, time_steps /)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+        &                        count_read_index, tmp_array(:,:)), &
+        &                        variable_name)
     ENDIF
 
-    CALL scatter_time_array(tmp_array, res, &
-      &                     glb_index)
+    CALL scatter_time_array(tmp_array, res, glb_index)
 
     DEALLOCATE(tmp_array)
 
@@ -676,13 +687,15 @@ CONTAINS
       ! check if the dim have reasonable names
       IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
         write(0,*) var_dim_name(1)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), " /= std_cells_dim_name"
+        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), &
+          &                   " /= std_cells_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
       IF (PRESENT(levelsdim_name)) THEN
         IF (TRIM(levelsdim_name) /= TRIM(var_dim_name(2))) THEN
-          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  var_dim_name(2)
+          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  &
+            &                   var_dim_name(2)
           CALL finish(method_name, message_text)
         ENDIF
       ENDIF
@@ -722,9 +735,9 @@ CONTAINS
     !-----------------------
 
     IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:)), variable_name)
+      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:)), &
+        &     variable_name)
     ENDIF
-
 
     CALL scatter_array(tmp_array, res, glb_index)
 
@@ -741,7 +754,8 @@ CONTAINS
   !       fill_array(nproma, levels, blocks, time)
   FUNCTION netcdf_read_REAL_3D_time_fileid(file_id, variable_name, fill_array, &
     &                                      n_g, glb_index, start_timestep, &
-    &                                      end_timestep, levelsdim_name) result(res)
+    &                                      end_timestep, levelsdim_name) &
+    & result(res)
 
     REAL(wp), POINTER  :: res(:,:,:,:)
 
@@ -792,7 +806,8 @@ CONTAINS
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
-    INTEGER :: file_vertical_levels, file_time_steps, time_steps, start_time, end_time
+    INTEGER :: file_vertical_levels, file_time_steps, time_steps, start_time, &
+      &        end_time
     INTEGER :: start_allocated_step, end_allocated_step
  !   LOGICAL :: use_time_range
     INTEGER :: start_read_index(3), count_read_index(3)
@@ -818,13 +833,15 @@ CONTAINS
       ! check if the dim have reasonable names
       IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
         write(0,*) var_dim_name(1)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), " /= std_cells_dim_name"
+        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), &
+          &                   " /= std_cells_dim_name"
         CALL finish(method_name, message_text)
       ENDIF
 
       IF (PRESENT(levelsdim_name)) THEN
         IF (TRIM(levelsdim_name) /= TRIM(var_dim_name(2))) THEN
-          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  var_dim_name(2)
+          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  &
+            &                   var_dim_name(2)
           CALL finish(method_name, message_text)
         ENDIF
       ENDIF
@@ -880,7 +897,9 @@ CONTAINS
     ENDIF
     start_allocated_step = LBOUND(res, 4)
     end_allocated_step   = UBOUND(res, 4)
-    ALLOCATE( tmp_array(n_g, file_vertical_levels, start_allocated_step:end_allocated_step), stat=return_status )
+    ALLOCATE( tmp_array(n_g, file_vertical_levels, &
+      &                 start_allocated_step:end_allocated_step), &
+      &       stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
@@ -893,12 +912,12 @@ CONTAINS
     !-----------------------
 
     IF( my_process_is_mpi_workroot()) THEN
-  !    CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:,:)), variable_name)
       start_read_index = (/ 1, 1, start_time /)
       count_read_index      = (/ n_g, file_vertical_levels, time_steps /)
-      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, tmp_array(:,:,:)), variable_name)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+        &                        count_read_index, tmp_array(:,:,:)), &
+        &     variable_name)
     ENDIF
-
 
     CALL scatter_array(tmp_array, res, glb_index)
 
@@ -921,7 +940,7 @@ CONTAINS
     ENDIF
 
     netcdf_open_input = file_id
-    
+
   END FUNCTION netcdf_open_input
   !-------------------------------------------------------------------------
 
@@ -937,7 +956,7 @@ CONTAINS
 
   END FUNCTION netcdf_close
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   LOGICAL FUNCTION check_is_cell_dim_name(dim_name)
@@ -970,15 +989,16 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE netcdf_inq_var(file_id, name, varid, var_type, var_dims, var_size, var_dim_name)
+  SUBROUTINE netcdf_inq_var(file_id, name, varid, var_type, var_dims, var_size, &
+    &                       var_dim_name)
     INTEGER, INTENT(IN) :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: name
-    
+
     INTEGER, INTENT(OUT) :: varid, var_type, var_dims
     INTEGER, INTENT(OUT) :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max), INTENT(OUT) :: var_dim_name(MAX_VAR_DIMS)
 
-    INTEGER  :: number_of_attributes  
+    INTEGER  :: number_of_attributes
     INTEGER :: var_dims_reference(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: check_var_name
     INTEGER :: i
@@ -990,12 +1010,14 @@ CONTAINS
       &                var_dims_reference, number_of_attributes), &
       &     check_var_name)
     DO i=1, var_dims
-      CALL nf(nf_inq_dimlen (file_id, var_dims_reference(i), var_size(i)),     check_var_name)
-      CALL nf(nf_inq_dimname(file_id, var_dims_reference(i), var_dim_name(i)), check_var_name)
+      CALL nf(nf_inq_dimlen (file_id, var_dims_reference(i), var_size(i)), &
+        &     check_var_name)
+      CALL nf(nf_inq_dimname(file_id, var_dims_reference(i), var_dim_name(i)), &
+        &     check_var_name)
     ENDDO
 !     write(0,*) " Read var_dims, var_size:",  var_dims, var_size
 !     write(0,*) " check_var_name:",  check_var_name
-!     write(0,*) " name:", name    
+!     write(0,*) " name:", name
 
   END SUBROUTINE netcdf_inq_var
   !-------------------------------------------------------------------------
