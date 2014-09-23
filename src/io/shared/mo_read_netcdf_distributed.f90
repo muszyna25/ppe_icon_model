@@ -42,18 +42,23 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: t_distrib_read_data
   PUBLIC :: var_data_2d_int, var_data_2d_wp
   PUBLIC :: var_data_3d_int, var_data_3d_wp
+  PUBLIC :: var_data_4d_int, var_data_4d_wp
 
   INCLUDE 'netcdf.inc'
 
   INTERFACE distrib_read
     MODULE PROCEDURE distrib_read_int_2d_multi_var
     MODULE PROCEDURE distrib_read_int_3d_multi_var
+    MODULE PROCEDURE distrib_read_int_4d_multi_var
     MODULE PROCEDURE distrib_read_real_2d_multi_var
     MODULE PROCEDURE distrib_read_real_3d_multi_var
+    MODULE PROCEDURE distrib_read_real_4d_multi_var
     MODULE PROCEDURE distrib_read_int_2d
     MODULE PROCEDURE distrib_read_int_3d
+    MODULE PROCEDURE distrib_read_int_4d
     MODULE PROCEDURE distrib_read_real_2d
     MODULE PROCEDURE distrib_read_real_3d
+    MODULE PROCEDURE distrib_read_real_4d
   END INTERFACE distrib_read
 
   INTERFACE determine_dim_order
@@ -95,6 +100,11 @@ MODULE mo_read_netcdf_distributed
   TYPE var_data_3d_wp
     REAL(wp), POINTER :: DATA(:,:,:) ! idx, lvl, blk / idx, blk, time
   END TYPE
+  TYPE var_data_4d_int
+    INTEGER, POINTER :: DATA(:,:,:,:) ! idx, lvl, blk, time
+  END TYPE
+  TYPE var_data_4d_wp
+    REAL(wp), POINTER :: DATA(:,:,:,:) ! idx, lvl, blk, time
   END TYPE
 
   TYPE(t_basic_distrib_read_data), TARGET, ALLOCATABLE :: basic_data(:)
@@ -367,7 +377,7 @@ CONTAINS
 
     TYPE(var_data_3d_int), INTENT(in) :: var_data(:)
     INTEGER, INTENT(in) :: ext_dim_size
-
+  
     INTEGER :: i
 
     IF (SIZE(var_data) < 1) THEN
@@ -394,7 +404,7 @@ CONTAINS
 
     TYPE(var_data_3d_wp), INTENT(in) :: var_data(:)
     INTEGER, INTENT(in) :: ext_dim_size
-
+  
     INTEGER :: i
 
     IF (SIZE(var_data) < 1) THEN
@@ -740,6 +750,165 @@ CONTAINS
     DEALLOCATE(local_buffer_2d, local_buffer_3d)
 
   END SUBROUTINE distrib_read_real_3d_multi_var
+
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE distrib_read_int_4d(ncid, var_name, var_data, ext_dim_size, &
+    &                            io_data)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:,:,:)
+    INTEGER, INTENT(IN) :: ext_dim_size(2)
+    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    TYPE(var_data_4d_int) :: var_data_(1)
+
+    var_data_(1)%data => var_data
+
+    CALL distrib_read_int_4d_multi_var(ncid, var_name, var_data_, &
+      &                                 ext_dim_size, (/io_data/))
+
+  END SUBROUTINE distrib_read_int_4d
+
+  SUBROUTINE distrib_read_int_4d_multi_var(ncid, var_name, var_data, &
+    &                                      ext_dim_size, io_data)
+
+    INTEGER, INTENT(in) :: ncid
+    CHARACTER(LEN=*), INTENT(in) :: var_name
+    TYPE(var_data_4d_int), INTENT(inout) :: var_data(:)
+    INTEGER, INTENT(IN) :: ext_dim_size(2)
+    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
+
+    INTEGER, ALLOCATABLE :: local_buffer_3d(:,:,:) ! (n io points,
+                                                   !  ext_dim_size(1),
+                                                   !  ext_dim_size(2))
+    INTEGER, ALLOCATABLE :: local_buffer_4d(:,:,:,:)
+    INTEGER :: buffer_size, buffer_nblks
+    INTEGER :: varid, i, j, k
+
+    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
+
+    IF (SIZE(io_data) == 0) RETURN
+
+    IF (SIZE(var_data) < SIZE(io_data)) &
+      & CALL finish("distrib_read_int_4d_multi_var", "var_data too small")
+
+    CALL check_basic_data_index(io_data(:))
+    basic_io_data => basic_data(io_data(1)%basic_data_index)
+
+    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
+    buffer_nblks = (buffer_size + nproma - 1) / nproma
+    ALLOCATE(local_buffer_3d(buffer_size, ext_dim_size(1), ext_dim_size(2)))
+    ALLOCATE(local_buffer_4d(nproma, ext_dim_size(1), buffer_nblks, &
+      &                      ext_dim_size(2)))
+
+    IF (basic_io_data%COUNT > 0) THEN
+
+      CALL nf(nf_inq_varid(ncid, var_name, varid))
+
+      ! only read io_decomp part
+      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1, 1/), &
+        & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+        & local_buffer_3d(:,:,:)))
+    END IF
+
+    DO k = 1, ext_dim_size(2)
+      DO j = 1, ext_dim_size(1)
+        DO i = 1, basic_io_data%COUNT
+          local_buffer_4d(idx_no(i),j,blk_no(i), k) = local_buffer_3d(i, j, k)
+        END DO
+      END DO
+    END DO
+
+    DO i = 1, SIZE(io_data)
+      DO j = 1, ext_dim_size(2)
+        CALL exchange_data(io_data(i)%redistrib_pattern, &
+          & var_data(i)%DATA(:,:,:,j), local_buffer_4d(:,:,:,j))
+      END DO
+    END DO
+
+    DEALLOCATE(local_buffer_3d, local_buffer_4d)
+
+  END SUBROUTINE distrib_read_int_4d_multi_var
+
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE distrib_read_real_4d(ncid, var_name, var_data, ext_dim_size, &
+    &                             io_data)
+
+    INTEGER, INTENT(IN) :: ncid
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:,:,:)
+    INTEGER, INTENT(IN) :: ext_dim_size(2)
+    TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    TYPE(var_data_4d_wp) :: var_data_(1)
+
+    var_data_(1)%data => var_data
+
+    CALL distrib_read_real_4d_multi_var(ncid, var_name, var_data_, &
+      &                                 ext_dim_size, (/io_data/))
+
+  END SUBROUTINE distrib_read_real_4d
+
+  SUBROUTINE distrib_read_real_4d_multi_var(ncid, var_name, var_data, &
+    &                                       ext_dim_size, io_data)
+
+    INTEGER, INTENT(in) :: ncid
+    CHARACTER(LEN=*), INTENT(in) :: var_name
+    TYPE(var_data_4d_wp), INTENT(inout) :: var_data(:)
+    INTEGER, INTENT(IN) :: ext_dim_size(2)
+    TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
+
+    REAL(wp), ALLOCATABLE :: local_buffer_3d(:,:,:) ! (n io points,
+                                                    !  ext_dim_size(1),
+                                                    !  ext_dim_size(2))
+    REAL(wp), ALLOCATABLE :: local_buffer_4d(:,:,:,:)
+    INTEGER :: buffer_size, buffer_nblks
+    INTEGER :: varid, i, j, k
+
+    TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
+
+    IF (SIZE(io_data) == 0) RETURN
+
+    IF (SIZE(var_data) < SIZE(io_data)) &
+      & CALL finish("distrib_read_real_4d_multi_var", "var_data too small")
+
+    CALL check_basic_data_index(io_data(:))
+    basic_io_data => basic_data(io_data(1)%basic_data_index)
+
+    buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
+    buffer_nblks = (buffer_size + nproma - 1) / nproma
+    ALLOCATE(local_buffer_3d(buffer_size, ext_dim_size(1), ext_dim_size(2)))
+    ALLOCATE(local_buffer_4d(nproma, ext_dim_size(1), buffer_nblks, &
+      &                      ext_dim_size(2)))
+
+    IF (basic_io_data%COUNT > 0) THEN
+
+      CALL nf(nf_inq_varid(ncid, var_name, varid))
+      ! only read io_decomp part
+      CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1, 1/), &
+        & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+        & local_buffer_3d(:,:,:)))
+    END IF
+
+    DO k = 1, ext_dim_size(2)
+      DO j = 1, ext_dim_size(1)
+        DO i = 1, basic_io_data%COUNT
+          local_buffer_4d(idx_no(i),j,blk_no(i), k) = local_buffer_3d(i, j, k)
+        END DO
+      END DO
+    END DO
+
+    DO i = 1, SIZE(io_data)
+      DO j = 1, ext_dim_size(2)
+        CALL exchange_data(io_data(i)%redistrib_pattern, &
+          & var_data(i)%DATA(:,:,:,j), local_buffer_4d(:,:,:,j))
+      END DO
+    END DO
+
+    DEALLOCATE(local_buffer_3d, local_buffer_4d)
+
+  END SUBROUTINE distrib_read_real_4d_multi_var
 
   !-------------------------------------------------------------------------
 
