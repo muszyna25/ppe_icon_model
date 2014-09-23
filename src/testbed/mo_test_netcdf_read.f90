@@ -96,7 +96,7 @@ CONTAINS
     ALLOCATE(asy(nproma, lnwl_size, patch%nblks_c, 0:13 ))
     ! read previous month, should be filled form the previous read though
     return_pointer => netcdf_read_3D_time( &
-      & filename       = testfile_3D_time(1),      &
+      & file_id        = stream_id,                &
       & variable_name  = "asy",                    &
       & fill_array     = asy(:,:,:,0:0),           &
       & n_g = patch%n_patch_cells_g,               &
@@ -114,7 +114,7 @@ CONTAINS
       & levelsdim_name = "lnwl")                    ! optional, just for checking
     ! read next month
     return_pointer => netcdf_read_3D_time( &
-      & filename       = testfile_3D_time(1),      &
+      & file_id        = stream_id,                &
       & variable_name  = "asy",                    &
       & fill_array     = asy(:,:,:,13:13),         &
       & n_g = patch%n_patch_cells_g,               &
@@ -140,6 +140,7 @@ CONTAINS
       & levelsdim_name = "lev")                    ! optional, just for checking
 
     !---------------------------------------------------------------------
+    stream_id = netcdf_close(stream_id)
     DEALLOCATE(lnwl_array, levels_array, times_array, aod, asy, z_aer_fine_mo)
 
     !---------------------------------------------------------------------
@@ -162,7 +163,7 @@ CONTAINS
     TYPE(t_patch), POINTER   :: patch
     REAL(wp), POINTER :: fill_3D_time_array(:,:,:,:)   ! is (nproma, vertical_levels, blocks, time (months))
     REAL(wp), POINTER :: fill_2D_time_array(:,:,:),  point_2D_time(:,:,:)   ! is (nproma, blocks, time )
-    INTEGER :: levels, return_status
+    INTEGER :: levels, return_status, stream_id
 
     CHARACTER(*), PARAMETER :: method_name = "test_netcdf_read"
 
@@ -180,10 +181,12 @@ CONTAINS
     ! test sst
     CALL message(method_name,   testfile_2D_time(1))
 
+    stream_id = netcdf_open_input(testfile_2D_time(1))
+
     !---------------------------------------------------------------------
     ! will read all timesteps in the file
     fill_2D_time_array => netcdf_read_2D_time(   &
-      & filename=testfile_2D_time(1),              &
+      & file_id=stream_id,                         &
       & variable_name=TRIM(testfile_2D_time(2)),   &
       & n_g = patch%n_patch_cells_g,               &
       & glb_index = patch%cells%decomp_info%glb_index)
@@ -199,21 +202,21 @@ CONTAINS
     ! say 13 months
     ALLOCATE(fill_2D_time_array(nproma, patch%nblks_c, 0:13 ))
     point_2D_time => netcdf_read_2D_time(   &
-      & filename=testfile_2D_time(1),               &
+      & file_id=stream_id,                         &
       & variable_name=TRIM(testfile_2D_time(2)),    &
       & fill_array=fill_2D_time_array(:,:,0:),      &
       & n_g = patch%n_patch_cells_g,                &
       & glb_index = patch%cells%decomp_info%glb_index, &
       & start_timestep=12, end_timestep=12)
     point_2D_time => netcdf_read_2D_time(   &
-      & filename=testfile_2D_time(1),               &
+      & file_id=stream_id,                         &
       & variable_name=TRIM(testfile_2D_time(2)),    &
       & fill_array=fill_2D_time_array(:,:,1:),      &
       & n_g = patch%n_patch_cells_g,                &
       & glb_index = patch%cells%decomp_info%glb_index, &
       & start_timestep=1,  end_timestep=12)
     point_2D_time => netcdf_read_2D_time(   &
-      & filename=testfile_2D_time(1),               &
+      & file_id=stream_id,                         &
       & variable_name=TRIM(testfile_2D_time(2)),    &
       & fill_array=fill_2D_time_array(:,:,13:),     &
       & n_g = patch%n_patch_cells_g,                &
@@ -224,14 +227,16 @@ CONTAINS
     ! write the sst array to output for comparing
     return_status = netcdf_write_oncells_2d_time("testfile_2D_14times.nc", TRIM(testfile_2D_time(2)), &
       & fill_2D_time_array, patch)
+    return_status = netcdf_close(stream_id)
     DEALLOCATE(fill_2D_time_array)
     !---------------------------------------------------------------------
 
     !---------------------------------------------------------------------
     ! test O3
     CALL message(method_name,   testfile_3D_time(1))
+    stream_id = netcdf_open_input(testfile_3D_time(1))
     fill_3D_time_array => netcdf_read_3D_time(   &
-      & filename=testfile_3D_time(1),              &
+      & file_id=stream_id,                         &
       & variable_name=TRIM(testfile_3D_time(2)),   &
       & n_g = patch%n_patch_cells_g,               &
       & glb_index = patch%cells%decomp_info%glb_index)
@@ -243,6 +248,7 @@ CONTAINS
       & variable_name=TRIM(testfile_3D_time(2)),   &
       & write_array=fill_3D_time_array,            &
       & patch=patch)
+    return_status = netcdf_close(stream_id)
     DEALLOCATE(fill_3D_time_array)
     !---------------------------------------------------------------------
 !    NULLIFY(fill_3D_time_array)

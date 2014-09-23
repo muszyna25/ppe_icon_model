@@ -281,20 +281,22 @@ CONTAINS
            stream_id = netcdf_close(stream_id)
 
      ! roughness length and background albedo
+           stream_id = netcdf_open_input(filename = land_phys_fn)
            IF (phy_config%lvdiff) THEN
            return_pointer => netcdf_read_2D(    &
-             & filename      =land_phys_fn,             &
+             & file_id       = stream_id,               &
              & variable_name ='z0',                     &
              & fill_array    = prm_field(jg)% z0m(:,:), &
              & n_g           = p_patch(jg)%n_patch_cells_g,&
              & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
            END IF
            return_pointer => netcdf_read_2D(    &
-             & filename      =land_phys_fn,             &
+             & file_id       = stream_id,               &
              & variable_name ='albedo',                 &
              & fill_array    = prm_field(jg)% alb(:,:), &
              & n_g           = p_patch(jg)%n_patch_cells_g,&
              & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
+           stream_id = netcdf_close(stream_id)
 
      ! orography
            stream_id = netcdf_open_input(filename = land_sso_fn)
