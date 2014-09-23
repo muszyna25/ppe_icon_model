@@ -31,10 +31,6 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
-# global resolution
-R=2   # nroot
-B=4   # number of bisections applied
-#-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
 # LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
@@ -75,7 +71,8 @@ grid_ext="etopo40_planet"
 #use_gridfile_for_grabbing_externale_data='true'
 #grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
+ocean_grids="iconR2B04-ocean_etopo40_planet.nc"
+ocean_grid_desc="R2B04"
 #=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
@@ -232,8 +229,9 @@ cat > ${ocean_namelist} << EOF
   forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &ocean_initialConditions_nml
-  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
   ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type = 1
+  initial_temperature_type = 1
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1
