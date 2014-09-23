@@ -454,7 +454,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: local_buffer_1d(:)
     INTEGER, ALLOCATABLE :: local_buffer_2d(:, :)
     INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i
+    INTEGER :: varid, i, var_type
 
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
@@ -474,6 +474,10 @@ CONTAINS
     ! read data from file into io decomposition
     IF (basic_io_data%COUNT > 0) THEN
       CALL nf(nf_inq_varid(ncid, var_name, varid))
+      CALL nf(nf_inq_vartype(ncid, varid, var_type))
+
+      IF (var_type /= NF_INT) &
+        CALL finish("distrib_read_int_2d_multi_var", "invalid var_type")
 
       ! only read io_decomp part
       CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start/), &
@@ -592,7 +596,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: local_buffer_2d(:,:) ! (n io points, ext_dim_size)
     INTEGER, ALLOCATABLE :: local_buffer_3d(:,:,:)
     INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, dim_order
+    INTEGER :: varid, i, j, dim_order, var_type
 
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
@@ -618,6 +622,10 @@ CONTAINS
     IF (basic_io_data%COUNT > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
+      CALL nf(nf_inq_vartype(ncid, varid, var_type))
+
+      IF (var_type /= NF_INT) &
+        CALL finish("distrib_read_int_3d_multi_var", "invalid var_type")
 
       ! only read io_decomp part
       CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1/), &
@@ -785,7 +793,7 @@ CONTAINS
                                                    !  ext_dim_size(2))
     INTEGER, ALLOCATABLE :: local_buffer_4d(:,:,:,:)
     INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, k
+    INTEGER :: varid, i, j, k, var_type
 
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
@@ -806,6 +814,10 @@ CONTAINS
     IF (basic_io_data%COUNT > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
+      CALL nf(nf_inq_vartype(ncid, varid, var_type))
+
+      IF (var_type /= NF_INT) &
+        CALL finish("distrib_read_int_3d_multi_var", "invalid var_type")
 
       ! only read io_decomp part
       CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1, 1/), &
