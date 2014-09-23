@@ -26,13 +26,14 @@ MODULE mo_ocean_testbed_read
   USE mo_io_config,           ONLY:  read_netcdf_broadcast_method
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
+  USE mo_grid_config,         ONLY: dynamics_grid_filename
   USE mo_read_interface
   USE mo_netcdf_read
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC :: ocean_test_read
+  PUBLIC :: ocean_test_read
 
 
 CONTAINS
@@ -40,7 +41,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Test reading T
-  SUBROUTINE ocean_test_read(namelist_filename,shr_namelist_filename, patch_3d)
+  SUBROUTINE ocean_test_read(namelist_filename, shr_namelist_filename, patch_3d)
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
@@ -48,20 +49,40 @@ CONTAINS
 
     REAL(wp), POINTER :: T(:,:,:,:), T_check(:,:,:,:)   ! is (nproma, levels, blocks, time )
     INTEGER :: levels, lnwl_size, return_status
+    REAL(wp), POINTER :: cell_area_broadcast(:,:),  cell_area_distribute(:,:) ! is (nproma, blocks )
     TYPE(t_patch),POINTER            :: patch_2d
-    INTEGER, POINTER                 :: glb_index(:)
     CHARACTER(filename_max) :: OutputFileName   !< file name for reading in
 
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_testbed_read:ocean_test_read"
 
-    CALL message(method_name,   initialState_InputFileName)
     patch_2d => patch_3d%p_patch_2d(1)
-    glb_index => patch_2d%cells%decomp_info%glb_index
-
 
     !---------------------------------------------------------------------
+
+    stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
+      &                       read_netcdf_broadcast_method)
+
+    CALL read_2D(stream_id=stream_id, location=onCells, &
+      &          variable_name="cell_area", return_pointer=cell_area_broadcast)
+
+    CALL closeFile(stream_id)
+
+    stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
+      &                       read_netcdf_distribute_method)
+
+    CALL read_2D(stream_id=stream_id, location=onCells, &
+      &          variable_name="cell_area", return_pointer=cell_area_distribute)
+
+    CALL closeFile(stream_id)
+
+
+    IF ( MAXVAL(ABS(cell_area_distribute - cell_area_broadcast )) > 0.0_wp ) &
+      CALL finish(method_name, "Cell area check failed")
+
+    !---------------------------------------------------------------------
+
     stream_id = openInputFile(initialState_InputFileName, patch_2d, &
       &                       read_netcdf_broadcast_method)
 
