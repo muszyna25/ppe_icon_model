@@ -50,7 +50,6 @@ MODULE mo_alloc_patches
 
   !modules interface-------------------------------------------
   !subroutines
-  PUBLIC :: deallocate_patch
   PUBLIC :: destruct_patches
   PUBLIC :: allocate_basic_patch
   PUBLIC :: allocate_pre_patch
