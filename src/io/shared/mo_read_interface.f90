@@ -31,28 +31,28 @@
 MODULE mo_read_interface
 
   USE mo_kind
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, message_text, message, em_warn
   USE mo_io_config,         ONLY:  read_netcdf_broadcast_method, &
     & read_netcdf_distribute_method,  default_read_method
   USE mo_netcdf_read,      ONLY: netcdf_open_input, netcdf_close, &
     &                            netcdf_read_2D, netcdf_read_2D_extdim, &
     &                            netcdf_read_3D_extdim, netcdf_read_0D_real, &
-    &                            netcdf_read_1D, netcdf_read_2D_time, &
-    &                            netcdf_read_3D, netcdf_read_3D_time, &
+    &                            netcdf_read_1D, netcdf_read_3D, &
     &                            netcdf_read_1D_extdim_time, &
     &                            netcdf_read_1D_extdim_extdim_time
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
-    &                                   var_data_2d_int, var_data_2d_wp, &
-    &                                   var_data_3d_int, var_data_3d_wp, &
-    &                                   distrib_inq_var_dims
+    &                                   var_data_2d_wp, distrib_inq_var_dims
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
+  USE mo_io_units, ONLY: filename_max
 
 
   !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   PUBLIC :: read_netcdf_broadcast_method, read_netcdf_distribute_method
   PUBLIC :: t_stream_id
@@ -265,6 +265,9 @@ CONTAINS
         CALL finish(method_name, "input methods do not match")
     END DO
 
+    CALL check_dimensions(stream_ids(1)%file_id, variable_name, 1, &
+      &                   stream_ids(1)%read_info(location)%n_g, location)
+
     SELECT CASE(stream_ids(1)%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
@@ -324,6 +327,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_streamid'
 
+    CALL check_dimensions(stream_id%file_id, variable_name, 1, &
+      &                   stream_id%read_info(location)%n_g, location)
+
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => netcdf_read_2D(stream_id%file_id, variable_name, &
@@ -367,6 +373,10 @@ CONTAINS
     define_return_pointer        :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
+    CALL check_dimensions(stream_id%file_id, variable_name, 2, &
+      &                   stream_id%read_info(location)%n_g, location, &
+      &                   (/"time"/))
+
     CALL read_dist_REAL_2D_extdim_streamid(&
       & stream_id=stream_id, location=location, variable_name=variable_name, &
       & fill_array=fill_array, return_pointer=return_pointer, &
@@ -398,6 +408,15 @@ CONTAINS
     REAL(wp), POINTER            :: tmp_pointer(:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_extdim_streamid'
+
+    IF (PRESENT(extdim_name)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
+        &                   stream_id%read_info(location)%n_g, location, &
+        &                   (/extdim_name/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
+        &                   stream_id%read_info(location)%n_g, location)
+    END IF
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -450,6 +469,15 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_streamid'
 
+    IF (PRESENT(levelsDimName)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
+        &                   stream_id%read_info(location)%n_g, location, &
+        &                   (/levelsDimName/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
+        &                   stream_id%read_info(location)%n_g, location)
+    END IF
+
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
@@ -499,6 +527,15 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
 
+    IF (PRESENT(levelsDimName)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
+        &                   stream_id%read_info(location)%n_g, location, &
+        &                   (/levelsDimName, "time"/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
+        &                   stream_id%read_info(location)%n_g, location)
+    END IF
+
     CALL read_dist_REAL_3D_extdim_streamid( &
       & stream_id=stream_id,                 &
       & location=location,                   &
@@ -537,6 +574,15 @@ CONTAINS
     REAL(wp), POINTER  :: tmp_pointer(:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_extdim_streamid'
+
+    IF (PRESENT(levelsDimName) .AND. PRESENT(extdim_name)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
+        &                   stream_id%read_info(location)%n_g, location, &
+        &                   (/levelsDimName, extdim_name/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
+        &                   stream_id%read_info(location)%n_g, location)
+    END IF
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -587,22 +633,23 @@ CONTAINS
       openInputFile_dist%input_method = default_read_method
     END IF
 
+    openInputFile_dist%read_info(onCells)%n_g = patch%n_patch_cells_g
+    openInputFile_dist%read_info(onEdges)%n_g = patch%n_patch_edges_g
+    openInputFile_dist%read_info(onVertices)%n_g = patch%n_patch_verts_g
+
     SELECT CASE(openInputFile_dist%input_method)
     CASE (read_netcdf_broadcast_method)
 
       openInputFile_dist%file_id = netcdf_open_input(filename)
 
-      openInputFile_dist%read_info(onCells)%n_g = patch%n_patch_cells_g
       openInputFile_dist%read_info(onCells)%glb_index => &
         patch%cells%decomp_info%glb_index
       NULLIFY(openInputFile_dist%read_info(onCells)%dist_read_info)
 
-      openInputFile_dist%read_info(onEdges)%n_g = patch%n_patch_edges_g
       openInputFile_dist%read_info(onEdges)%glb_index => &
         patch%edges%decomp_info%glb_index
       NULLIFY(openInputFile_dist%read_info(onEdges)%dist_read_info)
 
-      openInputFile_dist%read_info(onVertices)%n_g = patch%n_patch_verts_g
       openInputFile_dist%read_info(onVertices)%glb_index => &
         patch%verts%decomp_info%glb_index
       NULLIFY(openInputFile_dist%read_info(onVertices)%dist_read_info)
@@ -613,19 +660,16 @@ CONTAINS
 
       openInputFile_dist%read_info(onCells)%dist_read_info => &
         patch%cells%dist_io_data
-      openInputFile_dist%read_info(onCells)%n_g = -1
       openInputFile_dist%read_info(onCells)%glb_index => &
         patch%cells%decomp_info%glb_index
 
       openInputFile_dist%read_info(onVertices)%dist_read_info => &
         patch%verts%dist_io_data
-      openInputFile_dist%read_info(onVertices)%n_g = -1
       openInputFile_dist%read_info(onVertices)%glb_index => &
         patch%verts%decomp_info%glb_index
 
       openInputFile_dist%read_info(onEdges)%dist_read_info => &
         patch%edges%dist_io_data
-      openInputFile_dist%read_info(onEdges)%n_g = -1
       openInputFile_dist%read_info(onEdges)%glb_index => &
         patch%edges%decomp_info%glb_index
 
@@ -682,5 +726,115 @@ CONTAINS
 
   END SUBROUTINE closeFile_bcast
 
+  SUBROUTINE check_dimensions(file_id, variable_name, ref_var_ndims, n_g, &
+                              location, extdim_name)
+
+    INTEGER, INTENT(IN) :: file_id
+    CHARACTER(LEN=*), INTENT(IN)  :: variable_name
+    INTEGER, INTENT(IN) :: ref_var_ndims, n_g
+    INTEGER, INTENT(IN) :: location
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name(2:ref_var_ndims)
+
+    INTEGER :: varid, var_ndims, var_dimlen(NF_MAX_VAR_DIMS), &
+      &        var_dimids(NF_MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(NF_MAX_VAR_DIMS)
+    INTEGER :: i
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:check_dimensions'
+
+    IF (file_id == -1) RETURN
+
+    CALL nf(nf_inq_varid(file_id, variable_name, varid), method_name)
+    CALL nf(nf_inq_varndims(file_id, varid, var_ndims), method_name)
+    CALL nf(nf_inq_vardimid(file_id, varid, var_dimids), method_name)
+    DO i = 1, var_ndims
+
+      CALL nf(nf_inq_dimlen (file_id, var_dimids(i), var_dimlen(i)), method_name)
+      CALL nf(nf_inq_dimname(file_id, var_dimids(i), var_dim_name(i)), method_name)
+    END DO
+
+    IF (var_ndims /= ref_var_ndims ) THEN
+      WRITE(0,*) variable_name, ": var_ndims = ", var_ndims
+      CALL finish(method_name, "Dimensions mismatch")
+    ENDIF
+
+    ! check if the input has the right shape/size
+    IF ( var_dimlen(1) /= n_g) THEN
+      WRITE(0,*) variable_name, ": var_ndims = ", var_ndims, " var_dimlen=", &
+        &        var_dimlen, " n_g=", n_g
+      CALL finish(method_name, "Dimensions mismatch")
+    ENDIF
+
+    ! check if the dim have reasonable names
+
+    SELECT CASE(location)
+      CASE (onCells)
+        IF ((TRIM(var_dim_name(1)) == 'cell') .EQV. &
+          & (TRIM(var_dim_name(1)) == 'ncells')) THEN
+          write(0,*) var_dim_name(1)
+          WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
+            &                   " /= std_cells_dim_name"
+          CALL finish(method_name, message_text)
+        ENDIF
+      CASE (onVertices)
+        IF ((TRIM(var_dim_name(1)) == 'vertex') .EQV. &
+          & (TRIM(var_dim_name(1)) == 'nverts')) THEN
+          write(0,*) var_dim_name(1)
+          WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
+            &                   " /= std_verts_dim_name"
+          CALL finish(method_name, message_text)
+        ENDIF
+      CASE (onEdges)
+        IF ((TRIM(var_dim_name(1)) == 'edge') .EQV. &
+          & (TRIM(var_dim_name(1)) == 'nedges')) THEN
+          write(0,*) var_dim_name(1)
+          WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
+            &                   " /= std_edge_dim_name"
+          CALL finish(method_name, message_text)
+        ENDIF
+    END SELECT
+
+    IF (PRESENT(extdim_name)) THEN
+      DO i = 2, ref_var_ndims
+        IF (TRIM(extdim_name(i)) /= TRIM(var_dim_name(i))) THEN
+          WRITE(message_text,*) variable_name, ":", TRIM(extdim_name(i)), &
+            &                   "/=",  var_dim_name(i)
+          CALL finish(method_name, message_text)
+        ENDIF
+      END DO
+    END IF
+
+  END SUBROUTINE check_dimensions
+
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE nf(STATUS, routine, warnonly, silent)
+
+    INTEGER, INTENT(in)           :: STATUS
+    CHARACTER(len=*), INTENT(in) :: routine
+    LOGICAL, INTENT(in), OPTIONAL :: warnonly
+    LOGICAL, INTENT(in), OPTIONAL :: silent
+
+    LOGICAL :: lwarnonly, lsilent
+
+    lwarnonly = .FALSE.
+    lsilent   = .FALSE.
+    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
+    IF(PRESENT(silent))   lsilent   = silent
+
+    IF (lsilent) RETURN
+
+
+    IF (STATUS /= nf_noerr) THEN
+      IF (lwarnonly) THEN
+        CALL message( TRIM(routine)//' netCDF error', nf_strerror(STATUS), &
+          & level=em_warn)
+      ELSE
+        CALL finish( TRIM(routine)//' netCDF error', nf_strerror(STATUS))
+      ENDIF
+    ENDIF
+
+  END SUBROUTINE nf
 
 END MODULE mo_read_interface
