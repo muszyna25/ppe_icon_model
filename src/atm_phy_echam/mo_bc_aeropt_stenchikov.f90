@@ -22,7 +22,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_lrtm_par,               ONLY: nbndlw
   USE mo_srtm_config,            ONLY: nbndsw=>jpsw
   USE mo_exception,              ONLY: finish
-  USE mo_read_netcdf_broadcast,  ONLY: netcdf_open_input, netcdf_close, &
+  USE mo_read_netcdf_broadcast_2,ONLY: netcdf_open_input, netcdf_close, &
     &                                  netcdf_read_1D_extdim_time, &
     &                                  netcdf_read_1D_extdim_extdim_time, &
     &                                  netcdf_read_1D

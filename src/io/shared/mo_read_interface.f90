@@ -34,12 +34,12 @@ MODULE mo_read_interface
   USE mo_exception,          ONLY: finish, message_text, message, em_warn
   USE mo_io_config,         ONLY:  read_netcdf_broadcast_method, &
     & read_netcdf_distribute_method,  default_read_method
-  USE mo_read_netcdf_broadcast, ONLY: netcdf_open_input, netcdf_close, &
-    &                                 netcdf_read_2D, netcdf_read_2D_extdim, &
-    &                                 netcdf_read_3D_extdim, netcdf_read_0D_real, &
-    &                                 netcdf_read_1D, netcdf_read_3D, &
-    &                                 netcdf_read_1D_extdim_time, &
-    &                                 netcdf_read_1D_extdim_extdim_time
+  USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
+    &                                   netcdf_read_2D, netcdf_read_2D_extdim, &
+    &                                   netcdf_read_3D_extdim, netcdf_read_0D_real, &
+    &                                   netcdf_read_1D, netcdf_read_3D, &
+    &                                   netcdf_read_1D_extdim_time, &
+    &                                   netcdf_read_1D_extdim_extdim_time
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
     &                                   var_data_2d_wp, distrib_inq_var_dims

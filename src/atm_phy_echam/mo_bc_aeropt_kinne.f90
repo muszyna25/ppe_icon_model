@@ -23,8 +23,8 @@ MODULE mo_bc_aeropt_kinne
   USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_srtm_config,          ONLY: nbndsw=>jpsw
   USE mo_exception,            ONLY: finish
-  USE mo_read_netcdf_broadcast,ONLY: netcdf_open_input, netcdf_close, &
-    &                                netcdf_read_3d_time, netcdf_read_0D_real
+  USE mo_read_netcdf_broadcast_2,ONLY: netcdf_open_input, netcdf_close, &
+    &                                  netcdf_read_3d_time, netcdf_read_0D_real
   USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
   USE mo_echam_phy_memory,     ONLY: prm_field

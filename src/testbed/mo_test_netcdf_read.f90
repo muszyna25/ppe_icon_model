@@ -26,7 +26,7 @@ MODULE mo_test_netcdf_read
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
-  USE mo_read_netcdf_broadcast
+  USE mo_read_netcdf_broadcast_2
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
