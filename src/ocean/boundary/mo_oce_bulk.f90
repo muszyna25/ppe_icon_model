@@ -640,10 +640,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: windStr u'       ,p_sfc_flx%topBoundCond_windStress_u      ,str_module,idt_src, &
         &  in_subset=p_patch%cells%owned)
-      idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: windStr v'       ,p_sfc_flx%topBoundCond_windStress_v      ,str_module,idt_src, &
         &  in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: windStr cc%x(1)' ,p_sfc_flx%topBoundCond_windStress_cc%x(1),str_module,idt_src, &
@@ -673,7 +672,7 @@ CONTAINS
         p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = p_sfc_flx%HeatFlux_Total(:,:) / (rho_ref*clw)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        CALL dbg_print('UpdSfc: HeatFlxTotal[W/m2]',p_sfc_flx%HeatFlux_Total         ,str_module,1,in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: HeatFlxTotal[W/m2]',p_sfc_flx%HeatFlux_Total         ,str_module,2,in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: topBC_T_vd[K*m/s]', p_sfc_flx%topBoundCond_Temp_vdiff,str_module,3,in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
@@ -712,7 +711,7 @@ CONTAINS
         &                                 + p_sfc_flx%FrshFlux_Relax(:,:)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc:VolumeTotal[m/s]',p_sfc_flx%FrshFlux_VolumeTotal,str_module,1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc:VolumeTotal[m/s]',p_sfc_flx%FrshFlux_VolumeTotal,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     
@@ -729,7 +728,7 @@ CONTAINS
         END DO
       END DO
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     
@@ -1816,7 +1815,8 @@ CONTAINS
       i_lev       = p_patch%level
       i_cell_type = p_patch%cell_type
 
-      WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+      ! WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+      ncep_file='ocean-flux.nc'
 
       !ncep_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
 

@@ -69,10 +69,12 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: init_analytic_hs_param
   INTEGER ,PUBLIC :: init_analytic_hs_type
 
+  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .false.
+
   INTEGER         :: iunit
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
-    &           i_Qio_type, hci_layer, leadclose_1
+    &           i_Qio_type, hci_layer, leadclose_1, use_IceInitialization_fromTemperature
 
 CONTAINS
   !>

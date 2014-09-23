@@ -490,7 +490,8 @@ CONTAINS
       i_lev       = p_patch(jg)%level
       i_cell_type = p_patch(jg)%cell_type
 
-      WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+!       WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+      omip_file='ocean-flux.nc'
 
       !omip_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
       !omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B02-monmean.nc'

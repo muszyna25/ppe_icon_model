@@ -151,7 +151,7 @@ CONTAINS
           CALL print_datetime(datetime)
         
           ! reset accumulation vars
-          CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
+          CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,p_sfc_flx,nsteps_since_last_output)
           IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
         
         END IF

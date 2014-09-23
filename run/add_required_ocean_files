@@ -22,10 +22,10 @@
    fi
           ocean_forcing_folder=${ocean_forcing_folder:=${pool_icon_folder}/ocean_data/ocean_forcing}
              ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
-               ocean_grid_desc=R${R}B0${B}
-   if [[ "x${use_gridfile_for_grabbing_externale_data}" = 'xtrue' ]] ; then
-     ocean_grid_desc=$(basename ${ocean_grids} .nc)
-   fi
+            #   ocean_grid_desc=R${R}B0${B}
+  # if [[ "x${use_gridfile_for_grabbing_externale_data}" = 'xtrue' ]] ; then
+     ocean_grid_desc=${ocean_grid_desc:=$(basename ${ocean_grids} .nc)}
+  # fi
    external_interpolation_type=${external_interpolation_type:=conservative}
    case "${external_interpolation_type}" in
      conservative)
@@ -55,7 +55,7 @@
    # ----------------------------------------------------
    if [[ "x$iforc" = "x12" ]] ; then
      # filename on EXPDIR read by ocean model
-     ocean_flux_filename=iconR${R}B0${B}-flux.nc
+     ocean_flux_filename=ocean-flux.nc
 
      # general filename: OMIP annual file
      if [[ "x$forcing_timescale" = "x1" ]] ; then
@@ -87,7 +87,8 @@
    # --------------------------------------------------------------------
    if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
 
-     ocean_prog_filename=iconR${R}B0${B}-prog.nc
+     # ocean_prog_filename=iconR${R}B0${B}-prog.nc
+     ocean_prog_filename="initial_state.nc"
      ocean_oini_filename=${init_prefix}annual${init_grid_desc}${init_oce_suff}
 
      ocean_init_filename=${ocean_init_folder}/$ocean_oini_filename
@@ -105,7 +106,7 @@
    # -------------------------------------------------------------------------
    if [[ "x$init_relax" = "x1" ]] ; then
 
-     ocean_relax_filename=iconR${R}B0${B}-relax.nc
+     ocean_relax_filename=ocean-relax.nc
      ocean_orel_filename=${relax_prefix}annual${relax_grid_desc}${init_rel_suff}
 
      ocean_orel_file=${ocean_init_folder}/$ocean_orel_filename

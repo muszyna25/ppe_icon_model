@@ -17,10 +17,12 @@ MODULE mo_ocean_model
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size
-  USE mo_timer,               ONLY: init_timer, timer_start, print_timer, timer_model_init
+  USE mo_mpi,                 ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+    & set_mpi_work_communicators, p_pe_work, process_mpi_io_size
+  USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
-  USE mo_name_list_output,    ONLY: close_name_list_output
+  USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_dynamics_config,     ONLY: configure_dynamics
 
@@ -73,7 +75,7 @@ MODULE mo_ocean_model
     & destruct_operators_coefficients
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_stepping
+    & prepare_ho_stepping, write_initial_ocean_timestep
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
@@ -85,8 +87,7 @@ MODULE mo_ocean_model
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
-  USE mo_io_restart,          ONLY: read_restart_header
-  USE mo_io_restart,          ONLY: read_restart_files
+  USE mo_io_restart,          ONLY: read_restart_header, read_restart_files
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_oce_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
@@ -98,6 +99,7 @@ MODULE mo_ocean_model
   USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
+  USE mo_io_config,           ONLY: write_initial_state
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -174,8 +176,8 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
-      IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
+!       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
+!       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
       CALL setcalendar(proleptic_gregorian)
       ! compute sim_start, sim_end
@@ -197,6 +199,12 @@ CONTAINS
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
       & ocean_state(1), is_restart_run())
+    !------------------------------------------------------------------
+    ! write initial state
+    !------------------------------------------------------------------
+    IF (output_mode%l_nml .and. write_initial_state) THEN
+      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice)
+    ENDIF
 
     !------------------------------------------------------------------
     SELECT CASE (test_mode)
@@ -382,6 +390,12 @@ CONTAINS
     start_datetime = time_config%cur_datetime
 
     !-------------------------------------------------------------------
+    ! 4. Setup IO procs
+    !-------------------------------------------------------------------
+    ! If we belong to the I/O PEs just call xxx_io_main_proc before
+    ! reading patches.  This routine will never return
+    CALL init_io_processes()
+
     ! 4. Import patches
     !-------------------------------------------------------------------
     CALL build_decomposition(num_lev,nshift, is_ocean_decomposition =.TRUE., &
@@ -469,8 +483,8 @@ CONTAINS
     ! local variables
     INTEGER, PARAMETER :: kice = 1
     INTEGER :: jg
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & method_name = 'mo_test_hydro_ocean:construct_ocean_states'
+    CHARACTER(LEN=*), PARAMETER :: &
+      & method_name = 'mo_ocean_model:construct_ocean_states'
 
     CALL message (TRIM(method_name),'start')
     !------------------------------------------------------------------
@@ -530,7 +544,9 @@ CONTAINS
 
     CALL init_ho_params(patch_3d, p_phys_param)
 
-    CALL apply_initial_conditions(patch_3d, ocean_state(jg), external_data(jg), operators_coefficients)
+    IF (.not. is_restart_run()) &
+      CALL apply_initial_conditions(patch_3d, ocean_state(jg), external_data(jg), operators_coefficients)
+      
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
     CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &
@@ -548,6 +564,67 @@ CONTAINS
 
   END SUBROUTINE construct_ocean_states
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE init_io_processes()
+
+    TYPE(t_sim_step_info)   :: sim_step_info
+    INTEGER                 :: jstep0
+    CHARACTER(LEN=*), PARAMETER :: &
+      & method_name = 'mo_ocean_model:init_io_processes'
+    
+    IF (process_mpi_io_size < 1) THEN
+      IF (output_mode%l_nml) THEN
+        ! -----------------------------------------
+        ! non-asynchronous I/O (performed by PE #0)
+        ! -----------------------------------------
+        CALL message(method_name,'synchronous namelist I/O scheme is enabled.')
+      ENDIF
+      ! nothing to do
+      RETURN
+    ENDIF
+
+    ! Decide whether async vlist or name_list IO is to be used,
+    ! only one of both may be enabled!
+
+    IF (output_mode%l_nml) THEN
+      ! -----------------------------------------
+      ! asynchronous I/O
+      ! -----------------------------------------
+      !
+      use_async_name_list_io = .TRUE.
+      CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
+      ! consistency check
+      IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        ! Stop timer which is already started but would not be stopped
+        ! since xxx_io_main_proc never returns
+        IF (ltimer) CALL timer_stop(timer_model_init)
+
+        ! compute sim_start, sim_end
+        CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
+        CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+        CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
+          &                      INT(time_config%dt_restart))
+        CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+        sim_step_info%dtime      = dtime
+        sim_step_info%iadv_rcf   = 1
+        jstep0 = 0
+        IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+          ! get start counter for time loop from restart file:
+          CALL get_restart_attribute("jstep", jstep0)
+        END IF
+        sim_step_info%jstep0    = jstep0
+        ! CALL name_list_io_main_proc(sim_step_info, isample=1)
+        CALL name_list_io_main_proc(sim_step_info)
+      END IF
+    ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+      ! Shut down MPI
+      CALL stop_mpi
+      STOP
+    ENDIF
+    
+  END SUBROUTINE init_io_processes
+  !-------------------------------------------------------------------
 
 END MODULE mo_ocean_model
 

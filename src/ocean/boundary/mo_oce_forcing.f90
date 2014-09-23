@@ -489,8 +489,9 @@ CONTAINS
       i_lev        = patch_2d%level
 
       ! Relaxation variables are read from relax_init_file
-      WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
-
+!       WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
+      relax_init_file='ocean-relax.nc'
+      
       IF (my_process_is_stdio()) THEN
 
         INQUIRE (FILE=relax_init_file, EXIST=l_exist)

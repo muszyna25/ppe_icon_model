@@ -70,6 +70,8 @@ MODULE mo_io_config
   INTEGER :: default_read_method = read_netcdf_broadcast_method
 
   INTEGER :: restart_file_type = FILETYPE_NC2
+
+  LOGICAL :: write_initial_state = .true.
   
 CONTAINS
   !----------------------------------------------------------------------------------
