@@ -59,6 +59,8 @@ MODULE mo_netcdf_read
 
   PUBLIC :: netcdf_read_0D_real
   PUBLIC :: netcdf_read_1D
+  PUBLIC :: netcdf_read_1D_extdim_time
+  PUBLIC :: netcdf_read_1D_extdim_extdim_time
   PUBLIC :: netcdf_read_2D
   PUBLIC :: netcdf_read_2D_time
   PUBLIC :: netcdf_read_3D_time
@@ -98,6 +100,14 @@ MODULE mo_netcdf_read
     MODULE PROCEDURE netcdf_read_REAL_1D_fileid
   END INTERFACE netcdf_read_1D
 
+  INTERFACE netcdf_read_1D_extdim_time
+    MODULE PROCEDURE netcdf_read_REAL_1D_extdim_time_fileid
+  END INTERFACE netcdf_read_1D_extdim_time
+
+  INTERFACE netcdf_read_1D_extdim_extdim_time
+    MODULE PROCEDURE netcdf_read_REAL_1D_extdim_extdim_time_fileid
+  END INTERFACE netcdf_read_1D_extdim_extdim_time
+
   INTERFACE netcdf_read_2D
     MODULE PROCEDURE netcdf_read_REAL_2D_filename
     MODULE PROCEDURE netcdf_read_REAL_2D_fileid
@@ -106,23 +116,21 @@ MODULE mo_netcdf_read
   INTERFACE netcdf_read_2D_time
     MODULE PROCEDURE netcdf_read_REAL_2D_time_filename
     MODULE PROCEDURE netcdf_read_REAL_2D_time_fileid
-    MODULE PROCEDURE netcdf_read_REAL_2D_time_bcast_fileid
   END INTERFACE netcdf_read_2D_time
 
   INTERFACE netcdf_read_2D_extdim
-    MODULE PROCEDURE netcdf_read_REAL_2D_1extdim_filename
-    MODULE PROCEDURE netcdf_read_REAL_2D_1extdim_fileid
+    MODULE PROCEDURE netcdf_read_REAL_2D_extdim_filename
+    MODULE PROCEDURE netcdf_read_REAL_2D_extdim_fileid
   END INTERFACE netcdf_read_2D_extdim
 
   INTERFACE netcdf_read_3D_time
     MODULE PROCEDURE netcdf_read_REAL_3D_time_filename
     MODULE PROCEDURE netcdf_read_REAL_3D_time_fileid
-    MODULE PROCEDURE netcdf_read_REAL_3D_time_bcast_fileid
   END INTERFACE netcdf_read_3D_time
 
   INTERFACE netcdf_read_3D_extdim
-    MODULE PROCEDURE netcdf_read_REAL_3D_1extdim_filename
-    MODULE PROCEDURE netcdf_read_REAL_3D_1extdim_fileid
+    MODULE PROCEDURE netcdf_read_REAL_3D_extdim_filename
+    MODULE PROCEDURE netcdf_read_REAL_3D_extdim_fileid
   END INTERFACE netcdf_read_3D_extdim
 
   INTERFACE netcdf_write_oncells_2D
@@ -236,10 +244,10 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_2D_1extdim_filename(filename, variable_name, &
-    &                                           fill_array, n_g, glb_index, &
-    &                                           start_extdim, end_extdim, &
-    &                                           extdim_name ) result(res)
+  FUNCTION netcdf_read_REAL_2D_extdim_filename(filename, variable_name, &
+    &                                          fill_array, n_g, glb_index, &
+    &                                          start_extdim, end_extdim, &
+    &                                          extdim_name ) result(res)
 
     REAL(wp), POINTER            :: res(:,:,:)
 
@@ -254,19 +262,19 @@ CONTAINS
     INTEGER :: file_id
     INTEGER :: return_status
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_netcdf_read:netcdf_read_REAL_2D_1extdim_filename'
+      'mo_netcdf_read:netcdf_read_REAL_2D_extdim_filename'
 
     file_id = netcdf_open_input(filename)
-    res => netcdf_read_REAL_2D_1extdim_fileid(file_id=file_id, &
-        &                                     variable_name=variable_name, &
-        &                                     fill_array=fill_array, n_g=n_g, &
-        &                                     glb_index=glb_index, &
-        &                                     start_extdim=start_extdim, &
-        &                                     end_extdim=end_extdim, &
-        &                                     extdim_name=extdim_name )
+    res => netcdf_read_REAL_2D_extdim_fileid(file_id=file_id, &
+        &                                    variable_name=variable_name, &
+        &                                    fill_array=fill_array, n_g=n_g, &
+        &                                    glb_index=glb_index, &
+        &                                    start_extdim=start_extdim, &
+        &                                    end_extdim=end_extdim, &
+        &                                    extdim_name=extdim_name )
     return_status = netcdf_close(file_id)
 
-  END FUNCTION netcdf_read_REAL_2D_1extdim_filename
+  END FUNCTION netcdf_read_REAL_2D_extdim_filename
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -306,7 +314,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_3D_1extdim_filename(filename, variable_name, &
+  FUNCTION netcdf_read_REAL_3D_extdim_filename(filename, variable_name, &
     &                                           fill_array, n_g, glb_index, &
     &                                           start_extdim, end_extdim, &
     &                                           levelsdim_name, extdim_name ) &
@@ -326,10 +334,10 @@ CONTAINS
     INTEGER :: file_id
     INTEGER :: return_status
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_netcdf_read:netcdf_read_REAL_3D_1extdim_filename'
+      'mo_netcdf_read:netcdf_read_REAL_3D_extdim_filename'
 
     file_id = netcdf_open_input(filename)
-    res => netcdf_read_REAL_3D_1extdim_fileid( &
+    res => netcdf_read_REAL_3D_extdim_fileid( &
       & file_id=file_id,                                   &
       & variable_name=variable_name,                       &
       & fill_array=fill_array,                             &
@@ -339,7 +347,7 @@ CONTAINS
       & extdim_name=extdim_name)
     return_status = netcdf_close(file_id)
 
-  END FUNCTION netcdf_read_REAL_3D_1extdim_filename
+  END FUNCTION netcdf_read_REAL_3D_extdim_filename
 
   !-------------------------------------------------------------------------
   !>
@@ -433,9 +441,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_2D_time_bcast_fileid(file_id, variable_name, &
-    &                                            fill_array, dim_names, &
-    &                                            start_timestep, end_timestep) &
+  FUNCTION netcdf_read_REAL_1D_extdim_time_fileid(file_id, variable_name, &
+    &                                             fill_array, dim_names, &
+    &                                             start_timestep, end_timestep) &
     result(res)
 
     REAL(wp), POINTER            :: res(:,:,:)
@@ -454,7 +462,8 @@ CONTAINS
     INTEGER :: idim
     INTEGER :: return_status
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_2D_time_bcast_fileid'
+    CHARACTER(LEN=*), PARAMETER :: &
+      method_name = 'mo_netcdf_read:netcdf_read_REAL_1D_extdim_time_fileid'
 
     ! trivial return value.
     NULLIFY(res)
@@ -531,13 +540,13 @@ CONTAINS
     ! broadcast...
     CALL broadcast_array(res)
 
-  END FUNCTION netcdf_read_REAL_2D_time_bcast_fileid
+  END FUNCTION netcdf_read_REAL_1D_extdim_time_fileid
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_3D_time_bcast_fileid(file_id, variable_name, &
-    &                                            fill_array, dim_names, &
-    &                                            start_timestep, end_timestep) &
+  FUNCTION netcdf_read_REAL_1D_extdim_extdim_time_fileid(file_id, variable_name, &
+    &                                                    fill_array, dim_names, &
+    &                                                    start_timestep, end_timestep) &
     result(res)
 
     REAL(wp), POINTER            :: res(:,:,:,:)
@@ -556,7 +565,7 @@ CONTAINS
     INTEGER :: idim
     INTEGER :: return_status
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_3D_time_bcast_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_1D_extdim_extdim_time_fileid'
 
     ! trivial return value.
     NULLIFY(res)
@@ -613,7 +622,7 @@ CONTAINS
       ALLOCATE( res(var_size(1),var_size(2), &
                 var_size(3),time_steps), stat=return_status )
       IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_3D_time_bcast_fileid )')
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_1D_extdim_extdim_time_fileid )')
       ENDIF
       res(:,:,:,:)=0.0_wp
     ENDIF
@@ -634,7 +643,7 @@ CONTAINS
     ! broadcast...
     CALL broadcast_array(res)
 
-  END FUNCTION netcdf_read_REAL_3D_time_bcast_fileid
+  END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time_fileid
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
@@ -720,7 +729,7 @@ CONTAINS
     INTEGER, INTENT(IN)           :: glb_index(:)
     INTEGER, INTENT(in), OPTIONAL :: start_timestep, end_timestep
 
-    res => netcdf_read_REAL_2D_1extdim_fileid( &
+    res => netcdf_read_REAL_2D_extdim_fileid( &
       & file_id=file_id, variable_name=variable_name, fill_array=fill_array, &
       & n_g=n_g, glb_index=glb_index, start_extdim=start_timestep, &
       & end_extdim=end_timestep, extdim_name="time" )
@@ -734,10 +743,10 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  FUNCTION netcdf_read_REAL_2D_1extdim_fileid(file_id, variable_name, &
-    &                                         fill_array, n_g, glb_index, &
-    &                                         start_extdim, end_extdim, &
-    &                                         extdim_name ) result(res)
+  FUNCTION netcdf_read_REAL_2D_extdim_fileid(file_id, variable_name, &
+    &                                        fill_array, n_g, glb_index, &
+    &                                        start_extdim, end_extdim, &
+    &                                        extdim_name ) result(res)
 
     REAL(wp), POINTER             :: res(:,:,:)
 
@@ -761,7 +770,7 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:,:)
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_2D_1extdim_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_2D_extdim_fileid'
 
     NULLIFY(res)
 
@@ -850,7 +859,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_2D_1extdim_fileid
+  END FUNCTION netcdf_read_REAL_2D_extdim_fileid
   !-------------------------------------------------------------------------
 
 
@@ -874,7 +883,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
 
-    res => netcdf_read_REAL_3D_1extdim_fileid(&
+    res => netcdf_read_REAL_3D_extdim_fileid(&
       & file_id=file_id,                        &
       & variable_name=variable_name,            &
       & fill_array=fill_array,                  &
@@ -893,10 +902,10 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n_g) fortran-style: O3(n_g, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  FUNCTION netcdf_read_REAL_3D_1extdim_fileid(file_id, variable_name, &
-    &                                         fill_array, n_g, glb_index, &
-    &                                         start_extdim, end_extdim, &
-    &                                         levelsdim_name, extdim_name ) result(res)
+  FUNCTION netcdf_read_REAL_3D_extdim_fileid(file_id, variable_name, &
+    &                                        fill_array, n_g, glb_index, &
+    &                                        start_extdim, end_extdim, &
+    &                                        levelsdim_name, extdim_name ) result(res)
 
     REAL(wp), POINTER  :: res(:,:,:,:)
 
@@ -920,7 +929,7 @@ CONTAINS
     INTEGER :: return_status
     REAL(wp), POINTER :: tmp_array(:,:,:)
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_3D_1extdim_fileid'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_3D_extdim_fileid'
 
     NULLIFY(res)
 
@@ -1022,7 +1031,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_3D_1extdim_fileid
+  END FUNCTION netcdf_read_REAL_3D_extdim_fileid
   !-------------------------------------------------------------------------
 
 
@@ -1968,11 +1977,11 @@ CONTAINS
     INTEGER, OPTIONAL                      :: input_method
 
     netcdf_read_oncells_2d_extdim => &
-      netcdf_read_REAL_2D_1extdim_filename(filename, variable_name, fill_array, &
-        &                                  patch%n_patch_cells_g, &
-        &                                  patch%cells%decomp_info%glb_index, &
-        &                                  start_extdim, end_extdim, &
-        &                                  extdim_name)
+      netcdf_read_REAL_2D_extdim_filename(filename, variable_name, fill_array, &
+        &                                 patch%n_patch_cells_g, &
+        &                                 patch%cells%decomp_info%glb_index, &
+        &                                 start_extdim, end_extdim, &
+        &                                 extdim_name)
 
   END FUNCTION netcdf_read_oncells_2d_extdim
   !-------------------------------------------------------------------------

@@ -23,7 +23,9 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_srtm_config,            ONLY: nbndsw=>jpsw
   USE mo_exception,              ONLY: finish
   USE mo_netcdf_read,            ONLY: netcdf_open_input, netcdf_close, &
-    &                                  netcdf_read_3d_time, netcdf_read_2d_time, netcdf_read_1d
+    &                                  netcdf_read_1D_extdim_time, &
+    &                                  netcdf_read_1D_extdim_extdim_time, &
+    &                                  netcdf_read_1D
   USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
@@ -465,25 +467,25 @@ END SUBROUTINE pressure_index
   cdim_names(1)=cwave_dim
   cdim_names(2)=clat_dim
   cdim_names(3)='time'
-  zvar2d=>netcdf_read_2d_time(file_id=ifile_id, variable_name='tauttl', &
+  zvar2d=>netcdf_read_1D_extdim_time(file_id=ifile_id, variable_name='tauttl', &
          dim_names=cdim_names(1:3), start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar2d(:,:,1),'aod',ktime_step)
   cdim_names(4)=cdim_names(3)
   cdim_names(3)=clev_dim
-  zvar3d=>netcdf_read_3d_time(file_id=ifile_id, variable_name='exts', &
+  zvar3d=>netcdf_read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='exts', &
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'ext',ktime_step)
-  zvar3d=>netcdf_read_3d_time(file_id=ifile_id, variable_name='omega', &
+  zvar3d=>netcdf_read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='omega', &
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'ssa',ktime_step)
-  zvar3d=>netcdf_read_3d_time(file_id=ifile_id, variable_name='asymm', &
+  zvar3d=>netcdf_read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='asymm', &
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'asy',ktime_step)
-  zpmid=>netcdf_read_1d(file_id=ifile_id, variable_name=clev_dim)
+  zpmid=>netcdf_read_1D(file_id=ifile_id, variable_name=clev_dim)
 ! convert pressure into Pa from hPa
   zpmid=100._wp*zpmid
   CALL p_lim_stenchikov(zpmid)
-  zlat=>netcdf_read_1d(file_id=ifile_id, variable_name=clat_dim)
+  zlat=>netcdf_read_1D(file_id=ifile_id, variable_name=clat_dim)
   IF (SIZE(zlat)/=lat_clim) THEN
     WRITE(ci_length,*) SIZE(zlat)
     WRITE(cj_length,*) lat_clim
