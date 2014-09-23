@@ -63,6 +63,7 @@ MODULE mo_netcdf_read
   PUBLIC :: netcdf_read_1D_extdim_extdim_time
   PUBLIC :: netcdf_read_2D
   PUBLIC :: netcdf_read_2D_time
+  PUBLIC :: netcdf_read_3D
   PUBLIC :: netcdf_read_3D_time
   PUBLIC :: netcdf_read_2D_extdim
   PUBLIC :: netcdf_read_3D_extdim
@@ -114,6 +115,10 @@ MODULE mo_netcdf_read
   INTERFACE netcdf_read_2D_extdim
     MODULE PROCEDURE netcdf_read_REAL_2D_extdim_fileid
   END INTERFACE netcdf_read_2D_extdim
+
+  INTERFACE netcdf_read_3D
+    MODULE PROCEDURE netcdf_read_REAL_3D_fileid
+  END INTERFACE netcdf_read_3D
 
   INTERFACE netcdf_read_3D_time
     MODULE PROCEDURE netcdf_read_REAL_3D_time_fileid
@@ -661,6 +666,107 @@ CONTAINS
   END FUNCTION netcdf_read_REAL_2D_extdim_fileid
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O2(levels, n_g) fortran-style: O2(n_g, levels)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, levels, blocks)
+  FUNCTION netcdf_read_REAL_3D_fileid(file_id, variable_name, fill_array, n_g, &
+    &                                 glb_index, levelsdim_name) result(res)
+
+    REAL(wp), POINTER  :: res(:,:,:)
+
+    INTEGER, INTENT(IN)           :: file_id
+    CHARACTER(LEN=*), INTENT(IN)  :: variable_name
+    define_fill_target            :: fill_array(:,:,:)
+    INTEGER, INTENT(IN)           :: n_g
+    INTEGER, INTENT(IN)           :: glb_index(:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+
+    INTEGER :: file_vertical_levels
+
+    INTEGER :: return_status
+    REAL(wp), POINTER :: tmp_array(:,:)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_netcdf_read:netcdf_read_REAL_3D_fileid'
+
+    NULLIFY(res)
+
+    IF( my_process_is_mpi_workroot() ) THEN
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, &
+        &                            var_dims, var_size, var_dim_name)
+
+      ! check if we have indeed 2 dimensions
+      IF (var_dims /= 2 ) THEN
+        WRITE(0,*) variable_name, ": var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      ! check if the dim have reasonable names
+      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
+        write(0,*) var_dim_name(1)
+        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), " /= std_cells_dim_name"
+        CALL finish(method_name, message_text)
+      ENDIF
+
+      IF (PRESENT(levelsdim_name)) THEN
+        IF (TRIM(levelsdim_name) /= TRIM(var_dim_name(2))) THEN
+          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  var_dim_name(2)
+          CALL finish(method_name, message_text)
+        ENDIF
+      ENDIF
+
+      ! check if the input has the right shape/size
+      IF ( var_size(1) /= n_g) THEN
+        WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", &
+          &        var_size, " n_g=", n_g
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+    ENDIF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:2))
+    file_vertical_levels = var_size(2)
+
+    !-----------------------
+    IF (PRESENT(fill_array)) THEN
+      res => fill_array
+    ELSE
+      ALLOCATE( res (nproma, file_vertical_levels, &
+        &            (SIZE(glb_index) - 1)/nproma + 1), &
+        &       stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( res )')
+      ENDIF
+      res(:,:,:) = 0.0_wp
+    ENDIF
+    ALLOCATE( tmp_array(n_g, file_vertical_levels), stat=return_status )
+    IF (return_status /= success) THEN
+      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+    ENDIF
+
+    IF (file_vertical_levels /= SIZE(res,2)) &
+      CALL finish(method_name, 'file_vertical_levels /= SIZE(fill_array,2)')
+    !-----------------------
+
+    IF( my_process_is_mpi_workroot()) THEN
+      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:)), variable_name)
+    ENDIF
+
+
+    CALL scatter_array(tmp_array, res, glb_index)
+
+    DEALLOCATE(tmp_array)
+
+  END FUNCTION netcdf_read_REAL_3D_fileid
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>

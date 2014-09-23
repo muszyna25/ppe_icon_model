@@ -38,7 +38,7 @@ MODULE mo_read_interface
     &                            netcdf_read_2D, netcdf_read_2D_extdim, &
     &                            netcdf_read_3D_extdim, netcdf_read_0D_real, &
     &                            netcdf_read_1D, netcdf_read_2D_time, &
-    &                            netcdf_read_3D_time, &
+    &                            netcdf_read_3D, netcdf_read_3D_time, &
     &                            netcdf_read_1D_extdim_time, &
     &                            netcdf_read_1D_extdim_extdim_time
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
@@ -134,6 +134,10 @@ MODULE mo_read_interface
   INTERFACE read_2D_extdim
     MODULE PROCEDURE read_dist_REAL_2D_extdim_streamid
   END INTERFACE read_2D_extdim
+
+  INTERFACE read_3D
+    MODULE PROCEDURE read_dist_REAL_3D_streamid
+  END INTERFACE read_3D
 
   INTERFACE read_3D_time
     MODULE PROCEDURE read_dist_REAL_3D_time_streamid
@@ -422,6 +426,58 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE read_dist_REAL_2D_extdim_streamid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O2(levels, n) fortran-style: O2(n, levels)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, levels, blocks)
+  SUBROUTINE read_dist_REAL_3D_streamid(stream_id, location, &
+    &                                   variable_name, fill_array, &
+    &                                   return_pointer, levelsDimName)
+
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
+
+    INTEGER :: var_ndims, var_dimlen(2)
+    REAL(wp), POINTER  :: tmp_pointer(:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_3D_streamid'
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      tmp_pointer => &
+         & netcdf_read_3D(stream_id%file_id, variable_name, &
+         & fill_array, stream_id%read_info(location)%n_g, &
+         & stream_id%read_info(location)%glb_index, levelsDimName)
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    CASE (read_netcdf_distribute_method)
+      IF (PRESENT(fill_array)) THEN
+        tmp_pointer => fill_array
+      ELSE
+        CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
+          &                       var_dimlen)
+        ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
+          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
+        tmp_pointer(:,:,:) = 0.0_wp
+      ENDIF
+
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               var_dimlen(2), &
+        &               stream_id%read_info(location)%dist_read_info)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END SUBROUTINE read_dist_REAL_3D_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
