@@ -49,7 +49,9 @@ CONTAINS
 
     REAL(wp), POINTER :: T(:,:,:,:), T_check(:,:,:,:)   ! is (nproma, levels, blocks, time )
     INTEGER :: levels, lnwl_size, return_status
-    REAL(wp), POINTER :: cell_area_broadcast(:,:),  cell_area_distribute(:,:) ! is (nproma, blocks )
+    REAL(wp), POINTER :: cell_data_broadcast(:,:), cell_data_distribute(:,:) ! is (nproma, blocks )
+    REAL(wp), POINTER :: vertex_data_broadcast(:,:), vertex_data_distribute(:,:) ! is (nproma, blocks )
+    REAL(wp), POINTER :: edge_data_broadcast(:,:), edge_data_distribute(:,:) ! is (nproma, blocks )
     TYPE(t_patch),POINTER            :: patch_2d
     CHARACTER(filename_max) :: OutputFileName   !< file name for reading in
 
@@ -60,12 +62,16 @@ CONTAINS
     patch_2d => patch_3d%p_patch_2d(1)
 
     !---------------------------------------------------------------------
-
+    ! 2D Tests
     stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
       &                       read_netcdf_broadcast_method)
 
     CALL read_2D(stream_id=stream_id, location=onCells, &
-      &          variable_name="cell_area", return_pointer=cell_area_broadcast)
+      &          variable_name="cell_area", return_pointer=cell_data_broadcast)
+    CALL read_2D(stream_id=stream_id, location=onVertices, &
+      &          variable_name="dual_area", return_pointer=vertex_data_broadcast)
+    CALL read_2D(stream_id=stream_id, location=onEdges, &
+      &          variable_name="phys_edge_id", return_pointer=edge_data_broadcast)
 
     CALL closeFile(stream_id)
 
@@ -73,13 +79,20 @@ CONTAINS
       &                       read_netcdf_distribute_method)
 
     CALL read_2D(stream_id=stream_id, location=onCells, &
-      &          variable_name="cell_area", return_pointer=cell_area_distribute)
+      &          variable_name="cell_area", return_pointer=cell_data_distribute)
+    CALL read_2D(stream_id=stream_id, location=onVertices, &
+      &          variable_name="dual_area", return_pointer=vertex_data_distribute)
+    CALL read_2D(stream_id=stream_id, location=onEdges, &
+      &          variable_name="phys_edge_id", return_pointer=edge_data_distribute)
 
     CALL closeFile(stream_id)
 
-
-    IF ( MAXVAL(ABS(cell_area_distribute - cell_area_broadcast )) > 0.0_wp ) &
-      CALL finish(method_name, "Cell area check failed")
+    IF ( MAXVAL(ABS(cell_data_distribute - cell_data_broadcast )) > 0.0_wp ) &
+      CALL finish(method_name, "Cell data check failed")
+    IF ( MAXVAL(ABS(vertex_data_distribute - vertex_data_broadcast )) > 0.0_wp ) &
+      CALL finish(method_name, "Vertex data check failed")
+    IF ( MAXVAL(ABS(edge_data_distribute - edge_data_broadcast )) > 0.0_wp ) &
+      CALL finish(method_name, "Edge data check failed")
 
     RETURN ! disable the rest of tests in order to run on buildbot
     !---------------------------------------------------------------------
