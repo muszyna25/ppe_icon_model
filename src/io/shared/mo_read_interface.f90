@@ -27,6 +27,8 @@
 !!
 #define define_fill_target REAL(wp), TARGET, OPTIONAL
 #define define_return_pointer REAL(wp), POINTER, OPTIONAL
+#define define_fill_target_int INTEGER, TARGET, OPTIONAL
+#define define_return_pointer_int INTEGER, POINTER, OPTIONAL
 
 MODULE mo_read_interface
 
@@ -35,14 +37,17 @@ MODULE mo_read_interface
   USE mo_io_config,         ONLY:  read_netcdf_broadcast_method, &
     & read_netcdf_distribute_method,  default_read_method
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
-    &                                   netcdf_read_2D, netcdf_read_2D_extdim, &
-    &                                   netcdf_read_3D_extdim, netcdf_read_0D_real, &
+    &                                   netcdf_read_2D, netcdf_read_2D_int, &
+    &                                   netcdf_read_2D_extdim, &
+    &                                   netcdf_read_3D_extdim, &
+    &                                   netcdf_read_0D_real, &
     &                                   netcdf_read_1D, netcdf_read_3D, &
     &                                   netcdf_read_1D_extdim_time, &
     &                                   netcdf_read_1D_extdim_extdim_time
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
-    &                                   var_data_2d_wp, distrib_inq_var_dims
+    &                                   var_data_2d_wp, var_data_2d_int, &
+    &                                   distrib_inq_var_dims
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
   USE mo_io_units, ONLY: filename_max
@@ -121,6 +126,11 @@ MODULE mo_read_interface
   INTERFACE read_1D_extdim_extdim_time
     MODULE PROCEDURE read_bcast_REAL_1D_extdim_extdim_time_streamid
   END INTERFACE read_1D_extdim_extdim_time
+
+  INTERFACE read_2D_int
+    MODULE PROCEDURE read_dist_INT_2D_streamid
+    MODULE PROCEDURE read_dist_INT_2D_multivar_streamid
+  END INTERFACE read_2D_int
 
   INTERFACE read_2D
     MODULE PROCEDURE read_dist_REAL_2D_streamid
@@ -236,6 +246,130 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  SUBROUTINE read_dist_INT_2D_multivar_streamid(stream_ids, location, &
+    &                                           variable_name, n_var, &
+    &                                           fill_array, return_pointer)
+
+    TYPE(t_stream_id), INTENT(INOUT)       :: stream_ids(:)
+    INTEGER, INTENT(IN)                    :: location
+    CHARACTER(LEN=*), INTENT(IN)           :: variable_name
+    INTEGER, INTENT(IN)                    :: n_var
+    TYPE(var_data_2d_int), OPTIONAL        :: fill_array(:)
+    TYPE(var_data_2d_int), OPTIONAL        :: return_pointer(:)
+
+    INTEGER, POINTER                       :: tmp_pointer(:,:)
+    TYPE(var_data_2d_int), ALLOCATABLE     :: var_data_2d(:)
+    CHARACTER(LEN=*), PARAMETER            :: method_name = &
+      'mo_read_interface:read_dist_INT_2D_multivar_streamid'
+    TYPE(t_distrib_read_data), ALLOCATABLE :: dist_read_info(:)
+
+    INTEGER :: i
+
+    IF (SIZE(stream_ids) /= n_var) &
+      CALL finish(method_name, &
+        &         "number of stream ids does not match number of variables")
+
+    DO i = 2, SIZE(stream_ids)
+      IF (stream_ids(i)%file_id /= stream_ids(1)%file_id) &
+        CALL finish(method_name, "file ids do not match")
+      IF (stream_ids(i)%input_method /= stream_ids(1)%input_method) &
+        CALL finish(method_name, "input methods do not match")
+    END DO
+
+    CALL check_dimensions(stream_ids(1)%file_id, variable_name, 1, &
+      &                   stream_ids(1)%read_info(location)%n_g, location)
+
+    SELECT CASE(stream_ids(1)%input_method)
+    CASE (read_netcdf_broadcast_method)
+      DO i = 1, n_var
+
+        tmp_pointer => &
+          netcdf_read_2D_int(stream_ids(i)%file_id, variable_name, &
+            &                fill_array(i)%data, &
+            &                stream_ids(i)%read_info(location)%n_g, &
+            &                stream_ids(i)%read_info(location)%glb_index)
+
+        IF (PRESENT(return_pointer)) return_pointer(i)%data => tmp_pointer
+      END DO
+    CASE (read_netcdf_distribute_method)
+    
+      ALLOCATE(var_data_2d(n_var), dist_read_info(n_var))
+
+      IF (PRESENT(fill_array)) THEN
+        DO i = 1, n_var
+          var_data_2d(i)%data => fill_array(i)%data
+        END DO
+      ELSE
+        DO i = 1, n_var
+          ALLOCATE(var_data_2d(i)%data(nproma, &
+            (SIZE(stream_ids(i)%read_info(location)%glb_index) - 1)/nproma + 1))
+          var_data_2d(i)%data(:,:) = 0
+        END DO
+      ENDIF
+      IF (PRESENT(return_pointer)) THEN
+        DO i = 1, n_var
+          return_pointer(i)%data => var_data_2d(i)%data
+        END DO
+      END IF
+      DO i = 1, n_var
+        dist_read_info(i) = stream_ids(i)%read_info(location)%dist_read_info
+      END DO
+      CALL distrib_read(stream_ids(1)%file_id, variable_name, var_data_2d, &
+        &               dist_read_info(:))
+      DEALLOCATE(var_data_2d)
+      DEALLOCATE(dist_read_info)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END SUBROUTINE read_dist_INT_2D_multivar_streamid
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_dist_INT_2D_streamid(stream_id, location, variable_name, &
+    &                                  fill_array, return_pointer)
+
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)              :: location
+    CHARACTER(LEN=*), INTENT(IN)     :: variable_name
+    define_fill_target_int           :: fill_array(:,:)
+    define_return_pointer_int        :: return_pointer(:,:)
+
+    INTEGER, POINTER                 :: tmp_pointer(:,:)
+    CHARACTER(LEN=*), PARAMETER      :: method_name = &
+      'mo_read_interface:read_dist_INT_2D_streamid'
+
+    CALL check_dimensions(stream_id%file_id, variable_name, 1, &
+      &                   stream_id%read_info(location)%n_g, location)
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      tmp_pointer => netcdf_read_2D_int(stream_id%file_id, variable_name, &
+        &                               fill_array, &
+        &                               stream_id%read_info(location)%n_g, &
+        &                               stream_id%read_info(location)%glb_index)
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    CASE (read_netcdf_distribute_method)
+      IF (PRESENT(fill_array)) THEN
+        tmp_pointer => fill_array
+      ELSE
+        ALLOCATE(tmp_pointer(nproma, &
+          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
+        tmp_pointer(:,:) = 0.0_wp
+      ENDIF
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               stream_id%read_info(location)%dist_read_info)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END SUBROUTINE read_dist_INT_2D_streamid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   SUBROUTINE read_dist_REAL_2D_multivar_streamid(stream_ids, location, &
     &                                            variable_name, n_var, &
     &                                            fill_array, return_pointer)
@@ -272,10 +406,11 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
 
-        tmp_pointer => netcdf_read_2D(stream_ids(i)%file_id, variable_name, &
-          &                           fill_array(i)%data, &
-          &                           stream_ids(i)%read_info(location)%n_g, &
-          &                           stream_ids(i)%read_info(location)%glb_index)
+        tmp_pointer => &
+          netcdf_read_2D(stream_ids(i)%file_id, variable_name, &
+            &            fill_array(i)%data, &
+            &            stream_ids(i)%read_info(location)%n_g, &
+            &            stream_ids(i)%read_info(location)%glb_index)
 
         IF (PRESENT(return_pointer)) return_pointer(i)%data => tmp_pointer
       END DO

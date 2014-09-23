@@ -27,6 +27,9 @@
 #define define_fill_target REAL(wp), TARGET, OPTIONAL
 !#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
 !#define define_fill_target REAL(wp), POINTER, OPTIONAL
+#define define_fill_target_int INTEGER, TARGET, OPTIONAL
+!#define define_fill_target_int INTEGER, TARGET, ALLOCATABLE, OPTIONAL
+!#define define_fill_target_int INTEGER, POINTER, OPTIONAL
 
 MODULE mo_read_netcdf_broadcast_2
 
@@ -54,6 +57,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_1D_extdim_time
   PUBLIC :: netcdf_read_1D_extdim_extdim_time
+  PUBLIC :: netcdf_read_2D_int
   PUBLIC :: netcdf_read_2D
   PUBLIC :: netcdf_read_2D_time
   PUBLIC :: netcdf_read_3D
@@ -76,6 +80,10 @@ MODULE mo_read_netcdf_broadcast_2
   INTERFACE netcdf_read_1D_extdim_extdim_time
     MODULE PROCEDURE netcdf_read_REAL_1D_extdim_extdim_time_fileid
   END INTERFACE netcdf_read_1D_extdim_extdim_time
+
+  INTERFACE netcdf_read_2D_int
+    MODULE PROCEDURE netcdf_read_INT_2D_fileid
+  END INTERFACE netcdf_read_2D_int
 
   INTERFACE netcdf_read_2D
     MODULE PROCEDURE netcdf_read_REAL_2D_fileid
@@ -417,6 +425,74 @@ CONTAINS
     CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time_fileid
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_INT_2D_fileid(file_id, variable_name, fill_array, &
+    &                                n_g, glb_index) result(res)
+
+    INTEGER, POINTER             :: res(:,:)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target_int       :: fill_array(:,:)
+    INTEGER, INTENT(IN)          :: n_g
+    INTEGER, INTENT(IN)          :: glb_index(:)
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: return_status
+    INTEGER, POINTER :: tmp_array(:)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_fileid'
+
+    ! trivial return value.
+    NULLIFY(res)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+        &                 var_size, var_dim_name)
+
+      ! check if the dims look ok
+      IF (var_dims /= 1 .OR. var_size(1) /= n_g) THEN
+        write(0,*) "var_dims = ", var_dims, " var_size=", var_size, " n_g=", n_g
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) &
+         CALL warning(method_name, "dim_name /= std_cells_dim_name")
+
+      IF (var_type /= NF_INT) CALL finish(method_name, "invalid var_type")
+
+    ENDIF
+
+    ALLOCATE( tmp_array(n_g), stat=return_status )
+    IF (return_status /= success) THEN
+      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+    ENDIF
+
+    IF( my_process_is_mpi_workroot()) THEN
+      CALL nf(nf_get_var_int(file_id, varid, tmp_array(:)), variable_name)
+    ENDIF
+
+    IF (PRESENT(fill_array)) THEN
+      res => fill_array
+    ELSE
+      ALLOCATE( res(nproma, (SIZE(glb_index) - 1)/nproma + 1), &
+        &       stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( res )')
+      ENDIF
+      res(:,:) = 0.0_wp
+    ENDIF
+
+    CALL scatter_array(in_array=tmp_array, out_array=res, global_index=glb_index)
+
+    DEALLOCATE(tmp_array)
+
+  END FUNCTION netcdf_read_INT_2D_fileid
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
