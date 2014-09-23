@@ -1336,7 +1336,7 @@ CONTAINS
   !! Optional switch to read 3D field in 2D slices: F. Prill, DWD (2012-12-19)
   !!
   SUBROUTINE read_netcdf_3d_single (file_id, varname, glb_arr_len, loc_arr_len, glb_index, &
-    &                               nlevs, var_out, opt_lvalue_add)
+    &                               nlevs, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -1348,7 +1348,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
-    LOGICAL, INTENT(IN), OPTIONAL :: opt_lvalue_add !< If .TRUE., add values to given field
 
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1364,12 +1363,8 @@ CONTAINS
       &        dimlen(3), dims(3)
     ! SINGLE PRECISION local array
     REAL(sp), ALLOCATABLE:: tmp_buf(:,:)
-    LOGICAL :: lvalue_add
 
     !-------------------------------------------------------------------------
-
-    lvalue_add = .FALSE.
-    CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
     ! allocate temporary buffer:
     IF (luse3dbuffer) THEN
@@ -1415,23 +1410,13 @@ CONTAINS
       ! broadcast data:
       CALL p_bcast(tmp_buf, p_io, mpi_comm)
       ! Set var_out from global data
-      IF (lvalue_add) THEN
-        DO jk = 1, nlevs
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j),jk), wp)
-          ENDDO
+      DO jk = 1, nlevs
+        DO j = 1, loc_arr_len
+          jb = blk_no(j) ! Block index in distributed patch
+          jl = idx_no(j) ! Line  index in distributed patch
+          var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),jk), wp)
         ENDDO
-      ELSE
-        DO jk = 1, nlevs
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),jk), wp)
-          ENDDO
-        ENDDO
-      END IF
+      ENDDO
 
     ELSE
       !-- 2D buffer implementation
@@ -1447,19 +1432,11 @@ CONTAINS
         ! broadcast data:
         CALL p_bcast(tmp_buf, p_io, mpi_comm)
         ! Set var_out from global data
-        IF (lvalue_add) THEN
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j),1), wp)
-          ENDDO
-        ELSE
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),1), wp)
-          ENDDO
-        END IF
+        DO j = 1, loc_arr_len
+          jb = blk_no(j) ! Block index in distributed patch
+          jl = idx_no(j) ! Line  index in distributed patch
+          var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j),1), wp)
+        ENDDO
       END DO ! jk=1,nlevs
 
     END IF
