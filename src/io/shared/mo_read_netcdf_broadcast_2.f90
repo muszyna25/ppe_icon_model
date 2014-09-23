@@ -111,12 +111,6 @@ MODULE mo_read_netcdf_broadcast_2
 
   INTEGER, PARAMETER :: MAX_VAR_DIMS = 16 ! NF_MAX_VAR_DIMS
 
-  !-------------------------------------------------------------------------
-  ! used for finding the names of the dimensions in the netcdf files
-  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_1 = 'cell'
-  CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_2 = 'ncells'
-  CHARACTER(LEN=*), PARAMETER :: std_time_dim_name_1  = 'time'
-
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -461,9 +455,6 @@ CONTAINS
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
 
-      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) &
-         CALL warning(method_name, "dim_name /= std_cells_dim_name")
-
       IF (var_type /= NF_INT) CALL finish(method_name, "invalid var_type")
 
     ENDIF
@@ -529,9 +520,6 @@ CONTAINS
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
 
-      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) &
-         CALL warning(method_name, "dim_name /= std_cells_dim_name")
-
     ENDIF
 
     ALLOCATE( tmp_array(n_g), stat=return_status )
@@ -541,7 +529,7 @@ CONTAINS
 
     IF( my_process_is_mpi_workroot()) THEN
       CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), &
-        &     variable_name)
+        &                       variable_name)
     ENDIF
 
     IF (PRESENT(fill_array)) THEN
@@ -634,22 +622,6 @@ CONTAINS
       IF (var_dims /= 2 ) THEN
         WRITE(0,*) variable_name, ": var_dims = ", var_dims
         CALL finish(method_name, "Dimensions mismatch")
-      ENDIF
-
-      ! check if the dimensions have reasonable names
-      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
-        write(0,*) var_dim_name(1)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
-          &                   " /= std_cells_dim_name"
-        CALL finish(method_name, message_text)
-      ENDIF
-
-      IF (PRESENT(extdim_name)) THEN
-        IF (TRIM(extdim_name) /= TRIM(var_dim_name(2))) THEN
-          WRITE(message_text,*) variable_name, ":", TRIM(extdim_name), "/=", &
-            &                   TRIM(var_dim_name(2))
-          CALL finish(method_name, message_text)
-        ENDIF
       ENDIF
 
       ! check if the input has the right shape/size
@@ -758,22 +730,6 @@ CONTAINS
       IF (var_dims /= 2 ) THEN
         WRITE(0,*) variable_name, ": var_dims = ", var_dims
         CALL finish(method_name, "Dimensions mismatch")
-      ENDIF
-
-      ! check if the dim have reasonable names
-      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
-        write(0,*) var_dim_name(1)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), &
-          &                   " /= std_cells_dim_name"
-        CALL finish(method_name, message_text)
-      ENDIF
-
-      IF (PRESENT(levelsdim_name)) THEN
-        IF (TRIM(levelsdim_name) /= TRIM(var_dim_name(2))) THEN
-          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  &
-            &                   var_dim_name(2)
-          CALL finish(method_name, message_text)
-        ENDIF
       ENDIF
 
       ! check if the input has the right shape/size
@@ -906,28 +862,6 @@ CONTAINS
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
 
-      ! check if the dim have reasonable names
-      IF (.NOT. check_is_cell_dim_name(var_dim_name(1))) THEN
-        write(0,*) var_dim_name(1)
-        WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(3)), &
-          &                   " /= std_cells_dim_name"
-        CALL finish(method_name, message_text)
-      ENDIF
-
-      IF (PRESENT(levelsdim_name)) THEN
-        IF (TRIM(levelsdim_name) /= TRIM(var_dim_name(2))) THEN
-          WRITE(message_text,*) variable_name, ":", levelsdim_name, "/=",  &
-            &                   var_dim_name(2)
-          CALL finish(method_name, message_text)
-        ENDIF
-      ENDIF
-      IF (PRESENT(extdim_name)) THEN
-        IF (TRIM(extdim_name) /= TRIM(var_dim_name(3))) THEN
-          WRITE(message_text,*) variable_name, ":", extdim_name, "/=",  var_dim_name(3)
-          CALL finish(method_name, message_text)
-        ENDIF
-      ENDIF
-
       ! check if the input has the right shape/size
       IF ( var_size(1) /= n_g) THEN
         WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", &
@@ -1031,36 +965,6 @@ CONTAINS
     ENDIF
 
   END FUNCTION netcdf_close
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  LOGICAL FUNCTION check_is_cell_dim_name(dim_name)
-    CHARACTER(LEN=*), INTENT(IN) :: dim_name
-
-    SELECT CASE (TRIM(dim_name))
-      CASE (std_cells_dim_name_1, std_cells_dim_name_2)
-        check_is_cell_dim_name = .TRUE.
-      CASE default
-        check_is_cell_dim_name = .FALSE.
-    END SELECT
-
-  END FUNCTION check_is_cell_dim_name
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  LOGICAL FUNCTION check_is_time_dim_name(dim_name)
-    CHARACTER(LEN=*), INTENT(IN) :: dim_name
-
-    SELECT CASE (TRIM(dim_name))
-      CASE (std_time_dim_name_1)
-        check_is_time_dim_name = .TRUE.
-      CASE default
-        check_is_time_dim_name = .FALSE.
-    END SELECT
-
-  END FUNCTION check_is_time_dim_name
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

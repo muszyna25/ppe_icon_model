@@ -211,6 +211,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_bcast_REAL_1D_extdim_time_streamid'
 
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     tmp_pointer => netcdf_read_1D_extdim_time(file_id, variable_name, &
       &                                       fill_array, dim_names, &
       &                                       start_timestep, end_timestep)
@@ -235,6 +238,9 @@ CONTAINS
     REAL(wp), POINTER            :: tmp_pointer(:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_bcast_REAL_1D_extdim_extdim_time_streamid'
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
 
     tmp_pointer => netcdf_read_1D_extdim_extdim_time(file_id, variable_name, &
       &                                              fill_array, dim_names, &
@@ -265,6 +271,9 @@ CONTAINS
 
     INTEGER :: i
 
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     IF (SIZE(stream_ids) /= n_var) &
       CALL finish(method_name, &
         &         "number of stream ids does not match number of variables")
@@ -277,7 +286,7 @@ CONTAINS
     END DO
 
     CALL check_dimensions(stream_ids(1)%file_id, variable_name, 1, &
-      &                   stream_ids(1)%read_info(location)%n_g, location)
+      &                   (/stream_ids(1)%read_info(location)%n_g/), location)
 
     SELECT CASE(stream_ids(1)%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -339,8 +348,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_INT_2D_streamid'
 
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     CALL check_dimensions(stream_id%file_id, variable_name, 1, &
-      &                   stream_id%read_info(location)%n_g, location)
+      &                   (/stream_id%read_info(location)%n_g/), location)
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -389,6 +401,9 @@ CONTAINS
 
     INTEGER :: i
 
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     IF (SIZE(stream_ids) /= n_var) &
       CALL finish(method_name, "number of stream ids does not match number of variables")
 
@@ -400,7 +415,7 @@ CONTAINS
     END DO
 
     CALL check_dimensions(stream_ids(1)%file_id, variable_name, 1, &
-      &                   stream_ids(1)%read_info(location)%n_g, location)
+      &                   (/stream_ids(1)%read_info(location)%n_g/), location)
 
     SELECT CASE(stream_ids(1)%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -462,8 +477,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_streamid'
 
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     CALL check_dimensions(stream_id%file_id, variable_name, 1, &
-      &                   stream_id%read_info(location)%n_g, location)
+      &                   (/stream_id%read_info(location)%n_g/), location)
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -507,10 +525,21 @@ CONTAINS
     define_fill_target   :: fill_array(:,:,:)
     define_return_pointer        :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_2D_time_streamid'
+
+    INTEGER :: var_dimlen(2)
+
+    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array, 3)
+    END IF
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
 
     CALL check_dimensions(stream_id%file_id, variable_name, 2, &
-      &                   stream_id%read_info(location)%n_g, location, &
-      &                   (/"time"/))
+      &                   var_dimlen, location, (/"time"/))
 
     CALL read_dist_REAL_2D_extdim_streamid(&
       & stream_id=stream_id, location=location, variable_name=variable_name, &
@@ -544,13 +573,22 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_extdim_streamid'
 
+    INTEGER :: var_dimlen(2)
+
+    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array, 3)
+    END IF
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     IF (PRESENT(extdim_name)) THEN
-      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
-        &                   stream_id%read_info(location)%n_g, location, &
-        &                   (/extdim_name/))
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location, (/extdim_name/))
     ELSE
-      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
-        &                   stream_id%read_info(location)%n_g, location)
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -604,13 +642,20 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_streamid'
 
+    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array, 2)
+    END IF
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     IF (PRESENT(levelsDimName)) THEN
-      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
-        &                   stream_id%read_info(location)%n_g, location, &
-        &                   (/levelsDimName/))
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location, (/levelsDimName/))
     ELSE
-      CALL check_dimensions(stream_id%file_id, variable_name, 2, &
-        &                   stream_id%read_info(location)%n_g, location)
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -661,14 +706,26 @@ CONTAINS
     define_return_pointer        :: return_pointer(:,:,:,:)
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_3D_time_streamid'
+
+    INTEGER :: var_dimlen(3)
+
+    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array, 2)
+      var_dimlen(3) = SIZE(fill_array, 4)
+    END IF
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
 
     IF (PRESENT(levelsDimName)) THEN
-      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
-        &                   stream_id%read_info(location)%n_g, location, &
-        &                   (/levelsDimName, "time"/))
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
+        &                   location, (/levelsDimName, "time"/))
     ELSE
-      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
-        &                   stream_id%read_info(location)%n_g, location)
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
+        &                   location)
     END IF
 
     CALL read_dist_REAL_3D_extdim_streamid( &
@@ -710,13 +767,21 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_extdim_streamid'
 
+    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array, 2)
+      var_dimlen(3) = SIZE(fill_array, 4)
+    END IF
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
     IF (PRESENT(levelsDimName) .AND. PRESENT(extdim_name)) THEN
-      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
-        &                   stream_id%read_info(location)%n_g, location, &
-        &                   (/levelsDimName, extdim_name/))
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
+        &                   location, (/levelsDimName, extdim_name/))
     ELSE
-      CALL check_dimensions(stream_id%file_id, variable_name, 3, &
-        &                   stream_id%read_info(location)%n_g, location)
+      CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
+        &                   location)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -861,12 +926,12 @@ CONTAINS
 
   END SUBROUTINE closeFile_bcast
 
-  SUBROUTINE check_dimensions(file_id, variable_name, ref_var_ndims, n_g, &
-                              location, extdim_name)
+  SUBROUTINE check_dimensions(file_id, variable_name, ref_var_ndims, &
+                              ref_var_dimlen, location, extdim_name)
 
     INTEGER, INTENT(IN) :: file_id
     CHARACTER(LEN=*), INTENT(IN)  :: variable_name
-    INTEGER, INTENT(IN) :: ref_var_ndims, n_g
+    INTEGER, INTENT(IN) :: ref_var_ndims, ref_var_dimlen(ref_var_ndims)
     INTEGER, INTENT(IN) :: location
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name(2:ref_var_ndims)
 
@@ -884,7 +949,6 @@ CONTAINS
     CALL nf(nf_inq_varndims(file_id, varid, var_ndims), method_name)
     CALL nf(nf_inq_vardimid(file_id, varid, var_dimids), method_name)
     DO i = 1, var_ndims
-
       CALL nf(nf_inq_dimlen (file_id, var_dimids(i), var_dimlen(i)), method_name)
       CALL nf(nf_inq_dimname(file_id, var_dimids(i), var_dim_name(i)), method_name)
     END DO
@@ -894,35 +958,39 @@ CONTAINS
       CALL finish(method_name, "Dimensions mismatch")
     ENDIF
 
-    ! check if the input has the right shape/size
-    IF ( var_dimlen(1) /= n_g) THEN
-      WRITE(0,*) variable_name, ": var_ndims = ", var_ndims, " var_dimlen=", &
-        &        var_dimlen, " n_g=", n_g
-      CALL finish(method_name, "Dimensions mismatch")
-    ENDIF
+    DO i = 1, var_ndims
+      IF ((ref_var_dimlen(i) /= -1) .AND. &
+        & (ref_var_dimlen(i) /= var_dimlen(i))) THEN
+        WRITE(0,*) variable_name, ": ref_var_dimlen(:) = ", &
+          &        ref_var_dimlen(:), "; var_dimlen(:) = ", var_dimlen(:)
+        CALL finish(method_name, "Dimensions mismatch")
+      END IF
+    END DO
 
     ! check if the dim have reasonable names
 
     SELECT CASE(location)
       CASE (onCells)
-        IF ((TRIM(var_dim_name(1)) == 'cell') .EQV. &
-          & (TRIM(var_dim_name(1)) == 'ncells')) THEN
+        IF (.NOT. ((TRIM(var_dim_name(1)) == 'cell') .OR. &
+          &        (TRIM(var_dim_name(1)) == 'ncells'))) THEN
           write(0,*) var_dim_name(1)
           WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
             &                   " /= std_cells_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
       CASE (onVertices)
-        IF ((TRIM(var_dim_name(1)) == 'vertex') .EQV. &
-          & (TRIM(var_dim_name(1)) == 'nverts')) THEN
+        IF (.NOT. ((TRIM(var_dim_name(1)) == 'vertex') .OR. &
+          &        (TRIM(var_dim_name(1)) == 'nverts') .OR. &
+          &        (TRIM(var_dim_name(1)) == 'ncells_3'))) THEN
           write(0,*) var_dim_name(1)
           WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
             &                   " /= std_verts_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
       CASE (onEdges)
-        IF ((TRIM(var_dim_name(1)) == 'edge') .EQV. &
-          & (TRIM(var_dim_name(1)) == 'nedges')) THEN
+        IF (.NOT. ((TRIM(var_dim_name(1)) == 'edge') .OR. &
+          &        (TRIM(var_dim_name(1)) == 'nedges') .OR. &
+          &        (TRIM(var_dim_name(1)) == 'ncells_2'))) THEN
           write(0,*) var_dim_name(1)
           WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
             &                   " /= std_edge_dim_name"
