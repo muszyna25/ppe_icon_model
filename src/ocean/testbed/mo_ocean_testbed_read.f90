@@ -29,7 +29,6 @@ MODULE mo_ocean_testbed_read
   USE mo_grid_config,         ONLY: dynamics_grid_filename
   USE mo_test_netcdf_read,    ONLY: netcdf_write_oncells_3D_time
   USE mo_read_interface
-  USE mo_read_netcdf_broadcast
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE

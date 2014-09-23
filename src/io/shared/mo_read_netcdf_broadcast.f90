@@ -45,6 +45,7 @@ MODULE mo_read_netcdf_broadcast
   PUBLIC :: read_netcdf_data
   PUBLIC :: read_netcdf_data_single
   PUBLIC :: nf
+  PUBLIC :: netcdf_open_input, netcdf_close
 
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
@@ -59,6 +60,35 @@ MODULE mo_read_netcdf_broadcast
   END INTERFACE read_netcdf_data_single
 
 CONTAINS
+  !-------------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION netcdf_open_input(filename)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+
+    INTEGER :: file_id
+
+    
+    IF( my_process_is_stdio()  ) THEN
+      CALL nf(nf_open(TRIM(ADJUSTL(filename)), NF_NOWRITE, file_id), &
+        &     TRIM(ADJUSTL(filename)))
+    ELSE
+      file_id = -1 ! set it to an invalid value
+    ENDIF
+
+    netcdf_open_input = file_id
+    
+  END FUNCTION netcdf_open_input
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE netcdf_close(file_id)
+    INTEGER, INTENT(IN) :: file_id
+
+    IF( my_process_is_stdio() ) THEN
+        CALL nf(nf_close(file_id), "mo_read_netcdf_broadcast:netcdf_close")
+    ENDIF
+
+  END SUBROUTINE netcdf_close
 
   !-------------------------------------------------------------------------
   !>
@@ -73,7 +103,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
 
-    INTEGER, INTENT(IN) :: file_id          !< id of netcdf file
+    INTEGER, INTENT(IN) :: file_id       !< id of netcdf file
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global

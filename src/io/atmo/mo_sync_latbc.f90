@@ -49,7 +49,8 @@ MODULE mo_sync_latbc
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
   USE mo_read_netcdf_broadcast, ONLY: nf, read_netcdf_data_single,        &
-                                      read_netcdf_data
+                                      read_netcdf_data, netcdf_open_input, &
+                                      netcdf_close
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -296,7 +297,7 @@ MODULE mo_sync_latbc
 
     ! local variables
     INTEGER                             :: mpi_comm, dimid, no_cells, &
-                                           latbc_fileid, no_levels
+                                           latbc_ncid, latbc_fileid, no_levels
     LOGICAL                             :: l_exist
     REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
     INTEGER                             :: tlev
@@ -313,10 +314,11 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    IF (my_process_is_stdio()) THEN
-      latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
+    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
-      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+    latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+
+    IF (my_process_is_stdio()) THEN
       WRITE(message_text,'(a,a)') 'reading from ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -328,19 +330,19 @@ MODULE mo_sync_latbc
       !
       ! open file
       !
-      CALL nf(nf_open(TRIM(ADJUSTL(latbc_full_filename)), NF_NOWRITE, latbc_fileid), routine)
+      CALL nf(nf_open(TRIM(ADJUSTL(latbc_full_filename)), NF_NOWRITE, latbc_ncid), routine)
 
       !
       ! get number of cells
       !
-      CALL nf(nf_inq_dimid(latbc_fileid, 'ncells', dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_fileid, dimid, no_cells), routine)
+      CALL nf(nf_inq_dimid(latbc_ncid, 'ncells', dimid), routine)
+      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_cells), routine)
 
       !
       ! get number of vertical levels
       !
-      CALL nf(nf_inq_dimid(latbc_fileid, 'height', dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_fileid, dimid, no_levels), routine)
+      CALL nf(nf_inq_dimid(latbc_ncid, 'height', dimid), routine)
+      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
 
       !
       ! check the number of cells and vertical levels
@@ -357,7 +359,8 @@ MODULE mo_sync_latbc
       ENDIF
 
     END IF ! my_process_is_stdio()
-      
+
+    latbc_fileid = netcdf_open_input(latbc_full_filename)
     !
     ! read prognostic 3d fields
     !
@@ -434,8 +437,9 @@ MODULE mo_sync_latbc
     IF (my_process_is_stdio()) THEN
       WRITE(message_text,'(a,a)') 'closing file ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
-      CALL nf(nf_close(latbc_fileid), routine)
+      CALL nf(nf_close(latbc_ncid), routine)
     END IF
+    CALL netcdf_close(latbc_fileid)
 
   END SUBROUTINE read_latbc_icon_data
   !-------------------------------------------------------------------------
@@ -461,7 +465,8 @@ MODULE mo_sync_latbc
 
     ! local variables
     INTEGER                             :: mpi_comm, dimid, no_cells, &
-                                            latbc_fileid, no_levels, varid
+                                           latbc_ncid, latbc_fileid, &
+                                           no_levels, varid
     LOGICAL                             :: l_exist, lconvert_omega2w
     INTEGER                             :: jc, jk, jb, i_endidx
 
@@ -478,10 +483,11 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    IF (my_process_is_stdio()) THEN
-      latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
+    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
-      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+    latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+
+    IF (my_process_is_stdio()) THEN
       WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -493,19 +499,19 @@ MODULE mo_sync_latbc
       !
       ! open file
       !
-      CALL nf(nf_open(TRIM(ADJUSTL(latbc_full_filename)), NF_NOWRITE, latbc_fileid), routine)
+      CALL nf(nf_open(TRIM(ADJUSTL(latbc_full_filename)), NF_NOWRITE, latbc_ncid), routine)
 
       !
       ! get number of cells
       !
-      CALL nf(nf_inq_dimid(latbc_fileid, 'ncells', dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_fileid, dimid, no_cells), routine)
+      CALL nf(nf_inq_dimid(latbc_ncid, 'ncells', dimid), routine)
+      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_cells), routine)
 
       !
       ! get number of vertical levels
       !
-      CALL nf(nf_inq_dimid(latbc_fileid, 'lev', dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_fileid, dimid, no_levels), routine)
+      CALL nf(nf_inq_dimid(latbc_ncid, 'lev', dimid), routine)
+      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
 
       !
       ! check the number of cells and vertical levels
@@ -524,18 +530,18 @@ MODULE mo_sync_latbc
       !
       ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
       !
-      IF (nf_inq_varid(latbc_fileid, 'PS', varid) == nf_noerr) THEN
+      IF (nf_inq_varid(latbc_ncid, 'PS', varid) == nf_noerr) THEN
         psvar = 'PS'
-      ELSE IF (nf_inq_varid(latbc_fileid, 'LNPS', varid) == nf_noerr) THEN
+      ELSE IF (nf_inq_varid(latbc_ncid, 'LNPS', varid) == nf_noerr) THEN
         psvar = 'LNPS'
       ENDIF
 
       !
       ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
       !
-      IF (nf_inq_varid(latbc_fileid, 'GEOSP', varid) == nf_noerr) THEN
+      IF (nf_inq_varid(latbc_ncid, 'GEOSP', varid) == nf_noerr) THEN
         geop_ml_var = 'GEOSP'
-      ELSE IF (nf_inq_varid(latbc_fileid, 'GEOP_ML', varid) == nf_noerr) THEN
+      ELSE IF (nf_inq_varid(latbc_ncid, 'GEOP_ML', varid) == nf_noerr) THEN
         geop_ml_var = 'GEOP_ML'
       ELSE
         CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
@@ -544,7 +550,7 @@ MODULE mo_sync_latbc
       !
       ! Check if rain water (QR) is provided as input
       !
-      IF (nf_inq_varid(latbc_fileid, 'QR', varid) == nf_noerr) THEN
+      IF (nf_inq_varid(latbc_ncid, 'QR', varid) == nf_noerr) THEN
         lread_qr = .true.
       ELSE
         lread_qr = .false.
@@ -554,7 +560,7 @@ MODULE mo_sync_latbc
       !
       ! Check if snow water (QS) is provided as input
       !
-      IF (nf_inq_varid(latbc_fileid, 'QS', varid) == nf_noerr) THEN
+      IF (nf_inq_varid(latbc_ncid, 'QS', varid) == nf_noerr) THEN
         lread_qs = .true.
       ELSE
         lread_qs = .false.
@@ -564,7 +570,7 @@ MODULE mo_sync_latbc
       !
       ! Check if surface pressure (VN) is provided as input
       !
-      IF (nf_inq_varid(latbc_fileid, 'VN', varid) == nf_noerr) THEN
+      IF (nf_inq_varid(latbc_ncid, 'VN', varid) == nf_noerr) THEN
         lread_vn = .TRUE.
       ELSE
         lread_vn = .FALSE.
@@ -577,7 +583,8 @@ MODULE mo_sync_latbc
     CALL p_bcast(lread_qr, p_io, mpi_comm)
     CALL p_bcast(lread_vn, p_io, mpi_comm)
 
-    
+    latbc_fileid = netcdf_open_input(latbc_full_filename)
+
     !
     ! read IFS data
     !
@@ -695,8 +702,9 @@ MODULE mo_sync_latbc
     IF (my_process_is_stdio()) THEN
       WRITE(message_text,'(a,a)') 'closing file ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
-      CALL nf(nf_close(latbc_fileid), routine)
+      CALL nf(nf_close(latbc_ncid), routine)
     END IF
+    CALL netcdf_close(latbc_fileid)
 
     !
     ! perform vertical interpolation of horizonally interpolated analysis data

@@ -79,7 +79,8 @@ MODULE mo_ext_data_state
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf, netcdf_open_input, &
+    &                                 netcdf_close
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,                         &
@@ -1808,7 +1809,7 @@ CONTAINS
 
     INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
     INTEGER :: jk
-    INTEGER :: ncid, varid, vlist_id, ret
+    INTEGER :: ncid, file_id, varid, vlist_id, ret
 
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk   !> blocks
@@ -1946,12 +1947,12 @@ CONTAINS
 
       DO jg = 1,n_dom
 
-        IF(my_process_is_stdio()) CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
+        file_id = netcdf_open_input(p_patch(jg)%grid_filename)
 
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (file_id, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm%lsm_ctr_c)
 
@@ -1964,7 +1965,7 @@ CONTAINS
         SELECT CASE (iequations)
         CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
           ! Read topography
-          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+          CALL read_netcdf_data (file_id, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
             &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                    ext_data(jg)%atm%elevation_c)
           ! Mask out ocean
@@ -1972,7 +1973,7 @@ CONTAINS
             &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
         CASE (inh_atmosphere) ! iequations
           ! Read topography
-          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+          CALL read_netcdf_data (file_id, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
             &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                    ext_data(jg)%atm%topography_c)
           ! Mask out ocean
@@ -1980,7 +1981,7 @@ CONTAINS
             &                                        ext_data(jg)%atm%lsm_ctr_c(:,:)   > 0     )
         END SELECT ! iequations
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+        CALL netcdf_close(file_id)
 
         ! LW surface emissivity
         !
@@ -2384,14 +2385,16 @@ CONTAINS
 
       DO jg = 1,n_dom
 
+        WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
+
         IF(my_process_is_stdio()) THEN
           ! open file
           !
-          WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid), routine)
           WRITE(0,*)'read ozone levels'
           CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid), routine)
           CALL nf(nf_get_var_double(ncid, varid, zdummy_o3lev(:)), routine)
+          CALL nf(nf_close(ncid), routine)
           !
         ENDIF ! pe
 
@@ -2417,7 +2420,9 @@ CONTAINS
             &                                           ext_data(jg)%atm_td%phoz(i+1)
         ENDDO
 
-        CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
+        file_id = netcdf_open_input(ozone_file)
+
+        CALL read_netcdf_data (file_id, TRIM(o3name), & ! &
           &                    p_patch(jg)%n_patch_cells_g,  &
           &                    p_patch(jg)%n_patch_cells,    &
           &                    p_patch(jg)%cells%decomp_info%glb_index,  & 
@@ -2438,7 +2443,7 @@ CONTAINS
           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
 
         ! close file
-        IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+        CALL netcdf_close(file_id)
 
       ENDDO ! ndom
     END IF ! irad_o3
@@ -2459,12 +2464,13 @@ CONTAINS
 
         DO im=1,12
 
+         sst_td_file= generate_td_filename(sst_td_filename,                &
+           &                             model_base_dir,                   &
+           &                             TRIM(p_patch(jg)%grid_filename),  &
+           &                             im,clim=.TRUE.                   )
+
          IF(my_process_is_stdio()) THEN
 
-          sst_td_file= generate_td_filename(sst_td_filename,                &
-            &                             model_base_dir,                   &
-            &                             TRIM(p_patch(jg)%grid_filename),  &
-            &                             im,clim=.TRUE.                   )
           CALL message  (routine, TRIM(sst_td_file))
 
           INQUIRE (FILE=sst_td_file, EXIST=l_exist)
@@ -2472,21 +2478,23 @@ CONTAINS
             CALL finish(routine,'td sst external data file is not found.')
           ENDIF
 
-          CALL nf(nf_open(TRIM(sst_td_file), NF_NOWRITE, ncid), routine)
+         ENDIF
 
-         ENDIF    
-         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+         file_id = netcdf_open_input(sst_td_file)
+
+         CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,im)) 
 
-         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+         CALL netcdf_close(file_id)
+
+         ci_td_file= generate_td_filename(ci_td_filename,                  &
+           &                             model_base_dir,                   &
+           &                             TRIM(p_patch(jg)%grid_filename),  &
+           &                             im,clim=.TRUE.                   )
 
          IF(my_process_is_stdio()) THEN
 
-          ci_td_file= generate_td_filename(ci_td_filename,                  &
-            &                             model_base_dir,                   &
-            &                             TRIM(p_patch(jg)%grid_filename),  &
-            &                             im,clim=.TRUE.                   )
           CALL message  (routine, TRIM(ci_td_file))
 
           INQUIRE (FILE=ci_td_file, EXIST=l_exist)
@@ -2494,14 +2502,15 @@ CONTAINS
             CALL finish(routine,'td ci external data file is not found.')
           ENDIF
 
-          CALL nf(nf_open(TRIM(ci_td_file), NF_NOWRITE, ncid), routine)
+         ENDIF
 
-         ENDIF    
-         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
+         file_id = netcdf_open_input(ci_td_file)
+
+         CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
 
-         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+         CALL netcdf_close(file_id)
 
         END DO 
  

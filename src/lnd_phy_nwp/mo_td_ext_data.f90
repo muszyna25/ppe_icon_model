@@ -34,7 +34,8 @@ MODULE mo_td_ext_data
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, nf, netcdf_open_input, &
+    &                                 netcdf_close
   USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rlcell_int
@@ -50,16 +51,10 @@ MODULE mo_td_ext_data
 
   IMPLICIT NONE
 
-  ! required for reading external data
-  INCLUDE 'netcdf.inc'
-
   PRIVATE
-
-
 
   PUBLIC  :: set_actual_td_ext_data
   PUBLIC  :: read_td_ext_data_file
-
 
 CONTAINS
 
@@ -250,7 +245,7 @@ CONTAINS
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(LEN=filename_max) :: extpar_file 
-    INTEGER                     :: ncid, jg, mpi_comm
+    INTEGER                     :: file_id, jg, mpi_comm
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = 'mo_td_ext_data:read_td_ext_data_file:'
 
@@ -275,78 +270,62 @@ CONTAINS
         WRITE( message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, jg, TRIM(p_patch(jg)%grid_filename)
         CALL message  (routine, TRIM(message_text))
         !! READ SST files
+        extpar_file = generate_td_filename(sst_td_filename,                &
+          &                             model_base_dir,                    &
+          &                             TRIM(p_patch(jg)%grid_filename),   &
+          &                             m1,y1                   )
 
-        IF(my_process_is_stdio()) THEN
-
-          extpar_file = generate_td_filename(sst_td_filename,                &
-            &                             model_base_dir,                    &
-            &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             m1,y1                   )
-
-          CALL message  (routine, TRIM(extpar_file))
-          CALL nf( nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine )
-
-        ENDIF
+        CALL message  (routine, TRIM(extpar_file))
+        file_id = netcdf_open_input(extpar_file)
       
         !
-        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,1))
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+        CALL netcdf_close(file_id)
 
-        IF(my_process_is_stdio()) THEN
+        extpar_file = generate_td_filename(sst_td_filename,                &
+          &                             model_base_dir,                    &
+          &                             TRIM(p_patch(jg)%grid_filename),   &
+          &                             m2, y2                   )
+        CALL message  (routine, TRIM(extpar_file))
+        file_id = netcdf_open_input(extpar_file)
 
-          extpar_file = generate_td_filename(sst_td_filename,                &
-            &                             model_base_dir,                    &
-            &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             m2, y2                   )
-          CALL message  (routine, TRIM(extpar_file))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
-
-        ENDIF
-        CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,2))
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-
+        CALL netcdf_close(file_id)
 
         !! READ CI files
 
-        IF(my_process_is_stdio()) THEN
+        extpar_file = generate_td_filename(ci_td_filename,                &
+          &                             model_base_dir,                    &
+          &                             TRIM(p_patch(jg)%grid_filename),   &
+          &                             m1,y1                   )
+        CALL message  (routine, TRIM(extpar_file))
+        file_id = netcdf_open_input(extpar_file)
 
-          extpar_file = generate_td_filename(ci_td_filename,                &
-            &                             model_base_dir,                    &
-            &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             m1,y1                   )
-          CALL message  (routine, TRIM(extpar_file))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
-
-        ENDIF
-      
         !
-        CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,1))
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
-        IF(my_process_is_stdio()) THEN
+        CALL netcdf_close(file_id)
 
-          extpar_file = generate_td_filename(ci_td_filename,                &
-            &                             model_base_dir,                    &
-            &                             TRIM(p_patch(jg)%grid_filename),   &
-            &                             m2,y2                   )
-          CALL message  (routine, TRIM(extpar_file))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
+        extpar_file = generate_td_filename(ci_td_filename,                &
+          &                             model_base_dir,                    &
+          &                             TRIM(p_patch(jg)%grid_filename),   &
+          &                             m2,y2                   )
+        CALL message  (routine, TRIM(extpar_file))
+        file_id = netcdf_open_input(extpar_file)
 
-        ENDIF
-        CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
+        CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,2))
 
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+        CALL netcdf_close(file_id)
       ENDDO  ! jg
 
   END SUBROUTINE read_td_ext_data_file

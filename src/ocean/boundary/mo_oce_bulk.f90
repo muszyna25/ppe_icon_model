@@ -39,7 +39,7 @@ USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
-USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data
+USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, netcdf_open_input, netcdf_close
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
@@ -1791,7 +1791,7 @@ CONTAINS
 
     LOGICAL :: l_exist
     INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jtime, jt !, jc, jb
-    INTEGER :: ncid, dimid,mpi_comm
+    INTEGER :: ncid, file_id, dimid,mpi_comm
     INTEGER :: i_start(2),i_count(2), jcells
 
     REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,forcing_timescale)  ! set length is forcing_timescale, 3rd dimension
@@ -1814,11 +1814,12 @@ CONTAINS
       i_lev       = p_patch%level
       i_cell_type = p_patch%cell_type
 
+      WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+
+      !ncep_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
+
       IF(my_process_is_stdio()) THEN
         !
-        WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
-
-        !ncep_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
         CALL message( TRIM(routine),'Ocean NCEP forcing flux file is: '//TRIM(ncep_file) )
         INQUIRE (FILE=ncep_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -1851,6 +1852,10 @@ CONTAINS
         ! check - s.b.
 
       ENDIF
+
+      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+      file_id = netcdf_open_input(ncep_file)
+
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test
       ELSE
@@ -1876,7 +1881,7 @@ CONTAINS
       ! zonal wind stress
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
       ! &  forcing_timescale, nproma, p_patch%nblks_c
-      !CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
+      !CALL read_netcdf_data (file_id, 'stress_x', p_patch%n_patch_cells_g,      &
       !  &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
       !  &                    forcing_timescale, z_flx2(:,:,:))
       !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
@@ -1903,7 +1908,7 @@ CONTAINS
         CALL message( TRIM(routine), TRIM(message_text) )
       END IF
 
-      CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
+      CALL read_netcdf_data (file_id, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
 
@@ -1913,7 +1918,7 @@ CONTAINS
       END DO
 
       ! meridional wind stress
-      CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &
+      CALL read_netcdf_data (file_id, 'stress_y', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1921,7 +1926,7 @@ CONTAINS
       END DO
 
       ! SST
-      CALL read_netcdf_data (ncid, 'SST', p_patch%n_patch_cells_g,           &
+      CALL read_netcdf_data (file_id, 'SST', p_patch%n_patch_cells_g,           &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1937,7 +1942,7 @@ CONTAINS
  !    ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
       ! 2m-temperature
-      CALL read_netcdf_data (ncid, 'temp_2m', p_patch%n_patch_cells_g,       &
+      CALL read_netcdf_data (file_id, 'temp_2m', p_patch%n_patch_cells_g,       &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1945,7 +1950,7 @@ CONTAINS
       END DO
 
       ! 2m dewpoint temperature
-      CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch%n_patch_cells_g,   &
+      CALL read_netcdf_data (file_id, 'dpt_temp_2m', p_patch%n_patch_cells_g,   &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1953,7 +1958,7 @@ CONTAINS
       END DO
 
       ! Scalar wind
-      CALL read_netcdf_data (ncid, 'scalar_wind', p_patch%n_patch_cells_g,   &
+      CALL read_netcdf_data (file_id, 'scalar_wind', p_patch%n_patch_cells_g,   &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1961,7 +1966,7 @@ CONTAINS
       END DO
 
       ! cloud cover
-      CALL read_netcdf_data (ncid, 'cloud', p_patch%n_patch_cells_g,         &
+      CALL read_netcdf_data (file_id, 'cloud', p_patch%n_patch_cells_g,         &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1969,7 +1974,7 @@ CONTAINS
       END DO
 
       ! sea level pressure
-      CALL read_netcdf_data (ncid, 'pressure', p_patch%n_patch_cells_g,      &
+      CALL read_netcdf_data (file_id, 'pressure', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1977,7 +1982,7 @@ CONTAINS
       END DO
 
       ! total solar radiation
-      CALL read_netcdf_data (ncid, 'tot_solar', p_patch%n_patch_cells_g,     &
+      CALL read_netcdf_data (file_id, 'tot_solar', p_patch%n_patch_cells_g,     &
         &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
@@ -1985,7 +1990,7 @@ CONTAINS
       END DO
 
       ! precipitation
-  !   CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
+  !   CALL read_netcdf_data (file_id, 'precip', p_patch%n_patch_cells_g,        &
   !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
@@ -1993,13 +1998,13 @@ CONTAINS
   !   END DO
 
       ! evaporation or downward surface LW flux
-  !   CALL read_netcdf_data (ncid, 'evap', p_patch%n_patch_cells_g,          &
+  !   CALL read_netcdf_data (file_id, 'evap', p_patch%n_patch_cells_g,          &
   !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
-  !   CALL read_netcdf_data (ncid, 'dlwrf', p_patch%n_patch_cells_g,         &
+  !   CALL read_netcdf_data (file_id, 'dlwrf', p_patch%n_patch_cells_g,         &
   !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
@@ -2007,7 +2012,7 @@ CONTAINS
   !   END DO
 
       ! runoff
-  !   CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
+  !   CALL read_netcdf_data (file_id, 'runoff', p_patch%n_patch_cells_g,        &
   !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
@@ -2018,7 +2023,7 @@ CONTAINS
       !
       ! close file
       !
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+      CALL netcdf_close(file_id)
 
     !ENDDO
 

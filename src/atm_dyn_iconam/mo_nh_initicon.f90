@@ -52,7 +52,8 @@ MODULE mo_nh_initicon
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, read_netcdf_data_single, nf
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, read_netcdf_data_single, nf, &
+    &                                 netcdf_open_input, netcdf_close
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
@@ -1651,7 +1652,7 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: ncid, file_id, dimid, varid, mpi_comm
     INTEGER :: ist
 
     CHARACTER(LEN=10) :: psvar 
@@ -1676,16 +1677,17 @@ MODULE mo_nh_initicon
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
+      !
+      ! generate file name
+      !
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+        &                                   nroot, jlev, jg)
+
 
       ! Read in data from IFS2ICON
       !
       IF(p_pe == p_io ) THEN 
 
-        !
-        ! generate file name
-        !
-        ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
-          &                                   nroot, jlev, jg)
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
@@ -1778,6 +1780,11 @@ MODULE mo_nh_initicon
 
       ENDIF ! pe_io
 
+      !
+      ! open file
+      !
+      file_id = netcdf_open_input(ifs2icon_file(jg))
+
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test 
       ELSE
@@ -1788,7 +1795,6 @@ MODULE mo_nh_initicon
       CALL p_bcast(lread_qs,  p_io, mpi_comm)
       CALL p_bcast(lread_qr,  p_io, mpi_comm)
       CALL p_bcast(lread_vn,  p_io, mpi_comm)
-
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
@@ -1809,7 +1815,7 @@ MODULE mo_nh_initicon
 
       ! start reading atmospheric fields
       !
-      CALL read_netcdf_data_single (ncid, 'T', p_patch(jg)%n_patch_cells_g,           &
+      CALL read_netcdf_data_single (file_id, 'T', p_patch(jg)%n_patch_cells_g,           &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%temp)
 
@@ -1819,45 +1825,45 @@ MODULE mo_nh_initicon
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'allocation of atm_in%vn failed')
         ENDIF
-        CALL read_netcdf_data_single (ncid, 'VN', p_patch(jg)%n_patch_edges_g,          &
+        CALL read_netcdf_data_single (file_id, 'VN', p_patch(jg)%n_patch_edges_g,          &
           &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%decomp_info%glb_index, &
           &                     nlev_in,initicon(jg)%atm_in%vn)
       ELSE
-        CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,           &
+        CALL read_netcdf_data_single (file_id, 'U', p_patch(jg)%n_patch_cells_g,           &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     nlev_in,initicon(jg)%atm_in%u)
 
-        CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,           &
+        CALL read_netcdf_data_single (file_id, 'V', p_patch(jg)%n_patch_cells_g,           &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     nlev_in,initicon(jg)%atm_in%v)
       ENDIF
 
 
       IF (init_mode == MODE_COSMODE) THEN
-        CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
+        CALL read_netcdf_data_single (file_id, 'W', p_patch(jg)%n_patch_cells_g,           &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     nlev_in+1,initicon(jg)%atm_in%w_ifc)
       ELSE
         ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
-        CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
+        CALL read_netcdf_data_single (file_id, 'W', p_patch(jg)%n_patch_cells_g,           &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     nlev_in,initicon(jg)%atm_in%omega)
       ENDIF
 
-      CALL read_netcdf_data_single (ncid, 'QV', p_patch(jg)%n_patch_cells_g,          &
+      CALL read_netcdf_data_single (file_id, 'QV', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qv)
 
-      CALL read_netcdf_data_single (ncid, 'QC', p_patch(jg)%n_patch_cells_g,          &
+      CALL read_netcdf_data_single (file_id, 'QC', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qc)
 
-      CALL read_netcdf_data_single (ncid, 'QI', p_patch(jg)%n_patch_cells_g,          &
+      CALL read_netcdf_data_single (file_id, 'QI', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qi)
 
       IF (lread_qr) THEN
-        CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,          &
+        CALL read_netcdf_data_single (file_id, 'QR', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qr)
       ELSE
@@ -1865,18 +1871,18 @@ MODULE mo_nh_initicon
       ENDIF
 
       IF (lread_qs) THEN
-        CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,          &
+        CALL read_netcdf_data_single (file_id, 'QS', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%qs)
       ELSE
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
-      CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
+      CALL read_netcdf_data (file_id, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%atm_in%psfc)
 
-      CALL read_netcdf_data (ncid, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
+      CALL read_netcdf_data (file_id, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%atm_in%phi_sfc)
 
@@ -1921,11 +1927,11 @@ MODULE mo_nh_initicon
 
       ELSE ! in case of COSMO-DE initial data
 
-        CALL read_netcdf_data_single (ncid, 'HHL', p_patch(jg)%n_patch_cells_g,       &
+        CALL read_netcdf_data_single (file_id, 'HHL', p_patch(jg)%n_patch_cells_g,       &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in+1,initicon(jg)%atm_in%z3d_ifc)
 
-        CALL read_netcdf_data_single (ncid, 'P', p_patch(jg)%n_patch_cells_g,       &
+        CALL read_netcdf_data_single (file_id, 'P', p_patch(jg)%n_patch_cells_g,       &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     nlev_in,initicon(jg)%atm_in%pres)
 
@@ -1957,6 +1963,7 @@ MODULE mo_nh_initicon
       ! close file
       !
       IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
+      CALL netcdf_close(file_id)
 
     ENDDO ! loop over model domains
 
@@ -1986,7 +1993,7 @@ MODULE mo_nh_initicon
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: ncid, file_id, dimid, varid, mpi_comm
 
     CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
 
@@ -2008,15 +2015,15 @@ MODULE mo_nh_initicon
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
+      !
+      ! generate file name
+      !
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+        &                                   nroot, jlev, jg)
 
       ! Read in data from IFS2ICON
       !
       IF(p_pe == p_io ) THEN 
-        !
-        ! generate file name
-        !
-        ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
-          &                                   nroot, jlev, jg)
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
@@ -2094,7 +2101,10 @@ MODULE mo_nh_initicon
 
       ENDIF  ! p_io
 
-
+      !
+      ! open file
+      !
+      file_id = netcdf_open_input(ifs2icon_file(jg))
 
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test 
@@ -2112,78 +2122,78 @@ MODULE mo_nh_initicon
 
       ! start reading surface fields
       !
-      CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
+      CALL read_netcdf_data (file_id, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%phi)
 
-      CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
+      CALL read_netcdf_data (file_id, 'SKT', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%tskin)
       IF ( l_sst_in) THEN
-       CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,                &
+       CALL read_netcdf_data (file_id, 'SST', p_patch(jg)%n_patch_cells_g,                &
          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
          &                     initicon(jg)%sfc_in%sst)
       ELSE 
        initicon(jg)%sfc_in%sst(:,:)=0.0_wp
       END IF
 
-      CALL read_netcdf_data (ncid, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
+      CALL read_netcdf_data (file_id, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%tsnow)
 
-      CALL read_netcdf_data (ncid,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,    &
+      CALL read_netcdf_data (file_id,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,    &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%snowalb)
  
-      CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
+      CALL read_netcdf_data (file_id, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%snowweq)
 
-      CALL read_netcdf_data (ncid,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,            &
+      CALL read_netcdf_data (file_id,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,            &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%snowdens)
 
-      CALL read_netcdf_data (ncid, 'W_I', p_patch(jg)%n_patch_cells_g,                &
+      CALL read_netcdf_data (file_id, 'W_I', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%skinres)
 
-      CALL read_netcdf_data (ncid, 'LSM', p_patch(jg)%n_patch_cells_g,                &
+      CALL read_netcdf_data (file_id, 'LSM', p_patch(jg)%n_patch_cells_g,                &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%ls_mask)
 
-      CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g,                 &
+      CALL read_netcdf_data (file_id, 'CI', p_patch(jg)%n_patch_cells_g,                 &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%seaice)
 
-      CALL read_netcdf_data (ncid, 'STL1', p_patch(jg)%n_patch_cells_g,               &
+      CALL read_netcdf_data (file_id, 'STL1', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%tsoil(:,:,1))
 
-      CALL read_netcdf_data (ncid, 'STL2', p_patch(jg)%n_patch_cells_g,               &
+      CALL read_netcdf_data (file_id, 'STL2', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%tsoil(:,:,2))
 
-      CALL read_netcdf_data (ncid, 'STL3', p_patch(jg)%n_patch_cells_g,               &
+      CALL read_netcdf_data (file_id, 'STL3', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%tsoil(:,:,3))
 
-      CALL read_netcdf_data (ncid, 'STL4', p_patch(jg)%n_patch_cells_g,               &
+      CALL read_netcdf_data (file_id, 'STL4', p_patch(jg)%n_patch_cells_g,               &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%tsoil(:,:,4))
 
-      CALL read_netcdf_data (ncid, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
+      CALL read_netcdf_data (file_id, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%wsoil(:,:,1))
 
-      CALL read_netcdf_data (ncid, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
+      CALL read_netcdf_data (file_id, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%wsoil(:,:,2))
 
-      CALL read_netcdf_data (ncid, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
+      CALL read_netcdf_data (file_id, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%wsoil(:,:,3))
 
-      CALL read_netcdf_data (ncid, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
+      CALL read_netcdf_data (file_id, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                     initicon(jg)%sfc_in%wsoil(:,:,4))
 
@@ -2192,7 +2202,7 @@ MODULE mo_nh_initicon
       ! close file
       !
       IF(p_pe == p_io) CALL nf(nf_close(ncid), routine)
-
+      CALL netcdf_close(file_id)
 
 
       ! In addition, copy climatological deep-soil temperature to soil level nlev_soil

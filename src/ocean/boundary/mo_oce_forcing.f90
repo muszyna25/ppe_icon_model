@@ -63,7 +63,8 @@ MODULE mo_oce_forcing
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data
+  USE mo_read_netcdf_broadcast, ONLY: read_netcdf_data, netcdf_open_input, &
+    &                                 netcdf_close
 
   IMPLICIT NONE
   PRIVATE
@@ -466,7 +467,7 @@ CONTAINS
     LOGICAL :: l_exist
     INTEGER :: i_lev, no_cells, no_levels, jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: ncid, dimid
+    INTEGER :: ncid, file_id, dimid
 
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_surfRelax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -486,10 +487,10 @@ CONTAINS
 
       i_lev        = patch_2d%level
 
+      ! Relaxation variables are read from relax_init_file
+      WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
+
       IF (my_process_is_stdio()) THEN
-        !
-        ! Relaxation variables are read from relax_init_file
-        WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
 
         INQUIRE (FILE=relax_init_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -537,6 +538,8 @@ CONTAINS
           CALL finish(TRIM(routine),'Number of vertical levels is not equal 1 - ABORT')
         ENDIF
 
+        CALL nf(nf_close(ncid))
+
       ENDIF  !  stdio
 
 
@@ -546,12 +549,14 @@ CONTAINS
       !
       !-------------------------------------------------------
 
+      file_id = netcdf_open_input(relax_init_file)
+
       ! triangle center and edges
 
       ! read temperature
       !  - read one data set, annual mean only
       !  - "T": annual mean temperature
-      CALL read_netcdf_data (ncid, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
+      CALL read_netcdf_data (file_id, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
         & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
 
       IF (no_tracer>=1) THEN
@@ -563,13 +568,13 @@ CONTAINS
       ! read salinity
       !  - "S": annual mean salinity
       IF (no_tracer > 1) THEN
-        CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
+        CALL read_netcdf_data (file_id, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
           & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
         atmos_fluxes%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
       END IF
 
       ! close file
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+      CALL netcdf_close(file_id)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)

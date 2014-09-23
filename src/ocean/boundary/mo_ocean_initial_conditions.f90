@@ -53,7 +53,8 @@ MODULE mo_ocean_initial_conditions
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_read_netcdf_broadcast, ONLY: nf, read_netcdf_data
+  USE mo_read_netcdf_broadcast, ONLY: nf, read_netcdf_data, netcdf_open_input, &
+    &                                 netcdf_close
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
@@ -165,7 +166,7 @@ CONTAINS
     
     LOGICAL :: l_exist
     INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
-    INTEGER :: ncid, dimid
+    INTEGER :: ncid, file_id, dimid
     !INTEGER :: i_startblk_c, i_endblk_c, start_cell_index, end_cell_index, rl_start, rl_end_c
     INTEGER :: start_cell_index, end_cell_index
     
@@ -179,13 +180,14 @@ CONTAINS
     
     all_cells => patch_2d%cells%ALL
     
+    !
+    ! Prognostic variables are read from prog_init_file
+    i_lev = patch_2d%level
+    WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+    !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
+    !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
+
     IF(my_process_is_stdio()) THEN
-      !
-      ! Prognostic variables are read from prog_init_file
-      i_lev = patch_2d%level
-      WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
-      !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
-      !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
       
       INQUIRE (FILE=prog_init_file, EXIST=l_exist)
       IF (.NOT.l_exist) THEN
@@ -224,9 +226,14 @@ CONTAINS
           & 'Number of vertical levels and &
           & levels in ocean prognostic input file do not match - ABORT')
       ENDIF
+
+      
+      CALL nf(nf_close(ncid), method_name)
       
     ENDIF
 
+    file_id = netcdf_open_input(prog_init_file)
+    
     !-------------------------------------------------------
     !
     ! Read ocean init data at cells
@@ -238,7 +245,7 @@ CONTAINS
     !  - 2011-11-01, >r7005: read one data set, annual mean only
     !  - "T": annual mean temperature
     ! ram: the input has to be POTENTIAL TEMPERATURE!
-    CALL read_netcdf_data (ncid, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
+    CALL read_netcdf_data (file_id, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
       & patch_2d%cells%decomp_info%glb_index, n_zlev, z_prog)
     
     IF (no_tracer>=1) THEN
@@ -250,13 +257,13 @@ CONTAINS
     ! read salinity
     !  - "S": annual mean salinity
     IF (no_tracer > 1) THEN
-      CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
+      CALL read_netcdf_data (file_id, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
         & patch_2d%cells%decomp_info%glb_index, n_zlev, z_prog)
       ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
     
     ! close file
-    IF(my_process_is_stdio()) CALL nf(nf_close(ncid), method_name)
+    CALL netcdf_close(file_id)
     !---------------------------------------------------
     
     DO jk=1, n_zlev
