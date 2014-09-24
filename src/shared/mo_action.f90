@@ -370,6 +370,8 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-09-12)
   !!
   SUBROUTINE reset_kernel(act_obj, ivar)
+    ! usually, we have "t_reset_obj" as PASS type for this deferred
+    ! subroutine, however, the PGI 12.3 expects the base class type...
 #if defined (__PGI) 
     CLASS (t_action_obj) :: act_obj
 #else
