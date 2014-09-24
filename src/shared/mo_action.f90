@@ -370,7 +370,11 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-09-12)
   !!
   SUBROUTINE reset_kernel(act_obj, ivar)
-    CLASS (t_reset_obj) :: act_obj
+#if defined (__PGI) 
+    CLASS (t_action_obj) :: act_obj
+#else
+    CLASS (t_reset_obj)  :: act_obj
+#endif
     INTEGER, INTENT(IN) :: ivar    ! element number 
 
     ! re-set field to its pre-defined reset-value
