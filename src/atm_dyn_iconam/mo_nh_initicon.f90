@@ -1953,6 +1953,7 @@ MODULE mo_nh_initicon
 
     INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: geop_sfc_var_ndims     ! dimension of geop_sfc_var
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
@@ -2029,6 +2030,8 @@ MODULE mo_nh_initicon
           ! use model level geopotential instead
           geop_sfc_var = geop_ml_var
         ENDIF
+        ! inquire dimension of geop_sfc_var which can be either 2 or 3
+        CALL nf(nf_inq_varndims(ncid,varid,geop_sfc_var_ndims), routine)
 
         ! Check, if the snow albedo ALB_SNOW is available. 
         ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW 
@@ -2077,13 +2080,24 @@ MODULE mo_nh_initicon
 
       CALL p_bcast(alb_snow_var, p_io, mpi_comm)
 
+      CALL p_bcast(geop_sfc_var_ndims, p_io, mpi_comm)
+
       ! allocate data structure
       CALL allocate_ifs_sfc(jg, p_patch(jg)%nblks_c, initicon)
 
+
       ! start reading surface fields
       !
-      CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_sfc_var), &
-        &                     fill_array=initicon(jg)%sfc_in%phi)
+      IF (geop_sfc_var_ndims == 3) THEN
+        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+          &                     fill_array=initicon(jg)%sfc_in%phi)
+      ELSE IF (geop_sfc_var_ndims == 2) THEN
+        CALL read_2d_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+          &                     fill_array=initicon(jg)%sfc_in%phi)
+      ELSE
+        CALL finish(TRIM(routine),"geop_sfc_var: Dimension mismatch")
+      ENDIF
+
       CALL read_2d_1time(stream_id, onCells, 'SKT', &
         &                fill_array=initicon(jg)%sfc_in%tskin)
 
