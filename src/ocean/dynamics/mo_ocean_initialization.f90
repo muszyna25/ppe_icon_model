@@ -1896,7 +1896,7 @@ CONTAINS
     oce_config%tracer_units(2)     = 'psu'
     oce_config%tracer_codes(2)     = 201
     oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
-  END SUBROUTINE
+  END SUBROUTINE init_oce_config
 !<Optimize:inUse>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep

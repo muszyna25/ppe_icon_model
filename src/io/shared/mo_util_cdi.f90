@@ -18,13 +18,14 @@
 !!
 MODULE mo_util_cdi
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, sp, dp, i8
   USE mo_exception,          ONLY: finish
-  USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_communication,      ONLY: idx_no, blk_no, t_scatterPattern
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_parallel_config,    ONLY: p_test_run
+  USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_comm_work, p_comm_work_test,  &
-    &                              p_io, p_pe
+    &                              p_io, my_process_is_stdio, p_mpi_wtime
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
@@ -43,22 +44,191 @@ MODULE mo_util_cdi
 
   PRIVATE
 
-  PUBLIC  :: read_cdi_2d, read_cdi_3d
-  PUBLIC  :: get_cdi_varID
-  PUBLIC  :: test_cdi_varID
-  PUBLIC  :: set_additional_GRIB2_keys
-  PUBLIC  :: set_timedependent_GRIB2_keys
+  PUBLIC :: read_cdi_2d, read_cdi_3d
+  PUBLIC :: get_cdi_varID
+  PUBLIC :: test_cdi_varID
+  PUBLIC :: set_additional_GRIB2_keys
+  PUBLIC :: set_timedependent_GRIB2_keys
+  PUBLIC :: t_inputParameters, makeInputParameters, deleteInputParameters
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
   INTERFACE read_cdi_2d
-    MODULE PROCEDURE read_cdi_2d_real_id
     MODULE PROCEDURE read_cdi_2d_real
     MODULE PROCEDURE read_cdi_2d_int
     MODULE PROCEDURE read_cdi_2d_time
   END INTERFACE
 
+  INTERFACE read_cdi_3d
+    MODULE PROCEDURE read_cdi_3d_real
+  END INTERFACE
+
+  ! This is a small type that serves two functions:
+  ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
+  ! 2. It allows some information about the file to be distributed to the non-I/O PEs in a single broadcast that would otherwise
+  !    require a broadcast in every call.
+  !
+  ! Create this by calling makeInputParameters(), destroy with deleteInputParameters().
+  TYPE :: t_inputParameters
+    !PRIVATE! Don't use outside of this file!
+    INTEGER :: streamId     !< CDI stream ID
+    INTEGER :: glb_arr_len  !< global array length
+    TYPE (t_dictionary) :: dict     !< a dictionary that is used to translate variable names
+    CLASS(t_scatterPattern), POINTER :: distribution    !< a t_scatterPattern to distribute the data
+    LOGICAL :: have_dict    !< whether `dict` is used or not
+    CHARACTER(LEN=MAX_CHAR_LENGTH), ALLOCATABLE :: variableNames(:) !< the names of the variables
+    INTEGER, ALLOCATABLE :: variableDatatype(:) !< the datatypes that are used by the file to store the variables
+    INTEGER, ALLOCATABLE :: variableTileIdx(:)  !< tile indices of the variables
+    REAL(dp) :: readDuration    !< statistic on how long we took to read the data
+    INTEGER(i8) :: readBytes    !< statistic on how much data we read from the file
+
+  CONTAINS
+    PROCEDURE :: findVarId => inputParametersFindVarId  !< determine the ID of an named variable
+    PROCEDURE :: findVarDatatype => inputParametersFindVarDatatype  !< determine the type with which this variable is stored on disk
+    PROCEDURE :: lookupDatatype => inputParametersLookupDatatype    !< determine datatype based on the variable ID
+
+    GENERIC :: getDatatype => findVarDatatype, lookupDatatype
+  END TYPE
+
 CONTAINS
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> Creates a t_inputParameters object for the given arguments.
+  !---------------------------------------------------------------------------------------------------------------------------------
+  FUNCTION makeInputParameters(streamId, glb_arr_len, distribution, opt_dict) RESULT(me)
+    IMPLICIT NONE
+    TYPE(t_inputParameters) :: me
+    INTEGER, INTENT(IN) :: streamID, glb_arr_len
+    CLASS(t_scatterPattern), POINTER, INTENT(IN) :: distribution
+    TYPE(t_dictionary), INTENT(IN), OPTIONAL :: opt_dict
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':makeInputParameters'
+    INTEGER :: vlistId, variableCount, i, ierrstat
+
+    !first forward the arguments to the object we are building
+    me%streamId = streamId
+    me%glb_arr_len = glb_arr_len
+    IF(present(opt_dict)) THEN
+        me%dict = opt_dict
+        me%have_dict = .true.
+    ELSE
+        me%have_dict = .false.
+    END IF
+    me%distribution => distribution
+    CALL me%distribution%resetStatistics()
+
+    !now the interesting part: introspect the file and broadcast the variable info needed to avoid broadcasting it later.
+    IF(my_process_is_stdio()) THEN
+        vlistId = streamInqVlist(streamId)
+        variableCount = vlistNvars(vlistId)
+    END IF
+    CALL p_bcast(variableCount, p_io, distribution%communicator)
+    ALLOCATE(me%variableNames(variableCount), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ALLOCATE(me%variableDatatype(variableCount), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ALLOCATE(me%variableTileIdx(variableCount), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    IF(my_process_is_stdio()) THEN
+        do i = 1, variableCount
+            CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
+            me%variableDatatype(i) = vlistInqVarDatatype(vlistId, i-1)
+            me%variableTileIdx(i) = vlistInqVarIntKey(vlistId, i-1, "localInformationNumber")
+        END do
+    END IF
+    CALL p_bcast(me%variableNames, p_io, distribution%communicator)
+    CALL p_bcast(me%variableDatatype, p_io, distribution%communicator)
+    CALL p_bcast(me%variableTileIdx, p_io, distribution%communicator)
+    me%readDuration = 0.0_dp
+    me%readBytes = 0_i8
+  END FUNCTION makeInputParameters
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> Determine the datatype of the given variable in the input file
+  !---------------------------------------------------------------------------------------------------------------------------------
+  INTEGER FUNCTION inputParametersFindVarId(me, name, opt_tileidx) RESULT(result)
+    IMPLICIT NONE
+    CLASS(t_inputParameters), INTENT(IN) :: me
+    CHARACTER(len=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN), OPTIONAL :: opt_tileidx
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
+    CHARACTER(len=DICT_MAX_STRLEN) :: mapped_name
+    INTEGER :: i
+
+    mapped_name = trim(name)
+    IF(me%have_dict) THEN
+      ! Search name mapping for name in NetCDF/GRIB2 file
+      mapped_name = trim(dict_get(me%dict, name, DEFAULT=name))
+    END IF
+    mapped_name = tolower(trim(mapped_name))
+
+    result = -1
+    do i = 1, size(me%variableNames)
+        IF(present(opt_tileidx)) THEN
+            !can't be the variable we are looking for if it's got the wrong tile number
+            IF(me%variableTileIdx(i) /= opt_tileidx) cycle
+        END IF
+        IF(trim(tolower(trim(me%variableNames(i)))) == trim(mapped_name)) THEN
+            result = i-1
+            exit
+        END IF
+    END do
+
+    !sanity check
+    IF(result < 0) THEN
+        IF(present(opt_tileidx)) THEN
+            WRITE (0,*) "tileidx = ", opt_tileidx
+        END IF
+        CALL finish(routine, "Variable "//trim(name)//" not found!")
+    END IF
+  END FUNCTION inputParametersFindVarId
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> Lookup the datatype of a variable given its cdi varId
+  !---------------------------------------------------------------------------------------------------------------------------------
+  INTEGER FUNCTION inputParametersLookupDatatype(me, varId) RESULT(result)
+    IMPLICIT NONE
+    CLASS(t_inputParameters), INTENT(IN) :: me
+    INTEGER, INTENT(IN) :: varId
+
+    result = me%variableDatatype(varId+1)
+  END FUNCTION inputParametersLookupDatatype
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> Find a variable and determine its datatype
+  !---------------------------------------------------------------------------------------------------------------------------------
+  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, opt_tileidx) RESULT(result)
+    IMPLICIT NONE
+    CLASS(t_inputParameters), INTENT(IN) :: me
+    CHARACTER(len=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN), OPTIONAL :: opt_tileidx
+
+    result = me%lookupDatatype(me%findVarId(name, opt_tileidx))
+  END FUNCTION inputParametersFindVarDatatype
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> Destroys a t_inputParameters object
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE deleteInputParameters(me)
+    IMPLICIT NONE
+    CLASS(t_inputParameters), INTENT(INOUT) :: me
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
+
+    IF(msg_level >= 5 .and. my_process_is_stdio()) then
+        WRITE(0,*) routine, ": Total read statistics for stream ID ", me%streamId
+        WRITE(0,'(8X,A,I19,A)')   "amount:    ", me%readBytes, " bytes"
+        WRITE(0,'(8X,A,F19.3,A)') "duration:  ", me%readDuration, " seconds"
+        WRITE(0,'(8X,A,F19.3,A)') "bandwidth: ", REAL(me%readBytes, dp)/(1048576.0_dp*me%readDuration), " MiB/s"
+    END IF
+    CALL me%distribution%printStatistics()
+
+    DEALLOCATE(me%variableNames)
+    DEALLOCATE(me%variableDatatype)
+    DEALLOCATE(me%variableTileIdx)
+  END SUBROUTINE deleteInputParameters
 
   !-------------------------------------------------------------------------
   !> @return CDI variable ID if CDI stream contains a variable of the
@@ -75,14 +245,13 @@ CONTAINS
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
-    LOGICAL                         :: l_found
     INTEGER                         :: nvars, varID, vlistID, tileidx
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
 
     mapped_name = TRIM(name)
     IF (PRESENT(opt_dict)) THEN
       ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = TRIM(dict_get(opt_dict, name, default=name))
+      mapped_name = TRIM(dict_get(opt_dict, name, DEFAULT=name))
     END IF
     mapped_name = tolower(TRIM(mapped_name))
 
@@ -93,7 +262,6 @@ CONTAINS
     ! total number of available fields:
     nvars = vlistNvars(vlistID)
     ! loop over vlist, find the corresponding varID
-    l_found = .FALSE.
     LOOP : DO varID=0,(nvars-1)
 
       CALL vlistInqVarName(vlistID, varID, zname)
@@ -106,7 +274,6 @@ CONTAINS
         END IF
 
         result_varID = varID
-        l_found = .TRUE.
         EXIT LOOP
       END IF
     END DO LOOP
@@ -138,6 +305,167 @@ CONTAINS
   END FUNCTION get_cdi_varID
 
 
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for streamReadVarSlice() that measures the time
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE timeStreamReadVarSlice(parameters, varID, level, buffer, nmiss)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER, INTENT(IN) :: varID, level
+    REAL(dp), INTENT(INOUT) :: buffer(:)
+    INTEGER, INTENT(OUT) :: nmiss
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':timeStreamReadVarSlice'
+    REAL(dp) :: startTime, duration
+    INTEGER(i8) :: bytes
+    REAL(dp), SAVE :: totalTime
+    INTEGER(i8), SAVE :: totalBytes
+
+    startTime = p_mpi_wtime()
+    CALL streamReadVarSlice(parameters%streamID, varID, level, buffer, nmiss)
+    IF(msg_level >= 5 .and. my_process_is_stdio()) THEN
+        duration = p_mpi_wtime() - startTime
+        bytes = INT(SIZE(buffer, 1), i8) * 8_i8
+        parameters%readDuration = parameters%readDuration + duration
+        parameters%readBytes = parameters%readBytes + bytes
+        IF(msg_level >= 15) then
+            WRITE(0,*) routine, ": Read ", bytes, " bytes in ", duration, " seconds (", &
+                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
+        END IF
+    END IF
+  END SUBROUTINE timeStreamReadVarSlice
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for streamReadVarSliceF() that measures the time
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE timeStreamReadVarSliceF(parameters, varID, level, buffer, nmiss)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER, INTENT(IN) :: varID, level
+    REAL(sp), INTENT(INOUT) :: buffer(:)
+    INTEGER, INTENT(OUT) :: nmiss
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':timeStreamReadVarSliceF'
+    REAL(dp) :: startTime, duration
+    INTEGER(i8) :: bytes
+    REAL(dp), SAVE :: totalTime
+    INTEGER(i8), SAVE :: totalBytes
+
+    startTime = p_mpi_wtime()
+    CALL streamReadVarSliceF(parameters%streamID, varID, level, buffer, nmiss)
+    IF(msg_level >= 5 .and. my_process_is_stdio()) THEN
+        duration = p_mpi_wtime() - startTime
+        bytes = INT(SIZE(buffer, 1), i8) * 8_i8
+        parameters%readDuration = parameters%readDuration + duration
+        parameters%readBytes = parameters%readBytes + bytes
+        IF(msg_level >= 15) then
+            WRITE(0,*) routine, ": Read ", bytes, " bytes in ", duration, " seconds (", &
+                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
+        END IF
+    END IF
+  END SUBROUTINE timeStreamReadVarSliceF
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> read and distribute a 3D variable across the processes
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE read_cdi_3d_wp(parameters, varID, nlevs, levelDimension, var_out, lvalue_add)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER, INTENT(IN) :: varID, nlevs, levelDimension
+    REAL(wp), INTENT(INOUT) :: var_out(:,:,:) !< output field
+    LOGICAL, INTENT(IN) :: lvalue_add         !< If .TRUE., add values to given field
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_wp'
+    INTEGER :: jk, ierrstat, nmiss
+    REAL(wp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
+
+    ! allocate a buffer for one vertical level
+    IF(my_process_is_stdio()) THEN
+        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    END IF
+
+    ! initialize output field:
+    !XXX: It stands to reason whether we really need to do this. It's only effective iff there are points in var_out that are not
+    !     covered by blk_no/idx_no. But the unconditional version was definitely wrong as it entirely negated the effect of
+    !     lvalue_add.
+    IF(.not. lvalue_add) var_out(:,:,:) = 0._wp
+
+    !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
+    DO jk=1,nlevs
+      IF(my_process_is_stdio()) THEN
+        ! read record as 1D field
+        CALL timeStreamReadVarSlice(parameters, varID, jk-1, tmp_buf(:), nmiss)
+      END IF
+
+      SELECT CASE(levelDimension)
+          CASE(2)
+              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, jk, :), lvalue_add)
+          CASE(3)
+              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :, jk), lvalue_add)
+          CASE DEFAULT
+              CALL finish(routine, "Internal error!")
+      END SELECT
+    END DO ! jk=1,nlevs
+
+    ! clean up
+    IF(my_process_is_stdio()) THEN
+        DEALLOCATE(tmp_buf, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    END IF
+
+  END SUBROUTINE read_cdi_3d_wp
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> read and distribute a 3D variable across the processes
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE read_cdi_3d_sp(parameters, varID, nlevs, levelDimension, var_out, lvalue_add)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER, INTENT(IN) :: varID, nlevs, levelDimension
+    REAL(wp), INTENT(INOUT) :: var_out(:,:,:) !< output field
+    LOGICAL, INTENT(IN) :: lvalue_add         !< If .TRUE., add values to given field
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_sp'
+    INTEGER :: jk, ierrstat, nmiss
+    REAL(sp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
+
+    ! allocate a buffer for one vertical level
+    IF(my_process_is_stdio()) THEN
+        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    END IF
+
+    ! initialize output field:
+    !XXX: It stands to reason whether we really need to do this. It's only effective iff there are points in var_out that are not
+    !     covered by blk_no/idx_no. But the unconditional version was definitely wrong as it entirely negated the effect of
+    !     lvalue_add.
+    IF(.not. lvalue_add) var_out(:,:,:) = 0._wp
+
+    !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
+    DO jk=1,nlevs
+      IF(my_process_is_stdio()) THEN
+        ! read record as 1D field
+        CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
+      END IF
+
+      SELECT CASE(levelDimension)
+          CASE(2)
+              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, jk, :), lvalue_add)
+          CASE(3)
+              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :, jk), lvalue_add)
+          CASE DEFAULT
+              CALL finish(routine, "Internal error!")
+      END SELECT
+    END DO ! jk=1,nlevs
+
+    ! clean up
+    IF(my_process_is_stdio()) THEN
+        DEALLOCATE(tmp_buf, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    END IF
+
+  END SUBROUTINE read_cdi_3d_sp
+
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
   ! 
@@ -146,163 +474,101 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
-  SUBROUTINE read_cdi_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
-    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
-
-    INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
+  SUBROUTINE read_cdi_3d_real(parameters, varname, nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_lev_dim)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
-    INTEGER,             INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,             INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,             INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
     INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
-    ! local constants:
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_cdi_3d'
-    ! local variables:
-    INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
-      &                                mpi_comm, j, jl, jb, jk, ierrstat, &
-      &                                dimlen(3), nmiss
-    REAL(wp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
-    LOGICAL                         :: lvalue_add
-    INTEGER                         :: lev_dim
 
-    lev_dim = 2
-    CALL assign_if_present(lev_dim, opt_lev_dim)
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_real'
+    INTEGER :: vlistId, varId, zaxisId, gridId, levelDimension
+    LOGICAL :: lvalue_add
+
+    levelDimension = 2
+    CALL assign_if_present(levelDimension, opt_lev_dim)
 
     lvalue_add = .FALSE.
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
-    ! allocate a buffer for one vertical level
-    ALLOCATE(tmp_buf(glb_arr_len), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-    ! get var ID
-    IF(p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, opt_dict=opt_dict)
-      zaxisID   = vlistInqVarZaxis(vlistID, varID)
-      gridID    = vlistInqVarGrid(vlistID, varID)
-      dimlen(1) = gridInqSize(gridID)
-      dimlen(2) = zaxisInqSize(zaxisID)
-
-      ! Check variable dimensions:
-      IF ((dimlen(1) /= glb_arr_len) .OR.  &
-        & (dimlen(2) /= nlevs)) THEN
-        CALL finish(routine, "Incompatible dimensions!")
-      END IF
+    varId = parameters%findVarId(varname, opt_tileidx)
+    IF(my_process_is_stdio()) THEN
+        ! sanity check of the variable dimensions
+        vlistId = streamInqVlist(parameters%streamId)
+        zaxisId = vlistInqVarZaxis(vlistId, varId)
+        gridId = vlistInqVarGrid(vlistId, varId)
+        IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
+            & (zaxisInqSize(zaxisId) /= nlevs)) THEN
+            CALL finish(routine, "Incompatible dimensions!")
+        END IF
     END IF
 
-    ! initialize output field:
-    var_out(:,:,:) = 0._wp
+    SELECT CASE(parameters%lookupDatatype(varId))
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+            ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
+            CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
+        CASE DEFAULT
+            CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
+    END SELECT
 
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
+  END SUBROUTINE read_cdi_3d_real
 
-    ! I/O PE reads and broadcasts data
-   
-    DO jk=1,nlevs
-      IF(p_pe == p_io) THEN
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> read and distribute a 2D variable across the processes
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE read_cdi_2d_sp(parameters, varID, var_out)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER, INTENT(IN) :: varID
+    REAL(wp), INTENT(INOUT) :: var_out(:,:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_sp'
+    INTEGER :: nmiss, ierrstat
+    REAL(sp), ALLOCATABLE :: tmp_buf(:)
+
+    IF (my_process_is_stdio()) THEN
         ! read record as 1D field
-        CALL streamReadVarSlice(streamID, varID, jk-1, tmp_buf(:), nmiss)
-      END IF
-      
-      ! broadcast data: 
-      CALL p_bcast(tmp_buf, p_io, mpi_comm)
-      ! Set var_out from global data
-
-      SELECT CASE(lev_dim)
-      CASE(2) 
-        IF (lvalue_add) THEN
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
-          ENDDO
-        ELSE
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j)), wp)
-          ENDDO
-        END IF
-      CASE(3)
-        IF (lvalue_add) THEN
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jb,jk) = var_out(jl,jb,jk) + REAL(tmp_buf(glb_index(j)), wp)
-          ENDDO
-        ELSE
-          DO j = 1, loc_arr_len
-            jb = blk_no(j) ! Block index in distributed patch
-            jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jb,jk) = REAL(tmp_buf(glb_index(j)), wp)
-          ENDDO
-        END IF
-      CASE DEFAULT
-        CALL finish(routine, "Internal error!")
-      END SELECT
-    END DO ! jk=1,nlevs
-      
-    ! clean up
-    DEALLOCATE(tmp_buf, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-
-  END SUBROUTINE read_cdi_3d
-
-
-  !-------------------------------------------------------------------------
-  !> Read 2D dataset from file, implementation for REAL fields
-  !
-  !  @par Revision History
-  ! 
-  !  Initial revision by F. Prill, DWD (2013-02-19)
-  !
-  SUBROUTINE read_cdi_2d_real_id (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out)
-
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
-    INTEGER,          INTENT(IN)    :: varID          !< ID of CDI variable
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-    REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
-    ! local variables:
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_cdi_2d_real_id'
-    INTEGER       :: mpi_comm, j, jl, jb, nmiss
-    REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! I/O PE reads and broadcasts data
-
-    IF (p_pe == p_io) THEN
-      ! read record as 1D field
-      CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array(:), nmiss)
+        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        CALL timeStreamReadVarSliceF(parameters, varID, 0, tmp_buf(:), nmiss)
     END IF
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
-    var_out(:,:) = 0._wp
+    CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :), .false.)
 
-    ! Set var_out from global data
-    DO j = 1, loc_arr_len
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-      var_out(jl,jb) = z_dummy_array(glb_index(j))
-    ENDDO
-  END SUBROUTINE read_cdi_2d_real_id
+    IF (my_process_is_stdio()) THEN
+        DEALLOCATE(tmp_buf, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE read_cdi_2d_sp
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> read and distribute a 2D variable across the processes
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE read_cdi_2d_wp(parameters, varID, var_out)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER, INTENT(IN) :: varID
+    REAL(wp), INTENT(INOUT) :: var_out(:,:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_wp'
+    INTEGER :: nmiss, ierrstat
+    REAL(wp), ALLOCATABLE :: tmp_buf(:)
+
+    IF (my_process_is_stdio()) THEN
+        ! read record as 1D field
+        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        CALL timeStreamReadVarSlice(parameters, varID, 0, tmp_buf(:), nmiss)
+    END IF
+
+    CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :), .false.)
+
+    IF (my_process_is_stdio()) THEN
+        DEALLOCATE(tmp_buf, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE read_cdi_2d_wp
 
 
   !-------------------------------------------------------------------------
@@ -312,30 +578,30 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, &
-    &                          opt_tileidx, opt_dict)
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+  SUBROUTINE read_cdi_2d_real (parameters, varname, var_out, opt_tileidx)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict     !< optional: variable name dictionary
-    ! local variables:
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_real'
-    INTEGER       :: varID, vlistID, gridID
 
-    ! Get var ID
-    IF (p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, opt_dict=opt_dict)
-      gridID    = vlistInqVarGrid(vlistID, varID)
-      ! Check variable dimensions:
-      IF (gridInqSize(gridID) /= glb_arr_len) &
-        &  CALL finish(routine, "Incompatible dimensions!")
+    ! local variables:
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_real'
+    INTEGER       :: varId, vlistId, gridId
+
+    varId = parameters%findVarId(varname, opt_tileidx)
+    IF (my_process_is_stdio()) THEN
+        !sanity check on the variable dimensions
+        vlistId   = streamInqVlist(parameters%streamId)
+        gridId    = vlistInqVarGrid(vlistId, varId)
+        IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!")
     END IF
-    CALL read_cdi_2d_real_id (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out)
+    SELECT CASE(parameters%lookupDatatype(varId))
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+            ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
+            CALL read_cdi_2d_wp(parameters, varId, var_out)
+        CASE DEFAULT
+            CALL read_cdi_2d_sp(parameters, varId, var_out)
+    END SELECT
   END SUBROUTINE read_cdi_2d_real
 
 
@@ -346,19 +612,15 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d_int (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, &
-    &                         opt_tileidx, opt_dict)
 
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+  SUBROUTINE read_cdi_2d_int(parameters, varname, var_out, opt_tileidx)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     INTEGER,          INTENT(INOUT) :: var_out(:,:)   !< output field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict     !< optional: variable name dictionary
+
     ! local variables:
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_int'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_int'
     REAL(wp), ALLOCATABLE :: var_tmp(:,:)
     INTEGER               :: ierrstat
 
@@ -366,8 +628,7 @@ CONTAINS
     ALLOCATE(var_tmp(SIZE(var_out,1), SIZE(var_out,2)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! read the field as a REAL-valued field:
-    CALL read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_tmp, &
-      &                    opt_tileidx, opt_dict=opt_dict)
+    CALL read_cdi_2d_real (parameters, varname, var_tmp, opt_tileidx)
     ! perform number conversion
     var_out(:,:) = NINT(var_tmp)
     ! clean up
@@ -382,34 +643,29 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d_time (streamID, ntime, varname, glb_arr_len, loc_arr_len, glb_index, var_out, &
-    &                          opt_tileidx, opt_dict)
-
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+  SUBROUTINE read_cdi_2d_time (parameters, ntime, varname, var_out, opt_tileidx)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     INTEGER,          INTENT(IN)    :: ntime          !< time levels of file
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict     !< optional: variable name dictionary
+
     ! local variables:
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_time'
-    INTEGER :: jt, nrecs, vlistID, varID
+    INTEGER :: jt, nrecs, varId
 
     ! Get var ID
-    IF (p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, &
-        &                       opt_dict=opt_dict)
-    END IF
-
+    varId = parameters%findVarId(varname, opt_tileidx)
     DO jt = 1, ntime
-      IF (p_pe == p_io) THEN
-        nrecs = streamInqTimestep(streamID, (jt-1))
+      IF (my_process_is_stdio()) THEN
+        nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
-      CALL read_cdi_2d (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out(:,:,jt))
+      SELECT CASE(parameters%lookupDatatype(varId))
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+            ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
+            CALL read_cdi_2d_wp(parameters, varId, var_out(:,:,jt))
+        CASE DEFAULT
+            CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
+      END SELECT
     END DO
   END SUBROUTINE read_cdi_2d_time
 

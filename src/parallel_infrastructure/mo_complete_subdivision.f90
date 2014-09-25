@@ -25,7 +25,7 @@ MODULE mo_complete_subdivision
     &                              p_phys_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
     &                              get_valid_local_index, t_glb2loc_index_lookup
-  USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum
+  USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum, p_comm_work_test
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL
 #endif
@@ -35,7 +35,7 @@ MODULE mo_complete_subdivision
 
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
-    &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
+    &                              setup_comm_gather_pattern, t_comm_gather_pattern, t_scatterPattern, makeScatterPattern, &
     &                              ASSIGNMENT(=), delete_comm_gather_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
@@ -52,7 +52,6 @@ MODULE mo_complete_subdivision
   PUBLIC :: set_patch_communicators
   PUBLIC :: finalize_decomposition
   PUBLIC :: setup_phys_patches
-  PUBLIC :: set_comm_pat_gather
   PUBLIC :: complete_parallel_setup
 
 
@@ -197,6 +196,7 @@ CONTAINS
 
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(patch(jg))
+      CALL set_comm_pat_scatter(patch(jg))
 
       IF (jg > n_dom_start) THEN
 
@@ -209,6 +209,7 @@ CONTAINS
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
         CALL set_comm_pat_gather(p_patch_local_parent(jg))
+        CALL set_comm_pat_scatter(p_patch_local_parent(jg))
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
           &                   patch(jg)%parent_child_index)
@@ -498,6 +499,26 @@ CONTAINS
       p%edges%decomp_info%glb_index, p%comm_pat_gather_e)
 
   END SUBROUTINE set_comm_pat_gather
+
+  !-------------------------------------------------------------------------------------------------
+  !> Sets the gather communication patterns of a patch
+
+  SUBROUTINE set_comm_pat_scatter(p)
+    TYPE(t_patch), INTENT(INOUT):: p
+
+    INTEGER :: communicator
+
+    IF(p_test_run) THEN
+        communicator = p_comm_work_test
+    ELSE
+        communicator = p_comm_work
+    ENDIF
+
+    p%comm_pat_scatter_c => makeScatterPattern(p%n_patch_cells, p%cells%decomp_info%glb_index, communicator)
+    p%comm_pat_scatter_e => makeScatterPattern(p%n_patch_edges, p%edges%decomp_info%glb_index, communicator)
+!   p%comm_pat_scatter_v => makeScatterPattern(p%n_patch_verts, p%verts%decomp_info%glb_index, communicator)
+
+  END SUBROUTINE set_comm_pat_scatter
 
   !-------------------------------------------------------------------------------------------------
   !
@@ -1433,8 +1454,8 @@ CONTAINS
   !!
   SUBROUTINE remap_index(glb2loc_index, l_idx, l_blk)
 
-    TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
-    INTEGER, INTENT(inout) :: l_idx, l_blk
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index
+    INTEGER, INTENT(INOUT) :: l_idx, l_blk
 
     INTEGER :: j_l
 

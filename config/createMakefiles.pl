@@ -184,6 +184,18 @@ foreach my $dir ( @directories ) {
     @seen{values(%target_programs)} = ();
     
     my @sources = ();
+    if ( "$dir" eq "support" ) {
+        my ($cpu, $vendor, $os) = split /-/, $target;
+        if ( "$os" eq "superux") {
+            push (@sources, "rtc_sx.s");
+        }
+
+        #If we are linking against an external cdi lib, skip support/cdilib.c.
+        if ( "$ENV{CDIROOT}" ne "" ) {
+            @seen{"cdilib.c"} = ();
+        }
+    }
+
     foreach my $file (@source_files) {
 	next if $file eq "version.c";
 	push (@sources, $file) unless exists $seen{$file};
@@ -191,14 +203,6 @@ foreach my $dir ( @directories ) {
 
     my %unique = ();
     my @uniq_sources = grep { ! $unique{$_} ++ } @sources;    
-
-
-    if ( "$dir" eq "support" ) {
-	my ($cpu, $vendor, $os) = split /-/, $target;
-	if ( "$os" eq "superux") {
-	    push (@uniq_sources, "rtc_sx.s");
-	}
-    } 
 
     print MAKEFILE "SRCS =\t";
     &PrintWords(8, 0, \@uniq_sources);

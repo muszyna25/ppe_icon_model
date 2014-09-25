@@ -43,8 +43,8 @@ MODULE mo_parallel_config
   PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
        & ext_div_medial_redrad_cluster, ext_div_from_file
 
-  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output
-    
+  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
+
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
@@ -267,7 +267,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE set_nproma(new_nproma)
-    INTEGER, INTENT(in) :: new_nproma
+    INTEGER, INTENT(IN) :: new_nproma
 
     nproma = new_nproma
 
@@ -283,5 +283,52 @@ CONTAINS
   END FUNCTION get_nproma
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  ! The following three functions are for conversion of 1D to 2D indices and vice versa
+  !
+  ! Treatment of 0 (important for empty patches) and negative numbers:
+  !
+  ! Converting 1D => 2D:
+  !
+  ! 0 always is mapped to blk_no = 1, idx_no = 0
+  ! negative numbers: Convert usings ABS(j) and negate idx_no
+  !
+  ! Thus: blk_no >= 1 always!
+  !       idx_no > 0  for j > 0
+  !       idx_no = 0  for j = 0
+  !       idx_no < 0  for j < 0
+  !
+  ! This mimics mostly the behaviour of reshape_idx in mo_model_domimp_patches
+  ! with a difference for nproma=1 and j=0 (where reshape_idx returns blk_no=0, idx_no=1)
+  !
+  ! The consisten treatment of 0 in the above way is very important for empty patches
+  ! where start_index=1, end_index=0
+  !
+  ! Converting 2D => 1D:
+  ! Trying to invert the above and catching cases with blk_no < 1
+  !-------------------------------------------------------------------------
+  ELEMENTAL INTEGER FUNCTION blk_no(j)
+    INTEGER, INTENT(IN) :: j
+    blk_no = MAX((ABS(j)-1)/nproma + 1, 1) ! i.e. also 1 for j=0, nproma=1
+  END FUNCTION blk_no
+
+  ELEMENTAL INTEGER FUNCTION idx_no(j)
+    INTEGER, INTENT(IN) :: j
+    IF(j==0) THEN
+      idx_no = 0
+    ELSE
+      idx_no = SIGN(MOD(ABS(j)-1,nproma)+1, j)
+    ENDIF
+  END FUNCTION idx_no
+
+  ELEMENTAL INTEGER FUNCTION idx_1d(jl,jb)
+    INTEGER, INTENT(IN) :: jl, jb
+    IF(jb<=0) THEN
+      idx_1d = 0 ! This covers the special case nproma==1,jb=0,jl=1
+                 ! All other cases are invalid and get also a 0 returned
+    ELSE
+      idx_1d = SIGN((jb-1)*nproma + ABS(jl), jl)
+    ENDIF
+  END FUNCTION idx_1d
 
 END MODULE mo_parallel_config

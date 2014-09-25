@@ -441,6 +441,45 @@ else
 fi
 
 dnl ######################################################################
+dnl Checks for CDI.
+
+CDI_LIB=""
+CDI_INCLUDE=""
+
+AC_ARG_WITH([cdi],
+            [AC_HELP_STRING([--with-cdi=DIR],
+                            [Required I/O package])],
+                            [],
+                            [with_cdi= ])
+AS_CASE([$with_cdi],
+        [no],[CDIROOT= ],
+        [yes],[AC_CHECK_FILE($CDIROOT/include/cdi.inc,[],AC_MSG_ERROR([CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format.]))],
+        [*],[
+            CDIROOT=$with_cdi
+            AS_IF([test "x$CDIROOT" != x],
+                AC_CHECK_FILE($CDIROOT/include/cdi.inc,[],AC_MSG_ERROR([CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined]))
+            )
+        ])
+
+AS_IF(
+    [test "x$CDIROOT" != x], [
+        AS_IF(
+            [test -n "$CDIROOT"], [
+                AS_IF([test "x$CDILIBPATH" = x], [CDILIBPATH=$CDIROOT/lib])
+                AS_IF(
+                    [test -r "$CDILIBPATH/libcdi.a"], [CDI_LIB='-L$(CDILIBPATH) -lcdi'],
+                    [test -r "$CDILIBPATH/libcdi.so"], [CDI_LIB='-L$(CDILIBPATH) -lcdi'],
+                    [AC_MSG_ERROR([cannot read $CDILIBPATH/libcdi.a])]
+                )
+                AS_IF([test "x$gcc_lib" != x], [CDI_LIB="${CDI_LIB} ${gcc_lib}"])
+            ],
+            [AC_MSG_ERROR([The variable CDIROOT is not set in $host_frag. Set CDIROOT to the CDI root directory, or use the --with-cdi=DIR option format.])]
+        )
+    ]
+)
+export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
+
+dnl ######################################################################
 dnl Checks for SCT.
 
 SCT_LIB=""
@@ -775,6 +814,11 @@ AC_SUBST(NETCDFLIBPATH,$NETCDFLIBPATH)
 AC_SUBST(NETCDF_LIB,$NETCDF_LIB)
 AC_SUBST(NETCDF_INCLUDE,$NETCDF_INCLUDE)
 
+AC_SUBST(CDIROOT,$CDIROOT)
+AC_SUBST(CDILIBPATH,$CDILIBPATH)
+AC_SUBST(CDI_LIB,$CDI_LIB)
+AC_SUBST(CDI_INCLUDE,$CDI_INCLUDE)
+
 AC_SUBST(HDF5ROOT,$HDF5ROOT)
 AC_SUBST(HDF5_LIB,$HDF5_LIB)
 AC_SUBST(HDF5_INCLUDE,$HDF5_INCLUDE)
@@ -952,6 +996,11 @@ echo "    NETCDF : netcdf-${netcdf_version}"
 echo "             installation  ${NETCDFROOT}"
 fi  
 if test x$with_netcdf4 != xno ; then
+if test x$CDIROOT = x; then
+echo "    CDI    : none (use internal version)"
+else
+echo "    CDI    : ${CDIROOT}"
+fi
 if test x$HDF5ROOT = x; then
 echo "    HDF5   : none (error)"
 else
@@ -1030,6 +1079,7 @@ use_mpi_startrun="${mpi_startrun}"
 use_load_modules="$load_modules"
 use_load_profile="$load_profile"
 use_netcdflibpath="$NETCDFLIBPATH"
+use_cdilibpath="$CDILIBPATH"
 use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"

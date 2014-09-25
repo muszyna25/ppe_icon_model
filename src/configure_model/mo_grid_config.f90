@@ -21,7 +21,7 @@ MODULE mo_grid_config
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
   USE mo_parallel_config,    ONLY: division_method, division_file_name
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_mpi,                ONLY: my_process_is_stdio
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -152,7 +152,7 @@ CONTAINS
     
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
-      IF (p_pe == p_io) THEN
+      IF (my_process_is_stdio()) THEN
         INQUIRE (FILE=dynamics_grid_filename(jg), EXIST=file_exists)
         IF (.NOT. file_exists)   THEN
           WRITE (message_text,'(a,a)')  TRIM(dynamics_grid_filename(jg)), &
@@ -167,7 +167,7 @@ CONTAINS
     
     jg=1
     DO WHILE (radiation_grid_filename(jg) /= "")
-      IF (p_pe == p_io) THEN
+      IF (my_process_is_stdio()) THEN
         INQUIRE (FILE=radiation_grid_filename(jg), EXIST=file_exists)
         IF (.NOT. file_exists)   THEN
           WRITE (message_text,'(a,a)')  TRIM(radiation_grid_filename(jg)), &

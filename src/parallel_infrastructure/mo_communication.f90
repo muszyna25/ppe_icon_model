@@ -31,10 +31,12 @@ MODULE mo_communication
 !
 !
 !
+USE mo_impl_constants, ONLY: SUCCESS
+USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
+     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, p_pe, p_io, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
      & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
@@ -44,6 +46,7 @@ USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
 USE mo_run_config,      ONLY: msg_level
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,          ONLY: quicksort
+USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d
 
 
 IMPLICIT NONE
@@ -65,6 +68,8 @@ PUBLIC :: reorder_comm_gather_pattern
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
+
+PUBLIC :: t_scatterPattern, makeScatterPattern, deleteScatterPattern
 
 PUBLIC :: ASSIGNMENT(=)
 !
@@ -187,59 +192,12 @@ INTERFACE exchange_data_seq
 END INTERFACE
 
 
+CHARACTER(*), PARAMETER :: modname = "mo_communication"
+
 !-------------------------------------------------------------------------
 
 CONTAINS
 
-!-------------------------------------------------------------------------
-! The following functions are for conversion of 1D to 2D indices and vice versa
-!
-! Treatment of 0 (important for empty patches) and negative numbers:
-!
-! Converting 1D => 2D:
-!
-! 0 always is mapped to blk_no = 1, idx_no = 0
-! negative numbers: Convert usings ABS(j) and negate idx_no
-!
-! Thus: blk_no >= 1 always!
-!       idx_no > 0  for j > 0
-!       idx_no = 0  for j = 0
-!       idx_no < 0  for j < 0
-!
-! This mimics mostly the behaviour of reshape_idx in mo_model_domimp_patches
-! with a difference for nproma=1 and j=0 (where reshape_idx returns blk_no=0, idx_no=1)
-!
-! The consisten treatment of 0 in the above way is very important for empty patches
-! where start_index=1, end_index=0
-!
-! Converting 2D => 1D:
-! Trying to invert the above and catching cases with blk_no < 1
-!
-!-------------------------------------------------------------------------
-ELEMENTAL INTEGER FUNCTION blk_no(j)
-  INTEGER, INTENT(in) :: j
-  blk_no = MAX((ABS(j)-1)/nproma + 1, 1) ! i.e. also 1 for j=0, nproma=1
-END FUNCTION blk_no
-!-------------------------------------------------------------------------
-ELEMENTAL INTEGER FUNCTION idx_no(j)
-  INTEGER, INTENT(in) :: j
-  IF(j==0) THEN
-    idx_no = 0
-  ELSE
-    idx_no = SIGN(MOD(ABS(j)-1,nproma)+1, j)
-  ENDIF
-END FUNCTION idx_no
-!-------------------------------------------------------------------------
-ELEMENTAL INTEGER FUNCTION idx_1d(jl,jb)
-  INTEGER, INTENT(in) :: jl, jb
-  IF(jb<=0) THEN
-    idx_1d = 0 ! This covers the special case nproma==1,jb=0,jl=1
-               ! All other cases are invalid and get also a 0 returned
-  ELSE
-    idx_1d = SIGN((jb-1)*nproma + ABS(jl), jl)
-  ENDIF
-END FUNCTION idx_1d
-!-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
 !
@@ -3313,6 +3271,23 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
   IF (ALLOCATED(collector_buffer_r)) DEALLOCATE(collector_buffer_r)
   IF (ALLOCATED(collector_buffer_i)) DEALLOCATE(collector_buffer_i)
 END SUBROUTINE two_phase_gather
+
+    !-------------------------------------------------------------------------------------------------------------------------------
+    !> Factory method for t_scatterPattern. Destroy with deleteScatterPattern().
+    !-------------------------------------------------------------------------------------------------------------------------------
+    FUNCTION makeScatterPattern(loc_arr_len, glb_index, communicator)
+        USE mo_scatter_pattern_scatter
+        IMPLICIT NONE
+        CLASS(t_scatterPattern), POINTER :: makeScatterPattern
+        INTEGER, INTENT(IN) :: loc_arr_len, glb_index(:), communicator
+
+        CHARACTER(*), PARAMETER :: routine = modname//":makeScatterPattern"
+        INTEGER :: ierr
+
+        ALLOCATE(t_scatterPatternScatter::makeScatterPattern, stat = ierr)
+        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        CALL makeScatterPattern%construct(loc_arr_len, glb_index, communicator)
+    END FUNCTION makeScatterPattern
 
 END MODULE mo_communication
 

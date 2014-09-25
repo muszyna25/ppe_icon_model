@@ -80,7 +80,7 @@ CONTAINS
      INTEGER :: n_checkpoints
 
      n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
-   END FUNCTION
+   END FUNCTION n_checkpoints
   !----------------------------------------------------------------------------------
    
   !----------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ CONTAINS
      INTEGER :: n_diags
 
      n_diags  = MAX(1,NINT(dt_diag/dtime)) ! number of: diagnose of total integrals
-   END FUNCTION
+   END FUNCTION n_diags
   !----------------------------------------------------------------------------------
   !----------------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ CONTAINS
          l_checkpoint = .FALSE.
        END IF
      END IF
-   END FUNCTION
+   END FUNCTION is_checkpoint_time
   !----------------------------------------------------------------------------------
   
 

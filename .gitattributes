@@ -1624,6 +1624,9 @@ src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
 src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_scatter.f90 svneol=native#text/plain
+src/parallel_infrastructure/mo_scatter_pattern_base.f90 -text
+src/parallel_infrastructure/mo_scatter_pattern_scatter.f90 -text
+src/parallel_infrastructure/mo_scatter_pattern_scatterv.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
 src/sea_ice/dynamics_fem/comm.f90 -text
@@ -1664,6 +1667,7 @@ src/shared/mo_impl_constants_grf.f90 -text
 src/shared/mo_kind.f90 -text
 src/shared/mo_latitude_interpolation.f90 -text
 src/shared/mo_linked_list.f90 -text
+src/shared/mo_local_timer.f90 -text
 src/shared/mo_loopindices.f90 -text
 src/shared/mo_math_constants.f90 -text
 src/shared/mo_math_types.f90 -text

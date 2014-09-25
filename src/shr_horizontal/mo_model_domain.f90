@@ -83,7 +83,7 @@ MODULE mo_model_domain
   USE mo_kind
   USE mo_math_utilities, ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_impl_constants, ONLY: max_dom, max_phys_dom
-  USE mo_communication,  ONLY: t_comm_pattern, t_comm_gather_pattern
+  USE mo_communication,  ONLY: t_comm_pattern, t_comm_gather_pattern, t_scatterPattern
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
@@ -874,6 +874,14 @@ MODULE mo_model_domain
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_e
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_v
 
+    ! Scatter complete patch from proc 0
+    ! Useful only for regular patches (defined but unused on local parents)
+    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c
+    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v    ! Currently there is no need for this, so we avoid the overhead of
+                                                              ! creating it. Add creation to
+                                                              ! mo_complete_subdivision::set_comm_pat_scatter if you need this.
+
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.
     ! Please note that these communicate between
@@ -1026,6 +1034,14 @@ MODULE mo_model_domain
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_c
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_e
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_v
+
+    ! Scatter the physical patch from proc 0
+    ! Currently there is no need for this, so we avoid the overhead of creating it.
+    ! Add creation to mo_complete_subdivision::setup_phys_patches and mo_complete_subdivision::setup_phys_patches_cve if you need
+    ! this.
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v
 
   END TYPE t_phys_patch
 

@@ -200,6 +200,7 @@ MODULE mo_mpi
   PUBLIC :: global_mpi_barrier
   PUBLIC :: work_mpi_barrier
 
+  PUBLIC :: p_comm_size
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,         &
     &       p_irecv_packed, p_send_packed, p_recv_packed, &
@@ -210,7 +211,7 @@ MODULE mo_mpi
     &       p_unpack_int, p_unpack_bool, p_unpack_real,   &
     &       p_unpack_int_1d, p_unpack_real_1d,            &
     &       p_unpack_string, p_unpack_real_2d, p_test
-  PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
+  PUBLIC :: p_scatter, p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
   PUBLIC :: p_gatherv
@@ -339,9 +340,9 @@ MODULE mo_mpi
   INTEGER :: num_work_procs
   INTEGER :: process_mpi_io_size
   INTEGER :: process_mpi_restart_size
-  INTEGER :: num_restart_procs
+! INTEGER :: num_restart_procs    !This seems to be unused (it is always shadowed by a subroutine argument).
   INTEGER :: process_mpi_pref_size
-  INTEGER :: num_prefetch_proc 
+! INTEGER :: num_prefetch_proc    !This seems to be unused (it is always shadowed by a subroutine argument).
 
   ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
 
@@ -534,10 +535,12 @@ MODULE mo_mpi
 
   INTERFACE p_bcast
      MODULE PROCEDURE p_bcast_real
+     MODULE PROCEDURE p_bcast_real_single
      MODULE PROCEDURE p_bcast_int_i4
      MODULE PROCEDURE p_bcast_int_i8
      MODULE PROCEDURE p_bcast_bool
      MODULE PROCEDURE p_bcast_real_1d
+     MODULE PROCEDURE p_bcast_real_1d_single
      MODULE PROCEDURE p_bcast_int_1d
      MODULE PROCEDURE p_bcast_int_i8_1d
      MODULE PROCEDURE p_bcast_bool_1d
@@ -557,15 +560,23 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_char_1d
   END INTERFACE
 
+  INTERFACE p_scatter
+     MODULE PROCEDURE p_scatter_real_1d1d
+     MODULE PROCEDURE p_scatter_single_1d1d
+  END INTERFACE
+
   INTERFACE p_gather
      MODULE PROCEDURE p_gather_real_0d1d
      MODULE PROCEDURE p_gather_real_1d2d
      MODULE PROCEDURE p_gather_real_5d6d
-     MODULE PROCEDURE p_gather_int
+     MODULE PROCEDURE p_gather_int_0d1d
+     MODULE PROCEDURE p_gather_int_1d1d
   END INTERFACE
 
   INTERFACE p_scatterv
     MODULE PROCEDURE p_scatterv_real1D2D
+    MODULE PROCEDURE p_scatterv_real1D1D
+    MODULE PROCEDURE p_scatterv_single1D1D
   END INTERFACE
 
   INTERFACE p_gatherv
@@ -2148,6 +2159,26 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_set_communicator
+
+!=========================================================================
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Comm_size()
+  !---------------------------------------------------------------------------------------------------------------------------------
+  FUNCTION p_comm_size(communicator)
+    INTEGER :: p_comm_size
+    INTEGER, INTENT(IN) :: communicator
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'p_comm_size'
+    INTEGER :: ierr
+
+#ifndef NOMPI
+    CALL MPI_Comm_size(communicator, p_comm_size, ierr)
+    IF(ierr /= MPI_SUCCESS) CALL finish(routine, 'Error in MPI_COMM_SIZE operation!')
+#else
+    p_comm_size = 1
+#endif
+  END FUNCTION p_comm_size
 
 !=========================================================================
 
@@ -5221,6 +5252,49 @@ CONTAINS
 
   END SUBROUTINE p_bcast_real
 
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Bcast
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE p_bcast_real_single (t_buffer, p_source, comm)
+
+    REAL (sp), INTENT(inout) :: t_buffer
+    INTEGER,   INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       CALL MPI_BCAST (t_buffer, 1, p_real_sp, p_source, &
+            p_comm, p_error)
+    ENDIF
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' successful.'
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_bcast_real_single
+
   SUBROUTINE p_bcast_real_1d (t_buffer, p_source, comm)
 
     REAL (dp), INTENT(inout) :: t_buffer(:)
@@ -5260,6 +5334,49 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_bcast_real_1d
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Bcast
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE p_bcast_real_1d_single (t_buffer, p_source, comm)
+
+    REAL (sp), INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_sp, p_source, &
+            p_comm, p_error)
+    ENDIF
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' successful.'
+
+     IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_bcast_real_1d_single
 
   SUBROUTINE p_bcast_real_2d (t_buffer, p_source, comm)
 
@@ -7000,6 +7117,60 @@ CONTAINS
   END SUBROUTINE p_allreduce_max_int_1d
 
 
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Scatter
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE p_scatter_real_1d1d(sendbuf, recvbuf, p_src, comm)
+    REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:)
+    INTEGER,           INTENT(in) :: p_src
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_real_1d1d")
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_Scatter(sendbuf, SIZE(recvbuf), p_real_dp, &
+    &                recvbuf, SIZE(recvbuf), p_real_dp, &
+    &                p_src, p_comm, p_error)
+    IF(p_error /= MPI_SUCCESS) CALL finish(routine, 'Error in MPI_Scatter operation!')
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_scatter_real_1d1d
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Scatter
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE p_scatter_single_1d1d(sendbuf, recvbuf, p_src, comm)
+    REAL(sp),          INTENT(inout) :: sendbuf(:), recvbuf(:)
+    INTEGER,           INTENT(in) :: p_src
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_single_1d1d")
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_Scatter(sendbuf, SIZE(recvbuf), p_real_sp, &
+    &                recvbuf, SIZE(recvbuf), p_real_sp, &
+    &                p_src, p_comm, p_error)
+    IF(p_error /= MPI_SUCCESS) CALL finish(routine, 'Error in MPI_Scatter operation!')
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_scatter_single_1d1d
+
   SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
     REAL(dp),          INTENT(inout) :: sendbuf, recvbuf(:)
     INTEGER,           INTENT(in) :: p_dest
@@ -7075,13 +7246,16 @@ CONTAINS
    END SUBROUTINE p_gather_real_5d6d
 
 
-   SUBROUTINE p_gather_int (sendbuf, recvbuf, p_dest, comm)
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Gather()
+  !---------------------------------------------------------------------------------------------------------------------------------
+   SUBROUTINE p_gather_int_0d1d (sendbuf, recvbuf, p_dest, comm)
      INTEGER,           INTENT(inout) :: sendbuf, recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int")
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int_0d1d")
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -7095,9 +7269,37 @@ CONTAINS
        &             p_dest, p_comm, p_error)
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHER operation!')
 #else
-     recvbuf(:) = sendbuf
+     recvbuf = sendbuf
 #endif
-   END SUBROUTINE p_gather_int
+   END SUBROUTINE p_gather_int_0d1d
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Gather()
+  !---------------------------------------------------------------------------------------------------------------------------------
+   SUBROUTINE p_gather_int_1d1d (sendbuf, recvbuf, p_dest, comm)
+     INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
+     INTEGER,           INTENT(in) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int_1d1d")
+     INTEGER :: p_comm
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+
+     CALL MPI_GATHER(sendbuf, SIZE(sendbuf), MPI_INTEGER, &
+       &             recvbuf, SIZE(sendbuf), MPI_INTEGER, &
+       &             p_dest, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHER operation!')
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_gather_int_1d1d
 
 
    SUBROUTINE p_gatherv_int (sendbuf, sendcount, recvbuf, recvcounts, &
@@ -7265,6 +7467,8 @@ CONTAINS
      INTEGER :: p_comm, p_error
 
      p_comm = comm
+     ! FIXME: I may be wrong, but this looks like a bug to me:
+     !        This call *ignores* the communicator that is passed in and uses p_comm_work instead.
      CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &           ! sendbuf, sendcount, displs
        &               p_real_dp, recvbuf, recvcount, &           ! sendtype, recvbuf, recvcounts,
        &               p_real_dp, p_dest, p_comm_work, p_error)   ! recvtype, root, comm, error
@@ -7273,6 +7477,60 @@ CONTAINS
      recvbuf(:,:) = RESHAPE(sendbuf, (/ SIZE(recvbuf,1), SIZE(recvbuf,2) /))
 #endif
    END SUBROUTINE p_scatterv_real1D2D
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Scatterv()
+  !---------------------------------------------------------------------------------------------------------------------------------
+   SUBROUTINE p_scatterv_real1D1D (sendbuf, sendcounts, displs, recvbuf, recvcount, p_src, comm)
+        implicit none
+        REAL(wp), INTENT(IN) :: sendbuf(:)
+        INTEGER, INTENT(IN)  :: sendcounts(:)
+        REAL(wp), INTENT(INOUT) :: recvbuf(:)
+        INTEGER, INTENT(IN)  :: recvcount
+        INTEGER, INTENT(IN)  :: displs(:)
+        INTEGER, INTENT(IN)  :: p_src
+        INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+        CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_real1D1D")
+        INTEGER :: ierr
+
+        CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_real_dp, &
+        &                 recvbuf, recvcount, p_real_dp, &
+        &                 p_src, comm, ierr)
+        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
+#else
+        recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
+#endif
+   END SUBROUTINE p_scatterv_real1D1D
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Scatterv()
+  !---------------------------------------------------------------------------------------------------------------------------------
+   SUBROUTINE p_scatterv_single1D1D (sendbuf, sendcounts, displs, recvbuf, recvcount, p_src, comm)
+        implicit none
+        REAL(sp), INTENT(IN) :: sendbuf(:)
+        INTEGER, INTENT(IN)  :: sendcounts(:)
+        REAL(sp), INTENT(INOUT) :: recvbuf(:)
+        INTEGER, INTENT(IN)  :: recvcount
+        INTEGER, INTENT(IN)  :: displs(:)
+        INTEGER, INTENT(IN)  :: p_src
+        INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+        CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_single1D1D")
+        INTEGER :: ierr
+
+        CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_real_sp, &
+        &                 recvbuf, recvcount, p_real_sp, &
+        &                 p_src, comm, ierr)
+        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
+#else
+        recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
+#endif
+   END SUBROUTINE p_scatterv_single1D1D
 
 
    SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
@@ -7439,9 +7697,7 @@ CONTAINS
 #if !defined(NOMPI)
     nranks = 0
     IF (comm /= MPI_COMM_NULL) THEN
-      ! inquire communicator size
-      CALL MPI_COMM_SIZE (comm, nranks, p_error)
-      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_SIZE operation!')
+      nranks = p_comm_size(comm)    ! inquire communicator size
 
       IF (nranks > SIZE(global_ranks))  CALL finish (routine, 'Input array too small!')
       ALLOCATE(comm_ranks(nranks))

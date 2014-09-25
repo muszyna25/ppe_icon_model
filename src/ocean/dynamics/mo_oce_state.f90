@@ -1595,7 +1595,7 @@ CONTAINS
     oce_tracer_units(2)     = 'psu'
     oce_tracer_codes(2)     = 201
     
-  END SUBROUTINE
+  END SUBROUTINE set_oce_tracer_info
   !-------------------------------------------------------------------------
   
   

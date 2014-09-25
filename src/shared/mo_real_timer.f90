@@ -39,10 +39,10 @@ MODULE mo_real_timer
 
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
-                                p_pe, p_io, p_comm_work, p_comm_work_test
+                                p_pe, p_io, my_process_is_stdio, p_comm_work, p_comm_work_test
   USE mo_parallel_config, ONLY: p_test_run
 #else
-  USE mo_mpi,             ONLY: p_pe, p_io,  p_comm_work, p_comm_work_test
+  USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio,  p_comm_work, p_comm_work_test
 #endif
 
   USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
@@ -642,7 +642,7 @@ CONTAINS
     ENDDO
 
 
-    IF (p_pe == p_io) THEN
+    IF (my_process_is_stdio()) THEN
 
       CALL message ('',separator,all_print=.TRUE.)
 

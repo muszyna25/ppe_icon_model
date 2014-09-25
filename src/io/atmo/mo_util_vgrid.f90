@@ -42,9 +42,11 @@ MODULE mo_util_vgrid
   USE mo_util_string,                       ONLY: int2string
   USE mo_util_uuid,                         ONLY: uuid_generate, t_uuid, uuid2char, char2uuid,          &
     &                                             OPERATOR(==), uuid_unparse, uuid_string_length
-  USE mo_util_cdi,                          ONLY: get_cdi_varID, read_cdi_3d
+  USE mo_util_cdi,                          ONLY: get_cdi_varID, read_cdi_3d, &
+    &                                             t_inputParameters, makeInputParameters, deleteInputParameters
   USE mo_mpi,                               ONLY: my_process_is_mpi_workroot,                           &
-    &                                             p_comm_work, p_bcast, p_io
+    &                                             p_comm_work, p_comm_work_test, p_bcast, p_io
+  USE mo_parallel_config,                   ONLY: p_test_run
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
 
   IMPLICIT NONE
@@ -355,11 +357,11 @@ CONTAINS
     INTEGER,                INTENT(INOUT) :: nflat
     CHARACTER(LEN=*),       INTENT(IN)    :: filename
     ! local variables
-    CHARACTER(*), PARAMETER  :: routine = "read_vgrid_file"
+    CHARACTER(*), PARAMETER  :: routine = modname//"::read_vgrid_file"
     LOGICAL                  :: lexists
     INTEGER                  :: cdiFileID, cdiVarID_vct_a, cdiVarID_vct_b,       &
       &                         nlevp1, nmiss, iret, cdiVlistID, cdiGridID,      &
-      &                         cdiVarID_z_ifc, cdiZaxisID
+      &                         cdiVarID_z_ifc, cdiZaxisID, communicator
     CHARACTER(len=1)         :: vfile_uuidOfHGrid_string(16) ! uuidOfHGrid contained in the
                                                              ! vertical grid file
     TYPE(t_uuid)             :: vfile_uuidOfHGrid            ! same, but converted to TYPE(t_uuid)
@@ -367,16 +369,14 @@ CONTAINS
 
     CHARACTER(len=uuid_string_length) :: uuid_unparsed
     TYPE(t_uuid)             :: vgrid_uuid
-
-
-
+    TYPE(t_inputParameters) :: parameters   !TODO[NH]: Move to caller?
 
     CALL message(routine, "read vertical grid description file.")
 
     IF (my_process_is_mpi_workroot()) THEN
       INQUIRE(file=TRIM(filename), exist=lexists)
       IF (.NOT. lexists)  CALL finish(routine, "File "//TRIM(filename)//" not found!")
-      
+
       !--- open file
       cdiFileID = streamOpenRead(TRIM(filename))
 
@@ -437,9 +437,14 @@ CONTAINS
 
     !--- read 3D fields
     nlevp1 = p_patch%nlevp1
-    CALL read_cdi_3d(cdiFileID, 'z_ifc', p_patch%n_patch_cells_g,                  &
-      &              p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,   &
-      &              nlevp1, vgrid_buffer(p_patch%id)%z_ifc )
+    IF(p_test_run) THEN
+      communicator = p_comm_work_test
+    ELSE
+      communicator = p_comm_work
+    ENDIF
+    parameters = makeInputParameters(cdiFileID, p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
+    CALL read_cdi_3d(parameters, 'z_ifc', nlevp1, vgrid_buffer(p_patch%id)%z_ifc )
+    CALL deleteInputParameters(parameters)
 
     !--- close file
     IF (my_process_is_mpi_workroot()) THEN
