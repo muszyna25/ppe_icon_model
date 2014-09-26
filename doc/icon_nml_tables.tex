@@ -3152,6 +3152,93 @@ Defined and used in: \verb+src/namelists/mo_nwp_phy_nml.f90+
 
 
 %------------------------------------------------------------------------------
+% nwp_tuning_nml:
+%------------------------------------------------------------------------------
+\subsection{nwp\_tuning\_nml}
+
+Please note: These tuning parameters are NOT domain specific.
+
+\begin{longtab}
+
+\hline
+\hline
+\multicolumn{6}{|l|}{\textbf{SSO} (Lott and Miller)} 
+\tabularnewline
+
+\hline
+tune\_gkwake&
+R&
+1.333&
+&
+low level wake drag constant&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_gkdrag&
+R&
+0.1&
+&
+gravity wave drag constant&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+\hline
+\multicolumn{6}{|l|}{\textbf{GWD} (Warner McIntyre)} 
+\tabularnewline
+
+\hline
+tune\_gfluxlaun&
+R&
+2.50e-3&
+&
+total launch momentum flux in each azimuth (rho\_o x F\_o)&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+
+\hline
+\hline
+\multicolumn{6}{|l|}{\textbf{Grid scale microphysics} (one moment)} 
+\tabularnewline
+
+\hline
+tune\_zceff\_min&
+R&
+0.075&
+&
+Minimum value for sticking efficiency&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_v0snow&
+R&
+25.0&
+&
+factor in the terminal velocity for snow&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_zvz0i&
+R&
+1.25&
+m/s&
+Terminal fall velocity of ice&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\end{longtab}
+
+
+Defined and used in: \verb+src/namelists/mo_nwp_tuning_nml.f90+
+
+
+
+
+%------------------------------------------------------------------------------
 % output_nml:
 %------------------------------------------------------------------------------
 \subsection{output\_nml (relevant if run\_nml/output='nml')}
