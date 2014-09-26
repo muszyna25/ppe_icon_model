@@ -2180,61 +2180,59 @@ CONTAINS
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SO4', ext_data(jg)%atm_td%aer_so4)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_BC', ext_data(jg)%atm_td%aer_bc)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
+          ENDIF  ! irad_aero
 
-            !--------------------------------
-            ! If MODIS albedo is used
-            !--------------------------------
-            IF ( albedo_type == MODIS) THEN
-              CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALB', ext_data(jg)%atm_td%alb_dif)
-              CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALUVD', ext_data(jg)%atm_td%albuv_dif)
-              CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALNID', ext_data(jg)%atm_td%albni_dif)
+          CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
+
+          !--------------------------------
+          ! If MODIS albedo is used
+          !--------------------------------
+          IF ( albedo_type == MODIS) THEN
+            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALB', ext_data(jg)%atm_td%alb_dif)
+            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALUVD', ext_data(jg)%atm_td%albuv_dif)
+            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALNID', ext_data(jg)%atm_td%albni_dif)
 
 
-!!$              rl_start = 1
-!!$              rl_end   = min_rlcell
+!!$            rl_start = 1
+!!$            rl_end   = min_rlcell
 !!$
-!!$              i_startblk = p_patch(jg)%cells%start_block(rl_start)
-!!$              i_endblk   = p_patch(jg)%cells%end_block(rl_end)
+!!$            i_startblk = p_patch(jg)%cells%start_block(rl_start)
+!!$            i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 !!$
-!!$              albthresh = 0.3_wp ! threshold value for albedo modification
+!!$            albthresh = 0.3_wp ! threshold value for albedo modification
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-              ! Scale from [%] to [1]
-              ext_data(jg)%atm_td%alb_dif(:,:,:)   = ext_data(jg)%atm_td%alb_dif(:,:,:)/100._wp
-              ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
-              ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
+            ! Scale from [%] to [1]
+            ext_data(jg)%atm_td%alb_dif(:,:,:)   = ext_data(jg)%atm_td%alb_dif(:,:,:)/100._wp
+            ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
+            ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
 !$OMP END WORKSHARE
 
-!!$              ! Test: reduce albedo over land where modis albedo is higher than 0.3 (variable albthresh)
+!!$            ! Test: reduce albedo over land where modis albedo is higher than 0.3 (variable albthresh)
 !!$!$OMP DO PRIVATE(jb,jc,im,i_startidx,i_endidx,albfac)
-!!$              DO jb = i_startblk, i_endblk
-!!$                CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+!!$            DO jb = i_startblk, i_endblk
+!!$              CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 !!$
-!!$                DO im = 1, 12
-!!$                  DO jc = i_startidx,i_endidx
-!!$                    IF (ext_data(jg)%atm%soiltyp(jc,jb) >= 2 .AND. ext_data(jg)%atm%soiltyp(jc,jb) <= 8) THEN
-!!$                      IF (ext_data(jg)%atm_td%alb_dif(jc,jb,im) > albthresh) THEN
-!!$                        albfac = (albthresh+2._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))/ &
-!!$                          (3._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))
-!!$                        ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = albfac*ext_data(jg)%atm_td%alb_dif(jc,jb,im)
-!!$                        ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
-!!$                        ext_data(jg)%atm_td%albni_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albni_dif(jc,jb,im)
-!!$                      ENDIF
+!!$              DO im = 1, 12
+!!$                DO jc = i_startidx,i_endidx
+!!$                  IF (ext_data(jg)%atm%soiltyp(jc,jb) >= 2 .AND. ext_data(jg)%atm%soiltyp(jc,jb) <= 8) THEN
+!!$                    IF (ext_data(jg)%atm_td%alb_dif(jc,jb,im) > albthresh) THEN
+!!$                      albfac = (albthresh+2._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))/ &
+!!$                        (3._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))
+!!$                      ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = albfac*ext_data(jg)%atm_td%alb_dif(jc,jb,im)
+!!$                      ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
+!!$                      ext_data(jg)%atm_td%albni_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albni_dif(jc,jb,im)
 !!$                    ENDIF
-!!$                  ENDDO
+!!$                  ENDIF
 !!$                ENDDO
 !!$              ENDDO
+!!$            ENDDO
 !!$!$OMP END DO
-
 
 !$OMP END PARALLEL
 
-
-
-            ENDIF
-          END IF
+          END IF  !  albedo_type 
 
         END SELECT ! iforcing
         CALL deleteInputParameters(parameters)
