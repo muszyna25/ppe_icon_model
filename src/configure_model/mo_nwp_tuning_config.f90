@@ -63,7 +63,7 @@ MODULE mo_nwp_tuning_config
 
 
 
-CONTAINS
+!CONTAINS
 
 
 END MODULE mo_nwp_tuning_config
