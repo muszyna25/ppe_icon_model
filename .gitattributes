@@ -1432,6 +1432,7 @@ src/configure_model/mo_nh_pzlev_config.f90 -text
 src/configure_model/mo_nhecham_conv_config.f90 -text
 src/configure_model/mo_nml_crosscheck.f90 -text
 src/configure_model/mo_nonhydrostatic_config.f90 -text
+src/configure_model/mo_nwp_tuning_config.f90 -text
 src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text
 src/configure_model/mo_run_config.f90 -text
@@ -1559,6 +1560,7 @@ src/namelists/mo_mtgrm_nml.f90 -text
 src/namelists/mo_nh_testcases_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
+src/namelists/mo_nwp_tuning_nml.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
