@@ -377,15 +377,33 @@ cat > ${atmo_namelist} << EOF
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
  ninc_mtgrm        = 300  ! meteogram output interval (in terms of time steps)
  ldistributed      = .false.
- stationlist_tot   =  52.17,  14.12, 'Lindenberg',    ! Lat,Lon
-                      51.97,   4.93, 'Cabauw',
-                     -10.08, -61.93, 'LBA_Rondonia',
-                      13.50,   2.5 , 'Niamey',
-                      36.61, -97.49, 'ARM_Southern_Great_Plains',
-                     -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
-                      -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
-                     -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
-                      60.00,  80.00, 'Snow Test Russia',
+ stationlist_tot   =  50.0   , 8.6   ,  'Frankfurt-Flughafen' ,
+ 52.2096 ,                    14.1199 ,  'Lindenberg_Obs' ,
+ 52.22 ,                      13.94 ,  'Waldstation_Kehrigk' ,
+ 50.783 ,                      6.100 ,  'Aachen' ,
+ 49.980 ,                     11.682 ,  'Bayreuth' ,
+ 51.9703 ,                     4.9261 ,  'Cabauw' ,
+ 52.106  ,                    -0.421  ,  'Cardington' ,
+ 47.5614 ,                    21.4508 ,  'Debrecen' ,
+ 43.3853 ,                     1.2922 ,  'Fauga_Mauzac' ,
+ 53.633 ,                      9.983 ,  'Hamburg-Fuhlsbuettel' ,
+ 47.8019 ,                    11.0119 ,  'Hohenpeissenberg' ,
+ 53.779 ,                      8.669 ,  'Nordholz' ,
+ 46.8137 ,                     6.9425 ,  'Payerne' ,
+ 52.383 ,                     13.067 ,  'Potsdam' ,
+ 44.6547 ,                    11.6236 ,  'San_Pietro_Capofiume' ,
+ 54.533 ,                      9.550 ,  'Schleswig' ,
+ 67.3617 ,                    26.6375 ,  'Sodankyla' ,
+ 57.966  ,                    33.233  ,  'Valday' ,
+ 48.400  ,                    11.700  ,  'Weihenstephan' ,
+ 53.311 ,                     11.838 ,  'Ziegendorf' ,
+ -10.08,                     -61.93, 'LBA_Rondonia',
+ 13.50,                        2.5 , 'Niamey',
+ 36.61,                      -97.49, 'ARM_Southern_Great_Plains',
+ -71.32,                     156.62, 'ARM_North_Slope_of_Alaska_Barrow',
+  -2.06,                     147.43, 'ARM_Tropical_W_Pacific_Manus',
+ -12.43,                     130.89, 'ARM_Tropical_W_Pacific_Darwin',
+ 60.00,                       80.00, 'Snow Test Russia',
 /
 EOF
 
