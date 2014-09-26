@@ -186,10 +186,6 @@ USE mo_physical_constants , ONLY :   &
 
 ! end of mo_physical_constants
 
-USE mo_atm_phy_nwp_config, ONLY :   &
-    tune_gkwake, &    ! low level wake drag constant
-    tune_gkdrag       ! gw drag constant
-
 #endif
 
 !==============================================================================
@@ -204,6 +200,7 @@ PRIVATE
 !------------------------------------------------------------------------------
 
 PUBLIC :: sso
+PUBLIC :: sso_cosmo_init_param
 
 !==============================================================================
 
@@ -218,8 +215,8 @@ REAL (KIND = ireals) ::      &
 ! ------------------
 ! Gsigcr  = 0.80_ireals   , &   ! top layer for low level drag
 ! Gkdrag  = 0.30          , &   ! gw drag constant (Original ECMWF value)
-  Gkdrag  = tune_gkdrag   , &   ! gw drag constant (set in atm_phy_nwp_config)
-  Gkwake  = tune_gkwake   , &   ! low level wake drag constant (set in atm_phy_nwp_config)
+  Gkdrag                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
+  Gkwake                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
 ! Gkdrag  = Gkdrag_read   , &   ! Gkdrag_read read in or set in gme_tuning_constants
 ! Gkwake  = Gkwake_read   , &   ! Gkwake_read read in or set in gme_tuning_constants
   Grcrit  = 0.25_ireals   , &   ! critical Richardson number
@@ -1500,6 +1497,35 @@ SUBROUTINE gw_profil(                                    &
 !------------------------------------------------------------------------------
 
 END SUBROUTINE gw_profil
+
+
+  !>
+  !! Initialize tuning parameter for the SSO scheme
+  !!
+  !! Tuning parameter, which are read from Namelist are initialized here.
+  !! Others, which are not read from Namelist are initialized at the module 
+  !! top. 
+  !!
+  !! @par Revision History
+  !! Initilai revision by Daniel Reinert, DWD (2014-09-25)
+  !!
+  SUBROUTINE sso_cosmo_init_param (tune_gkwake, tune_gkdrag)
+    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gkwake  ! tuning parameter read from nml
+    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gkdrag  ! tuning parameter read from nml
+
+    IF (PRESENT(tune_gkwake)) THEN
+      gkwake = tune_gkwake     !< low level wake drag constant (set in mo_nwp_tuning_nml)
+    ELSE
+      gkwake = 1.333_ireals    !< COSMO default ?
+    ENDIF
+
+    IF (PRESENT(tune_gkdrag)) THEN
+      gkdrag = tune_gkdrag     !< gravity wave drag constant (set in mo_nwp_tuning_nml)
+    ELSE
+      gkdrag = 0.1_ireals      !< COSMO default ?
+    ENDIF
+
+  END SUBROUTINE sso_cosmo_init_param
 
 !------------------------------------------------------------------------------
 ! End of module mo_sso_cosmo

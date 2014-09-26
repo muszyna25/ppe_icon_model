@@ -48,7 +48,6 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: cldopt_filename
   PUBLIC :: ltuning_detrain, ltuning_kessler, icpl_aero_conv
   PUBLIC :: ltuning_ozone
-  PUBLIC :: tune_gkdrag, tune_gkwake, tune_gfluxlaun
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for atm dynamics
@@ -142,13 +141,6 @@ MODULE mo_atm_phy_nwp_config
   REAL(wp), PARAMETER :: tune_ozone_zmid = 15000.0_wp
   REAL(wp), PARAMETER :: tune_ozone_zbot = 10000.0_wp 
 
-  ! SSO scheme:
-  REAL(wp), PARAMETER :: tune_gkwake = 1.333_wp  ! low level wake drag constant; original COSMO value 0.5
-  REAL(wp), PARAMETER :: tune_gkdrag = 0.1_wp    ! gw drag constant; original COSMO value 0.075
-
-  ! Non-orographic GWD scheme
-  REAL(wp), PARAMETER :: tune_gfluxlaun = 2.50e-3_wp ! total launch momentum flux in each azimuth (rho_o x F_o)
-                                                     ! original IFS value 3.75e-3
 
 CONTAINS
 

@@ -1816,6 +1816,7 @@ CONTAINS
                                ! 1: GLC2000, 2: Globcover2009
 
     REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
+!!$    REAL(wp):: albfac, albthresh             ! for MODIS albedo tuning
 
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
@@ -2188,6 +2189,16 @@ CONTAINS
               CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALB', ext_data(jg)%atm_td%alb_dif)
               CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALUVD', ext_data(jg)%atm_td%albuv_dif)
               CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALNID', ext_data(jg)%atm_td%albni_dif)
+
+
+!!$              rl_start = 1
+!!$              rl_end   = min_rlcell
+!!$
+!!$              i_startblk = p_patch(jg)%cells%start_block(rl_start)
+!!$              i_endblk   = p_patch(jg)%cells%end_block(rl_end)
+!!$
+!!$              albthresh = 0.3_wp ! threshold value for albedo modification
+
 !$OMP PARALLEL
 !$OMP WORKSHARE
               ! Scale from [%] to [1]
@@ -2195,7 +2206,32 @@ CONTAINS
               ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
               ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
 !$OMP END WORKSHARE
+
+!!$              ! Test: reduce albedo over land where modis albedo is higher than 0.3 (variable albthresh)
+!!$!$OMP DO PRIVATE(jb,jc,im,i_startidx,i_endidx,albfac)
+!!$              DO jb = i_startblk, i_endblk
+!!$                CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+!!$
+!!$                DO im = 1, 12
+!!$                  DO jc = i_startidx,i_endidx
+!!$                    IF (ext_data(jg)%atm%soiltyp(jc,jb) >= 2 .AND. ext_data(jg)%atm%soiltyp(jc,jb) <= 8) THEN
+!!$                      IF (ext_data(jg)%atm_td%alb_dif(jc,jb,im) > albthresh) THEN
+!!$                        albfac = (albthresh+2._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))/ &
+!!$                          (3._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))
+!!$                        ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = albfac*ext_data(jg)%atm_td%alb_dif(jc,jb,im)
+!!$                        ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
+!!$                        ext_data(jg)%atm_td%albni_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albni_dif(jc,jb,im)
+!!$                      ENDIF
+!!$                    ENDIF
+!!$                  ENDDO
+!!$                ENDDO
+!!$              ENDDO
+!!$!$OMP END DO
+
+
 !$OMP END PARALLEL
+
+
 
             ENDIF
           END IF

@@ -115,6 +115,9 @@ MODULE mo_nwp_phy_init
   USE mo_initicon_config,     ONLY: init_mode
 
   USE mo_nwp_ww,              ONLY: configure_ww
+  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_zceff_min, &
+    &                               tune_v0snow, tune_zvz0i
+  USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
 
   IMPLICIT NONE
 
@@ -536,7 +539,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
   CASE (1,2,3)  ! cloud microphysics from COSMO (V 5.0)
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-    CALL gscp_set_coefficients
+    CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,               &
+      &                        tune_v0snow    = tune_v0snow,                  &
+      &                        tune_zvz0i     = tune_zvz0i,                   &
+      &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain )
 
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
@@ -1346,6 +1352,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
 
   END IF
+
+  ! COSMO SSO scheme
+  !
+  IF ( (atm_phy_nwp_config(jg)%inwp_sso == 1)  .AND. (jg == 1) ) THEN
+    CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
+  ENDIF
 
   !  WW diagnostics
   !

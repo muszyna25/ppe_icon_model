@@ -90,7 +90,6 @@ USE mo_math_utilities    , ONLY: gamma_fct
 
 USE mo_exception,            ONLY: message, message_text
 
-USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
 #endif
 
 !==============================================================================
@@ -149,7 +148,11 @@ REAL (KIND=wp), PARAMETER ::  &
     kc_c1,     & !
     kc_c2,     & !
     zn0r,      & ! N0_rain
-    zar
+    zar,       & !
+    zceff_min, & ! Minimum value for sticking efficiency
+    v0snow,    & ! factor in the terminal velocity for snow
+    zvz0i        ! Terminal fall velocity of ice  (original value of Heymsfield+Donner 1990: 3.29)
+
 
 ! More variables
 ! --------------
@@ -161,7 +164,6 @@ REAL (KIND=wp), PARAMETER ::  &
     kc_sigma       =  1.85_wp,      & !..exponent  in area-size relation
     do_i           =  5.83_wp,      & ! coefficients for drag correction
     co_i           =  0.6_wp,       & ! coefficients for turbulence correction
-    v0snow         = 25.0_wp,       & ! factor in the terminal velocity for snow ** previous ICON value was 20 **
     rain_n0_factor =  1.0_wp,       & ! COSMO_EU default
     mu_rain        =  0.0_wp,       & ! COSMO_EU default
     mu_snow        =  0.0_wp          ! COSMO_EU default
@@ -235,7 +237,6 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   zmi0   = 1.0E-12_wp,      & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_wp,       & ! maximum mass of cloud ice crystals   
   zmsmin = 3.0E-9_wp,       & ! initial mass of snow crystals        
-  zvz0i  = 1.25_wp,         & ! Terminal fall velocity of ice (original value of Heymsfield+Donner 1990: 3.29)
   zbvi   = 0.16_wp            ! v = zvz0i*rhoqi^zbvi
 
 
@@ -271,8 +272,7 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   dist_cldtop_ref  = 500.0_wp,  & ! Reference length for distance from cloud top (Forbes 2012)
   reduce_dep_ref   = 0.1_wp,    & ! lower bound on snow/ice deposition reduction
   zceff_fac        = 3.5E-3_wp, & ! Scaling factor [1/K] for temperature-dependent cloud ice sticking efficiency
-  tmin_iceautoconv = 188.15_wp, & ! Temperature at which cloud ice autoconversion starts
-  zceff_min        = 0.075_wp     ! Minimum value for sticking efficiency
+  tmin_iceautoconv = 188.15_wp    ! Temperature at which cloud ice autoconversion starts
 
 
 ! Parameters for Segal-Khain parameterization (aerosol-microphysics coupling)
@@ -296,7 +296,8 @@ CONTAINS
 !!  coefficients which are used in "hydci_pp"
 !------------------------------------------------------------------------------
 
-SUBROUTINE gscp_set_coefficients (idbg)
+SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
+  &                               tune_mu_rain)
 
 !------------------------------------------------------------------------------
 !> Description:
@@ -304,7 +305,11 @@ SUBROUTINE gscp_set_coefficients (idbg)
 !!   Usually called only once at model startup.
 !------------------------------------------------------------------------------
 
-  INTEGER, INTENT(IN), OPTIONAL::  idbg              !! debug level
+  INTEGER  ,INTENT(IN) ,OPTIONAL ::  idbg              !! debug level
+  REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zceff_min
+  REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_v0snow
+  REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zvz0i
+  REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_mu_rain
 
 ! Local variable
 #ifdef __COSMO__
@@ -315,11 +320,30 @@ SUBROUTINE gscp_set_coefficients (idbg)
 !>  Initial setting of local and global variables
 !------------------------------------------------------------------------------
 
-! FR new:
-#ifdef __ICON__
-  mu_rain = atm_phy_nwp_config(1)%mu_rain
-! mu_snow = atm_phy_nwp_config(1)%mu_snow
-#endif
+  IF (PRESENT(tune_zceff_min)) THEN
+    zceff_min = tune_zceff_min
+  ELSE
+    zceff_min = 0.075_wp     ! COSMO default
+  ENDIF
+
+  IF (PRESENT(tune_v0snow)) THEN
+    v0snow = tune_v0snow
+  ELSE
+    v0snow = 25.0_wp         ! COSMO default
+  ENDIF
+
+  IF (PRESENT(tune_zvz0i)) THEN
+    zvz0i = tune_zvz0i
+  ELSE
+    zvz0i = 1.25_wp          ! COSMO default
+  ENDIF
+
+  IF (PRESENT(tune_mu_rain)) THEN
+    mu_rain = tune_mu_rain
+  ELSE
+    mu_rain = 0.0_wp         ! COSMO-EU default
+  ENDIF
+
 
   ! zconst = zkcau / (20.0_wp*zxstar*cloud_num*cloud_num) &
   !          * (zcnue+2.0_wp)*(zcnue+4.0_wp)/(zcnue+1.0_wp)**2
@@ -379,6 +403,9 @@ SUBROUTINE gscp_set_coefficients (idbg)
       WRITE (message_text,'(A,E10.3)') '      zcevxp = ',zcevxp ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      zvzxp  = ',zvzxp  ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      zvz0r  = ',zvz0r  ; CALL message('',message_text)
+      WRITE (message_text,'(A,E10.3)') '   zceff_min = ',zceff_min ; CALL message('',message_text)
+      WRITE (message_text,'(A,E10.3)') '      v0snow = ',v0snow ; CALL message('',message_text)
+      WRITE (message_text,'(A,E10.3)') '       zvz0i = ',zvz0i  ; CALL message('',message_text)
 #ifdef __ICON__
       WRITE (message_text,'(A,E10.3)') '      vtxexp = ',vtxexp ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '       kc_c1 = ',kc_c1  ; CALL message('',message_text)
