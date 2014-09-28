@@ -2031,7 +2031,11 @@ MODULE mo_nh_initicon
           geop_sfc_var = geop_ml_var
         ENDIF
         ! inquire dimension of geop_sfc_var which can be either 2 or 3
-        CALL nf(nf_inq_varndims(ncid,varid,geop_sfc_var_ndims), routine)
+        IF (nf_inq_varid(ncid, TRIM(geop_sfc_var), varid) == nf_noerr) THEN
+          CALL nf(nf_inq_varndims(ncid,varid,geop_sfc_var_ndims), routine)
+        ELSE
+          CALL finish(TRIM(ROUTINE),'surface geopotential variable '//TRIM(geop_sfc_var)//' is mising')
+        ENDIF
 
         ! Check, if the snow albedo ALB_SNOW is available. 
         ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW 
