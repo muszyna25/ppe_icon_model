@@ -1072,6 +1072,7 @@ END SUBROUTINE message
 !
 !   Snow density
     ztau_snow      , & ! 'ageing constant' for snow density          (-)
+    zrhosmax       , & ! temperature-dependent target density for snow ageing
     zrho_snowe     , & ! updated density of existing snow ('ageing') kg/m**3
     zrho_snowf     , & ! density of fresh snow                       kg/m**3
     znorm          , & ! normalisation factor for weighted snow density mH2O
@@ -4724,33 +4725,43 @@ ENDIF
 !
 !     temperature dependence of relaxation/ageing constant
 
-         ztau_snow = crhosmint+(crhosmaxt-crhosmint)*(t_snow_new(i)-csnow_tmin) &
-                                                    /(t0_melt         -csnow_tmin)
-         ztau_snow = MAX(0.005_ireals,MIN(crhosmaxt,ztau_snow)) ! JH change time constant to 200d!
-         zrho_snowe= crhosmax_ml+(rho_snow_now(i)-crhosmax_ml)* &
-                               EXP(-ztau_snow*zdt/86400._ireals)
+         zzz       = (t_snow_new(i)-csnow_tmin)/(t0_melt-csnow_tmin)
+         ztau_snow = crhosmint+(crhosmaxt-crhosmint)*zzz
+         ztau_snow = MAX(0.05_ireals,MIN(crhosmaxt,ztau_snow)) ! use 20 days in combination with temperature-dependent equilibrium density
+         zrhosmax  = crhosmax_tmin+MAX(0._ireals,zzz)*(crhosmax_ml-crhosmax_tmin)
+         zrho_snowe= MAX(rho_snow_now(i),zrhosmax+(rho_snow_now(i)-zrhosmax)* &
+                     EXP(-ztau_snow*zdt/86400._ireals) )
 !
 !     b) density of fresh snow
 !
          zrho_snowf= crhosminf+(crhosmaxf-crhosminf)* (zth_low(i)-csnow_tmin) &
-                                                    /(t0_melt      -csnow_tmin)
+                                                     /(t0_melt   -csnow_tmin)
          zrho_snowf= MAX(crhosminf,MIN(crhosmaxf,zrho_snowf))
 !
-!     c) new snow density is weighted average of existing and new snow
+!     c) new snow density is computed by adding depths of exisiting and new snow
 !
          IF ( nclass_gscp >= 6 ) THEN
-           znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i)+prg_gsp(i))      &
-                     *zdtdrhw,zepsi)
-           rho_snow_new(i)  = ( zrho_snowe*w_snow_now(i) + &
-                              zrho_snowf*(prs_gsp(i)+prs_con(i)+prg_gsp(i)) &
-                                 *zdtdrhw )    /znorm
+           zzz = (prs_gsp(i)+prs_con(i)+prg_gsp(i))*zdtdrhw
          ELSE
-           znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i) )      &
-                     *zdtdrhw,zepsi)
-           rho_snow_new(i)  = ( zrho_snowe*w_snow_now(i) + &
-                              zrho_snowf*(prs_gsp(i)+prs_con(i) ) &
-                                 *zdtdrhw )    /znorm
+           zzz = (prs_gsp(i)+prs_con(i))*zdtdrhw
          ENDIF
+         rho_snow_new(i)  = (w_snow_now(i)+zzz) / &
+          ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/zrho_snowf )
+
+    ! previous code based on weighted averaging of rho_snow
+    !       znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i)+prg_gsp(i))      &
+    !                 *zdtdrhw,zepsi)
+    !       rho_snow_new(i)  = ( zrho_snowe*w_snow_now(i) + &
+    !                           zrho_snowf*(prs_gsp(i)+prs_con(i)+prg_gsp(i)) &
+    !                              *zdtdrhw )    /znorm
+    !     ELSE
+    !       znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i) )      &
+    !                 *zdtdrhw,zepsi)
+    !       rho_snow_new(i)  = ( zrho_snowe*w_snow_now(i) + &
+    !                          zrho_snowf*(prs_gsp(i)+prs_con(i) ) &
+    !                             *zdtdrhw )    /znorm
+    !     ENDIF
+
          rho_snow_new(i) = MIN(crhosmax_ml,MAX(crhosmin_ml, rho_snow_new(i)))
 !        END IF          ! land-points only
          

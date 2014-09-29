@@ -244,12 +244,13 @@ IMPLICIT NONE
     crhosmax   = 800.00_ireals, & !  maximum density of snow
     crhosmin_ml=  50.00_ireals, & !  minimum density of snow
     crhosmax_ml= 400.00_ireals, & !  maximum density of snow
+    crhosmax_tmin= 200.00_ireals,&!  maximum density of snow at csnow_tmin
     crhosminf  =  50.00_ireals, & !  minimum density of fresh snow
     crhosmaxf  = 150.00_ireals, & !  maximum density of fresh snow
-    crhosmint  =   0.20_ireals, & !  minimum value of time constant for ageing 
-                                  !  of snow
+    crhosmint  =   0.125_ireals,& !  value of time constant for ageing 
+                                  !  of snow at csnow_tmin (8 days)
     crhosmaxt  =   0.40_ireals, & !  maximum value of time constant for ageing 
-                                  !  of snow
+                                  !  of snow (2.5 days)
     csnow_tmin = 258.15_ireals, & !  lower threshold temperature of snow for 
                                   !  ageing and fresh snow density computation 
                                   !  ( = 273.15-15.0)

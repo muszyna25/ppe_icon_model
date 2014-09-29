@@ -458,6 +458,7 @@ REAL (KIND=ireals), PARAMETER :: &
 !
     z1d2=z1/z2     ,&
     z1d3=z1/z3     ,&
+    z2d3=z2/z3     ,&
     z3d2=z3/z2
 
 REAL (KIND=ireals) :: xx
@@ -3568,7 +3569,7 @@ SUBROUTINE turbdiff
           x2 = MAX( 1.e-6_ireals, ((u(i,k-1)-u(i,k))**2+(v(i,k-1)-v(i,k))**2)/x1**2 )          ! |du/dz|**2
           x3 = MAX( 1.e-5_ireals, grav/(z1d2*(t(i,k-1)+t(i,k)))*((t(i,k-1)-t(i,k))/x1+tet_g) ) !       N**2
 
-          xri(i,k) = SQRT(x2/x3)   ! 1/SQRT(Ri)
+          xri(i,k) = EXP(z2d3*LOG(x2/x3))  ! 1/Ri**(2/3)
 
           ! Factor for variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
           ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1
