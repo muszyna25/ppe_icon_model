@@ -48,7 +48,7 @@ MODULE mo_nh_initicon
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,      &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
-  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
+  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
@@ -3960,7 +3960,7 @@ MODULE mo_nh_initicon
 
     INTEGER  :: jg, jb, jc, jt, js, jp, ic
     INTEGER  :: nblks_c, npromz_c, nlen
-    REAL(wp) :: zfrice_thrhld
+    REAL(wp) :: zfrice_thrhld, zminsnow_alb, t_fac
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c)
     DO jg = 1, n_dom
@@ -3971,7 +3971,7 @@ MODULE mo_nh_initicon
       npromz_c  = p_patch(jg)%npromz_c
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -4043,9 +4043,17 @@ MODULE mo_nh_initicon
                ! Initialize freshsnow
                ! for seapoints, freshsnow is set to 0
               IF(alb_snow_var == 'ALB_SNOW') THEN
+
+                IF (ext_data(jg)%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+                  t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
+                  zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data(jg)%atm%alb_dif(jc,jb)
+                ELSE
+                  zminsnow_alb = csalb_snow_min
+                ENDIF
+
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
-            &                           (initicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min) &
-            &                          /(csalb_snow_max-csalb_snow_min)))                 &
+            &                           (initicon(jg)%sfc%snowalb (jc,jb)-zminsnow_alb)   &
+            &                          /(csalb_snow_max-zminsnow_alb)))                   &
             &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &

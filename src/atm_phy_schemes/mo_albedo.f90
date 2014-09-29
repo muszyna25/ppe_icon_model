@@ -40,8 +40,7 @@ MODULE mo_albedo
     &                                lseaice, llake, isub_water, isub_lake,   &
     &                                isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
-    &                                csalb_snow_min, csalb_snow_max, cf_snow, &
-    &                                csalb_p
+    &                                csalb_snow_min, csalb_snow_max, csalb_p
   USE mo_physical_constants,   ONLY: tmelt, tf_salt
   USE mo_data_flake,           ONLY: albedo_whiteice_ref, albedo_blueice_ref, &
     &                                c_albice_MR, tpl_T_f, h_Ice_min_flk
@@ -96,6 +95,8 @@ CONTAINS
     ! Local scalars:
     REAL(wp):: zvege                   !< plant cover fraction
     REAL(wp):: zsnow                   !< snow cover fraction
+    REAL(wp):: zminsnow_alb            !< temperature-dependent minimum snow albedo
+    REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsalb_snow              !< snow albedo (predictor)
     REAL(wp):: zsnow_alb               !< snow albedo (corrector)
 
@@ -127,7 +128,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow,  &
 !$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea, &
-!$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -183,10 +184,18 @@ CONTAINS
 
               zsnow= 0.0_wp
 
-              ! 1. consider effects of aging on solar snow albedo
+              ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+              ! this is needed to prevent unrealistically low albedos over Antarctica
+              IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+                t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
+                zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+              ELSE
+                zminsnow_alb = csalb_snow_min
+              ENDIF
               !
-              zsalb_snow = csalb_snow_min + &
-                & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+              ! 1. Consider effects of aging on solar snow albedo
+              !
+              zsalb_snow = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-zminsnow_alb)
 
               ! special treatment for forests and artificial surfaces
               ! - aging of snow not considered
@@ -201,10 +210,8 @@ CONTAINS
               !
               ! plant cover
               zvege = ext_data%atm%plcov_t(jc,jb,jt)
-              IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
-                ! snow cover
-                zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
-              ENDIF
+              ! snow cover fraction
+              zsnow = lnd_diag%snowfrac_t(jc,jb,jt)
 
               ! 3. compute final solar snow albedo
               !
@@ -224,10 +231,18 @@ CONTAINS
 
               zsnow= 0.0_wp
 
-              ! 1. consider effects of aging on solar snow albedo
+              ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+              ! this is needed to prevent unrealistically low albedos over Antarctica
+              IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+                t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
+                zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+              ELSE
+                zminsnow_alb = csalb_snow_min
+              ENDIF
               !
-              zsalb_snow = csalb_snow_min + &
-                & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+              ! 1. Consider effects of aging on solar snow albedo
+              !
+              zsalb_snow = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-zminsnow_alb)
 
               ! special treatment for forests
               zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
@@ -238,10 +253,8 @@ CONTAINS
               !
               ! plant cover
               zvege = ext_data%atm%plcov_t(jc,jb,jt)
-              IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
-                ! snow cover
-                zsnow = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
-              ENDIF
+              ! snow cover fraction
+              zsnow = lnd_diag%snowfrac_t(jc,jb,jt)
 
               ! 3. compute final solar snow albedo
               !
@@ -547,9 +560,10 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: snow_frac               !< snow cover fraction
+    REAL(wp):: zminsnow_alb            !< temperature-dependent minimum snow albedo
+    REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsalb_snow              !< snow albedo (predictor)
     REAL(wp):: zsnow_alb               !< snow albedo (corrector)
-    REAL(wp):: t_fac                   !< factor for temperature dependency of zsnow_alb over glaciers
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -579,7 +593,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,&
 !$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea,   &
-!$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice,zminsnow_alb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -613,12 +627,18 @@ CONTAINS
 
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
 
-
-            snow_frac= 0.0_wp
-
+            ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+            ! this is needed to prevent unrealistically low albedos over Antarctica
+            IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+              t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
+              zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+            ELSE
+              zminsnow_alb = csalb_snow_min
+            ENDIF
+            !
             ! Consider effects of aging on solar snow albedo
             !
-            zsalb_snow = csalb_snow_min + lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+            zsalb_snow = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-zminsnow_alb)
 
             ! special treatment for forests and artificial surfaces
             ! - aging of snow not considered
@@ -628,17 +648,8 @@ CONTAINS
             ilu = ext_data%atm%lc_class_t(jc,jb,jt) 
             zsnow_alb = MIN(zsalb_snow, ABS(ext_data%atm%snowalb_lcc(ilu)))
 
-            ! increase snowalb_min over glaciers if the snow is cold enough
-            ! this is needed to prevent unrealistically low albedos over Antarctica
-            IF (ext_data%atm%alb_dif(jc,jb) > zsnow_alb) THEN
-              t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
-              zsnow_alb = (1._wp-t_fac)*zsalb_snow + t_fac*ext_data%atm%alb_dif(jc,jb)
-            ENDIF
-
             ! snow cover fraction
-            IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
-              snow_frac = MIN(1.0_wp, lnd_prog%w_snow_t(jc,jb,jt) / cf_snow)
-            ENDIF
+            snow_frac = lnd_diag%snowfrac_t(jc,jb,jt)
 
             ! shortwave broadband surface albedo (white sky)
             prm_diag%albdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
