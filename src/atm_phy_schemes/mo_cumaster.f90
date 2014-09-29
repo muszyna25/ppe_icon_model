@@ -455,6 +455,9 @@ CONTAINS
     INTEGER(KIND=jpim) :: jn
     REAL(KIND=jprb), DIMENSION(:,:), ALLOCATABLE :: ztent, ztenq, zsumc
     REAL(KIND=jprb), DIMENSION(:,:,:), ALLOCATABLE :: ztenc
+
+    ! CAPE threshold for applying ad-hoc fixes for numerical stability
+    REAL(KIND=jprb), PARAMETER :: zcapethresh = 7000._jprb
     
     !KF to be removed later
     !#include "cuascn.intfb.h"
@@ -772,7 +775,9 @@ CONTAINS
         itopm2=kctop(jl)
         zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
         IF(ktype(jl) == 1.AND.zpbmpt < rdepths) ktype(jl)=2
-       IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+        IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+        ! Reset to deep convection for extreme CAPE values
+        IF(pcape(jl) > zcapethresh) ktype(jl) = 1
         ictop0(jl)=kctop(jl)
         IF(ktype(jl) == 1) zentr(jl)=entrpen
         IF(ktype(jl) == 2) zentr(jl)=entrscv
@@ -868,7 +873,6 @@ CONTAINS
             & ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)&
             & +retv*(pqu(jl,jk)-zqenh(jl,jk))&
             & -plu(jl,jk) ) * zdz
-
         ENDIF
       ENDDO
     ENDDO
@@ -885,6 +889,8 @@ CONTAINS
         IF (llo1 .AND. ldland(jl)) THEN
           zcapdcycl(jl) = capdcfac(jl)*zcappbl(jl)*ztau(jl)*phy_params%tau0
         ENDIF
+        ! Reduce adjustment time scale for extreme CAPE values
+        IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
       ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
         ikd = idpl(jl)
         ikb = kcbot(jl)
@@ -1036,6 +1042,8 @@ CONTAINS
           zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
           IF(ktype(jl) == 1.AND.zpbmpt < rdepths) ktype(jl)=2
           IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+          ! Reset to deep convection for extreme CAPE values
+          IF(pcape(jl) > zcapethresh) ktype(jl) = 1
         ENDIF
       ENDDO
 
