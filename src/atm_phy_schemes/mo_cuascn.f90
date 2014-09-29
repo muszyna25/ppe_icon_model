@@ -450,13 +450,13 @@ ENDDO
         ! particularly if the aerosol characteristics are continental
         zd = MIN(1._jprb,0.166_jprb*MAX(0._jprb,zttop0(jl)-257._jprb))     ! transition starts at about -10 C
         zc = MIN(2._jprb,1.e-8_jprb*MAX(0._jprb,pcloudnum(jl)-25.e6_jprb)) ! maximum is reached for a cloud number density of 225e6/m**3
-        zdrain(jl)  = zdrain(jl)  + zc*zd*6.25e3_jprb   ! enhancement by at most 125 hPa
+        zdrain(jl)  = zdrain(jl)  + zc*zd*7.5e3_jprb    ! enhancement by at most 150 hPa
         zdnoprc(jl) = zdnoprc(jl) + zc*zd*0.75e-4_jprb  ! enhancement by at most 0.15 g/kg
       ENDDO
       DO jl=kidia,kfdia
         IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
-          zdrain(jl)  = MIN(0.4E4_JPRB,   zdrain(jl) ) ! ... but over ocean at most 40 hPa
-          zdnoprc(jl) = MIN(1.25e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.125 g/kg
+          zdrain(jl)  = MIN(0.4E4_JPRB,  zdrain(jl) ) ! ... but over ocean at most 40 hPa
+          zdnoprc(jl) = MIN(2.5e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.25 g/kg
         ENDIF
       ENDDO
     ELSE IF (ltuning_kessler) THEN
