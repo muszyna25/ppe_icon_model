@@ -417,7 +417,7 @@ CONTAINS
         ! For idealized test cases
 
         SELECT CASE (ctest_name)
-        CASE('APE','APE_nh','RCEhydro') !Note that there is only one surface type in this case
+        CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c

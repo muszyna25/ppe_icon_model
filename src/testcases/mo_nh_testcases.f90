@@ -36,7 +36,7 @@ MODULE mo_nh_testcases
                                    & t_geographical_coordinates,     &
                                    & arc_length
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: ltransport, iforcing, iqv
+  USE mo_run_config,           ONLY: ltransport, iforcing, iqv, iqc, iqi
   USE mo_extpar_config,        ONLY: itopo
     
   USE mo_dynamics_config,      ONLY: nnow, nnew, lcoriolis
@@ -277,10 +277,14 @@ MODULE mo_nh_testcases
   CASE ('HS_nh')
     ! The topography has been initialized to 0 
     CALL message(TRIM(routine),'running the Held-Suarez test')
-  CASE ('APE_nh')
+  CASE ('APE_nwp')
 
    ! The topography has been initialized to 0 at the begining of this SUB
-    CALL message(TRIM(routine),'running Aqua-Planet Experiment')
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with NWP physics')
+  
+  CASE ('APE_echam')
+
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with ECHAM physics')
   
   CASE ('APEc_nh')
 
@@ -748,7 +752,7 @@ MODULE mo_nh_testcases
     ENDDO !jg
 
 
-  CASE ('APE_nh')  ! Aqua-Planet Experiment, no mountain
+  CASE ('APE_nwp')  ! Aqua-Planet Experiment, no mountain
 
     p_sfc_jabw   = zp_ape          ! Pa
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
@@ -774,7 +778,39 @@ MODULE mo_nh_testcases
     
     ENDDO !jg
 
-    CALL message(TRIM(routine),'End setup APE_nh test')
+    CALL message(TRIM(routine),'End setup APE_nwp test')
+
+  CASE ('APE_echam')  ! Aqua-Planet Experiment, no mountain
+
+    p_sfc_jabw   = zp_ape          ! Pa
+    global_moist = ztmc_ape        ! kg/m**2 total moisture content
+    jw_up = 1._wp
+
+    DO jg = 1, n_dom
+    
+      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                     & p_int(jg),                                   &
+                                     & p_sfc_jabw,jw_up )
+      ! these are the tracers used by echam, init to zero temporarily...     
+      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv) = 0.0_wp
+      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc) = 0.0_wp
+      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi) = 0.0_wp
+      !IF ( ltransport .AND. iforcing == inwp ) THEN   !
+    
+      !  CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+      !                            & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+      !                            & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+      !                            & opt_global_moist=global_moist)
+    
+      !END IF
+   
+      ! why do we call this?   
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    
+    ENDDO !jg
+
+    CALL message(TRIM(routine),'End setup APE_echam test')
 
   CASE ('APEc_nh')
 
@@ -1112,7 +1148,7 @@ MODULE mo_nh_testcases
 
 
   IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
-       (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
+       (nh_test_name=='APE_nwp' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)
     END DO !jg
