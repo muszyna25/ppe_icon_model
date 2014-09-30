@@ -31,7 +31,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zceff_min
   PUBLIC :: tune_v0snow
   PUBLIC :: tune_zvz0i
-!!$  PUBLIC :: itune_albedo
+  PUBLIC :: itune_albedo
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for tracer advection
