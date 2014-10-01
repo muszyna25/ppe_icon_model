@@ -626,6 +626,8 @@ CONTAINS
 
     ! allocate a temporary array:
     ALLOCATE(var_tmp(SIZE(var_out,1), SIZE(var_out,2)), STAT=ierrstat)
+    ! Initialization is needed in order to avoid errors in subsequent conversion to INTEGER
+    var_tmp(:,:) = 0._wp
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! read the field as a REAL-valued field:
     CALL read_cdi_2d_real (parameters, varname, var_tmp, opt_tileidx)
