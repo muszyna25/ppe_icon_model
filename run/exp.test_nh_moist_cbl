@@ -37,14 +37,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-02T01:00:00Z"
+end_date="2008-09-01T00:30:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.1
-dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 12 hours
+dtime=0.2
+dt_checkpoint=`expr 50 \* 60 `  # write restart file every 50 mins
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,12 +54,13 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=64           # nlev = number of full levels
+nlev=32           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r70s136.nc'
+grids_folder='/pool/data/ICON/grids/private/anurag'
+atmo_dyn_grids='torus_grid_r140s68.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -171,7 +172,6 @@ const_z0  = 0.0003
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_insta'
- output_grid      = .TRUE.
  ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc','clc'
 /
 EOF
