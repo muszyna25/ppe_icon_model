@@ -476,7 +476,7 @@ CONTAINS
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( res )')
       ENDIF
-      res(:,:) = 0.0_wp
+      res(:,:) = 0
     ENDIF
 
     CALL scatter_array(in_array=tmp_array, out_array=res, global_index=glb_index)
@@ -844,8 +844,9 @@ CONTAINS
  !   LOGICAL :: use_time_range
     INTEGER :: start_read_index(3), count_read_index(3)
 
-    INTEGER :: return_status
-    REAL(wp), POINTER :: tmp_array(:,:,:)
+    INTEGER :: return_status, i, tt
+    REAL(wp), POINTER :: tmp_array(:)
+    REAL(wp), POINTER  :: res_level(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_extdim_fileid'
@@ -907,8 +908,7 @@ CONTAINS
     ENDIF
     start_allocated_step = LBOUND(res, 4)
     end_allocated_step   = UBOUND(res, 4)
-    ALLOCATE( tmp_array(n_g, file_vertical_levels, &
-      &                 start_allocated_step:end_allocated_step), &
+    ALLOCATE( tmp_array(n_g), &
       &       stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
@@ -921,15 +921,24 @@ CONTAINS
       CALL finish(method_name, 'file_vertical_levels /= SIZE(fill_array,2)')
     !-----------------------
 
-    IF( my_process_is_mpi_workroot()) THEN
-      start_read_index = (/ 1, 1, start_time /)
-      count_read_index      = (/ n_g, file_vertical_levels, time_steps /)
-      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
-        &                        count_read_index, tmp_array(:,:,:)), &
-        &     variable_name)
-    ENDIF
-
-    CALL scatter_array(tmp_array, res, glb_index)
+    ! @Moritz: Sorry for the following hack to get the algorithm
+    ! running for large grids. Maybe we can talk about a better
+    ! solution later?
+    !
+    DO tt=start_time,time_steps
+      DO i=1,file_vertical_levels
+        IF( my_process_is_mpi_workroot()) THEN
+          start_read_index = (/ 1, i, tt /)
+          count_read_index      = (/ n_g, 1, 1 /)
+          CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+            &                        count_read_index, tmp_array(:)),  &
+            &     variable_name)
+        ENDIF
+        
+        res_level => res(:,i,:,tt)
+        CALL scatter_array(tmp_array, res_level, glb_index)
+      END DO
+    END DO
 
     DEALLOCATE(tmp_array)
 
