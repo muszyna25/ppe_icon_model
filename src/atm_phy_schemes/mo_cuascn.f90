@@ -221,8 +221,8 @@ CONTAINS
 
   
 USE mo_cufunctions       , ONLY: foealfcu
-! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics, and coupling of autoconversion to aerosols
-USE mo_atm_phy_nwp_config, ONLY: ltuning_detrain, ltuning_kessler, icpl_aero_conv
+! GZ, 2013-09-13: tuning to reduce drizzle, and coupling of autoconversion to aerosols
+USE mo_atm_phy_nwp_config, ONLY: ltuning_kessler, icpl_aero_conv
 
 
 INTEGER(KIND=jpim),INTENT(in)    :: klon 
@@ -307,8 +307,6 @@ REAL(KIND=jprb) :: zhook_handle
     REAL(KIND=jprb) :: zrhosfc
     !REAL(KIND=jprb) :: zrcorr
 
-    REAL(KIND=jprb) :: exp_detr
-
 LOGICAL :: llklab(klon)
 
 !#include "cuadjtq.intfb.h"
@@ -331,12 +329,6 @@ z_cwifrac=0.5_JPRB
 z_cprc2=0.5_JPRB
 z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB/rg
 
-! for tuning cloud water detrainment (original value 0.5)
-IF (ltuning_detrain) THEN
-  exp_detr = 0.25_jprb
-ELSE
-  exp_detr = 0.5_jprb
-ENDIF
 
 !!----------------------------------------------------------------------
 
@@ -816,8 +808,8 @@ DO jk=klev-1,ktdia+2,-1
           IF(zbuo(jl,jk) < 0.0_JPRB ) THEN ! .AND.klab(jl,jk+1) == 2) THEN
             zkedke=pkineu(jl,jk)/MAX(1.e-10_JPRB,pkineu(jl,jk+1))
             zkedke=MAX(1.e-30_JPRB,MIN(1.0_JPRB,zkedke))
-            zmfun=EXP(exp_detr*LOG(zkedke))
-            ! ** suggestion by P. Bechtold (2013-11-21) - seems to further increase the moist bias in ICON **
+            zmfun=SQRT(zkedke)
+            ! ** suggestion by P. Bechtold (2013-11-21) - but degrades various scores in ICON **
   !          zmfun = (1.6_JPRB-MIN(1.0_JPRB,pqen(JL,JK)/pqsen(JL,JK)))*zmfun
             zdmfde(jl)=MAX(zdmfde(jl),pmfu(jl,jk+1)*(1.0_JPRB-zmfun))
             plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)

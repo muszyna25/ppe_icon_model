@@ -46,7 +46,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: configure_atm_phy_nwp
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
-  PUBLIC :: ltuning_detrain, ltuning_kessler, icpl_aero_conv
+  PUBLIC :: ltuning_kessler, icpl_aero_conv
   PUBLIC :: ltuning_ozone
 
   !!--------------------------------------------------------------------------
@@ -129,8 +129,7 @@ MODULE mo_atm_phy_nwp_config
   !!--------------------------------------------------------------------------
   
   ! convection:
-  ! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics
-  LOGICAL,  PARAMETER :: ltuning_detrain  = .TRUE.
+  ! GZ, 2013-09-13: tuning to reduce drizzle (may be overridden by icpl_aero_conv=1)
   LOGICAL,  PARAMETER :: ltuning_kessler  = .TRUE.
 
   ! ozone:
