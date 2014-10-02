@@ -56,7 +56,8 @@ MODULE mo_name_list_output_init
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
-  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
+  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
+                                                  get_duration_string_real
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
@@ -1130,8 +1131,16 @@ CONTAINS
           mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
           IF (mtime_datetime_end > mtime_datetime_start) THEN
             mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
-            CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
-              &                      lower_bound_str, idummy)
+            
+            !Special case for very small time steps
+            IF(sim_step_info%dtime*sim_step_info%iadv_rcf.LT.1._wp)THEN
+              CALL get_duration_string_real(REAL(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+                     &                      lower_bound_str)
+            ELSE  
+              CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+                &                      lower_bound_str, idummy)
+            END IF
+
             IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
             mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
             IF (mtime_output_interval < mtime_lower_bound) THEN
