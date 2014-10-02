@@ -37,7 +37,7 @@ MODULE mo_nwp_phy_init
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
-    &                               MODE_COMBINED, MODE_IFSANA, icosmo,             &
+    &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
     &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
     &                               MODE_COSMODE
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -1047,7 +1047,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
+  IF ( ANY( (/icosmo,igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
 
 
     ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
@@ -1111,22 +1111,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL
       ENDIF  !initialize gz0 
 
-    ENDIF  !operation mode
-
-  ! For 3D Smagorinsky turbulence model 
-  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy .AND. linit_mode ) THEN
-
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
-
-    IF (turbdiff_config(jg)%lconst_z0) THEN
-      ! for idealized tests
-      prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
-      IF(turbdiff_config(jg)%const_z0==0._wp) &
-       CALL finish (TRIM(routine), 'roughness length needs to be set for idealized LES cases!')
-    ELSE 
-      ! default: these are all set in nwp_turbtrans (AD: 11.09.2013)
-    ENDIF
-
+    END IF
+ 
   ENDIF
 
   IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
@@ -1328,6 +1314,19 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END DO
 !$OMP END PARALLEL
 
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == ismag .AND. linit_mode ) THEN
+
+    CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
+
+    IF(atm_phy_nwp_config(jg)%inwp_surface == 0)THEN
+      IF (turbdiff_config(jg)%lconst_z0) THEN
+        prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+      ELSE
+        CALL finish (TRIM(routine), 'Only constant roughness length allowed idealized LES cases!')
+      END IF
+    ELSE
+      !Default: Already set above
+    END IF
 
   ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN  !EDMF DUALM
     CALL suct0
