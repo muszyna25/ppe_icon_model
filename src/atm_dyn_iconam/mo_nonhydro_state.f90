@@ -2919,7 +2919,7 @@ MODULE mo_nonhydro_state
       &                     'metrics functional determinant', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
       CALL add_var( p_metrics_list, 'inv_ddqz_z_half_v', p_metrics%inv_ddqz_z_half_v,  &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,            &
+                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
                   & ldims=shape3d_vhalf,                                               &
                   & isteptype=TSTEP_CONSTANT )
 
@@ -2930,7 +2930,7 @@ MODULE mo_nonhydro_state
                              DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'mixing_length_sq', p_metrics%mixing_length_sq,  &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,          &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,     &
                   & ldims=shape3d_chalf,                                             &
                   & isteptype=TSTEP_CONSTANT )
 
