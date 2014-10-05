@@ -69,6 +69,7 @@ MODULE mo_dictionary
   PUBLIC :: dict_set
   PUBLIC :: dict_get
   PUBLIC :: dict_loadfile
+  PUBLIC :: dict_resize
   ! data
   PUBLIC :: t_dictionary
   PUBLIC :: DICT_MAX_STRLEN

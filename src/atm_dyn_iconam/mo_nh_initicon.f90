@@ -76,7 +76,7 @@ MODULE mo_nh_initicon
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
-    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
+    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN, dict_resize
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
   USE mo_linked_list,         ONLY: t_list_element
@@ -103,7 +103,7 @@ MODULE mo_nh_initicon
 
   PRIVATE
 
-
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nh_initicon'
 
   TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:) 
 
@@ -141,7 +141,7 @@ MODULE mo_nh_initicon
 
   ! dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
-  TYPE (t_dictionary) :: ana_varnames_dict
+  TYPE (t_dictionary), TARGET :: ana_varnames_dict
 
   ! linked lists for storing CDI file inventory info
   ! separate lists for analysis and first guess fields
@@ -2221,6 +2221,7 @@ MODULE mo_nh_initicon
       ENDIF  ! p_io
 
       parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
+
       filetype = filetype_fg(jg)
       checkgrp => initicon(jg)%grp_vars_fg(1:ngrp_vars_fg)
 
@@ -4195,8 +4196,7 @@ MODULE mo_nh_initicon
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     ! Local variables: loop control and dimensions
-!!$    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_initicon::allocate_initicon"
-    INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_e
+    INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_e, mpi_comm
 
 !-------------------------------------------------------------------------
 
@@ -4287,12 +4287,26 @@ MODULE mo_nh_initicon
 
     ENDDO ! loop over model domains
 
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test 
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
     ! read the map file into dictionary data structure:
     CALL dict_init(ana_varnames_dict, lcase_sensitive=.FALSE.)
-    IF(my_process_is_stdio() ) THEN 
-      IF(ana_varnames_map_file /= ' ') THEN
+    IF(ana_varnames_map_file /= ' ') THEN
+      IF (my_process_is_stdio()) THEN 
         CALL dict_loadfile(ana_varnames_dict, TRIM(ana_varnames_map_file))
       END IF
+      CALL p_bcast(ana_varnames_dict%nmax_entries,     p_io, mpi_comm)
+      CALL p_bcast(ana_varnames_dict%nentries,         p_io, mpi_comm)
+      CALL p_bcast(ana_varnames_dict%lcase_sensitive,  p_io, mpi_comm)
+      IF (.NOT. my_process_is_stdio()) THEN 
+        CALL dict_resize(ana_varnames_dict, ana_varnames_dict%nmax_entries)
+      END IF
+      CALL p_bcast(ana_varnames_dict%array(1,:), p_io, mpi_comm)
+      CALL p_bcast(ana_varnames_dict%array(2,:), p_io, mpi_comm)
     END IF
 
   END SUBROUTINE allocate_initicon

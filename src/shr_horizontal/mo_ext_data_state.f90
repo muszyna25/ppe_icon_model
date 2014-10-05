@@ -166,7 +166,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: cdi_filetype(:)   !< CDI filetype (for each domain)
     ! dictionary which maps internal variable names onto
     ! GRIB2 shortnames or NetCDF var names.
-    TYPE (t_dictionary) :: extpar_varnames_dict
+    TYPE (t_dictionary), TARGET :: extpar_varnames_dict
 
     TYPE(t_datetime) :: datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1791,7 +1791,7 @@ CONTAINS
 
     INTEGER,               INTENT(IN)    :: cdi_extpar_id(:)      !< CDI stream ID
     INTEGER,               INTENT(IN)    :: cdi_filetype(:)       !< CDI filetype
-    TYPE (t_dictionary),   INTENT(IN)    :: extpar_varnames_dict  !< variable names dictionary (for GRIB2)
+    TYPE (t_dictionary),   INTENT(IN), POINTER :: extpar_varnames_dict  !< variable names dictionary (for GRIB2)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_ext_data_atm'

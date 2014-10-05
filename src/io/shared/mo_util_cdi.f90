@@ -74,7 +74,7 @@ MODULE mo_util_cdi
     INTEGER :: streamId     !< CDI stream ID
     INTEGER :: glb_arr_len  !< global array length
     INTEGER :: filetype     !< filetype (NetCDF, GRIB2)
-    TYPE (t_dictionary) :: dict     !< a dictionary that is used to translate variable names
+    TYPE (t_dictionary), POINTER :: dict     !< a dictionary that is used to translate variable names
     CLASS(t_scatterPattern), POINTER :: distribution    !< a t_scatterPattern to distribute the data
     LOGICAL :: have_dict    !< whether `dict` is used or not
     CHARACTER(LEN=MAX_CHAR_LENGTH), ALLOCATABLE :: variableNames(:) !< the names of the variables
@@ -102,7 +102,7 @@ CONTAINS
     TYPE(t_inputParameters) :: me
     INTEGER, INTENT(IN) :: streamID, glb_arr_len
     CLASS(t_scatterPattern), POINTER, INTENT(IN) :: distribution
-    TYPE(t_dictionary), INTENT(IN), OPTIONAL :: opt_dict
+    TYPE(t_dictionary), POINTER, INTENT(IN), OPTIONAL :: opt_dict
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':makeInputParameters'
     INTEGER :: vlistId, variableCount, i, ierrstat
@@ -110,11 +110,11 @@ CONTAINS
     !first forward the arguments to the object we are building
     me%streamId = streamId
     me%glb_arr_len = glb_arr_len
-    IF(present(opt_dict)) THEN
-        me%dict = opt_dict
-        me%have_dict = .true.
-    ELSE
-        me%have_dict = .false.
+
+    me%have_dict = .FALSE.
+    IF(PRESENT(opt_dict)) THEN
+      me%dict => opt_dict
+      me%have_dict = .TRUE.
     END IF
     me%distribution => distribution
     CALL me%distribution%resetStatistics()
@@ -163,7 +163,7 @@ CONTAINS
     mapped_name = trim(name)
     IF(me%have_dict) THEN
       ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = trim(dict_get(me%dict, name, DEFAULT=name))
+      mapped_name = TRIM(dict_get(me%dict, TRIM(name), DEFAULT=name))
     END IF
     mapped_name = tolower(trim(mapped_name))
 
@@ -610,7 +610,11 @@ CONTAINS
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
         CASE DEFAULT
+          IF (parameters%filetype == FILETYPE_GRB2) THEN
+            CALL read_cdi_2d_wp(parameters, varId, var_out)
+          ELSE
             CALL read_cdi_2d_sp(parameters, varId, var_out)
+          END IF
     END SELECT
   END SUBROUTINE read_cdi_2d_real
 
