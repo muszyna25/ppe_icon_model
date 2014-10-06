@@ -44,6 +44,7 @@ function print_usage
 typeset COMMAND MOD_ARG
 COMMAND=$1
 MOD_ARG=""
+
 for MOD in $MODES; do
   case $MOD in  
     'b') MD='b(ase)';;
@@ -56,16 +57,24 @@ for MOD in $MODES; do
   esac
   MOD_ARG=$MOD_ARG'|'$MD
 done 
-echo "usage: ${COMMAND} [-e] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model path>]" 
+echo "usage: ${COMMAND} [-d <dates>] [-e <experiment>] [-f yes|no] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model path>] [-s <restart_date>] [-t <files>]"
+echo '-d : string containing the dates of the output files of the respective '
+echo '     experiment, default depends on experiment' 
 echo '-e : name of the experiment to be checked, default = atm_amip_test'
-echo '-f : '"'yes'"': force make_runscripts even if runscripts exist'
+echo '-f : '"'yes'"': force make_runscripts even if base runscript exists'
 echo '     '"'no'"': perform make_runscripts only if no runscripts are available (default)'
 echo '-h : display help'
-echo '-m : test mode, either single tests like base, update, restart, nproma, mpi or omp test'
+echo '-m : test mode, either single tests like base, update, restart,'
+echo '     nproma, mpi or omp test'
 echo '     or combined tests like ur (update and restart) possible'
+echo '     Default mode: rnmo'
 echo '-o : '"'yes'"': overwrite existing experiments (default)'
 echo '     '"'no'"': use existing experiments'
 echo '-r : reference model path'
+echo '-s : Date in file name of restart file of respective experiment,'
+echo '     the default depends on the respective experiment default'
+echo '-t : Types of output files, the default depends on the respective'
+echo '     experiment'
 }
 #------------------------------------------------------------------------
 function diff_results
@@ -212,19 +221,13 @@ cd ..
 MODEL_DIR=`pwd`
 cd $SCRIPT_DIR
 
-# Default experiment
-EXPERIMENT=${EXPERIMENT='atm_amip_test'}
-
-# Default work mode of the checksuite
-MD=${MD='rnmo'}  #MD is equal to MODE but abbreviated test-mode names
-FORCE_MRS=${FORCE_MRS='yes'}
-OVERWRITE=${OVERWRITE='yes'}
-REFERENCE=${REFERENCE=''}
-
+# possible test modes
 MODES="b u r n m o ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno rmo nmo urnm urno urmo unmo rnmo urnmo"
 
-while getopts ":e:f:hm:o:r:" OPT; do
+while getopts ":d:e:f:hm:o:r:s:t:" OPT; do
 case $OPT in
+ d  ) DATES=$OPTARG
+      ;;
  e  ) EXPERIMENT=$OPTARG
       ;;
  f  ) FORCE_MRS=$OPTARG
@@ -267,12 +270,34 @@ case $OPT in
 	 fi
       fi
       ;;
+ s  ) RESTART_DATE=$OPTARG
+      ;;
+ t  ) TYPES=$OPTARG
+      ;;
+ \? ) print_usage $0
+      exit ;;
 esac
 done
 
-# Define file types, dates, and the restart date for the checks.
-# Use values from environment variables, if they are defined and not null.
-# Otherwise use the specified values.
+# Default values:
+# The following variables are set to a default value if these variables
+# are not set by an option argument yet or an environment variable.
+# A calling script can set these variables exporting their values.
+
+# Experiment
+EXPERIMENT=${EXPERIMENT='atm_amip_test'}
+# Force to run "make_runscripts" for the specified experiment even
+# if the respective runscript is present 
+FORCE_MRS=${FORCE_MRS='yes'}
+# Test mode
+MD=${MD='rnmo'}
+# Force to overwrite existing experiments even if they are present
+OVERWRITE=${OVERWRITE='yes'}
+# Specify a reference model
+REFERENCE=${REFERENCE=''}
+
+# Set defaults for file types, dates, and the restart date for the 
+# checks depending on the experiment.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
   TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_pl lnd_ml phy_2d_ml phy_3d_ml'}
   DATES=${DATES='19790101T002000Z 19790101T004000Z 19790101T010000Z 19790101T012000Z 19790101T014000Z 19790101T020000Z'}
@@ -280,7 +305,7 @@ if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
 fi
 
 echo " "
-echo "==============================================================================="
+echo "=============================================================="
 echo " "
 echo "Run the checksuite for:"
 echo "- EXPERIMENT   = ${EXPERIMENT:?   is not defined --> ERROR}"
@@ -288,7 +313,7 @@ echo "- TYPES        = ${TYPES:?        is not defined --> ERROR}"
 echo "- DATES        = ${DATES:?        is not defined --> ERROR}"
 echo "- RESTART_DATE = ${RESTART_DATE:? is not defined --> ERROR}"
 echo "- CHECK MODE   = ${MD:?           is not defined --> ERROR}"
-echo "--------------------------------------------------------------------------------"
+echo "--------------------------------------------------------------"
 echo " "
 
 # check if REFERENCE is defined if an update test is requested
