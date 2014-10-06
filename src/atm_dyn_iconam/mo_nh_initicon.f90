@@ -141,7 +141,7 @@ MODULE mo_nh_initicon
 
   ! dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
-  TYPE (t_dictionary), TARGET :: ana_varnames_dict
+  TYPE (t_dictionary) :: ana_varnames_dict
 
   ! linked lists for storing CDI file inventory info
   ! separate lists for analysis and first guess fields

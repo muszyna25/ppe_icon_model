@@ -28,7 +28,7 @@ MODULE mo_util_cdi
     &                              p_io, my_process_is_stdio, p_mpi_wtime
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
+  USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_copy, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_action,             ONLY: ACTION_RESET
@@ -74,7 +74,7 @@ MODULE mo_util_cdi
     INTEGER :: streamId     !< CDI stream ID
     INTEGER :: glb_arr_len  !< global array length
     INTEGER :: filetype     !< filetype (NetCDF, GRIB2)
-    TYPE (t_dictionary), POINTER :: dict     !< a dictionary that is used to translate variable names
+    TYPE (t_dictionary)              :: dict     !< a dictionary that is used to translate variable names
     CLASS(t_scatterPattern), POINTER :: distribution    !< a t_scatterPattern to distribute the data
     LOGICAL :: have_dict    !< whether `dict` is used or not
     CHARACTER(LEN=MAX_CHAR_LENGTH), ALLOCATABLE :: variableNames(:) !< the names of the variables
@@ -102,7 +102,7 @@ CONTAINS
     TYPE(t_inputParameters) :: me
     INTEGER, INTENT(IN) :: streamID, glb_arr_len
     CLASS(t_scatterPattern), POINTER, INTENT(IN) :: distribution
-    TYPE(t_dictionary), POINTER, INTENT(IN), OPTIONAL :: opt_dict
+    TYPE(t_dictionary), INTENT(IN), OPTIONAL :: opt_dict
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':makeInputParameters'
     INTEGER :: vlistId, variableCount, i, ierrstat
@@ -113,7 +113,7 @@ CONTAINS
 
     me%have_dict = .FALSE.
     IF(PRESENT(opt_dict)) THEN
-      me%dict => opt_dict
+      CALL dict_copy(opt_dict, me%dict)
       me%have_dict = .TRUE.
     END IF
     me%distribution => distribution

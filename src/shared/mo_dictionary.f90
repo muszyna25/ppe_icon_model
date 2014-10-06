@@ -70,6 +70,7 @@ MODULE mo_dictionary
   PUBLIC :: dict_get
   PUBLIC :: dict_loadfile
   PUBLIC :: dict_resize
+  PUBLIC :: dict_copy
   ! data
   PUBLIC :: t_dictionary
   PUBLIC :: DICT_MAX_STRLEN
@@ -115,6 +116,23 @@ CONTAINS
     dict%nentries     = 0
     dict%nmax_entries = 0
   END SUBROUTINE dict_finalize
+
+
+  !--------------------------------------------------------------------------
+  !> Deep-copy of dictionary data structure.
+  !
+  SUBROUTINE dict_copy(src_dict, dst_dict)
+    TYPE(t_dictionary), INTENT(IN)    :: src_dict !< source dictionary data structure
+    TYPE(t_dictionary), INTENT(INOUT) :: dst_dict !< destination dictionary data structure
+    ! local variables:
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_copy'
+    INTEGER :: ierrstat
+
+    CALL dict_resize(dst_dict, src_dict%nmax_entries)
+    dst_dict%nentries        = src_dict%nentries
+    dst_dict%lcase_sensitive = src_dict%lcase_sensitive
+    dst_dict%array(:,1:dst_dict%nentries) = src_dict%array(:,1:dst_dict%nentries)
+  END SUBROUTINE dict_copy
 
 
   !--------------------------------------------------------------------------
