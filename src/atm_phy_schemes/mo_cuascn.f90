@@ -78,7 +78,7 @@ CONTAINS
     & ptu,      pqu,      plu,&
     & pmfu,     pmfub,    pentr,    plglac,&
     & pmfus,    pmfuq,    pmful,    plude,    pdmfup,&
-    & pdmfen,&
+    & pdmfen,   pcape,    pcapethresh,  &
     & kcbot,    kctop,    kctop0,   kdpl,     pmfude_rate,    pkineu,  pwmean )
 
 !>
@@ -145,6 +145,8 @@ CONTAINS
 !!    *zdgeoh*       geopot thickness on half levels               m2/s2
 !!    *zdgeo*        geopot thickness on full levels               m2/s2
 !!    *zdph*         pressure thickness on half levels              Pa
+!!    *pcape*        CAPE                                          J/kg
+!!    *pcapethresh*  CAPE threshold beyond which entrainment parameter is reduced
 
 !!    INPUT PARAMETERS (LOGICAL):
 
@@ -269,6 +271,8 @@ REAL(KIND=jprb)   ,INTENT(out)   :: pmful(klon,klev)
 REAL(KIND=jprb)   ,INTENT(out)   :: plude(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(out)   :: pdmfup(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(out)   :: pdmfen(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pcape(klon)
+REAL(KIND=jprb)   ,INTENT(in)    :: pcapethresh
 INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon) 
 INTEGER(KIND=jpim),INTENT(out)   :: kctop(klon) 
 INTEGER(KIND=jpim),INTENT(inout) :: kctop0(klon) 
@@ -283,7 +287,7 @@ REAL(KIND=jprb) ::     zdmfen(klon),           zdmfde(klon),&
  & zprecip(klon)  
 REAL(KIND=jprb) ::     zdpmean(klon)
 REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon), zptop0(klon), zttop0(klon)
-REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon), zdnoprc(klon)
+REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon), zdnoprc(klon), zentrorg(klon)
 LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
 
 INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, ikb, kk
@@ -403,6 +407,12 @@ ENDDO
 !OCL NOVREC
 DO jl=kidia,kfdia
   IF(ktype(jl) == 3) ldcum(jl)=.FALSE.
+  ! Reduce entrainment in case of extreme CAPE in order to prevent numerical instabilities
+  IF (pcape(jl) > pcapethresh) THEN
+    zentrorg(jl) = entrorg*MAX(0.5_jprb,(pcapethresh/pcape(jl))**2)
+  ELSE
+    zentrorg(jl) = entrorg
+  ENDIF
 ENDDO
 
 !----------------------------------------------------------------------
@@ -643,8 +653,8 @@ DO jk=klev-1,ktdia+2,-1
     DO jll=1,jlm  
         jl=jlx(jll)
         zdmfde(jl)=MIN(zdmfde(jl),0.75_JPRB*pmfu(jl,jk+1))
-        IF(jk==kcbot(jl)-1) THEN
-          zoentr(jl)=-entrorg*(MIN(1.0_JPRB,pqen(jl,jk)/pqsen(jl,jk))-1.0_JPRB)*&
+        IF(jk==kcbot(jl)) THEN  ! bugfix 2014-10-06; was kcbot(jl)-1 before
+          zoentr(jl)=-zentrorg(jl)*(MIN(1.0_JPRB,pqen(jl,jk)/pqsen(jl,jk))-1.0_JPRB)*&
           &(pgeoh(jl,jk)-pgeoh(jl,jk+1))
          !& zdgeoh(jl,jk+1)
           zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk+1)
@@ -818,7 +828,7 @@ DO jk=klev-1,ktdia+2,-1
 
           IF(zbuo(jl,jk) > -0.2_JPRB) THEN !.AND.klab(jl,jk+1) == 2) THEN
             ikb=kcbot(jl)
-            zoentr(jl)=entrorg*(0.3_JPRB-(MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1))-1.0_JPRB))*&
+            zoentr(jl)=zentrorg(jl)*(0.3_JPRB-(MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1))-1.0_JPRB))*&
               &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*MIN(1.0_JPRB,pqsen(jl,jk)/pqsen(jl,ikb))**3
             zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk)
           ELSE

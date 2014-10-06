@@ -761,7 +761,7 @@ CONTAINS
       & ptu,      pqu,      plu,&
       & pmfu,     zmfub,    zentr,    zlglac,&
       & zmfus,    zmfuq,    zmful,    plude,    zdmfup,&
-      & zdmfen,&
+      & zdmfen,   pcape,    zcapethresh, &
       & kcbot,    kctop,    ictop0,   idpl,     pmfude_rate,   zkineu,   pwmean )
 
     !*         (C) CHECK CLOUD DEPTH AND CHANGE ENTRAINMENT RATE ACCORDINGLY
@@ -1031,7 +1031,7 @@ CONTAINS
         & ptu,      pqu,      plu,&
         & pmfu,     zmfub,    zentr,    zlglac,&
         & zmfus,    zmfuq,    zmful,    plude,    zdmfup,&
-        & zdmfen,&
+        & zdmfen,   pcape,    zcapethresh, &
         & kcbot,    kctop,    ictop0,   idpl,     pmfude_rate,    zkineu,   pwmean )
 
       
