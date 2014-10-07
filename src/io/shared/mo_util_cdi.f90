@@ -73,8 +73,7 @@ MODULE mo_util_cdi
     !PRIVATE! Don't use outside of this file!
     INTEGER :: streamId     !< CDI stream ID
     INTEGER :: glb_arr_len  !< global array length
-    INTEGER :: filetype     !< filetype (NetCDF, GRIB2)
-    TYPE (t_dictionary)              :: dict     !< a dictionary that is used to translate variable names
+    TYPE (t_dictionary) :: dict     !< a dictionary that is used to translate variable names
     CLASS(t_scatterPattern), POINTER :: distribution    !< a t_scatterPattern to distribute the data
     LOGICAL :: have_dict    !< whether `dict` is used or not
     CHARACTER(LEN=MAX_CHAR_LENGTH), ALLOCATABLE :: variableNames(:) !< the names of the variables
@@ -124,9 +123,7 @@ CONTAINS
     IF(my_process_is_stdio()) THEN
         vlistId = streamInqVlist(streamId)
         variableCount = vlistNvars(vlistId)
-        me%filetype = streamInqFiletype(streamId)
     END IF
-    CALL p_bcast(me%filetype, p_io, distribution%communicator)
     CALL p_bcast(variableCount, p_io, distribution%communicator)
     ALLOCATE(me%variableNames(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -511,18 +508,11 @@ CONTAINS
     END IF
 
     SELECT CASE(parameters%lookupDatatype(varId))
-    CASE(DATATYPE_FLT64, DATATYPE_INT32)
-      ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
-      CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
-    CASE DEFAULT
-      ! Work-around for GRIB input. Currently, the GRIB-API does not
-      ! support read-in of data with memtype float. 
-      !
-      IF (parameters%filetype == FILETYPE_GRB2) THEN
-        CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
-      ELSE
-        CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
-      END IF
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+            ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
+            CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
+        CASE DEFAULT
+            CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
 
   END SUBROUTINE read_cdi_3d_real
@@ -612,11 +602,7 @@ CONTAINS
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
         CASE DEFAULT
-          IF (parameters%filetype == FILETYPE_GRB2) THEN
-            CALL read_cdi_2d_wp(parameters, varId, var_out)
-          ELSE
             CALL read_cdi_2d_sp(parameters, varId, var_out)
-          END IF
     END SELECT
   END SUBROUTINE read_cdi_2d_real
 
