@@ -57,7 +57,8 @@ for MOD in $MODES; do
   esac
   MOD_ARG=$MOD_ARG'|'$MD
 done 
-echo "usage: ${COMMAND} [-d <dates>] [-e <experiment>] [-f yes|no] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model path>] [-s <restart_date>] [-t <files>]"
+echo "usage: ${COMMAND} [-c] [-d <dates>] [-e <experiment>] [-f yes|no] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model path>] [-s <restart_date>] [-t <files>] [-u]"
+echo '-c : colour output'
 echo '-d : string containing the dates of the output files of the respective '
 echo '     experiment, default depends on experiment' 
 echo '-e : name of the experiment to be checked, default = atm_amip_test'
@@ -75,6 +76,8 @@ echo '-s : Date in file name of restart file of respective experiment,'
 echo '     the default depends on the respective experiment default'
 echo '-t : Types of output files, the default depends on the respective'
 echo '     experiment'
+echo '-u : if files of the experiments differ, '
+echo '     calculate the difference between these files with cdo sub'
 }
 #------------------------------------------------------------------------
 function diff_results
@@ -120,7 +123,7 @@ if [ "x$TYPES" == "x" ]; then
   exit 1
 fi
 #
-echo "==============================================================================="
+echo "=================================================================="
 echo "Compare these experiments:"
 echo "- ${MODEL_DIR1}/experiments/${DEXP1}"
 echo "- ${MODEL_DIR2}/experiments/${DEXP2}"
@@ -128,7 +131,7 @@ echo " "
 #
 for DATE in $DIFF_DATES; do
   #
-  echo "-------------------------------------------------------------------------------"
+  echo "----------------------------------------------------------------"
   echo "Compare for DATE=$DATE"
   DIFFERENT_TYPES=''
   #
@@ -157,6 +160,12 @@ for DATE in $DIFF_DATES; do
       fi
       IS_DIFFERENT='yes'
       DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
+      if [ "$SUB_FILES" == 'yes' ]; then
+        BFILE1=`basename $FILE1`
+        BFILE2=`basename $FILE2`
+        WDIR=`dirname $FILE2`
+        cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
+      fi
     fi
     #
   done
@@ -224,8 +233,10 @@ cd $SCRIPT_DIR
 # possible test modes
 MODES="b u r n m o ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno rmo nmo urnm urno urmo unmo rnmo urnmo"
 
-while getopts ":d:e:f:hm:o:r:s:t:" OPT; do
+while getopts ":cd:e:f:hm:o:r:s:t:u" OPT; do
 case $OPT in
+ c  ) COLOUR='yes'
+      ;;
  d  ) DATES=$OPTARG
       ;;
  e  ) EXPERIMENT=$OPTARG
@@ -274,6 +285,8 @@ case $OPT in
       ;;
  t  ) TYPES=$OPTARG
       ;;
+ u  ) SUB_FILES='yes'
+      ;;
  \? ) print_usage $0
       exit ;;
 esac
@@ -284,6 +297,8 @@ done
 # are not set by an option argument yet or an environment variable.
 # A calling script can set these variables exporting their values.
 
+# Ouput in colour
+COLOUR=${COLOUR='no'}
 # Experiment
 EXPERIMENT=${EXPERIMENT='atm_amip_test'}
 # Force to run "make_runscripts" for the specified experiment even
@@ -295,13 +310,15 @@ MD=${MD='rnmo'}
 OVERWRITE=${OVERWRITE='yes'}
 # Specify a reference model
 REFERENCE=${REFERENCE=''}
+# Do not calculate differences between differing files
+SUB_FILES=${SUB_FILES='no'}
 
 # Set defaults for file types, dates, and the restart date for the 
 # checks depending on the experiment.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
   TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_pl lnd_ml phy_2d_ml phy_3d_ml'}
-  DATES=${DATES='19790101T002000Z 19790101T004000Z 19790101T010000Z 19790101T012000Z 19790101T014000Z 19790101T020000Z'}
-  RESTART_DATE=${RESTART_DATE='19790101T010000Z'}
+  DATES=${DATES='19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+  RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
 
 echo " "
@@ -324,7 +341,11 @@ if string_in_list $MD $CMODES; then
   # get reference path standardized by pwd
   cd ${REFERENCE}; REFERENCE=`pwd`
   if [ "${REFERENCE}" == "${MODEL_DIR}" ]; then
-    echo 'reference model and test model are the same'
+    if [ "$COLOUR" == 'no' ]; then
+      echo 'reference model and test model are the same'
+    else
+      echo -e "\033[31mreference model and test model are the same\033[00m"
+    fi
     exit 1
   fi
 fi
@@ -332,13 +353,6 @@ fi
 SCRIPT=${EXPERIMENT}
 
 cd ${MODEL_DIR}
-STATUS=$?
-if [ "${STATUS}" == 0 ]; then
-  echo "found model ${MODEL_DIR}"
-else
-  echo "no model ${MODEL_DIR} found"
-  exit 1
-fi
 
 if [ ! -f ${SCRIPT_DIR}/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
   ./make_runscripts ${SCRIPT}
@@ -350,7 +364,11 @@ fi
 
 # check if the test runscript exists
 if [ ! -f ${SCRIPT_DIR}/exp.${SCRIPT}.run ]; then
-  echo "did not find base runscript ${SCRIPT_DIR}/exp.${SCRIPT}.run"
+  if [ "$COLOUR" == 'no' ]; then
+    echo "did not find base runscript ${SCRIPT_DIR}/exp.${SCRIPT}.run"
+  else
+    echo "\033[31mdid not find base runscript ${SCRIPT_DIR}/exp.${SCRIPT}.run\033[00m"
+  fi
   exit 1
 else
   echo "found runscript ${SCRIPT_DIR}/exp.${SCRIPT}.run"
@@ -369,7 +387,7 @@ EXIT_STATUS=0
 
 TEST='base'
 echo ' '
-echo "#################### perform $TEST test               ####################"
+echo "#################### perform $TEST test            ####################"
 echo ' '
 EXP_BASE=${EXPERIMENT}_${TEST}
 EXP_TEST=${EXPERIMENT}_${TEST}
@@ -390,7 +408,11 @@ if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_BASE} ]; the
   else
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$((EXIT_STATUS + 1))
-    echo "ERROR: Base run FAILED --> no further testing possible"
+    if [ "$COLOUR" == 'no' ]; then
+      echo "ERROR: Base run FAILED --> no further testing possible"
+    else
+      echo -e "\033[31mERROR: Base run FAILED --> no further testing possible\033[00m"
+    fi
     exit 1
   fi
 else
@@ -402,7 +424,7 @@ CMODES="u ur un um uo urn urm uro unm uno umo urnm urno urmo unmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='update'
   echo ' '
-  echo "#################### perform $TEST test               ####################"
+  echo "#################### perform $TEST test          ####################"
   echo ' '
   cd ${REFERENCE} 
   RUN_STATUS=-1
@@ -415,8 +437,13 @@ if string_in_list $MD $CMODES; then
     fi
     cd ${SCRIPT_DIR}
     if [ ! -f exp.${SCRIPT}.run ]; then
-      echo 'reference model: '$REFERENCE
-      echo "did not find base runscript for reference model exp.${SCRIPT}.run"
+      if [ "$COLOUR" == 'no' ]; then
+        echo 'reference model: '$REFERENCE
+        echo "did not find base runscript for reference model exp.${SCRIPT}.run"
+      else
+        echo -e "\033[31mreference model: $REFERENCE\033[00m"
+        echo -e "\033[31mdid not find base runscript for reference model exp.${SCRIPT}.run\033[00m"
+      fi
       exit 1
     else
       echo "found base runscript exp.${SCRIPT}.run"
@@ -446,7 +473,11 @@ if string_in_list $MD $CMODES; then
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi
   else
-    echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+    if [ "$COLOUR" == 'no' ]; then
+      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+    else
+      echo -e "\033[31mERROR: The $TEST test run aborted --> no comparison with the base run\033[00m"
+    fi
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
   fi # RUN_STATUS
@@ -457,7 +488,7 @@ CMODES="r ur rn rm ro urn urm uro rnm rno rmo urnm urno urmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='restart'
   echo ' '
-  echo "#################### perform $TEST test               ####################"
+  echo "#################### perform $TEST test          ####################"
   echo ' '
   RUN_STATUS=-1
   EXP_TEST=${EXPERIMENT}_${TEST}
@@ -465,7 +496,11 @@ if string_in_list $MD $CMODES; then
     #
     copy_experiment ${MODEL_DIR} ${EXP_BASE} ${EXP_TEST}
     if [ $? -ne 0 ]; then
-      echo "could not get base experiment ${EXP_BASE} or create new experiment ${EXP_TEST}"
+      if [ "$CLOLUR" == 'no' ]; then
+        echo "could not get base experiment ${EXP_BASE} or create new experiment ${EXP_TEST}"
+      else
+	echo -e "\033[31mcould not get base experiment ${EXP_BASE} or create new experiment ${EXP_TEST}\033[00m"
+      fi
       exit 1
     fi
     #
@@ -497,7 +532,11 @@ if string_in_list $MD $CMODES; then
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi
   else
-    echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+    if [ "$COLOUR" == 'no' ]; then
+      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+    else
+      echo -e "\033[31mERROR: The $TEST test run aborted --> no comparison with the base run\033[00m"
+    fi
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
   fi # RUN_STATUS
@@ -508,7 +547,7 @@ CMODES="n un rn nm no urn unm uno rnm rno nmo urnm urno unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='nproma'
   echo ' '
-  echo "#################### perform $TEST test               ####################"
+  echo "#################### perform $TEST test         ####################"
   echo ' '
   RUN_STATUS=-1
   EXP_TEST=${EXPERIMENT}_${TEST}
@@ -547,7 +586,11 @@ if string_in_list $MD $CMODES; then
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi
   else
-    echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+    if [ "$COLOUR" == 'no' ]; then
+      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+    else
+      echo -e "\033[31mERROR: The $TEST test run aborted --> no comparison with the base run\033[00m"
+    fi
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
   fi # RUN_STATUS
@@ -558,7 +601,7 @@ CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='mpi'
   echo ' '
-  echo "#################### perform $TEST test               ####################"
+  echo "#################### perform $TEST test         ####################"
   echo ' '
   TEST_POSSIBLE='no'
   RUN_STATUS=-1
@@ -648,11 +691,19 @@ if string_in_list $MD $CMODES; then
         RUN_STATUS=$?
         #
       else
-        echo "No MPI parallelization test is peformed if: total number of MPI processes = $N_PROCS"
+        if [ "$COLOUR" == 'no' ]; then
+          echo "No MPI parallelization test because total number of MPI processors is : $N_PROCS"
+	else
+          echo -e "\033[31mNo MPI parallelization test because total number of MPI processors is : $N_PROCS\033[00m"
+	fi
       fi # total number of procs > 1
       #
     else
-      echo "No MPI parallelization test is peformed because: $MPI"
+      if [ "$COLOUR" == 'no' ]; then
+        echo "No MPI parallelization test is peformed because: $MPI"
+      else
+        echo -e "\033[31mNo MPI parallelization test is peformed because: $MPI\033[00m"
+      fi
     fi # MPI = yes
     #
   else
@@ -673,7 +724,11 @@ if string_in_list $MD $CMODES; then
         EXIT_STATUS=$(($EXIT_STATUS + 1))
       fi
     else
-      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+      if [ "$COLOUR" == 'no' ]; then
+        echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+      else
+        echo -e "\033[31mERROR: The $TEST test run aborted --> no comparison with the base run\033[00m"
+      fi
       FAILED_TESTS="$FAILED_TESTS $TEST"
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi # RUN_STATUS
@@ -685,7 +740,7 @@ CMODES="o uo ro no mo uro uno umo rno rmo nmo urno urmo unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='omp'
   echo ' '
-  echo "#################### perform $TEST test               ####################"
+  echo "#################### perform $TEST test         ####################"
   echo ' '
   TEST_POSSIBLE='no'
   RUN_STATUS=-1
@@ -744,11 +799,19 @@ if string_in_list $MD $CMODES; then
         RUN_STATUS=$?
         #
       else
-        echo "No OMP parallelization test is performed if: number of OMP threads = $N_OMP_NUM_THREADS"
+	if [ "$COLOUR" == 'no' ]; then
+          echo "No OMP parallelization test because number of OMP threads = $N_OMP_NUM_THREADS"
+	else
+          echo -e "\033[31mNo OMP parallelization test because number of OMP threads = $N_OMP_NUM_THREADS\033[00m"
+	fi
       fi # total number of omp threads > 1
       #
     else
-      echo "No OMP parallelization test is peformed because: $OMP"
+      if [ "$COLOUR" == 'no' ]; then
+        echo "No OMP parallelization test is peformed because: $OMP"
+      else
+        echo -e "\033[31mNo OMP parallelization test is peformed because: $OMP\033[00m"
+      fi
     fi # OMP = yes
     #
   else
@@ -769,7 +832,11 @@ if string_in_list $MD $CMODES; then
         EXIT_STATUS=$(($EXIT_STATUS + 1))
       fi
     else
-      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+      if [ "$COLOUR" == 'no' ]; then
+        echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
+      else
+        echo -e "\033[31mERROR: The $TEST test run aborted --> no comparison with the base run\033[00m"
+      fi
       FAILED_TESTS="$FAILED_TESTS $TEST"
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi # RUN_STATUS
@@ -779,13 +846,18 @@ fi # MODE
 
 echo ' '
 echo ' '
-echo '#################### test summary                     ########################'
+echo '#################### test summary             ########################'
 echo ' '
+if [ "$COLOUR" == 'no' ]; then
 echo $PASSED_TESTS
 echo $FAILED_TESTS
+else
+echo -e "\033[32m$PASSED_TESTS\033[00m"
+echo -e "\033[31m$FAILED_TESTS\033[00m"
+fi
 echo ' '
-echo $EXIT_STATUS
+echo 'EXIT_STATUS: '$EXIT_STATUS
 echo ' '
-echo '=============================================================================='
+echo '======================================================================'
 date
 exit $EXIT_STATUS
