@@ -28,7 +28,7 @@ MODULE mo_util_cdi
     &                              p_io, my_process_is_stdio, p_mpi_wtime
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_copy, DICT_MAX_STRLEN
+  USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_action,             ONLY: ACTION_RESET
@@ -113,6 +113,7 @@ CONTAINS
 
     me%have_dict = .FALSE.
     IF(PRESENT(opt_dict)) THEN
+      CALL dict_init(me%dict, lcase_sensitive=.FALSE.)
       CALL dict_copy(opt_dict, me%dict)
       me%have_dict = .TRUE.
     END IF
@@ -228,6 +229,7 @@ CONTAINS
     END IF
     CALL me%distribution%printStatistics()
 
+    IF(me%have_dict) CALL dict_finalize(me%dict)
     DEALLOCATE(me%variableNames)
     DEALLOCATE(me%variableDatatype)
     DEALLOCATE(me%variableTileIdx)
