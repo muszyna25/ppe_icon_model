@@ -201,6 +201,7 @@ MODULE mo_mpi
   PUBLIC :: work_mpi_barrier
 
   PUBLIC :: p_comm_size
+  PUBLIC :: p_comm_rank
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,         &
     &       p_irecv_packed, p_send_packed, p_recv_packed, &
@@ -455,6 +456,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_send_real_1d
      MODULE PROCEDURE p_send_int_1d
      MODULE PROCEDURE p_send_bool_1d
+     MODULE PROCEDURE p_send_char_1d
      MODULE PROCEDURE p_send_real_2d
      MODULE PROCEDURE p_send_int_2d
      MODULE PROCEDURE p_send_bool_2d
@@ -495,6 +497,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_recv_real_1d
      MODULE PROCEDURE p_recv_int_1d
      MODULE PROCEDURE p_recv_bool_1d
+     MODULE PROCEDURE p_recv_char_1d
      MODULE PROCEDURE p_recv_real_2d
      MODULE PROCEDURE p_recv_int_2d
      MODULE PROCEDURE p_recv_bool_2d
@@ -569,8 +572,10 @@ MODULE mo_mpi
      MODULE PROCEDURE p_gather_real_0d1d
      MODULE PROCEDURE p_gather_real_1d2d
      MODULE PROCEDURE p_gather_real_5d6d
+     MODULE PROCEDURE p_gather_real_1d1d
      MODULE PROCEDURE p_gather_int_0d1d
      MODULE PROCEDURE p_gather_int_1d1d
+     MODULE PROCEDURE p_gather_char_0d1d
   END INTERFACE
 
   INTERFACE p_scatterv
@@ -2180,6 +2185,26 @@ CONTAINS
 #endif
   END FUNCTION p_comm_size
 
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Comm_size()
+  !---------------------------------------------------------------------------------------------------------------------------------
+  FUNCTION p_comm_rank(communicator)
+    INTEGER :: p_comm_rank
+    INTEGER, INTENT(IN) :: communicator
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'p_comm_rank'
+    INTEGER :: ierr
+
+#ifndef NOMPI
+    CALL MPI_COMM_RANK(communicator, p_comm_rank, ierr)
+    IF(ierr /= MPI_SUCCESS) CALL finish(routine, 'Error in MPI_COMM_RANK operation!')
+#else
+    p_comm_size = 1
+#endif
+  END FUNCTION p_comm_rank
+
+
 !=========================================================================
 
   ! send implementation
@@ -2626,6 +2651,42 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_send_bool_1d
+
+
+  SUBROUTINE p_send_char_1d (t_buffer, p_destination, p_tag, p_count, comm)
+
+    CHARACTER(LEN=*), INTENT(in) :: t_buffer(:)
+    INTEGER, INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL MPI_SEND (t_buffer, LEN(t_buffer(1))*p_count, p_char, p_destination, p_tag, &
+            p_comm, p_error)
+    ELSE
+       CALL MPI_SEND (t_buffer, LEN(t_buffer(1))*SIZE(t_buffer), p_char, p_destination, p_tag, &
+            p_comm, p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_char_1d
+
 
   SUBROUTINE p_send_bool_2d (t_buffer, p_destination, p_tag, p_count, comm)
 
@@ -3859,6 +3920,42 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_recv_bool_1d
+
+
+  SUBROUTINE p_recv_char_1d (t_buffer, p_source, p_tag, p_count, comm)
+
+    CHARACTER(LEN=*), INTENT(out) :: t_buffer(:)
+    INTEGER, INTENT(in)  :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL MPI_RECV (t_buffer, LEN(t_buffer(1))*p_count, p_char, p_source, p_tag, &
+            p_comm, p_status, p_error)
+    ELSE
+       CALL MPI_RECV (t_buffer, LEN(t_buffer(1))*SIZE(t_buffer), p_char, p_source, p_tag, &
+            p_comm, p_status, p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_recv_char_1d
+
 
   SUBROUTINE p_recv_bool_2d (t_buffer, p_source, p_tag, p_count, comm)
 
@@ -7246,6 +7343,29 @@ CONTAINS
    END SUBROUTINE p_gather_real_5d6d
 
 
+  SUBROUTINE p_gather_real_1d1d (sendbuf, recvbuf, p_dest, comm)
+    REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:)
+    INTEGER,           INTENT(in) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+     CALL MPI_GATHER(sendbuf, SIZE(sendbuf), p_real_dp, &
+                     recvbuf, SIZE(sendbuf), p_real_dp, &
+                     p_dest, p_comm, p_error)
+#else
+     recvbuf(:) = sendbuf(:)
+#endif
+   END SUBROUTINE p_gather_real_1d1d
+
+
   !---------------------------------------------------------------------------------------------------------------------------------
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -7300,6 +7420,41 @@ CONTAINS
      recvbuf = sendbuf
 #endif
    END SUBROUTINE p_gather_int_1d1d
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Gather()
+  !---------------------------------------------------------------------------------------------------------------------------------
+   SUBROUTINE p_gather_char_0d1d (sbuf, recvbuf, p_dest, comm)
+     CHARACTER(len=*),  INTENT(in)    ::  sbuf
+     CHARACTER(len=*),  INTENT(inout) ::  recvbuf(:)
+     INTEGER,           INTENT(in) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in) :: comm
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_char_0d1d"
+
+#ifndef NOMPI
+     INTEGER :: p_comm
+
+     IF (LEN(sbuf) /= LEN(recvbuf(1))) THEN
+       CALL finish (routine, 'Internal error: String lengths do not match!')
+     END IF
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+
+     CALL MPI_GATHER(sbuf, LEN(sbuf), p_char,    &
+       &             recvbuf, LEN(sbuf), p_char, &
+       &             p_dest, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHER operation!')
+#else
+     IF (LEN(sbuf) /= LEN(recvbuf(1))) THEN
+       CALL finish (routine, 'Internal error: String lengths do not match!')
+     END IF
+     recvbuf = sbuf
+#endif
+   END SUBROUTINE p_gather_char_0d1d
 
 
    SUBROUTINE p_gatherv_int (sendbuf, sendcount, recvbuf, recvcounts, &

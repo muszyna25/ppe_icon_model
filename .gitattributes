@@ -1503,6 +1503,7 @@ src/io/shared/mo_name_list_output.f90 -text
 src/io/shared/mo_name_list_output_gridinfo.f90 -text
 src/io/shared/mo_name_list_output_init.f90 -text
 src/io/shared/mo_name_list_output_metadata.f90 -text
+src/io/shared/mo_name_list_output_stats.f90 -text
 src/io/shared/mo_name_list_output_types.f90 -text
 src/io/shared/mo_name_list_output_zaxes.f90 -text
 src/io/shared/mo_netcdf_parallel.f90 -text

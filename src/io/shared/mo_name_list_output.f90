@@ -64,7 +64,8 @@ MODULE mo_name_list_output
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text
-  USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords
+  USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords,         &
+  &                                       int2string
   USE mo_dictionary,                ONLY: dict_finalize
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
     &                                     print_timer
@@ -102,6 +103,8 @@ MODULE mo_name_list_output
     &                                     get_current_date, trigger_output_step_irecv,              &
     &                                     is_output_step_complete, is_output_event_finished,        &
     &                                     check_write_readyfile, blocking_wait_for_irecvs
+  USE mo_name_list_output_stats,    ONLY: set_reference_time, interval_start, interval_end,         &
+    &                                     interval_write_psfile
   ! output initialization
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
@@ -1006,6 +1009,8 @@ CONTAINS
     INTEGER             :: jg, jstep, i
     TYPE(t_par_output_event), POINTER :: ev
 
+    ! define initial time stamp used as reference for output statistics
+    CALL set_reference_time()
 
     ! Initialize name list output, this is a collective call for all PEs
     CALL init_name_list_output(sim_step_info)
@@ -1120,6 +1125,10 @@ CONTAINS
     END IF
 
     IF (ltimer) CALL print_timer
+
+    CALL interval_write_psfile("output_schedule.ps", "Output Timings", &
+      &                        int2string(p_pe,'(i0)'), p_comm_work)
+
     ! Shut down MPI
     CALL stop_mpi
     STOP
@@ -1173,6 +1182,7 @@ CONTAINS
 
     CALL date_and_time(TIME=ctime)
     WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    CALL interval_start(TRIM(get_current_filename(of%out_event)))
 
     t_get   = 0.d0
     t_write = 0.d0
@@ -1414,6 +1424,8 @@ CONTAINS
     !
     CALL date_and_time(TIME=ctime)
     WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
+    CALL interval_end(TRIM(get_current_filename(of%out_event)))
+
     ! Convert mb_get/mb_wr to MB
     IF (use_dp_mpi2io) THEN
       mb_get = mb_get*8*1.d-6
