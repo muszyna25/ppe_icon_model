@@ -24,10 +24,8 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-#set EXPNUM        "002"                #---experiment number---
-#set EXPNUM2       "148"                #---experiment number used for score comparison---
-set EXPNUM        "003"                #---experiment number---
-set EXPNUM2       "127"                #---experiment number used for score comparison---
+set EXPNUM        "176"                #---experiment number---
+set EXPNUM2       "175"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
 set LAST_DATE     20120731
@@ -51,7 +49,8 @@ set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
 # Processors: CRAY totaltasks: 12 x nodes (for 2 hyperthreads and 4 openMP threads)
-set ICONTOTALTASKS  384   # R2B5: 192, R2B6: 384, R2B7: ?,   R2B8: ?
+                          # EDMF: 384        768
+set ICONTOTALTASKS  768   # R2B5: 192, R2B6: 384, R2B7: ? ,  R2B8: ?
 set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
 set ICONTASKSPERNODE 32   #       32         32         32          8
 set ICONTHREADS       2   #        2          2          2          8

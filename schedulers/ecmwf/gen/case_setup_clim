@@ -64,7 +64,7 @@ start_date="${INITIME_FMT}"
 ndays_restart=500
 dt_restart=`expr ${ndays_restart} \* 86400`
 
-# model timing                 (EDMF)
+# model timing                          (EDMF, safer 90s)
 dtime=90      # dyn            R2B4:150  R2B5:90 (144) R2B6:72   R2B7:36   R2B8:18
 dtconv=900    # conv, SSO, GWD R2B4:600  R2B5:900(720) R2B6:720  R2B7:360  R2B8:360
 dtrad=3600    # rad            R2B4:3600 R2B5:3600     R2B6:3600 R2B7:1800 R2B8:1800
@@ -197,13 +197,13 @@ cat > ${atmo_namelist} << EOF
  taxis_tunit                  =  3  ! output time unit, 3: hours, 2:min, 1:sec
  include_last                 = .TRUE.
  output_filename              = '${basename}'             ! file name base
- p_levels                     = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
-                                30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
- h_levels                     = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
-                                10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
  hl_varlist                   = ${hl_varlist}
+ p_levels                     = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
+                                30000,40000,50000,60000,70000,77500,80000,85000,90000,92500,95000,100000
+ h_levels                     = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
+                                10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  = 0.,2.,358.
@@ -218,18 +218,18 @@ cat > ${atmo_namelist} << EOF
  lmeteogram_enabled= .TRUE.
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
  ninc_mtgrm        = ${ninc_mtgrm}  ! meteogram output interval
- ldistributed      = .false.
- stationlist_tot   =  50.16,   8.75, 'Offenbach',                         ! Lat,Lon
+ ldistributed      = .false.        ! Lat,Lon
+ stationlist_tot   =  50.16,   8.75, 'Offenbach',
                       52.17,  14.12, 'Lindenberg',
                       51.97,   4.93, 'Cabauw',
                      -10.08, -61.93, 'LBA_Rondonia',
                       13.50,   2.5 , 'Niamey',
-                      36.61, -97.49, 'ARM_Southern_Great_Plains',
-                      71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
-                      -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
-                     -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
-                     -20.00,-120.00, 'Tropical Ocean cumumulus',
-                     -20.00, -85.00, 'Tropical Ocean IMET strcu',
+                      36.61, -97.49, 'ARM_SGP',
+                      71.32, 156.62, 'ARM_Alaska_Barrow',
+                      -2.06, 147.43, 'ARM_W_Pacific_Manus',
+                     -12.43, 130.89, 'ARM_W_Pacific_Darwin',
+                     -20.00,-120.00, 'Trop Ocean cum',
+                     -20.00, -85.00, 'Trop Ocean IMET stcu',
                       60.00,  80.00, 'Snow Test Russia',
                       46.81,   6.94, 'Payerne',
                       67.36,  26.64, 'Sodankyla',
