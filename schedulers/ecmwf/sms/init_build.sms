@@ -41,15 +41,12 @@ case ${compiler} in
     #---IBM
     #module swap fortran fortran/xlf/14.1.0.3
     
-    #---CRAY 8.2.7.101
-    #module swap cce/8.2.7.101           # segmentation fault during compilation and run?
-    
-    #---CRAY 8.3.0.186 (make clean if switching compilers)
-    module swap cce/8.3.0.186            # availability of CC compiler?
-    module swap PrgEnv-cray/5.1.18
+    #---CRAY 8.3.1
+    module swap cce/8.3.1
+    module swap PrgEnv-cray/5.1.29
     
     module load subversion
-    module swap grib_api grib_api/1.11.0
+    module swap grib_api grib_api/1.12.3
     module load netcdf
 
     ./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
@@ -84,10 +81,10 @@ ssh $WSHOST svn update %ECPERMIII%/dwd_icon_tools
 cd %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools
 case ${compiler} in
   cray)
-    module swap cce/8.2.2
-   #module swap cce/8.3.0.186  # segmentation fauls during compilation
+    module swap cce/8.3.1
+    module swap PrgEnv-cray/5.1.29
     gmake clean
-    gmake cray_mpi       #-j%SCTOTALTASKS% ibmp7_mpi
+    gmake cray_mpi             #-j%SCTOTALTASKS%   
     ;;
   intel)
     module swap PrgEnv-cray PrgEnv-intel

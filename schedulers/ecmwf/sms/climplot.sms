@@ -22,10 +22,10 @@
 metview=metview4_new
 #metview=metview4_dev
 
-module swap grib_api grib_api/1.11.0
+module swap grib_api grib_api/1.12.3
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3-1:/usr/local/apps/grib_api/1.12.3/share/grib_api/definitions"
 
 
 #-----------------------------------------------------------------------------

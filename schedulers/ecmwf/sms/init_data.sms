@@ -24,7 +24,7 @@
 
 echo "INIT_DATA.SMS"
 
-#rm -rf /scratch/ms/de/deia/icon/dei3/004/output/*/*METEOGR*
+
 if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''
@@ -33,6 +33,7 @@ if [[ %NENS% -gt 0 ]]
   then TXTENS=_%NMEM%
   else TXTENS=''
 fi
+
 
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
@@ -50,7 +51,7 @@ cd ${IFSDATADIR}
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
 #dwd_grib_api=/home/ms/de/dei4
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3:/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions"
 # =============================================
 
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
@@ -107,7 +108,6 @@ cat > NAMELIST_PREPICON << EOF
  out_grid_filename = "${ICON_GRIDFILE}"
  out_filename      = "${IFS_FILENAME_NC}"	
  out_type          = 2
- s_maxsize         = 500000
  l_have3dbuffer    = .false.
  out_filetype      = 4
  rbf_scale_uv2vec  = 0.05            !use ONLY for R2B5!!!!
@@ -122,30 +122,14 @@ cat > NAMELIST_PREPICON << EOF
 !intp_method    = 3     
 /
 EOF
-if [ %SIMMODE% -ne 3  ] ; then
 
 cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! horiz. wind comp. u and v
  inputname      = "U", "V"         
  outputname     = "VN"  
+ code           = 131,132
 /
 EOF
-else
-
-cat >> NAMELIST_PREPICON << EOF
-&input_field_nml  ! horiz. wind comp. u and v
- inputname      = "U"
- outputname     = "U"  
- code           = 131 
-/
-&input_field_nml  ! horiz. wind comp. u and v
- inputname      = "V"         
- outputname     = "V" 
- code           = 132  
-/
-EOF
-
-fi
 
 cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! vertical velocity
@@ -306,9 +290,9 @@ cat >> NAMELIST_PREPICON << EOF
 /
 EOF
 
-# 80-83 changed to 39-42!!!
+# 80-83 changed to 39-42 for soil moisture index!!!
  
-if [ %SIMMODE% -ne 3  -a  %YMD% -ge 20101109 ] ; then
+if [ %YMD% -ge 20101109 ] ; then
 
 cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! rain water content
@@ -341,7 +325,6 @@ if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
 else
   cp -p ${outbasedir}/bin/iconremap_mpi .
   export USE_SIGNAL_HANDLING=yes
-# ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 
 # "aprun" command:
 # -n xx   : number of MPI tasks
@@ -350,13 +333,7 @@ else
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 3g   : 3G memory/task
 
- #aprun  -n 40 -N 10 -j 2 -d 4 -m 3g iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
- #aprun  -N $EC_tasks_per_node -n $EC_total_tasks -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vvv
-  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-
-# fractional job: 
- #module load cray-snplauncher
- #mpiexec -n $EC_total_tasks iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vvvv
 
 fi
 

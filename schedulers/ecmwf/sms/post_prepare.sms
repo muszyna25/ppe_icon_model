@@ -17,21 +17,21 @@
 %end
 
 # include the header file for remote jobs
-%include <init_sc.h> 
+%include <init_sc.h>
 
 # -------------------------------------------------
 
 echo "POST_PREPARE.SMS" 
 
 module load python
-module load cdo
-module swap grib_api grib_api/1.11.0
+module load cdo/1.6.4
+module swap grib_api grib_api/1.12.3
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
 #dwd_grib_api=/home/ms/de/dei4
 #export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
 #export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions"
-export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
+export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.12.3"
 
 lsplitdata=1
 lcpdata=1 
@@ -90,31 +90,31 @@ ecp -o ${bindir}/icon_rev.txt $ecfsdir
 if [[ %NENS% -gt 0 ]] ; then
   for levtype in ${levtypes} ; do
     \rm -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb
-    cdo ensmean ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb \
-                ${outdir}/002/${basename}_002_DOM01_${levtype}_0001.grb \
-                ${outdir}/003/${basename}_003_DOM01_${levtype}_0001.grb \
-                ${outdir}/004/${basename}_004_DOM01_${levtype}_0001.grb \
-                ${outdir}/005/${basename}_005_DOM01_${levtype}_0001.grb \
-                ${outdir}/006/${basename}_006_DOM01_${levtype}_0001.grb \
-                ${outdir}/007/${basename}_007_DOM01_${levtype}_0001.grb \
-                ${outdir}/008/${basename}_008_DOM01_${levtype}_0001.grb \
-                ${outdir}/009/${basename}_009_DOM01_${levtype}_0001.grb \
-                ${outdir}/010/${basename}_010_DOM01_${levtype}_0001.grb \
-                ${outdir}/${basename}_DOM01_${levtype}_0001.grb
+    cdo -P 2 ensmean ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb \
+                     ${outdir}/002/${basename}_002_DOM01_${levtype}_0001.grb \
+                     ${outdir}/003/${basename}_003_DOM01_${levtype}_0001.grb \
+                     ${outdir}/004/${basename}_004_DOM01_${levtype}_0001.grb \
+                     ${outdir}/005/${basename}_005_DOM01_${levtype}_0001.grb \
+                     ${outdir}/006/${basename}_006_DOM01_${levtype}_0001.grb \
+                     ${outdir}/007/${basename}_007_DOM01_${levtype}_0001.grb \
+                     ${outdir}/008/${basename}_008_DOM01_${levtype}_0001.grb \
+                     ${outdir}/009/${basename}_009_DOM01_${levtype}_0001.grb \
+                     ${outdir}/010/${basename}_010_DOM01_${levtype}_0001.grb \
+                     ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
   if [[ $lmeteo = 1 ]] ; then
     \rm -f ${outdir}/METEOGRAM_patch001.nc
-    cdo ensmean ${outdir}/001/METEOGRAM_patch001.nc \
-                ${outdir}/002/METEOGRAM_patch001.nc \
-                ${outdir}/003/METEOGRAM_patch001.nc \
-                ${outdir}/004/METEOGRAM_patch001.nc \
-                ${outdir}/005/METEOGRAM_patch001.nc \
-                ${outdir}/006/METEOGRAM_patch001.nc \
-                ${outdir}/007/METEOGRAM_patch001.nc \
-                ${outdir}/008/METEOGRAM_patch001.nc \
-                ${outdir}/009/METEOGRAM_patch001.nc \
-                ${outdir}/010/METEOGRAM_patch001.nc \
-                ${outdir}/METEOGRAM_patch001.nc
+    cdo -P 2 ensmean ${outdir}/001/METEOGRAM_patch001.nc \
+                     ${outdir}/002/METEOGRAM_patch001.nc \
+                     ${outdir}/003/METEOGRAM_patch001.nc \
+                     ${outdir}/004/METEOGRAM_patch001.nc \
+                     ${outdir}/005/METEOGRAM_patch001.nc \
+                     ${outdir}/006/METEOGRAM_patch001.nc \
+                     ${outdir}/007/METEOGRAM_patch001.nc \
+                     ${outdir}/008/METEOGRAM_patch001.nc \
+                     ${outdir}/009/METEOGRAM_patch001.nc \
+                     ${outdir}/010/METEOGRAM_patch001.nc \
+                     ${outdir}/METEOGRAM_patch001.nc
   fi
 fi
 
@@ -140,11 +140,12 @@ fi
 
 #-----------------------------------------------------------------------------
 # GRIB: copy to ecfs
+#   - accumulate files written to ECFS to copy all at the end for efficiency
 
 if [[ %SIMMODE% != 3 ]] ; then
   for levtype in ${levtypes} ; do
     if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb ]] ; then
-      ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
+      set -A ecp_files ${ecp_files[*]} ${outdir}/${basename}_DOM01_${levtype}_0001.grb
     else
       ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
     fi
@@ -152,17 +153,19 @@ if [[ %SIMMODE% != 3 ]] ; then
 else
   for levtype in ${levtypes} ; do
     if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.nc ]] ; then
-      ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.nc $ecfsdir
+      set -A ecp_files ${ecp_files[*]} ${outdir}/${basename}_DOM01_${levtype}_0001.nc
     else
       ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.nc ${outdir}
     fi
   done
   for str in so1 so2 ; do
     if [[ -f ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ]] ; then
-      ecp -o ${outdir}/${basename}_${str}_DOM01_ML_0001.nc $ecfsdir
+      set -A ecp_files ${ecp_files[*]} ${outdir}/${basename}_${str}_DOM01_ML_0001.nc
     fi
   done
 fi
+
+ecp -o ${ecp_files[*]} $ecfsdir
 
 if [[ %NENS% -gt 0 ]] ; then
   for nmem in 001 002 003 004 005 006 007 008 009 010 ; do
@@ -208,8 +211,8 @@ if [[ $lsplitdata = 1 ]] ; then
 
 # fix table from 5 to 4 to work with metview (ML type need to be present in GRIB file!!)
   for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
-    cdo copy ${ml_file}      ${ml_file}_temp
-    mv       ${ml_file}_temp ${ml_file}
+    cdo -P 2 copy ${ml_file}      ${ml_file}_temp
+    mv            ${ml_file}_temp ${ml_file}
   done
 
   ls -l grb_data

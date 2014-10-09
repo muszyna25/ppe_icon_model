@@ -21,11 +21,7 @@ echo "SEASONAL_MEAN.SMS"
 
 module load python
 module load cdo
-module swap grib_api grib_api/1.11.0
-
-dwd_grib_api=/home/ms/de/dwd/grib_api
-#export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0-12"
-#export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-12:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions"
+module swap grib_api grib_api/1.12.3
 
 set -A means          # nothing, or: year seas mon
 lsplitdata=1
