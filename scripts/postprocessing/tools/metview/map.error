@@ -419,7 +419,12 @@ var_ana=0
 var_exp=0
 temp   =0
 
+rms_data = rmstime_met(var_data,nlev,ndays)  # eom_prepare does time mean, so RMS for each day not possible
+
 var_data = avgtime_met(var_data,nlev,ndays)
+
+print('rms',rms_data)
+print('var',var_data)
 
 if nlev=1 then
   k1=1
@@ -443,9 +448,15 @@ for k=k1 to k2 by k3 do
 
   statistic   = 'Min:  ' &minvalue(var_data[k])&'   Max:  '&maxvalue(var_data[k])&
              '   Mean:  '&integrate(mean(var_data[k]))
+
+  # rms of mean over forecasts
   rms = sqrt(integrate(var_data[k]*var_data[k]))
+ #rms = integrate(sqrt(var_data[k]*var_data[k]))   # better!
+  # mean of rms of each forecast
+  rms_days = integrate(rms_data[k])
+
   if stat = 'diff' then 
-    statistic = statistic&'   RMS:  '&rms
+    statistic = statistic&'   RMS:  '&rms          # &'   MEANofRMS:  '&rms_days
     append (plotdir&"/scores_"&expnum&".txt", 
       varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
       '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
@@ -626,6 +637,25 @@ function build_layout()
     return _Display_Window_ 
 
 end build_layout
+
+
+#-----------------------------------------------------------------------
+# --- Metview function to calculate rms of many 3D fields.
+
+function rmstime_met(fields,nfld,nsteps)
+
+   for i=1 to nfld do
+      onefld  = fields[i,i+((nsteps-1)*nfld),nfld]
+      meanfld = mean(sqrt(onefld*onefld))
+      if i=1 then
+         meanall=meanfld
+      else
+         meanall=meanall & meanfld
+      end if		
+   end for
+   return meanall
+
+end rmstime_met
 
 
 #-----------------------------------------------------------------------

@@ -102,14 +102,17 @@ fi
 
 #metview=metview4_old
 #metview=metview4_dev
-metview=metview4_new
+#metview=metview4_new
+metview=/usr/local/apps/Metview/4.5.0/bin/metview     # 4.4.8-4.4.10 not working with zonal shades
 
-deia_grib_api=/home/ms/de/deia/grib_api # inlcudes fix add back in the MARS definitions for level reading
-                                        # this will be fixed in 1.12.3 by Gramalla
+#deia_grib_api=/home/ms/de/deia/grib_api # inlcudes fix add back in the MARS definitions for level reading
+#                                        # this will be fixed in 1.12.3 by Gramalla
+dwd_grib_api=/home/ms/de/dwd/grib_api
+
 if [[ $TASK = "plot_2d" || $TASK = "plot_zon" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ||  $TASK = "plot_obs_10" ]] ; then
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${deia_grib_api}/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
+  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${dwd_grib_api}/definitions.edzw-1.12.3-1:/usr/local/apps/grib_api/1.12.3/share/grib_api/definitions
 else
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
+  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.12.3/share/grib_api/definitions
 fi
 
 #pgi_path="/usr/local/apps/nag/22/LP64"
@@ -530,12 +533,12 @@ if [[ $TASK = "plot_2d" ]] ; then
 
 # missing: BLH, TSRC, TTRC, optional: z500, sp
 
-    set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SST  SKT TCW TCWV Z  T   T   T   T   T    T   T   T  TCLW TCIW CAPE
-    set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins ins  ins ins ins ins  ins  ins 
-    set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2   2    2   2   2   2    2    2  
-    set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  500 925 850 700 500 300  200 100 50   0    0    0  
-    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl  pl   pl  pl  pl  sfc  sfc  sfc 
-    set -A STAT    avg avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg avg  avg avg avg avg  avg  avg 
+    set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SST  SKT TCW TCWV Z   T   T   T   T   T   T   T   T   T  TCLW TCIW CAPE
+    set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins ins ins ins ins ins ins  ins  ins 
+    set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2   2   2   2   2   2   2    2    2  
+    set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  500 925 850 700 500 400 300 200 100 50   0    0    0  
+    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  sfc  sfc  sfc 
+    set -A STAT    avg avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg avg avg avg avg avg avg  avg  avg 
 
 # --- loop over variables
 

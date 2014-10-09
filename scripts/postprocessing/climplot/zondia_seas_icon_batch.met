@@ -3,8 +3,9 @@
 # zonal mean plots for climate runs - batch version
 #
 # interactive test:
-# setenv PLOTDATA /scratch/rd/pao/temp
-# metview4 -b zondia_seas_icon_batch.met ERA40 flhu 20000801 4 200009 12 pl 91 avg 2.5 ERAI
+# export PLOTDATA=/scratch/ms/de/deia/icon/dei2/177/seasonal 
+# metview4 -b zondia_seas_icon_batch.met ERA40 flhu 20000801 4 200009 12 pl 91 avg 2.5 ERAI icon
+# metview4 -b zondia_seas_icon_batch.met ERA40 dei2_177 20000801 4 200009 12 pl 91 avg 2.0 ERAI icon
 #
 # Martin Koehler & Thomas Jung
 #
@@ -89,14 +90,14 @@
   if lev_type = "pl" then
 
     levels       = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
-                   # 600,700,775,800,850,900,925,950,1000] #26 levels (climate&ERA40)
-                     600,700,775,850,925,1000]             #23 levels (climate&ERA40&levels in IFS experiment
+                  # 600,700,775,800,850,900,925,950,1000] #26 levels (climate&ERA40)
+                    600,700,775,850,925,1000]             #23 levels (climate&ERA40&levels in IFS experiment
     p_max        = 1000
     p_min        = 1
    # ... variables available on pressure levels by default
     if plot_modus  = "Average Difference" then
       if exid[1] = "ERA40" then
-       param      = ["T" ,"R","U","V" ,"Q" ,"CC","CLWC" ,"CIWC" ] #"W"  
+        param      = ["T" ,"R","U","V" ,"Q" ,"CC","CLWC" ,"CIWC"] #"W"  
         cint_param = [0.5 ,2  ,1  ,0.2,0.2 ,5   ,5      ,1      ] #0.002
         cmin_param = cint_param 				      
         cmax_param = [10  ,30 ,10 ,2  ,2   ,100 ,60     ,20     ] #0.05 
@@ -518,15 +519,14 @@
     Display_Window=layout(lev_type,p_scale,p_min,p_max)
 
     avg_data = xs_average(  
-       DIRECTION           : "EW", 
+       DIRECTION            : "EW", 
        DATA  		    : avg_con
       )
     when 
        plot_modus = 'Average Difference': 
        diff_data = xs_average(  
-         DIRECTION           : "EW", 
-         DATA  		    : diff  
-       )
+         DIRECTION          : "EW", 
+         DATA  		    : diff )
          if background = 1 then
            case cont_modus of
              'Contour Shading':
@@ -563,7 +563,7 @@
          if param[iparam]="T" or param[iparam]="U" and p_scale="linear"  and lev_type="pl" then
             setoutput (file_pslog_2)
             Display_Window=layout(lev_type,"logarithmic",p_min,p_max)
-            plot (Display_Window[1], title, avg_con, shade2,                    legend)
+            plot (Display_Window[1], title, avg_con, shade2,                     legend)
          end if
 
        end
@@ -584,7 +584,7 @@ function layout(lev_type,p_scale,p_min,p_max)
         axis_title_height        :   0.6,
         axis_line_thickness	 :   5,
         axis_tick_label_height	 :   0.5,
-        axis_tick_interval       :   30          )
+        axis_tick_interval       :   30 )
 
     if lev_type = "pl" then
         axis_title_text     = "Pressure [hPa]"
@@ -612,14 +612,12 @@ function layout(lev_type,p_scale,p_min,p_max)
          horizontal_axis     :  lat_axis,
          vertical_axis       :  vertical_axis,
          top_level 	     :  p_min,
-         bottom_level        :  p_max
-   	   )
+         bottom_level        :  p_max )
     else
        Cartesian_View = maverageview(
          direction           :  "EW",
          horizontal_axis     :  lat_axis,
-         vertical_axis       :  vertical_axis
-   	   )
+         vertical_axis       :  vertical_axis )
     end if
 
     Page = plot_page(  
@@ -631,7 +629,7 @@ function layout(lev_type,p_scale,p_min,p_max)
         COLUMNS                  :  1, 
         PAGE_X_GAP               :  0, 
         PAGE_Y_GAP               :  0, 
-        VIEW                     :  Cartesian_View)
+        VIEW                     :  Cartesian_View )
 
     Display_Window = plot_superpage(  
         LAYOUT_SIZE              :  'A4', 

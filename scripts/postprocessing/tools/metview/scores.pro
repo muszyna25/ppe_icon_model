@@ -53,7 +53,8 @@ for nn=1,nlines2(0) do begin
   var2(*,nn-1) = strsplit(tmp,/extract)
 end
 
-var2d  = ['TOT_PREC' , 'TCC'      , 'TQV'     , 'TQC'     , 'TQI', $
+var2d  = ['TOT_PREC' , 'TCC'      , 'HCC'     , 'MCC'     , 'LCC'     , $
+          'TQV'      , 'TQC'      , 'TQI'     , $
           'ACCLHFL_S', 'ACCSHFL_S', $
           'ACCSOB_S' , 'ACCTHB_S' , 'ACCSOB_T', 'ACCTHB_T', $
           'PS'       , 'T_2M'     , 'T_G'     , 'U_10M'   , 'V_10M']
