@@ -229,6 +229,7 @@ CONTAINS
     LOGICAL                               :: output_grid
     CHARACTER(LEN=filename_max)           :: output_filename
     CHARACTER(LEN=filename_max)           :: filename_format
+    CHARACTER(LEN=filename_max)           :: filename_extn                    !< user-specified filename extension (or "default")
     CHARACTER(LEN=vname_len)              :: ml_varlist(max_var_ml)
     CHARACTER(LEN=vname_len)              :: pl_varlist(max_var_pl)
     CHARACTER(LEN=vname_len)              :: hl_varlist(max_var_hl)
@@ -284,7 +285,8 @@ CONTAINS
       stream_partitions_ml, stream_partitions_pl,            &
       stream_partitions_hl, stream_partitions_il,            &
       pe_placement_ml, pe_placement_pl,                      &
-      pe_placement_hl, pe_placement_il
+      pe_placement_hl, pe_placement_il,                      &
+      filename_extn
 
     ! -- preliminary checks:
     !
@@ -346,6 +348,7 @@ CONTAINS
       output_grid              = .FALSE.
       output_filename          = ' '
       filename_format          = "<output_filename>_DOM<physdom>_<levtype>_<jfile>"
+      filename_extn            = "default"
       ml_varlist(:)            = ' '
       pl_varlist(:)            = ' '
       hl_varlist(:)            = ' '
@@ -509,6 +512,7 @@ CONTAINS
       p_onl%output_grid              = output_grid
       p_onl%output_filename          = output_filename
       p_onl%filename_format          = filename_format
+      p_onl%filename_extn            = filename_extn
       p_onl%ml_varlist(:)            = ml_varlist(:)
       p_onl%pl_varlist(:)            = pl_varlist(:)
       p_onl%hl_varlist(:)            = hl_varlist(:)
@@ -1442,9 +1446,15 @@ CONTAINS
       fname_metadata%ilev_type                  = p_of%ilev_type
       fname_metadata%filename_format            = TRIM(p_onl%filename_format)
       fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
-      fname_metadata%extn                       = TRIM(get_file_extension(p_onl%filetype))
       fname_metadata%npartitions                = p_of%npartitions
       fname_metadata%ifile_partition            = p_of%ifile_partition
+      ! set user-specified filename extension or use the default
+      ! extension:
+      IF (TRIM(p_onl%filename_extn) == "default") THEN
+        fname_metadata%extn                     = TRIM(get_file_extension(p_onl%filetype))
+      ELSE
+        fname_metadata%extn                     = TRIM(p_onl%filename_extn)
+      END IF
 
       IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file

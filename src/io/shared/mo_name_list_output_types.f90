@@ -214,6 +214,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: filetype          ! One of CDI's FILETYPE_XXX constants
     CHARACTER(LEN=filename_max)           :: output_filename   ! output filename prefix
     CHARACTER(LEN=filename_max)           :: filename_format   ! output filename format (contains keywords <physdom>,<levtype> etc.)
+    CHARACTER(LEN=filename_max)           :: filename_extn     ! user-specified filename extension (or "default")
 
     ! --------------------
     ! general settings
