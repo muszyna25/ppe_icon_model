@@ -55,6 +55,10 @@ Hence, the full category name for data from an operational forecast run of ICON 
 regular grid will be \textbf{icrgl130l90\_main\_fc\_rout}. The initial analysis for this
 run is in category \textbf{icogl130l90\_main\_an\_rout}.
 
+Since 2014-08-12 12 UTC ICON is running pre-operationally at DWD. Hence, forecast data
+is available in the sky database \textbf{db=parma} in categories
+\textbf{icogl130l90\_main\_fc\_para} and \textbf{icrgl130l90\_main\_fc\_para}.
+
 \section{Retrieving ICON data from SKY}
 
 Here we shall give several examples how to retrieve ICON data from SKY.
@@ -62,6 +66,19 @@ The parameter d specifies the reference or initial date, s is the forecast step,
 and f the name of the GRIB data file.
 
 \begin{itemize}
+\item Retrieve the 2m temperature and dew point temperature 
+ for forecast hours 3 to 78 every 3 hours of today's run at 00 UTC
+ on the global domain from an ICON run on a R3B07 grid with 90 levels to file icon2mdat
+
+\begin{quote}
+read db=parma cat=icrgl130l90\_main\_fc\_para d=t00 s[h]=3/to/78/by/3 p=t\_2m,td\_2m bin f=icon2mdat
+\end{quote}
+
+\item Retrieve the analysis of T on the native grid from yesterday 18 UTC:
+\begin{quote}
+read db=parma cat=icogl130l90\_main\_an\_para d=t18-1d p=T gptype=0 bin f=t\_icon\_ana
+\end{quote}
+
 \item Retrieve the 6, 12, 18, and 24 hour forecast of the 2m temperature from a forecast
 run on 2012-06-28 at 00 UTC on the global domain from an ICON run on a R3B07 grid with 90 levels:
 
