@@ -735,7 +735,7 @@ CONTAINS
         ! handle the case that a few levels have been selected out of
         ! the total number of levels:
         IF (ASSOCIATED(of%level_selection)) THEN
-          nlevs = of%level_selection%n_selected
+          nlevs = MIN(of%level_selection%n_selected, info%used_dimensions(2))
         ELSE
           nlevs = info%used_dimensions(2)
         END IF
