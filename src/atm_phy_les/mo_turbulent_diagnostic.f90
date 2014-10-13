@@ -190,7 +190,7 @@ CONTAINS
             thv_s = p_prog_land%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_land%qv_s(jc,jb)) 
 
             ri_no = (grav/thv_s)*(p_prog%theta_v(jc,jk,jb)-thv_s)*z_agl /  &
-                    (p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2)
+                    MAX(1._wp-6,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2))
 
             IF(ri_no > 0.25_wp)THEN
                prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk,jb)
