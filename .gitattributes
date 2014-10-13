@@ -194,6 +194,8 @@ doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/litera.bib -text
 doc/technical/dwd_database/pics/DWD_logo.png -text
+doc/technical/dwd_database/pics/IAU_scheme_2.png -text
+doc/technical/dwd_database/pics/analysis_drips.png -text
 doc/technical/dwd_database/pics/bisection.png -text
 doc/technical/dwd_database/pics/icon_grid_R2B00.png -text
 doc/technical/dwd_database/pics/icon_grid_R2B02.png -text
