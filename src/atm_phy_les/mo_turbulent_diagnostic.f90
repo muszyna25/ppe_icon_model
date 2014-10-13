@@ -124,7 +124,7 @@ CONTAINS
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
     rl_start   = grf_bdywidth_c+1
-    rl_end     = min_rlcell_int-1  
+    rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
@@ -185,12 +185,13 @@ CONTAINS
        DO jc = i_startidx, i_endidx   
         
          DO jk = nlev, kstart_moist, -1
+
             z_agl = p_metrics%z_mc(jc,jk,jb)-p_metrics%z_ifc(jc,nlevp1,jb)
 
             thv_s = p_prog_land%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_land%qv_s(jc,jb)) 
 
             ri_no = (grav/thv_s)*(p_prog%theta_v(jc,jk,jb)-thv_s)*z_agl /  &
-                    MAX(1._wp-6,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2))
+                    MAX(1.e-6_wp,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2))
 
             IF(ri_no > 0.25_wp)THEN
                prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk,jb)
@@ -271,12 +272,12 @@ CONTAINS
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
-    rl_start   = grf_bdywidth_c+1
+    rl_start   = grf_bdywidth_c
     rl_end     = min_rlcell_int-1  !for wthsfs
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Get w at full levels
+    !Get w and theta at full levels
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -285,13 +286,21 @@ CONTAINS
        DO jk = 1 , nlev
          DO jc = i_startidx, i_endidx
            w_mc(jc,jk,jb) = ( p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb) ) * 0.5_wp
+
+           theta(jc,jk,jb)  = p_diag%temp(jc,jk,jb)/p_prog%exner(jc,jk,jb)
          END DO
        END DO
     END DO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    rl_end     = min_rlcell_int !for diagnostics
+
+    !For diagnostics
+    rl_start   = grf_bdywidth_c+1
+    rl_end     = min_rlcell_int
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
 !======================================================================================
                  !Some vertical profiles
 !======================================================================================
@@ -330,20 +339,6 @@ CONTAINS
      CASE('th') !theta mean
 
        ALLOCATE(thmean(1:nlev))
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-        DO jk = 1 , nlev
-         DO jc = i_startidx, i_endidx
-           theta(jc,jk,jb)  = p_diag%temp(jc,jk,jb)/p_prog%exner(jc,jk,jb)
-         END DO
-        END DO
-      END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
        CALL levels_horizontal_mean(theta, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
        thmean = outvar(1:nlev)
 
@@ -434,7 +429,7 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * cpd           
+       outvar(1:nlev) = outvar(1:nlev) * cpd           
   
      CASE('wthv')
 
@@ -457,7 +452,7 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * cpd           
+       outvar(1:nlev) = outvar(1:nlev) * cpd           
 
      CASE('wqv')
 
@@ -480,7 +475,7 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * alv
+       outvar(1:nlev) = outvar(1:nlev) * alv
 
      CASE('wqc')
 
@@ -503,7 +498,7 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * alv
+       outvar(1:nlev) = outvar(1:nlev) * alv
 
      CASE('ww')
 
@@ -675,7 +670,6 @@ CONTAINS
 
      CASE('wthsfs')!subfilter scale flux: see Erlebacher et al. 1992
 
-      CALL sync_patch_array(SYNC_C, p_patch, theta)
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3, &
 !$OMP            w_loc,th_loc,wth_loc)
@@ -705,7 +699,7 @@ CONTAINS
 !$OMP END PARALLEL
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * cpd
+       outvar(1:nlev) = outvar(1:nlev) * cpd
  
      CASE DEFAULT !In case calculations are performed somewhere else
       
