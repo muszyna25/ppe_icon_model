@@ -564,6 +564,7 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
     LOGICAL                                     :: l_error
     LOGICAL                                     :: have_GRIB
+    LOGICAL                                     :: var_ignore_level_selection
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -729,6 +730,7 @@ CONTAINS
         CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
       END IF
 
+      var_ignore_level_selection = .FALSE.
       IF(info%ndims == 2) THEN
         nlevs = 1
       ELSE
@@ -736,6 +738,22 @@ CONTAINS
         ! the total number of levels:
         IF (ASSOCIATED(of%level_selection)) THEN
           nlevs = MIN(of%level_selection%n_selected, info%used_dimensions(2))
+          ! Sometimes the user mixes level-selected variables with
+          ! other fields on other z-axes (e.g. soil fields) in the
+          ! output namelist. We try to catch this "wrong" user input
+          ! here and handle it in the following way: if the current
+          ! variable does not have on (or more) of the requested
+          ! levels, then we completely ignore the level selection for
+          ! this variable.
+          CHECK_LOOP : DO jk=1,nlevs
+            IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
+              & (of%level_selection%global_idx(jk) > info%used_dimensions(2))) THEN
+              var_ignore_level_selection = .TRUE.
+              IF (my_process_is_stdio()) &
+                &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
+              EXIT CHECK_LOOP
+            END IF
+          END DO CHECK_LOOP
         ELSE
           nlevs = info%used_dimensions(2)
         END IF
@@ -782,7 +800,9 @@ CONTAINS
             lev_idx = jk
             ! handle the case that a few levels have been selected out of
             ! the total number of levels:
-            IF (ASSOCIATED(of%level_selection)) THEN
+            IF (      ASSOCIATED(of%level_selection)   .AND. &
+              & (.NOT. var_ignore_level_selection)     .AND. &
+              & (info%ndims > 2)) THEN
               lev_idx = of%level_selection%global_idx(lev_idx)
             END IF
             CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:,jk), p_pat)
@@ -797,7 +817,9 @@ CONTAINS
             lev_idx = jk
             ! handle the case that a few levels have been selected out of
             ! the total number of levels:
-            IF (ASSOCIATED(of%level_selection)) THEN
+            IF (      ASSOCIATED(of%level_selection)   .AND. &
+              & (.NOT. var_ignore_level_selection)     .AND. &
+              & (info%ndims > 2)) THEN
               lev_idx = of%level_selection%global_idx(lev_idx)
             END IF
             CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:,jk), p_pat)
@@ -900,7 +922,9 @@ CONTAINS
         DO jk = 1, nlevs
           ! handle the case that a few levels have been selected out of
           ! the total number of levels:
-          IF (ASSOCIATED(of%level_selection)) THEN
+          IF (      ASSOCIATED(of%level_selection)   .AND. &
+            & (.NOT. var_ignore_level_selection)     .AND. &
+            & (info%ndims > 2)) THEN
             lev_idx = of%level_selection%global_idx(jk)
           ELSE
             lev_idx = jk
@@ -1260,7 +1284,7 @@ CONTAINS
         ! handle the case that a few levels have been selected out of
         ! the total number of levels:
         IF (ASSOCIATED(of%level_selection)) THEN
-          nlevs = of%level_selection%n_selected
+          nlevs = MIN(of%level_selection%n_selected, info%used_dimensions(2))
         ELSE
           nlevs = info%used_dimensions(2)
         END IF
