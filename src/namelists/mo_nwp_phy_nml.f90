@@ -24,7 +24,7 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: max_dom, icosmo
+  USE mo_impl_constants,      ONLY: max_dom, icosmo, ismag
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -309,7 +309,7 @@ CONTAINS
       ! Check whether the radiation time step is a multiple of the convection time step.
       ! If not, then adapt the radiation time step. I.e. the radiation time step is rounded up to 
       ! the next full multiple.
-      IF( MOD(dt_rad(jg),dt_conv(jg)) > 10._wp*dbl_eps ) THEN
+      IF( MOD(dt_rad(jg),dt_conv(jg)) > 10._wp*dbl_eps .AND. inwp_turb(jg)/=ismag ) THEN
         ! write warning only for global domain
         IF (jg==1) THEN
           WRITE(message_text,'(a,2F8.1)') &
