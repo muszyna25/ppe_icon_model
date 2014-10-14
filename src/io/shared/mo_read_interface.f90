@@ -1576,11 +1576,14 @@ CONTAINS
   END SUBROUTINE closeFile_bcast
 
   SUBROUTINE check_dimensions(file_id, variable_name, ref_var_ndims, &
-                              ref_var_dimlen, location, extdim_name)
+                              ref_var_dimlen, location, extdim_name, &
+                              ref_var_dim_start, ref_var_dim_end)
 
     INTEGER, INTENT(IN) :: file_id
     CHARACTER(LEN=*), INTENT(IN)  :: variable_name
     INTEGER, INTENT(IN) :: ref_var_ndims, ref_var_dimlen(ref_var_ndims)
+    INTEGER, OPTIONAL, INTENT(IN) :: ref_var_dim_start(ref_var_ndims)
+    INTEGER, OPTIONAL, INTENT(IN) :: ref_var_dim_end(ref_var_ndims)
     INTEGER, INTENT(IN) :: location
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name(2:ref_var_ndims)
 
@@ -1593,6 +1596,9 @@ CONTAINS
       'mo_read_interface:check_dimensions'
 
     IF (file_id == -1) RETURN
+
+    IF (PRESENT(ref_var_dim_start) .NEQV. PRESENT(ref_var_dim_end)) &
+      CALL finish(method_name, "invalid arguments")
 
     CALL nf(nf_inq_varid(file_id, variable_name, varid), method_name)
     CALL nf(nf_inq_varndims(file_id, varid, var_ndims), method_name)
@@ -1607,14 +1613,42 @@ CONTAINS
       CALL finish(method_name, "Dimensions mismatch")
     ENDIF
 
-    DO i = 1, var_ndims
-      IF ((ref_var_dimlen(i) /= -1) .AND. &
-        & (ref_var_dimlen(i) /= var_dimlen(i))) THEN
-        WRITE(0,*) variable_name, ": ref_var_dimlen(:) = ", &
-          &        ref_var_dimlen(:), "; var_dimlen(:) = ", var_dimlen(:)
-        CALL finish(method_name, "Dimensions mismatch")
-      END IF
-    END DO
+    IF (PRESENT(ref_var_dim_start)) THEN
+      DO i = 1, var_ndims
+        IF ((ref_var_dim_start(i) /= -1) .AND. &
+          & (ref_var_dim_end(i) /= -1)) THEN
+          IF (ref_var_dim_end(i) < ref_var_dim_start(i)) THEN
+            WRITE(0,*) variable_name, ": ref_var_dim_start(:) = ", &
+              &        ref_var_dim_start(:), "; ref_var_dim_end(:) = ", &
+              &        ref_var_dim_end(:)
+            CALL finish(method_name, "invalid start end")
+          END IF
+          IF ((ref_var_dim_start(i) == 0) .OR. &
+            & (ref_var_dim_start(i) > var_dimlen(i))) THEN
+            WRITE(0,*) variable_name, ": ref_var_dim_start(:) = ", &
+              &        ref_var_dim_start(:), "; var_dimlen(:) = ", &
+              &        var_dimlen(1:ref_var_ndims)
+            CALL finish(method_name, "invalid start")
+          END IF
+          IF ((ref_var_dim_end(i) > var_dimlen(i))) THEN
+            WRITE(0,*) variable_name, ": ref_var_dim_end(:) = ", &
+              &        ref_var_dim_end(:), "; var_dimlen(:) = ", &
+              &        var_dimlen(1:ref_var_ndims)
+            CALL finish(method_name, "invalid end")
+          END IF
+        END IF
+      END DO
+    ELSE
+      DO i = 1, var_ndims
+        IF ((ref_var_dimlen(i) /= -1) .AND. &
+          & (ref_var_dimlen(i) /= var_dimlen(i))) THEN
+          WRITE(0,*) variable_name, ": ref_var_dimlen(:) = ", &
+            &        ref_var_dimlen(:), "; var_dimlen(:) = ", &
+            &        var_dimlen(1:ref_var_ndims)
+          CALL finish(method_name, "Dimensions mismatch")
+        END IF
+      END DO
+    END IF
 
     ! check if the dim have reasonable names
 
