@@ -1656,7 +1656,7 @@ CONTAINS
       CASE (onCells)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'cell') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells'))) THEN
-          write(0,*) var_dim_name(1)
+          write(0,*) TRIM(var_dim_name(1))
           WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
             &                   " /= std_cells_dim_name"
           CALL finish(method_name, message_text)
@@ -1665,7 +1665,7 @@ CONTAINS
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'vertex') .OR. &
           &        (TRIM(var_dim_name(1)) == 'nverts') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_3'))) THEN
-          write(0,*) var_dim_name(1)
+          write(0,*) TRIM(var_dim_name(1))
           WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
             &                   " /= std_verts_dim_name"
           CALL finish(method_name, message_text)
@@ -1674,7 +1674,7 @@ CONTAINS
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'edge') .OR. &
           &        (TRIM(var_dim_name(1)) == 'nedges') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_2'))) THEN
-          write(0,*) var_dim_name(1)
+          write(0,*) TRIM(var_dim_name(1))
           WRITE(message_text,*) variable_name, " ", TRIM(var_dim_name(1)), &
             &                   " /= std_edge_dim_name"
           CALL finish(method_name, message_text)
@@ -1685,8 +1685,8 @@ CONTAINS
       DO i = 2, ref_var_ndims
         IF (TRIM(extdim_name(i)) /= TRIM(var_dim_name(i))) THEN
           WRITE(message_text,*) variable_name, ":", TRIM(extdim_name(i)), &
-            &                   "/=",  var_dim_name(i)
-          CALL finish(method_name, message_text)
+            &                   "/=",  TRIM(var_dim_name(i))
+          CALL finish(method_name, TRIM(message_text))
         ENDIF
       END DO
     END IF
