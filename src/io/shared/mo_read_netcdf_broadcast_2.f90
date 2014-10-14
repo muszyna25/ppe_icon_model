@@ -69,55 +69,55 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_3D_extdim
 
   INTERFACE netcdf_read_0D_real
-    MODULE PROCEDURE netcdf_read_REAL_0D_fileid
+    MODULE PROCEDURE netcdf_read_REAL_0D
   END INTERFACE netcdf_read_0D_real
 
   INTERFACE netcdf_read_1D
-    MODULE PROCEDURE netcdf_read_REAL_1D_fileid
+    MODULE PROCEDURE netcdf_read_REAL_1D
   END INTERFACE netcdf_read_1D
 
   INTERFACE netcdf_read_1D_extdim_time
-    MODULE PROCEDURE netcdf_read_REAL_1D_extdim_time_fileid
+    MODULE PROCEDURE netcdf_read_REAL_1D_extdim_time
   END INTERFACE netcdf_read_1D_extdim_time
 
   INTERFACE netcdf_read_1D_extdim_extdim_time
-    MODULE PROCEDURE netcdf_read_REAL_1D_extdim_extdim_time_fileid
+    MODULE PROCEDURE netcdf_read_REAL_1D_extdim_extdim_time
   END INTERFACE netcdf_read_1D_extdim_extdim_time
 
   INTERFACE netcdf_read_2D_int
-    MODULE PROCEDURE netcdf_read_INT_2D_fileid
-    MODULE PROCEDURE netcdf_read_INT_2D_multivar_fileid
+    MODULE PROCEDURE netcdf_read_INT_2D
+    MODULE PROCEDURE netcdf_read_INT_2D_multivar
   END INTERFACE netcdf_read_2D_int
 
   INTERFACE netcdf_read_2D
-    MODULE PROCEDURE netcdf_read_REAL_2D_fileid
-    MODULE PROCEDURE netcdf_read_REAL_2D_multivar_fileid
+    MODULE PROCEDURE netcdf_read_REAL_2D
+    MODULE PROCEDURE netcdf_read_REAL_2D_multivar
   END INTERFACE netcdf_read_2D
 
   INTERFACE netcdf_read_2D_time
-    MODULE PROCEDURE netcdf_read_REAL_2D_time_fileid
+    MODULE PROCEDURE netcdf_read_REAL_2D_time
   END INTERFACE netcdf_read_2D_time
 
   INTERFACE netcdf_read_2D_extdim
-    MODULE PROCEDURE netcdf_read_REAL_2D_extdim_fileid
-    MODULE PROCEDURE netcdf_read_REAL_2D_extdim_multivar_fileid
+    MODULE PROCEDURE netcdf_read_REAL_2D_extdim
+    MODULE PROCEDURE netcdf_read_REAL_2D_extdim_multivar
   END INTERFACE netcdf_read_2D_extdim
 
   INTERFACE netcdf_read_2D_extdim_int
-    MODULE PROCEDURE netcdf_read_INT_2D_extdim_fileid
-    MODULE PROCEDURE netcdf_read_INT_2D_extdim_multivar_fileid
+    MODULE PROCEDURE netcdf_read_INT_2D_extdim
+    MODULE PROCEDURE netcdf_read_INT_2D_extdim_multivar
   END INTERFACE netcdf_read_2D_extdim_int
 
   INTERFACE netcdf_read_3D
-    MODULE PROCEDURE netcdf_read_REAL_3D_fileid
+    MODULE PROCEDURE netcdf_read_REAL_3D
   END INTERFACE netcdf_read_3D
 
   INTERFACE netcdf_read_3D_time
-    MODULE PROCEDURE netcdf_read_REAL_3D_time_fileid
+    MODULE PROCEDURE netcdf_read_REAL_3D_time
   END INTERFACE netcdf_read_3D_time
 
   INTERFACE netcdf_read_3D_extdim
-    MODULE PROCEDURE netcdf_read_REAL_3D_extdim_fileid
+    MODULE PROCEDURE netcdf_read_REAL_3D_extdim
   END INTERFACE netcdf_read_3D_extdim
 
   INTEGER, PARAMETER :: MAX_VAR_DIMS = 16 ! NF_MAX_VAR_DIMS
@@ -126,7 +126,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_0D_fileid(file_id, variable_name) result(res)
+  FUNCTION netcdf_read_REAL_0D(file_id, variable_name) result(res)
 
     REAL(wp)            :: res
 
@@ -139,7 +139,7 @@ CONTAINS
     REAL(wp)     :: zlocal(1)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_0D_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_0D'
 
 
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -154,12 +154,12 @@ CONTAINS
 
     res=zlocal(1)
 
-  END FUNCTION netcdf_read_REAL_0D_fileid
+  END FUNCTION netcdf_read_REAL_0D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_1D_fileid(file_id, variable_name, fill_array) &
+  FUNCTION netcdf_read_REAL_1D(file_id, variable_name, fill_array) &
     result(res)
 
     REAL(wp), POINTER            :: res(:)
@@ -174,7 +174,7 @@ CONTAINS
     INTEGER :: return_status
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_1D_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_1D'
 
     ! trivial return value.
     NULLIFY(res)
@@ -199,7 +199,7 @@ CONTAINS
     ELSE
       ALLOCATE( res(var_size(1)), stat=return_status )
       IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_1D_fileid )')
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_1D )')
       ENDIF
     ENDIF
 
@@ -216,14 +216,14 @@ CONTAINS
     ! broadcast...
     CALL broadcast_array(res)
 
-  END FUNCTION netcdf_read_REAL_1D_fileid
+  END FUNCTION netcdf_read_REAL_1D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_1D_extdim_time_fileid(file_id, variable_name, &
-    &                                             fill_array, dim_names, &
-    &                                             start_timestep, end_timestep) &
+  FUNCTION netcdf_read_REAL_1D_extdim_time(file_id, variable_name, &
+    &                                      fill_array, dim_names, &
+    &                                      start_timestep, end_timestep) &
     result(res)
 
     REAL(wp), POINTER            :: res(:,:,:)
@@ -243,7 +243,7 @@ CONTAINS
     INTEGER :: return_status
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_1D_extdim_time_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_1D_extdim_time'
 
     ! trivial return value.
     NULLIFY(res)
@@ -307,9 +307,9 @@ CONTAINS
     ENDIF
 
 !!$    ! check if the size is correct
-!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) < var_size(1)) &
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) < var_size(1)) &
 !!$      CALL finish(method_name, "allocated size < var_size")
-!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) > var_size(1)) &
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) > var_size(1)) &
 !!$      CALL warning(method_name, "allocated size > var_size")
 
     IF( my_process_is_mpi_workroot()) THEN
@@ -323,11 +323,11 @@ CONTAINS
     ! broadcast...
     CALL broadcast_array(res)
 
-  END FUNCTION netcdf_read_REAL_1D_extdim_time_fileid
+  END FUNCTION netcdf_read_REAL_1D_extdim_time
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_1D_extdim_extdim_time_fileid( &
+  FUNCTION netcdf_read_REAL_1D_extdim_extdim_time( &
     file_id, variable_name, fill_array, dim_names, start_timestep, &
     end_timestep) result(res)
 
@@ -348,7 +348,7 @@ CONTAINS
     INTEGER :: return_status
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_1D_extdim_extdim_time_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_1D_extdim_extdim_time'
 
     ! trivial return value.
     NULLIFY(res)
@@ -408,14 +408,14 @@ CONTAINS
                 var_size(3),time_steps), stat=return_status )
       IF (return_status /= success) &
         CALL finish (method_name, &
-          &          'ALLOCATE( netcdf_read_REAL_1D_extdim_extdim_time_fileid )')
+          &          'ALLOCATE( netcdf_read_REAL_1D_extdim_extdim_time )')
       res(:,:,:,:)=0.0_wp
     ENDIF
 
 !!$    ! check if the size is correct
-!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) < var_size(1)) &
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) < var_size(1)) &
 !!$      CALL finish(method_name, "allocated size < var_size")
-!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) > var_size(1)) &
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) > var_size(1)) &
 !!$      CALL warning(method_name, "allocated size > var_size")
 
     IF( my_process_is_mpi_workroot()) THEN
@@ -429,12 +429,12 @@ CONTAINS
     ! broadcast...
     CALL broadcast_array(res)
 
-  END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time_fileid
+  END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_INT_2D_fileid(file_id, variable_name, fill_array, &
-    &                                n_g, glb_index) result(res)
+  FUNCTION netcdf_read_INT_2D(file_id, variable_name, fill_array, &
+    &                         n_g, glb_index) result(res)
     INTEGER, POINTER             :: res(:,:)
 
     INTEGER, INTENT(IN)          :: file_id
@@ -451,25 +451,25 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       fill_arrays(1)%data => fill_array
-      results = netcdf_read_INT_2D_multivar_fileid(file_id=file_id, &
-        &                                          variable_name=variable_name,&
-        &                                          n_vars=1, &
-        &                                          fill_arrays=fill_arrays, &
-        &                                          n_g=n_g, &
-        &                                          glb_index=glb_index_)
+      results = netcdf_read_INT_2D_multivar(file_id=file_id, &
+        &                                   variable_name=variable_name,&
+        &                                   n_vars=1, &
+        &                                   fill_arrays=fill_arrays, &
+        &                                   n_g=n_g, &
+        &                                   glb_index=glb_index_)
     ELSE
-      results = netcdf_read_INT_2D_multivar_fileid(file_id=file_id, &
-        &                                          variable_name=variable_name,&
-        &                                          n_vars=1, n_g=n_g, &
-        &                                          glb_index=glb_index_)
+      results = netcdf_read_INT_2D_multivar(file_id=file_id, &
+        &                                   variable_name=variable_name,&
+        &                                   n_vars=1, n_g=n_g, &
+        &                                   glb_index=glb_index_)
     END IF
 
     res => results(1)%data
 
-  END FUNCTION netcdf_read_INT_2D_fileid
+  END FUNCTION netcdf_read_INT_2D
 
-  FUNCTION netcdf_read_INT_2D_multivar_fileid(file_id, variable_name, n_vars, &
-    &                                         fill_arrays, n_g, glb_index) &
+  FUNCTION netcdf_read_INT_2D_multivar(file_id, variable_name, n_vars, &
+    &                                  fill_arrays, n_g, glb_index) &
     result(res)
 
     INTEGER, INTENT(IN)               :: n_vars
@@ -488,7 +488,7 @@ CONTAINS
     INTEGER, POINTER :: tmp_array(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_multivar_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_multivar'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -532,12 +532,12 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_INT_2D_multivar_fileid
+  END FUNCTION netcdf_read_INT_2D_multivar
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_2D_fileid(file_id, variable_name, fill_array, &
-    &                                 n_g, glb_index) result(res)
+  FUNCTION netcdf_read_REAL_2D(file_id, variable_name, fill_array, &
+    &                          n_g, glb_index) result(res)
 
     REAL(wp), POINTER            :: res(:,:)
 
@@ -555,25 +555,25 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       fill_arrays(1)%data => fill_array
-      results = netcdf_read_REAL_2D_multivar_fileid(file_id=file_id, &
-        &                                           variable_name=variable_name,&
-        &                                           n_vars=1, &
-        &                                           fill_arrays=fill_arrays, &
-        &                                           n_g=n_g, &
-        &                                           glb_index=glb_index_)
+      results = netcdf_read_REAL_2D_multivar(file_id=file_id, &
+        &                                    variable_name=variable_name,&
+        &                                    n_vars=1, &
+        &                                    fill_arrays=fill_arrays, &
+        &                                    n_g=n_g, &
+        &                                    glb_index=glb_index_)
     ELSE
-      results = netcdf_read_REAL_2D_multivar_fileid(file_id=file_id, &
-        &                                           variable_name=variable_name,&
-        &                                           n_vars=1, n_g=n_g, &
-        &                                           glb_index=glb_index_)
+      results = netcdf_read_REAL_2D_multivar(file_id=file_id, &
+        &                                    variable_name=variable_name,&
+        &                                    n_vars=1, n_g=n_g, &
+        &                                    glb_index=glb_index_)
     END IF
 
     res => results(1)%data
 
-  END FUNCTION netcdf_read_REAL_2D_fileid
+  END FUNCTION netcdf_read_REAL_2D
 
-  FUNCTION netcdf_read_REAL_2D_multivar_fileid(file_id, variable_name, n_vars, &
-    &                                          fill_arrays, n_g, glb_index) &
+  FUNCTION netcdf_read_REAL_2D_multivar(file_id, variable_name, n_vars, &
+    &                                   fill_arrays, n_g, glb_index) &
     result(res)
 
     INTEGER, INTENT(IN)               :: n_vars
@@ -592,7 +592,7 @@ CONTAINS
     REAL(wp), POINTER :: tmp_array(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_multivar_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_multivar'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -635,7 +635,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_2D_multivar_fileid
+  END FUNCTION netcdf_read_REAL_2D_multivar
   !-------------------------------------------------------------------------
 
 
@@ -645,9 +645,9 @@ CONTAINS
   !      c-style(ncdump): O3(time, n_g) fortran-style: O3(n_g, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  FUNCTION netcdf_read_REAL_2D_time_fileid(file_id, variable_name, fill_array, &
-    &                                      n_g, glb_index, start_timestep, &
-    &                                      end_timestep) result(res)
+  FUNCTION netcdf_read_REAL_2D_time(file_id, variable_name, fill_array, &
+    &                               n_g, glb_index, start_timestep, &
+    &                               end_timestep) result(res)
     REAL(wp), POINTER             :: res(:,:,:)
 
     INTEGER, INTENT(IN)           :: file_id
@@ -657,12 +657,12 @@ CONTAINS
     INTEGER, INTENT(IN)           :: glb_index(:)
     INTEGER, INTENT(in), OPTIONAL :: start_timestep, end_timestep
 
-    res => netcdf_read_REAL_2D_extdim_fileid( &
+    res => netcdf_read_REAL_2D_extdim( &
       & file_id=file_id, variable_name=variable_name, fill_array=fill_array, &
       & n_g=n_g, glb_index=glb_index, start_extdim=start_timestep, &
       & end_extdim=end_timestep, extdim_name="time" )
 
-  END FUNCTION netcdf_read_REAL_2D_time_fileid
+  END FUNCTION netcdf_read_REAL_2D_time
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -671,10 +671,10 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  FUNCTION netcdf_read_REAL_2D_extdim_fileid(file_id, variable_name, &
-    &                                        fill_array, n_g, glb_index, &
-    &                                        start_extdim, end_extdim, &
-    &                                        extdim_name ) result(res)
+  FUNCTION netcdf_read_REAL_2D_extdim(file_id, variable_name, &
+    &                                 fill_array, n_g, glb_index, &
+    &                                 start_extdim, end_extdim, &
+    &                                 extdim_name ) result(res)
 
     REAL(wp), POINTER                      :: res(:,:,:)
 
@@ -694,13 +694,13 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       fill_arrays(1)%data => fill_array
-      results = netcdf_read_REAL_2D_extdim_multivar_fileid( &
+      results = netcdf_read_REAL_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, &
         fill_arrays=fill_arrays,  n_g=n_g, glb_index=glb_index_, &
         start_extdim=start_extdim, end_extdim=end_extdim, &
         extdim_name=extdim_name)
     ELSE
-      results = netcdf_read_REAL_2D_extdim_multivar_fileid( &
+      results = netcdf_read_REAL_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, n_g=n_g, &
         glb_index=glb_index_, start_extdim=start_extdim, &
         end_extdim=end_extdim, extdim_name=extdim_name)
@@ -708,12 +708,12 @@ CONTAINS
 
     res => results(1)%data
 
-  END FUNCTION netcdf_read_REAL_2D_extdim_fileid
+  END FUNCTION netcdf_read_REAL_2D_extdim
 
-  FUNCTION netcdf_read_REAL_2D_extdim_multivar_fileid(file_id, variable_name, &
-    &                                                 n_vars, fill_arrays, n_g,&
-    &                                                 glb_index, start_extdim, &
-    &                                                 end_extdim, extdim_name) &
+  FUNCTION netcdf_read_REAL_2D_extdim_multivar(file_id, variable_name,  &
+    &                                          n_vars, fill_arrays, n_g,&
+    &                                          glb_index, start_extdim, &
+    &                                          end_extdim, extdim_name) &
     result(res)
 
     INTEGER, INTENT(IN)                    :: n_vars
@@ -739,7 +739,7 @@ CONTAINS
     REAL(wp), POINTER :: tmp_res(:,:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_multivar_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_multivar'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -816,7 +816,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_2D_extdim_multivar_fileid
+  END FUNCTION netcdf_read_REAL_2D_extdim_multivar
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -825,10 +825,10 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  FUNCTION netcdf_read_INT_2D_extdim_fileid(file_id, variable_name, &
-    &                                       fill_array, n_g, glb_index, &
-    &                                       start_extdim, end_extdim, &
-    &                                       extdim_name ) result(res)
+  FUNCTION netcdf_read_INT_2D_extdim(file_id, variable_name, &
+    &                                fill_array, n_g, glb_index, &
+    &                                start_extdim, end_extdim, &
+    &                                extdim_name ) result(res)
 
     INTEGER, POINTER                       :: res(:,:,:)
 
@@ -848,13 +848,13 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       fill_arrays(1)%data => fill_array
-      results = netcdf_read_INT_2D_extdim_multivar_fileid( &
+      results = netcdf_read_INT_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, &
         fill_arrays=fill_arrays,  n_g=n_g, glb_index=glb_index_, &
         start_extdim=start_extdim, end_extdim=end_extdim, &
         extdim_name=extdim_name)
     ELSE
-      results = netcdf_read_INT_2D_extdim_multivar_fileid( &
+      results = netcdf_read_INT_2D_extdim_multivar( &
         file_id=file_id, variable_name=variable_name, n_vars=1, n_g=n_g, &
         glb_index=glb_index_, start_extdim=start_extdim, &
         end_extdim=end_extdim, extdim_name=extdim_name)
@@ -862,12 +862,12 @@ CONTAINS
 
     res => results(1)%data
 
-  END FUNCTION netcdf_read_INT_2D_extdim_fileid
+  END FUNCTION netcdf_read_INT_2D_extdim
 
-  FUNCTION netcdf_read_INT_2D_extdim_multivar_fileid(file_id, variable_name, &
-    &                                                n_vars, fill_arrays, n_g, &
-    &                                                glb_index, start_extdim, &
-    &                                                end_extdim, extdim_name ) &
+  FUNCTION netcdf_read_INT_2D_extdim_multivar(file_id, variable_name, &
+    &                                         n_vars, fill_arrays, n_g, &
+    &                                         glb_index, start_extdim, &
+    &                                         end_extdim, extdim_name ) &
     result(res)
 
     INTEGER, INTENT(IN)                    :: n_vars
@@ -894,7 +894,7 @@ CONTAINS
     INTEGER, POINTER :: tmp_res(:,:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_extdim_multivar_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_extdim_multivar'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -970,7 +970,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_INT_2D_extdim_multivar_fileid
+  END FUNCTION netcdf_read_INT_2D_extdim_multivar
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -979,8 +979,8 @@ CONTAINS
   !      c-style(ncdump): O2(levels, n_g) fortran-style: O2(n_g, levels)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks)
-  FUNCTION netcdf_read_REAL_3D_fileid(file_id, variable_name, fill_array, n_g, &
-    &                                 glb_index, levelsdim_name) result(res)
+  FUNCTION netcdf_read_REAL_3D(file_id, variable_name, fill_array, n_g, &
+    &                          glb_index, levelsdim_name) result(res)
 
     REAL(wp), POINTER  :: res(:,:,:)
 
@@ -1001,7 +1001,7 @@ CONTAINS
     REAL(wp), POINTER :: tmp_array(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D'
 
     NULLIFY(res)
 
@@ -1058,7 +1058,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_3D_fileid
+  END FUNCTION netcdf_read_REAL_3D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1067,9 +1067,9 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  FUNCTION netcdf_read_REAL_3D_time_fileid(file_id, variable_name, fill_array, &
-    &                                      n_g, glb_index, start_timestep, &
-    &                                      end_timestep, levelsdim_name) &
+  FUNCTION netcdf_read_REAL_3D_time(file_id, variable_name, fill_array, &
+    &                               n_g, glb_index, start_timestep, &
+    &                               end_timestep, levelsdim_name) &
     & result(res)
 
     REAL(wp), POINTER  :: res(:,:,:,:)
@@ -1082,17 +1082,17 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
 
-    res => netcdf_read_REAL_3D_extdim_fileid(&
-      & file_id=file_id,                        &
-      & variable_name=variable_name,            &
-      & fill_array=fill_array,                  &
-      & n_g=n_g, glb_index=glb_index,           &
-      & start_extdim=start_timestep,            &
-      & end_extdim=end_timestep,                &
-      & levelsdim_name=levelsdim_name,          &
+    res => netcdf_read_REAL_3D_extdim( &
+      & file_id=file_id,               &
+      & variable_name=variable_name,   &
+      & fill_array=fill_array,         &
+      & n_g=n_g, glb_index=glb_index,  &
+      & start_extdim=start_timestep,   &
+      & end_extdim=end_timestep,       &
+      & levelsdim_name=levelsdim_name, &
       & extdim_name="time")
 
-  END FUNCTION netcdf_read_REAL_3D_time_fileid
+  END FUNCTION netcdf_read_REAL_3D_time
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1101,10 +1101,10 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n_g) fortran-style: O3(n_g, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  FUNCTION netcdf_read_REAL_3D_extdim_fileid(file_id, variable_name, &
-    &                                        fill_array, n_g, glb_index, &
-    &                                        start_extdim, end_extdim, &
-    &                                        levelsdim_name, extdim_name ) &
+  FUNCTION netcdf_read_REAL_3D_extdim(file_id, variable_name, &
+    &                                 fill_array, n_g, glb_index, &
+    &                                 start_extdim, end_extdim, &
+    &                                 levelsdim_name, extdim_name ) &
     &  result(res)
 
     REAL(wp), POINTER  :: res(:,:,:,:)
@@ -1130,7 +1130,7 @@ CONTAINS
     REAL(wp), POINTER  :: res_level(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_extdim_fileid'
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_extdim'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -1213,7 +1213,7 @@ CONTAINS
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_3D_extdim_fileid
+  END FUNCTION netcdf_read_REAL_3D_extdim
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
