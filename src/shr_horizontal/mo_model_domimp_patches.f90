@@ -1462,12 +1462,9 @@ CONTAINS
       stream_id_grf = stream_id
     ENDIF
 
-    !--------------------------------------------------
-    CALL nf(nf_inq_dimid(ncid, 'nv', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
-    CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
-    !--------------------------------------------------
+    max_cell_connectivity = patch%cells%max_connectivity
+    max_verts_connectivity = patch%verts%max_connectivity
+
     patch%boundary_depth_index = 0
 #ifndef __NO_ICON_ATMO__
     patch%boundary_depth_index = nudge_zone_width
