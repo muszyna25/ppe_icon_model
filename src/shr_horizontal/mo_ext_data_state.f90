@@ -91,6 +91,7 @@ MODULE mo_ext_data_state
     &                              ZA_LAKE_BOTTOM
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters, makeInputParameters, deleteInputParameters
+  USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==)
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
@@ -435,7 +436,7 @@ CONTAINS
       &        nblks_e, &    !< number of edge blocks to allocate
       &        nblks_v       !< number of vertex blocks to allocate
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
+    INTEGER :: shape2d_c(2)
     INTEGER :: shape3d_c(3)
     INTEGER :: shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
 
@@ -461,8 +462,6 @@ CONTAINS
 
     ! predefined array shapes
     shape2d_c  = (/ nproma, nblks_c /)
-    shape2d_e  = (/ nproma, nblks_e /)
-    shape2d_v  = (/ nproma, nblks_v /)
     shape3d_c  = (/ nproma, nlev, nblks_c       /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
     shape3d_nt = (/ nproma, nblks_c, ntiles_total     /) 
@@ -1566,6 +1565,14 @@ CONTAINS
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
 
+    CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16) ! uuidOfHGrid contained in the
+                                                             ! extpar file
+    TYPE(t_uuid)            :: extpar_uuidOfHGrid            ! same, but converted to TYPE(t_uuid)
+
+    LOGICAL                 :: lmatch                        ! for comparing UUIDs
+
+    INTEGER                 :: cdiGridID
+
     !---------------------------------------------!
     ! Check validity of external parameter file   !
     !---------------------------------------------!
@@ -1583,8 +1590,6 @@ CONTAINS
       cdi_extpar_id = streamOpenRead(TRIM(extpar_file))
       cdi_filetype  = streamInqFileType(cdi_extpar_id)
 
-      ! TODO: Consistency check
-      ! Compare UUID of external parameter file with UUID of grid.
 
       ! get the number of landuse classes
       lu_class_fraction_id = get_cdi_varID(cdi_extpar_id, "LU_CLASS_FRACTION")
@@ -1598,6 +1603,22 @@ CONTAINS
       WRITE(message_text,'(A,I4)')  &
         & 'Number of months in external data file = ', nmonths_ext
       CALL message(routine,message_text)
+
+
+      ! Compare UUID of external parameter file with UUID of grid.
+      !
+      ! get horizontal grid UUID contained in extpar file
+      ! use lu_class_fraction as sample field
+      cdiGridID = vlistInqVarGrid(vlist_id, lu_class_fraction_id)
+      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid_string)
+      CALL char2uuid(extpar_uuidOfHGrid_string, extpar_uuidOfHGrid)
+      !
+      ! --- compare UUID of horizontal grid file with UUID from extpar file
+      lmatch = (p_patch(jg)%grid_uuid == extpar_uuidOfHGrid)
+      IF (.NOT. lmatch) THEN
+        WRITE(message_text,'(a)') 'Extpar file and horizontal grid file do not match!'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF      
 
 
       ! Search for glacier fraction in Extpar file
