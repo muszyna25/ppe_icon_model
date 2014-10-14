@@ -107,7 +107,7 @@ MODULE mo_model_domimp_patches
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
     & l_limited_area, max_childdom, dynamics_parent_grid_id, &
     & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
-    & use_duplicated_connectivity, use_dummy_cell_closure, lsep_grfinfo
+    & use_duplicated_connectivity, lsep_grfinfo
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level
@@ -1422,22 +1422,9 @@ CONTAINS
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
 
-    INTEGER, POINTER :: &
-      & array_c_int(:,:),  &  ! temporary arrays to read in integer values
-      & array_e_int(:,:),  &
-      & array_v_int(:,:)
-
-    REAL(wp), POINTER :: &
-      & array_c_real(:,:), &  ! temporary arrays to read in real values
-      & array_e_real(:,:), &
-      & array_v_real(:,:)
-
-    ! status variable
-    INTEGER :: ist
-
     INTEGER :: ncid, dimid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
-    INTEGER :: ip, ji, jv, igrid_id, idx, blk
+    INTEGER :: ip, jv, igrid_id, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
     INTEGER :: return_status
@@ -1473,29 +1460,6 @@ CONTAINS
     ELSE
       ncid_grf = ncid
       stream_id_grf = stream_id
-    ENDIF
-
-    !-------------------------------------------------
-    !
-    ! allocate temporary arrays to read in data from the grid/patch generator
-    !
-    ! integer arrays
-    ALLOCATE( array_c_int(patch%n_patch_cells_g,6),  &
-      & array_e_int(patch%n_patch_edges_g,6),  &
-      & array_v_int(patch%n_patch_verts_g,6),  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish ('mo_model_domain_import:read_patch',  &
-        & 'allocation for array_[cev]_int failed')
-    ENDIF
-    ! real arrays
-    ALLOCATE( array_c_real(patch%n_patch_cells_g,6),  &
-      & array_e_real(patch%n_patch_edges_g,6),  &
-      & array_v_real(patch%n_patch_verts_g,6),  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish ('mo_model_domain_import:read_patch',  &
-        & 'allocation for array_[cev]_real failed')
     ENDIF
 
     !--------------------------------------------------
@@ -1943,25 +1907,6 @@ CONTAINS
       CALL finish(TRIM(method_name),"Input grid is NOT plane torus, Stopping")
     !-------------------------------------------------
 
-
-    !
-    ! deallocate temporary arrays to read in data from the grid/patch generator
-    !
-    ! integer arrays
-    DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish ('mo_model_domain_import:read_remaining_patch',  &
-        & 'deallocation for array_[cev]_int failed')
-    ENDIF
-    ! real arrays
-    DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish ('mo_model_domain_import:read_remaining_patch',  &
-        & 'deallocation for array_[cev]_real failed')
-    ENDIF
-
     CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
 
   END SUBROUTINE read_remaining_patch
@@ -2083,73 +2028,6 @@ CONTAINS
   END SUBROUTINE move_dummies_to_end_idxblk
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  ! CALLED if duplicate==false
-  !   turns locally (on this process) non-existing entities to 0s
-  !   Then moves 0s to the end
-  SUBROUTINE move_local_dummyConnectivity_to_end(array, array_size, max_connectivity, global_index_array, globalToLocal)
-
-    INTEGER, INTENT(inout) :: array(:,:)
-    INTEGER, INTENT(in) :: array_size, max_connectivity
-    INTEGER, INTENT(in) :: global_index_array(:)
-    TYPE(t_glb2loc_index_lookup), INTENT(in) :: globalToLocal
-
-    INTEGER :: i, global_index, c, first_zero, last_noZero, next_zero, previous_noZero!, count_connections
-    
-    DO i = 1, array_size
-      global_index = global_index_array(i)
-      
-      ! zero non-existing entities on this process
-      DO c=1, max_connectivity
-        IF ( get_local_index(globalToLocal, array(global_index,c)) <= 0) &
-          array(global_index,c) = 0
-      ENDDO
-
-      ! move zeros to the end
-      first_zero = 0
-      last_noZero = max_connectivity+1
-      DO WHILE(first_zero < last_noZero)
-      
-        ! find next_zero
-        next_zero = max_connectivity+1
-        DO c=first_zero+1, last_noZero-1
-          IF ( array(global_index,c) == 0)  THEN
-            next_zero = c
-            EXIT
-          ENDIF
-        ENDDO
-        first_zero = next_zero
-        IF (first_zero >= max_connectivity) EXIT
-
-        ! find previous no_zero
-        previous_noZero = 0
-        DO c=last_noZero-1, 1, -1
-          IF ( array(global_index,c) /= 0)  THEN
-            previous_noZero = c
-            EXIT
-          ENDIF
-        ENDDO
-        last_noZero = previous_noZero
-        IF (last_noZero <= first_zero) EXIT
-
-        ! swap the first_zero to the last_noZero
-        array(global_index,first_zero) = array(global_index,last_noZero)
-        array(global_index,last_noZero) = 0
-        
-      ENDDO ! WHILE(first_zero < last_no_zero)
-
-!       count_connections = COUNT(array(global_index, 1:max_connectivity) /= 0)
-! 
-!       IF (duplicate) THEN
-!         ! count_connections should not be zero
-!         DO c=count_connections+1, max_connectivity
-!           array(global_index, c) = array(global_index, count_connections)
-!         ENDDO
-!       ENDIF
-      
-    ENDDO
-
-  END SUBROUTINE move_local_dummyConnectivity_to_end
   !-------------------------------------------------------------------------
   LOGICAL FUNCTION gridfile_has_cartesian_info(ncid)
     INTEGER, INTENT(in)    :: ncid
@@ -2386,237 +2264,6 @@ CONTAINS
       patch_ptr => p_patch_local_parent(id_lp(idx))
     ENDIF
   END FUNCTION get_patch_ptr
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Divide and reshape (for blocking) a real array
-  !!
-  !! @par Revision History
-  !! Developed  by Rainer Johanni (2011-12-04)
-  !!
-  SUBROUTINE divide_real( p_real_array_in, nvals, glb_index, &
-    & p_divided_real_array_out )
-
-    ! input array
-    REAL(wp), INTENT(in):: p_real_array_in(:)
-    ! number of values
-    INTEGER, INTENT(in) :: nvals
-    ! global index of values
-    INTEGER, INTENT(in) :: glb_index(:)
-    ! output array
-    REAL(wp), INTENT(inout) :: p_divided_real_array_out(:,:)
-
-    ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_real'
-    INTEGER nblks, npromz, n, nlen, jb, jl, chk_blocks
-
-    nblks  = (nvals-1)/nproma + 1
-    npromz = nvals - (nblks-1)*nproma
-    chk_blocks = nblks
-    IF (use_dummy_cell_closure) THEN
-      IF (npromz == nproma) chk_blocks = nblks + 1
-    ENDIF
-
-    ! consistency check
-    IF ( (SIZE(p_divided_real_array_out,1) /= nproma) .OR.  &
-      &  (SIZE(p_divided_real_array_out,2) >  chk_blocks) ) THEN
-      CALL finish(routine, "Internal error!")
-    END IF
-
-    n = 0
-    DO jb = 1, nblks
-
-      IF (jb /= nblks) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz
-      END IF
-
-      DO jl = 1, nlen
-        n = n+1
-        p_divided_real_array_out(jl,jb) = p_real_array_in(glb_index(n))
-      END DO
-
-    END DO
-
-  END SUBROUTINE divide_real
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Divide and reshape (for blocking) a integer array
-  !!
-  !! @par Revision History
-  !! Developed  by Rainer Johanni (2011-12-04)
-  !!
-  SUBROUTINE divide_int( p_int_array_in, nvals, glb_index, &
-    & p_divided_int_array_out )
-
-    ! input array
-    INTEGER, INTENT(in):: p_int_array_in(:)
-    ! number of values
-    INTEGER, INTENT(in) :: nvals
-    ! global index of values
-    INTEGER, INTENT(in) :: glb_index(:)
-    ! output array
-    INTEGER, INTENT(inout) :: p_divided_int_array_out(:,:)
-
-    ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_int'
-    INTEGER nblks, npromz, n, nlen, jb, jl, chk_blocks
-
-    nblks  = (nvals-1)/nproma + 1
-    npromz = nvals - (nblks-1)*nproma
-    chk_blocks = nblks
-    IF (use_dummy_cell_closure) THEN
-      IF (npromz == nproma) chk_blocks = nblks + 1
-    ENDIF
-
-    ! consistency check
-    IF ( (SIZE(p_divided_int_array_out,1) /= nproma) .OR.  &
-      &  (SIZE(p_divided_int_array_out,2) >  chk_blocks) ) THEN
-      CALL finish(routine, "Internal error!")
-    END IF
-
-    n = 0
-    DO jb = 1, nblks
-
-      IF (jb /= nblks) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz
-      END IF
-
-      DO jl = 1, nlen
-        n = n+1
-        p_divided_int_array_out(jl,jb) = p_int_array_in(glb_index(n))
-      END DO
-
-    END DO
-
-  END SUBROUTINE divide_int
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Divide and reshape (for blocking) a index array
-  !!
-  !! @par Revision History
-  !! Developed  by Rainer Johanni (2011-12-04)
-  !!
-  SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, glb2loc_index, &
-    & idx_array_out, blk_array_out )
-
-    ! input array
-    INTEGER, INTENT(in):: p_idx_array_in(:)
-    ! number of values
-    INTEGER, INTENT(in) :: nvals
-    ! global index of values
-    INTEGER, INTENT(in) :: glb_index(:)
-    ! decomposition information
-    TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
-    ! output array
-    INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
-
-    INTEGER :: j, jb, jl, j_g, j_l
-
-    DO j = 1, nvals
-      jb = (j - 1) / nproma + 1
-      jl = MOD(j - 1, nproma) + 1
-
-      ! get global index in divided array
-      j_g = p_idx_array_in(glb_index(j))
-      j_l = get_valid_local_index(glb2loc_index, j_g, .TRUE.)
-      ! handle values outside local domain in the same way as get_local_idx_blk
-      idx_array_out(jl,jb) = idx_no(j_l)
-      blk_array_out(jl,jb) = blk_no(j_l)
-    END DO
-
-  END SUBROUTINE divide_idx
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !!               reshape an integer index array for the blocking.
-  !!
-  !! @par Revision History
-  !! Developed  by  Jochen Foerstner, DWD (2008-10-21)
-  !!
-  SUBROUTINE reshape_idx( p_idx_array_in, nblks, npromz,  &
-    & p_reshaped_idx_array_out,       &
-    & p_reshaped_blk_array_out )
-
-
-
-    ! input index array
-    INTEGER, INTENT(in) :: p_idx_array_in(:)
-    ! number of blocks
-    INTEGER, INTENT(in) :: nblks
-    ! chunk length
-    INTEGER, INTENT(in) :: npromz
-
-    ! output line index array
-    INTEGER, INTENT(inout) :: p_reshaped_idx_array_out(:,:)
-    ! output block index array
-    INTEGER, INTENT(inout) :: p_reshaped_blk_array_out(:,:)
-
-    INTEGER :: nlen
-    INTEGER :: jl, jb
-    INTEGER :: il, idx_in, idx, blk
-
-    !-----------------------------------------------------------------------
-
-    DO jb = 1, nblks
-
-      IF (jb /= nblks) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz
-        DO jl = npromz+1, nproma
-          p_reshaped_idx_array_out(jl,nblks) = 0
-          p_reshaped_blk_array_out(jl,nblks) = 0
-        END DO
-      END IF
-
-      DO jl = 1, nlen
-        il  = jl + ( jb - 1 )*nproma
-        idx_in = p_idx_array_in(il)
-        IF (idx_in /= 0) THEN
-          blk = ( ABS(idx_in) - 1 ) / nproma + 1
-          idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
-        ELSE
-          blk = 0
-          idx = 0
-        ENDIF
-        p_reshaped_idx_array_out(jl,jb) = idx
-        p_reshaped_blk_array_out(jl,jb) = blk
-      END DO
-
-    END DO
-
-  END SUBROUTINE reshape_idx
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE reshape_index_list( indlist_in, idx_out, blk_out )
-
-
-
-    ! input index array
-    INTEGER, INTENT(in) :: indlist_in(:)
-
-    ! output line index array
-    INTEGER, INTENT(inout) :: idx_out(:)
-    ! output block index array
-    INTEGER, INTENT(inout) :: blk_out(:)
-
-    !-----------------------------------------------------------------------
-
-    blk_out(:) = (indlist_in(:) - 1) / nproma + 1
-    idx_out(:) =  indlist_in(:) - (blk_out(:) - 1) * nproma
-
-  END SUBROUTINE reshape_index_list
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
