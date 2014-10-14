@@ -49,6 +49,7 @@ MODULE mo_scatter
 
   INTERFACE scatter_time_array
     MODULE PROCEDURE scatter_array_r2d_time
+    MODULE PROCEDURE scatter_array_i2d_time
   END INTERFACE scatter_time_array
 
   INTERFACE broadcast_array
@@ -154,6 +155,33 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE scatter_array_r2d_time
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  ! standard input array shape: (cells, vertical_levels, file_time_steps)
+  ! standard output array shape: (nproma, vertical_levels, blocks, file_time_steps)
+  SUBROUTINE scatter_array_i2d_time (in_array, out_array, global_index)
+    INTEGER, POINTER :: in_array(:,:)
+    INTEGER, POINTER :: out_array(:,:,:)
+    INTEGER          :: global_index(:)
+
+    INTEGER :: j, jl, jb, time_step
+
+    ! this has internal check if sequential
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+
+    out_array(:,:,:) = 0.0_wp
+
+    DO time_step=LBOUND(in_array,2), UBOUND(in_array,2)
+      DO j = 1,   SIZE(global_index)
+        jb = blk_no(j)
+        jl = idx_no(j)
+        out_array(jl, jb, time_step) = in_array(global_index(j), time_step)
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE scatter_array_i2d_time
   !--------------------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------------------
