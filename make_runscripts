@@ -258,7 +258,15 @@ check_accept_script()
           ;;
        esac
      ;; 
-     
+ 
+     nag)
+       case $check_accepted_filename in
+       *test_nh_moist_cbl*)
+          accepted_script="false"  
+          ;;
+       esac
+     ;; 
+   
    esac       
 
 
