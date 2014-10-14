@@ -18,7 +18,7 @@
 MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp
-  USE mo_exception, ONLY: finish, message, em_warn
+  USE mo_exception, ONLY: finish, message, em_warn, message_text
   USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &
@@ -385,8 +385,11 @@ CONTAINS
 
     INTEGER :: i
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_distributed:determine_dim_order_int'
+
     IF (SIZE(var_data) < 1) THEN
-      CALL finish("determine_dim_order", "invalid var_data")
+      CALL finish(method_name, "invalid var_data; SIZE(var_data) < 1")
       determine_dim_order_int = -1
       RETURN
     END IF
@@ -398,8 +401,12 @@ CONTAINS
     END IF
 
     DO i = 1, SIZE(var_data)
-      IF (SIZE(var_data(i)%DATA, determine_dim_order_int) /= ext_dim_size) &
-         CALL finish("determine_dim_order_int", "invalid var_data")
+      IF (SIZE(var_data(i)%DATA, determine_dim_order_int) /= ext_dim_size) THEN
+        WRITE (message_text, *) "invalid var_data; ", "SIZE(var_data(", i, &
+          &                     ")%DATA, ", determine_dim_order_int, ") /=", &
+          &                     ext_dim_size
+        CALL finish(method_name, message_text)
+      END IF
     END DO
 
   END FUNCTION determine_dim_order_int
@@ -411,8 +418,11 @@ CONTAINS
 
     INTEGER :: i
 
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_distributed:determine_dim_order_wp'
+
     IF (SIZE(var_data) < 1) THEN
-      CALL finish("determine_dim_order", "invalid var_data")
+      CALL finish(method_name, "invalid var_data; SIZE(var_data) < 1")
       determine_dim_order_wp = -1
       RETURN
     END IF
@@ -424,8 +434,13 @@ CONTAINS
     END IF
 
     DO i = 1, SIZE(var_data)
-      IF (SIZE(var_data(i)%DATA, determine_dim_order_wp) /= ext_dim_size) &
-         CALL finish("determine_dim_order_wp", "invalid var_data")
+      IF (SIZE(var_data(i)%DATA, determine_dim_order_wp) /= ext_dim_size) THEN
+        WRITE (message_text, *) "invalid var_data; ", "SIZE(var_data(", i, &
+          &                     ")%DATA, ", determine_dim_order_wp, ")", &
+          &                     SIZE(var_data(i)%DATA, determine_dim_order_wp),&
+          &                     "/=", ext_dim_size
+        CALL finish(method_name, message_text)
+      END IF
     END DO
 
   END FUNCTION determine_dim_order_wp
@@ -977,10 +992,11 @@ CONTAINS
     IF (lsilent) RETURN
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message('mo_model_domain_import netCDF error', nf_strerror(STATUS), &
-          & level=em_warn)
+        CALL message('mo_read_netcdf_distributed netCDF error', &
+          &          nf_strerror(STATUS), level=em_warn)
       ELSE
-        CALL finish('mo_model_domain_import netCDF error', nf_strerror(STATUS))
+        CALL finish('mo_read_netcdf_distributed netCDF error', &
+          &         nf_strerror(STATUS))
       ENDIF
     ENDIF
 
