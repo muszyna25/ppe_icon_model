@@ -39,6 +39,7 @@ MODULE mo_read_interface
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_2D, netcdf_read_2D_int, &
     &                                   netcdf_read_2D_extdim, &
+    &                                   netcdf_read_2D_extdim_int, &
     &                                   netcdf_read_3D_extdim, &
     &                                   netcdf_read_0D_real, &
     &                                   netcdf_read_1D, netcdf_read_3D, &
@@ -47,6 +48,7 @@ MODULE mo_read_interface
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
     &                                   var_data_2d_wp, var_data_2d_int, &
+    &                                   var_data_3d_wp, var_data_3d_int, &
     &                                   distrib_inq_var_dims
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
@@ -78,11 +80,14 @@ MODULE mo_read_interface
   PUBLIC :: read_3D_1time
   PUBLIC :: read_3D_time
   PUBLIC :: read_2D_extdim
+  PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
 
   PUBLIC :: onCells, onVertices, onEdges
 
   PUBLIC :: nf
+
+  PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
   !--------------------------------------------------------
 
@@ -164,7 +169,13 @@ MODULE mo_read_interface
 
   INTERFACE read_2D_extdim
     MODULE PROCEDURE read_dist_REAL_2D_extdim_streamid
+    MODULE PROCEDURE read_dist_REAL_2D_extdim_multivar_streamid
   END INTERFACE read_2D_extdim
+
+  INTERFACE read_2D_extdim_int
+    MODULE PROCEDURE read_dist_INT_2D_extdim_streamid
+    MODULE PROCEDURE read_dist_INT_2D_extdim_multivar_streamid
+  END INTERFACE read_2D_extdim_int
 
   INTERFACE read_3D
     MODULE PROCEDURE read_dist_REAL_3D_streamid
@@ -748,6 +759,272 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE read_dist_REAL_2D_extdim_streamid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, blocks, time)
+  SUBROUTINE read_dist_REAL_2D_extdim_multivar_streamid( &
+    stream_id, location, variable_name, n_var, fill_array, return_pointer, &
+    start_extdim, end_extdim, extdim_name )
+
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)              :: location
+    CHARACTER(LEN=*), INTENT(IN)     :: variable_name
+    INTEGER, INTENT(IN)              :: n_var
+    TYPE(var_data_3d_wp), OPTIONAL   :: fill_array(:)
+    TYPE(var_data_3d_wp), OPTIONAL   :: return_pointer(:)
+    INTEGER, INTENT(in), OPTIONAL    :: start_extdim, end_extdim
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    REAL(wp), POINTER                 :: tmp_pointer(:,:,:)
+    TYPE(var_data_3d_wp), ALLOCATABLE :: var_data_3d(:)
+    INTEGER :: i
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_REAL_2D_extdim_multivar_streamid'
+
+    INTEGER :: var_dimlen(2), var_ndims
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    IF (SIZE(stream_id%read_info, 2) /= n_var) &
+      CALL finish(method_name, &
+        "number of stream ids does not match number of variables")
+
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array(1)%data, 3)
+    END IF
+
+    IF (PRESENT(extdim_name)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location, (/extdim_name/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location)
+    END IF
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      DO i = 1, n_var
+        tmp_pointer => &
+           & netcdf_read_2D_extdim(stream_id%file_id, variable_name, &
+           & fill_array(i)%data, stream_id%read_info(location, i)%n_g, &
+           & stream_id%read_info(location, i)%glb_index, start_extdim, &
+           & end_extdim, extdim_name )
+        IF (PRESENT(return_pointer)) return_pointer(i)%data => tmp_pointer
+      END DO
+    CASE (read_netcdf_distribute_method)
+
+      ALLOCATE(var_data_3d(n_var))
+
+      IF (PRESENT(start_extdim) .AND. PRESENT(end_extdim)) THEN
+        var_dimlen(2) = end_extdim - start_extdim + 1
+      ELSE
+        IF (.NOT. PRESENT(fill_array)) &
+          CALL distrib_inq_var_dims(stream_id%file_id, variable_name, &
+            &                       var_ndims, var_dimlen)
+      END IF
+
+      IF (PRESENT(fill_array)) THEN
+        DO i = 1, n_var
+          var_data_3d(i)%data => fill_array(i)%data
+        END DO
+      ELSE
+        DO i = 1, n_var
+          ALLOCATE(var_data_3d(i)%data(nproma, &
+            (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
+            var_dimlen(2)))
+          tmp_pointer(:,:,:) = 0.0_wp
+        END DO
+      ENDIF
+      IF (PRESENT(return_pointer)) THEN
+        DO i = 1, n_var
+          return_pointer(i)%data => var_data_3d(i)%data
+        END DO
+      END IF
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               var_dimlen(2), &
+        &               stream_id%read_info(location, 1)%dist_read_info)
+      DEALLOCATE(var_data_3d)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END SUBROUTINE read_dist_REAL_2D_extdim_multivar_streamid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, blocks, time)
+  SUBROUTINE read_dist_INT_2D_extdim_streamid(stream_id, location, &
+    &                                         variable_name, fill_array, &
+    &                                         return_pointer, start_extdim, &
+    &                                         end_extdim, extdim_name )
+
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target_int       :: fill_array(:,:,:)
+    define_return_pointer_int    :: return_pointer(:,:,:)
+    INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    INTEGER, POINTER            :: tmp_pointer(:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_INT_2D_extdim_streamid'
+
+    INTEGER :: var_dimlen(2)
+
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array, 3)
+    END IF
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    IF (PRESENT(extdim_name)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location, (/extdim_name/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location)
+    END IF
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      tmp_pointer => &
+         & netcdf_read_2D_extdim_int(stream_id%file_id, variable_name, &
+         & fill_array, stream_id%read_info(location, 1)%n_g, &
+         & stream_id%read_info(location, 1)%glb_index, start_extdim, &
+         & end_extdim, extdim_name )
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    CASE (read_netcdf_distribute_method)
+      IF (PRESENT(fill_array)) THEN
+        tmp_pointer => fill_array
+      ELSE
+        ALLOCATE(tmp_pointer(nproma, &
+          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
+          end_extdim - start_extdim + 1))
+        tmp_pointer(:,:,:) = 0
+      ENDIF
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               end_extdim - start_extdim + 1, &
+        &               stream_id%read_info(location, 1)%dist_read_info)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END SUBROUTINE read_dist_INT_2D_extdim_streamid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, blocks, time)
+  SUBROUTINE read_dist_INT_2D_extdim_multivar_streamid( &
+    stream_id, location, variable_name, n_var, fill_array, return_pointer, &
+    start_extdim, end_extdim, extdim_name )
+
+    TYPE(t_stream_id), INTENT(INOUT)   :: stream_id
+    INTEGER, INTENT(IN)                :: location
+    CHARACTER(LEN=*), INTENT(IN)       :: variable_name
+    INTEGER, INTENT(IN)                :: n_var
+    TYPE(var_data_3d_int), OPTIONAL    :: fill_array(:)
+    TYPE(var_data_3d_int), OPTIONAL    :: return_pointer(:)
+    INTEGER, INTENT(in), OPTIONAL      :: start_extdim, end_extdim
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    INTEGER, POINTER                   :: tmp_pointer(:,:,:)
+    TYPE(var_data_3d_int), ALLOCATABLE :: var_data_3d(:)
+    INTEGER :: i
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:read_dist_INT_2D_extdim_multivar_streamid'
+
+    INTEGER :: var_dimlen(2), var_ndims
+
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    IF (SIZE(stream_id%read_info, 2) /= n_var) &
+      CALL finish(method_name, &
+        "number of stream ids does not match number of variables")
+
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
+    IF (PRESENT(fill_array)) THEN
+      var_dimlen(2) = SIZE(fill_array(1)%data, 3)
+    END IF
+
+    IF (PRESENT(extdim_name)) THEN
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location, (/extdim_name/))
+    ELSE
+      CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
+        &                   location)
+    END IF
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      DO i = 1, n_var
+        tmp_pointer => &
+           & netcdf_read_2D_extdim_int(stream_id%file_id, variable_name, &
+           & fill_array(i)%data, stream_id%read_info(location, i)%n_g, &
+           & stream_id%read_info(location, i)%glb_index, start_extdim, &
+           & end_extdim, extdim_name )
+        IF (PRESENT(return_pointer)) return_pointer(i)%data => tmp_pointer
+      END DO
+    CASE (read_netcdf_distribute_method)
+
+      ALLOCATE(var_data_3d(n_var))
+
+      IF (PRESENT(start_extdim) .AND. PRESENT(end_extdim)) THEN
+        var_dimlen(2) = end_extdim - start_extdim + 1
+      ELSE
+        IF (.NOT. PRESENT(fill_array)) &
+          CALL distrib_inq_var_dims(stream_id%file_id, variable_name, &
+            &                       var_ndims, var_dimlen)
+      END IF
+
+      IF (PRESENT(fill_array)) THEN
+        DO i = 1, n_var
+          var_data_3d(i)%data => fill_array(i)%data
+        END DO
+      ELSE
+        DO i = 1, n_var
+          ALLOCATE(var_data_3d(i)%data(nproma, &
+            (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
+            var_dimlen(2)))
+          tmp_pointer(:,:,:) = 0
+        END DO
+      ENDIF
+      IF (PRESENT(return_pointer)) THEN
+        DO i = 1, n_var
+          return_pointer(i)%data => var_data_3d(i)%data
+        END DO
+      END IF
+    
+      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+        &               var_dimlen(2), &
+        &               stream_id%read_info(location, 1)%dist_read_info)
+      DEALLOCATE(var_data_3d)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END SUBROUTINE read_dist_INT_2D_extdim_multivar_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

@@ -63,6 +63,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_3D
   PUBLIC :: netcdf_read_3D_time
   PUBLIC :: netcdf_read_2D_extdim
+  PUBLIC :: netcdf_read_2D_extdim_int
   PUBLIC :: netcdf_read_3D_extdim
 
   INTERFACE netcdf_read_0D_real
@@ -96,6 +97,10 @@ MODULE mo_read_netcdf_broadcast_2
   INTERFACE netcdf_read_2D_extdim
     MODULE PROCEDURE netcdf_read_REAL_2D_extdim_fileid
   END INTERFACE netcdf_read_2D_extdim
+
+  INTERFACE netcdf_read_2D_extdim_int
+    MODULE PROCEDURE netcdf_read_INT_2D_extdim_fileid
+  END INTERFACE netcdf_read_2D_extdim_int
 
   INTERFACE netcdf_read_3D
     MODULE PROCEDURE netcdf_read_REAL_3D_fileid
@@ -688,6 +693,118 @@ CONTAINS
     DEALLOCATE(tmp_array)
 
   END FUNCTION netcdf_read_REAL_2D_extdim_fileid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  ! By default the netcdf input has the structure :
+  !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
+  ! The fill_array  has the structure:
+  !       fill_array(nproma, blocks, time)
+  FUNCTION netcdf_read_INT_2D_extdim_fileid(file_id, variable_name, &
+    &                                       fill_array, n_g, glb_index, &
+    &                                       start_extdim, end_extdim, &
+    &                                       extdim_name ) result(res)
+
+    INTEGER, POINTER              :: res(:,:,:)
+
+    INTEGER, INTENT(IN)           :: file_id
+    CHARACTER(LEN=*), INTENT(IN)  :: variable_name
+    define_fill_target_int        :: fill_array(:,:,:)
+    INTEGER, INTENT(IN)           :: n_g
+    INTEGER, INTENT(IN)           :: glb_index(:)
+    INTEGER, INTENT(in), OPTIONAL :: start_extdim, end_extdim
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+
+    INTEGER :: file_time_steps, time_steps, start_time, end_time
+    INTEGER :: start_allocated_step, end_allocated_step
+    INTEGER :: start_read_index(2), count_read_index(2)
+
+    INTEGER :: return_status
+    INTEGER, POINTER :: tmp_array(:,:)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_extdim_fileid'
+
+    NULLIFY(res)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+        &                 var_size, var_dim_name)
+
+      ! check if we have indeed 3 dimensions
+      IF (var_dims /= 2 ) THEN
+        WRITE(0,*) variable_name, ": var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      ! check if the input has the right shape/size
+      IF ( var_size(1) /= n_g) THEN
+        WRITE(0,*) variable_name, ": var_dims = ", var_dims, " var_size=", &
+          &        var_size, " n_g=", n_g
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+    ENDIF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:2))
+    file_time_steps      = var_size(2)
+
+    ! calculate time range
+    IF (PRESENT(start_extdim)) THEN
+      start_time = start_extdim
+    ELSE
+      start_time = 1
+    ENDIF
+    IF (PRESENT(end_extdim)) THEN
+      end_time = end_extdim
+    ELSE
+      end_time = file_time_steps
+    ENDIF
+    time_steps = end_time - start_time + 1
+!    write(0,*) "start,end time=", start_time, end_time
+    IF (time_steps < 1) &
+      & CALL finish(method_name, "ext dim size < 1")
+    !-----------------------
+    IF (PRESENT(fill_array)) THEN
+      res => fill_array
+    ELSE
+      ALLOCATE(res(nproma, (SIZE(glb_index) - 1) / nproma + 1, time_steps),   &
+        &      stat=return_status)
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( res )')
+      ENDIF
+      res(:,:,:) = 0.0_wp
+    ENDIF
+    start_allocated_step = LBOUND(res, 3)
+    end_allocated_step   = UBOUND(res, 3)
+    ALLOCATE( tmp_array(n_g, start_allocated_step:end_allocated_step), &
+      &       stat=return_status )
+    IF (return_status /= success) THEN
+      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+    ENDIF
+    IF (SIZE(res,3) < time_steps) &
+      CALL finish(method_name, "allocated size < time_steps")
+    !-----------------------
+
+    IF( my_process_is_mpi_workroot()) THEN
+
+      start_read_index = (/ 1, start_time /)
+      count_read_index = (/ n_g, time_steps /)
+      CALL nf(nf_get_vara_int(file_id, varid, start_read_index, &
+        &                     count_read_index, tmp_array(:,:)), variable_name)
+    ENDIF
+
+    CALL scatter_time_array(tmp_array, res, glb_index)
+
+    DEALLOCATE(tmp_array)
+
+  END FUNCTION netcdf_read_INT_2D_extdim_fileid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
