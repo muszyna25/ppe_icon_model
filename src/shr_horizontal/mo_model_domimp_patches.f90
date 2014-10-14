@@ -1535,17 +1535,23 @@ CONTAINS
         &              p_p%cells%child_id(:,:) )
     ENDDO
 
-    CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, array_c_int(:,1)))
-    ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
-    IF(ig<=1) array_c_int(:,1) = ig
-    ! shift physical IDs for limited-area mode
-    IF (ig > 1 .AND. ishift_child_id > 0) array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index,  &
-        & p_p%cells%phys_id(:,:) )
-    ENDDO
+    ! p_p%cells%phys_id(:,:)
+    IF (ig <= 1) THEN
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(patch, id_lp, ip)
+        p_p%cells%phys_id(:,:) = ig
+      ENDDO
+    ELSE
+      CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
+      CALL nf(nf_get_var_int(ncid_grf, varid, array_c_int(:,1)))
+      ! shift physical IDs for limited-area mode
+      IF (ishift_child_id > 0) array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(patch, id_lp, ip)
+        CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index,  &
+          & p_p%cells%phys_id(:,:) )
+      ENDDO
+    END IF
 
     ! p_p%cells%edge_orientation(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'orientation_of_normal', varid))
@@ -1584,17 +1590,22 @@ CONTAINS
     ENDDO
 
     ! p_p%edges%phys_id(:,:)
-    CALL nf(nf_inq_varid(ncid_grf, 'phys_edge_id', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, array_e_int(:,1)))
-    ! 'phys_edge_id' seems not to be set for patch 0 and 1, it is always ig in this case
-    IF(ig<=1) array_e_int(:,1) = ig
-    ! shift physical IDs for limited-area mode
-    IF (ig > 1 .AND. ishift_child_id > 0) array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
-        & p_p%edges%phys_id(:,:) )
-    ENDDO
+    IF (ig <= 1) THEN
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(patch, id_lp, ip)
+        p_p%edges%phys_id(:,:) = ig
+      ENDDO
+    ELSE
+      CALL nf(nf_inq_varid(ncid_grf, 'phys_edge_id', varid))
+      CALL nf(nf_get_var_int(ncid_grf, varid, array_e_int(:,1)))
+      ! shift physical IDs for limited-area mode
+      IF (ishift_child_id > 0) array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(patch, id_lp, ip)
+        CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
+          & p_p%edges%phys_id(:,:) )
+      ENDDO
+    END IF
 
     ! p_p%edges%cell_idx(:,:,:)
     ! p_p%edges%cell_blk(:,:,:)
