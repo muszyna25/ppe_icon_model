@@ -41,7 +41,7 @@ MODULE mo_read_interface
     &                                   netcdf_read_2D_extdim, &
     &                                   netcdf_read_2D_extdim_int, &
     &                                   netcdf_read_3D_extdim, &
-    &                                   netcdf_read_0D_real, &
+    &                                   read_0D_real => netcdf_read_0D_real, &
     &                                   netcdf_read_1D, netcdf_read_3D, &
     &                                   netcdf_read_1D_extdim_time, &
     &                                   netcdf_read_1D_extdim_extdim_time
@@ -168,10 +168,6 @@ MODULE mo_read_interface
   !     independent decompositions
   !--------------------------------------------------------
 
-  INTERFACE read_0D_real
-    MODULE PROCEDURE read_bcast_REAL_0D_streamid
-  END INTERFACE read_0D_real
-
   INTERFACE read_1D
     MODULE PROCEDURE read_bcast_REAL_1D_streamid
   END INTERFACE read_1D
@@ -233,21 +229,6 @@ MODULE mo_read_interface
   END INTERFACE read_3D_extdim
 
 CONTAINS
-
-  !-------------------------------------------------------------------------
-  !>
-  FUNCTION read_bcast_REAL_0D_streamid(file_id, variable_name)
-
-    INTEGER, INTENT(IN)          :: file_id
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    REAL(wp)    :: read_bcast_REAL_0D_streamid
-
-
-    read_bcast_REAL_0D_streamid = netcdf_read_0D_real(file_id, variable_name)
-
-  END FUNCTION read_bcast_REAL_0D_streamid
-  !-------------------------------------------------------------------------
-
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE read_bcast_REAL_1D_streamid(file_id, variable_name, fill_array, &
