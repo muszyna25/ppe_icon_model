@@ -1498,34 +1498,32 @@ CONTAINS
     ENDIF
 #endif
 
-    !------------------------------------------
-    ! nesting/lateral boundary indexes
-    IF (max_cell_connectivity == 3) THEN ! triangular grid
-
-      ! Preparation: In limited-area mode, check if child domain ID's read
-      ! from the grid files need to be shifted
-      IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
-        CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
-        ishift_child_id = igrid_id - 1
-        WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
-        CALL message ('', TRIM(message_text))
-      ENDIF
-
-      ! patch%cells%child_id(:,:)
-      CALL nf(nf_inq_varid(ncid_grf, 'child_cell_id', varid))
-      CALL nf(nf_get_var_int(ncid_grf, varid, array_c_int(:,1)))
-
-      IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
- !       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
- !         array_c_int(jc, 1) = array_c_int(jc, 1) - ishift_child_id
- !       ENDDO
-        WHERE (array_c_int(:,1) > 0) &
-          array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
-      ENDIF
-
-    ELSE
+    IF (max_cell_connectivity /= 3) & ! not triangular grid
       CALL message ('read_remaining_patch',&
         & 'nesting incompatible with non-triangular grid')
+
+    ! Preparation: In limited-area mode, check if child domain ID's read
+    ! from the grid files need to be shifted
+    IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
+      CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
+      ishift_child_id = igrid_id - 1
+      WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
+      CALL message ('', TRIM(message_text))
+    ENDIF
+
+    !------------------------------------------
+    ! nesting/lateral boundary indexes
+
+    ! patch%cells%child_id(:,:)
+    CALL nf(nf_inq_varid(ncid_grf, 'child_cell_id', varid))
+    CALL nf(nf_get_var_int(ncid_grf, varid, array_c_int(:,1)))
+
+    IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
+!       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
+!         array_c_int(jc, 1) = array_c_int(jc, 1) - ishift_child_id
+!       ENDDO
+      WHERE (array_c_int(:,1) > 0) &
+        array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
     ENDIF
     
     DO ip = 0, n_lp
