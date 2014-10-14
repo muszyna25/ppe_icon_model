@@ -1124,8 +1124,6 @@ CONTAINS
 
     INTEGER :: file_vertical_levels, file_time_steps, time_steps, start_time, &
       &        end_time
-    INTEGER :: start_allocated_step, end_allocated_step
- !   LOGICAL :: use_time_range
     INTEGER :: start_read_index(3), count_read_index(3)
 
     INTEGER :: return_status, i, tt
@@ -1134,8 +1132,6 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_extdim_fileid'
-
-    NULLIFY(res)
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -1172,15 +1168,18 @@ CONTAINS
     ELSE
       end_time = file_time_steps
     ENDIF
-  !  use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
-  !  write(0,*) "start,end time=", start_time, end_time
+
     time_steps = end_time - start_time + 1
     IF (time_steps < 1) &
       & CALL finish(method_name, "extdim size < 1")
-    !-----------------------
-    !-----------------------
+
+    ALLOCATE( tmp_array(n_g), stat=return_status )
+    IF (return_status /= success) THEN
+      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+    ENDIF
+
     IF (PRESENT(fill_array)) THEN
-      res => fill_array
+      res => fill_array(:,:,:,1:time_steps)
     ELSE
       ALLOCATE( res (nproma, file_vertical_levels, &
         &            (SIZE(glb_index) - 1)/nproma + 1, time_steps), &
@@ -1190,13 +1189,6 @@ CONTAINS
       ENDIF
       res(:,:,:,:) = 0.0_wp
     ENDIF
-    start_allocated_step = LBOUND(res, 4)
-    end_allocated_step   = UBOUND(res, 4)
-    ALLOCATE( tmp_array(n_g), &
-      &       stat=return_status )
-    IF (return_status /= success) THEN
-      CALL finish (method_name, 'ALLOCATE( tmp_array )')
-    ENDIF
 
     IF (SIZE(res,4) < time_steps) &
       CALL finish(method_name, "allocated size < time_steps")
@@ -1205,21 +1197,17 @@ CONTAINS
       CALL finish(method_name, 'file_vertical_levels /= SIZE(fill_array,2)')
     !-----------------------
 
-    ! @Moritz: Sorry for the following hack to get the algorithm
-    ! running for large grids. Maybe we can talk about a better
-    ! solution later?
-    !
-    DO tt=start_time,time_steps
-      DO i=1,file_vertical_levels
+    DO tt=1, time_steps
+      DO i=1, file_vertical_levels
         IF( my_process_is_mpi_workroot()) THEN
-          start_read_index = (/ 1, i, tt /)
+          start_read_index = (/ 1, i, tt + start_time - 1 /)
           count_read_index      = (/ n_g, 1, 1 /)
           CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
             &                        count_read_index, tmp_array(:)),  &
             &     variable_name)
         ENDIF
         
-        res_level => res(:,i,:,tt)
+        res_level => res(:,i,:,LBOUND(res, 4)+tt-1)
         CALL scatter_array(tmp_array, res_level, glb_index)
       END DO
     END DO
