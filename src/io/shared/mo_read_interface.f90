@@ -1343,6 +1343,7 @@ CONTAINS
 
     INTEGER :: var_ndims, var_dimlen(3), var_start(3), var_end(3)
     REAL(wp), POINTER  :: tmp_pointer(:,:,:,:)
+    CHARACTER(LEN=128) :: temp_string_array(2)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_extdim'
 
@@ -1368,8 +1369,10 @@ CONTAINS
     END IF
 
     IF (PRESENT(levelsDimName) .AND. PRESENT(extdim_name)) THEN
+      temp_string_array(1) = levelsDimName
+      temp_string_array(2) = extdim_name
       CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
-        &                   location, (/levelsDimName, extdim_name/), &
+        &                   location, temp_string_array, &
         &                   ref_var_dim_start=var_start, &
         &                   ref_var_dim_end=var_end)
     ELSE

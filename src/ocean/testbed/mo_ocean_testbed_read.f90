@@ -1046,6 +1046,15 @@ CONTAINS
           &         "edge 3d extdim real (section) fill_array test failed")
       DEALLOCATE(real_4d)
 
+      ! test cell 3d extdim real with dimension names
+      CALL read_3d_extdim(stream_id, onCells, 'cell_3d_time_real', &
+        &                 return_pointer=real_4d, levelsDimName='levels', &
+        &                 extdim_name='time')
+      IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
+        CALL finish(method_name, &
+          &         "cell 3d extdim real with dimension names return_pointer size test failed")
+      DEALLOCATE(real_4d)
+
       ! close input file
       CALL closeFile(stream_id)
 
