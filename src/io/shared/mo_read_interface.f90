@@ -1574,10 +1574,12 @@ CONTAINS
     INTEGER, INTENT(IN) :: file_id
     INTEGER, OPTIONAL, INTENT(OUT) :: return_status
 
+    INTEGER :: ret
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:closeFile_bcast'
 
-    return_status = netcdf_close(file_id)
+    ret = netcdf_close(file_id)
+    IF (PRESENT(return_status)) return_status = ret
 
   END SUBROUTINE closeFile_bcast
 
