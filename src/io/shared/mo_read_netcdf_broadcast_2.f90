@@ -36,8 +36,7 @@ MODULE mo_read_netcdf_broadcast_2
   USE mo_kind
   USE mo_scatter,            ONLY: scatter_array, scatter_time_array, &
     &                              broadcast_array
-  USE mo_exception,          ONLY: message_text, message, warning, finish, &
-    &                              em_warn
+  USE mo_exception,          ONLY: message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max

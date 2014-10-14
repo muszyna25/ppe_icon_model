@@ -50,7 +50,8 @@ MODULE mo_read_interface
     &                                   var_data_1d_int, &
     &                                   var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int, &
-    &                                   distrib_inq_var_dims
+    &                                   distrib_inq_var_dims, idx_lvl_blk, &
+    &                                   idx_blk_time
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
   USE mo_io_units, ONLY: filename_max
@@ -543,7 +544,6 @@ CONTAINS
         tmp_pointer(:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
         &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
@@ -740,7 +740,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_extdim'
 
-    INTEGER :: var_dimlen(2)
+    INTEGER :: var_dimlen(2), var_start(2), var_end(2), var_ndims
 
     var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
@@ -751,12 +751,26 @@ CONTAINS
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
+    IF (PRESENT(start_extdim) .NEQV. PRESENT(end_extdim)) &
+      CALL finish(method_name, "invalid arguments")
+
+    var_start(:) = (/1, 1/)
+    var_end(:) = var_dimlen(:)
+
+    IF (PRESENT(start_extdim)) THEN
+      var_start(2) = start_extdim
+      var_end(2) = end_extdim
+    END IF
+
     IF (PRESENT(extdim_name)) THEN
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location, (/extdim_name/))
+        &                   location, (/extdim_name/), &
+        &                   ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     ELSE
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location)
+        &                   location, ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -771,16 +785,23 @@ CONTAINS
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
+        IF (PRESENT(start_extdim)) THEN
+          var_dimlen(2) = end_extdim - start_extdim + 1
+        ELSE
+          CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
+            &                       var_dimlen)
+        END IF
         ALLOCATE(tmp_pointer(nproma, &
           (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-          end_extdim - start_extdim + 1))
+          var_dimlen(2)))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
-        &               end_extdim - start_extdim + 1, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+        &               var_dimlen(2), idx_blk_time, &
+        &               stream_id%read_info(location, 1)%dist_read_info, &
+        &               start_extdim, end_extdim)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -814,10 +835,13 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_extdim_multivar'
 
-    INTEGER :: var_dimlen(2), var_ndims
+    INTEGER :: var_dimlen(2), var_ndims, var_start(2), var_end(2)
 
     ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    IF (PRESENT(start_extdim) .NEQV. PRESENT(end_extdim)) &
       CALL finish(method_name, "invalid arguments")
 
     IF (SIZE(stream_id%read_info, 2) /= n_var) &
@@ -829,12 +853,23 @@ CONTAINS
       var_dimlen(2) = SIZE(fill_array(1)%data, 3)
     END IF
 
+    var_start(:) = (/1, 1/)
+    var_end(:) = var_dimlen(:)
+
+    IF (PRESENT(start_extdim)) THEN
+      var_start(2) = start_extdim
+      var_end(2) = end_extdim
+    END IF
+
     IF (PRESENT(extdim_name)) THEN
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location, (/extdim_name/))
+        &                   location, (/extdim_name/), &
+        &                   ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     ELSE
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location)
+        &                   location, ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -851,7 +886,7 @@ CONTAINS
 
       ALLOCATE(var_data_3d(n_var))
 
-      IF (PRESENT(start_extdim) .AND. PRESENT(end_extdim)) THEN
+      IF (PRESENT(start_extdim)) THEN
         var_dimlen(2) = end_extdim - start_extdim + 1
       ELSE
         IF (.NOT. PRESENT(fill_array)) &
@@ -879,9 +914,9 @@ CONTAINS
       END IF
     
       CALL distrib_read(stream_id%file_id, variable_name, var_data_3d, &
-        &               var_dimlen(2), &
+        &               var_dimlen(2), idx_blk_time, &
         &               (/(stream_id%read_info(location, i)%dist_read_info, &
-        &                  i=1, n_var)/))
+        &                  i=1, n_var)/), start_extdim, end_extdim)
       DEALLOCATE(var_data_3d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -912,7 +947,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_INT_2D_extdim'
 
-    INTEGER :: var_dimlen(2)
+    INTEGER :: var_dimlen(2), var_start(2), var_end(2), var_ndims
 
     var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
@@ -923,12 +958,26 @@ CONTAINS
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
+    IF (PRESENT(start_extdim) .NEQV. PRESENT(end_extdim)) &
+      CALL finish(method_name, "invalid arguments")
+
+    var_start(:) = (/1, 1/)
+    var_end(:) = var_dimlen(:)
+
+    IF (PRESENT(start_extdim)) THEN
+      var_start(2) = start_extdim
+      var_end(2) = end_extdim
+    END IF
+
     IF (PRESENT(extdim_name)) THEN
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location, (/extdim_name/))
+        &                   location, (/extdim_name/), &
+        &                   ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     ELSE
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location)
+        &                   location, ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -943,16 +992,23 @@ CONTAINS
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
+        IF (PRESENT(start_extdim)) THEN
+          var_dimlen(2) = end_extdim - start_extdim + 1
+        ELSE
+          CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
+            &                       var_dimlen)
+        END IF
         ALLOCATE(tmp_pointer(nproma, &
           (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-          end_extdim - start_extdim + 1))
+          var_dimlen(2)))
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
-        &               end_extdim - start_extdim + 1, &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+        &               var_dimlen(2), idx_blk_time, &
+        &               stream_id%read_info(location, 1)%dist_read_info, &
+        &               start_extdim, end_extdim)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -986,10 +1042,13 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_INT_2D_extdim_multivar'
 
-    INTEGER :: var_dimlen(2), var_ndims
+    INTEGER :: var_dimlen(2), var_ndims, var_start(2), var_end(2)
 
     ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    IF (PRESENT(start_extdim) .NEQV. PRESENT(end_extdim)) &
       CALL finish(method_name, "invalid arguments")
 
     IF (SIZE(stream_id%read_info, 2) /= n_var) &
@@ -1001,12 +1060,23 @@ CONTAINS
       var_dimlen(2) = SIZE(fill_array(1)%data, 3)
     END IF
 
+    var_start(:) = (/1, 1/)
+    var_end(:) = var_dimlen(:)
+
+    IF (PRESENT(start_extdim)) THEN
+      var_start(2) = start_extdim
+      var_end(2) = end_extdim
+    END IF
+
     IF (PRESENT(extdim_name)) THEN
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location, (/extdim_name/))
+        &                   location, (/extdim_name/), &
+        &                   ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     ELSE
       CALL check_dimensions(stream_id%file_id, variable_name, 2, var_dimlen, &
-        &                   location)
+        &                   location, ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -1023,7 +1093,7 @@ CONTAINS
 
       ALLOCATE(var_data_3d(n_var))
 
-      IF (PRESENT(start_extdim) .AND. PRESENT(end_extdim)) THEN
+      IF (PRESENT(start_extdim)) THEN
         var_dimlen(2) = end_extdim - start_extdim + 1
       ELSE
         IF (.NOT. PRESENT(fill_array)) &
@@ -1051,9 +1121,9 @@ CONTAINS
       END IF
 
       CALL distrib_read(stream_id%file_id, variable_name, var_data_3d, &
-        &               var_dimlen(2), &
+        &               var_dimlen(2), idx_blk_time, &
         &               (/(stream_id%read_info(location, i)%dist_read_info, &
-        &                  i=1, n_var)/))
+        &                  i=1, n_var)/), start_extdim, end_extdim)
       DEALLOCATE(var_data_3d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -1121,7 +1191,7 @@ CONTAINS
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
-        &               var_dimlen(2), &
+        &               var_dimlen(2), idx_lvl_blk, &
         &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -1268,7 +1338,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsDimName
 
-    INTEGER :: var_ndims, var_dimlen(3)
+    INTEGER :: var_ndims, var_dimlen(3), var_start(3), var_end(3)
     REAL(wp), POINTER  :: tmp_pointer(:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_extdim'
@@ -1283,12 +1353,26 @@ CONTAINS
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
+    IF (PRESENT(start_extdim) .NEQV. PRESENT(end_extdim)) &
+      CALL finish(method_name, "invalid arguments")
+
+    var_start(:) = (/1, 1, 1/)
+    var_end(:) = var_dimlen(:)
+
+    IF (PRESENT(start_extdim)) THEN
+      var_start(3) = start_extdim
+      var_end(3) = end_extdim
+    END IF
+
     IF (PRESENT(levelsDimName) .AND. PRESENT(extdim_name)) THEN
       CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
-        &                   location, (/levelsDimName, extdim_name/))
+        &                   location, (/levelsDimName, extdim_name/), &
+        &                   ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     ELSE
       CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
-        &                   location)
+        &                   location, ref_var_dim_start=var_start, &
+        &                   ref_var_dim_end=var_end)
     END IF
 
     SELECT CASE(stream_id%input_method)
@@ -1305,17 +1389,25 @@ CONTAINS
       ELSE
         CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
           &                       var_dimlen)
+        IF (PRESENT(start_extdim)) var_dimlen(3) = end_extdim - start_extdim + 1
         ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
           (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-          end_extdim - start_extdim + 1))
+          var_dimlen(3)))
         tmp_pointer(:,:,:,:) = 0.0_wp
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
-      CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
-        &               var_dimlen(2:3), &
-        &               stream_id%read_info(location, 1)%dist_read_info)
+      IF (PRESENT(start_extdim)) THEN
+        CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+          &               var_dimlen(2:3), &
+          &               stream_id%read_info(location, 1)%dist_read_info, &
+          &               (/1,start_extdim/), (/var_dimlen(2), end_extdim/))
+      ELSE
+        CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
+          &               var_dimlen(2:3), &
+          &               stream_id%read_info(location, 1)%dist_read_info)
+      END IF
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1380,7 +1472,6 @@ CONTAINS
         openInputFile_dist_multivar%read_info(onCells, i)%glb_index => &
           patches(i)%p%cells%decomp_info%glb_index
         NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info)
-
         openInputFile_dist_multivar%read_info(onEdges, i)%glb_index => &
           patches(i)%p%edges%decomp_info%glb_index
         NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info)
@@ -1399,7 +1490,6 @@ CONTAINS
           patches(i)%p%cells%dist_io_data
         openInputFile_dist_multivar%read_info(onCells, i)%glb_index => &
           patches(i)%p%cells%decomp_info%glb_index
-
         openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
         openInputFile_dist_multivar%read_info(onVertices, i)%glb_index => &

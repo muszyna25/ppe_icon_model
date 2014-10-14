@@ -45,6 +45,7 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: var_data_3d_int, var_data_3d_wp
   PUBLIC :: var_data_4d_int, var_data_4d_wp
   PUBLIC :: distrib_inq_var_dims
+  PUBLIC :: idx_lvl_blk, idx_blk_time
 
   INCLUDE 'netcdf.inc'
 
@@ -62,11 +63,6 @@ MODULE mo_read_netcdf_distributed
     MODULE PROCEDURE distrib_read_real_3d
     MODULE PROCEDURE distrib_read_real_4d
   END INTERFACE distrib_read
-
-  INTERFACE determine_dim_order
-    MODULE PROCEDURE determine_dim_order_int
-    MODULE PROCEDURE determine_dim_order_wp
-  END INTERFACE determine_dim_order
 
   INTEGER, PARAMETER :: idx_lvl_blk = 2
   INTEGER, PARAMETER :: idx_blk_time = 3
@@ -378,75 +374,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-  INTEGER FUNCTION determine_dim_order_int(var_data, ext_dim_size)
-
-    TYPE(var_data_3d_int), INTENT(in) :: var_data(:)
-    INTEGER, INTENT(in) :: ext_dim_size
-
-    INTEGER :: i
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_distributed:determine_dim_order_int'
-
-    IF (SIZE(var_data) < 1) THEN
-      CALL finish(method_name, "invalid var_data; SIZE(var_data) < 1")
-      determine_dim_order_int = -1
-      RETURN
-    END IF
-
-    IF (SIZE(var_data(1)%DATA, 2) == ext_dim_size) THEN
-      determine_dim_order_int = idx_lvl_blk
-    ELSE
-      determine_dim_order_int = idx_blk_time
-    END IF
-
-    DO i = 1, SIZE(var_data)
-      IF (SIZE(var_data(i)%DATA, determine_dim_order_int) /= ext_dim_size) THEN
-        WRITE (message_text, *) "invalid var_data; ", "SIZE(var_data(", i, &
-          &                     ")%DATA, ", determine_dim_order_int, ") /=", &
-          &                     ext_dim_size
-        CALL finish(method_name, message_text)
-      END IF
-    END DO
-
-  END FUNCTION determine_dim_order_int
-
-  INTEGER FUNCTION determine_dim_order_wp(var_data, ext_dim_size)
-
-    TYPE(var_data_3d_wp), INTENT(in) :: var_data(:)
-    INTEGER, INTENT(in) :: ext_dim_size
-
-    INTEGER :: i
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_distributed:determine_dim_order_wp'
-
-    IF (SIZE(var_data) < 1) THEN
-      CALL finish(method_name, "invalid var_data; SIZE(var_data) < 1")
-      determine_dim_order_wp = -1
-      RETURN
-    END IF
-
-    IF (SIZE(var_data(1)%DATA, 2) == ext_dim_size) THEN
-      determine_dim_order_wp = idx_lvl_blk
-    ELSE
-      determine_dim_order_wp = idx_blk_time
-    END IF
-
-    DO i = 1, SIZE(var_data)
-      IF (SIZE(var_data(i)%DATA, determine_dim_order_wp) /= ext_dim_size) THEN
-        WRITE (message_text, *) "invalid var_data; ", "SIZE(var_data(", i, &
-          &                     ")%DATA, ", determine_dim_order_wp, ")", &
-          &                     SIZE(var_data(i)%DATA, determine_dim_order_wp),&
-          &                     "/=", ext_dim_size
-        CALL finish(method_name, message_text)
-      END IF
-    END DO
-
-  END FUNCTION determine_dim_order_wp
-
-  !-------------------------------------------------------------------------
-
   SUBROUTINE distrib_read_int_2d(ncid, var_name, var_data, io_data)
 
     INTEGER, INTENT(IN) :: ncid
@@ -584,36 +511,40 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE distrib_read_int_3d(ncid, var_name, var_data, ext_dim_size, &
-    &                            io_data)
+    &                            dim_order, io_data, start_ext_dim, &
+    &                            end_ext_dim)
 
     INTEGER, INTENT(IN) :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: var_name
     INTEGER, TARGET, INTENT(INOUT) :: var_data(:,:,:)
-    INTEGER, INTENT(IN) :: ext_dim_size
+    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
     TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
     TYPE(var_data_3d_int) :: var_data_(1)
 
     var_data_(1)%data => var_data
 
     CALL distrib_read_int_3d_multi_var(ncid, var_name, var_data_, &
-      &                                ext_dim_size, (/io_data/))
+      &                                ext_dim_size, dim_order, (/io_data/), &
+      &                                start_ext_dim, end_ext_dim)
 
   END SUBROUTINE distrib_read_int_3d
 
   SUBROUTINE distrib_read_int_3d_multi_var(ncid, var_name, var_data, &
-    &                                      ext_dim_size, io_data)
+    &                                      ext_dim_size, dim_order, io_data, &
+    &                                      start_ext_dim, end_ext_dim)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
     TYPE(var_data_3d_int), INTENT(inout) :: var_data(:)
-    INTEGER, INTENT(IN) :: ext_dim_size
+    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
+    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
 
     INTEGER, ALLOCATABLE :: local_buffer_2d(:,:) ! (n io points, ext_dim_size)
     INTEGER, ALLOCATABLE :: local_buffer_3d(:,:,:)
     INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, dim_order, var_type
-
+    INTEGER :: varid, i, j, var_type
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
     IF (SIZE(io_data) == 0) RETURN
@@ -621,7 +552,14 @@ CONTAINS
     IF (SIZE(var_data) < SIZE(io_data)) &
       & CALL finish("distrib_read_int_3d_multi_var", "var_data too small")
 
-    dim_order = determine_dim_order(var_data, ext_dim_size)
+    IF (PRESENT(start_ext_dim) .NEQV. PRESENT(end_ext_dim)) &
+      CALL finish("distrib_read_real_3d_multi_var", "invalid arguments")
+
+    IF (PRESENT(start_ext_dim)) THEN
+      IF ((end_ext_dim - start_ext_dim + 1) /= ext_dim_size) &
+        CALL finish("distrib_read_real_3d_multi_var", &
+          &         "invalid arguments; (end_ext_dim - start_ext_dim + 1) /= ext_dim_size")
+    END IF
 
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
@@ -629,11 +567,14 @@ CONTAINS
     buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
     buffer_nblks = (buffer_size + nproma - 1) / nproma
     ALLOCATE(local_buffer_2d(buffer_size, ext_dim_size))
-    IF (dim_order == idx_blk_time) THEN
-      ALLOCATE(local_buffer_3d(nproma, buffer_nblks, ext_dim_size))
-    ELSE
-      ALLOCATE(local_buffer_3d(nproma, ext_dim_size, buffer_nblks))
-    ENDIF
+    SELECT CASE(dim_order)
+      CASE(idx_blk_time)
+        ALLOCATE(local_buffer_3d(nproma, buffer_nblks, ext_dim_size))
+      CASE(idx_lvl_blk)
+        ALLOCATE(local_buffer_3d(nproma, ext_dim_size, buffer_nblks))
+      CASE DEFAULT
+        CALL finish("distrib_read_real_3d_multi_var", "invalid dim_order")
+    END SELECT
 
     IF (basic_io_data%COUNT > 0) THEN
 
@@ -644,9 +585,16 @@ CONTAINS
         CALL finish("distrib_read_int_3d_multi_var", "invalid var_type")
 
       ! only read io_decomp part
-      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1/), &
-        & (/basic_io_data%COUNT, ext_dim_size/), &
-        & local_buffer_2d(:,:)))
+      IF (PRESENT(start_ext_dim)) THEN
+        CALL nf(nf_get_vara_int(ncid, varid, &
+          &                     (/basic_io_data%start, start_ext_dim/), &
+          &                     (/basic_io_data%COUNT, ext_dim_size/), &
+          &                     local_buffer_2d(:,:)))
+      ELSE
+        CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1/), &
+          &                     (/basic_io_data%COUNT, ext_dim_size/), &
+          &                     local_buffer_2d(:,:)))
+      END IF
     END IF
 
     IF (dim_order == idx_blk_time) THEN
@@ -661,6 +609,7 @@ CONTAINS
           CALL exchange_data(io_data(i)%redistrib_pattern, &
             & var_data(i)%DATA(:,:,j), &
             & local_buffer_3d(:,:,j))
+!            & var_data(i)%DATA(:,:,LBOUND(var_data(i)%DATA,3)+j-1), &
         END DO
       END DO
     ELSE
@@ -674,6 +623,8 @@ CONTAINS
         CALL exchange_data(io_data(i)%redistrib_pattern, &
           & var_data(i)%DATA(:,:,:), &
           & local_buffer_3d(:,:,:))
+!           & var_data(i)%DATA(:,LBOUND(var_data(i)%DATA,2): &
+!           &                    UBOUND(var_data(i)%DATA,2),:), &
       END DO
     END IF
 
@@ -684,43 +635,55 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE distrib_read_real_3d(ncid, var_name, var_data, ext_dim_size, &
-    &                             io_data)
+    &                             dim_order, io_data, start_ext_dim, &
+    &                             end_ext_dim)
 
     INTEGER, INTENT(IN) :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: var_name
     REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:,:)
-    INTEGER, INTENT(IN) :: ext_dim_size
+    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
     TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
     TYPE(var_data_3d_wp) :: var_data_(1)
 
     var_data_(1)%data => var_data
 
     CALL distrib_read_real_3d_multi_var(ncid, var_name, var_data_, &
-      &                                 ext_dim_size, (/io_data/))
+      &                                 ext_dim_size, dim_order, (/io_data/), &
+      &                                 start_ext_dim, end_ext_dim)
 
   END SUBROUTINE distrib_read_real_3d
 
   SUBROUTINE distrib_read_real_3d_multi_var(ncid, var_name, var_data, &
-    &                                       ext_dim_size, io_data)
+    &                                       ext_dim_size, dim_order, io_data, &
+    &                                       start_ext_dim, end_ext_dim)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
     TYPE(var_data_3d_wp), INTENT(inout) :: var_data(:)
-    INTEGER, INTENT(IN) :: ext_dim_size
+    INTEGER, INTENT(IN) :: ext_dim_size, dim_order
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
+    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim, end_ext_dim
 
     REAL(wp), ALLOCATABLE :: local_buffer_2d(:,:) ! (n io points, ext_dim_size)
     REAL(wp), ALLOCATABLE :: local_buffer_3d(:,:,:)
     INTEGER :: buffer_size, buffer_nblks
-    INTEGER :: varid, i, j, dim_order
+    INTEGER :: varid, i, j
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
     IF (SIZE(io_data) == 0) RETURN
 
     IF (SIZE(var_data) < SIZE(io_data)) &
-      & CALL finish("distrib_read_real_3d_multi_var", "var_data too small")
+      CALL finish("distrib_read_real_3d_multi_var", "var_data too small")
 
-    dim_order = determine_dim_order(var_data, ext_dim_size)
+    IF (PRESENT(start_ext_dim) .NEQV. PRESENT(end_ext_dim)) &
+      CALL finish("distrib_read_real_3d_multi_var", "invalid arguments")
+
+    IF (PRESENT(start_ext_dim)) THEN
+      IF ((end_ext_dim - start_ext_dim + 1) /= ext_dim_size) &
+        CALL finish("distrib_read_real_3d_multi_var", &
+          &         "invalid arguments; (end_ext_dim - start_ext_dim + 1) /= ext_dim_size")
+    END IF
 
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
@@ -728,19 +691,29 @@ CONTAINS
     buffer_size = MAXVAL(distrib_read_get_buffer_size(io_data(:)))
     buffer_nblks = (buffer_size + nproma - 1) / nproma
     ALLOCATE(local_buffer_2d(buffer_size, ext_dim_size))
-    IF (dim_order == idx_blk_time) THEN
-      ALLOCATE(local_buffer_3d(nproma, buffer_nblks, ext_dim_size))
-    ELSE
-      ALLOCATE(local_buffer_3d(nproma, ext_dim_size, buffer_nblks))
-    ENDIF
+    SELECT CASE(dim_order)
+      CASE(idx_blk_time)
+        ALLOCATE(local_buffer_3d(nproma, buffer_nblks, ext_dim_size))
+      CASE(idx_lvl_blk)
+        ALLOCATE(local_buffer_3d(nproma, ext_dim_size, buffer_nblks))
+      CASE DEFAULT
+        CALL finish("distrib_read_real_3d_multi_var", "invalid dim_order")
+    END SELECT
 
     IF (basic_io_data%COUNT > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       ! only read io_decomp part
-      CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1/), &
-        & (/basic_io_data%COUNT, ext_dim_size/), &
-        & local_buffer_2d(:,:)))
+      IF (PRESENT(start_ext_dim)) THEN
+        CALL nf(nf_get_vara_double(ncid, varid, &
+          &                        (/basic_io_data%start, start_ext_dim/), &
+          &                        (/basic_io_data%COUNT, ext_dim_size/), &
+          &                        local_buffer_2d(:,:)))
+      ELSE
+        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1/), &
+          &                        (/basic_io_data%COUNT, ext_dim_size/), &
+          &                        local_buffer_2d(:,:)))
+      END IF
     END IF
 
     IF (dim_order == idx_blk_time) THEN
@@ -753,7 +726,7 @@ CONTAINS
       DO i = 1, SIZE(io_data)
         DO j = 1, ext_dim_size
           CALL exchange_data(io_data(i)%redistrib_pattern, &
-            & var_data(i)%DATA(:,:,j), &
+            & var_data(i)%DATA(:,:,LBOUND(var_data(i)%DATA,3)+j-1), &
             & local_buffer_3d(:,:,j))
         END DO
       END DO
@@ -766,7 +739,8 @@ CONTAINS
 
       DO i = 1, SIZE(io_data)
         CALL exchange_data(io_data(i)%redistrib_pattern, &
-          & var_data(i)%DATA(:,:,:), &
+          & var_data(i)%DATA(:,LBOUND(var_data(i)%DATA,2): &
+          &                    UBOUND(var_data(i)%DATA,2),:), &
           & local_buffer_3d(:,:,:))
       END DO
     END IF
@@ -862,30 +836,34 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE distrib_read_real_4d(ncid, var_name, var_data, ext_dim_size, &
-    &                             io_data)
+    &                             io_data, start_ext_dim, end_ext_dim)
 
     INTEGER, INTENT(IN) :: ncid
     CHARACTER(LEN=*), INTENT(IN) :: var_name
     REAL(wp), TARGET, INTENT(INOUT) :: var_data(:,:,:,:)
     INTEGER, INTENT(IN) :: ext_dim_size(2)
     TYPE(t_distrib_read_data), INTENT(IN) :: io_data
+    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim(2), end_ext_dim(2)
     TYPE(var_data_4d_wp) :: var_data_(1)
 
     var_data_(1)%data => var_data
 
     CALL distrib_read_real_4d_multi_var(ncid, var_name, var_data_, &
-      &                                 ext_dim_size, (/io_data/))
+      &                                 ext_dim_size, (/io_data/), &
+      &                                 start_ext_dim, end_ext_dim)
 
   END SUBROUTINE distrib_read_real_4d
 
   SUBROUTINE distrib_read_real_4d_multi_var(ncid, var_name, var_data, &
-    &                                       ext_dim_size, io_data)
+    &                                       ext_dim_size, io_data, &
+    &                                       start_ext_dim, end_ext_dim)
 
     INTEGER, INTENT(in) :: ncid
     CHARACTER(LEN=*), INTENT(in) :: var_name
     TYPE(var_data_4d_wp), INTENT(inout) :: var_data(:)
     INTEGER, INTENT(IN) :: ext_dim_size(2)
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
+    INTEGER, OPTIONAL, INTENT(IN) :: start_ext_dim(2), end_ext_dim(2)
 
     REAL(wp), ALLOCATABLE :: local_buffer_3d(:,:,:) ! (n io points,
                                                     !  ext_dim_size(1),
@@ -901,6 +879,15 @@ CONTAINS
     IF (SIZE(var_data) < SIZE(io_data)) &
       & CALL finish("distrib_read_real_4d_multi_var", "var_data too small")
 
+    IF (PRESENT(start_ext_dim) .NEQV. PRESENT(end_ext_dim)) &
+      CALL finish("distrib_read_real_4d_multi_var", "invalid arguments")
+
+    IF (PRESENT(start_ext_dim)) THEN
+      IF (ANY((end_ext_dim(:) - start_ext_dim(:) + 1) /= ext_dim_size(:))) &
+        CALL finish("distrib_read_real_4d_multi_var", &
+          "invalid arguments; (end_ext_dim - start_ext_dim + 1) /= ext_dim_size(2)")
+    END IF
+
     CALL check_basic_data_index(io_data(:))
     basic_io_data => basic_data(io_data(1)%basic_data_index)
 
@@ -914,9 +901,17 @@ CONTAINS
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       ! only read io_decomp part
-      CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1, 1/), &
-        & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
-        & local_buffer_3d(:,:,:)))
+      IF (PRESENT(start_ext_dim)) THEN
+        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, &
+          &                                       start_ext_dim(1), &
+          &                                       start_ext_dim(2)/), &
+          & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+          & local_buffer_3d(:,:,:)))
+      ELSE
+        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1, 1/), &
+          & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+          & local_buffer_3d(:,:,:)))
+      END IF
     END IF
 
     DO k = 1, ext_dim_size(2)
@@ -930,7 +925,9 @@ CONTAINS
     DO i = 1, SIZE(io_data)
       DO j = 1, ext_dim_size(2)
         CALL exchange_data(io_data(i)%redistrib_pattern, &
-          & var_data(i)%DATA(:,:,:,j), local_buffer_4d(:,:,:,j))
+          var_data(i)%DATA(:, &
+          LBOUND(var_data(i)%DATA,2):UBOUND(var_data(i)%DATA,2),:, &
+          LBOUND(var_data(i)%DATA,4)+j-1), local_buffer_4d(:,:,:,j))
       END DO
     END DO
 
@@ -962,6 +959,7 @@ CONTAINS
 
 #ifndef NOMPI
     CALL p_bcast(temp, 0, p_comm_work)
+    CALL p_bcast(var_ndims, 0, p_comm_work)
     CALL p_bcast(temp_var_dimlen(1:var_ndims), 0, p_comm_work)
     temp(1) = var_ndims
 #endif
