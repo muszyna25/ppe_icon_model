@@ -1636,53 +1636,115 @@ CONTAINS
     CALL read_2D(stream_id, onEdges, 'edge_system_orientation', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      ALLOCATE(multivar_2d_data_wp(ip+1)%data(nproma, p_p%nblks_e))
+      multivar_2d_data_wp(ip+1)%data(:,:) = 0.0_wp
+    END DO
+#endif
+
     ! p_p%edges%center(:,:)%lon
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%center(:,:)%lon
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'lon_edge_centre', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%center(:,:)%lon = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%center(:,:)%lat
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%center(:,:)%lat
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'lat_edge_centre', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%center(:,:)%lat = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%primal_normal(:,:)%v1
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_normal(:,:)%v1
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'zonal_normal_primal_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%primal_normal(:,:)%v1 = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%primal_normal(:,:)%v2
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_normal(:,:)%v2
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'meridional_normal_primal_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%primal_normal(:,:)%v2 = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%dual_normal(:,:)%v1
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_normal(:,:)%v1
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'zonal_normal_dual_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%dual_normal(:,:)%v1 = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%dual_normal(:,:)%v2
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_normal(:,:)%v2
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'meridional_normal_dual_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%dual_normal(:,:)%v2 = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
+
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      DEALLOCATE(multivar_2d_data_wp(ip+1)%data)
+    END DO
+#endif
 
     ! p_p%edges%primal_edge_length(:,:)
     DO ip = 0, n_lp
@@ -2067,149 +2129,325 @@ CONTAINS
       'mo_model_domimp_patches:read_cartesian_positions'
     !-----------------------------------------------------------------------
 
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      ALLOCATE(multivar_2d_data_wp(ip+1)%data(nproma, p_p%alloc_cell_blocks))
+      multivar_2d_data_wp(ip+1)%data(:,:) = 0.0_wp
+    END DO
+#endif
+
     ! p_p%cells%cartesian_center(:,:)%x(1)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(1)
     END DO
+#endif
     CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%cells%cartesian_center(:,:)%x(1) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%cells%cartesian_center(:,:)%x(2)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(2)
     END DO
+#endif
     CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%cells%cartesian_center(:,:)%x(2) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%cells%cartesian_center(:,:)%x(3)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(3)
     END DO
+#endif
     CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%cells%cartesian_center(:,:)%x(3) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
+
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      DEALLOCATE(multivar_2d_data_wp(ip+1)%data)
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      ALLOCATE(multivar_2d_data_wp(ip+1)%data(nproma,p_p%nblks_e))
+      multivar_2d_data_wp(ip+1)%data(:,:) = 0.0_wp
+    END DO
+#endif
 
     ! p_p%edges%cartesian_center(:,:)%x(1)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(1)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%cartesian_center(:,:)%x(1) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%cartesian_center(:,:)%x(2)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(2)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%cartesian_center(:,:)%x(2) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%cartesian_center(:,:)%x(3)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(3)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%cartesian_center(:,:)%x(3) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%cartesian_dual_middle(:,:)%x(1)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(1)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%cartesian_dual_middle(:,:)%x(1) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%cartesian_dual_middle(:,:)%x(2)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(2)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%cartesian_dual_middle(:,:)%x(2) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%cartesian_dual_middle(:,:)%x(3)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(3)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%cartesian_dual_middle(:,:)%x(3) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%primal_cart_normal(:,:)%x(1)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(1)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%primal_cart_normal(:,:)%x(1) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%primal_cart_normal(:,:)%x(2)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(2)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%primal_cart_normal(:,:)%x(2) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%primal_cart_normal(:,:)%x(3)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(3)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%primal_cart_normal(:,:)%x(3) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%dual_cart_normal(:,:)%x(1)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(1)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%dual_cart_normal(:,:)%x(1) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%dual_cart_normal(:,:)%x(2)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(2)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%dual_cart_normal(:,:)%x(2) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%edges%dual_cart_normal(:,:)%x(3)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(3)
     END DO
+#endif
     CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%edges%dual_cart_normal(:,:)%x(3) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
+
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      DEALLOCATE(multivar_2d_data_wp(ip+1)%data)
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      ALLOCATE(multivar_2d_data_wp(ip+1)%data(nproma,p_p%nblks_v))
+      multivar_2d_data_wp(ip+1)%data(:,:) = 0.0_wp
+    END DO
+#endif
 
     ! p_p%verts%cartesian(:,:)%x(1)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(1)
     END DO
+#endif
     CALL read_2D(stream_id, onVertices, 'cartesian_x_vertices', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%verts%cartesian(:,:)%x(1) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%verts%cartesian(:,:)%x(2)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(2)
     END DO
+#endif
     CALL read_2D(stream_id, onVertices, 'cartesian_y_vertices', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%verts%cartesian(:,:)%x(2) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
 
     ! p_p%verts%cartesian(:,:)%x(3)
+#ifndef __GNUC__
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(3)
     END DO
+#endif
     CALL read_2D(stream_id, onVertices, 'cartesian_z_vertices', n_lp+1, &
       &          multivar_2d_data_wp(:))
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      p_p%verts%cartesian(:,:)%x(3) = multivar_2d_data_wp(ip+1)%data(:,:)
+    END DO
+#endif
+
+#ifdef __GNUC__
+    DO ip = 0, n_lp
+      DEALLOCATE(multivar_2d_data_wp(ip+1)%data)
+    END DO
+#endif
 
   END SUBROUTINE read_cartesian_positions
   !-------------------------------------------------------------------------
