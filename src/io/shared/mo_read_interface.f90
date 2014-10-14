@@ -425,7 +425,7 @@ CONTAINS
       ELSE
         ALLOCATE(tmp_pointer(nproma, &
           (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
-        tmp_pointer(:,:) = 0.0_wp
+        tmp_pointer(:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
@@ -722,20 +722,6 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_time_streamid'
-
-    INTEGER :: var_dimlen(2)
-
-    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
-    IF (PRESENT(fill_array)) THEN
-      var_dimlen(2) = SIZE(fill_array, 3)
-    END IF
-
-    ! check whether fill_array and/or return_pointer was provided
-    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
-      CALL finish(method_name, "invalid arguments")
-
-    CALL check_dimensions(stream_id%file_id, variable_name, 2, &
-      &                   var_dimlen, location, (/"time"/))
 
     CALL read_dist_REAL_2D_extdim_streamid(&
       & stream_id=stream_id, location=location, variable_name=variable_name, &
@@ -1269,26 +1255,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_time_streamid'
-
-    INTEGER :: var_dimlen(3)
-
-    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1, -1/)
-    IF (PRESENT(fill_array)) THEN
-      var_dimlen(2) = SIZE(fill_array, 2)
-      var_dimlen(3) = SIZE(fill_array, 4)
-    END IF
-
-    ! check whether fill_array and/or return_pointer was provided
-    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
-      CALL finish(method_name, "invalid arguments")
-
-    IF (PRESENT(levelsDimName)) THEN
-      CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
-        &                   location, (/levelsDimName, "time"/))
-    ELSE
-      CALL check_dimensions(stream_id%file_id, variable_name, 3, var_dimlen, &
-        &                   location)
-    END IF
 
     CALL read_dist_REAL_3D_extdim_streamid( &
       & stream_id=stream_id,                 &
