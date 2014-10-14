@@ -43,7 +43,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_sync,                ONLY: global_sum_array
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_dynamics_config,     ONLY: nnow,nnew
+  USE mo_dynamics_config,     ONLY: nnow
   USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
   USE mo_ext_data_state,      ONLY: diagnose_ext_aggr
   
@@ -166,6 +166,7 @@ CONTAINS
     REAL(wp) :: h_b1_lk_now   (nproma) ! thickness of the upper layer of the sediments
     REAL(wp) :: t_scf_lk_now  (nproma) ! lake surface temperature
 
+    LOGICAL  :: lake_mask(nproma)      ! auxiliary field for re-initialization of non-lake points
 
     ! local fields for sea ice model
     !
@@ -188,6 +189,7 @@ CONTAINS
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
     REAL(wp) :: temp
     REAL(wp) :: zfrice_thrhld       ! fraction threshold for creating a sea-ice grid point
+
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
   !-------------------------------------------------------------------------
@@ -209,7 +211,7 @@ CONTAINS
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
 !$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
-!$OMP            t_scf_lk_now,zfrice_thrhld), SCHEDULE(guided)
+!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -518,7 +520,7 @@ CONTAINS
 
       !
       ! Warm-start initialization for fresh water lake parameterization
-      ! This initialization is performed irrespectively of a cold-start initialization.
+      ! This initialization is performed irrespective of a cold-start initialization.
       !
       IF (llake) THEN
 
@@ -630,8 +632,16 @@ CONTAINS
         ! h_bl_lk
         ! for non-lake points, because values might be inconsistent due to GRIB-packing
         !
+        ! Create lake-mask, in order to re-initialize only non-lake points
+        lake_mask(i_startidx:i_endidx) = .FALSE.
+        ! set lake-mask to .TRUE. for lake points
+        DO ic = 1, icount_flk
+          jc = ext_data%atm%idx_lst_fp(ic,jb)
+          lake_mask(jc) = .TRUE.
+        ENDDO
+
         DO jc = i_startidx, i_endidx
-          IF (ext_data%atm%frac_t(jc,jb,isub_lake) < frlake_thrhld) THEN   ! non-lake point
+          IF (.NOT. lake_mask(jc)) THEN
             ! now
             p_prog_wtr_now%t_wml_lk (jc,jb) = tpl_T_r        ! temperature of maximum density 
                                                              ! of fresh water
@@ -660,7 +670,7 @@ CONTAINS
             p_prog_wtr_new%h_b1_lk  (jc,jb) = rflk_depth_bs_ref ! reference value, bottom-sediment
                                                                 ! is switched off
           ENDIF
-        ENDDO  ! jc
+        ENDDO
 
       ENDIF  ! llake
 
@@ -1921,7 +1931,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: count_sea, count_ice, count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
-    INTEGER :: n_now, n_new
+    INTEGER :: n_now
     INTEGER :: lc_water, lc_snow_ice
     REAL(wp):: t_water
     REAL(wp):: fracwater_old, fracice_old
@@ -1942,7 +1952,6 @@ CONTAINS
     lc_snow_ice = ext_data(jg)%atm%i_lc_snow_ice
     lc_water = ext_data(jg)%atm%i_lc_water
     n_now = nnow(jg)
-    n_new = nnew(jg)
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)
 
