@@ -1429,7 +1429,7 @@ CONTAINS
     INTEGER :: ist
 
     INTEGER :: ncid, dimid, varid, ncid_grf
-    INTEGER :: ip, ji, jv
+    INTEGER :: ip, ji, jv, igrid_id
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
     INTEGER :: return_status
@@ -1502,19 +1502,18 @@ CONTAINS
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
 
-      ! patch%cells%child_id(:,:)
-      CALL nf(nf_inq_varid(ncid_grf, 'child_cell_id', varid))
-      CALL nf(nf_get_var_int(ncid_grf, varid, array_c_int(:,1)))
-
       ! Preparation: In limited-area mode, check if child domain ID's read
       ! from the grid files need to be shifted
       IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
-        ! domain ID of first nested domain should be 2
-!        ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
-        ishift_child_id = MINVAL(array_c_int(:,1),MASK=array_c_int(:,1)>0) - 2
+        CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
+        ishift_child_id = igrid_id - 1
         WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
         CALL message ('', TRIM(message_text))
       ENDIF
+
+      ! patch%cells%child_id(:,:)
+      CALL nf(nf_inq_varid(ncid_grf, 'child_cell_id', varid))
+      CALL nf(nf_get_var_int(ncid_grf, varid, array_c_int(:,1)))
 
       IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
  !       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
