@@ -34,8 +34,7 @@
 MODULE mo_read_netcdf_broadcast_2
 
   USE mo_kind
-  USE mo_scatter,            ONLY: scatter_array, scatter_time_array, &
-    &                              broadcast_array
+  USE mo_scatter,            ONLY: scatter_array, broadcast_array
   USE mo_exception,          ONLY: message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success
   USE mo_parallel_config,    ONLY: nproma
@@ -734,9 +733,9 @@ CONTAINS
     INTEGER :: file_time_steps, time_steps, start_time, end_time
     INTEGER :: start_read_index(2), count_read_index(2)
 
-    INTEGER :: return_status, i
-    REAL(wp), POINTER :: tmp_array(:,:)
-    REAL(wp), POINTER :: tmp_res(:,:,:)
+    INTEGER :: return_status, i, t
+    REAL(wp), POINTER :: tmp_array(:)
+    REAL(wp), POINTER :: tmp_res(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_multivar'
@@ -780,19 +779,8 @@ CONTAINS
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
 
-    ALLOCATE( tmp_array(n_g, time_steps), stat=return_status )
-    IF (return_status /= success) THEN
-      CALL finish (method_name, 'ALLOCATE( tmp_array )')
-    ENDIF
-
-    IF( my_process_is_mpi_workroot()) THEN
-
-      start_read_index = (/ 1, start_time /)
-      count_read_index = (/ n_g, time_steps /)
-      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
-        &                        count_read_index, tmp_array(:,:)), &
-        &                        variable_name)
-    ENDIF
+    ALLOCATE( tmp_array(n_g), stat=return_status )
+    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
 
     DO i = 1, n_vars
       !-----------------------
@@ -809,9 +797,22 @@ CONTAINS
         ENDIF
         res(i)%data(:,:,:) = 0.0_wp
       ENDIF
-      !-----------------------
-      tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3):UBOUND(res(i)%data, 3))
-      CALL scatter_time_array(tmp_array, tmp_res, glb_index(i)%data)
+    END DO
+
+    DO t = 1, time_steps
+      IF( my_process_is_mpi_workroot()) THEN
+
+        start_read_index = (/ 1, start_time+t-1 /)
+        count_read_index = (/ n_g, 1/)
+        CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+          &                        count_read_index, tmp_array(:)), &
+          &                        variable_name)
+      ENDIF
+
+      DO i = 1, n_vars
+        tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        CALL scatter_array(tmp_array, tmp_res, glb_index(i)%data)
+      END DO
     END DO
 
     DEALLOCATE(tmp_array)
@@ -889,9 +890,9 @@ CONTAINS
     INTEGER :: start_allocated_step, end_allocated_step
     INTEGER :: start_read_index(2), count_read_index(2)
 
-    INTEGER :: return_status, i
-    INTEGER, POINTER :: tmp_array(:,:)
-    INTEGER, POINTER :: tmp_res(:,:,:)
+    INTEGER :: return_status, i, t
+    INTEGER, POINTER :: tmp_array(:)
+    INTEGER, POINTER :: tmp_res(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_extdim_multivar'
@@ -935,21 +936,12 @@ CONTAINS
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
 
-    ALLOCATE( tmp_array(n_g, time_steps), stat=return_status )
+    ALLOCATE( tmp_array(n_g), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
 
-    IF( my_process_is_mpi_workroot()) THEN
-
-      start_read_index = (/ 1, start_time /)
-      count_read_index = (/ n_g, time_steps /)
-      CALL nf(nf_get_vara_int(file_id, varid, start_read_index, &
-        &                     count_read_index, tmp_array(:,:)), variable_name)
-    ENDIF
-
     DO i = 1, n_vars
-      !-----------------------
       IF (PRESENT(fill_arrays)) THEN
         res(i)%data => fill_arrays(i)%data
         IF (SIZE(res(i)%data,3) < time_steps) &
@@ -958,14 +950,25 @@ CONTAINS
         ALLOCATE(res(i)%data(nproma, &
           &                  (SIZE(glb_index(i)%data) - 1) / nproma + 1, &
           &                  time_steps), stat=return_status)
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( res )')
-        ENDIF
+        IF (return_status /= success) CALL finish (method_name, 'ALLOCATE(res)')
         res(i)%data(:,:,:) = 0
       END IF
-      !-----------------------
-      tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3):UBOUND(res(i)%data, 3))
-      CALL scatter_time_array(tmp_array, tmp_res, glb_index(i)%data)
+    END DO
+
+    DO t = 1, time_steps
+
+      IF( my_process_is_mpi_workroot()) THEN
+
+        start_read_index = (/ 1, start_time + t - 1 /)
+        count_read_index = (/ n_g, 1 /)
+        CALL nf(nf_get_vara_int(file_id, varid, start_read_index, &
+          &                     count_read_index, tmp_array(:)), variable_name)
+      ENDIF
+
+      DO i = 1, n_vars
+        tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        CALL scatter_array(tmp_array, tmp_res, glb_index(i)%data)
+      END DO
     END DO
 
     DEALLOCATE(tmp_array)
@@ -997,8 +1000,9 @@ CONTAINS
 
     INTEGER :: file_vertical_levels
 
-    INTEGER :: return_status
-    REAL(wp), POINTER :: tmp_array(:,:)
+    INTEGER :: return_status, i
+    REAL(wp), POINTER :: tmp_array(:)
+    REAL(wp), POINTER :: res_level(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D'
@@ -1040,7 +1044,7 @@ CONTAINS
       ENDIF
       res(:,:,:) = 0.0_wp
     ENDIF
-    ALLOCATE( tmp_array(n_g, file_vertical_levels), stat=return_status )
+    ALLOCATE( tmp_array(n_g), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
@@ -1049,12 +1053,15 @@ CONTAINS
       CALL finish(method_name, 'file_vertical_levels /= SIZE(fill_array,2)')
     !-----------------------
 
-    IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:,:)), &
-        &     variable_name)
-    ENDIF
+    DO i = 1, file_vertical_levels
+      IF( my_process_is_mpi_workroot()) THEN
+        CALL nf(nf_get_vara_double(file_id, varid, (/1,i/), (/n_g,1/), &
+          &                        tmp_array(:)), variable_name)
+      ENDIF
 
-    CALL scatter_array(tmp_array, res, glb_index)
+      res_level => res(:,i,:)
+      CALL scatter_array(tmp_array, res_level, glb_index)
+    END DO
 
     DEALLOCATE(tmp_array)
 
