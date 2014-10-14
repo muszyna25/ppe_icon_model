@@ -499,6 +499,13 @@ def getOceanOnlyfilelist(build)
   oceanFiles.delete_if {|f| %w[.nc .grb .png .eps .ps .pdf].include?(File.extname(f)) }
 
   oceanFiles.delete_if {|f| /mh-override/.match(f) } unless isLocal?(build)
+  oceanFiles.delete_if {|f| /mh-config-use/.match(f) }
+  oceanFiles.delete_if {|f| /set-up.info/.match(f) }
+
+  # remove some bad candidates
+  %w[mo_async_latbc.f90 mo_async_latbc_utils.f90 mo_sync_latbc.f90].each {|item|
+    oceanFiles.delete_if {|file| /#{item}$/.match(file) }
+  }
 
   oceanFiles
 end
