@@ -129,6 +129,45 @@ MODULE mo_read_interface
     MODULE PROCEDURE closeFile_bcast
   END INTERFACE closeFile
 
+  !--------------------------------------------------------
+  ! naming convention:
+  !--------------------------------------------------------
+  ! - data distribution type
+  !   - bcast -> all processes get the same data
+  !   - dist  -> based on decomposition information each process gets only a
+  !              part of the data
+  ! - data type
+  !   - REAL -> single or double precision real
+  !   - INT -> integer
+  ! - dimensions
+  !   - 0D                    -> single value (only bcast)
+  !   - 1D                    -> single column (dimensions: (nlev))
+  !   - 1D_extdim_time        -> single column
+  !                              (dimensions: (nlev,nextdim,ntime))
+  !   - 1D_extdim_extime_time -> single column
+  !                              (dimensions: (nlev,nextdim_a,nextdim_b,ntime))
+  !   - 2D                    -> single slice (dimensions: (nproma,nblk))
+  !   - 2D_1time              -> single slice; file contains time dimension with
+  !                              size 1 (dimensions: (nproma,nblk))
+  !   - 2D_1lev_1time         -> single slice; file contains level and time
+  !                              dimension with size 1
+  !                              (dimensions: (nproma,nblk))
+  !   - 2D_time               -> single slice with multiple time steps
+  !                              (dimensions: (nproma,nblk,ntime))
+  !   - 2D_extdim             -> single slice with additional dimension
+  !                              (dimensions: (nproma,nblk,nextdim))
+  !   - 3D                    -> 3D data field (dimensions: (nproma,nlev,nblk))
+  !   - 3D_1time              -> 3D data field; file contains time dimension
+  !                              with size 1 (dimensions: (nproma,nlev,nblk))
+  !   - 3D_time               -> 3D data field with multiple time steps
+  !                              (dimensions: (nproma,nlev,nblk))
+  !   - 3D_extdim             -> 3D data field with additional dimension
+  !                              (dimensions: (nproma,nlev,nblk))
+  ! - multivar
+  !   - reads single array from file and distributes it to multiple array with
+  !     independent decompositions
+  !--------------------------------------------------------
+
   INTERFACE read_0D_real
     MODULE PROCEDURE read_bcast_REAL_0D_streamid
   END INTERFACE read_0D_real
@@ -223,6 +262,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_bcast_REAL_1D_streamid'
 
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
     tmp_pointer => netcdf_read_1D(file_id, variable_name, fill_array)
     IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
 
@@ -247,9 +291,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_bcast_REAL_1D_extdim_time_streamid'
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
+    ! there is only one implementation for this read routine type
     tmp_pointer => netcdf_read_1D_extdim_time(file_id, variable_name, &
       &                                       fill_array, dim_names, &
       &                                       start_timestep, end_timestep)
@@ -275,9 +321,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_bcast_REAL_1D_extdim_extdim_time_streamid'
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
+    ! there is only one implementation for this read routine type
     tmp_pointer => netcdf_read_1D_extdim_extdim_time(file_id, variable_name, &
       &                                              fill_array, dim_names, &
       &                                              start_timestep, end_timestep)
@@ -306,6 +354,7 @@ CONTAINS
 
     INTEGER :: i
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -318,6 +367,7 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
+      ! for each output field
       DO i = 1, n_var
 
         tmp_pointer => &
@@ -332,6 +382,7 @@ CONTAINS
     
       ALLOCATE(var_data_2d(n_var))
 
+      ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
           var_data_2d(i)%data => fill_array(i)%data
@@ -373,6 +424,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_INT_2D_streamid'
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -425,6 +477,7 @@ CONTAINS
 
     INTEGER :: i
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -437,6 +490,7 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
+      ! for each output field
       DO i = 1, n_var
 
         tmp_pointer => &
@@ -451,6 +505,7 @@ CONTAINS
     
       ALLOCATE(var_data_2d(n_var))
 
+      ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
           var_data_2d(i)%data => fill_array(i)%data
@@ -492,6 +547,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_streamid'
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -530,6 +586,12 @@ CONTAINS
   !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks)
+  ! Since the array in the file has a time dimension we can map this case to
+  ! read_dist_REAL_2D_extdim_streamid. However fill_array lacks the time
+  ! dimension. To add this dimension we use an assumed-size array in
+  ! read_dist_REAL_2D_1time_streamid_. In order to use assumed-size in this case
+  ! we need the shape of the original fill_array. This is determined by
+  ! read_dist_REAL_2D_1time_streamid.
   SUBROUTINE read_dist_REAL_2D_1time_streamid(stream_id, location, &
     &                                         variable_name, fill_array, &
     &                                         return_pointer)
@@ -570,6 +632,8 @@ CONTAINS
 
     REAL(wp), POINTER :: return_pointer_(:,:,:)
 
+    ! Since fill_array now has a time dimension we can call
+    ! read_dist_REAL_2D_extdim_streamid
     IF (PRESENT(return_pointer)) THEN
       CALL read_dist_REAL_2D_extdim_streamid( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
@@ -593,6 +657,12 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks)
+  ! Since the array in the file has a level and time dimension we can map this
+  ! case to read_dist_REAL_3D_extdim_streamid. However fill_array lacks the
+  ! level and time dimension. To add these dimensions we use an assumed-size
+  ! array in read_dist_REAL_2D_1lev_1time_streamid_. In order to use
+  ! assumed-size in this case we need the shape of the original fill_array.
+  ! This is determined by read_dist_REAL_2D_1lev_1time_streamid.
   SUBROUTINE read_dist_REAL_2D_1lev_1time_streamid(stream_id, location, &
     &                                              variable_name, fill_array, &
     &                                              return_pointer)
@@ -633,6 +703,8 @@ CONTAINS
 
     REAL(wp), POINTER :: return_pointer_(:,:,:,:)
 
+    ! Since fill_array now has a level and time dimension we can call
+    ! read_dist_REAL_3D_extdim_streamid
     IF (PRESENT(return_pointer)) THEN
       CALL read_dist_REAL_3D_extdim_streamid( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
@@ -656,6 +728,7 @@ CONTAINS
   !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
+  ! We can map this case to read_dist_REAL_2D_extdim_streamid.
   SUBROUTINE read_dist_REAL_2D_time_streamid(stream_id, location, &
     &                                        variable_name, fill_array, &
     &                                        return_pointer, start_timestep, &
@@ -676,6 +749,7 @@ CONTAINS
       var_dimlen(2) = SIZE(fill_array, 3)
     END IF
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -721,6 +795,7 @@ CONTAINS
       var_dimlen(2) = SIZE(fill_array, 3)
     END IF
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -788,6 +863,7 @@ CONTAINS
 
     INTEGER :: var_dimlen(2), var_ndims
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -810,6 +886,7 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
+      ! for each output field
       DO i = 1, n_var
         tmp_pointer => &
            & netcdf_read_2D_extdim(stream_id%file_id, variable_name, &
@@ -830,6 +907,7 @@ CONTAINS
             &                       var_ndims, var_dimlen)
       END IF
 
+      ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
           var_data_3d(i)%data => fill_array(i)%data
@@ -889,6 +967,7 @@ CONTAINS
       var_dimlen(2) = SIZE(fill_array, 3)
     END IF
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -956,6 +1035,7 @@ CONTAINS
 
     INTEGER :: var_dimlen(2), var_ndims
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -978,6 +1058,7 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
+      ! for each output field
       DO i = 1, n_var
         tmp_pointer => &
            & netcdf_read_2D_extdim_int(stream_id%file_id, variable_name, &
@@ -998,6 +1079,7 @@ CONTAINS
             &                       var_ndims, var_dimlen)
       END IF
 
+      ! gather pointers of all output fields
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
           var_data_3d(i)%data => fill_array(i)%data
@@ -1054,6 +1136,7 @@ CONTAINS
       var_dimlen(2) = SIZE(fill_array, 2)
     END IF
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -1101,6 +1184,12 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks)
+  ! Since the array in the file has a time dimension we can map this case to
+  ! read_dist_REAL_3D_extdim_streamid. However fill_array lacks the time
+  ! dimension. To add this dimension we use an assumed-size array in
+  ! read_dist_REAL_3D_1time_streamid_. In order to use assumed-size in this case
+  ! we need the shape of the original fill_array. This is determined by
+  ! read_dist_REAL_3D_1time_streamid.
   SUBROUTINE read_dist_REAL_3D_1time_streamid(stream_id, location, &
     &                                         variable_name, fill_array, &
     &                                         return_pointer, levelsDimName)
@@ -1146,6 +1235,8 @@ CONTAINS
 
     REAL(wp), POINTER :: return_pointer_(:,:,:,:)
 
+    ! Since fill_array now has a time dimension we can call
+    ! read_dist_REAL_3D_extdim_streamid
     IF (PRESENT(return_pointer)) THEN
 
       CALL read_dist_REAL_3D_extdim_streamid(  &
@@ -1182,6 +1273,7 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
+  ! We can map this case to read_dist_REAL_3D_extdim_streamid.
   SUBROUTINE read_dist_REAL_3D_time_streamid(stream_id, location, &
     &                                        variable_name, fill_array, &
     &                                        return_pointer, start_timestep, &
@@ -1205,6 +1297,7 @@ CONTAINS
       var_dimlen(3) = SIZE(fill_array, 4)
     END IF
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
@@ -1261,6 +1354,7 @@ CONTAINS
       var_dimlen(3) = SIZE(fill_array, 4)
     END IF
 
+    ! check whether fill_array and/or return_pointer was provided
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
