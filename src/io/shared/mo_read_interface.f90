@@ -575,16 +575,14 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1time'
 
-    INTEGER :: array_shape(2)
-
     IF (PRESENT(fill_array)) THEN
-      array_shape = SHAPE(fill_array)
+      CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
+        &                           SHAPE(fill_array), fill_array, &
+        &                           return_pointer)
     ELSE
-      array_shape = (/0,0/)
+      CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
+        &                           (/0,0/), return_pointer=return_pointer)
     END IF
-
-    CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-      &                           array_shape, fill_array, return_pointer)
 
   END SUBROUTINE read_dist_REAL_2D_1time
 
@@ -610,7 +608,9 @@ CONTAINS
         & fill_array=fill_array, return_pointer=return_pointer_, &
         & start_extdim=1, end_extdim=1, extdim_name="time" )
 
-      return_pointer => return_pointer_(:,:,1)
+      ALLOCATE(return_pointer(SIZE(return_pointer_,1),SIZE(return_pointer_,2)))
+      return_pointer(:,:) = return_pointer_(:,:,1)
+      DEALLOCATE(return_pointer_)
     ELSE
       CALL read_dist_REAL_2D_extdim( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
@@ -643,16 +643,14 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1lev_1time'
 
-    INTEGER :: array_shape(2)
-
     IF (PRESENT(fill_array)) THEN
-      array_shape = SHAPE(fill_array)
+      CALL read_dist_REAL_2D_1lev_1time_(stream_id, location, variable_name, &
+        &                                SHAPE(fill_array), fill_array, &
+        &                                return_pointer)
     ELSE
-      array_shape = (/0,0/)
+      CALL read_dist_REAL_2D_1lev_1time_(stream_id, location, variable_name, &
+        &                                (/0,0/), return_pointer=return_pointer)
     END IF
-
-    CALL read_dist_REAL_2D_1lev_1time_(stream_id, location, variable_name, &
-      &                                array_shape, fill_array, return_pointer)
 
   END SUBROUTINE read_dist_REAL_2D_1lev_1time
 
@@ -679,7 +677,9 @@ CONTAINS
         & fill_array=fill_array, return_pointer=return_pointer_, &
         & start_extdim=1, end_extdim=1, extdim_name="time" )
 
-      return_pointer => return_pointer_(:,1,:,1)
+      ALLOCATE(return_pointer(SIZE(return_pointer_,1),SIZE(return_pointer_,3)))
+      return_pointer(:,:) = return_pointer_(:,1,:,1)
+      DEALLOCATE(return_pointer_)
     ELSE
       CALL read_dist_REAL_3D_extdim( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
@@ -797,7 +797,7 @@ CONTAINS
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
         &               var_dimlen(2), idx_blk_time, &
         &               stream_id%read_info(location, 1)%dist_read_info, &
@@ -1221,17 +1221,15 @@ CONTAINS
     define_return_pointer            :: return_pointer(:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
 
-    INTEGER :: array_shape(3)
-
     IF (PRESENT(fill_array)) THEN
-      array_shape = SHAPE(fill_array)
+      CALL read_dist_REAL_3D_1time_(stream_id, location, variable_name, &
+        &                           SHAPE(fill_array), fill_array, &
+        &                           return_pointer, levelsDimName)
     ELSE
-      array_shape = (/0,0,0/)
+      CALL read_dist_REAL_3D_1time_(stream_id, location, variable_name, &
+        &                           (/0,0,0/), return_pointer=return_pointer, &
+        &                           levelsDimName=levelsDimName)
     END IF
-
-    CALL read_dist_REAL_3D_1time_(stream_id, location, variable_name, &
-      &                           array_shape, fill_array, return_pointer, &
-      &                           levelsDimName)
 
   END SUBROUTINE read_dist_REAL_3D_1time
 
@@ -1269,6 +1267,11 @@ CONTAINS
         & extdim_name="time")
 
       return_pointer => return_pointer_(:,:,:,1)
+      ALLOCATE(return_pointer(SIZE(return_pointer_,1), &
+        &                     SIZE(return_pointer_,2), &
+        &                     SIZE(return_pointer_,3)))
+      return_pointer(:,:,:) = return_pointer_(:,:,:,1)
+      DEALLOCATE(return_pointer_)
     ELSE
 
       CALL read_dist_REAL_3D_extdim(  &
