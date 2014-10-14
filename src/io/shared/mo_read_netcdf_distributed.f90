@@ -40,6 +40,7 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: setup_distrib_read
   PUBLIC :: delete_distrib_read
   PUBLIC :: t_distrib_read_data
+  PUBLIC :: var_data_1d_int
   PUBLIC :: var_data_2d_int, var_data_2d_wp
   PUBLIC :: var_data_3d_int, var_data_3d_wp
   PUBLIC :: var_data_4d_int, var_data_4d_wp
@@ -89,6 +90,9 @@ MODULE mo_read_netcdf_distributed
 
   END TYPE t_distrib_read_data
 
+  TYPE var_data_1d_int
+    INTEGER, POINTER :: DATA(:)
+  END TYPE
   TYPE var_data_2d_int
     INTEGER, POINTER :: DATA(:,:) ! idx, blk
   END TYPE

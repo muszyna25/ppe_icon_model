@@ -43,6 +43,9 @@ MODULE mo_read_netcdf_broadcast_2
   USE mo_io_units,           ONLY: filename_max
 
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
+  USE mo_read_netcdf_distributed, ONLY: var_data_1d_int, &
+    &                                   var_data_2d_wp, var_data_2d_int, &
+    &                                   var_data_3d_wp, var_data_3d_int
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE
@@ -84,10 +87,12 @@ MODULE mo_read_netcdf_broadcast_2
 
   INTERFACE netcdf_read_2D_int
     MODULE PROCEDURE netcdf_read_INT_2D_fileid
+    MODULE PROCEDURE netcdf_read_INT_2D_multivar_fileid
   END INTERFACE netcdf_read_2D_int
 
   INTERFACE netcdf_read_2D
     MODULE PROCEDURE netcdf_read_REAL_2D_fileid
+    MODULE PROCEDURE netcdf_read_REAL_2D_multivar_fileid
   END INTERFACE netcdf_read_2D
 
   INTERFACE netcdf_read_2D_time
@@ -96,10 +101,12 @@ MODULE mo_read_netcdf_broadcast_2
 
   INTERFACE netcdf_read_2D_extdim
     MODULE PROCEDURE netcdf_read_REAL_2D_extdim_fileid
+    MODULE PROCEDURE netcdf_read_REAL_2D_extdim_multivar_fileid
   END INTERFACE netcdf_read_2D_extdim
 
   INTERFACE netcdf_read_2D_extdim_int
     MODULE PROCEDURE netcdf_read_INT_2D_extdim_fileid
+    MODULE PROCEDURE netcdf_read_INT_2D_extdim_multivar_fileid
   END INTERFACE netcdf_read_2D_extdim_int
 
   INTERFACE netcdf_read_3D
@@ -429,26 +436,60 @@ CONTAINS
   !>
   FUNCTION netcdf_read_INT_2D_fileid(file_id, variable_name, fill_array, &
     &                                n_g, glb_index) result(res)
-
     INTEGER, POINTER             :: res(:,:)
 
     INTEGER, INTENT(IN)          :: file_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target_int       :: fill_array(:,:)
     INTEGER, INTENT(IN)          :: n_g
-    INTEGER, INTENT(IN)          :: glb_index(:)
+    INTEGER, TARGET, INTENT(IN)  :: glb_index(:)
+
+    TYPE(var_data_2d_int) :: fill_arrays(1)
+    TYPE(var_data_1d_int) :: glb_index_(1)
+    TYPE(var_data_2d_int) :: results(1)
+
+    glb_index_(1)%data => glb_index
+
+    IF (PRESENT(fill_array)) THEN
+      fill_arrays(1)%data => fill_array
+      results = netcdf_read_INT_2D_multivar_fileid(file_id=file_id, &
+        &                                          variable_name=variable_name,&
+        &                                          n_vars=1, &
+        &                                          fill_arrays=fill_arrays, &
+        &                                          n_g=n_g, &
+        &                                          glb_index=glb_index_)
+    ELSE
+      results = netcdf_read_INT_2D_multivar_fileid(file_id=file_id, &
+        &                                          variable_name=variable_name,&
+        &                                          n_vars=1, n_g=n_g, &
+        &                                          glb_index=glb_index_)
+    END IF
+
+    res => results(1)%data
+
+  END FUNCTION netcdf_read_INT_2D_fileid
+
+  FUNCTION netcdf_read_INT_2D_multivar_fileid(file_id, variable_name, n_vars, &
+    &                                         fill_arrays, n_g, glb_index) &
+    result(res)
+
+    INTEGER, INTENT(IN)               :: n_vars
+    INTEGER, INTENT(IN)               :: file_id
+    CHARACTER(LEN=*), INTENT(IN)      :: variable_name
+    TYPE(var_data_2d_int), OPTIONAL   :: fill_arrays(n_vars)
+    INTEGER, INTENT(IN)               :: n_g
+    TYPE(var_data_1d_int), INTENT(IN) :: glb_index(n_vars)
+
+    TYPE(var_data_2d_int)             :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: return_status
+    INTEGER :: return_status, i
     INTEGER, POINTER :: tmp_array(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_fileid'
-
-    ! trivial return value.
-    NULLIFY(res)
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_multivar_fileid'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -473,22 +514,26 @@ CONTAINS
       CALL nf(nf_get_var_int(file_id, varid, tmp_array(:)), variable_name)
     ENDIF
 
-    IF (PRESENT(fill_array)) THEN
-      res => fill_array
-    ELSE
-      ALLOCATE( res(nproma, (SIZE(glb_index) - 1)/nproma + 1), &
-        &       stat=return_status )
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( res )')
+    DO i = 1, n_vars
+      IF (PRESENT(fill_arrays)) THEN
+        res(i)%data => fill_arrays(i)%data
+      ELSE
+        ALLOCATE( res(i)%data(nproma, &
+          &                   (SIZE(glb_index(i)%data) - 1)/nproma + 1), &
+          &       stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( res )')
+        ENDIF
+        res(i)%data(:,:) = 0
       ENDIF
-      res(:,:) = 0
-    ENDIF
 
-    CALL scatter_array(in_array=tmp_array, out_array=res, global_index=glb_index)
+      CALL scatter_array(in_array=tmp_array, out_array=res(i)%data, &
+        &                global_index=glb_index(i)%data)
+    END DO
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_INT_2D_fileid
+  END FUNCTION netcdf_read_INT_2D_multivar_fileid
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
@@ -501,19 +546,54 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
     INTEGER, INTENT(IN)          :: n_g
-    INTEGER, INTENT(IN)          :: glb_index(:)
+    INTEGER, TARGET, INTENT(IN)  :: glb_index(:)
+
+    TYPE(var_data_2d_wp) :: fill_arrays(1)
+    TYPE(var_data_1d_int) :: glb_index_(1)
+    TYPE(var_data_2d_wp) :: results(1)
+
+    glb_index_(1)%data => glb_index
+
+    IF (PRESENT(fill_array)) THEN
+      fill_arrays(1)%data => fill_array
+      results = netcdf_read_REAL_2D_multivar_fileid(file_id=file_id, &
+        &                                           variable_name=variable_name,&
+        &                                           n_vars=1, &
+        &                                           fill_arrays=fill_arrays, &
+        &                                           n_g=n_g, &
+        &                                           glb_index=glb_index_)
+    ELSE
+      results = netcdf_read_REAL_2D_multivar_fileid(file_id=file_id, &
+        &                                           variable_name=variable_name,&
+        &                                           n_vars=1, n_g=n_g, &
+        &                                           glb_index=glb_index_)
+    END IF
+
+    res => results(1)%data
+
+  END FUNCTION netcdf_read_REAL_2D_fileid
+
+  FUNCTION netcdf_read_REAL_2D_multivar_fileid(file_id, variable_name, n_vars, &
+    &                                          fill_arrays, n_g, glb_index) &
+    result(res)
+
+    INTEGER, INTENT(IN)               :: n_vars
+    INTEGER, INTENT(IN)               :: file_id
+    CHARACTER(LEN=*), INTENT(IN)      :: variable_name
+    TYPE(var_data_2d_wp), OPTIONAL    :: fill_arrays(n_vars)
+    INTEGER, INTENT(IN)               :: n_g
+    TYPE(var_data_1d_int), INTENT(IN) :: glb_index(n_vars)
+
+    TYPE(var_data_2d_wp)              :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: return_status
+    INTEGER :: return_status, i
     REAL(wp), POINTER :: tmp_array(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_fileid'
-
-    ! trivial return value.
-    NULLIFY(res)
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_multivar_fileid'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -537,22 +617,26 @@ CONTAINS
         &                       variable_name)
     ENDIF
 
-    IF (PRESENT(fill_array)) THEN
-      res => fill_array
-    ELSE
-      ALLOCATE( res(nproma, (SIZE(glb_index) - 1)/nproma + 1), &
-        &       stat=return_status )
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( res )')
+    DO i = 1, n_vars
+      IF (PRESENT(fill_arrays)) THEN
+        res(i)%data => fill_arrays(i)%data
+      ELSE
+        ALLOCATE( res(i)%data(nproma, &
+          &                   (SIZE(glb_index(i)%data) - 1)/nproma + 1), &
+          &       stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( res )')
+        ENDIF
+        res(i)%data(:,:) = 0.0_wp
       ENDIF
-      res(:,:) = 0.0_wp
-    ENDIF
 
-    CALL scatter_array(in_array=tmp_array, out_array=res, global_index=glb_index)
+      CALL scatter_array(in_array=tmp_array, out_array=res(i)%data, &
+        &                global_index=glb_index(i)%data)
+    END DO
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_2D_fileid
+  END FUNCTION netcdf_read_REAL_2D_multivar_fileid
   !-------------------------------------------------------------------------
 
 
@@ -593,31 +677,70 @@ CONTAINS
     &                                        start_extdim, end_extdim, &
     &                                        extdim_name ) result(res)
 
-    REAL(wp), POINTER             :: res(:,:,:)
+    REAL(wp), POINTER                      :: res(:,:,:)
 
-    INTEGER, INTENT(IN)           :: file_id
-    CHARACTER(LEN=*), INTENT(IN)  :: variable_name
-    define_fill_target            :: fill_array(:,:,:)
-    INTEGER, INTENT(IN)           :: n_g
-    INTEGER, INTENT(IN)           :: glb_index(:)
-    INTEGER, INTENT(in), OPTIONAL :: start_extdim, end_extdim
+    INTEGER, INTENT(IN)                    :: file_id
+    CHARACTER(LEN=*), INTENT(IN)           :: variable_name
+    define_fill_target                     :: fill_array(:,:,:)
+    INTEGER, INTENT(IN)                    :: n_g
+    INTEGER, TARGET, INTENT(IN)            :: glb_index(:)
+    INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    TYPE(var_data_3d_wp) :: fill_arrays(1)
+    TYPE(var_data_1d_int) :: glb_index_(1)
+    TYPE(var_data_3d_wp) :: results(1)
+
+    glb_index_(1)%data => glb_index
+
+    IF (PRESENT(fill_array)) THEN
+      fill_arrays(1)%data => fill_array
+      results = netcdf_read_REAL_2D_extdim_multivar_fileid( &
+        file_id=file_id, variable_name=variable_name, n_vars=1, &
+        fill_arrays=fill_arrays,  n_g=n_g, glb_index=glb_index_, &
+        start_extdim=start_extdim, end_extdim=end_extdim, &
+        extdim_name=extdim_name)
+    ELSE
+      results = netcdf_read_REAL_2D_extdim_multivar_fileid( &
+        file_id=file_id, variable_name=variable_name, n_vars=1, n_g=n_g, &
+        glb_index=glb_index_, start_extdim=start_extdim, &
+        end_extdim=end_extdim, extdim_name=extdim_name)
+    END IF
+
+    res => results(1)%data
+
+  END FUNCTION netcdf_read_REAL_2D_extdim_fileid
+
+  FUNCTION netcdf_read_REAL_2D_extdim_multivar_fileid(file_id, variable_name, &
+    &                                                 n_vars, fill_arrays, n_g,&
+    &                                                 glb_index, start_extdim, &
+    &                                                 end_extdim, extdim_name) &
+    result(res)
+
+    INTEGER, INTENT(IN)                    :: n_vars
+    INTEGER, INTENT(IN)                    :: file_id
+    CHARACTER(LEN=*), INTENT(IN)           :: variable_name
+    TYPE(var_data_3d_wp), OPTIONAL         :: fill_arrays(n_vars)
+    INTEGER, INTENT(IN)                    :: n_g
+    TYPE(var_data_1d_int), INTENT(IN)      :: glb_index(n_vars)
+    INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    TYPE(var_data_3d_wp)          :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
     INTEGER :: file_time_steps, time_steps, start_time, end_time
-    INTEGER :: start_allocated_step, end_allocated_step
     INTEGER :: start_read_index(2), count_read_index(2)
 
-    INTEGER :: return_status
+    INTEGER :: return_status, i
     REAL(wp), POINTER :: tmp_array(:,:)
+    REAL(wp), POINTER :: tmp_res(:,:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_fileid'
-
-    NULLIFY(res)
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_multivar_fileid'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -657,27 +780,11 @@ CONTAINS
 !    write(0,*) "start,end time=", start_time, end_time
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
-    !-----------------------
-    IF (PRESENT(fill_array)) THEN
-      res => fill_array
-    ELSE
-      ALLOCATE(res(nproma, (SIZE(glb_index) - 1) / nproma + 1, time_steps),   &
-        &      stat=return_status)
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( res )')
-      ENDIF
-      res(:,:,:) = 0.0_wp
-    ENDIF
-    start_allocated_step = LBOUND(res, 3)
-    end_allocated_step   = UBOUND(res, 3)
-    ALLOCATE( tmp_array(n_g, start_allocated_step:end_allocated_step), &
-      &       stat=return_status )
+
+    ALLOCATE( tmp_array(n_g, time_steps), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
-    IF (SIZE(res,3) < time_steps) &
-      CALL finish(method_name, "allocated size < time_steps")
-    !-----------------------
 
     IF( my_process_is_mpi_workroot()) THEN
 
@@ -688,11 +795,29 @@ CONTAINS
         &                        variable_name)
     ENDIF
 
-    CALL scatter_time_array(tmp_array, res, glb_index)
+    DO i = 1, n_vars
+      !-----------------------
+      IF (PRESENT(fill_arrays)) THEN
+        res(i)%data => fill_arrays(i)%data
+        IF (SIZE(res(i)%data,3) < time_steps) &
+          CALL finish(method_name, "allocated size < time_steps")
+      ELSE
+        ALLOCATE(res(i)%data(nproma, &
+          &                  (SIZE(glb_index(i)%data) - 1) / nproma + 1, &
+          &                  time_steps), stat=return_status)
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( res )')
+        ENDIF
+        res(i)%data(:,:,:) = 0.0_wp
+      ENDIF
+      !-----------------------
+      tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3):UBOUND(res(i)%data, 3))
+      CALL scatter_time_array(tmp_array, tmp_res, glb_index(i)%data)
+    END DO
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_REAL_2D_extdim_fileid
+  END FUNCTION netcdf_read_REAL_2D_extdim_multivar_fileid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -706,15 +831,56 @@ CONTAINS
     &                                       start_extdim, end_extdim, &
     &                                       extdim_name ) result(res)
 
-    INTEGER, POINTER              :: res(:,:,:)
+    INTEGER, POINTER                       :: res(:,:,:)
 
-    INTEGER, INTENT(IN)           :: file_id
-    CHARACTER(LEN=*), INTENT(IN)  :: variable_name
-    define_fill_target_int        :: fill_array(:,:,:)
-    INTEGER, INTENT(IN)           :: n_g
-    INTEGER, INTENT(IN)           :: glb_index(:)
-    INTEGER, INTENT(in), OPTIONAL :: start_extdim, end_extdim
+    INTEGER, INTENT(IN)                    :: file_id
+    CHARACTER(LEN=*), INTENT(IN)           :: variable_name
+    define_fill_target_int                 :: fill_array(:,:,:)
+    INTEGER, INTENT(IN)                    :: n_g
+    INTEGER, TARGET, INTENT(IN)            :: glb_index(:)
+    INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    TYPE(var_data_3d_int) :: fill_arrays(1)
+    TYPE(var_data_1d_int) :: glb_index_(1)
+    TYPE(var_data_3d_int) :: results(1)
+
+    glb_index_(1)%data => glb_index
+
+    IF (PRESENT(fill_array)) THEN
+      fill_arrays(1)%data => fill_array
+      results = netcdf_read_INT_2D_extdim_multivar_fileid( &
+        file_id=file_id, variable_name=variable_name, n_vars=1, &
+        fill_arrays=fill_arrays,  n_g=n_g, glb_index=glb_index_, &
+        start_extdim=start_extdim, end_extdim=end_extdim, &
+        extdim_name=extdim_name)
+    ELSE
+      results = netcdf_read_INT_2D_extdim_multivar_fileid( &
+        file_id=file_id, variable_name=variable_name, n_vars=1, n_g=n_g, &
+        glb_index=glb_index_, start_extdim=start_extdim, &
+        end_extdim=end_extdim, extdim_name=extdim_name)
+    END IF
+
+    res => results(1)%data
+
+  END FUNCTION netcdf_read_INT_2D_extdim_fileid
+
+  FUNCTION netcdf_read_INT_2D_extdim_multivar_fileid(file_id, variable_name, &
+    &                                                n_vars, fill_arrays, n_g, &
+    &                                                glb_index, start_extdim, &
+    &                                                end_extdim, extdim_name ) &
+    result(res)
+
+    INTEGER, INTENT(IN)                    :: n_vars
+    INTEGER, INTENT(IN)                    :: file_id
+    CHARACTER(LEN=*), INTENT(IN)           :: variable_name
+    TYPE(var_data_3d_int), OPTIONAL        :: fill_arrays(n_vars)
+    INTEGER, INTENT(IN)                    :: n_g
+    TYPE(var_data_1d_int), INTENT(IN)      :: glb_index(n_vars)
+    INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+
+    TYPE(var_data_3d_int)          :: res(n_vars)
 
     INTEGER :: varid, var_type, var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
@@ -724,13 +890,12 @@ CONTAINS
     INTEGER :: start_allocated_step, end_allocated_step
     INTEGER :: start_read_index(2), count_read_index(2)
 
-    INTEGER :: return_status
+    INTEGER :: return_status, i
     INTEGER, POINTER :: tmp_array(:,:)
+    INTEGER, POINTER :: tmp_res(:,:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_extdim_fileid'
-
-    NULLIFY(res)
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_extdim_multivar_fileid'
 
     IF( my_process_is_mpi_workroot()  ) THEN
       CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
@@ -770,27 +935,11 @@ CONTAINS
 !    write(0,*) "start,end time=", start_time, end_time
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
-    !-----------------------
-    IF (PRESENT(fill_array)) THEN
-      res => fill_array
-    ELSE
-      ALLOCATE(res(nproma, (SIZE(glb_index) - 1) / nproma + 1, time_steps),   &
-        &      stat=return_status)
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( res )')
-      ENDIF
-      res(:,:,:) = 0.0_wp
-    ENDIF
-    start_allocated_step = LBOUND(res, 3)
-    end_allocated_step   = UBOUND(res, 3)
-    ALLOCATE( tmp_array(n_g, start_allocated_step:end_allocated_step), &
-      &       stat=return_status )
+
+    ALLOCATE( tmp_array(n_g, time_steps), stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
-    IF (SIZE(res,3) < time_steps) &
-      CALL finish(method_name, "allocated size < time_steps")
-    !-----------------------
 
     IF( my_process_is_mpi_workroot()) THEN
 
@@ -800,11 +949,29 @@ CONTAINS
         &                     count_read_index, tmp_array(:,:)), variable_name)
     ENDIF
 
-    CALL scatter_time_array(tmp_array, res, glb_index)
+    DO i = 1, n_vars
+      !-----------------------
+      IF (PRESENT(fill_arrays)) THEN
+        res(i)%data => fill_arrays(i)%data
+        IF (SIZE(res(i)%data,3) < time_steps) &
+          CALL finish(method_name, "allocated size < time_steps")
+      ELSE
+        ALLOCATE(res(i)%data(nproma, &
+          &                  (SIZE(glb_index(i)%data) - 1) / nproma + 1, &
+          &                  time_steps), stat=return_status)
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( res )')
+        ENDIF
+        res(i)%data(:,:,:) = 0
+      END IF
+      !-----------------------
+      tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3):UBOUND(res(i)%data, 3))
+      CALL scatter_time_array(tmp_array, tmp_res, glb_index(i)%data)
+    END DO
 
     DEALLOCATE(tmp_array)
 
-  END FUNCTION netcdf_read_INT_2D_extdim_fileid
+  END FUNCTION netcdf_read_INT_2D_extdim_multivar_fileid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
