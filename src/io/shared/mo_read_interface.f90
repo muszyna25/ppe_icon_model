@@ -51,6 +51,7 @@ MODULE mo_read_interface
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
   USE mo_io_units, ONLY: filename_max
+  USE mo_model_domain, ONLY: t_patch
 
 
   !-------------------------------------------------------------------------
@@ -60,7 +61,7 @@ MODULE mo_read_interface
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: read_netcdf_broadcast_method, read_netcdf_distribute_method
-  PUBLIC :: t_stream_id
+  PUBLIC :: t_stream_id, p_t_patch
 
   PUBLIC :: openInputFile, closeFile
 
@@ -98,18 +99,23 @@ MODULE mo_read_interface
     INTEGER, POINTER :: glb_index(:)
   END TYPE
 
+  TYPE p_t_patch
+    TYPE(t_patch), POINTER :: p
+  END TYPE p_t_patch
+
   TYPE t_stream_id
     INTEGER  :: file_id             ! netcdf file id, or similar
     INTEGER  :: return_status       ! the latest operation return status
     INTEGER  :: input_method        ! read_netcdf_broadcast_method,
                                     ! read_netcdf_distribute_method, etc
 
-    TYPE(t_read_info) :: read_info(3)
+    TYPE(t_read_info), ALLOCATABLE :: read_info(:,:)
   END TYPE t_stream_id
   !--------------------------------------------------------
 
   INTERFACE openInputFile
     MODULE PROCEDURE openInputFile_dist
+    MODULE PROCEDURE openInputFile_dist_multivar
     MODULE PROCEDURE openInputFile_bcast
   END INTERFACE openInputFile
 
@@ -271,11 +277,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE read_dist_INT_2D_multivar_streamid(stream_ids, location, &
+  SUBROUTINE read_dist_INT_2D_multivar_streamid(stream_id, location, &
     &                                           variable_name, n_var, &
     &                                           fill_array, return_pointer)
 
-    TYPE(t_stream_id), INTENT(INOUT)       :: stream_ids(:)
+    TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
     CHARACTER(LEN=*), INTENT(IN)           :: variable_name
     INTEGER, INTENT(IN)                    :: n_var
@@ -286,42 +292,34 @@ CONTAINS
     TYPE(var_data_2d_int), ALLOCATABLE     :: var_data_2d(:)
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_INT_2D_multivar_streamid'
-    TYPE(t_distrib_read_data), ALLOCATABLE :: dist_read_info(:)
 
     INTEGER :: i
 
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
-    IF (SIZE(stream_ids) /= n_var) &
+    IF (SIZE(stream_id%read_info, 2) /= n_var) &
       CALL finish(method_name, &
-        &         "number of stream ids does not match number of variables")
+        "number of distributions in stream_id does not match number of variables")
 
-    DO i = 2, SIZE(stream_ids)
-      IF (stream_ids(i)%file_id /= stream_ids(1)%file_id) &
-        CALL finish(method_name, "file ids do not match")
-      IF (stream_ids(i)%input_method /= stream_ids(1)%input_method) &
-        CALL finish(method_name, "input methods do not match")
-    END DO
+    CALL check_dimensions(stream_id%file_id, variable_name, 1, &
+      &                   (/stream_id%read_info(location, 1)%n_g/), location)
 
-    CALL check_dimensions(stream_ids(1)%file_id, variable_name, 1, &
-      &                   (/stream_ids(1)%read_info(location)%n_g/), location)
-
-    SELECT CASE(stream_ids(1)%input_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
 
         tmp_pointer => &
-          netcdf_read_2D_int(stream_ids(i)%file_id, variable_name, &
+          netcdf_read_2D_int(stream_id%file_id, variable_name, &
             &                fill_array(i)%data, &
-            &                stream_ids(i)%read_info(location)%n_g, &
-            &                stream_ids(i)%read_info(location)%glb_index)
+            &                stream_id%read_info(location, i)%n_g, &
+            &                stream_id%read_info(location, i)%glb_index)
 
         IF (PRESENT(return_pointer)) return_pointer(i)%data => tmp_pointer
       END DO
     CASE (read_netcdf_distribute_method)
     
-      ALLOCATE(var_data_2d(n_var), dist_read_info(n_var))
+      ALLOCATE(var_data_2d(n_var))
 
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
@@ -330,7 +328,7 @@ CONTAINS
       ELSE
         DO i = 1, n_var
           ALLOCATE(var_data_2d(i)%data(nproma, &
-            (SIZE(stream_ids(i)%read_info(location)%glb_index) - 1)/nproma + 1))
+            (SIZE(stream_id%read_info(location, i)%glb_index) - 1)/nproma + 1))
           var_data_2d(i)%data(:,:) = 0
         END DO
       ENDIF
@@ -339,13 +337,10 @@ CONTAINS
           return_pointer(i)%data => var_data_2d(i)%data
         END DO
       END IF
-      DO i = 1, n_var
-        dist_read_info(i) = stream_ids(i)%read_info(location)%dist_read_info
-      END DO
-      CALL distrib_read(stream_ids(1)%file_id, variable_name, var_data_2d, &
-        &               dist_read_info(:))
+      CALL distrib_read(stream_id%file_id, variable_name, var_data_2d, &
+        &               (/(stream_id%read_info(location, i)%dist_read_info, &
+        &                  i=1, n_var)/))
       DEALLOCATE(var_data_2d)
-      DEALLOCATE(dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -371,27 +366,27 @@ CONTAINS
       CALL finish(method_name, "invalid arguments")
 
     CALL check_dimensions(stream_id%file_id, variable_name, 1, &
-      &                   (/stream_id%read_info(location)%n_g/), location)
+      &                   (/stream_id%read_info(location, 1)%n_g/), location)
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => netcdf_read_2D_int(stream_id%file_id, variable_name, &
         &                               fill_array, &
-        &                               stream_id%read_info(location)%n_g, &
-        &                               stream_id%read_info(location)%glb_index)
+        &                               stream_id%read_info(location, 1)%n_g, &
+        &                               stream_id%read_info(location, 1)%glb_index)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
+          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
         tmp_pointer(:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
-        &               stream_id%read_info(location)%dist_read_info)
+        &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -401,11 +396,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE read_dist_REAL_2D_multivar_streamid(stream_ids, location, &
+  SUBROUTINE read_dist_REAL_2D_multivar_streamid(stream_id, location, &
     &                                            variable_name, n_var, &
     &                                            fill_array, return_pointer)
 
-    TYPE(t_stream_id), INTENT(INOUT)  :: stream_ids(:)
+    TYPE(t_stream_id), INTENT(INOUT)  :: stream_id
     INTEGER, INTENT(IN)               :: location
     CHARACTER(LEN=*), INTENT(IN)      :: variable_name
     INTEGER, INTENT(IN)               :: n_var
@@ -416,41 +411,34 @@ CONTAINS
     TYPE(var_data_2d_wp), ALLOCATABLE :: var_data_2d(:)
     CHARACTER(LEN=*), PARAMETER       :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_multivar_streamid'
-    TYPE(t_distrib_read_data), ALLOCATABLE :: dist_read_info(:)
 
     INTEGER :: i
 
     IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
       CALL finish(method_name, "invalid arguments")
 
-    IF (SIZE(stream_ids) /= n_var) &
-      CALL finish(method_name, "number of stream ids does not match number of variables")
+    IF (SIZE(stream_id%read_info, 2) /= n_var) &
+      CALL finish(method_name, &
+        "number of stream ids does not match number of variables")
 
-    DO i = 2, SIZE(stream_ids)
-      IF (stream_ids(i)%file_id /= stream_ids(1)%file_id) &
-        CALL finish(method_name, "file ids do not match")
-      IF (stream_ids(i)%input_method /= stream_ids(1)%input_method) &
-        CALL finish(method_name, "input methods do not match")
-    END DO
+    CALL check_dimensions(stream_id%file_id, variable_name, 1, &
+      &                   (/stream_id%read_info(location, 1)%n_g/), location)
 
-    CALL check_dimensions(stream_ids(1)%file_id, variable_name, 1, &
-      &                   (/stream_ids(1)%read_info(location)%n_g/), location)
-
-    SELECT CASE(stream_ids(1)%input_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
 
         tmp_pointer => &
-          netcdf_read_2D(stream_ids(i)%file_id, variable_name, &
+          netcdf_read_2D(stream_id%file_id, variable_name, &
             &            fill_array(i)%data, &
-            &            stream_ids(i)%read_info(location)%n_g, &
-            &            stream_ids(i)%read_info(location)%glb_index)
+            &            stream_id%read_info(location, i)%n_g, &
+            &            stream_id%read_info(location, i)%glb_index)
 
         IF (PRESENT(return_pointer)) return_pointer(i)%data => tmp_pointer
       END DO
     CASE (read_netcdf_distribute_method)
     
-      ALLOCATE(var_data_2d(n_var), dist_read_info(n_var))
+      ALLOCATE(var_data_2d(n_var))
 
       IF (PRESENT(fill_array)) THEN
         DO i = 1, n_var
@@ -459,7 +447,7 @@ CONTAINS
       ELSE
         DO i = 1, n_var
           ALLOCATE(var_data_2d(i)%data(nproma, &
-            (SIZE(stream_ids(i)%read_info(location)%glb_index) - 1)/nproma + 1))
+            (SIZE(stream_id%read_info(location, i)%glb_index) - 1)/nproma + 1))
           var_data_2d(i)%data(:,:) = 0.0_wp
         END DO
       ENDIF
@@ -468,13 +456,10 @@ CONTAINS
           return_pointer(i)%data => var_data_2d(i)%data
         END DO
       END IF
-      DO i = 1, n_var
-        dist_read_info(i) = stream_ids(i)%read_info(location)%dist_read_info
-      END DO
-      CALL distrib_read(stream_ids(1)%file_id, variable_name, var_data_2d, &
-        &               dist_read_info(:))
+      CALL distrib_read(stream_id%file_id, variable_name, var_data_2d, &
+        &               (/(stream_id%read_info(location, i)%dist_read_info, &
+        &                  i=1, n_var)/))
       DEALLOCATE(var_data_2d)
-      DEALLOCATE(dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -500,27 +485,27 @@ CONTAINS
       CALL finish(method_name, "invalid arguments")
 
     CALL check_dimensions(stream_id%file_id, variable_name, 1, &
-      &                   (/stream_id%read_info(location)%n_g/), location)
+      &                   (/stream_id%read_info(location, 1)%n_g/), location)
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => netcdf_read_2D(stream_id%file_id, variable_name, &
         &                           fill_array, &
-        &                           stream_id%read_info(location)%n_g, &
-        &                           stream_id%read_info(location)%glb_index)
+        &                           stream_id%read_info(location, 1)%n_g, &
+        &                           stream_id%read_info(location, 1)%glb_index)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
+          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
         tmp_pointer(:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
-        &               stream_id%read_info(location)%dist_read_info)
+        &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -675,7 +660,7 @@ CONTAINS
 
     INTEGER :: var_dimlen(2)
 
-    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1/)
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
       var_dimlen(2) = SIZE(fill_array, 3)
     END IF
@@ -720,7 +705,7 @@ CONTAINS
 
     INTEGER :: var_dimlen(2)
 
-    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1/)
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
       var_dimlen(2) = SIZE(fill_array, 3)
     END IF
@@ -740,16 +725,16 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_2D_extdim(stream_id%file_id, variable_name, fill_array, &
-         & stream_id%read_info(location)%n_g, &
-         & stream_id%read_info(location)%glb_index, start_extdim, end_extdim, &
-         & extdim_name )
+         & stream_id%read_info(location, 1)%n_g, &
+         & stream_id%read_info(location, 1)%glb_index, start_extdim, &
+         & end_extdim, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1, &
+          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
           end_extdim - start_extdim + 1))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
@@ -757,7 +742,7 @@ CONTAINS
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
         &               end_extdim - start_extdim + 1, &
-        &               stream_id%read_info(location)%dist_read_info)
+        &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -787,7 +772,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_streamid'
 
-    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1/)
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1/)
     IF (PRESENT(fill_array)) THEN
       var_dimlen(2) = SIZE(fill_array, 2)
     END IF
@@ -807,8 +792,8 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_3D(stream_id%file_id, variable_name, &
-         & fill_array, stream_id%read_info(location)%n_g, &
-         & stream_id%read_info(location)%glb_index, levelsDimName)
+         & fill_array, stream_id%read_info(location, 1)%n_g, &
+         & stream_id%read_info(location, 1)%glb_index, levelsDimName)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
@@ -817,7 +802,7 @@ CONTAINS
         CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
           &                       var_dimlen)
         ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
-          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1))
+          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
 
@@ -825,7 +810,7 @@ CONTAINS
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
         &               var_dimlen(2), &
-        &               stream_id%read_info(location)%dist_read_info)
+        &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -937,7 +922,7 @@ CONTAINS
 
     INTEGER :: var_dimlen(3)
 
-    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1, -1/)
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1, -1/)
     IF (PRESENT(fill_array)) THEN
       var_dimlen(2) = SIZE(fill_array, 2)
       var_dimlen(3) = SIZE(fill_array, 4)
@@ -993,7 +978,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_extdim_streamid'
 
-    var_dimlen(:) = (/stream_id%read_info(location)%n_g, -1, -1/)
+    var_dimlen(:) = (/stream_id%read_info(location, 1)%n_g, -1, -1/)
     IF (PRESENT(fill_array)) THEN
       var_dimlen(2) = SIZE(fill_array, 2)
       var_dimlen(3) = SIZE(fill_array, 4)
@@ -1014,8 +999,8 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_3D_extdim(stream_id%file_id, variable_name, &
-         & fill_array, stream_id%read_info(location)%n_g, &
-         & stream_id%read_info(location)%glb_index, &
+         & fill_array, stream_id%read_info(location, 1)%n_g, &
+         & stream_id%read_info(location, 1)%glb_index, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -1025,7 +1010,7 @@ CONTAINS
         CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
           &                       var_dimlen)
         ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
-          (SIZE(stream_id%read_info(location)%glb_index) - 1)/nproma + 1, &
+          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
           end_extdim - start_extdim + 1))
         tmp_pointer(:,:,:,:) = 0.0_wp
       ENDIF
@@ -1034,7 +1019,7 @@ CONTAINS
     
       CALL distrib_read(stream_id%file_id, variable_name, tmp_pointer, &
         &               var_dimlen(2:3), &
-        &               stream_id%read_info(location)%dist_read_info)
+        &               stream_id%read_info(location, 1)%dist_read_info)
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
@@ -1045,63 +1030,113 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  TYPE(t_stream_id) FUNCTION openInputFile_dist_multivar(filename, patches, &
+    &                                                    input_method)
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    TYPE(p_t_patch), TARGET, INTENT(IN) :: patches(:)
+    INTEGER, OPTIONAL, INTENT(IN) :: input_method
+
+    INTEGER :: n_var, i
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:openInputFile_dist_multivar'
+
+    n_var = SIZE(patches)
+
+    IF (n_var < 1) CALL finish(method_name, "invalid number of patches")
+
+    IF (PRESENT(input_method)) THEN
+      openInputFile_dist_multivar%input_method = input_method
+    ELSE
+      openInputFile_dist_multivar%input_method = default_read_method
+    END IF
+
+    ALLOCATE(openInputFile_dist_multivar%read_info(3, n_var))
+
+    openInputFile_dist_multivar%read_info(onCells, 1)%n_g = &
+      patches(1)%p%n_patch_cells_g
+    openInputFile_dist_multivar%read_info(onEdges, 1)%n_g = &
+      patches(1)%p%n_patch_edges_g
+    openInputFile_dist_multivar%read_info(onVertices, 1)%n_g = &
+      patches(1)%p%n_patch_verts_g
+
+    DO i = 2, n_var
+
+      IF ((patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
+          (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
+          (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g)) &
+        CALL finish(method_name, "patches do not match")
+
+      openInputFile_dist_multivar%read_info(onCells, i)%n_g = &
+        patches(i)%p%n_patch_cells_g
+      openInputFile_dist_multivar%read_info(onEdges, i)%n_g = &
+        patches(i)%p%n_patch_edges_g
+      openInputFile_dist_multivar%read_info(onVertices, i)%n_g = &
+        patches(i)%p%n_patch_verts_g
+    END DO
+
+    SELECT CASE(openInputFile_dist_multivar%input_method)
+    CASE (read_netcdf_broadcast_method)
+
+      openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
+
+      DO i = 1, n_var
+        openInputFile_dist_multivar%read_info(onCells, i)%glb_index => &
+          patches(i)%p%cells%decomp_info%glb_index
+        NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info)
+
+        openInputFile_dist_multivar%read_info(onEdges, i)%glb_index => &
+          patches(i)%p%edges%decomp_info%glb_index
+        NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info)
+
+        openInputFile_dist_multivar%read_info(onVertices, i)%glb_index => &
+          patches(i)%p%verts%decomp_info%glb_index
+        NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info)
+      END DO
+
+    CASE (read_netcdf_distribute_method)
+
+      openInputFile_dist_multivar%file_id = distrib_nf_open(TRIM(filename))
+
+      DO i = 1, n_var
+        openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info => &
+          patches(i)%p%cells%dist_io_data
+        openInputFile_dist_multivar%read_info(onCells, i)%glb_index => &
+          patches(i)%p%cells%decomp_info%glb_index
+
+        openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info => &
+          patches(i)%p%verts%dist_io_data
+        openInputFile_dist_multivar%read_info(onVertices, i)%glb_index => &
+          patches(i)%p%verts%decomp_info%glb_index
+
+        openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info => &
+          patches(i)%p%edges%dist_io_data
+        openInputFile_dist_multivar%read_info(onEdges, i)%glb_index => &
+          patches(i)%p%edges%decomp_info%glb_index
+      END DO
+
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+
+  END FUNCTION openInputFile_dist_multivar
+
+  !-------------------------------------------------------------------------
+  !>
   TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(t_patch), TARGET, INTENT(IN) :: patch
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
 
+    TYPE(p_t_patch) :: patch_(1)
+
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:openInputFile_dist'
 
-    IF (PRESENT(input_method)) THEN
-      openInputFile_dist%input_method = input_method
-    ELSE
-      openInputFile_dist%input_method = default_read_method
-    END IF
+    patch_(1)%p => patch
 
-    openInputFile_dist%read_info(onCells)%n_g = patch%n_patch_cells_g
-    openInputFile_dist%read_info(onEdges)%n_g = patch%n_patch_edges_g
-    openInputFile_dist%read_info(onVertices)%n_g = patch%n_patch_verts_g
-
-    SELECT CASE(openInputFile_dist%input_method)
-    CASE (read_netcdf_broadcast_method)
-
-      openInputFile_dist%file_id = netcdf_open_input(filename)
-
-      openInputFile_dist%read_info(onCells)%glb_index => &
-        patch%cells%decomp_info%glb_index
-      NULLIFY(openInputFile_dist%read_info(onCells)%dist_read_info)
-
-      openInputFile_dist%read_info(onEdges)%glb_index => &
-        patch%edges%decomp_info%glb_index
-      NULLIFY(openInputFile_dist%read_info(onEdges)%dist_read_info)
-
-      openInputFile_dist%read_info(onVertices)%glb_index => &
-        patch%verts%decomp_info%glb_index
-      NULLIFY(openInputFile_dist%read_info(onVertices)%dist_read_info)
-
-    CASE (read_netcdf_distribute_method)
-
-      openInputFile_dist%file_id = distrib_nf_open(TRIM(filename))
-
-      openInputFile_dist%read_info(onCells)%dist_read_info => &
-        patch%cells%dist_io_data
-      openInputFile_dist%read_info(onCells)%glb_index => &
-        patch%cells%decomp_info%glb_index
-
-      openInputFile_dist%read_info(onVertices)%dist_read_info => &
-        patch%verts%dist_io_data
-      openInputFile_dist%read_info(onVertices)%glb_index => &
-        patch%verts%decomp_info%glb_index
-
-      openInputFile_dist%read_info(onEdges)%dist_read_info => &
-        patch%edges%dist_io_data
-      openInputFile_dist%read_info(onEdges)%glb_index => &
-        patch%edges%decomp_info%glb_index
-
-    CASE default
-      CALL finish(method_name, "unknown input_method")
-    END SELECT
+    openInputFile_dist = &
+      openInputFile_dist_multivar(filename, patch_, input_method)
 
   END FUNCTION openInputFile_dist
   !-------------------------------------------------------------------------
@@ -1135,6 +1170,8 @@ CONTAINS
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
+
+    DEALLOCATE(stream_id%read_info)
 
   END SUBROUTINE closeFile_dist
   !-------------------------------------------------------------------------
