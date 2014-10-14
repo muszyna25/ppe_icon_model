@@ -80,7 +80,7 @@ MODULE mo_pp_tasks
     &                                   compute_field_rel_hum_ifs,               &
     &                                   compute_field_omega
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
-
+  USE mo_grid_config,             ONLY: l_limited_area
   IMPLICIT NONE
 
   ! interface definition
@@ -864,7 +864,7 @@ CONTAINS
       CALL finish(routine, 'Internal error!')
     END SELECT
 
-    IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
+    IF (l_limited_area .OR. jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
       pmsl_avg(:,1,1:i_endblk) = pmsl_aux(:,1,1:i_endblk)
     ENDIF
