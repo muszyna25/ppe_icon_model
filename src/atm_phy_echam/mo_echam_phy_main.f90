@@ -833,7 +833,6 @@ CONTAINS
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
                      & pch_tile = zch_tile(:,:),        &! out, optional, for JSBACH
-                     & pzhsoil = field% zhsoil(:,jb),   &! in, rel. humidity of land surface
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                      & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
@@ -946,7 +945,6 @@ CONTAINS
                        !! added for JSBACH
                        & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
                        & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
-                       & zhsoil = field%zhsoil(:,jb),   &! out, relative humidity of land surface
                        & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
                        & z0m_lnd = field% z0m_tile(:,jb,ilnd), &! out, roughness length for momentum over land
                        & z0h_lnd = field% z0h_lnd (:,jb),      &! out, roughness length for heat over land

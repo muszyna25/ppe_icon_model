@@ -445,7 +445,6 @@ CONTAINS
                                & ptkevn_sfc, pthvvar_sfc,                &! out
                                & pqshear_sfc, pustarm,                   &! out
                                & pch_sfc,                                &! out
-                               & pzhsoil,                                &! in
                                & pcsat,                                  &! in
                                & pcair,                                  &! in
                                & paz0lh)                                  ! in
@@ -511,7 +510,6 @@ CONTAINS
 
     REAL(wp),OPTIONAL,INTENT(OUT) :: pch_sfc(kbdim,ksfc_type) !< factor for TKE boundary condition and JSBACH
 
-    REAL(wp),OPTIONAL,INTENT(IN) :: pzhsoil(kbdim)  !< rel. humidity of land surface
     REAL(wp),OPTIONAL,INTENT(IN) :: pcsat(kbdim)    !< area fraction with wet land surface
     REAL(wp),OPTIONAL,INTENT(IN) :: pcair(kbdim)    !< area fraction with wet land surface
     REAL(wp),OPTIONAL,INTENT(IN) :: paz0lh(kbdim)   !< roughness length for heat over land
@@ -536,10 +534,11 @@ CONTAINS
     REAL(wp) :: zcsat  (kbdim,ksfc_type) !<
     REAL(wp) :: zustar (kbdim,ksfc_type) !< friction velocity
     REAL(wp) :: ztvsfc (kbdim)           !< virtual temperature at surface
+    REAL(wp) :: zqts   (kbdim,ksfc_type)
 
     REAL(wp) :: zrdrv, zrvrd, zrgam, zonethird, ztwothirds
     REAL(wp) :: z2b, z3b, z3bc, zepsr, zepdu2
-    REAL(wp) :: zqtl, zqts, zqtmit, zdqt, zqsmit
+    REAL(wp) :: zqtl, zqtmit, zdqt, zqsmit
     REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zthetavmit, zfux, zfox
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
@@ -580,8 +579,8 @@ CONTAINS
     !-------------------------------------------------------------
      IF (phy_config%ljsbach) THEN
 
-     IF (.NOT. (PRESENT(pzhsoil) .AND. PRESENT(pcsat) .AND. PRESENT(pcair) .AND. PRESENT(paz0lh))) &
-       CALL finish('mo_turbulence_diag','for JSBACH, pzhsoil, pcsat, pcair and pza0lh are required.')
+     IF (.NOT. (PRESENT(pcsat) .AND. PRESENT(pcair) .AND. PRESENT(paz0lh))) &
+       CALL finish('mo_turbulence_diag','for JSBACH, pcsat, pcair and pza0lh are required.')
 
      DO jsfc = 1,ksfc_type
 
@@ -589,24 +588,18 @@ CONTAINS
 
       DO jl = 1,kproma
 
-! csat, cair, s. mo_surface_land.f90, precalc_land, zcptl = ...
-      IF (jsfc == idx_lnd) THEN
-        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*(cpd+(cpv-cpd)* &
-            (pcsat(jl)*pqsat_sfc(jl,jsfc)+(1._wp-pcair(jl))*pqm1_b(jl)))
-      ELSE
-        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*(cpd+(cpv-cpd)*pqsat_sfc(jl,jsfc))
-      END IF 
-
         ztheta      = ptsfc(jl,jsfc)*(p0ref/ppsfc(jl))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
 
         zqtl       = pqm1_b(jl) + pqxm1_b(jl)  ! q_total at lowest model level
         IF(jsfc == idx_lnd) THEN
-          zqts       = pqsat_sfc(jl,jsfc)*pzhsoil(jl) ! q_total at land surface
+          zqts(jl,jsfc) = pcsat(jl) * pqsat_sfc(jl,jsfc) + (1._wp - pcair(jl))*pqm1_b(jl) ! q_total at land surface
         ELSE
-          zqts       = pqsat_sfc(jl,jsfc)        ! q_total at surface
+          zqts(jl,jsfc) = pqsat_sfc(jl,jsfc)        ! q_total at surface
         END IF
-        zqtmit     = 0.5_wp*( zqtl + zqts )    ! q_total, vertical average
+        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc) * (cpd + (cpv - cpd) * zqts(jl,jsfc))
+
+        zqtmit     = 0.5_wp*( zqtl + zqts(jl,jsfc) )    ! q_total, vertical average
 
         zqsmit     = 0.5_wp*( pqsat_b  (jl) + pqsat_sfc(jl,jsfc) )  ! qs
         ztmit      = 0.5_wp*( ptm1_b   (jl) + ptsfc    (jl,jsfc) )  ! temp.
@@ -625,7 +618,7 @@ CONTAINS
         zdus1 = paclc_b(jl)*zmult5 + (1._wp-paclc_b(jl))*zmult1   ! A avg
         zdus2 = paclc_b(jl)*zmult4 + (1._wp-paclc_b(jl))*vtmpc1   ! D avg
 
-        zdqt     = zqtl - zqts                                    ! d qt
+        zdqt     = zqtl - zqts(jl,jsfc)                           ! d qt
         zdthetal = pthetal_b(jl) - ztheta                         ! d theta_l
 
         IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN          ! over water or ice
@@ -675,9 +668,9 @@ CONTAINS
         ztheta      = ptsfc(jl,jsfc)*(p0ref/ppsfc(jl))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
 
-        zqtl       = pqm1_b(jl) + pqxm1_b(jl)  ! q_total at lowest model level
-        zqts       = pqsat_sfc(jl,jsfc)        ! q_total at surface
-        zqtmit     = 0.5_wp*( zqtl + zqts )    ! q_total, vertical average
+        zqtl          = pqm1_b(jl) + pqxm1_b(jl)        ! q_total at lowest model level
+        zqts(jl,jsfc) = pqsat_sfc(jl,jsfc)              ! q_total at surface
+        zqtmit        = 0.5_wp*( zqtl + zqts(jl,jsfc) ) ! q_total, vertical average
 
         zqsmit     = 0.5_wp*( pqsat_b  (jl) + pqsat_sfc(jl,jsfc) )  ! qs
         ztmit      = 0.5_wp*( ptm1_b   (jl) + ptsfc    (jl,jsfc) )  ! temp.
@@ -696,7 +689,7 @@ CONTAINS
         zdus1 = paclc_b(jl)*zmult5 + (1._wp-paclc_b(jl))*zmult1   ! A avg
         zdus2 = paclc_b(jl)*zmult4 + (1._wp-paclc_b(jl))*vtmpc1   ! D avg
 
-        zdqt     = zqtl - zqts                                    ! d qt
+        zdqt     = zqtl - zqts(jl,jsfc)                           ! d qt
         zdthetal = pthetal_b(jl) - ztheta                         ! d theta_l
         zdu2(jl,jsfc) = MAX(zepdu2,(pum1_b(jl)-pocu(jl))**2 &     ! (d u)^2
                                   +(pvm1_b(jl)-pocv(jl))**2)      ! (d v)^2
@@ -981,7 +974,7 @@ CONTAINS
 
     prho_sfc(1:kproma) = 0._wp  ! Initialize the area weighted average
     DO jsfc = 1,ksfc_type
-      ztvsfc(1:kproma) = ptsfc(1:kproma,jsfc)*(1._wp + vtmpc1*pqsat_sfc(1:kproma,jsfc))
+      ztvsfc(1:kproma) = ptsfc(1:kproma,jsfc)*(1._wp + vtmpc1*zqts(1:kproma,jsfc))
       prho_sfc(1:kproma) = prho_sfc(1:kproma) + zrrd*ppsfc(1:kproma)/ztvsfc(1:kproma)
     END DO
 
@@ -1005,7 +998,7 @@ CONTAINS
                                & ptheta_b, pthetav_b,                    &! in
                                & pthetal_b, paclc_b,                     &! in
                                & pthvvar_b, paz0lh,                      &! in
-                               & pzhsoil, pcsat, pcair,                  &! in
+                               & pcsat, pcair,                           &! in
 !                               & ptkem1_sfc, ptkem0_sfc,                 &! inout
                                & pqsat_sfc, pcpt_sfc,                    &! out
                                & pri_gbm,                                &! out
@@ -1056,7 +1049,6 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: pthvvar_b (kbdim)  !< variance of theta_v 
 
-    REAL(wp),INTENT(IN) :: pzhsoil (kbdim) !< relative hum of land surface
     REAL(wp),INTENT(IN) :: paz0lh (kbdim)  !< roughness length for heat over land
     REAL(wp),INTENT(IN) :: pcsat  (kbdim)  !< area fraction with wet land surface
     REAL(wp),INTENT(IN) :: pcair  (kbdim)  !< area fraction with wet land surface (air)
@@ -1113,12 +1105,13 @@ CONTAINS
     REAL(wp) :: zcsat  (kbdim,ksfc_type) !<
     REAL(wp) :: zustar (kbdim,ksfc_type) !< friction velocity
     REAL(wp) :: ztvsfc (kbdim)           !< virtual temperature at surface
+    REAL(wp) :: zqts   (kbdim,ksfc_type)
     INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is     (ksfc_type)       !< counter for masks
 
     REAL(wp) :: zrdrv, zrvrd, zrgam, zonethird, ztwothirds
     REAL(wp) :: z2b, z3b, z3bc, zcons17, zepsr, zepdu2, zepsec
-    REAL(wp) :: zqtl, zqts, zqtmit, zdqt, zqsmit
+    REAL(wp) :: zqtl, zqtmit, zdqt, zqsmit
     REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zthetavmit, zfux, zfox
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
@@ -1181,25 +1174,23 @@ CONTAINS
 ! loop over mask only
 !
       DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-! dry static energy pcpt_sfc
-!
-      IF(jsfc == idx_lnd) THEN
-        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*(cpd+(cpv-cpd)*    &
-                (pcsat(js)*pqsat_sfc(js,jsfc)+(1._wp-pcair(js))*pqm1_b(js)))
-        zqts              = pqsat_sfc(js,jsfc)*pzhsoil(js)              ! q_total at land surface
-      ELSE
-        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*(cpd+(cpv-cpd)*pqsat_sfc(js,jsfc))
-        zqts              = pqsat_sfc(js,jsfc)                         ! q_total at surface
-      END IF
+        ! set index
+        js=loidx(jls,jsfc)
+        ! dry static energy pcpt_sfc
+        !
+        IF(jsfc == idx_lnd) THEN
+          zqts(js,jsfc) = pcsat(js) * pqsat_sfc(js,jsfc) + (1._wp - pcair(js))*pqm1_b(js) ! q_total at land surface
+        ELSE
+          zqts(js,jsfc) = pqsat_sfc(js,jsfc)                                              ! q_total at surface
+        END IF
+        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc) * (cpd + (cpv - cpd) * zqts(js,jsfc))
 
         ztheta      = ptsfc(js,jsfc)*(p0ref/ppsfc(js))**rd_o_cpd
-        zthetav     = ztheta*(1._wp+vtmpc1*zqts)
+        zthetav     = ztheta*(1._wp+vtmpc1*zqts(js,jsfc))
 
         zqtl       = pqm1_b(js) + pqxm1_b(js)                          ! q_total at lowest model level
 
-        zqtmit     = 0.5_wp*( zqtl + zqts )                            ! q_total, vertical average
+        zqtmit     = 0.5_wp*( zqtl + zqts(js,jsfc) )                   ! q_total, vertical average
 
         zqsmit     = 0.5_wp*( pqsat_b  (js) + pqsat_sfc(js,jsfc) )  ! qs
         ztmit      = 0.5_wp*( ptm1_b   (js) + ptsfc    (js,jsfc) )  ! temp.
@@ -1218,7 +1209,7 @@ CONTAINS
         zdus1 = paclc_b(js)*zmult5 + (1._wp-paclc_b(js))*zmult1   ! A avg
         zdus2 = paclc_b(js)*zmult4 + (1._wp-paclc_b(js))*vtmpc1   ! D avg
 
-        zdqt     = zqtl - zqts                                    ! d qt
+        zdqt     = zqtl - zqts(js,jsfc)                           ! d qt
         zdthetal = pthetal_b(js) - ztheta                         ! d theta_l
         IF (jsfc == idx_lnd) THEN                                 ! over land
           zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)**2+pvm1_b(js)**2))
@@ -1503,9 +1494,9 @@ CONTAINS
     prho_sfc(1:kproma) = 0._wp  ! Initialize the area weighted average
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        ztvsfc(js) = ptsfc(js,jsfc)*(1._wp + vtmpc1*pqsat_sfc(js,jsfc))
+        js=loidx(jls,jsfc) ! set index
+
+        ztvsfc(js) = ptsfc(js,jsfc)*(1._wp + vtmpc1*zqts(js,jsfc))
         prho_sfc(js) = prho_sfc(js) + zrrd*ppsfc(js)/ztvsfc(js)
       END DO
     END DO

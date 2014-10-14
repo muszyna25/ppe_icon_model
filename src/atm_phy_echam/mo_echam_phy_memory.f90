@@ -250,7 +250,6 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER :: &
       & surface_temperature_rad  (:,  :),  &!< [K] radiative sfc. temperature
       & surface_temperature_eff  (:,  :),  &!< [K] effective sfc. temperature
-      & zhsoil                   (:,  :),  &!< rel. humidity of land surface
       & csat                     (:,  :),  &!<
       & cair                     (:,  :)    !<
 
@@ -1064,11 +1063,6 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'tsfc_eff', field%surface_temperature_eff, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('zhsoil', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'zhsoil', field%zhsoil,      &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('csat', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)

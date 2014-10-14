@@ -68,7 +68,6 @@ CONTAINS
                        & pch_tile,                                      &! out
                        & pcsat,                                         &! in
                        & pcair,                                         &! in
-                       & pzhsoil,                                       &! in
                        & paz0lh)
 
 
@@ -172,7 +171,6 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface
       & pcair     (kbdim)          ,&!< area fraction with wet land surface
-      & pzhsoil   (kbdim)          ,&!< rel. humidity of land surface
       & paz0lh    (kbdim)            !< surface roughness length over land for heat
 
     ! Local variables
@@ -250,7 +248,6 @@ CONTAINS
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
                            & paz0lh(:),                             &! in
-                           & pzhsoil(:),                            &! in
                            & pcsat(:),                              &! in
                            & pcair(:),                              &! in
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
@@ -293,7 +290,6 @@ CONTAINS
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_sfc = pch_tile(:,:),               &! out
-                           & pzhsoil = pzhsoil(:),                  &! in
                            & pcsat = pcsat(:),                      &! in
                            & pcair = pcair(:),                      &! in
                            & paz0lh = paz0lh(:))                     ! in

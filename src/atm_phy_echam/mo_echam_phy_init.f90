@@ -807,7 +807,6 @@ CONTAINS
 !$OMP WORKSHARE
         field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
         field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
-        field% zhsoil                 (:,  :) = 0._wp
         field% csat                   (:,  :) = 1.0_wp
         field% cair                   (:,  :) = 1.0_wp
 !$OMP END WORKSHARE

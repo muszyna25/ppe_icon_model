@@ -78,7 +78,6 @@ CONTAINS
                            !! for JSBACH
                            & pcsat,                             &! inout
                            & pcair,                             &! inout
-                           & zhsoil,                            &! out
                            & tte_corr,                          &! out
                            & z0h_lnd, z0m_lnd,                  &! out
                            & albvisdir,                         &! inout
@@ -154,7 +153,6 @@ CONTAINS
     !! JSBACH output
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: zhsoil(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: tte_corr(kbdim)  ! OUT
     REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_lnd(kbdim)  ! OUT
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim)
@@ -281,7 +279,6 @@ CONTAINS
         & s_srf            = dry_static_energy(1:kproma),                               & ! out
         & fact_q_air       = pcair(1:kproma),                                           & ! out
         & fact_qsat_srf    = pcsat(1:kproma),                                           & ! out
-        & rel_hum_srf      = zhsoil(1:kproma),                                          & ! out
         & evapotrans       = evapotranspiration(1:kproma),                              & ! out
         & latent_hflx      = plhflx_tile(1:kproma, idx_lnd),                            & ! out
         & sensible_hflx    = pshflx_tile(1:kproma, idx_lnd),                            & ! out
