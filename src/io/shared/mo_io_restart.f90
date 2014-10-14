@@ -1137,6 +1137,14 @@ CONTAINS
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     IF (ltimer) CALL timer_start(timer_write_restart_file)
+
+    !AD (14 Oct 2014):Necessary to avoid writing of attributes of
+    !multiple domains in the restart file of the parent domain when
+    !started from a restart file.
+    !Funny: This call is already there in async restart but not here!
+    !We should avoid maintaing two pieces of code doing same thing
+    CALL delete_attributes()
+
     !----------------
     ! Initialization
     klev      = patch%nlev
@@ -1824,6 +1832,8 @@ CONTAINS
         nvars = vlistNvars(vlistID)
       END IF
       CALL p_bcast(nvars, root_pe, comm=p_comm_work)
+      
+      !AD: This call is already made in read_restart_header. Why do it twice?  
       CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
       !
       for_all_vars: DO varID = 0, (nvars-1)
