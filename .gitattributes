@@ -707,6 +707,7 @@ run/add_required_ocean_files -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/check.atm_amip -text
+run/checksuite.icon-dev/check.oce_omip -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
 run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_edge -text
