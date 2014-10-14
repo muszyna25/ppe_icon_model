@@ -155,7 +155,8 @@ MODULE mo_model_domimp_patches
     & nf_get_att_int     => p_nf_get_att_int,        &
     & nf_get_var_int     => p_nf_get_var_int,        &
     & nf_get_vara_int    => p_nf_get_vara_int,       &
-    & nf_get_var_double  => p_nf_get_var_double
+    & nf_get_var_double  => p_nf_get_var_double,     &
+    & nf_get_vara_double => p_nf_get_vara_double
 #endif
 
   IMPLICIT NONE
@@ -1915,11 +1916,12 @@ CONTAINS
 !       write(0,*) "-------------------------------------------------------"
     ENDDO
     !---------------------------------------------------
-    ! read cartesian positions
-    return_status = read_cartesian_positions(ncid, patch, n_lp, id_lp, &
-      & array_c_real, array_e_real, array_v_real)
-    IF (return_status /= 0) & ! this is an old grid
+    ! cartesian positions
+    IF (gridfile_has_cartesian_info(ncid)) THEN
+      CALL read_cartesian_positions(stream_id, patch, n_lp, id_lp)
+    ELSE
       CALL calculate_cartesian_positions(patch, n_lp, id_lp)
+    END IF
     !-------------------------------------------------
 
 
@@ -2149,184 +2151,192 @@ CONTAINS
 
   END SUBROUTINE move_local_dummyConnectivity_to_end
   !-------------------------------------------------------------------------
+  LOGICAL FUNCTION gridfile_has_cartesian_info(ncid)
+    INTEGER, INTENT(in)    :: ncid
+
+    INTEGER :: varid
+    REAL(wp) :: x(3)
+
+    gridfile_has_cartesian_info = &
+      nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
+
+    IF (gridfile_has_cartesian_info) THEN
+
+      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
+      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
+      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
+      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
+      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
+      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
+        
+      gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
+
+    END IF
+
+  END FUNCTION gridfile_has_cartesian_info
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  INTEGER FUNCTION read_cartesian_positions(ncid, patch, n_lp, id_lp, &
-    & array_c_real, array_e_real, array_v_real)
+  SUBROUTINE read_cartesian_positions(stream_id, patch, n_lp, id_lp)
 
-    INTEGER,       INTENT(in)    :: ncid
+    TYPE(t_stream_id) :: stream_id
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
 
-    REAL(wp), POINTER :: &
-      & array_c_real(:,:), &  ! temporary arrays to read in real values
-      & array_e_real(:,:), &
-      & array_v_real(:,:)
-
-    INTEGER :: varid
+    TYPE(var_data_2d_wp)  :: multivar_2d_data_wp(n_lp+1)
     INTEGER :: ip
-
-    INTEGER :: return_status
-
     TYPE(t_patch), POINTER :: p_p
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:read_cartesian_positions'
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_model_domimp_patches:read_cartesian_positions'
     !-----------------------------------------------------------------------
-    read_cartesian_positions = -1
-    return_status = nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid)
-    IF (return_status /= nf_noerr) RETURN ! ERROR
 
-    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+    ! p_p%cells%cartesian_center(:,:)%x(1)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
-        & p_p%cells%cartesian_center(:,:)%x(1) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(1)
+    END DO
+    CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_x', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_y', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+    ! p_p%cells%cartesian_center(:,:)%x(2)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
-        & p_p%cells%cartesian_center(:,:)%x(2) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(2)
+    END DO
+    CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_y', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_z', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+    ! p_p%cells%cartesian_center(:,:)%x(3)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
-        & p_p%cells%cartesian_center(:,:)%x(3) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(3)
+    END DO
+    CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_z', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-
-    CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%cartesian_center(:,:)%x(1)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%cartesian_center(:,:)%x(1) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(1)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_x', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_y', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%cartesian_center(:,:)%x(2)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%cartesian_center(:,:)%x(2) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(2)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_y', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_z', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%cartesian_center(:,:)%x(3)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%cartesian_center(:,:)%x(3) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(3)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_z', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_x', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%cartesian_dual_middle(:,:)%x(1)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%cartesian_dual_middle(:,:)%x(1) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(1)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_x', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_y', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%cartesian_dual_middle(:,:)%x(2)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%cartesian_dual_middle(:,:)%x(2) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(2)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_y', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_z', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%cartesian_dual_middle(:,:)%x(3)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%cartesian_dual_middle(:,:)%x(3) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(3)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_z', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%primal_cart_normal(:,:)%x(1)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%primal_cart_normal(:,:)%x(1) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(1)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_x', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%primal_cart_normal(:,:)%x(2)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%primal_cart_normal(:,:)%x(2) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(2)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_y', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%primal_cart_normal(:,:)%x(3)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%primal_cart_normal(:,:)%x(3) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(3)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_z', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_x', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%dual_cart_normal(:,:)%x(1)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%dual_cart_normal(:,:)%x(1) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(1)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_x', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_y', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%dual_cart_normal(:,:)%x(2)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%dual_cart_normal(:,:)%x(2) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(2)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_y', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_z', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    ! p_p%edges%dual_cart_normal(:,:)%x(3)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
-        & p_p%edges%dual_cart_normal(:,:)%x(3) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(3)
+    END DO
+    CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_z', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'cartesian_x_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+    ! p_p%verts%cartesian(:,:)%x(1)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
-        & p_p%verts%cartesian(:,:)%x(1) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(1)
+    END DO
+    CALL read_2D(stream_id, onVertices, 'cartesian_x_vertices', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'cartesian_y_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+    ! p_p%verts%cartesian(:,:)%x(2)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
-        & p_p%verts%cartesian(:,:)%x(2) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(2)
+    END DO
+    CALL read_2D(stream_id, onVertices, 'cartesian_y_vertices', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    CALL nf(nf_inq_varid(ncid, 'cartesian_z_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+    ! p_p%verts%cartesian(:,:)%x(3)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
-        & p_p%verts%cartesian(:,:)%x(3) )
-    ENDDO
+      multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(3)
+    END DO
+    CALL read_2D(stream_id, onVertices, 'cartesian_z_vertices', n_lp+1, &
+      &          multivar_2d_data_wp(:))
 
-    IF (MAXVAL(ABS(patch%edges%primal_cart_normal(1,1)%x(:))) < 0.001_wp) &
-      & RETURN  ! Error , the normal are filled properly
-
-    read_cartesian_positions = 0
-
-  END FUNCTION read_cartesian_positions
+  END SUBROUTINE read_cartesian_positions
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
