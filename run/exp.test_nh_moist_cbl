@@ -23,7 +23,7 @@
 #-----------------------------------------------------------------------------
 # The following information is included to present some information on the buildbot-html main page
 #
-# _bb_table_Description_  Jablonowski Williamson steady-state test
+# _bb_table_Description_  Cloud topped boundary layer test case on torus
 # _bb_table_Model_        non-hydrost. atmosph.
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
