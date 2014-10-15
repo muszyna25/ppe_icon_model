@@ -45,10 +45,11 @@ MODULE mo_cuinit
   USE mo_cuparameters,  ONLY : rkap,  r4les, r4ies   ,&
     &                          r5les ,r5ies ,ralfdcp ,&
     &                          lphylin               ,&
-    &                       lmfdudv, entrpen, rdepths,&
+    &                       lmfdudv, entrorg, rdepths,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
-    &                          lhook,   dr_hook
+    &                          lhook,   dr_hook      ,&
+    &                          entstpc1, entstpc2
 
   USE mo_adjust ,ONLY: cuadjtq ,cuadjtqs
 
@@ -297,135 +298,137 @@ CONTAINS
     IF (lhook) CALL dr_hook('CUININ',1,zhook_handle)
   END SUBROUTINE cuinin
 
-  SUBROUTINE cubasen &
-    & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
-    & ptenh,    pqenh,    pgeoh,    paph,                    &
-    & pqhfl,    pahfs,                                       &
-  ! & PSSTRU,   PSSTRV,                                     &
-    & pten,     pqen,     pgeo,                              &
-    & puen,     pven,                                        &
-    & ptu,      pqu,      plu,      puu,      pvu ,  pwubase,&
-    & klab,     ldcum,    kcbot,                             &
-  !&  LDSC,  KBOTSC,
-    & kctop,    kdpl,     pcape )
 
-    !>
-    !! Description:
-    !!          THIS ROUTINE CALCULATES CLOUD BASE FIELDS
-    !!          CLOUD BASE HEIGHT AND CLOUD TOP HEIGHT
+SUBROUTINE cubasen &
+ & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
+ & ptenh,    pqenh,    pgeoh,    paph,                    &
+ & pqhfl,    pahfs,                                       &
+!& PSSTRU,   PSSTRV,                                      &
+ & pten,     pqen,     pqsen, pgeo,                       &
+ & puen,     pven,                                        &
+ & ptu,      pqu,      plu,      puu,      pvu ,  pwubase,&
+ & klab,     ldcum,    kcbot,                             &
+!& LDSC,     KBOTSC,
+ & kctop,    kdpl,     pcape )
 
-    !!          A. Pier Siebesma   KNMI ********
-    !!          modified C Jakob (ECMWF) (01/2001)
-    !!          modified P Bechtold (ECMWF) (08/2002)
-    !!         (include cycling over levels to find unstable departure/base level+
-    !!           mixed layer properties +w Trigger)
+!>
+!! Description:
+!!          THIS ROUTINE CALCULATES CLOUD BASE FIELDS
+!!          CLOUD BASE HEIGHT AND CLOUD TOP HEIGHT
 
-    !!          PURPOSE.
-    !!          --------
-    !!          TO PRODUCE CLOUD BASE AND CLOUD TOP VALUES FOR CU-PARAMETRIZATION
+!!          A. Pier Siebesma   KNMI ********
+!!          modified C Jakob (ECMWF) (01/2001)
+!!          modified P Bechtold (ECMWF) (08/2002)
+!!         (include cycling over levels to find unstable departure/base level+
+!!           mixed layer properties +w Trigger)
 
-    !!          INTERFACE
-    !!          ---------
-    !!          THIS ROUTINE IS CALLED FROM *CUMASTR*.
-    !!          INPUT ARE ENVIRONM. VALUES OF T,Q,P,PHI AT HALF LEVELS.
-    !!          IT RETURNS CLOUD FIELDS VALUES AND FLAGS AS FOLLOWS;
-    !!                 KLAB=0 FOR STABLE LAYERS
-    !!                 KLAB=1 FOR SUBCLOUD LEVELS
-    !!                 KLAB=2 FOR CLOUD LEVELS LEVEL
+!!          PURPOSE.
+!!          --------
+!!          TO PRODUCE CLOUD BASE AND CLOUD TOP VALUES FOR CU-PARAMETRIZATION
 
-    !!          METHOD.
-    !!          --------
-    !!          LIFT SURFACE AIR DRY-ADIABATICALLY TO CLOUD TOP
-    !!          (ENTRAINING PLUME, WITH ENTRAINMENT PROPORTIONAL TO (1/Z))
+!!          INTERFACE
+!!          ---------
+!!          THIS ROUTINE IS CALLED FROM *CUMASTR*.
+!!          INPUT ARE ENVIRONM. VALUES OF T,Q,P,PHI AT HALF LEVELS.
+!!          IT RETURNS CLOUD FIELDS VALUES AND FLAGS AS FOLLOWS;
+!!                 KLAB=0 FOR STABLE LAYERS
+!!                 KLAB=1 FOR SUBCLOUD LEVELS
+!!                 KLAB=2 FOR CLOUD LEVELS LEVEL
 
-    !! History:
-    !!          A. Pier Siebesma   KNMI ********
-    !!          modified C Jakob (ECMWF) (01/2001)
-    !!          modified P Bechtold (ECMWF) (08/2002)
-    !!          (include cycling over levels to find unstable departure/base level+
-    !!           mixed layer properties +w Trigger)
-    !!
-    !!          MODIFICATIONS
-    !!!          -------------
-    !!             92-09-21 : Update to Cy44      J.-J. MORCRETTE
-    !!             02-11-02 : Use fixed last possible departure level and
-    !!                        last updraft computation level for bit-reproducibility
-    !!                                            D.Salmond &  J. Hague
-    !!            03-07-03 : Tuning for p690     J. Hague
-    !!        M.Hamrud      01-Oct-2003 CY28 Cleaning
-    !!
-    !!     PARAMETER     DESCRIPTION                                   UNITS
-    !!     ---------     -----------                                   -----
-    !!     INPUT PARAMETERS (INTEGER):
+!!          METHOD.
+!!          --------
+!!          LIFT SURFACE AIR DRY-ADIABATICALLY TO CLOUD TOP
+!!          (ENTRAINING PLUME, WITH ENTRAINMENT PROPORTIONAL TO (1/Z))
 
-    !!    *KIDIA*        START POINT
-    !!    *KFDIA*        END POINT
-    !!    *KLON*         NUMBER OF GRID POINTS PER PACKET
-    !!    *KLEV*         NUMBER OF LEVELS
+!! History:
+!!          A. Pier Siebesma   KNMI ********
+!!          modified C Jakob (ECMWF) (01/2001)
+!!          modified P Bechtold (ECMWF) (08/2002)
+!!          (include cycling over levels to find unstable departure/base level+
+!!           mixed layer properties +w Trigger)
+!!
+!!          MODIFICATIONS
+!!!          -------------
+!!             92-09-21 : Update to Cy44      J.-J. MORCRETTE
+!!             02-11-02 : Use fixed last possible departure level and
+!!                        last updraft computation level for bit-reproducibility
+!!                                            D.Salmond &  J. Hague
+!!            03-07-03 : Tuning for p690     J. Hague
+!!        M.Hamrud      01-Oct-2003 CY28 Cleaning
+!!
+!!     PARAMETER     DESCRIPTION                                   UNITS
+!!     ---------     -----------                                   -----
+!!     INPUT PARAMETERS (INTEGER):
 
-    !!    INPUT PARAMETERS (REAL):
+!!    *KIDIA*        START POINT
+!!    *KFDIA*        END POINT
+!!    *KLON*         NUMBER OF GRID POINTS PER PACKET
+!!    *KLEV*         NUMBER OF LEVELS
 
-    !! not used at the moment because we want to use linear intepolation
-    !! for fields on the half levels.
+!!    INPUT PARAMETERS (REAL):
 
-    !!    *PTENH*        ENV. TEMPERATURE (T+1) ON HALF LEVELS           K
-    !!    *PQENH*        ENV. SPEC. HUMIDITY (T+1) ON HALF LEVELS      KG/KG
+!! not used at the moment because we want to use linear intepolation
+!! for fields on the half levels.
 
-    !!    *PQHFL*        MOISTURE FLUX (EXCEPT FROM SNOW EVAP.)        KG/(SM2)
-    !!    *PAHFS*        SENSIBLE HEAT FLUX                            W/M2
-    !!    *PSSTRU*       KINEMATIC surface U-MOMENTUM FLUX             (M/S)^2
-    !!    *PSSTRV*       KINEMATIC surface V-MOMENTUM FLUX             (M/S)^2
-    !!    *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                   M2/S2
-    !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS             PA
-    !!    *zdph*         pressure thickness on half levels              Pa
-    !!    *zdgeoh*       geopotential thickness on half levels          M2/S2
-    !!   *PTEN*         PROVISIONAL ENVIRONMENT TEMPERATURE (T+1)       K
-    !!    *PQEN*         PROVISIONAL ENVIRONMENT SPEC. HUMIDITY (T+1)  KG/KG
-    !!    *PGEO*         GEOPOTENTIAL                                  M2/S2
-    !!    *PUEN*         PROVISIONAL ENVIRONMENT U-VELOCITY (T+1)       M/S
-    !!    *PVEN*         PROVISIONAL ENVIRONMENT V-VELOCITY (T+1)       M/S
-    !!    *PQHFL*        MOISTURE FLUX (EXCEPT FROM SNOW EVAP.)        KG/(SM2)
-    !!    *PAHFS*        SENSIBLE HEAT FLUX                            W/M2
-    !!    UPDATED PARAMETERS (REAL):
+!!    *PTENH*        ENV. TEMPERATURE (T+1) ON HALF LEVELS           K
+!!    *PQENH*        ENV. SPEC. HUMIDITY (T+1) ON HALF LEVELS      KG/KG
 
-    !!    *PTU*          TEMPERATURE IN UPDRAFTS                         K
-    !!    *PQU*          SPEC. HUMIDITY IN UPDRAFTS                    KG/KG
-    !!    *PLU*          LIQUID WATER CONTENT IN UPDRAFTS              KG/KG
-    !!    *PUU*          U-VELOCITY IN UPDRAFTS                         M/S
-    !!    *PVU*          V-VELOCITY IN UPDRAFTS                         M/S
+!!    *PQHFL*        MOISTURE FLUX (EXCEPT FROM SNOW EVAP.)        KG/(SM2)
+!!    *PAHFS*        SENSIBLE HEAT FLUX                            W/M2
+!!    *PSSTRU*       KINEMATIC surface U-MOMENTUM FLUX             (M/S)^2
+!!    *PSSTRV*       KINEMATIC surface V-MOMENTUM FLUX             (M/S)^2
+!!    *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                   M2/S2
+!!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS             PA
+!!    *zdph*         pressure thickness on half levels              Pa
+!!    *zdgeoh*       geopotential thickness on half levels          M2/S2
+!!    *PTEN*         PROVISIONAL ENVIRONMENT TEMPERATURE (T+1)       K
+!!    *PQEN*         PROVISIONAL ENVIRONMENT SPEC. HUMIDITY (T+1)  KG/KG
+!!    *PQSEN*        PROVISIONAL ENVIRONMENT SATU. HUMIDITY (T+1)  KG/KG
+!!    *PGEO*         GEOPOTENTIAL                                  M2/S2
+!!    *PUEN*         PROVISIONAL ENVIRONMENT U-VELOCITY (T+1)       M/S
+!!    *PVEN*         PROVISIONAL ENVIRONMENT V-VELOCITY (T+1)       M/S
+!!    *PQHFL*        MOISTURE FLUX (EXCEPT FROM SNOW EVAP.)        KG/(SM2)
+!!    *PAHFS*        SENSIBLE HEAT FLUX                            W/M2
+!!    UPDATED PARAMETERS (REAL):
 
-    !!    UPDATED PARAMETERS (INTEGER):
+!!    *PTU*          TEMPERATURE IN UPDRAFTS                         K
+!!    *PQU*          SPEC. HUMIDITY IN UPDRAFTS                    KG/KG
+!!    *PLU*          LIQUID WATER CONTENT IN UPDRAFTS              KG/KG
+!!    *PUU*          U-VELOCITY IN UPDRAFTS                         M/S
+!!    *PVU*          V-VELOCITY IN UPDRAFTS                         M/S
 
-    !!    *KLAB*         FLAG KLAB=1 FOR SUBCLOUD LEVELS
-    !!                        KLAB=2 FOR CLOUD LEVELS
+!!    UPDATED PARAMETERS (INTEGER):
 
-    !!    OUTPUT PARAMETERS (LOGICAL):
+!!    *KLAB*         FLAG KLAB=1 FOR SUBCLOUD LEVELS
+!!                        KLAB=2 FOR CLOUD LEVELS
 
-    !!    *LDCUM*        FLAG: .TRUE. FOR CONVECTIVE POINTS
-    !!    *LDSC*         FLAG: .TRUE. IF BL-CLOUDS EXIST
+!!    OUTPUT PARAMETERS (LOGICAL):
 
-    !!    OUTPUT PARAMETERS (INTEGER):
+!!    *LDCUM*        FLAG: .TRUE. FOR CONVECTIVE POINTS
+!!    *LDSC*         FLAG: .TRUE. IF BL-CLOUDS EXIST
 
-    !!    *KCBOT*       CLOUD BASE LEVEL !
-    !!    *KCTOP*       CLOUD TOP LEVEL = HEIGHEST HALF LEVEL
-    !!                  WITH A NON-ZERO CLOUD UPDRAFT.
-    !!    *KBOTSC*      CLOUD BASE LEVEL OF BL-CLOUDS
-    !!    *KDPL*        DEPARTURE LEVEL
-    !!    *PCAPE*       PSEUDOADIABATIQUE max CAPE (J/KG)
+!!    OUTPUT PARAMETERS (INTEGER):
 
-    !!          EXTERNALS
-    !!          ---------
-    !!          *CUADJTQ* FOR ADJUSTING T AND Q DUE TO CONDENSATION IN ASCENT
+!!    *KCBOT*       CLOUD BASE LEVEL !
+!!    *KCTOP*       CLOUD TOP LEVEL = HEIGHEST HALF LEVEL
+!!                  WITH A NON-ZERO CLOUD UPDRAFT.
+!!    *KBOTSC*      CLOUD BASE LEVEL OF BL-CLOUDS
+!!    *KDPL*        DEPARTURE LEVEL
+!!    *PCAPE*       PSEUDOADIABATIQUE max CAPE (J/KG)
 
-    !!          MODIFICATIONS
-    !!          -------------
-    !!             92-09-21 : Update to Cy44      J.-J. MORCRETTE
-    !!             02-11-02 : Use fixed last possible departure level and
-    !!                        last updraft computation level for bit-reproducibility
-    !!                                            D.Salmond &  J. Hague
-    !!            03-07-03 : Tuning for p690     J. Hague
-    !!       M.Hamrud      01-Oct-2003 CY28 Cleaning
-    !----------------------------------------------------------------------    
+!!          EXTERNALS
+!!          ---------
+!!          *CUADJTQ* FOR ADJUSTING T AND Q DUE TO CONDENSATION IN ASCENT
+
+!!          MODIFICATIONS
+!!          -------------
+!!             92-09-21 : Update to Cy44      J.-J. MORCRETTE
+!!             02-11-02 : Use fixed last possible departure level and
+!!                        last updraft computation level for bit-reproducibility
+!!                                            D.Salmond &  J. Hague
+!!            03-07-03 : Tuning for p690     J. Hague
+!!       M.Hamrud      01-Oct-2003 CY28 Cleaning
+!----------------------------------------------------------------------    
 
 !
 !USE parkind1  ,ONLY : jpim     ,jprb
@@ -434,7 +437,7 @@ CONTAINS
 !USE yomcst   , ONLY : rcpd     ,retv, rd, rg,&
 ! & rlvtt    ,rlstt    ,rtt
 !USE yoevdf   , ONLY : rkap
-!USE yoecumf  , ONLY : lmfdudv, entrpen, rdepths, njkt1, njkt2
+!USE yoecumf  , ONLY : lmfdudv, ENTRORG, rdepths,  ENTSTPC1, ENTSTPC2, njkt1, njkt2
 !USE yoecldp  , ONLY : rlmin
 !USE yoethf   , ONLY : r2es     ,r3les    ,r3ies    ,r4les    ,&
 ! & r4ies    ,r5les    ,r5ies    ,r5alvcp  ,r5alscp  ,&
@@ -460,78 +463,75 @@ REAL(KIND=jprb)   ,INTENT(in)    :: pqhfl(klon,klev+1)
 REAL(KIND=jprb)   ,INTENT(in)    :: pahfs(klon,klev+1)
 REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: puen(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pven(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: puu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pvu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pwubase(klon)
-INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev)
-LOGICAL           ,INTENT(inout) :: ldcum(klon)
-!LOGICAL           ,INTENT(out)  :: ldsc(klon)
-LOGICAL                          :: ldsc(klon)
-INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon)
-!INTEGER(KIND=jpim),INTENT(out)   :: kbotsc(klon)
-INTEGER(KIND=jpim)               :: kbotsc(klon)
-INTEGER(KIND=jpim),INTENT(out)   :: kctop(klon)
-INTEGER(KIND=jpim),INTENT(out)   :: kdpl(klon)
-REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon)
+REAL(KIND=JPRB)   ,INTENT(in)    :: pqsen(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: puen(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pven(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: puu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pvu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pwubase(klon) 
+INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev) 
+LOGICAL           ,INTENT(inout) :: ldcum(klon) 
+!LOGICAL           ,INTENT(out)  :: ldsc(klon) 
+LOGICAL                          :: ldsc(klon) 
+INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon) 
+!INTEGER(KIND=jpim),INTENT(out)   :: kbotsc(klon) 
+INTEGER(KIND=jpim)               :: kbotsc(klon) 
+INTEGER(KIND=jpim),INTENT(out)   :: kctop(klon) 
+INTEGER(KIND=jpim),INTENT(out)   :: kdpl(klon) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon) 
 INTEGER(KIND=jpim) ::  ictop(klon),            icbot(klon),&
  & ibotsc(klon),           ilab(klon,klev),&
- & idpl(klon)
-
-!             LOCAL STORAGE
-!             ----- -------
+ & idpl(klon)  
 
 LOGICAL ::         ll_ldbase(klon),&
  & llgo_on(klon),&
  & lldeep(klon),    lldcum(klon), &
- & lldsc(klon),     llfirst(klon)
+ & lldsc(klon),     llfirst(klon)  
 LOGICAL ::     llreset,        llresetjl(klon)
 
-INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, jkk, jkt1, jkt2, jkt, jkb
+INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, jkk, jkt1, jkt2, jkt, jkb ! ,IKB
 
-REAL(KIND=jprb)    :: zsenh(klon,klev),&
- & zqenh(klon,klev),&
+REAL(KIND=jprb)    :: &
+ & zsenh(klon,klev+1),&
+ & zqenh(klon,klev+1),&
  & zsuh (klon,klev),&
  & zwu2h(klon,klev),&
- & zbuoh(klon,klev)
+ & zbuoh(klon,klev)  
 REAL(KIND=jprb) :: zqold(klon),zph(klon)
 REAL(KIND=jprb) :: zmix(klon)
 REAL(KIND=jprb) :: zdz(klon),zcbase(klon)
-REAL(KIND=jprb) :: zcbase_aux(klon)
 
 REAL(KIND=jprb) ::    zlu(klon,klev),   zqu(klon,klev),&
  & ztu(klon,klev), &
- & zuu(klon,klev),   zvu(klon,klev)
+ & zuu(klon,klev),   zvu(klon,klev)  
 
 REAL(KIND=jprb) :: zcape(klon,klev) ! local for CAPE at every departure level
 
-REAL(KIND=jprb) :: zbuof, zc2, zepsadd
-REAL(KIND=jprb) :: zrho      ! DENSITY AT SURFACE (KG/M^3)
+REAL(KIND=jprb) :: zbuof     ! BUOYANCY
+REAL(KIND=jprb) :: zrho      ! DENSITY AT SURFACE (KG/M^3) 
 REAL(KIND=jprb) :: zkhvfl    ! SURFACE BUOYANCY FLUX (K M/S)
 REAL(KIND=jprb) :: zws       ! SIGMA_W AT LOWEST MODEL HALFLEVEL (M/S)
 REAL(KIND=jprb) :: zqexc     ! HUMIDITY EXCESS AT LOWEST MODEL HALFLEVEL (KG/KG)
 REAL(KIND=jprb) :: ztexc     ! TEMPERATURE EXCESS AT LOWEST MODEL HALFLEVEL (K)
 REAL(KIND=jprb) :: zeps      ! FRACTIONAL ENTRAINMENT RATE   [M^-1]
-REAL(KIND=jprb) :: ztvenh    ! ENVIRONMENT VIRTUAL TEMPERATURE AT HALF LEVELS (K)
+REAL(KIND=jprb) :: ztvenh    ! ENVIRONMENT VIRTUAL TEMPERATURE AT HALF LEVELS (K)  
 REAL(KIND=jprb) :: ztvuh     ! UPDRAFT VIRTUAL TEMPERATURE AT HALF LEVELS     (K)
 REAL(KIND=jprb) :: zlglac    ! UPDRAFT LIQUID WATER FROZEN IN ONE LAYER
 REAL(KIND=jprb) :: zqsu, zcor, zdq, zalfaw, zfacw, zfaci, zfac,&
- & zesdp, zdqsdt, zdtdp, zdp,zpdifftop,zpdiffbot,zsf,zqf,zaw,zbw
+ & zesdp, zdqsdt, zdtdp, zdp,zpdifftop,zpdiffbot,zsf,zqf,zaw,zbw  
 !REAL(KIND=jprb) :: ztven1(klon), ztven2, ztvu1(klon), ztvu2 ! pseudoadiabatique T_v
-!KF
 REAL(KIND=jprb) :: ztven1(klon,klev),ztven2(klon,klev),ztvu1(klon,klev),ztvu2(klon,klev)
 REAL(KIND=jprb) :: zdtvtrig(klon) ! virtual temperatures
-REAL(KIND=jprb) :: zwork1, zwork2 ! work arrays for T and w perturbations
+REAL(KIND=jprb) :: zwork1, zwork2! work arrays for T and w perturbations
 REAL(KIND=jprb) :: zrcpd, zrg, ztmp
 REAL(KIND=jprb) :: zhook_handle
 
 !#include "cuadjtq.intfb.h"
-!#include "fcttre.h"
+!#include "fcttre.func.h"
 
 !----------------------------------------------------------------------
 !     0.           INITIALIZE CONSTANTS AND FIELDS
@@ -539,26 +539,22 @@ REAL(KIND=jprb) :: zhook_handle
 !----------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook('CUBASEN',0,zhook_handle)
-zc2    = 0.55_JPRB
 zaw    = 1.0_JPRB
 zbw    = 1.0_JPRB
-zepsadd= 1.e-4_JPRB
 
-   ztven1(:,:) = 0._jprb
-   ztven2(:,:) = 0._jprb
-   ztvu1 (:,:) = 0._jprb
-   ztvu2 (:,:) = 0._jprb
-   zsenh(:,:) = 0._jprb
-   zqenh(:,:) = 0._jprb
-   zsuh (:,:) = 0._jprb
-   zwu2h(:,:) = 0._jprb
-   zbuoh(:,:) = 0._jprb
-   zqold  (:) = 0._jprb
-   zph    (:) = 0._jprb
-   zdz    (:) = 0._jprb
-   zcbase (:) = 0._jprb
-   zcbase_aux (:) = 0._jprb
- 
+ztven1(:,:)  = 0._jprb
+ztven2(:,:)  = 0._jprb
+ztvu1 (:,:)  = 0._jprb
+ztvu2 (:,:)  = 0._jprb
+zsenh(:,:)   = 0._jprb
+zqenh(:,:)   = 0._jprb
+zsuh (:,:)   = 0._jprb
+zwu2h(:,:)   = 0._jprb
+zbuoh(:,:)   = 0._jprb
+zqold  (:)   = 0._jprb
+zph    (:)   = 0._jprb
+zdz    (:)   = 0._jprb
+zcbase (:)   = 0._jprb
 
 DO jl=kidia,kfdia
   pwubase(jl)=0.0_JPRB
@@ -566,17 +562,6 @@ DO jl=kidia,kfdia
   llfirst(jl)=.TRUE.
   kdpl(jl)=klev
 ENDDO
-
-
-
-
-
-! Set last possible departure level and last updraft computation level
-! NOT Bit-reproducible
-!DO JK=KLEV+1,2,-1
-!  IF((PAPH(KIDIA,KLEV+1)-PAPH(KIDIA,JK)) < 350.E2_JPRB ) JKT1=JK
-!  IF(PAPH(KIDIA,JK) > 60.E2_JPRB ) JKT2=JK
-!END DO
 
 jkt1=njkt1
 jkt2=njkt2
@@ -603,14 +588,15 @@ ENDDO
 
 DO jk=ktdia,klev
   DO jl=kidia,kfdia
+    ZWU2H(JL,JK)=0.0_JPRB
     zqenh(jl,jk) = pqenh(jl,jk)
     zsenh(jl,jk) = rcpd*ptenh(jl,jk)+pgeoh(jl,jk)
   ENDDO
 ENDDO
 
 DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
-                            ! find first departure level that produces deepest cloud top
-                            ! or take surface level for shallow convection and Sc
+                               ! find first departure level that produces deepest cloud top
+                               ! or take surface level for shallow convection and Sc
    !
    !        ---------------------------------------------------------
    !        1.2    INITIALISE FIELDS AT DEPARTURE HALF MODEL LEVEL
@@ -630,7 +616,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
       zdtvtrig(jl) =0.0_JPRB
       zuu(jl,jkk) =puen(jl,jkk)*(paph(jl,jkk+1)-paph(jl,jkk))
       zvu(jl,jkk) =pven(jl,jkk)*(paph(jl,jkk+1)-paph(jl,jkk))
-    ENDIF
+    ENDIF 
   ENDDO
 
   IF(is /= 0) THEN
@@ -658,7 +644,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
         !  determine buoyancy at lowest half level
         !
             ztvenh            = (1.0_JPRB+retv*zqenh(jl,jkk)) &
-             & *(zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd
+             & *(zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd  
             ztvuh             = (1.0_JPRB+retv*zqu(jl,jkk))*ztu(jl,jkk)
             zbuoh(jl,jkk) = (ztvuh-ztvenh)*rg/ztvenh
           ELSE
@@ -666,14 +652,12 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           ENDIF
         ENDIF
       ENDDO
-
-    ELSE  !next levels
+   
+    ELSE
 
       DO jl=kidia,kfdia
         IF (llgo_on(jl)) THEN
           zrho  = paph(jl,jkk+1)/(rd*(pten(jl,jkk)*(1.0_JPRB+retv*pqen(jl,jkk))))
-          !ZRHO  = rho_atm(jl,jkk)
-          !<KF
           ilab(jl,jkk)= 1
           ztexc=.2_JPRB
           zqexc=1.e-4_JPRB
@@ -686,7 +670,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
             zqu(jl,jkk) =0.0_JPRB
             zsuh(jl,jkk)=0.0_JPRB
             zwork1      =0.0_JPRB
-            !original code does not unvectorise!
+            !original code does not vectorise!
             !DO jk=jkk+1,jkk-1,-1
             !  IF( zwork1 < 50.e2_jprb ) THEN
             !    zwork2=paph(jl,jk)-paph(jl,jk-1)
@@ -729,16 +713,16 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
       !  determine buoyancy at lowest half level
       !
           ztvenh            = (1.0_JPRB+retv*zqenh(jl,jkk)) &
-           & *(zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd
+           & *(zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd  
           ztvuh             = (1.0_JPRB+retv*zqu(jl,jkk))*ztu(jl,jkk)
           zbuoh(jl,jkk) = (ztvuh-ztvenh)*rg/ztvenh
         ENDIF
       ENDDO
-
+   
     ENDIF
 
   ENDIF
-
+   
    !----------------------------------------------------------------------
    !     2.0          DO ASCENT IN SUBCLOUD AND LAYER,
    !                  CHECK FOR EXISTENCE OF CONDENSATION LEVEL,
@@ -757,15 +741,15 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
         IF (llgo_on(jl)) THEN
           is         = is+1
           zdz(jl)    = (pgeoh(jl,jk) - pgeoh(jl,jk+1))*zrg
-          zeps       = zc2/((pgeoh(jl,jk)-pgeoh(jl,klev+1))*zrg) + zepsadd
+          zeps       = entstpc1/((pgeoh(jl,jk)-pgeoh(jl,klev+1))*zrg) + entstpc2
           zmix(jl)   = 0.5_JPRB*zdz(jl)*zeps
           zqf = (pqenh(jl,jk+1) + pqenh(jl,jk))*0.5_JPRB
           zsf = (zsenh(jl,jk+1) + zsenh(jl,jk))*0.5_JPRB
           ztmp = 1.0_JPRB/(1.0_JPRB+zmix(jl))
           zqu(jl,jk)= (zqu(jl,jk+1)*(1.0_JPRB-zmix(jl))&
-           & +2.0_JPRB*zmix(jl)*zqf) * ztmp
+         & +2.0_JPRB*zmix(jl)*zqf) * ztmp  
           zsuh (jl,jk)= (zsuh(jl,jk+1)*(1.0_JPRB-zmix(jl))&
-           & +2.0_JPRB*zmix(jl)*zsf) * ztmp
+         & +2.0_JPRB*zmix(jl)*zsf) * ztmp  
           zqold(jl)  = zqu(jl,jk)
           ztu (jl,jk) = (zsuh(jl,jk)-pgeoh(jl,jk))*zrcpd
           zph  (jl)    = paph(jl,jk)
@@ -777,84 +761,78 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
       DO jl=kidia,kfdia
         IF (llgo_on(jl)) THEN
           is         = is+1
-          zdz(jl)        = (pgeoh(jl,jk) - pgeoh(jl,jk+1))*zrg
+          zdz(jl)    = (pgeoh(jl,jk) - pgeoh(jl,jk+1))*zrg
           zqf = (pqenh(jl,jk+1) + pqenh(jl,jk))*0.5_JPRB
           zsf = (zsenh(jl,jk+1) + zsenh(jl,jk))*0.5_JPRB
-         !ZMIX(JL)=ENTRPEN*ZDZ(JL)
-          zmix(jl)=2.0_JPRB*entrpen*zdz(jl)*(paph(jl,jk)/paph(jl,klev+1))**3
+          zmix(jl)=2.0_JPRB*0.8E-4_JPRB*zdz(jl)*(paph(jl,jk)/paph(jl,klev+1))**3
+!         ZMIX(JL)=0.4_JPRB*ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
           zqu(jl,jk)= zqu(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zqf*zmix(jl)
           zsuh(jl,jk)= zsuh(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zsf*zmix(jl)
           zqold(jl)  = zqu(jl,jk)
-          ztu (jl,jk) = (zsuh(jl,jk)-pgeoh(jl,jk))*zrcpd
-          zph  (jl)    = paph(jl,jk)
+          ztu (jl,jk)= (zsuh(jl,jk)-pgeoh(jl,jk))*zrcpd
+          zph  (jl)  = paph(jl,jk)
         ENDIF
       ENDDO
 
     ENDIF
 
     IF (is == 0) EXIT
-
+     
     ik=jk
     icall=1
-
+     
     CALL cuadjtq &
-     & ( kidia,    kfdia,    klon,    klev,&
-    & ik,&
-    & zph,      ztu,      zqu,      llgo_on,   icall)
-
-!DIR$ IVDEP
-!OCL NOVREC
-
+     & ( kidia,    kfdia,    klon,    klev,      ik,&
+     &   zph,      ztu,      zqu,     llgo_on,   icall)  
+   
+   !DIR$ IVDEP
+   !OCL NOVREC
+   
     DO jl=kidia,kfdia
       IF(llgo_on(jl)) THEN
-
+   
    ! add condensation to water
-
+   
         zdq=MAX(zqold(jl)-zqu(jl,jk),0.0_JPRB)
         zlu(jl,jk)=zlu(jl,jk+1)+zdq
 
    ! freezing
-
+   
         zlglac=zdq*((1.0_JPRB-foealfcu(ztu(jl,jk)))-&
-         & (1.0_JPRB-foealfcu(ztu(jl,jk+1))))
-
-
+         & (1.0_JPRB-foealfcu(ztu(jl,jk+1))))  
+              
+   
    ! pseudo-microphysics
-
+   
         IF(jkk==klev) THEN  ! no precip for shallow
           zlu(jl,jk)=MIN(zlu(jl,jk),5.e-3_JPRB)
    !* chose a more pseudo-adiabatic formulation as original overestimates
    !* water loading efect and therefore strongly underestimates cloud thickness
-        ELSE
-!>KF & OS test
-!              IF( MAX(0._jprb,zcbase_aux(jl) -paph(jl,jk)) < 2.e4_JPRB ) THEN !<200 hPa
-!                zlu(jl,jk)=MAX(5.e-3,zlu(jl,jk))
-!              ELSE
-          zlu(jl,jk)=0.5_JPRB*zlu(jl,jk)
-!<KF            ENDIF
+        ELSE 
+          zlu(jl,jk)=0.5_JPRB*zlu(jl,jk) 
         ENDIF
-
+   
    ! update dry static energy after condensation + freezing
-
+   
         zsuh(jl,jk)    = rcpd*(ztu(jl,jk)+ralfdcp*zlglac)+pgeoh(jl,jk)
-
+         
    ! Buoyancy on half and full levels
-
+            
         ztvuh           = (1.0_JPRB+retv*zqu(jl,jk)-zlu(jl,jk))*ztu(jl,jk)&
-         & +ralfdcp*zlglac
+         & +ralfdcp*zlglac  
         ztvenh          = (1.0_JPRB+retv*zqenh(jl,jk)) &
-         & *(zsenh(jl,jk)-pgeoh(jl,jk))*zrcpd
+         & *(zsenh(jl,jk)-pgeoh(jl,jk))*zrcpd  
         zbuoh(jl,jk)   = (ztvuh-ztvenh)*rg/ztvenh
         zbuof          = (zbuoh(jl,jk) + zbuoh(jl,jk+1))*0.5_JPRB
-
+   
    ! solve kinetic energy equation
-
+   
         ztmp=1.0_JPRB/(1.0_JPRB+2.0_JPRB*zbw*zmix(jl))
         zwu2h(jl,jk) = (zwu2h(jl,jk+1)*(1.0_JPRB-2.0_JPRB*zbw*zmix(jl))&
-         & +2.0_JPRB*zaw*zbuof*zdz(jl)) * ztmp
-
+         & +2.0_JPRB*zaw*zbuof*zdz(jl)) * ztmp  
+   
    ! compute pseudoadiabatique CAPE for diagnostics
-
+   
         ztvu2(jl,jk) = ztu(jl,jk)  *(1.0_JPRB+retv*zqu(jl,jk))
         ztven2(jl,jk)= ptenh(jl,jk)*(1.0_JPRB+retv*pqenh(jl,jk))
         IF (jk == jkk-1) THEN
@@ -866,11 +844,11 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
         zcape(jl,jkk)  = zcape(jl,jkk) + MAX(0.0_JPRB,zbuof)
         ztvu1(jl,jk)=ztvu2(jl,jk)
         ztven1(jl,jk)=ztven2(jl,jk)
-
+   
    ! first layer with liquid water - find exact cloud base
-
+   
         IF(zlu(jl,jk) >0.0_JPRB.AND.ilab(jl,jk+1)==1) THEN
-
+           
           ik=jk+1
           zqsu=foeewm(ztu(jl,ik))/paph(jl,ik)
           zqsu=MIN(0.5_JPRB,zqsu)
@@ -887,15 +865,15 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           zdtdp=rd*ztu(jl,ik)/(rcpd*paph(jl,ik))
           zdp=zdq/(zdqsdt*zdtdp)
           zcbase(jl)=paph(jl,ik)+zdp
-
+           
    ! chose nearest half level as cloud base
-
+   
           zpdifftop=zcbase(jl)-paph(jl,jk)
           zpdiffbot=paph(jl,jk+1)-zcbase(jl)
-
+           
           IF(zpdifftop > zpdiffbot.AND.zwu2h(jl,jk+1)>0.0_JPRB) THEN
             jkb=MIN(klev-1,jk+1)
-            ilab(jl,jkb)=2
+            ilab(jl,jkb)=2 
             ilab(jl,jk)=2
             ll_ldbase(jl) =.TRUE.
             lldsc(jl)   =.TRUE.
@@ -910,30 +888,30 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
             icbot(jl)  =jk
           ENDIF
           jkb=icbot(jl)
-
+   
         ENDIF
-
+   
    ! decide on presence of convection, cloud base and cloud top based on
    ! kinetic energy
-
+   
         IF (zwu2h(jl,jk) < 0.0_JPRB) THEN
-          llgo_on(jl) = .FALSE.
+          llgo_on(jl) = .FALSE.             
           IF (zlu(jl,jk+1)>0.0_JPRB) THEN
             ictop(jl)   = jk
             lldcum(jl)   = .TRUE.
           ELSE
             lldcum(jl)   = .FALSE.
-         ENDIF
+          ENDIF
         ELSE
-           IF (zlu(jl,jk)>0.0_JPRB) THEN
+          IF (zlu(jl,jk)>0.0_JPRB) THEN
             ilab(jl,jk) = 2
           ELSE
             ilab(jl,jk) = 1
-         ENDIF
+          ENDIF
         ENDIF
-     ENDIF
+      ENDIF
     ENDDO
-
+   
     IF(lmfdudv.AND.jkk==klev) THEN
       DO jl=kidia,kfdia
         IF(.NOT.ll_ldbase(jl).AND.llgo_on(jl)) THEN
@@ -942,12 +920,10 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
         ENDIF
       ENDDO
     ENDIF
-
-
-
+   
 !     IF (IS == 0) EXIT
   ENDDO
-
+   
   IF( jkk==klev) THEN
       ! set values for departure level for PBL clouds = first model level
     DO jl=kidia,kfdia
@@ -957,7 +933,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
       ELSE
         kbotsc(jl)=-1
       ENDIF
-
+    
       llgo_on(jl) = .FALSE.
       jkt=ictop(jl)
       jkb=icbot(jl)
@@ -1017,8 +993,8 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
       DO jk=klev,ktdia,-1
         DO jl=kidia,kfdia
          ! keep first departure level that produces deep cloud
-!          IF ( LLDEEP(JL) .AND. LLFIRST(JL) ) THEN
-          IF ( llresetjl(jl) ) THEN
+!          IF ( LLDEEP(JL) .AND. LLFIRST(JL) ) THEN 
+          IF ( llresetjl(jl) ) THEN 
             jkt=ictop(jl)
             jkb=idpl(jl)
             IF ( jk<=jkb .AND. jk>=jkt ) THEN
@@ -1026,7 +1002,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
               ptu(jl,jk)=ztu(jl,jk)
               pqu(jl,jk)=zqu(jl,jk)
               plu(jl,jk)=zlu(jl,jk)
-            ELSE
+            ELSE 
               klab(jl,jk)=1
               ptu(jl,jk)=ptenh(jl,jk)
               pqu(jl,jk)=pqenh(jl,jk)
@@ -1037,8 +1013,6 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
         ENDDO
       ENDDO
     ENDIF
-
-
 
     DO jl=kidia,kfdia
       IF ( lldeep(jl) .AND. llfirst(jl) ) THEN
@@ -1058,7 +1032,7 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
     ENDDO
   ENDIF
 
-ENDDO ! end of big loop for search of departure level
+ENDDO ! end of big loop for search of departure level     
 
       ! chose maximum CAPE value
 DO jl=kidia,kfdia

@@ -296,9 +296,6 @@ MODULE mo_cuparameters
   !     LMFSMOOTH LOGICAL  TRUE IF MASS FLUXES TOP/BOTTOM SMOOTHED FOR TRACER TRANSPORT
   !     LMFTRAC   LOGICAL  TRUE IF CONVECTIVE TRACER TRANSPORT IS SWITCHED ON
   !     LMFWSTAR  LOGICAL  TRUE IF GRANT W* CLOSURE USED FOR SHALLOW
-  !     ENTRPEN   REAL     ENTRAINMENT RATE FOR PENETRATIVE CONVECTION
-  !     ENTRSCV   REAL     ENTRAINMENT RATE FOR SHALLOW CONVECTION
-  !     ENTRMID   REAL     ENTRAINMENT RATE FOR MIDLEVEL CONVECTION
   !     ENTRORG   REAL     COEFFICIENT FOR ORGANIZED ENTRAINMENT DEEP CONVECTION
   !     ENTRDD    REAL     ENTRAINMENT RATE FOR CUMULUS DOWNDRAFTS
   !     DETRPEN   REAL     DETRAINMENT RATE FOR PENETRATIVE CONVECTION
@@ -327,10 +324,10 @@ MODULE mo_cuparameters
   !     NJKT1, NJKT2, NJKT3-5 INTEGER  LEVEL LIMITS FOR CUBASEN/CUDDR
   !     ----------------------------------------------------------------
   
-  REAL(KIND=jprb) :: entrpen
-  REAL(KIND=jprb) :: entrscv
-  REAL(KIND=jprb) :: entrmid
   REAL(KIND=jprb) :: entrorg
+  REAL(KIND=jprb) :: entshalp
+  REAL(KIND=jprb) :: entstpc1
+  REAL(KIND=jprb) :: entstpc2
   REAL(KIND=jprb) :: entrdd
   REAL(KIND=jprb) :: detrpen
   ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
@@ -343,7 +340,6 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmfcmin
   REAL(KIND=jprb) :: rmfdeps
   REAL(KIND=jprb) :: rdepths
-  REAL(KIND=jprb) :: rhcdd
   REAL(KIND=jprb) :: rprcon
   ! REAL(KIND=jprb) :: rtau -> moved into phy_params because it is resolution-dependent
   ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
@@ -428,9 +424,10 @@ MODULE mo_cuparameters
           & rkappa   ,ratm     ,rpi      ,rlmlt     ,&
           & rcvd     ,rsigma
   !yoecumf
-  PUBLIC :: entrorg  ,entrmid  ,rprcon   ,rmfcmax   ,rmfcmin,&
+  PUBLIC :: entrorg  ,entshalp ,entstpc1 ,entstpc2  ,&
+          & rprcon   ,rmfcmax  ,rmfcmin,&
           & lmfmid   ,detrpen  ,&
-          & entrpen  ,entrscv  ,lmfdd    ,lmfdudv  ,&
+          & lmfdd    ,lmfdudv  ,&
           & rdepths  ,lmfscv   ,lmfpen             ,&
           & lmfit    ,rmflic                       ,&
           & rmflia   ,rmfsoluv                     ,&
@@ -992,291 +989,267 @@ CONTAINS
 
   
   SUBROUTINE sucumf(rsltn,klev,pmean,phy_params)
-    
-    !>
-    !! Description:
-    !!     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
-    
-    !!          M.TIEDTKE         E.C.M.W.F.    2/89
-    
-    !USE PARKIND1  ,ONLY : JPIM     ,JPRB
-    !USE YOMHOOK   ,ONLY : LHOOK,   DR_HOOK
-    
-    !USE YOMLUN   , ONLY : NULOUT
-    !USE YOMDIM   , ONLY : NFLEVG
-    !USE YOECUMF  , ONLY : ENTRPEN  ,ENTRSCV  ,ENTRMID  ,ENTRORG  ,ENTRDD   ,&
-    ! & DETRPEN  ,RMFCMAX  ,RMFCMIN  ,RMFDEPS  ,RHCDD   ,RDEPTHS  ,&
-    ! & RPRCON   ,RTAU     ,RCUCOV   ,RCPECONS ,RTAUMEL ,RHEBC    ,&
-    ! & LMFPEN   ,LMFSCV   ,LMFMID   ,LMFSMOOTH,LMFWSTAR,LMFTRAC  ,&
-    ! & LMFDD    ,LMFIT    ,LMFDUDV  ,RMFSOLUV ,RMFSOLTQ ,RMFSOLCT,&
-    ! & RMFCFL   ,RMFLIC   ,RMFLIA   ,RUVPER   ,&
-    ! & NJKT1    ,NJKT2    ,NJKT3    ,NJKT4    ,NJKT5
-    !USE YOMCST  , ONLY : RG
-    !* change to operations
-    !USE YOEPHY   , ONLY : LEPCLD
-    !* change to operations
-    !USE YOMSTA  , ONLY : STPRE
-    !USE gme_data_parameters, ONLY : iintegers
-    !-----------------------------------------------------------------------
-    IMPLICIT NONE
-    !INCLUDE "mpif.h"
-    !INCLUDE "gme_commpi.h"
 
-    ! NFLEVG : number of levels in grid point space
-    INTEGER(KIND=jpim) :: nflevg
-    INTEGER(KIND=jpim), INTENT(in) :: klev
-    REAL(KIND=jprb)   , INTENT(in) :: rsltn
-    REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
-    TYPE(t_phy_params), INTENT(inout) :: phy_params
-    !* change to operations
+!     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
+
+!          M.TIEDTKE         E.C.M.W.F.    2/89
+
+!          INTERFACE
+!          ---------
+
+!          THIS ROUTINE IS CALLED FROM *INIPHY*
+
+!          MODIFICATIONS
+!          -------------
+!          P. Bechtold 2003-2013       Cleaning and revision of entrainment rates
+!                                      options implicit, tracers, perturb, stand atmos
+!                                      adding scaling factors for different planet
+!                                      (modified gravity)
+!                                      add options for diurnal cycle over land
+!          P. Lopez, ECMWF (Oct 2007)  Put reading of NAMCUMF back in.
+!          R. Forbes, May 2008         Changed factor in RTAUMEL from 
+!                                      1.5 to 0.66
+!          N. Semane+P.Bechtold     04-10-2012 Add RCORIOI/RPLRG/RPLDARE/RHOUR/RCVRFACTOR for small planet
+!          T. Wilhelmsson (Sept 2013) Geometry and setup refactoring.
+!-----------------------------------------------------------------------
+
+!USE PARKIND1 , ONLY : JPIM, JPRB
+!USE YOMHOOK  , ONLY : LHOOK, DR_HOOK
+!USE YOMCST   , ONLY : RG
+!USE YOMLUN   , ONLY : NULOUT, NULNAM
+!USE YOMDIMV  , ONLY : YRDIMV
+!USE YOECUMF  , ONLY : ENTRORG   ,ENTRDD   ,&
+! & ENTSHALP ,DETRPEN  ,RMFCMAX  ,RMFCMIN  ,RMFDEPS  ,RDEPTHS  ,&
+! & ENTSTPC1 ,ENTSTPC2 ,&
+! & RPRCON   ,RTAU     ,RTAUA    ,RTAU0     ,RCAPDCYCL,&
+! & RCUCOV   ,RCPECONS ,RTAUMEL  ,RHEBC    ,RCVRFACTOR,&
+! & LMFPEN   ,LMFSCV   ,LMFMID   ,LMFSMOOTH,LMFWSTAR ,LMFUVDIS,&
+! & LMFDD    ,LMFDUDV  ,LMFCUCA  ,LMFPROFP ,&
+! & RMFSOLUV ,RMFSOLTQ ,RMFSOLCT,&
+! & RMFCFL   ,RMFLIC   ,RMFLIA   ,RUVPER   ,RBASE0   ,RMINCIN ,&
+! & NJKT1    ,NJKT2    ,NJKT3    ,NJKT4    ,NJKT5    ,NJKT6
+!USE YOMSTA  , ONLY : YRSTA
+!USE YOMDYNCORE, ONLY : RPLRADI, RPLRG, RPLDARE
+
+IMPLICIT NONE
+!INCLUDE "mpif.h"
+!INCLUDE "gme_commpi.h"
+
+! NFLEVG : number of levels in grid point space
+INTEGER(KIND=jpim) :: nflevg
+INTEGER(KIND=jpim), INTENT(in) :: klev
+REAL(KIND=jprb)   , INTENT(in) :: rsltn
+REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
+TYPE(t_phy_params), INTENT(inout) :: phy_params
+!* change to operations
 
 #ifdef __GME__
-   INTEGER(KIND=jpim) :: nulout=6
+INTEGER(KIND=jpim) :: nulout=6
 #endif
 
-    INTEGER(KIND=jpim) :: jlev
-    !INTEGER(KIND=JPIM) :: myrank,ierr,size
-    REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean
-    !-----------------------------------------------------------------------
-    IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
+INTEGER(KIND=jpim) :: jlev
+!INTEGER(KIND=JPIM) :: myrank,ierr,size
+REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean
+!-----------------------------------------------------------------------
+IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
 
-    nflevg=klev
+nflevg=klev
 
-    !     1.           SPECIFY PARAMETERS FOR MASSFLUX-SCHEME
-    !                  --------------------------------------
+!     1.           SPECIFY PARAMETERS FOR MASSFLUX-SCHEME
+!                  --------------------------------------
 
-    !     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
-    !     -------
+!     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
+!     -------
 
-    detrpen=0.96E-4_JPRB !pre Cy36r4
-    detrpen=0.80E-4_JPRB
-    detrpen=0.75E-4_JPRB  
+detrpen=0.75E-4_JPRB  
 
-    !         NOTA:AVERAGE ENTRAINMENT RATES ARE FURTHER SCALED IN
-    !              cuentr.F90 BY FUNCTION 4*(qs/qsb)**2
+!         NOTA:SHALLOW/DEEP ENTRAINMENT RATES ARE 
+!              VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
 
-    !     ENTRPEN: AVERAGE ENTRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
-    !     -------
+!     ENTRORG: ENTRAINMENT FOR POSITIVELY BUOYANT DEEP/SHALLOW CONVECTION 1/(M)
+!     -------
+!ENTRORG=1.75E-3_JPRB
+ENTRORG=1.9E-3_JPRB
 
-    !ENTRPEN=1.2E-4_JPRB
-    entrpen=0.8E-4_JPRB
-    !ENTRPEN=0.6E-4_JPRB ! KF test 29.7.2009
+!     ENTSHALP: SHALLOW ENTRAINMENT DEFINED AS ENTSHALP*ENTRORG
+ENTSHALP=2.0_JPRB
 
-    !     ENTRSCV: AVERAGE ENTRAINMENT RATE FOR SHALLOW CONVECTION (1/M)
-    !     -------
+!     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
+ENTSTPC1=0.55_JPRB
+ENTSTPC2=1.E-4_JPRB
 
-    entrscv=3.0E-4_JPRB
+!     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
+!     ------
 
-    !     ENTRMID: AVERAGE ENTRAINMENT RATE FOR MIDLEVEL CONVECTION (1/M)
-    !     -------
+entrdd =2.0E-4_JPRB
 
-    !ENTRMID=1.0E-4_JPRB !test KF 14.9.2009
-    entrmid=0.8E-4_JPRB ! orig
+!     RMFCMAX:   MAXIMUM MASSFLUX VALUE ALLOWED FOR UPDRAFTS ETC
+!     -------
 
+rmfcmax=1._jprb
 
-    !         NOTA:ORGANIZED ENTRAINMENT RATES ARE MULTIPLIED BY rg in cuascn.F90
-    !              AND VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
+!     RMFCMIN:   MINIMUM MASSFLUX VALUE (FOR SAFETY)
+!     -------
 
-    !     ENTRORG: ORGANIZED ENTRAINMENT FOR POSITIVELY BUOYANT DEEP CONVECTION 1/(RG M)
-    !     -------
-    !entrorg=2.4E-4_JPRB
-    ENTRORG=1.9E-4_JPRB  ! GZ, 2014-10-06; original value 1.8e-4
-    
-    !     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
-    !     ------
-    ! KF entrainment=detrainment and both are denotes as turbulent ones
-    ! organized entrainment at downdrafts ist calculated following Nordeng (1994)
+rmfcmin=1.e-10_JPRB
 
-    entrdd =2.0E-4_JPRB ! orig
+!     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
+!     -------
 
-    !     RMFCMAX:   MAXIMUM MASSFLUX VALUE ALLOWED FOR UPDRAFTS ETC
-    !     -------
+RMFDEPS=0.35_JPRB
 
-    rmfcmax=1._jprb
+!     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
+!     -------
 
-    !     RMFCMIN:   MINIMUM MASSFLUX VALUE (FOR SAFETY)
-    !     -------
+rdepths=2.e4_jprb
 
-    rmfcmin=1.e-10_JPRB
+!     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
+!     ------
 
-    !     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
-    !     -------
+rprcon =1.4E-3_JPRB
 
-    !RMFDEPS=0.3_JPRB
-    rmfdeps=0.35_JPRB
+!                COEFFICIENTS FOR RAIN EVAPORATION BELOW CLOUD
+!                AND MELTING
+!                ---------------------------------------------
+!     RCPECONS:  KESSLER COEFFICIENT
+!     RCUCOV:    ASSUMED CONVECTIVE CLOUD COVER
+!     RTAUMEL:   MELTING TIME SCALE
+!     RHEBC:     CRITICAL RELATIVE HUMIDITY BELOW CLOUD  FOR EVAPORATION
 
-    !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
-    !     -------
+rcucov=0.05_JPRB
+rcpecons=5.44E-4_JPRB/rg
+rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
+! rhebc=0.8_JPRB
+zrhebc_land  = 0.7_JPRB ! original IFS value: 0.7
+zrhebc_ocean = 0.8_JPRB ! original IFS value: 0.9
+!
+! resolution-dependent setting of rhebc for mesh sizes below 12.5 km
+phy_params%rhebc_land  = zrhebc_land
+phy_params%rhebc_ocean = zrhebc_ocean
+!
+IF (rsltn < 12.5E3_JPRB) THEN
+  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
+  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
+  !
+  ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
+  phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
+  phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
+ENDIF
 
-    rdepths=2.e4_jprb
+!     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
+!     OF MODEL RESOLUTION
 
-    !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
-    !     ------
+!     Cy32r1 and earlier:
+!     convective adjustment time TAU=RTAU
+!     RTAU IS 20 MINUTES FOR RESOLUTIONS HIGHER THAN TL319
+!     RTAU IS 10 MINUTES FOR RESOLUTIONS HIGHER THAN TL511
+!     RTAU IS 1 HOUR FOR ANY OTHER RESOLUTION
+!     --------------------------------------------------------
 
-    !RPRCON =1.5E-3_JPRB
-    rprcon =1.4E-3_JPRB
+!     from Cy32r3 onward:
+!     CONVECTIVE ADJUSTMENT TIME TAU=Z_cld/W_cld*rtau
+!     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
-    !                COEFFICIENTS FOR RAIN EVAPORATION BELOW CLOUD
-    !                AND MELTING
-    !                ---------------------------------------------
-    !     RCPECONS:  KESSLER COEFFICIENT
-    !     RCUCOV:    ASSUMED CONVECTIVE CLOUD COVER
-    !     RTAUMEL:   MELTING TIME SCALE
-    !     RHEBC:     CRITICAL RELATIVE HUMIDITY BELOW CLOUD  FOR EVAPORATION
+!phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
+phy_params%tau=1.0_JPRB+rsltn/75.E3_JPRB
+phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
-    rcucov=0.05_JPRB
-    rcpecons=5.44E-4_JPRB/rg
-    rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
-    ! rhebc=0.8_JPRB
-    zrhebc_land  = 0.7_JPRB ! original IFS value: 0.7
-    zrhebc_ocean = 0.8_JPRB ! original IFS value: 0.9
-    !
-    ! resolution-dependent setting of rhebc for mesh sizes below 12.5 km
-    phy_params%rhebc_land  = zrhebc_land
-    phy_params%rhebc_ocean = zrhebc_ocean
-    !
-    IF (rsltn < 12.5E3_JPRB) THEN
-      phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
-      phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
-      !
-      ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
-      phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
-      phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
-    ENDIF
-    !
-    !     NEXT VALUE IS RELATIVE SATURATION IN DOWNDRAFTS
-    !     BUT IS NO LONGER USED ( FORMULATION IMPLIES SATURATION)
-    !     -------------------------------------------------------
+! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
+! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
+               ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
+               ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
+               ! 3=    Apply CAPE modification of (2) over land only, with additional restriction to the tropics
 
-    rhcdd=1._jprb
+phy_params%tau0 = 1.0_jprb
+IF (icapdcycl >= 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
 
-    !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
-    !     OF MODEL RESOLUTION
+!     LOGICAL SWITCHES
+!     ----------------
 
-    !     Cy32r1 and earlier:
-    !     convective adjustment time TAU=RTAU
-    !     RTAU IS 20 MINUTES FOR RESOLUTIONS HIGHER THAN TL319
-    !     RTAU IS 10 MINUTES FOR RESOLUTIONS HIGHER THAN TL511
-    !     RTAU IS 1 HOUR FOR ANY OTHER RESOLUTION
-    !     --------------------------------------------------------
+lmfpen  =.TRUE.   ! deep convection
+lmfscv  =.TRUE.   ! shallow convection
+lmfmid  =.TRUE.   ! mid-level convection
+lmfdd   =.TRUE.   ! use downdrafts
+lmfit   =.FALSE.  ! updraught iteration or not
+LMFUVDIS=.TRUE.   ! use kinetic energy dissipation (addit T-tendency)
+lmfdudv =.TRUE.   ! use convective momentum transport
+!*UPG add to operations
+lmftrac =.TRUE.   ! convective chemical tracer transport
+lepcld  =.TRUE.   ! produce detrained cloud water/ice
+! to reuse in prognostic cloud scheme
 
-    !     after Cy32r1:
-    !     CONVECTIVE ADJUSTMENT TIME TAU=Z_cld/W_cld*rtau
-    !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
+!     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
+!     -------
 
-    !phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
-    phy_params%tau=1.0_JPRB+rsltn/75.E3_JPRB
-    phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
-
-    ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
-    ! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
-                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
-                   ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
-                   ! 3=    Apply CAPE modification of (2) over land only, with additional restriction to the tropics
-
-    phy_params%tau0 = 1.0_jprb
-    IF (icapdcycl >= 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
- 
-    !     LOGICAL SWITCHES
-    !     ----------------
-
-    lmfpen  =.TRUE.   ! deep convection
-    lmfscv  =.TRUE.   ! shallow convection
-    lmfmid  =.TRUE.   ! mid-level convection
-
-    lmfdd   =.TRUE.   ! use downdrafts
-    lmfit   =.FALSE.  ! updraught iteration or not
-    LMFUVDIS=.TRUE.   ! use kinetic energy dissipation (addit T-tendency)
-    lmfdudv =.TRUE.   ! use convective momentum transport
-    !*UPG add to operations
-    lmftrac =.TRUE.   ! convective chemical tracer transport
-    lepcld  =.TRUE.   ! produce detrained cloud water/ice
-    ! to reuse in prognostic cloud scheme
-
-    !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
-    !     -------
-
-    IF( rsltn<=39000 ) THEN
-      phy_params%mfcfl=3.0_JPRB
-    ELSE
-      phy_params%mfcfl=5.0_JPRB
-    ENDIF
-    rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
-    rmflia=0.0_JPRB   ! value of absolut mass flux limit
+IF( rsltn<=39000 ) THEN
+  phy_params%mfcfl=3.0_JPRB
+ELSE
+  phy_params%mfcfl=5.0_JPRB
+ENDIF
+rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
+rmflia=0.0_JPRB   ! value of absolut mass flux limit
 
 
-    !     MASSFLUX SOLVERs FOR MOMEMTUM AND TRACERS
-    !     0: EXPLICIT 0-1 SEMI-IMPLICIT >=1: IMPLICIT
-    !     -------------------------------------------
+!     MASSFLUX SOLVERs FOR MOMEMTUM AND TRACERS
+!     0: EXPLICIT 0-1 SEMI-IMPLICIT >=1: IMPLICIT
+!     -------------------------------------------
 
-    rmfsoluv=1.0_JPRB  ! mass flux solver for momentum
-    rmfsoltq=1.0_JPRB  ! mass flux solver for T and q
-    rmfsolct=1.0_JPRB  ! mass flux solver for chemical tracers
-    lmfsmooth=.FALSE.  ! Smoothing of mass fluxes top/bottom for Tracers
-    lmfwstar=.FALSE.   ! Grant w* closure for shallow convection
-    !KF
-    !LMFWSTAR=.TRUE.   ! Grant w* closure for shallow convection
+rmfsoluv=1.0_JPRB  ! mass flux solver for momentum
+rmfsoltq=1.0_JPRB  ! mass flux solver for T and q
+rmfsolct=1.0_JPRB  ! mass flux solver for chemical tracers
+lmfsmooth=.FALSE.  ! Smoothing of mass fluxes top/bottom for Tracers
+lmfwstar=.FALSE.   ! Grant w* closure for shallow convection
 
-    !     UPDRAUGHT VELOCITY PERTURBATION FOR IMPLICIT (M/S)
-    !     --------------------------------------------------
+!     UPDRAUGHT VELOCITY PERTURBATION FOR IMPLICIT (M/S)
+!     --------------------------------------------------
 
-    ruvper=0.3_JPRB
+ruvper=0.3_JPRB
 
-    phy_params%kcon1=2
-    phy_params%kcon2=2
-    phy_params%kcon3=nflevg-2
-    DO jlev=nflevg,2,-1
-      ! IF(STPRE(JLEV) > 350.E2_JPRB)NJKT1=JLEV
-      ! IF(STPRE(JLEV) >  60.E2_JPRB)NJKT2=JLEV
-      ! IF(STPRE(JLEV) > 950.E2_JPRB)NJKT3=JLEV
-      ! IF(STPRE(JLEV) > 850.E2_JPRB)NJKT4=JLEV
-      ! IF(STPRE(JLEV) > 500.E2_JPRB)NJKT5=JLEV
-      !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 350.E2_JPRB)NJKT1=JLEV
-      !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 >  60.E2_JPRB)NJKT2=JLEV
-      !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 950.E2_JPRB)NJKT3=JLEV
-      !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 850.E2_JPRB)NJKT4=JLEV
-      !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 500.E2_JPRB)NJKT5=JLEV
-      IF(pmean(jlev) > 350.e2_jprb) phy_params%kcon1=jlev
-      IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
-      IF(pmean(jlev) > 950.e2_jprb) phy_params%kcon3=jlev
-      IF(pmean(jlev) > 850.e2_jprb) phy_params%kcon4=jlev
-      IF(pmean(jlev) > 500.e2_jprb) phy_params%kcon5=jlev
-    ENDDO
-    phy_params%kcon3=MIN(nflevg-2,phy_params%kcon3)
-
-    !DO ip = 1,nproc2
-    !PRint*,'proc=', ip
-    !IF(myproc== 0) THEN
-    !print*,'myproc 0'
-    !CALL MPI_INIT(ierr)
-    !CALL MPI_COMM_RANK(MPI_COMM_WORLD,myrank,ierr)
-    !CALL MPI_COMM_SIZE(MPI_COMM_WORLD,size,ierr)
-    !PRINT*,'I am ', myrank,' of ', size
+phy_params%kcon1=2
+phy_params%kcon2=2
+phy_params%kcon3=nflevg-2
+DO jlev=nflevg,2,-1
+  ! IF(STPRE(JLEV) > 350.E2_JPRB)NJKT1=JLEV
+  ! IF(STPRE(JLEV) >  60.E2_JPRB)NJKT2=JLEV
+  ! IF(STPRE(JLEV) > 950.E2_JPRB)NJKT3=JLEV
+  ! IF(STPRE(JLEV) > 850.E2_JPRB)NJKT4=JLEV
+  ! IF(STPRE(JLEV) > 500.E2_JPRB)NJKT5=JLEV
+  !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 350.E2_JPRB)NJKT1=JLEV
+  !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 >  60.E2_JPRB)NJKT2=JLEV
+  !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 950.E2_JPRB)NJKT3=JLEV
+  !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 850.E2_JPRB)NJKT4=JLEV
+  !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 500.E2_JPRB)NJKT5=JLEV
+  IF(pmean(jlev) > 350.e2_jprb) phy_params%kcon1=jlev
+  IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
+  IF(pmean(jlev) > 950.e2_jprb) phy_params%kcon3=jlev
+  IF(pmean(jlev) > 850.e2_jprb) phy_params%kcon4=jlev
+  IF(pmean(jlev) > 500.e2_jprb) phy_params%kcon5=jlev
+ENDDO
+phy_params%kcon3=MIN(nflevg-2,phy_params%kcon3)
 
 #ifdef __GME__
-    WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
-    !WRITE(6,*)'SUCUMF: KSMAX=',KSMAX
-    WRITE(UNIT=nulout,FMT='('' COMMON YOECUMF '')')
-    WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
-      & ,'' LMFDD = '',L5,'' LMFDUDV = '',L5 &
-      & ,'' RTAU = '',E12.5,'' s-1'')') &
-      & lmfmid,lmfdd,lmfdudv,rtau
+WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
+!WRITE(6,*)'SUCUMF: KSMAX=',KSMAX
+WRITE(UNIT=nulout,FMT='('' COMMON YOECUMF '')')
+WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
+  & ,'' LMFDD = '',L5,'' LMFDUDV = '',L5 &
+  & ,'' RTAU = '',E12.5,'' s-1'')') &
+  & lmfmid,lmfdd,lmfdudv,rtau
 #endif
 
 #ifdef __ICON__
-    CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
-    !WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
-    WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
-    CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-    CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE')
-    !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-    WRITE(message_text,'(4x,l6,l6,l6,3F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
-      phy_params%rhebc_land,phy_params%rhebc_ocean
-    CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
+CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
+!WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
+WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
+CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
+CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE')
+!WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
+WRITE(message_text,'(4x,l6,l6,l6,3F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+  phy_params%rhebc_land,phy_params%rhebc_ocean
+CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
-    !ENDDO
-    !ENDIF
-    IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
+
+IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
 
   END SUBROUTINE sucumf
 
