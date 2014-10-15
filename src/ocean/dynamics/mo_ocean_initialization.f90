@@ -1734,7 +1734,7 @@ CONTAINS
   
   
   !------------------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE set_subset_ocean_vertical_layers(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     

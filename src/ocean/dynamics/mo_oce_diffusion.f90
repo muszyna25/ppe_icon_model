@@ -72,6 +72,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<Optimize:inUse>
   SUBROUTINE velocity_diffusion( patch_3D, vn_in, p_param, p_diag,p_op_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
@@ -281,7 +282,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse>
   SUBROUTINE veloc_diff_biharmonic_div_grad( patch_3D, p_param, p_diag,&
     & p_op_coeff, laplacian_vn_out)
     
@@ -444,7 +444,7 @@ CONTAINS
       DO cell_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)
           
-           z_div_grad_u(cell_index,level,blockNo)%x =  - ( &        ! take the negative div in order to avoid the negation of the laplacian
+           z_div_grad_u(cell_index,level,blockNo)%x =  -( &        ! take the negative div in order to avoid the negation of the laplacian
               & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
               & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+ &
               & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
@@ -468,14 +468,14 @@ CONTAINS
     !Step 6: Map divergence back to edges
     CALL map_cell2edges_3d( patch_3D, z_div_grad_u,laplacian_vn_out,p_op_coeff)! requires cells_oneEdgeInDomain 
 
-    ! this is not needed since we take the negative div
+!     ! this is not needed since we take the negative div
 !     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
 !       DO level = start_level, end_level
 !         DO edge_index = start_edge_index, end_edge_index
 !           
 !           laplacian_vn_out(edge_index,level,blockNo)&
-!           &=-laplacian_vn_out(edge_index,level,blockNo)
+!           &=p_param%k_veloc_h(edge_index,level,blockNo)*laplacian_vn_out(edge_index,level,blockNo)
 !  
 !         ENDDO
 !       END DO
@@ -486,7 +486,7 @@ CONTAINS
 !         write(*,*)'Biharmonic divgrad',level,maxval(laplacian_vn_out(:,level,:)),&
 !         &minval(laplacian_vn_out(:,level,:))
 !        END DO
-    ! !  CALL sync_patch_array(SYNC_E, patch_2D, laplacian_vn_out)
+     CALL sync_patch_array(SYNC_E, patch_2D, laplacian_vn_out)
   END SUBROUTINE veloc_diff_biharmonic_div_grad
   !-------------------------------------------------------------------------
 
@@ -500,7 +500,6 @@ CONTAINS
   !! @par Revision History
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  !<Optimize:inUse>
   SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, patch_3D, p_op_coeff,&
     & p_vn_dual, nabla2_vec_e,k_h )
     !
@@ -924,7 +923,7 @@ CONTAINS
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE tracer_diffusion_vertical_implicit( &
     & patch_3d,                  &
     & ocean_tracer,              &
@@ -973,7 +972,7 @@ CONTAINS
   !!
   !! The result ocean_tracer%concetration is calculated on domain_cells
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE tracer_diffusion_vertical_implicit_onBlock( &
     & patch_3d,                &
     & ocean_tracer,            &
@@ -1082,7 +1081,6 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !! Optimized ofr round-off erros, Leonidas Linardakis, MPI-M (2014)
   !------------------------------------------------------------------------
-  !<Optimize:inUse>
   SUBROUTINE velocity_diffusion_vertical_implicit( patch_3d,           &
     & velocity, a_v,                                                   &
     & operators_coefficients ) !,  &
@@ -1129,7 +1127,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !! Optimized ofr round-off erros, Leonidas Linardakis, MPI-M (2014)
   !------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE velocity_diffusion_vertical_implicit_onBlock( &
     & patch_3d,                            &
     & velocity,                            &

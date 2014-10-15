@@ -45,7 +45,7 @@ MODULE mo_oce_tracer_transport_horz
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_oce_physics
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
-    & map_edges2edges_viacell_3d_const_z, map_edges2edges_viacell_3d
+    & map_edges2edges_viacell_3d_const_z
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d, grad_fd_norm_oce_3d_onBlock
   USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, no_primal_edges
@@ -96,7 +96,7 @@ MODULE mo_oce_tracer_transport_horz
   
 CONTAINS
   !-----------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE advect_horz( patch_3d,          &
     & trac_old,            &
     & p_os,                &
@@ -146,7 +146,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  !<Optimize:inUse>
   SUBROUTINE diffuse_horz( patch_3d,          &
     & trac_old,            &
     & p_os,                &
@@ -197,7 +196,7 @@ CONTAINS
 
 
   !-----------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE advect_cell_based( patch_3d,          &
     & trac_old,            &
     & p_os,                &
@@ -312,7 +311,6 @@ CONTAINS
 
 
   !-----------------------------------------------------------------------
-  !<Optimize:inUse>
   SUBROUTINE diffuse_cell_based( patch_3d,          &
     & trac_old,            &
     & p_os,                &
@@ -391,7 +389,6 @@ CONTAINS
 
 
   !-----------------------------------------------------------------------
-  !<Optimize:inUse>
   SUBROUTINE tracer_diffusion_horz_ptp( patch_3d,          &
     & trac_old,            &
     & p_os,                &
@@ -427,9 +424,9 @@ CONTAINS
     cells_in_domain => patch_2d%cells%in_domain 
     grad_T_horz(1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e)=0.0_wp
     
-     grad_T_vec_horz(1:nproma,1:n_zlev,patch_3D%p_patch_2d(1)%nblks_c)%x(1)=0.0_wp
-     grad_T_vec_horz(1:nproma,1:n_zlev,patch_3D%p_patch_2d(1)%nblks_c)%x(2)=0.0_wp
-     grad_T_vec_horz(1:nproma,1:n_zlev,patch_3D%p_patch_2d(1)%nblks_c)%x(3)=0.0_wp  
+     grad_T_vec_horz(1:nproma,1:n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
+     grad_T_vec_horz(1:nproma,1:n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
+     grad_T_vec_horz(1:nproma,1:n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
 
     !-------------------------------------------------------------------------------
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -512,7 +509,7 @@ CONTAINS
     cells_in_domain => patch_2d%cells%in_domain
     !-------------------------------------------------------------------------------
     z_adv_flux_h (1:nproma,1:n_zlev,1:patch_2d%nblks_e)=0.0_wp
-    z_div_adv_h  (1:nproma,1:n_zlev,1:patch_2d%nblks_c)=0.0_wp
+    z_div_adv_h  (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks)=0.0_wp
 
     !Calculate tracer fluxes at edges
     !This step takes already the edge length into account
@@ -635,7 +632,7 @@ CONTAINS
     edges_in_domain => patch_2d%edges%in_domain
     cells_in_domain => patch_2d%cells%in_domain
     !-------------------------------------------------------------------------------
-    z_div_diff_h (1:nproma,1:n_zlev,1:patch_2d%nblks_c)=0.0_wp
+    z_div_diff_h (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks)=0.0_wp
     z_diff_flux_h(1:nproma,1:n_zlev,1:patch_2d%nblks_e)=0.0_wp
 
     
@@ -793,7 +790,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE flux_corr_transport_cell( patch_3d, &
     & trac_old,                                   & 
     & p_os,                                       &
@@ -1123,7 +1120,7 @@ CONTAINS
     TYPE(t_patch_3d),TARGET, INTENT(in):: patch_3d
     TYPE(t_operator_coeff)             :: p_op_coeff    
     REAL(wp), INTENT(in)               :: vn_time_weighted(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_e)
-    REAL(wp), INTENT(in)               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp), INTENT(in)               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)            :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_e)
     !
     !Local variables
@@ -1132,9 +1129,9 @@ CONTAINS
     INTEGER :: jc, level, blockNo!, edge_index!, ic,ib
     INTEGER :: i_edge, ii_e, ib_e
     REAL(wp) :: z_diff_trac    
-    REAL(wp) :: z_cellsum_mass_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: z_cellsum_tracdiff_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)    
-    REAL(wp) :: z_mflux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c,1:no_primal_edges)
+    REAL(wp) :: z_cellsum_mass_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_cellsum_tracdiff_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_mflux(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks,1:no_primal_edges)
     INTEGER, DIMENSION(:,:,:), POINTER :: cellOfEdge_idx, cellOfEdge_blk
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
@@ -1145,9 +1142,9 @@ CONTAINS
     cells_in_domain => patch_2D%cells%in_domain
     !-------------------------------------------------------------------------------
     consec_grad              (1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
-    z_cellsum_mass_flx_in    (1:nproma,1:n_zlev,1:patch_2d%nblks_c) = 0.0_wp
-    z_cellsum_tracdiff_flx_in(1:nproma,1:n_zlev,1:patch_2d%nblks_c) = 0.0_wp
-    z_mflux(1:nproma,1:n_zlev,1:patch_2d%nblks_c,1:no_primal_edges) = 0.0_wp
+    z_cellsum_mass_flx_in    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    z_cellsum_tracdiff_flx_in(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    z_mflux(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks,1:no_primal_edges) = 0.0_wp
       
     ! Set pointers to index-arrays
     ! line and block indices of two neighboring cells
@@ -1487,7 +1484,7 @@ CONTAINS
   !! - adapted to hydrostatic ocean core
   !!
   !!  mpi note: the result is not synced. Should be done in the calling method if required
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE upwind_hflux_oce( patch_3d, cell_value, edge_vn, edge_upwind_flux, opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -1573,6 +1570,7 @@ CONTAINS
   !! Peter korn, MPI-M, 2011
   !!
   !!  mpi note: the result is not synced. Should be done in the calling method if required
+!<Optimize:inUse>
   SUBROUTINE central_hflux_oce( patch_3d, cell_value, edge_vn, edge_flux )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -1817,7 +1815,7 @@ CONTAINS
   !!
   !!  mpi note: computed on domain edges. Results is not synced.
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE hflx_limiter_oce_zalesak( patch_3d,        &
     & tracer,              &
     & p_mass_flx_e,      &
@@ -2278,7 +2276,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by L.Bonaventura  (2004).
   !!
-  !<Optimize:inUse>
   FUNCTION laxfr_upflux( p_vn, p_psi1, p_psi2 )  result(p_upflux)
     !
     IMPLICIT NONE
@@ -2559,13 +2556,13 @@ CONTAINS
 ! !     & flux_horz)
 ! !     
 ! !     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-! !     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:p_patch_3d%p_patch_2d(1)%nblks_c)
+! !     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 ! !     TYPE(t_hydro_ocean_state), TARGET :: p_os
 ! !     TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
 ! !     REAL(wp), INTENT(in)                   :: k_h(:,:,:)         !horizontal mixing coeff
-! !     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:p_patch_3d%p_patch_2d(1)%nblks_c)
-! !     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:p_patch_3d%p_patch_2d(1)%nblks_c)
-! !     REAL(wp), INTENT(out)                  :: flux_horz(1:nproma,1:n_zlev,1:p_patch_3d%p_patch_2d(1)%nblks_c)
+! !     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+! !     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+! !     REAL(wp), INTENT(out)                  :: flux_horz(1:nproma,1:n_zlev,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 ! !     !
 ! !     !Local variables
 ! !     !REAL(wp) :: delta_z
@@ -2586,10 +2583,10 @@ CONTAINS
 ! !     REAL(wp) :: z_adv_flux_h2 (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_e)  ! horizontal advective tracer flux
 ! !     REAL(wp) :: z_diff_trac, z_sum_flux_diff,z_sum_tmp_mflux,z_tmp_flux, z_tmp
 ! !     !REAL(wp) :: z_difference_h(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
-! !     REAL(wp) :: z_div_adv_h  (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_c)   ! horizontal tracer divergence
-! !     REAL(wp) :: z_div_adv_h2  (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_c)   ! horizontal tracer divergence
+! !     REAL(wp) :: z_div_adv_h  (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)   ! horizontal tracer divergence
+! !     REAL(wp) :: z_div_adv_h2  (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)   ! horizontal tracer divergence
 ! !     
-! !     REAL(wp) :: z_div_diff_h (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_c)  ! horizontal tracer divergence
+! !     REAL(wp) :: z_div_diff_h (nproma,n_zlev,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)  ! horizontal tracer divergence
 ! !     REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_e) ! horizontal diffusive tracer flux
 ! !     
 ! !     REAL(wp) :: z_tflux_out(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_e)
@@ -2614,11 +2611,11 @@ CONTAINS
 ! !     z_adv_flux_low (1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
 ! !     z_adv_flux_h2 (1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
 ! !     !z_difference_h(1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
-! !     z_div_adv_h  (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
-! !     z_div_adv_h2  (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
-! !     z_div_diff_h (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
+! !     z_div_adv_h  (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)=0.0_wp
+! !     z_div_adv_h2  (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)=0.0_wp
+! !     z_div_diff_h (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)=0.0_wp
 ! !     z_diff_flux_h(1:nproma,1:n_zlev,1:p_patch%nblks_e)=0.0_wp
-! !     flux_horz    (1:nproma,1:n_zlev,1:p_patch%nblks_c)=0.0_wp
+! !     flux_horz    (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)=0.0_wp
 ! !     
 ! !     in_idx(1:nproma,1:n_zlev,1:p_patch%nblks_e,1:2) =0
 ! !     in_blk(1:nproma,1:n_zlev,1:p_patch%nblks_e,1:2) =0

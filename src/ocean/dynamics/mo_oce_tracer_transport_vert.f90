@@ -58,7 +58,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   !! mpi parallelized, sync required: trac_out
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE advect_flux_vertical( patch_3d,   &
     & trac_old,             &
     & ocean_state,          &
@@ -130,7 +130,7 @@ CONTAINS
               z_adv_flux_v (nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks),  &  ! resulting flux
               z_adv_flux_vu(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks),  &  ! upwind flux
               adpo_weight(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks),      &
-              a_v(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c))
+              a_v(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
 
     z_adv_flux_v2 (1:nproma, 1:n_zlev+1, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
 
@@ -272,15 +272,15 @@ CONTAINS
     INTEGER :: z_dolic
     !REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vertical advective tracer flux
     REAL(wp) :: z_adv_flux_v2 (nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  ! vertical advective tracer flux
-    REAL(wp) :: z_diff_flux_v(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: z_mflux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: z_consec_grad(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: z_diff_flux_v(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_mflux(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_consec_grad(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     
-    REAL(wp) :: z_limit_phi(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: z_limit_psi(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    !REAL(wp) :: z_adv_flux_high (nproma,n_zlev+1,patch_3D%p_patch_2D(1)%nblks_c)  ! vert advective tracer flux
-    REAL(wp) :: z_adv_flux_low (nproma,n_zlev+1,patch_3d%p_patch_2d(1)%nblks_c)  ! vert advective tracer flux
-    REAL(wp) :: z_limit_sigma(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: z_limit_phi(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_limit_psi(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: z_adv_flux_high (nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vert advective tracer flux
+    REAL(wp) :: z_adv_flux_low (nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)  ! vert advective tracer flux
+    REAL(wp) :: z_limit_sigma(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -289,12 +289,12 @@ CONTAINS
     patch_1d         => patch_3d%p_patch_1d(1)
     cells_in_domain  => patch_2d%cells%in_domain
     
-    z_limit_psi   (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c) = 0.0_wp
-    z_limit_sigma (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c) = 0.0_wp
-    z_mflux       (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c) = 0.0_wp
-    z_adv_flux_low(1:nproma,1:n_zlev+1,1:patch_3d%p_patch_2d(1)%nblks_c) = 0.0_wp
-    adv_flux_v(1:nproma,1:n_zlev+1,1:patch_3d%p_patch_2d(1)%nblks_c) = 0.0_wp
-    z_adv_flux_v2(1:nproma,1:n_zlev+1,1:patch_3d%p_patch_2d(1)%nblks_c) = 0.0_wp
+    z_limit_psi   (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
+    z_limit_sigma (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
+    z_mflux       (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_low(1:nproma,1:n_zlev+1,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
+    adv_flux_v(1:nproma,1:n_zlev+1,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_v2(1:nproma,1:n_zlev+1,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
     
     CALL sync_patch_array(sync_c, patch_2d, trac_old)
     
@@ -384,18 +384,18 @@ CONTAINS
     & consec_grad)
     
     TYPE(t_patch_3d),TARGET, INTENT(in):: patch_3d
-    REAL(wp), INTENT(in)               :: w_time_weighted(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp), INTENT(in)               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp), INTENT(inout)            :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp), INTENT(in)               :: w_time_weighted(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)            :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     !
     !Local variables
     INTEGER :: startIndex, endIndex
     INTEGER :: jc, jk, jb!, je!, ic,ib
     INTEGER :: i_edge, ii_e, ib_e
     REAL(wp) :: z_diff_trac
-    REAL(wp) :: z_cellsum_mass_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: z_cellsum_tracdiff_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: z_mflux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c,1:2)
+    REAL(wp) :: z_cellsum_mass_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_cellsum_tracdiff_flx_in(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: z_mflux(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks,1:2)
     INTEGER, DIMENSION(:,:,:), POINTER :: cell_of_edge_idx, cell_of_edge_blk
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
@@ -406,10 +406,10 @@ CONTAINS
     ! edges_in_domain => patch_2D%edges%in_domain
     cells_in_domain => patch_2d%cells%in_domain
     !-------------------------------------------------------------------------------
-    consec_grad              (1:nproma,1:n_zlev,1:patch_2d%nblks_c) = 0.0_wp
-    z_cellsum_mass_flx_in    (1:nproma,1:n_zlev,1:patch_2d%nblks_c) = 0.0_wp
-    z_cellsum_tracdiff_flx_in(1:nproma,1:n_zlev,1:patch_2d%nblks_c) = 0.0_wp
-    z_mflux(1:nproma,1:n_zlev,1:patch_2d%nblks_c,1:2) = 0.0_wp
+    consec_grad              (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    z_cellsum_mass_flx_in    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    z_cellsum_tracdiff_flx_in(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    z_mflux(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks,1:2) = 0.0_wp
     
     
 #ifdef __SX__
@@ -483,9 +483,9 @@ CONTAINS
     & limit_phi)
     
     TYPE(t_patch_3d),TARGET, INTENT(in):: patch_3d
-    REAL(wp), INTENT(in)               :: limit_sigma(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp), INTENT(in)               :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp), INTENT(inout)            :: limit_phi(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp), INTENT(in)               :: limit_sigma(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)               :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)            :: limit_phi(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     !
     !Local variables
     INTEGER :: startIndex, endIndex
@@ -498,7 +498,7 @@ CONTAINS
     !edges_in_domain => patch_2D%edges%in_domain
     cells_in_domain => patch_2d%cells%in_domain
     !-------------------------------------------------------------------------------
-    limit_phi(1:nproma,1:n_zlev,1:patch_2d%nblks_c) = 0.0_wp
+    limit_phi(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
     
     !SELECT CASE(limiter_type)
     !CASE(minmod)
@@ -829,7 +829,7 @@ CONTAINS
   ! - Carpenter et al. (1989), MWR, 118, 586-612
   ! - Lin and Rood (1996), MWR, 124, 2046-2070
   !
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE upwind_vflux_ppm( patch_3d, p_cc,        &
     & p_w, p_dtime, p_itype_vlimit,&
     & p_cellhgt_mc_now, cell_invheight, &
@@ -1213,7 +1213,7 @@ CONTAINS
   !------------------------------------------------------------------------
   !! Otpimized version of the third order PPM scheme
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE upwind_vflux_ppm_fast(       &
     & patch_3d, tracer,                   &
     & w, dtime, vertical_limiter_type,    &
@@ -1281,7 +1281,7 @@ CONTAINS
   !
   ! Optimized version of upwind_vflux_ppm
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE upwind_vflux_ppm_onBlock(  &
     & tracer,                            &
     & w, dtime, vertical_limiter_type,   &
@@ -1689,7 +1689,7 @@ CONTAINS
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
   !! mpi parallelized, only cells_in_domain are computed, no sync
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE v_ppm_slimiter_mo_onBlock( p_cc, p_face, p_slope, p_face_up, p_face_low, &
     & startIndex, endIndex, cells_noOfLevels )
 

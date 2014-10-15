@@ -1032,24 +1032,37 @@ CONTAINS
     END IF
     
    IF(GMRedi_configuration/=Cartesian_mixing)THEN
+   
      ALLOCATE(ocean_state_aux%slopes(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
       CALL finish(TRIM(routine), 'allocation for slopes at cells failed')
      END IF
+     ocean_state_aux%slopes    (:,:,:)%x(1)=0.0_wp
+     ocean_state_aux%slopes    (:,:,:)%x(2)=0.0_wp
+     ocean_state_aux%slopes    (:,:,:)%x(3)=0.0_wp
      ALLOCATE(ocean_state_aux%PgradTemperature_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for slopes at cells failed')
+      CALL finish(TRIM(routine), 'allocation for PgradTemperature_horz_center at cells failed')
      END IF
+     ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(1)=0.0_wp
+     ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(2)=0.0_wp
+     ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(3)=0.0_wp
+
      ALLOCATE(ocean_state_aux%PgradSalinity_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for slopes at cells failed')
+      CALL finish(TRIM(routine), 'allocation for PgradSalinity_horz_center at cells failed')
      END IF
- 
+     ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(1)=0.0_wp
+     ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(2)=0.0_wp
+     ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(3)=0.0_wp
+
+     
      CALL add_var(ocean_default_list,'DerivTemperature_vert',ocean_state_aux%DerivTemperature_vert_center,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('DerivTemperature_vert','','', DATATYPE_FLT32),&
         & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
+        ! & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
         
      CALL add_var(ocean_default_list,'DerivSalinity_vert',ocean_state_aux%DerivSalinity_vert_center,&
         & grid_unstructured_cell,&
@@ -1079,21 +1092,9 @@ CONTAINS
         
         
      ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
-     ocean_state_aux%slopes    (:,:,:)%x(1)=0.0_wp
-     ocean_state_aux%slopes    (:,:,:)%x(2)=0.0_wp
-     ocean_state_aux%slopes    (:,:,:)%x(3)=0.0_wp
      
-     ocean_state_aux%slopes_squared=0.0_wp
-     
-     ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(1)=0.0_wp
-     ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(2)=0.0_wp
-     ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(3)=0.0_wp
-     
-     ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(1)=0.0_wp
-     ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(2)=0.0_wp
-     ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(3)=0.0_wp
-     
-    ENDIF  
+!      ocean_state_aux%slopes_squared=0.0_wp
+    ENDIF
   END SUBROUTINE construct_hydro_ocean_aux
   
 !<Optimize:inUse>

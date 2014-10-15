@@ -597,11 +597,11 @@ CONTAINS
 !ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
 
       IF(tracer_index==1)THEN
-        write(0,*) "DerivTemperature_vert_center"
+!       write(0,*) "DerivTemperature_vert_center"
         tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
         tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
       ELSEIF(tracer_index==2)THEN
-        write(0,*) "DerivSalinity_vert_center"
+!       write(0,*) "DerivSalinity_vert_center"
         tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
         tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
       ENDIF

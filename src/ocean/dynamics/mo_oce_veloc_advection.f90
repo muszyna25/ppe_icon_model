@@ -67,7 +67,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!  
   !!   mpi parallelized LL
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE veloc_adv_horz_mimetic( patch_3D,        &
     & vn_old,          &
     & vn_new,          &
@@ -112,7 +112,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE veloc_adv_vert_mimetic( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
@@ -151,7 +151,7 @@ CONTAINS
   !!
   !! veloc_adv_horz_e is on edges%in_domain
   !! p_diag%vort is on all vertices
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE veloc_adv_horz_mimetic_rot( patch_3D,     &
     & vn_old,          &
     & vn_new,          &
@@ -406,7 +406,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE veloc_adv_vert_mimetic_rot( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
@@ -530,7 +530,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse>
   SUBROUTINE veloc_adv_vert_mimetic_rot_old( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D

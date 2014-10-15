@@ -179,6 +179,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M, 2011-09
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
     TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
@@ -411,17 +412,16 @@ CONTAINS
  !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
-    TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
+    TYPE(t_patch), TARGET, INTENT(in)         :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_operator_coeff)                        :: operators_coeff
+    TYPE(t_hydro_ocean_state), TARGET         :: ocean_state
+    TYPE(t_operator_coeff)                    :: operators_coeff
 
     IF(discretization_scheme == 1)THEN
 
       IF (is_restart_run()) CALL update_time_indices(1)
 
       CALL calc_scalar_product_veloc_3d( patch_3d,&
-        & ocean_state%p_prog(nold(1))%vn,&
         & ocean_state%p_prog(nold(1))%vn,&
         & ocean_state%p_diag,            &
         & operators_coeff)
@@ -478,7 +478,6 @@ CONTAINS
 
   
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE init_ocean_salinity(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_salinity(:,:,:)
@@ -537,6 +536,19 @@ CONTAINS
       CALL tracer_smoothAPE_LinearDepth(patch_3d, ocean_salinity, &
         & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
 
+
+    !------------------------------
+    CASE (220)
+
+     !CALL temperature_CollapsingDensityFront_StuhnePeltier(patch_3d, ocean_salinity)
+     !CALL temperature_CollapsingDensityFront_WeakGrad(patch_3d, ocean_salinity)
+     
+    CALL tracer_GM_test(patch_3d, ocean_salinity,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
+    !CALL de_increaseTracerVertically(patch_3d, ocean_salinity,2,12, 20,32)
+    !& decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
+
+
+
     !------------------------------
     CASE (401)
       ! assign from adhoc array values
@@ -591,7 +603,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE init_ocean_temperature(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -696,6 +707,13 @@ CONTAINS
       !  exponential temperature profile following Abernathey et al., 2011
       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
         &                                    initial_temperature_scale_depth)
+    CASE (220)
+     
+    CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
+    !CALL de_increaseTracerVertically(patch_3d, ocean_salinity,2,12, 20,32)
+    !& decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
+
+
 
     !------------------------------
     CASE (401)
@@ -744,7 +762,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE init_ocean_velocity(patch_3d, normal_velocity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: normal_velocity(:,:,:)
@@ -789,7 +806,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE init_ocean_surface_height(patch_3d, ocean_height)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_height(:,:)
@@ -1498,7 +1514,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE temperature_smoothAPE_LinearLevels(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -1553,7 +1568,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  !<Optimize:inUse>
   SUBROUTINE tracer_smoothAPE_LinearDepth(patch_3d, ocean_tracer, top_value, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1609,7 +1623,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE SST_LinearMeridional(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -1701,7 +1714,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE tracer_VerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1736,11 +1748,12 @@ CONTAINS
   !-------------------------------------------------------------------------------
   ! decrease tvertically linerarly the given tracer based on the top level value
   ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
-!<Optimize:inUse>
-  SUBROUTINE increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, bottom_value)
+  SUBROUTINE increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, bottom_value, start_level,end_level)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
     REAL(wp), INTENT(in) :: bottom_value
+    INTEGER, OPTIONAL    :: start_level
+    INTEGER, OPTIONAL    :: end_level
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1748,10 +1761,22 @@ CONTAINS
     INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: linear_increase
-
+    INTEGER    :: top_level
+    INTEGER    :: bottom_level
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
+
+   IF(PRESENT(start_level))THEN
+      top_level=start_level
+    ELSE
+      top_level=2
+    ENDIF
+    IF(PRESENT(end_level))THEN
+      bottom_level=end_level
+    ELSE
+      bottom_level=n_zlev
+    ENDIF
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
@@ -1760,7 +1785,7 @@ CONTAINS
         linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / & 
           & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
 
-        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+        DO jk = top_level, bottom_level!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &
             & = ocean_tracer(jc,jk-1,jb) + linear_increase * &
             &     patch_3d%p_patch_1d(1)%del_zlev_i(jk)
@@ -1771,12 +1796,74 @@ CONTAINS
 
   END SUBROUTINE increaseTracerVerticallyLinearly
   !-------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------
+  ! decrease tvertically linerarly the given tracer based on the top level value
+  ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
+  SUBROUTINE de_increaseTracerVertically(patch_3d, ocean_tracer,&
+  & decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    INTEGER  :: decrease_start_level
+    INTEGER :: decrease_end_level
+    INTEGER :: increase_start_level
+    INTEGER :: increase_end_level
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: linear_increase, old_max
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+
+    !decrease
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        linear_increase = 0.001_wp!(ocean_tracer(jc,decrease_start_level,jb) - 0.1_wp*ocean_tracer(jc,decrease_end_level,jb) ) / & 
+          !& (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
+
+        DO jk = decrease_start_level, decrease_end_level !n_zlev!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          ocean_tracer(jc,jk,jb) &
+            & = ocean_tracer(jc,jk,jb) - linear_increase *ocean_tracer(jc,jk,jb)
+        END DO
+        
+        DO jk = decrease_end_level,increase_start_level !n_zlev!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          ocean_tracer(jc,jk,jb) &
+            & = ocean_tracer(jc,jk,jb) 
+        END DO
+        
+        !linear_increase = 0.5_wp*(ocean_tracer(jc,decrease_start_level,jb) - 0.1_wp*ocean_tracer(jc,decrease_end_level,jb) ) / & 
+        !  & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
+       
+        DO jk = increase_end_level, increase_start_level, -1 !n_zlev!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          ocean_tracer(jc,jk,jb) &
+            & = ocean_tracer(jc,jk,jb) + linear_increase*ocean_tracer(jc,jk,jb) 
+        END DO
+        
+        
+      END DO
+    END DO
+
+    DO jk = 1, n_zlev !n_zlev!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+     write(0,*)'in',jk,maxval( ocean_tracer(:,jk,:)),minval( ocean_tracer(:,jk,:))
+      END DO
+
+stop
+
+  END SUBROUTINE de_increaseTracerVertically
+  !-------------------------------------------------------------------------------
+
 
 
   !-------------------------------------------------------------------------------
   ! decrease tvertically linerarly the given tracer based on the top level value
   ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
-!<Optimize:inUse>
   SUBROUTINE increaseTracerLevelsLinearly(patch_3d, ocean_tracer, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1811,7 +1898,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------------
   !!  exponential temperature profile following Abernathey et al., 2011
-!<Optimize:inUse>
   SUBROUTINE varyTracerVerticallyExponentially(patch_3d, ocean_tracer, bottom_value, scale_depth)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1941,6 +2027,146 @@ CONTAINS
 
   END SUBROUTINE temperature_CollapsingDensityFront_WeakGrad
   !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE tracer_GM_test(patch_3d, ocean_tracer,decrease_start_level,decrease_end_level,increase_start_level,increase_end_level)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    INTEGER :: decrease_start_level
+    INTEGER :: decrease_end_level
+    INTEGER :: increase_start_level
+    INTEGER :: increase_end_level
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: z_ldiff, z_ltrop, z_lpol
+    REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols, z_tpol_2, z_ttrop_2
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_WeakGrad'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' Collapsing density front with weaker gradient')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! Temperature profile in first layer depends on latitude only
+    ! Construct temperature profile
+    !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
+    z_ttrop = 10.0_wp      ! tropical temperature
+    z_tpol  =  5.0_wp      ! polar temperature
+    z_ttrop =  5.0_wp      ! 2011-09-02: instable stratification
+    z_tpol  = 10.0_wp      ! 2011-09-02: instable stratification
+    z_lpol  = 70.0_wp      ! polar boundary latitude of transition zone
+
+    z_ttrop = 25.0_wp      ! 2011-09-05: stable stratification
+    z_tpol  = 10.0_wp      ! 2011-09-05: stable stratification
+    !z_tdeep =  5.0_wp      ! 2011-09-05: stable stratification
+    z_ltrop = 15.0_wp      ! tropical boundary latitude of transition zone
+    z_lpol  = 60.0_wp      ! polar boundary latitude of transition zone
+    z_tdiff = z_ttrop - z_tpol
+    z_ldiff = z_lpol  - z_ltrop
+    
+    z_tpol_2=2.0_wp
+    z_ttrop_2=10.0_wp
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        lat_deg = patch_2d%cells%center(jc,jb)%lat * rad2deg
+
+        !top level
+        IF(ABS(lat_deg)>=z_lpol)THEN
+          ocean_tracer(jc,1,jb) =  z_tpol
+        ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
+
+          ocean_tracer(jc,1,jb) = z_ttrop
+
+        ELSE 
+          z_tmp = 0.5_wp*pi*((ABS(lat_deg) - z_ltrop)/z_ldiff)
+          ocean_tracer(jc,1,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
+        ENDIF
+
+        DO jk = decrease_start_level, decrease_end_level
+          !region1: high latitude
+          IF(ABS(lat_deg)>=z_lpol)THEN
+
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk-1,jb)-REAL(jk,wp)*0.1_wp
+
+          !region2: inside tropics
+          ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
+          
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk-1,jb)-REAL(jk,wp)*0.1_wp
+          !region 3 transition 
+          ELSE ! IF(ABS(lat_deg)<z_lpol .AND. ABS(lat_deg)>z_ltrop)THEN
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk-1,jb)-REAL(jk,wp)*0.1_wp
+          ENDIF
+        END DO
+        
+        DO jk = decrease_end_level+1,increase_start_level-1
+          !region1: high latitude
+          IF(ABS(lat_deg)>=z_lpol)THEN
+
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk-1,jb)-REAL(jk,wp)*0.1_wp
+
+          !region2: inside tropics
+          ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
+          
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk-1,jb)-REAL(jk,wp)*0.1_wp
+          !region 3 transition 
+          ELSE ! IF(ABS(lat_deg)<z_lpol .AND. ABS(lat_deg)>z_ltrop)THEN
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk-1,jb)-REAL(jk,wp)*0.1_wp
+          ENDIF
+        END DO
+        
+        
+        
+        
+        
+        !bottom level
+        IF(ABS(lat_deg)>=z_lpol)THEN
+        
+          ocean_tracer(jc,increase_end_level+1,jb) =  z_ttrop_2!z_tpol_2
+          
+        ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
+
+          ocean_tracer(jc,increase_end_level+1,jb) = z_tpol_2!z_ttrop_2
+
+        ELSE 
+          z_tmp = 0.5_wp*pi*((ABS(lat_deg) - z_ltrop)/z_ldiff)
+          ocean_tracer(jc,increase_end_level+1,jb) = z_ttrop_2 - 0.5_wp*z_tdiff*SIN(z_tmp)
+        ENDIF
+        DO jk = increase_end_level, increase_start_level,-1
+          !region1: high latitude
+          IF(ABS(lat_deg)>=z_lpol)THEN
+
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk+1,jb)+REAL(jk,wp)*0.01_wp
+
+          !region2: inside tropics
+          ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
+          
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk+1,jb)+REAL(jk,wp)*0.01_wp
+          !region 3 transition 
+          ELSE ! IF(ABS(lat_deg)<z_lpol .AND. ABS(lat_deg)>z_ltrop)THEN
+            ocean_tracer(jc,jk,jb) =  ocean_tracer(jc,jk+1,jb)+REAL(jk,wp)*0.01_wp
+          ENDIF
+
+        END DO
+        
+      END DO
+    END DO
+
+  END SUBROUTINE tracer_GM_test
+  !-------------------------------------------------------------------------------
+
 
 
   !-------------------------------------------------------------------------------
@@ -2701,7 +2927,6 @@ CONTAINS
   !-----------------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------------
-!<Optimize:inUse>
 !   SUBROUTINE fill_tracer_x_height(patch_3d, ocean_state)
 !     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
 !     TYPE(t_hydro_ocean_state), TARGET :: ocean_state

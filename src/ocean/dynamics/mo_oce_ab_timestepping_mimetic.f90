@@ -80,7 +80,6 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_parallel_config,           ONLY: p_test_run
   USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id ! my_process_is_mpi_parallel
   USE mo_statistics,                ONLY: global_minmaxmean
-  USE mo_physical_constants,  ONLY: rho_ref
   IMPLICIT NONE
   
   PRIVATE  
@@ -732,12 +731,9 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
     INTEGER :: start_edge_index, end_edge_index, dolic_e
     TYPE(t_patch), POINTER :: patch_2D
-    REAL(wp) :: local_coeff(nproma,n_zlev+1)
     !-----------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(n_dom)
     edges_in_domain => patch_3d%p_patch_2d(n_dom)%edges%in_domain
-    
-    local_coeff(nproma,n_zlev)=0.0_wp
     !---------------------------------------------------------------------
     ! STEP 4: calculate weighted gradient of surface height at previous timestep
     !---------------------------------------------------------------------
@@ -764,15 +760,15 @@ CONTAINS
       IF ( iswm_oce /= 1) THEN
         CALL calculate_explicit_vn_pred_DeepWater_onBlock( patch_3d, ocean_state, z_gradh_e(:),    &
         & start_edge_index, end_edge_index, blockNo)
-        local_coeff(:,:)= p_phys_param%a_veloc_v(:,:,blockNo)/rho_ref
+
         !In 3D case implicit vertical velocity diffusion is chosen
         CALL velocity_diffusion_vertical_implicit_onBlock( &
           & patch_3d,                                      &
           & ocean_state%p_diag%vn_pred(:,:,blockNo),       &
-          & local_coeff(:,:),&!p_phys_param%a_veloc_v(:,:,blockNo),           &
+          & p_phys_param%a_veloc_v(:,:,blockNo),           &
           & op_coeffs,                                     &
           & start_edge_index, end_edge_index, blockNo)
-
+        
       ELSE !( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
         CALL calculate_explicit_vn_pred_ShallowWater_onBlock( patch_3d, ocean_state, z_gradh_e(:), &
         & start_edge_index, end_edge_index, blockNo) 
@@ -1048,8 +1044,8 @@ CONTAINS
           ocean_state%p_aux%g_n(je, jk, blockNo) =&!-ocean_state%p_diag%press_grad(:,jk,:)      &
             & - ocean_state%p_diag%veloc_adv_horz(je, jk, blockNo)  &
             & - ocean_state%p_diag%veloc_adv_vert(je, jk, blockNo)  &
-            & + (1.0_wp/rho_ref)*(ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
-            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo))
+            & + ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
+            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo)
         END DO
       END DO
     ELSE ! IF(.NOT.l_staggered_timestep)THEN
@@ -1059,8 +1055,8 @@ CONTAINS
             & - ocean_state%p_diag%press_grad(je, jk, blockNo)      &
             & - ocean_state%p_diag%veloc_adv_horz(je, jk, blockNo)  &
             & - ocean_state%p_diag%veloc_adv_vert(je, jk, blockNo)  &
-            & + (1.0_wp/rho_ref)*(ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
-            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo))
+            & + ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
+            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo)
         END DO
       END DO
     ENDIF
@@ -1126,8 +1122,8 @@ CONTAINS
           ocean_state%p_aux%g_n(start_edge_index:end_edge_index, jk, blockNo) = &
             & - z_e(start_edge_index:end_edge_index,jk,blockNo)  &
             & - ocean_state%p_diag%veloc_adv_vert(start_edge_index:end_edge_index,jk,blockNo)  &
-            & + (1.0_wp/rho_ref)*(ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
-            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo))
+            & + ocean_state%p_diag%laplacian_horz(start_edge_index:end_edge_index,jk,blockNo)  &
+            & + ocean_state%p_diag%laplacian_vert(start_edge_index:end_edge_index,jk,blockNo)
         END DO
       END DO
 
@@ -1139,9 +1135,8 @@ CONTAINS
             & -ocean_state%p_diag%press_grad(start_edge_index:end_edge_index, jk, blockNo)       &
             & - z_e(start_edge_index:end_edge_index, jk, blockNo)  &
             & - ocean_state%p_diag%veloc_adv_vert(start_edge_index:end_edge_index, jk, blockNo)  &
-            & + (1.0_wp/rho_ref)*(ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
-            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo))
-            
+            & + ocean_state%p_diag%laplacian_horz(start_edge_index:end_edge_index, jk, blockNo)  &
+            & + ocean_state%p_diag%laplacian_vert(start_edge_index:end_edge_index, jk, blockNo)
         END DO
       END DO
     ENDIF

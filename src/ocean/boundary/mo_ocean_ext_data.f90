@@ -356,7 +356,6 @@ CONTAINS
 
     LOGICAL :: use_omip_forcing, use_omip_windstress, use_omip_fluxes
 
-    !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
     REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%alloc_cell_blocks)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 

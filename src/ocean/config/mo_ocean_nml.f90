@@ -208,9 +208,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
   REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity  
-  REAL(wp) :: k_tracer_dianeutral   = 1.0E+3_wp  !dianeutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
-  REAL(wp) :: k_tracer_isoneutral   = 1.0E-4_wp  !isoneutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
-  REAL(wp) :: k_tracer_GM_kappa     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
@@ -218,6 +218,8 @@ MODULE mo_ocean_nml
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
+                                        !with option HORZ_VELOC_DIFF_TYPE=3. Constanjt has no physical meaning, just trial and error.
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure                                               
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure                                                 
   LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
@@ -379,11 +381,12 @@ MODULE mo_ocean_nml
     &  l_smooth_veloc_diffusion    ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
-    &  k_tracer_dianeutral         ,    &
-    &  k_tracer_isoneutral,             &
-    &  k_tracer_GM_kappa,               &
+    &  k_tracer_dianeutral_parameter,   &
+    &  k_tracer_isoneutral_parameter,   &
+    &  k_tracer_GM_kappa_parameter,     &
     &  leith_closure,                   &
-    &  leith_closure_gamma
+    &  leith_closure_gamma,             &
+    &  biharmonic_const
 
 
   !Parameters for GM-Redi configuration
