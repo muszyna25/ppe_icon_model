@@ -24,8 +24,8 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "176"                #---experiment number---
-set EXPNUM2       "175"                #---experiment number used for score comparison---
+set EXPNUM        "182"                #---experiment number---
+set EXPNUM2       "181"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
 set LAST_DATE     20120731
