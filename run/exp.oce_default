@@ -109,7 +109,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 (( dt_file        = days_file    * day ))
 (( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
 (( outputLength   = year_output * year ))
-(( steps_per_file = 6 ))       # output intervals per file interval
+(( steps_per_file = 999 ))       # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -149,7 +149,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "PT0${hours_data}H"
   steps_per_file   = ${steps_per_file}
   output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  output_filename  = "${EXPNAME}_${ocean_grid_desc}"
   filename_format  = "<output_filename>_oceDefault_<datetime2>"
   ml_varlist       =  'group:oce_default','group:ice_default',
 /
@@ -159,7 +159,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "PT0${hours_data}H"
   steps_per_file   = ${steps_per_file}
   output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  output_filename  = "${EXPNAME}_${ocean_grid_desc}"
   filename_format  = "<output_filename>_oceDiag_<datetime2>"
   ml_varlist       =  'group:oce_diag','group:ice_diag',
 /
