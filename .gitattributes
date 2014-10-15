@@ -799,6 +799,7 @@ run/exp.oce_channel -text
 run/exp.oce_default -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_new_noland -text
+run/exp.oce_omip_0160km -text
 run/exp.oce_omip_cell -text
 run/exp.oce_r2b5 -text
 run/exp.oce_sltst -text
@@ -826,7 +827,7 @@ run/exp.test_nh3_tri_tracer_solid_body -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_oce_acc -text
-run/exp.test_oce_default -text
+run/exp.test_oce_buildbot -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
