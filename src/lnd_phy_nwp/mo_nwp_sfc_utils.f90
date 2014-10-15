@@ -1033,6 +1033,9 @@ CONTAINS
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
 
+    LOGICAL :: lmask(nproma)  ! mask array (TRUE for landpoint)
+    INTEGER :: icount         ! index list length per block
+    INTEGER :: ic
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -1045,7 +1048,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac,lmask,icount) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1247,6 +1250,27 @@ CONTAINS
 
       ! fill t_so(1) with t_s
       lnd_diag%t_so(i_startidx:i_endidx,1,jb) = lnd_diag%t_s(i_startidx:i_endidx,jb)
+
+      ! Fill t_so(2:nlev_soil+1) with SST for non-land points (fr_land <= frlnd_thrhld) 
+      ! Note that all points with fr_land > frlnd_thrhld are stored in the 
+      ! land point index list idx_lst_lp
+      !
+      ! create mask array
+      lmask(i_startidx:i_endidx) = .FALSE.
+      !
+      icount = ext_data%atm%lp_count(jb)
+      DO ic = 1, icount
+        jc = ext_data%atm%idx_lst_lp(ic,jb)
+        lmask(jc) = .TRUE.
+      ENDDO  ! ic
+      !
+      ! fill non-land points with SST
+      ! It is assured that all mixed land/water points only contain pure land temperatures
+      DO jk = 2, nlev_soil+1
+        DO jc = i_startidx, i_endidx
+          lnd_diag%t_so(jc,jk,jb) = MERGE(lnd_diag%t_so(jc,jk,jb),lnd_diag%t_s(jc,jb),lmask(jc))
+        ENDDO  ! jc
+      ENDDO  ! jk
 
     ENDDO  ! jb
 !$OMP END DO
