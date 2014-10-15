@@ -1,0 +1,117 @@
+\chapter{Mandatory input fields}
+
+Several input files are needed to perform runs of the ICON Model. 
+%
+These can be divided into three classes:
+%
+Grid files, external parameters, and initialization (analysis). The latter 
+will be described in Chapter \ref{sec_analysis}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Grid Files}
+\label{section:grid_files}
+
+In order to run ICON, it is necessary to load the horizontal grid
+information as an input para\-meter. 
+This information is stored within so-called grid files. For an ICON 
+run, at least one global grid file is required.
+For model runs with nested grids, additional files of the nested
+domains are necessary. Optionally, a reduced radiation grid for
+the global domain may be used.
+
+%
+The unstructured triangular ICON grid resulting from the grid
+generation process is represented in NetCDF format.  The most
+important data entries are
+
+\begin{itemize}
+ \item \texttt{cell} (INTEGER dimension) \\
+        number of (triangular) cells
+ \item \texttt{vertex} (INTEGER dimension) \\
+        number of triangle vertices
+ \item \texttt{edge} (INTEGER dimension) \\
+        number of triangle edges
+ \item \texttt{clon}, \texttt{clat} (double array, dimension: \#triangles, given in radians) \\
+        longitude/latitude of the triangle circumcenters
+ \item \texttt{vlon}, \texttt{vlat} (double array, dimension: \#triangle vertices, given in radians) \\
+        longitude/latitude of the triangle vertices
+ \item \texttt{elon}, \texttt{elat} (double array, dimension: \#triangle edges, given in radians) \\
+       longitude/latitude of the edge midpoints
+ \item \texttt{cell\_area} (double array, dimension: \#triangles) \\
+       triangle areas
+ \item \texttt{vertex\_of\_cell} (INTEGER array, dimensions: [3, \#triangles]) \\
+       The indices \texttt{vertex\_of\_cell(:,i)} denote the triangle vertices that belong 
+       to the triangle~\texttt{i}.
+ \item \texttt{edge\_of\_cell} (INTEGER array, dimensions: [2, \#triangles]) \\
+       The indices \texttt{edge\_of\_cell(:,i)} denote the triangle edges that belong
+       to the triangle~\texttt{i}.
+\end{itemize}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{External parameter}
+External parameters are used to describe the properties of the earth's surface. 
+These data include the orography and the land-sea-mask. Also, several parameters
+are needed to specify the dominant land use of a grid box like the soiltype
+or the plant cover fraction.
+
+The following external parameter fields are mandatory for assimilation- and forecast runs:
+
+\begin{longtable}{p{2.5cm}p{8.5cm}p{3.3cm}}
+\caption[]{Mandatory external parameter fields (in alphabetical order)}\\
+% \begin{tabular}{p{2.5cm}p{8.5cm}p{3.3cm}}
+  \toprule
+\multicolumn{1}{c}{\textbf{ShortName}}  &  \multicolumn{1}{c}{\textbf{Description}}  &  \multicolumn{1}{c}{\textbf{Data source}}\\
+\midrule
+\endfirsthead
+\caption[]{\emph{continued}}\\
+\midrule
+\endhead
+\hline \multicolumn{3}{r}{\textit{Continued on next page}} \\
+\endfoot
+\endlastfoot
+  AER\_SS12                             & Sea salt aerosol climatology (monthly fields)   &       GACP                \\
+  AER\_DUST12                           & Total soil dust aerosol climatology (monthly fields) &  GACP                \\
+  AER\_ORG12                            & Organic aerosol climatology (monthly fields)       &    GACP                \\
+  AER\_SO412                            & Total sulfate aerosol climatology (monthly fields) &    GACP                \\
+  AER\_BC12                             & Black carbon aerosol climatology (monthly fields)  &    GACP                \\
+  ALB\_DIF12                            & Shortwave ($0.3 - 5.0\, \mathrm{\mu m}$) albedo for diffuse radiation (monthly fields)&  MODIS    \\
+  ALB\_UV12                             & UV-visible ($0.3 - 0.7\, \mathrm{\mu m}$) albedo for diffuse radiation (monthly fields)& MODIS     \\
+  ALB\_NI12                             & UV-visible ($0.7 - 5.0\, \mathrm{\mu m}$) albedo for diffuse radiation (monthly fields)& MODIS     \\
+  DEPTH\_LK                             & Lake depth                                      &                           \\
+  EMIS\_RAD                             & Surface longwave (thermal) emissivity           &         GlobCover2009     \\               
+  FOR\_D (*)                            & Fraction of deciduous forest                    &                           \\
+  FOR\_E (*)                            & Fraction of evergreen forest                    &                           \\
+  FR\_LAKE                              & Lake fraction (fresh water)                     &          GlobCover2009    \\                     
+  FR\_LAND                              & Land fraction (excluding lake fraction but including glacier fraction) & GlobCover2009   \\
+  FR\_LUC                               & Landuse class fraction                          &                           \\
+  HSURF                                 & Orography height at cell centres                &          GLOBE            \\
+  LAI\_MX                               & Leaf area index in the vegetation phase         &          GlobCover2009    \\
+  NDVI\_MAX                             & Normalized differential vegetation index        &          SEAWIFS          \\
+  NDVI\_MRAT                            & proportion of monthly mean NDVI to yearly maximum (monthly fields)&  SEAWIFS \\
+  PLCOV\_MX                             & Plant covering degree in the vegetation phase   &          GlobCover2009    \\
+  ROOTDP                                & Root depth                                      &          GlobCover2009    \\
+  RSMIN                                 & Minimum stomatal resistance                     &          GlobCover2009    \\
+  SOILTYP                               & Soil type                                       &           DSMW            \\
+  SSO\_STDH                             & Standard deviation of sub-grid scale orographic height  &   GLOBE           \\
+  SSO\_THETA                            & Principal axis-angle of sub-grid scale orography &          GLOBE           \\
+  SSO\_GAMMA                            & Horizontal anisotropy of sub-grid scale orography &         GLOBE           \\
+  SSO\_SIGMA                            & Average slope of sub-grid scale orography       &           GLOBE           \\
+  T\_2M\_CL                             & Climatological 2m temperature (serves as lower boundary condition for soil model)  &  CRU climatology\\
+  Z0 (*)                                & Surface roughness length (over land)            &           GlobCover2009   \\                        
+  \bottomrule
+% \end{tabular}
+\end{longtable}
+
+Note that fields marked with (*) are not required in operational model runs. I.e.\ \texttt{FOR\_D} and \texttt{FOR\_E} are only required \emph{without} 
+tile approach, if tabulated albedo values are used instead of MODIS albedo. Similarly, the surface roughness \texttt{Z0} is only needed, 
+if the additional contribution from sub-grid scale orography is taken into account (i.e.\ for itype\_z0=1). Otherwise, land-use specific 
+roughness lengths are used, which are based on a GlobCover-based lookup table. However, due to technical reasons, all $3$ fields must be provided as 
+input, irrespective of the options chosen.
+
+\subsubsection*{Remarks on post-processing}
+Some of the external parameter fields provided by ExtPar are modified by ICON. The following fields are affected: \texttt{HSURF}, 
+\texttt{FR\_LAND}, \texttt{FR\_LAKE}, \texttt{Z0}. Thus, for consistency reasons, the modified fields should be used for post-processing tasks 
+rather than the original external parameter fields.
