@@ -1193,6 +1193,8 @@ MODULE mo_nonhydro_state
 
     INTEGER :: jt
 
+    LOGICAL :: lrestart
+
     CHARACTER(LEN=2) :: ctrc
     CHARACTER(len=4) suffix
     !--------------------------------------------------------------
@@ -1676,12 +1678,18 @@ MODULE mo_nonhydro_state
 
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
       !
+      IF (p_patch%id == 1 .AND. l_limited_area) THEN
+        lrestart = .TRUE.  ! needed for boundary nudging in this case
+      ELSE
+        lrestart = .FALSE.
+      ENDIF
+
       cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                    &
         &                   'normal wind tendency (grid refinement)', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 2, 203, ibits, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
                   & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e, lrestart=.FALSE. )
+                  & ldims=shape3d_e, lrestart=lrestart )
 
 
       ! grf_tend_mflx  p_diag%grf_tend_mflx(nproma,nlev,nblks_e)
