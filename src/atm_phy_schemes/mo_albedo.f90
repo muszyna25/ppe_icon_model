@@ -40,7 +40,7 @@ MODULE mo_albedo
     &                                lseaice, llake, isub_water, isub_lake,   &
     &                                isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
-    &                                csalb_snow_min, csalb_snow_max, csalb_p
+    &                                csalb_snow_min, csalb_snow_max, csalb_p, csalb_snow
   USE mo_physical_constants,   ONLY: tmelt, tf_salt
   USE mo_data_flake,           ONLY: albedo_whiteice_ref, albedo_blueice_ref, &
     &                                c_albice_MR, tpl_T_f, h_Ice_min_flk
@@ -184,11 +184,11 @@ CONTAINS
 
               zsnow= 0.0_wp
 
-              ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+              ! temperature-dependent minimum snow albedo over glaciers
               ! this is needed to prevent unrealistically low albedos over Antarctica
-              IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+              IF (ext_data%atm%lc_class_t(jc,jb,jt) == ext_data%atm%i_lc_snow_ice) THEN
                 t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
-                zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+                zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*csalb_snow
               ELSE
                 zminsnow_alb = csalb_snow_min
               ENDIF
@@ -231,11 +231,11 @@ CONTAINS
 
               zsnow= 0.0_wp
 
-              ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
+              ! temperature-dependent minimum snow albedo over glaciers
               ! this is needed to prevent unrealistically low albedos over Antarctica
-              IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+              IF (ext_data%atm%lc_class_t(jc,jb,jt) == ext_data%atm%i_lc_snow_ice) THEN
                 t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
-                zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
+                zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*csalb_snow
               ELSE
                 zminsnow_alb = csalb_snow_min
               ENDIF
