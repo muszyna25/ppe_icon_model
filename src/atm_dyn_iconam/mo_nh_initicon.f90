@@ -362,7 +362,6 @@ MODULE mo_nh_initicon
     CALL deallocate_ifs_atm (initicon)
     CALL deallocate_ifs_sfc (initicon)
 
-
     ! close first guess and analysis files and corresponding inventory lists
     ! 
     IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
@@ -570,7 +569,9 @@ MODULE mo_nh_initicon
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
     CALL read_dwdfg_atm (p_patch, p_nh_state)
-    CALL read_dwdana_atm(p_patch, p_nh_state)
+
+    IF(lread_ana) &   
+     CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
     ! merge first guess with DA analysis and 
@@ -610,7 +611,9 @@ MODULE mo_nh_initicon
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
     CALL read_dwdfg_atm (p_patch, p_nh_state)
-    CALL read_dwdana_atm(p_patch, p_nh_state)
+
+    IF(lread_ana) &   
+     CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
     ! Compute DA increments in terms of the NH set 
@@ -653,9 +656,10 @@ MODULE mo_nh_initicon
     ! read DWD first guess and analysis for surface/land
     ! 
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
-    CALL read_dwdana_sfc(p_patch, p_lnd_state)
-
-
+ 
+    IF(lread_ana) &   
+     CALL read_dwdana_sfc(p_patch, p_lnd_state)
+   
     ! get SST from first soil level t_so (for sea and lake points)
     ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
@@ -693,7 +697,9 @@ MODULE mo_nh_initicon
     ! read DWD first guess and analysis for surface/land
     ! 
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
-    CALL read_dwdana_sfc(p_patch, p_lnd_state)
+
+    IF(lread_ana) &   
+      CALL read_dwdana_sfc(p_patch, p_lnd_state)
 
 
     ! Add increments to time-shifted first guess in one go.
@@ -1845,10 +1851,18 @@ MODULE mo_nh_initicon
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
-      CALL read_2d_1lev_1time(stream_id, onCells, TRIM(psvar), &
-        &                     fill_array=initicon(jg)%atm_in%psfc)
-      CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
-        &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+
+      IF (init_mode == MODE_COSMODE) THEN
+        CALL read_2d_1time(stream_id, onCells, TRIM(psvar), &
+          &                     fill_array=initicon(jg)%atm_in%psfc)
+        CALL read_2d_1time(stream_id, onCells, TRIM(geop_ml_var), &
+          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+      ELSE
+        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(psvar), &
+          &                     fill_array=initicon(jg)%atm_in%psfc)
+        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
+          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+      END IF
 
 
       ! Allocate and read in vertical coordinate tables
@@ -2663,7 +2677,7 @@ MODULE mo_nh_initicon
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
-      IF(lread_ana .AND. (my_process_is_stdio()) ) THEN 
+      IF(my_process_is_stdio()) THEN 
         CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
       ENDIF   ! p_io
 
