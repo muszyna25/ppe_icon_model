@@ -76,8 +76,9 @@ add_link_file $ext_data_path/extpar_${gridname}.nc  extpar_${gridname}.nc
 
 #INITIAL DATA
 init_data_path=$LAMDATA/INIT_germany
-add_link_file $init_data_path/1250/init_${gridname}_2013040900.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $init_data_path/1250/init_${gridname}_2013040900.nc dwdFG_R2B11_DOM01.nc
+init_date=2013040900
+add_link_file $init_data_path/1250/init_NEW_${gridname}_${init_date}.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/1250/init_NEW_${gridname}_${init_date}.nc dwdFG_R2B11_DOM01.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -218,54 +219,87 @@ lsq_high_ord      = 2
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
- n0_mtgrm          = 0
- ninc_mtgrm        = 50   ! meteogram output interval (in terms of time steps)
+ n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = 50            ! meteogram output interval (steps)
  ldistributed      = .false.
- stationlist_tot   =  51.97,   4.93, 'Cabauw',
-                      50.95,   6.41, 'JOYCE_n',
-                      50.94,   6.41, 'JOYCE_cn3',
-                      50.93,   6.41, 'JOYCE_cn2',
-                      50.92,   6.41, 'JOYCE_cn1',
-                      50.91,   6.41, 'JOYCE_c',
-                      50.90,   6.41, 'JOYCE_cs1',
-                      50.89,   6.41, 'JOYCE_cs2',
-                      50.88,   6.41, 'JOYCE_cs3',
-                      50.87,   6.41, 'JOYCE_s',
-                      50.91,   6.43, 'JOYCE_ce1',
-                      50.91,   6.45, 'JOYCE_ce2',
-                      50.91,   6.47, 'JOYCE_ce3',                       
-                      50.91,   6.49, 'JOYCE_e',
-                      50.91,   6.39, 'JOYCE_cw1',
-                      50.91,   6.37, 'JOYCE_cw2',
-                      50.91,   6.35, 'JOYCE_cw3',
-                      50.91,   6.33, 'JOYCE_w', 
+ stationlist_tot   =  50.91,   6.41, 'JOYCE',             ! Lat,Lon
+                      50.90,   6.41, 'JOYCE01S',
+                      50.89,   6.41, 'JOYCE02S',
+                      50.88,   6.41, 'JOYCE03S',
+                      50.87,   6.41, 'JOYCE04S',
+                      50.92,   6.41, 'JOYCE01N',
+                      50.93,   6.41, 'JOYCE02N',
+                      50.94,   6.41, 'JOYCE03N',
+                      50.95,   6.41, 'JOYCE04N',
+                      50.91,   6.42, 'JOYCE01E',
+                      50.91,   6.43, 'JOYCE02E',
+                      50.91,   6.44, 'JOYCE03E',
+                      50.91,   6.45, 'JOYCE04E',
+                      50.91,   6.40, 'JOYCE01W',
+                      50.91,   6.39, 'JOYCE02W',
+                      50.91,   6.38, 'JOYCE03W',
+                      50.91,   6.37, 'JOYCE04W',
+                      50.92,   6.42, 'JOYCE01NE',
+                      50.93,   6.43, 'JOYCE02NE',
+                      50.94,   6.44, 'JOYCE03NE',
+                      50.95,   6.45, 'JOYCE04NE',
+                      50.90,   6.42, 'JOYCE01SE',
+                      50.89,   6.43, 'JOYCE02SE',
+                      50.88,   6.44, 'JOYCE03SE',
+                      50.87,   6.45, 'JOYCE04SE',
+                      50.92,   6.40, 'JOYCE01NW',
+                      50.93,   6.39, 'JOYCE02NW',
+                      50.94,   6.38, 'JOYCE03NW',
+                      50.95,   6.37, 'JOYCE04NW',
+                      50.90,   6.40, 'JOYCE01SW',
+                      50.89,   6.39, 'JOYCE02SW',
+                      50.88,   6.38, 'JOYCE03SW',
+                      50.87,   6.37, 'JOYCE04SW',
                       51.66,   12.94,'Melpitz_c',
                       52.17,  14.12, 'Lindenberg'
 /
-!&output_nml
-! output_start     = "${start_date}"
-! output_end       = "${end_date}"
-! output_interval  = "PT01H"
-! file_interval    = "P01D"
-! include_last     = .TRUE.
-! output_filename  = '${EXPNAME}_ll'
-! ml_varlist       = 'w','pres','pres_sfc','u','v','temp','theta_v','qv','qc','qr','tkvh',
-!                     'umfl_s','lhfl_s','shfl_s','clc','t_g'
-! remap            = 1
-! reg_lon_def      =  6.,0.01,15.
-! reg_lat_def      = 48.,0.01, 53.
-! output_grid      = .TRUE.
-!/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT03H"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'prog_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres','rho','pres_msl','theta_v'
+ output_grid      = .TRUE.
+/
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT01H"
  file_interval    = "P01D"
  include_last     = .TRUE.
- output_filename  = '${EXPNAME}'
- ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'theta_v','rho','exner',
-                     'qv','qc','qr','group:pbl_vars','gz0','group:phys_tendencies',
-                     'group:rad_vars','vn','umfl_s','vmfl_s'
+ output_filename  = 'pbl_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'group:pbl_vars','umfl_s','vmfl_s'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT03H"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'rad_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'group:rad_vars'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT03H"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'phy_tend'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'ddt_temp_radsw','ddt_temp_radlw','ddt_temp_turb','ddt_u_turb','ddt_v_turb'
  output_grid      = .TRUE.
 /
 &output_nml
@@ -275,18 +309,32 @@ lsq_high_ord      = 2
  file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'cloud_diag'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars'
  output_grid      = .TRUE.
 /
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT30M"
+ output_interval  = "PT01H"
  file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'land_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'group:land_vars','t_s','t_seasfc','group:snow_vars'
  output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT06H"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'pl_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ pl_varlist       = 'vor', 'div'
+ p_levels         = 30000,40000,50000,60000,80000,100000 
+ output_grid      = .FALSE.
 /
 &extpar_nml
  itopo          = 1
