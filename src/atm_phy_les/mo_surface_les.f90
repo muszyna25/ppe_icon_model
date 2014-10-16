@@ -1,4 +1,4 @@
-!>
+!!>
 !! mo_surface_les
 !!
 !! Surface calculations for les physics using Businger Dyer relationship
@@ -74,9 +74,6 @@ MODULE mo_surface_les
   !Parameters for surface parameterizations from COSMO docs
   REAL(wp), PARAMETER :: beta_10 = 0.042_wp
   REAL(wp), PARAMETER :: h_10    = 10._wp
-  REAL(wp), PARAMETER :: B       = 5._wp 
-  REAL(wp), PARAMETER :: C       = 5._wp 
-  REAL(wp), PARAMETER :: D       = 5._wp 
   REAL(wp), PARAMETER :: zh_max  = 0.1_wp
 
   !Parameters for RICO case
@@ -596,7 +593,7 @@ MODULE mo_surface_les
  
 
      z01 = alpha0 * wind**2 / ( (1._wp/beta_10) + LOG(h/h_10)/akt )**2
-     !z02 = ( alpha0 * wind**2 * ABS(RIB) )**1.5_wp / (C * SQRT(grav*h))
+     !z02 = ( alpha0 * wind**2 * ABS(RIB) )**1.5_wp / (5 * SQRT(grav*h))
 
      !gz = MAX(z01, z02) 
      gz = z01
@@ -605,7 +602,7 @@ MODULE mo_surface_les
 
   !>
   !! stability_function_mom
-  !! Taken from COSMO docs
+  !! Taken from COSMO docs and Holstag & Boville 1992 
   !!------------------------------------------------------------------------
   FUNCTION stability_function_mom(RIB, hz0, tc) RESULT(stab_fun)
      REAL(wp), INTENT(IN) :: RIB, hz0, tc
@@ -613,13 +610,17 @@ MODULE mo_surface_les
      REAL(wp) :: stab_fun, hz0_fac
  
      IF(RIB.GE.0._wp)THEN
-       stab_fun = 1._wp / ( 1._wp + 2._wp*B*RIB/SQRT(1._wp+D*RIB) ) 
+       !Cosmo
+       !stab_fun = 1._wp / ( 1._wp + 10._wp*RIB/SQRT(1._wp+5*RIB) ) 
+
+       !H&B
+       stab_fun = 1._wp / ( 1._wp + 10._wp*RIB*(1._wp+8._wp*RIB) ) 
      ELSE
        hz0_fac = ( hz0**(1._wp/3._wp) - 1._wp )**1.5_wp
        !for water surface (z0/h)**(1/3)<<1 giving hz0_fac=SQRT(h/z0)
        !Generally it is explicitly written for water surface but i don't
        !see any reason to do that.
-       stab_fun = 1._wp + 2._wp*B*ABS(RIB)/(1._wp + 3._wp*B*C*tc*hz0_fac*SQRT(ABS(RIB)))
+       stab_fun = 1._wp + 10._wp*ABS(RIB)/(1._wp + 75._wp*tc*hz0_fac*SQRT(ABS(RIB)))
      END IF 
         
   END FUNCTION stability_function_mom
@@ -632,13 +633,17 @@ MODULE mo_surface_les
      REAL(wp) :: stab_fun, hzh_fac
  
      IF(RIB.GE.0._wp)THEN
-       stab_fun = 1._wp / ( 1._wp + 3._wp*B*RIB*SQRT(1._wp+D*RIB) ) 
+       !Cosmo
+       !stab_fun = 1._wp / ( 1._wp + 15._wp*RIB*SQRT(1._wp+5*RIB) ) 
+      
+       !H&B
+       stab_fun = 1._wp / ( 1._wp + 10._wp*RIB*(1._wp+8._wp*RIB) ) 
      ELSE
        hzh_fac = ( hzh**(1._wp/3._wp) - 1._wp )**1.5_wp
        !for water surface (zh/h)**(1/3)<<1 giving hzh_fac=SQRT(h/zh)
        !Generally it is explicitly written for water surface but i don't
        !see any reason to do that.
-       stab_fun = 1._wp + 2._wp*B*ABS(RIB)/(1._wp + 3._wp*B*C*tc*hzh_fac*SQRT(ABS(RIB)))
+       stab_fun = 1._wp + 15._wp*ABS(RIB)/(1._wp + 75._wp*tc*hzh_fac*SQRT(ABS(RIB)))
      END IF 
   END FUNCTION stability_function_heat
 
