@@ -1650,7 +1650,7 @@ MODULE mo_nh_initicon
     INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
     TYPE(t_stream_id) :: stream_id
-    INTEGER :: ist
+    INTEGER :: ist, psvar_ndims, geopvar_ndims
 
     CHARACTER(LEN=10) :: psvar 
 
@@ -1735,6 +1735,13 @@ MODULE mo_nh_initicon
           psvar = 'LNPS'
         ENDIF
 
+        !Find out the dimension of psvar for reading purpose
+        IF (nf_inq_varid(ncid, TRIM(psvar), varid) == nf_noerr) THEN
+          CALL nf(nf_inq_varndims(ncid,varid,psvar_ndims), routine)
+        ELSE
+          CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' is mising')
+        ENDIF
+
         !
         ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
         !
@@ -1745,6 +1752,14 @@ MODULE mo_nh_initicon
         ELSE
           CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
         ENDIF
+
+        !Find out the dimension of geop_ml_var for reading purpose
+        IF (nf_inq_varid(ncid, TRIM(geop_ml_var), varid) == nf_noerr) THEN
+          CALL nf(nf_inq_varndims(ncid,varid,geopvar_ndims), routine)
+        ELSE
+          CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' is mising')
+        ENDIF
+
 
         !
         ! Check if rain water (QR) is provided as input
@@ -1789,10 +1804,12 @@ MODULE mo_nh_initicon
         mpi_comm = p_comm_work
       ENDIF
 
-      CALL p_bcast(nlev_in,   p_io, mpi_comm)
-      CALL p_bcast(lread_qs,  p_io, mpi_comm)
-      CALL p_bcast(lread_qr,  p_io, mpi_comm)
-      CALL p_bcast(lread_vn,  p_io, mpi_comm)
+      CALL p_bcast(nlev_in,       p_io, mpi_comm)
+      CALL p_bcast(lread_qs,      p_io, mpi_comm)
+      CALL p_bcast(lread_qr,      p_io, mpi_comm)
+      CALL p_bcast(lread_vn,      p_io, mpi_comm)
+      CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
+      CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
@@ -1810,6 +1827,8 @@ MODULE mo_nh_initicon
 
       ! allocate data structure
       CALL allocate_ifs_atm(jg, p_patch(jg)%nblks_c, initicon)
+
+        CALL message('HERE:','surface pressure var '//TRIM(psvar)//' is mising')
 
       ! start reading atmospheric fields
       !
@@ -1850,20 +1869,26 @@ MODULE mo_nh_initicon
       ELSE
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
-
-
-      IF (init_mode == MODE_COSMODE) THEN
+     
+      IF (psvar_ndims==2)THEN
         CALL read_2d_1time(stream_id, onCells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
-        CALL read_2d_1time(stream_id, onCells, TRIM(geop_ml_var), &
-          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
-      ELSE
+      ELSEIF(psvar_ndims==3)THEN
         CALL read_2d_1lev_1time(stream_id, onCells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
-          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+      ELSE
+        CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
       END IF
 
+      IF (geopvar_ndims==2)THEN
+        CALL read_2d_1time(stream_id, onCells, TRIM(geop_ml_var), &
+          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+      ELSEIF(geopvar_ndims==3)THEN
+        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
+          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+      ELSE
+        CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
+      END IF
 
       ! Allocate and read in vertical coordinate tables
       !
