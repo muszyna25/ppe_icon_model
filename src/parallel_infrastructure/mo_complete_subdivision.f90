@@ -35,8 +35,9 @@ MODULE mo_complete_subdivision
 
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
-    &                              setup_comm_gather_pattern, t_comm_gather_pattern, t_scatterPattern, makeScatterPattern, &
+    &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
     &                              ASSIGNMENT(=), delete_comm_gather_pattern
+  USE mo_scatter_pattern,    ONLY: t_scatterPattern, makeScatterPattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e

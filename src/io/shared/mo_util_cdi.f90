@@ -20,7 +20,8 @@ MODULE mo_util_cdi
 
   USE mo_kind,               ONLY: wp, sp, dp, i8
   USE mo_exception,          ONLY: finish
-  USE mo_communication,      ONLY: idx_no, blk_no, t_scatterPattern
+  USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_scatter_pattern,    ONLY: t_scatterPattern
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_run_config,         ONLY: msg_level
