@@ -14,6 +14,9 @@
 #     land-sea-mask, fortran program psiread
 #   - convert badk to NETCDF format using grid description file
 #   - simple plot using NCL with shell-script nclsh
+#  2014/10:
+#   - u_vint_acc on input; new code numbers: wet_c=100, u_vint=200; level of wet_c is surface
+#     chlevel,6,0 - for level1=6m (40 levels) only - not essential
 #          
 
 set -e
@@ -24,9 +27,9 @@ set -e
 #   R2B04-r180x90 and R2B05-r360x180 match well
 
 ### input parameter
-avgfile=${1}             #  file including wet_c and average of u_vint
+avgfile=${1}             #  file including wet_c and average of u_vint_acc
 resol=${2:-r180x90}      #  default resolution: 2x2 degrees, 180x90 gridpoints
-filestr=${3:-$(basename $1)}         #  pattern index for filenames
+filestr=${3:-$1}         #  pattern index for filenames
 weightfile=${4}          #  optional weights for interpolation
 
 # Default name of input file is avg.$filestr
@@ -55,24 +58,26 @@ nlat=${resol#*x}
 
 echo "PSI: Working on files: input: $avgfile ; output: $outfile ; plot: $plotfile"
 
-# select wet_c (lsm at surface) and u_vint (vertical integral of u)
+# select wet_c (lsm at surface) and u_vint_acc (vertical integral of u)
 #  - do interpolation if neither inpfile nor outfile is available
 #  - sellevidx: select first level index at surface
 if [ ! -s "$inpfile.nc" ] && [ ! -s "$outfile.nc" ]; then
   echo "PSI -> no result file available, do interpolation"
   if [ -z "$weightfile" ]; then
-    echo "PSI -> weightfile is not given! Use remapcon for u_vint and remapnn for wet_c ..."
-    #cdo -P 8 remapdis,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
-    cdo -P 8 setmisstoc,0.0 -remapcon,$resol -selvar,u_vint $avgfile xsrc.${resol}_uint.nc
-    cdo -P 8 remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile xsrc.${resol}_wetc.nc
+    echo "PSI -> weightfile is not given! Use remapcon for u_vint_acc and remapnn for wet_c ..."
+    #cdo -P 8 remapdis,$resol -selvar,u_vint_acc $avgfile xsrc.${resol}_uint.nc
+    cdo -P 8 setmisstoc,0.0 -remapcon,$resol -selvar,u_vint_acc $avgfile xsrc.${resol}_uint.nc
+    cdo -P 8 remapnn,$resol -chlevel,6,0 -sellevidx,1 -selvar,wet_c $avgfile xsrc.${resol}_wetc.nc
     #cdo merge xsrc.${resol}_wetc.nc xsrc.${resol}_uint.nc $inpfile.nc
     cdo merge xsrc.${resol}_uint.nc xsrc.${resol}_wetc.nc $inpfile.nc  # -O
     # Memory fault in r2b5?
-    #cdo -P 8 merge -remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile -selvar,u_vint $avgfile $inpfile.nc
+    #cdo -P 8 merge -remapnn,$resol  -selvar,wet_c -sellevidx,1 $avgfile -selvar,u_vint_acc $avgfile $inpfile.nc
     rm xsrc.${resol}_wetc.nc xsrc.${resol}_uint.nc
   else
     echo "PSI -> weightfile is given:'$weightfile'. Use remap ..."
-    cdo -P 8 remap,$resol,$weightfile -selvar,u_vint,wet_c, $avgfile $inpfile.nc
+    #cdo -P 8 remap,$resol,$weightfile -selvar,u_vint_acc,wet_c, $avgfile $inpfile.nc
+    echo " needs two weightfiles for remapcon and remapnn - not yet available! - exit"
+    exit
   fi
 else
   echo "PSI -> Use input for the psi-computation:'$inpfile.nc'"
@@ -88,7 +93,7 @@ echo "PSI -> cdo -v griddes $inpfile.nc > griddes.$resol"
 cdo griddes $inpfile.nc > griddes.$resol
 echo "PSI -> cdo -v -f srv copy $inpfile.nc $inpfile.srv"
 cdo -f srv copy $inpfile.nc $inpfile.srv
-#rm $inpfile.nc
+rm $inpfile.nc
 
 cat > scr-psiread.f90 <<EOF
 !-------------------------------------------------------------------------  
@@ -134,6 +139,27 @@ REAL               :: wet_c(nlon,nlat)          ! slm
 psi_reg(:,:)    = 0.0
 z_uint_reg(:,:) = 0.0
 
+! test calculation - Pacific; note that first row is at Antarctica
+! latitude  ~  50S = 40 north of SP
+! longitude ~ 270E = 90W
+jy = 1 + 40*nlat/180
+jx = 1 + 270*nlat/360
+
+
+! (1) barotropic system - done in ICON ocean model:
+!     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
+! u_vint(:,:)     = 0.0_wp
+! DO jb = all_cells%start_block, all_cells%end_block
+!   CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+!   DO jk = 1, n_zlev
+!     DO jc = i_startidx, i_endidx
+!       delta_z = v_base%del_zlev_m(jk)
+!       IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + h(jc,jb)
+!       u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
+!     END DO
+!   END DO
+! END DO
+
 ! (2) read barotropic system: after cdo merge above, now read first uint then wet_c
 
   open (11,file="$inpfile.srv", form='unformatted')
@@ -141,9 +167,13 @@ z_uint_reg(:,:) = 0.0
 
   read (11) isrvu
   write (*,*) isrvu
+  isrvu(1)=200
   read (11) z_uint_reg(:,:)
+! write(*,*) 'jx=',jx,' jy=',jy,' read uvint=',z_uint_reg(jx,jy)
 
   read (11) isrv
+  write (*,*) isrv
+  isrv(1)=100
   read (11) wet_c(:,:)
 
   write(80) (isrv(jb),jb=1,8)
@@ -151,15 +181,24 @@ z_uint_reg(:,:) = 0.0
 
 
   ! (3) calculate meridional integral on regular grid starting from north pole:
+
   DO jlat = nlat-1, 1, -1
     z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat+1)
   END DO
+  ! DO jlat = 2, nlat
+  !   z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat-1)
+  ! END DO
+  write(*,*) 'jx=',jx,' jy=',jy,' int. uvint=',z_uint_reg(jx,jy)
 
   ! (4) calculate stream function: scale with length of meridional resolution:
+
   erad = 6.371229e6                 !  earth's radius [m]
   pi   = 3.141592653
   z_lat_dist = pi/real(nlat)*erad   !  z_lat_dist = dlat* pi*R/180 ; dlat=180/nlat
 
+  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
+  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
+  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
   ! multiply with -1: Gulf/Kuroshio and ACC positive
   psi_reg(:,:) = -z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
 
@@ -175,12 +214,15 @@ EOF
 echo "PSI -> compile and run program scr-psiread.x"
 gfortran -o scr-psiread.x scr-psiread.f90
 ./scr-psiread.x
-rm scr-psiread.* $inpfile.srv
+rm $inpfile.srv  #scr-psiread.*
 if [ "$resol" == "r180x90" ] ; then rm $inpfile.nc; fi
 
 # convert back to netcdf
 echo "PSI -> cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc"
-cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc
+# for u_vint_acc and wet_c code number is not 260=4, but now both have 255 on input,
+#    100/200 on fortran output
+#cdo -f nc -g griddes.$resol chvar,var4,psi -chvar,var1,wet_c $outfile.srv $outfile.nc
+cdo -f nc -g griddes.$resol chvar,var200,psi -chvar,var100,wet_c $outfile.srv $outfile.nc
 rm $outfile.srv griddes.$resol
 
 fi  #  run fortran program
@@ -189,9 +231,8 @@ fi  #  run fortran program
 
 echo "PSI -> plot using icon_plot.ncl:"
 nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
-  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=png \
-  -maskName=wet_c -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 -tStrg='r11413 dtime=1h' \
-  -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels > /dev/null
+  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps -maskName=wet_c \
+  -plotLevs=-150 -100,-80,-60,-50,-40,-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30,40,50,80,100,150 -withLineLabels > /dev/null
 
 # nclsh $ICONPLOT \
 #   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \
@@ -200,15 +241,17 @@ nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
 
 # -mapLLC=-77,20 -mapURC=-70,35 #north-atlantic gyre
 #  -mapLLC=120,10 -mapURC=160,40 # japanise WBC
-# -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels
-# -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels
+# -plotLevs=-150,-100,-75,-50,-30,-20,-15,-10,-5,0,5,10,15,20,30,50,75,100,150 -withLineLabels \
+# -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels \
+# -plotLevs=-100,-80,-60,-50,-40,-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30,40,50,80,100 -withLineLabels \
+# -plotLevs=-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150 -withLineLabels > /dev/null
 # -maxView \
+# -colormap=OceanLakeLandSnow \
 
-# -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15
+# -selMode=manual -minVar=-150 -maxVar=150 -numLevs=15 \
+# -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15 \
 # -maskName=wet_c -selMode=manual -minVar=-240 -maxVar=210 -numLevs=15 \
 # -maskName=wet_c -selMode=manual -minVar=-100 -maxVar=100 -numLevs=20 \
 
 exit
-
-# -selMode=halflog -scaleLimit=1
 
