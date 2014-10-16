@@ -91,7 +91,8 @@ MODULE mo_ext_data_state
     &                              ZA_LAKE_BOTTOM
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters, makeInputParameters, deleteInputParameters
-  USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==)
+  USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==), uuid_unparse,  &
+    &                              uuid_string_length
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
@@ -1565,11 +1566,14 @@ CONTAINS
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
 
-    CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16) ! uuidOfHGrid contained in the
-                                                             ! extpar file
-    TYPE(t_uuid)            :: extpar_uuidOfHGrid            ! same, but converted to TYPE(t_uuid)
+    CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16)  ! uuidOfHGrid contained in the
+                                                              ! extpar file
+    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! same, but converted to TYPE(t_uuid)
 
-    LOGICAL                 :: lmatch                        ! for comparing UUIDs
+    CHARACTER(len=uuid_string_length) :: grid_uuid_unparsed   ! unparsed grid uuid (human readable)
+    CHARACTER(len=uuid_string_length) :: extpar_uuid_unparsed ! same for extpar-file uuid
+
+    LOGICAL                 :: lmatch                         ! for comparing UUIDs
 
     INTEGER                 :: cdiGridID
 
@@ -1615,7 +1619,15 @@ CONTAINS
       !
       ! --- compare UUID of horizontal grid file with UUID from extpar file
       lmatch = (p_patch(jg)%grid_uuid == extpar_uuidOfHGrid)
+
       IF (.NOT. lmatch) THEN
+        CALL uuid_unparse(p_patch(jg)%grid_uuid, grid_uuid_unparsed)
+        CALL uuid_unparse(extpar_uuidOfHGrid   , extpar_uuid_unparsed)
+        WRITE(message_text,'(a,a)') 'uuidOfHgrid from gridfile: ', TRIM(grid_uuid_unparsed)
+        CALL message(routine,message_text)
+        WRITE(message_text,'(a,a)') 'uuidOfHgrid from extpar file: ', TRIM(extpar_uuid_unparsed)
+        CALL message(routine,message_text)
+
         WRITE(message_text,'(a)') 'Extpar file and horizontal grid file do not match!'
         CALL finish(routine, TRIM(message_text))
       ENDIF      
