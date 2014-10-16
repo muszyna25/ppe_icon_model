@@ -93,7 +93,7 @@ echo "PSI -> cdo -v griddes $inpfile.nc > griddes.$resol"
 cdo griddes $inpfile.nc > griddes.$resol
 echo "PSI -> cdo -v -f srv copy $inpfile.nc $inpfile.srv"
 cdo -f srv copy $inpfile.nc $inpfile.srv
-rm $inpfile.nc
+#rm $inpfile.nc
 
 cat > scr-psiread.f90 <<EOF
 !-------------------------------------------------------------------------  
@@ -109,7 +109,6 @@ cat > scr-psiread.f90 <<EOF
 !   ignore vertical dimension
 !
 ! TODO: diffuse from ocean to land, cut land points
-! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 !! 
 PROGRAM psiread
 
@@ -229,10 +228,11 @@ fi  #  run fortran program
 
 # plot with nclsh:
 
-echo "PSI -> plot using icon_plot.ncl:"
+echo "PSI -> plot using icon_plot.ncl, filename is $outfile.nc:"
 nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools \
-  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps -maskName=wet_c \
-  -plotLevs=-150 -100,-80,-60,-50,-40,-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30,40,50,80,100,150 -withLineLabels > /dev/null
+  -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=eps -maskName=wet_c -selMode=manual \
+  -selMode=manual -minVar=-150 -maxVar=150 \
+  -plotLevs=-150,-100,-80,-60,-50,-40,-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30,40,50,80,100,150 -withLineLabels > /dev/null
 
 # nclsh $ICONPLOT \
 #   -iFile=$outfile.nc -oFile=$plotfile -varName=psi -timeStep=0 -oType=ps \
