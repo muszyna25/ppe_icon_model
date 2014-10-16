@@ -616,6 +616,17 @@ CONTAINS
       ENDDO
     ENDIF
 
+    ! Provisional fix to get rid of isolated extremely cold points in parallel routine (2014-10-16)
+    ! This is applied only to the lowest prognostic soil layer, i.e. ke_soil
+    DO i = istarts, iends
+      IF (MIN(t_so_now(i,ke_soil+1),t_so_now(i,ke_soil-1)) - t_so_now(i,ke_soil) > 5._ireals) THEN
+        t_so_now(i,ke_soil) = MIN(t_so_now(i,ke_soil+1),t_so_now(i,ke_soil-1)) - 5._ireals
+      ENDIF
+      IF (t_so_now(i,ke_soil) - MAX(t_so_now(i,ke_soil+1),t_so_now(i,ke_soil-1)) > 5._ireals) THEN
+        t_so_now(i,ke_soil) = MAX(t_so_now(i,ke_soil+1),t_so_now(i,ke_soil-1)) + 5._ireals
+      ENDIF
+    ENDDO
+
     ! Ensure that w_so_ice stays within 5% of its equilibrium value
     ! In addition, it must not exceed w_so
     IF(lmelt .AND. lmelt_var) THEN
