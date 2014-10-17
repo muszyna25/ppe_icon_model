@@ -95,7 +95,7 @@ CONTAINS
 
     ! do status output
     !
-    IF (my_process_is_stdio()) THEN
+    IF (((z_nplev > 0) .OR. (z_nzlev > 0) .OR. (z_nilev > 0)) .AND. (my_process_is_stdio())) THEN
       WRITE (0,'(a)')      " "
       WRITE (0,'(a,i0)') " Output on pressure/height levels and/or isentropes: domain ", jg
       IF (z_nplev > 0) THEN

@@ -375,11 +375,13 @@ CONTAINS
     ! Note that on the compute PEs we must call this *before* the
     ! initialization of the vertical interpolation,
     ! "pp_scheduler_init"
-    CALL collect_requested_ipz_levels()
-    DO jg = 1, n_dom
-      CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
-        &                     p_patch(jg)%nblks_c)
-    ENDDO   
+    IF (output_mode%l_nml) THEN
+      CALL collect_requested_ipz_levels()
+      DO jg = 1, n_dom
+        CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
+          &                     p_patch(jg)%nblks_c)
+      ENDDO
+    END IF
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
