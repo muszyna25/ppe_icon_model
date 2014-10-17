@@ -43,7 +43,8 @@ MODULE mo_sea_ice
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
-    &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature
+    &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
+    &                               i_Qio_type
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_oce_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
@@ -1874,7 +1875,13 @@ CONTAINS
         !!Delhsnow  (cell,block) = Delhsnow(cell, block) + snowiceave (cell, block)  
 
         ! Calculate heat input through formerly ice covered and through open water areas
-        heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block) * ice% conc(cell,:,block))
+        IF (3 == i_Qio_type) THEN
+          ! If the whole heat from the ice is used to melt the ice, the scaling
+          ! with the ice concentration has to be skipped here
+          heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block))
+        ELSE
+          heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block) * ice% conc(cell,:,block))
+        END IF
         heatOceW(cell,block) = ( atmos_fluxes%SWnetw(cell,block)                       &
           &         + atmos_fluxes%LWnetw(cell,block) + atmos_fluxes%sensw(cell,block)+     &
           &                 atmos_fluxes%latw(cell,block) )*(1.0_wp-sum(ice%conc(cell,:,block)))

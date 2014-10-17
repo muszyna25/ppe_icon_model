@@ -158,7 +158,7 @@ CONTAINS
     ENDIF
 
 
-    IF (i_Qio_type < 1 .OR. i_Qio_type > 2) THEN
+    IF (i_Qio_type < 1 .OR. i_Qio_type > 3) THEN
       CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
     END IF
 
