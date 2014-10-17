@@ -186,12 +186,99 @@ CONTAINS
     REAL(wp) :: faccld1d(kproma,0:nlayers),faccld2d(kproma,0:nlayers)
     REAL(wp) :: facclr1d(kproma,0:nlayers),facclr2d(kproma,0:nlayers)
     REAL(wp) :: faccmb1d(kproma,0:nlayers),faccmb2d(kproma,0:nlayers)
+    !--------------------------------------------------------------------------
+    ! Maximum/Random cloud overlap variables
+    ! for upward radiative transfer
+    !  facclr2  fraction of clear radiance from previous layer that needs to
+    !           be switched to cloudy stream
+    !  facclr1  fraction of the radiance that had been switched in the previous
+    !           layer from cloudy to clear that needs to be switched back to
+    !           cloudy in the current layer
+    !  faccld2  fraction of cloudy radiance from previous layer that needs to
+    !           be switched to clear stream
+    !  faccld1  fraction of the radiance that had been switched in the previous
+    !           layer from clear to cloudy that needs to be switched back to
+    !           clear in the current layer
+    ! for downward radiative transfer
+    !  facclr2d fraction of clear radiance from previous layer that needs to
+    !           be switched to cloudy stream
+    !  facclr1d fraction of the radiance that had been switched in the previous
+    !           layer from cloudy to clear that needs to be switched back to
+    !           cloudy in the current layer
+    !  faccld2d fraction of cloudy radiance from previous layer that needs to
+    !           be switched to clear stream
+    !  faccld1d fraction of the radiance that had been switched in the previous
+    !           layer from clear to cloudy that needs to be switched back to
+    !           clear in the current layer
+    !--------------------------------------------------------------------------
 
     REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, oldclr, oldcld, &
       & rad, cldsrc, radmod
 
     INTEGER :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers)
+
+    ! ------- Definitions -------
+    ! input
+    !    nlayers                      ! number of model layers
+    !    ngptlw                       ! total number of g-point subintervals
+    !    nbndlw                       ! number of longwave spectral bands
+    !    ncbands                      ! number of spectral bands for clouds
+    !    secdiff                      ! diffusivity angle
+    !    wtdiff                       ! weight for radiance to flux conversion
+    !    pavel                        ! layer pressures (mb)
+    !    tavel                        ! layer temperatures (k)
+    !    tz                           ! level (interface) temperatures(mb)
+    !    tbound                       ! surface temperature (k)
+    !    cldfrac                      ! layer cloud fraction
+    !    taucloud                     ! layer cloud optical depth
+    !    itr                          ! integer look-up table index
+    !    icldlyr                      ! flag for cloudy layers
+    !    iclddn                       ! flag for cloud in column at any layer
+    !    semiss                       ! surface emissivities for each band
+    !    reflect                      ! surface reflectance
+    !    bpade                        ! 1/(pade constant)
+    !    tau_tbl                      ! clear sky optical depth look-up table
+    !    exp_tbl                      ! exponential look-up table for transmittance
+    !    tfn_tbl                      ! tau transition function look-up table
+
+    ! local
+    !    atrans                       ! gaseous absorptivity
+    !    atot                         ! combined gaseous and cloud absorptivity
+    !    odclr                        ! clear sky (gaseous) optical depth
+    !    odcld                        ! cloud optical depth
+    !    odtot                        ! optical depth of gas and cloud
+    !    tfacgas                      ! gas-only pade factor, used for planck fn
+    !    tfactot                      ! gas and cloud pade factor, used for planck fn
+    !    bbdgas                       ! gas-only planck function for downward rt
+    !    bbugas                       ! gas-only planck function for upward rt
+    !    bbdtot                       ! gas and cloud planck function for downward rt
+    !    bbutot                       ! gas and cloud planck function for upward calc.
+    !    gassrc                       ! source radiance due to gas only
+    !    radlu                        ! spectrally summed upward radiance 
+    !    radclru                      ! spectrally summed clear sky upward radiance 
+    !    urad                         ! upward radiance by layer
+    !    clrurad                      ! clear sky upward radiance by layer
+    !    radld                        ! spectrally summed downward radiance 
+    !    radclrd                      ! spectrally summed clear sky downward radiance 
+    !    drad                         ! downward radiance by layer
+    !    clrdrad                      ! clear sky downward radiance by layer
+    !    d_radlu_dt                   ! spectrally summed upward radiance 
+    !    d_radclru_dt                 ! spectrally summed clear sky upward radiance 
+    !    d_urad_dt                    ! upward radiance by layer
+    !    d_clrurad_dt                 ! clear sky upward radiance by layer
+
+    ! output
+    !    totuflux                     ! upward longwave flux (w/m2)
+    !    totdflux                     ! downward longwave flux (w/m2)
+    !    fnet                         ! net longwave flux (w/m2)
+    !    totuclfl                     ! clear sky upward longwave flux (w/m2)
+    !    totdclfl                     ! clear sky downward longwave flux (w/m2)
+    !    fnetc                        ! clear sky net longwave flux (w/m2)
+    !    dtotuflux_dt                 ! change in upward longwave flux (w/m2/k)
+    !                                 ! with respect to surface temperature
+    !    dtotuclfl_dt                 ! change in clear sky upward longwave flux (w/m2/k)
+    !     
 
     ! Local variables for cloud / no cloud index lists
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
