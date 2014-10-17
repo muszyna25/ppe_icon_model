@@ -63,7 +63,7 @@ raw-datafields which are listed in Table \ref{table_extpar_raw}. For a more deta
 the reader is referred to the \emph{User and Implementation Guide} of Extpar.
 
 \begin{longtable}{p{6.5cm}p{6cm}p{1.8cm}}
-\caption[]{List of raw datasets from which the ICON external parameter fields are derived.}\label{table_extpar_raw}\\
+\caption[]{Raw datasets from which the ICON external parameter fields are derived.}\label{table_extpar_raw}\\
   \toprule
 \textbf{Dataset} &\textbf{Source} &\textbf{Resolution} \\
 \midrule
@@ -81,10 +81,10 @@ Globcover 2009                                         &  ESA                   
 %GLCC land use                                          &  USGS                       &  30''  \\
 %DSMW Digital Soil Map of the World                     &  FAO                        &  5'    \\
 HWSD Harmonized World Soil Database                    &  FAO/IIASA/ISRIC/ISSCAS/JRC &  30''  \\
-NDVI Climatotology, SEAWiFS                            &  NASA/GSFC                  &  2.5'  \\
+NDVI Climatotology, SeaWiFS                            &  NASA/GSFC                  &  2.5'  \\
 CRU near surface climatology                           &  CRU University of East Anglia & $0.5^{\circ}$  \\
 Aerosol Optical thickness                              &  NASA/GISS \newline (Global Aerosol Climatology Project)   &  $4x5^{\circ}$ \\
-Global lake database (GLDB)                            &  DWD/RSHU/MeteoFrance       &  30''  \\
+GLDB Global lake database                              &  DWD/RSHU/MeteoFrance       &  30''  \\
 MODIS albedo                                           &  NASA                       &  5'    \\
 \bottomrule
 \end{longtable}
@@ -122,8 +122,8 @@ Note that these are mandatory input fields for assimilation- and forecast runs.
   FR\_LUC                               & Landuse class fraction                          &                           \\
   HSURF                                 & Orography height at cell centres                &        GLOBE              \\
   LAI\_MX                               & Leaf area index in the vegetation phase         &        GlobCover 2009     \\
-  NDVI\_MAX                             & Normalized differential vegetation index        &        SEAWIFS            \\
-  NDVI\_MRAT                            & proportion of monthly mean NDVI to yearly maximum (monthly fields)&  SEAWIFS \\
+  NDVI\_MAX                             & Normalized differential vegetation index        &        SeaWiFS            \\
+  NDVI\_MRAT                            & proportion of monthly mean NDVI to yearly maximum (monthly fields)&  SeaWiFS \\
   PLCOV\_MX                             & Plant covering degree in the vegetation phase   &        GlobCover 2009     \\
   ROOTDP                                & Root depth                                      &        GlobCover 2009     \\
   RSMIN                                 & Minimum stomatal resistance                     &        GlobCover 2009     \\
