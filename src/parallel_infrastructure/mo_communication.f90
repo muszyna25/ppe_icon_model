@@ -32,10 +32,11 @@ MODULE mo_communication
 !
 !
 USE mo_impl_constants, ONLY: SUCCESS
+USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
+     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, p_pe, p_io, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
      & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
@@ -67,6 +68,8 @@ PUBLIC :: reorder_comm_gather_pattern
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
+
+PUBLIC :: t_scatterPattern, makeScatterPattern, deleteScatterPattern
 
 PUBLIC :: ASSIGNMENT(=)
 !
@@ -3269,30 +3272,11 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
   IF (ALLOCATED(collector_buffer_i)) DEALLOCATE(collector_buffer_i)
 END SUBROUTINE two_phase_gather
 
-END MODULE mo_communication
-
-!>
-!! This should be a part of mo_communication, but the intel compiler is acting up on that,
-!! so it needs to remain a module of its own until the intel compiler is fixed.
-MODULE mo_scatter_pattern
-    USE mo_impl_constants, ONLY: SUCCESS
-    USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
-    USE mo_scatter_pattern_scatter, ONLY: t_scatterPatternScatter
-    USE mo_exception, ONLY: finish
-    IMPLICIT NONE
-
-PUBLIC :: t_scatterPattern, makeScatterPattern, deleteScatterPattern
-
-PRIVATE
-
-    CHARACTER(*), PARAMETER :: modname = "mo_scatter_pattern"
-
-CONTAINS
-
     !-------------------------------------------------------------------------------------------------------------------------------
     !> Factory method for t_scatterPattern. Destroy with deleteScatterPattern().
     !-------------------------------------------------------------------------------------------------------------------------------
     FUNCTION makeScatterPattern(loc_arr_len, glb_index, communicator)
+        USE mo_scatter_pattern_scatter
         IMPLICIT NONE
         CLASS(t_scatterPattern), POINTER :: makeScatterPattern
         INTEGER, INTENT(IN) :: loc_arr_len, glb_index(:), communicator
@@ -3305,4 +3289,6 @@ CONTAINS
         CALL makeScatterPattern%construct(loc_arr_len, glb_index, communicator)
     END FUNCTION makeScatterPattern
 
-END MODULE mo_scatter_pattern
+END MODULE mo_communication
+
+
