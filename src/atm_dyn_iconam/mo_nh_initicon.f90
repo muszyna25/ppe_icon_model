@@ -1828,8 +1828,6 @@ MODULE mo_nh_initicon
       ! allocate data structure
       CALL allocate_ifs_atm(jg, p_patch(jg)%nblks_c, initicon)
 
-        CALL message('HERE:','surface pressure var '//TRIM(psvar)//' is mising')
-
       ! start reading atmospheric fields
       !
       CALL read_3d_1time(stream_id, onCells, 'T', fill_array=initicon(jg)%atm_in%temp)
