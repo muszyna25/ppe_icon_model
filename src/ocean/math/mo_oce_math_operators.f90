@@ -88,7 +88,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE map_edges2vert_3D(patch_2D, vn, edge2vert_coeff_cc, vn_dual)
     
     TYPE(t_patch), TARGET, INTENT(in)       :: patch_2D
@@ -138,7 +138,7 @@ CONTAINS
   
   
   !-------------------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_3D( psi_c, patch_3D, grad_coeff, grad_norm_psi_e)
     
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
@@ -186,7 +186,7 @@ CONTAINS
   !!Boundary handling for triangles by P. Korn (2009)
   !!
   !!  mpi note: the result is on edges_in_domain.
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_3D_onblock( psi_c, patch_3D, grad_coeff, grad_norm_psi_e, &
     & start_edge_index, end_edge_index, blockNo)
     
@@ -242,7 +242,7 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE div_oce_3D_mlevels_onTriangles( vec_e, patch_3D, div_coeff, div_vec_c, opt_start_level, opt_end_level, &
     & subset_range)
     
@@ -308,6 +308,7 @@ CONTAINS
   ! sea, sea_boundary, boundary (edges only), land_boundary, land =
   !  -2,      -1,         0,                  1,             2
   !This information is stored inside the divergence coefficients.
+!<Optimize:inUse>
   SUBROUTINE div_oce_3D_onTriangles_onBlock( vec_e, patch_3D, div_coeff, div_vec_c, &
     & blockNo, start_index, end_index, start_level, end_level)
 
@@ -366,7 +367,7 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE div_oce_3D_mlevels( vec_e, patch_3D, div_coeff, div_vec_c, opt_start_level, opt_end_level, &
     & subset_range)
     
@@ -480,7 +481,6 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !!
-  !<Optimize:inUse>
   SUBROUTINE div_oce_3D_1level( vec_e, patch_2D, div_coeff, div_vec_c,  &
     & level, subset_range)
     
@@ -536,6 +536,7 @@ CONTAINS
   ! sea, sea_boundary, boundary (edges only), land_boundary, land =
   !  -2,      -1,         0,                  1,             2
   !This information is stored inside the divergence coefficients.
+!<Optimize:inUse>
   SUBROUTINE div_oce_2D_onTriangles_onBlock( vec_e, patch_2D, div_coeff, div_vec_c,  &
     & level, blockNo, start_index, end_index)
 
@@ -569,6 +570,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE div_oce_2D_onTriangles_onBlock_sp( vec_e, patch_2D, div_coeff, div_vec_c,  &
     &  blockNo, start_index, end_index)
 
@@ -649,7 +651,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_2D_3D( psi_c, patch_2D, grad_coeff, grad_norm_psi_e, subset_range)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,alloc_cell_blocks)
@@ -703,7 +705,7 @@ CONTAINS
   !! Boundary handling for triangles by P. Korn (2009)
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_2D_onBlock(psi_c,  patch_2D, grad_coeff, grad_norm_psi_e, start_index, end_index, blockNo)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
@@ -741,6 +743,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   ! the same as grad_fd_norm_oce_2D_3D_sp in single precisison
+!<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_2D_3D_sp( psi_c, patch_2D, grad_coeff, grad_norm_psi_e, subset_range)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     REAL(sp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,alloc_cell_blocks)
@@ -796,7 +799,7 @@ CONTAINS
   !!
   !! mpi note: the results is not synced. should be done by the calling method if necessary
   !!     vn, vn_dual must have been synced on level 2 (in_domain + 1)
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE rot_vertex_ocean_3D( patch_3D, vn, vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
@@ -921,6 +924,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
+!<Optimize:inUse>
   SUBROUTINE verticalDeriv_vec_midlevel_on_block(patch_3d, vec_in, vertDeriv_vec,start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
@@ -961,6 +965,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
+!<Optimize:inUse>
   SUBROUTINE verticalDeriv_scalar_midlevel_on_block(patch_3d, scalar_in, vertDeriv_scalar, start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
@@ -993,11 +998,11 @@ CONTAINS
   !-------------------------------------------------------------------------
   
    !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE verticalDiv_scalar_midlevel( patch_3d, scalar_in, vertDiv_scalar, subset_range)
     TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3D
-    REAL(wp), INTENT(in)                 :: scalar_in(nproma, n_zlev, patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp), INTENT(inout)              :: vertDiv_scalar(nproma, n_zlev, patch_3D%p_patch_2D(1)%nblks_c)    ! out
+    REAL(wp), INTENT(in)                 :: scalar_in(nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)              :: vertDiv_scalar(nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)    ! out
     TYPE(t_subset_range), TARGET, OPTIONAL :: subset_range
 
     INTEGER :: blockNo,start_level,jk
@@ -1037,6 +1042,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
+!<Optimize:inUse>
   SUBROUTINE verticalDiv_scalar_midlevel_on_block(patch_3d, scalar_in, vertDiv_scalar, start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
@@ -1189,6 +1195,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<Optimize:inUse>
   SUBROUTINE calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp, inTopCellThickness)
     !SUBROUTINE calculate_thickness( p_patch_3D, ocean_state, p_ext_data, ice_hi)
     !
@@ -1200,7 +1207,7 @@ CONTAINS
     !
     ! Type containing external data
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    !REAL(wp), INTENT(IN)                      :: ice_hi(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    !REAL(wp), INTENT(IN)                      :: ice_hi(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
@@ -1217,6 +1224,11 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     
     INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
+    INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index
+    INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
+    INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
+    INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
+    
     REAL(wp) :: top_vn_1, top_vn_2, integrated_vn
     REAL(wp), POINTER :: top_coeffs(:,:,:), integrated_coeffs(:,:,:), sum_to_2D_coeffs(:,:,:)
     REAL(wp), POINTER :: cell_thickness(:,:,:), edge_thickness(:,:,:)
@@ -1461,33 +1473,77 @@ CONTAINS
     top_coeffs        => operators_coefficients%edge2edge_viacell_coeff_top
     integrated_coeffs => operators_coefficients%edge2edge_viacell_coeff_integrated
     sum_to_2D_coeffs  => operators_coefficients%edge2edge_viacell_coeff_all
-!ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je, cell_1_index, cell_1_block, &
-!ICON_OMP cell_2_index, cell_2_block, cell_thickness_1, cell_thickness_2) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je, cell_1_index, cell_1_block,  &
+!ICON_OMP cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, &
+!ICON_OMP edge_2_1_index, edge_2_2_index, edge_2_3_index, edge_1_1_block, edge_1_2_block, &
+!ICON_OMP edge_1_3_block, edge_2_1_block, edge_2_2_block, edge_2_3_block) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, blockNo, edge_StartIndex, edge_EndIndex)
       DO je = edge_StartIndex, edge_EndIndex
-        
+
         IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
-          
+
           ! get the two cells of the edge
           cell_1_index = patch_2D%edges%cell_idx(je,blockNo,1)
           cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
           cell_2_index = patch_2D%edges%cell_idx(je,blockNo,2)
           cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
-          cell_thickness_1 = cell_thickness(cell_1_index, 1, cell_1_block)
-          cell_thickness_2 = cell_thickness(cell_2_index, 1, cell_2_block)
-          
-          sum_to_2D_coeffs(1, je, blockNo) = top_coeffs(1, je, blockNo) * cell_thickness_1 + integrated_coeffs(1, je, blockNo)
-          sum_to_2D_coeffs(2, je, blockNo) = top_coeffs(2, je, blockNo) * cell_thickness_1 + integrated_coeffs(2, je, blockNo)
-          sum_to_2D_coeffs(3, je, blockNo) = top_coeffs(3, je, blockNo) * cell_thickness_1 + integrated_coeffs(3, je, blockNo)
-          sum_to_2D_coeffs(4, je, blockNo) = top_coeffs(4, je, blockNo) * cell_thickness_2 + integrated_coeffs(4, je, blockNo)
-          sum_to_2D_coeffs(5, je, blockNo) = top_coeffs(5, je, blockNo) * cell_thickness_2 + integrated_coeffs(5, je, blockNo)
-          sum_to_2D_coeffs(6, je, blockNo) = top_coeffs(6, je, blockNo) * cell_thickness_2 + integrated_coeffs(6, je, blockNo)
-          
+!           cell_thickness_1 = cell_thickness(cell_1_index, 1, cell_1_block)
+!           cell_thickness_2 = cell_thickness(cell_2_index, 1, cell_2_block)
+
+          ! get the six edges of the two cells
+          edge_1_1_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 1)
+          edge_1_2_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 2)
+          edge_1_3_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 3)
+          edge_2_1_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 1)
+          edge_2_2_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 2)
+          edge_2_3_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 3)
+          edge_1_1_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 1)
+          edge_1_2_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 2)
+          edge_1_3_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 3)
+          edge_2_1_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
+          edge_2_2_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
+          edge_2_3_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
+
+!           sum_to_2D_coeffs(1, je, blockNo) = top_coeffs(1, je, blockNo) * cell_thickness_1 + integrated_coeffs(1, je, blockNo)
+!           sum_to_2D_coeffs(2, je, blockNo) = top_coeffs(2, je, blockNo) * cell_thickness_1 + integrated_coeffs(2, je, blockNo)
+!           sum_to_2D_coeffs(3, je, blockNo) = top_coeffs(3, je, blockNo) * cell_thickness_1 + integrated_coeffs(3, je, blockNo)
+!
+!           sum_to_2D_coeffs(4, je, blockNo) = top_coeffs(4, je, blockNo) * cell_thickness_2 + integrated_coeffs(4, je, blockNo)
+!           sum_to_2D_coeffs(5, je, blockNo) = top_coeffs(5, je, blockNo) * cell_thickness_2 + integrated_coeffs(5, je, blockNo)
+!           sum_to_2D_coeffs(6, je, blockNo) = top_coeffs(6, je, blockNo) * cell_thickness_2 + integrated_coeffs(6, je, blockNo)
+
+          ! now we ues the edge thickeness instead of the cell thickeness for the top layer
+
+          sum_to_2D_coeffs(1, je, blockNo) = &
+            & top_coeffs(1, je, blockNo) * edge_thickness(edge_1_1_index, 1, edge_1_1_block) &
+            & + integrated_coeffs(1, je, blockNo)
+
+          sum_to_2D_coeffs(2, je, blockNo) = &
+            & top_coeffs(2, je, blockNo) * edge_thickness(edge_1_2_index, 1, edge_1_2_block) &
+            & + integrated_coeffs(2, je, blockNo)
+
+          sum_to_2D_coeffs(3, je, blockNo) = &
+            & top_coeffs(3, je, blockNo) * edge_thickness(edge_1_3_index, 1, edge_1_3_block) &
+            & + integrated_coeffs(3, je, blockNo)
+
+           sum_to_2D_coeffs(4, je, blockNo) = &
+            & top_coeffs(4, je, blockNo) * edge_thickness(edge_2_1_index, 1, edge_2_1_block) &
+            & + integrated_coeffs(4, je, blockNo)
+
+          sum_to_2D_coeffs(5, je, blockNo) = &
+            & top_coeffs(5, je, blockNo) * edge_thickness(edge_2_2_index, 1, edge_2_2_block) &
+            & + integrated_coeffs(5, je, blockNo)
+
+          sum_to_2D_coeffs(6, je, blockNo) = &
+            & top_coeffs(6, je, blockNo) * edge_thickness(edge_2_3_index, 1, edge_2_3_block) &
+            & + integrated_coeffs(6, je, blockNo)
+
         ENDIF
       END DO
     END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_DO
+
     
     IF (select_solver == select_restart_mixedprecision_gmres) THEN
 !ICON_OMP WORKSHARE
@@ -1591,7 +1647,6 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
   SUBROUTINE check_cfl_horizontal(normal_velocity,inv_dual_edge_length,timestep,edges,threshold, &
     & cfl_diag, stop_on_violation, output)
     REAL(wp),POINTER :: normal_velocity(:,:,:)
@@ -1631,7 +1686,6 @@ CONTAINS
     DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_horizontal
   
-  !<Optimize:inUse>
   SUBROUTINE check_cfl_vertical(vertical_velocity, thicknesses, timestep, cells, threshold, &
     & cfl_diag, stop_on_violation, output)
     REAL(wp),POINTER :: vertical_velocity(:,:,:), thicknesses(:,:,:)
@@ -1672,7 +1726,6 @@ CONTAINS
     DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_vertical
   
-  !<Optimize:inUse>
   SUBROUTINE check_cfl_threshold(maxcfl,threshold,orientation, stop_on_violation)
     REAL(wp),INTENT(in)          :: maxcfl, threshold
     CHARACTER(LEN=4), INTENT(in) :: orientation

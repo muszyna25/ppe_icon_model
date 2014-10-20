@@ -85,7 +85,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_ocean_forcing(p_patch, p_sfc_flx, var_list)
     !
     TYPE(t_patch),   INTENT(IN)    :: p_patch
@@ -419,7 +419,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE destruct_ocean_forcing(p_sfc_flx)
     TYPE(t_sfc_flx), INTENT(INOUT) :: p_sfc_flx
     !
@@ -451,6 +451,7 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
+!<Optimize:inUse>
   SUBROUTINE init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
 
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
@@ -653,7 +654,7 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, atmos_fluxes, fu10)
     !
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
@@ -687,7 +688,7 @@ CONTAINS
     END IF
   END SUBROUTINE init_ocean_forcing
 
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE set_windstress_u(subset, mask, threshold, windstress, &
       &                       amplitude, zonal_waveno, meridional_waveno, center, length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -701,7 +702,7 @@ CONTAINS
       & forcing_windstress_u_type, amplitude, zonal_waveno, meridional_waveno, center, length)
   END SUBROUTINE set_windstress_u
 
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE set_windstress_v(subset, mask, threshold, windstress, &
       &                       amplitude, zonal_waveno, meridional_waveno, center, length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -741,7 +742,7 @@ CONTAINS
 !     &            field_y(:,:))
 ! END SUBROUTINE update_from_cartesian_coords_for_cells
 
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE set_windstress(subset, mask, threshold, windstress, &
       &                     control, amplitude, zonal_waveno, meridional_waveno,center,length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -788,6 +789,7 @@ CONTAINS
 
   END SUBROUTINE set_windstress
 
+!<Optimize:inUse>
   SUBROUTINE set_windspeed(subset, mask, threshold, windspeed, windstress_u, windstress_v, control, amplitude)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER,  INTENT(IN)             :: mask(:,:)
@@ -943,7 +945,6 @@ CONTAINS
     field_2d(:,:) = MERGE(amplitude * COS(meridional_waveno*pi*(lon(:,:)-center)/length),0.0_wp,mask(:,:) <= threshold)
   END SUBROUTINE meridional_periodic_around_center_zero_at_pols
 
-!<Optimize_Used>
   SUBROUTINE zonal_periodic_zero_at_pols(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER, INTENT(IN)              :: mask(:,:)

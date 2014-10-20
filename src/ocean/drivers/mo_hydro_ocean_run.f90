@@ -85,7 +85,7 @@ MODULE mo_hydro_ocean_run
 CONTAINS
 
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, is_restart)
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_operator_coeff)            :: operators_coefficients
@@ -97,7 +97,6 @@ CONTAINS
       ! Prepare ocean_state%p_prog, since it is needed by the sea ice model (e.g. wind stress computation)
       IF ( i_sea_ice > 0 )         &
         & CALL calc_scalar_product_veloc_3d( patch_3d,  &
-        & ocean_state%p_prog(nnew(1))%vn,             &
         & ocean_state%p_prog(nnew(1))%vn,             &
         & ocean_state%p_diag,                         &
         & operators_coefficients)
@@ -122,7 +121,7 @@ CONTAINS
   !! Developed by Peter Korn, MPI-M  (2008-2010).
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
@@ -205,7 +204,6 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
       CALL calc_scalar_product_veloc_3d( patch_3d,  &
-        & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_diag,                     &
         & operators_coefficients)
@@ -364,6 +362,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice)
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
@@ -412,7 +411,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE update_intermediate_tracer_vars(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     REAL(wp), POINTER ::  tmp(:,:,:)

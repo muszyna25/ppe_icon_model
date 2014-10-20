@@ -251,7 +251,7 @@ MODULE mo_oce_types
       
       & cfl_vert(:,:,:), cfl_horz(:,:,:),& ! vertical and horizontal cfl values    
       & GMRedi_flux_horz(:,:,:,:),& ! dimension: (nproma,n_zlev, nblks_e)
-      & GMRedi_flux_vert(:,:,:,:)   ! dimension: (nproma,n_zlev, nblks_c)
+      & GMRedi_flux_vert(:,:,:,:)   ! dimension: (nproma,n_zlev+1, nblks_c)
 
 !     TYPE(t_ocean_physic_fluxes), ALLOCATABLE :: ocean_physics_fluxes(:)    
 !     TYPE(t_pointer_3d_wp),ALLOCATABLE :: ocean_physics_flux_ptr(:)

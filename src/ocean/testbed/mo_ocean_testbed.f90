@@ -99,6 +99,8 @@ CONTAINS
         CALL ocean_test_read( namelist_filename, shr_namelist_filename, &
           & patch_3d)
 
+
+
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
 

@@ -379,7 +379,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE check_ocean_subsets(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
 

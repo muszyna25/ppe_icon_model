@@ -62,7 +62,6 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_oce_physics,               ONLY: t_ho_params
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY:   &
-    & map_edges2edges_viacell_3d,           & 
     & calc_scalar_product_veloc_3d,         &
     & map_edges2edges_viacell_3d_const_z,   &
     & map_edges2edges_viacell_2D_constZ_sp
@@ -124,7 +123,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
     & p_phys_param, timestep, op_coeffs, solverCoeff_sp)
     
@@ -168,7 +167,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
-    patch_2D   => patch_3d%p_patch_2d(1)
+    patch_2D     => patch_3d%p_patch_2d(1)
     all_cells    => patch_2D%cells%ALL
     all_edges    => patch_2D%edges%ALL
     owned_cells  => patch_2D%cells%owned
@@ -182,11 +181,11 @@ CONTAINS
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_prog(nold(1))%vn)
     
     IF (is_initial_timestep(timestep) ) THEN
-      IF (l_staggered_timestep ) CALL calc_scalar_product_veloc_3D( patch_3d,&
-                                                                  & ocean_state%p_prog(nold(1))%vn,&
-                                                                  & ocean_state%p_prog(nold(1))%vn,&
-                                                                  & ocean_state%p_diag,            &
-                                                                  & op_coeffs)
+      IF (l_staggered_timestep ) &
+        & CALL calc_scalar_product_veloc_3D( patch_3d, &
+                      & ocean_state%p_prog(nold(1))%vn,&
+                      & ocean_state%p_diag,            &
+                      & op_coeffs)
 
     ENDIF
 
@@ -551,7 +550,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse:done>
+!<Optimize:inUse>
   SUBROUTINE calculate_explicit_term_ab( patch_3d, ocean_state, p_phys_param,&
     & is_first_timestep, op_coeffs)
     
@@ -698,7 +697,7 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
 
-    idt_src=4  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('VelocDiff: LaPlacHorz'    ,ocean_state%p_diag%laplacian_horz  ,str_module,idt_src, in_subset=owned_edges)
     IF (iswm_oce /= 1) THEN
       CALL dbg_print('ImplVelocDiff vertical'   ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
@@ -719,6 +718,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE explicit_vn_pred( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
@@ -866,6 +866,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE calculate_explicit_vn_pred_DeepWater_onBlock( patch_3d, ocean_state, z_gradh_e, &
     & start_edge_index, end_edge_index, blockNo)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -969,7 +970,6 @@ CONTAINS
     REAL(wp) :: z_gradh_e(nproma, patch_3d%p_patch_2d(n_dom)%nblks_e)
 
     INTEGER :: je, jk, blockNo
-    !REAL(wp) :: z_h_old_rho(nproma, patch_3d%p_patch_2d(n_dom)%nblks_c)
     TYPE(t_subset_range), POINTER :: edges_in_domain
     INTEGER :: start_edge_index, end_edge_index, dolic_e
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1026,6 +1026,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE calculate_explicit_term_g_n_onBlock( patch_3d, ocean_state, is_first_timestep, &
     & start_edge_index, end_edge_index, blockNo)
 
@@ -1086,7 +1087,6 @@ CONTAINS
 
     REAL(wp) :: z_e(nproma,n_zlev,patch_3d%p_patch_2d(n_dom)%nblks_e)
     INTEGER :: je, jk, blockNo
-    !REAL(wp) :: z_h_old_rho(nproma, patch_3d%p_patch_2d(n_dom)%nblks_c)
     TYPE(t_subset_range), POINTER :: edges_in_domain
     INTEGER :: start_edge_index, end_edge_index, dolic_e
     TYPE(t_patch), POINTER :: patch_2D
@@ -1166,7 +1166,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, p_sfc_flx, op_coeffs)
     !
     ! Patch on which computation is performed
@@ -1361,7 +1361,7 @@ CONTAINS
   !-------------------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE init_ho_lhs_fields_mimetic(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -1416,7 +1416,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   !-------------------------------------------------------------------------
-  !<Optimize:inUse>
+!<Optimize:inUse>
   FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d, thickness_e,&
     & thickness_c,op_coeffs) result(lhs)
     
@@ -1534,6 +1534,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------
   ! as in lhs_surface_height_ab_mim in single precision
+!<Optimize:inUse>
   FUNCTION lhs_surface_height_ab_mim_sp( x, h_old, patch_3d, solverCoeffs) result(lhs)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -1629,7 +1630,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, op_coeffs, solverCoeff_sp, p_ext_data)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -1644,7 +1645,6 @@ CONTAINS
     REAL(wp) :: gdt_x_ab_beta, one_minus_ab_gam
     REAL(wp) :: z_grad_h(nproma,patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z_grad_h_block(nproma)
-    !REAL(wp) :: z_h_new_rho(nproma, patch_3d%p_patch_2d(n_dom)%nblks_c)
     TYPE(t_subset_range), POINTER :: edges_in_domain, owned_cells, owned_edges
     CHARACTER(LEN=*), PARAMETER ::     &
       & method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
@@ -2088,17 +2088,18 @@ CONTAINS
     REAL(wp) :: z_e(SIZE(x,1), 1,SIZE(x,2))!(nproma,patch_2D%nblks_e)
     !-----------------------------------------------------------------------
     !edges_in_domain => patch_2D%edges%in_domain
+    CALL finish("lhs_primal_flip_flop", "not implemented")
     
     z_x_out(:,1,:) = x
     
     CALL sync_patch_array(sync_e, patch_2D, x)
     
-    CALL map_edges2edges_viacell_3d( patch_3d,    &
-      & z_x_out(:,1,:),&
-      & op_coeffs,    &
-      & z_e(:,1,:),    &
-    !& patch_3d%p_patch_1D(n_dom)%prism_thick_c(:,1,:),&
-      & level=1)
+!     CALL map_edges2edges_viacell_3d( patch_3d,    &
+!       & z_x_out(:,1,:),&
+!       & op_coeffs,    &
+!       & z_e(:,1,:),    &
+!       & patch_3d%p_patch_1D(n_dom)%prism_thick_c(:,1,:),&
+!       & level=1)
     
     
     llhs(:,:) = coeff * z_e(:,1,:)
@@ -2125,7 +2126,7 @@ CONTAINS
     INTEGER :: jc, blockNo  !, je
     !REAL(wp) :: z1,z2,z3
     INTEGER :: edge_1_idx, edge_1_blk, edge_2_idx, edge_2_blk, edge_3_idx, edge_3_blk
-    REAL(wp) :: p_diag(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: jacobi_diagnostic(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells  !, cells_in_domain, all_edges
     TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
     !-----------------------------------------------------------------------
@@ -2157,7 +2158,7 @@ CONTAINS
         edge_3_idx = patch%cells%edge_idx(jc,blockNo,3)
         edge_3_blk = patch%cells%edge_blk(jc,blockNo,3)
         !
-        !         p_diag(jc,blockNo) = patch%cells%area(jc,blockNo)-&
+        !         jacobi_diagnostic(jc,blockNo) = patch%cells%area(jc,blockNo)-&
         !                &gdt2*ab_gam*ab_beta*((op_coeffs%div_coeff(jc,1,blockNo,1)&!*thick_e(edge_1_idx,edge_1_blk)&
         !                &*op_coeffs%grad_coeff(edge_1_idx,1,edge_1_blk)&
         !                &+&
@@ -2179,9 +2180,9 @@ CONTAINS
         ! z3=gdt2*ab_gam*ab_beta*(op_coeffs%div_coeff(jc,1,blockNo,3)*thick_e(edge_3_idx,edge_3_blk)&
         !   &*op_coeffs%grad_coeff(edge_3_idx,1,edge_3_blk))
         !
-        ! p_diag(jc,blockNo)=1.0_wp-sqrt(z1*z1+z2*z2+z3*z3)gdt2
+        ! jacobi_diagnostic(jc,blockNo)=1.0_wp-sqrt(z1*z1+z2*z2+z3*z3)gdt2
 
-        !         p_diag(jc,blockNo) = (1.0_wp-&
+        !         jacobi_diagnostic(jc,blockNo) = (1.0_wp-&
         !                &gdt2*ab_gam*ab_beta*(&
         !                & op_coeffs%div_coeff(jc,1,blockNo,1)*thick_e(edge_1_idx,edge_1_blk)&
         !                &*op_coeffs%grad_coeff(edge_1_idx,1,edge_1_blk)&
@@ -2192,7 +2193,7 @@ CONTAINS
         !                &op_coeffs%div_coeff(jc,1,blockNo,3)*thick_e(edge_3_idx,edge_3_blk)&
         !                &*op_coeffs%grad_coeff(edge_3_idx,1,edge_3_blk)))*patch%cells%area(jc,blockNo)/gdt2
         !
-        p_diag(jc,blockNo)=1.0_wp- &
+        jacobi_diagnostic(jc,blockNo)=1.0_wp- &
           & gdt2*ab_gam*ab_beta*(patch%edges%primal_edge_length(edge_1_idx,edge_1_blk)&
           & *patch%edges%inv_dual_edge_length(edge_1_idx,edge_1_blk)&
           & +patch%edges%primal_edge_length(edge_2_idx,edge_2_blk)&
@@ -2200,21 +2201,21 @@ CONTAINS
           & +patch%edges%primal_edge_length(edge_3_idx,edge_3_blk) &
           & *patch%edges%inv_dual_edge_length(edge_1_idx,edge_1_blk))&
           & /(patch%cells%area(jc,blockNo)*gdt2)
-        !  p_diag(jc,blockNo) = (1.0_wp - gdt2*ab_gam*ab_beta*(patch%edges%primal_edge_length(edge_1_idx,edge_1_blk) &
+        !  jacobi_diagnostic(jc,blockNo) = (1.0_wp - gdt2*ab_gam*ab_beta*(patch%edges%primal_edge_length(edge_1_idx,edge_1_blk) &
         !     !          & *patch%edges%inv_dual_edge_length(edge_1_idx,edge_1_blk)&
         !               &+patch%edges%primal_edge_length(edge_2_idx,edge_2_blk) &
         !     !          & *patch%edges%inv_dual_edge_length(edge_2_idx,edge_2_blk)&
         !               &+ patch%edges%primal_edge_length(edge_3_idx,edge_3_blk))) &
         !     !          & *patch%edges%inv_dual_edge_length(edge_3_idx,edge_3_blk)))!&
         !               &/(patch%cells%area(jc,blockNo)*gdt2)
-        !        IF(p_diag/=0.0_wp)THEN
-        p_jp(jc,blockNo) = p_jp(jc,blockNo)*p_diag(jc,blockNo)
+        !        IF(jacobi_diagnostic/=0.0_wp)THEN
+        p_jp(jc,blockNo) = p_jp(jc,blockNo)*jacobi_diagnostic(jc,blockNo)
 
         !        ENDIF
         !ENDIF
       END DO
     END DO
-    WRITE(*,*)'diag element',MAXVAL(p_diag),MINVAL(p_diag)
+    WRITE(*,*)'diag element',MAXVAL(jacobi_diagnostic),MINVAL(jacobi_diagnostic)
     WRITE(*,*)'residual after',MAXVAL(p_jp),MINVAL(p_jp)!,maxvalp_jp),minval(p_jp)
   END SUBROUTINE jacobi_precon
   !-------------------------------------------------------------------------

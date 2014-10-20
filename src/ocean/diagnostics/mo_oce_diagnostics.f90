@@ -222,6 +222,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
+!<Optimize:inUse>
   SUBROUTINE construct_oce_diagnostics( patch_3D, p_os, datestring )
     TYPE(t_patch_3d),TARGET, INTENT(inout) :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET      :: p_os
@@ -490,6 +491,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
     INTEGER,  INTENT(in)  :: jb,jc,max_vertical_level
     REAL(wp), INTENT(in)  :: prism_area, surface_height, thicknesses(:)
@@ -517,6 +519,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
+!<Optimize:inUse>
   SUBROUTINE destruct_oce_diagnostics()
     !
     !

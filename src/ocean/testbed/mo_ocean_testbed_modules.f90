@@ -25,8 +25,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
-  USE mo_grid_subset,            ONLY: get_index_range
-  USE mo_ocean_nml,              ONLY: n_zlev
+  USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,Cartesian_Mixing
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode, test_param
   USE mo_exception,              ONLY: message, message_text, finish
@@ -46,7 +45,8 @@ MODULE mo_ocean_testbed_modules
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func
+  USE mo_oce_GM_Redi,            ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func,&
+  &                                    prepare_ocean_physics,calc_ocean_physics
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_util_dbg_prnt,          ONLY: dbg_print
@@ -55,6 +55,11 @@ MODULE mo_ocean_testbed_modules
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
+  USE mo_oce_math_operators,        ONLY: div_oce_3d, verticalDiv_scalar_midlevel 
+  USE mo_grid_subset,               ONLY: t_subset_range, get_index_range 
+  USE mo_oce_diffusion,             ONLY: tracer_diffusion_vertical_implicit,tracer_diffusion_horz
+  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
+  USE mo_oce_tracer_transport_horz, ONLY: diffuse_horz
 !   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
 
   IMPLICIT NONE
@@ -107,6 +112,12 @@ CONTAINS
       CASE (5)
         CALL test_neutralcoeff( patch_3d, ocean_state)
 
+
+      CASE (10)
+        CALL ocean_test_GMRedi( patch_3d, ocean_state, &
+          & datetime, surface_fluxes, physics_parameters,             &
+          & ocean_ice,operators_coefficients)
+
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
 
@@ -116,6 +127,240 @@ CONTAINS
 
   END SUBROUTINE ocean_test_modules
   !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE ocean_test_GMRedi( patch_3d, ocean_state, &
+    & datetime, surface_fluxes, physics_parameters,             &
+    & ocean_ice,operators_coefficients)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    
+    ! local variables
+    INTEGER :: jstep, jg
+    !LOGICAL                         :: l_outputtime
+    CHARACTER(LEN=32)               :: datestring
+    TYPE(t_patch), POINTER :: patch_2d
+    INTEGER :: jstep0 ! start counter for time loop
+    INTEGER :: tracer_index
+    
+    INTEGER :: jc,level,jb, je
+    INTEGER :: z_dolic
+    INTEGER :: start_cell_index, end_cell_index
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
+    REAL(wp) :: delta_t
+    
+    REAL(wp) :: z_diff_flux_h(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: div_diff_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_diff_flx_vert(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: trac_cart(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_diff_flux_horz_cart(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
+    !------------------------------------------------------------------
+    tracer_index=2!test is on salinity
+
+    
+    
+    patch_2D      => patch_3d%p_patch_2d(1)
+   
+    cells_in_domain => patch_2D%cells%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
+    delta_t = dtime
+
+    z_diff_flux_h(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_e)=0.0_wp
+    div_diff_flux_horz(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks)=0.0_wp
+    div_diff_flx_vert (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks)=0.0_wp 
+    trac_cart(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    div_diff_flux_horz_cart(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    !---------------------------------------------------------------------   
+    CALL datetime_to_string(datestring, datetime)
+
+    ! IF (ltimer) CALL timer_start(timer_total)
+    CALL timer_start(timer_total)
+        
+    time_config%sim_time(:) = 0.0_wp
+    jstep0 = 0
+    jg=1
+    !------------------------------------------------------------------
+    ! IF(.NOT.l_time_marching)THEN
+
+      !IF(itestcase_oce==28)THEN
+      DO jstep = (jstep0+1), (jstep0+nsteps)
+      
+        CALL datetime_to_string(datestring, datetime)
+        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+        CALL message (TRIM(method_name), message_text)
+ 
+!          IF(jstep==1)THEN
+!          ocean_state(jg)%p_diag%vn_time_weighted = ocean_state(jg)%p_prog(nold(1))%vn
+!          ocean_state(jg)%p_prog(nnew(1))%vn = ocean_state(jg)%p_prog(nold(1))%vn
+!          ocean_state(jg)%p_diag%w        =  0.0_wp!0.0833_wp!0.025_wp
+!          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
+!          ENDIF  
+       CALL calc_scalar_product_veloc_3d( patch_3d,  &
+        & ocean_state(n_dom)%p_prog(nold(1))%vn,     &
+        & ocean_state(n_dom)%p_diag,                 &
+        & operators_coefficients)
+        
+        IF(GMRedi_configuration/=Cartesian_Mixing)THEN    
+          CALL prepare_ocean_physics(patch_3d, &
+            & ocean_state(n_dom),    &
+            & physics_parameters, &
+            & operators_coefficients)
+        ENDIF
+        
+!        DO tracer_index=1,2
+        
+          IF(GMRedi_configuration/=Cartesian_Mixing)THEN
+        
+            CALL calc_ocean_physics( patch_3d, &
+                                   & ocean_state(n_dom),     &
+                                   &  physics_parameters,    &
+                                   &  operators_coefficients,&
+                                   &  tracer_index)
+            CALL div_oce_3d( ocean_state(n_dom)%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
+                     &   patch_3D, &
+                     &   operators_coefficients%div_coeff, &
+                     &   div_diff_flux_horz )
+            !vertical div of GMRedi-flux
+            CALL verticalDiv_scalar_midlevel( patch_3d, &
+                                            & ocean_state(n_dom)%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
+                                            & div_diff_flx_vert)
+                                   
+         ELSE
+          CALL tracer_diffusion_horz(patch_3D,&
+                                   & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
+                                   & ocean_state(n_dom), z_diff_flux_h, physics_parameters%k_tracer_h(:,:,:,tracer_index ))
+
+            CALL div_oce_3d( z_diff_flux_h,&
+                     &   patch_3D, &
+                     &   operators_coefficients%div_coeff, &
+                     &   div_diff_flux_horz_cart )
+    
+         ENDIF
+
+         !cart
+         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+           DO jc = start_cell_index, end_cell_index
+
+              DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+              ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(jc,level,jb) &
+                & = ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index-1)%concentration(jc,level,jb)-  &
+                &  (delta_t /  patch_3D%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
+                &    * ( - (div_diff_flux_horz_cart(jc,level,jb)))
+! write(123,*)'details',level,  ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+! & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+! & div_diff_flux_horz(jc,level,jb)
+
+           ENDDO
+         END DO
+       END DO
+
+
+       !GM                               
+       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+         CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+         DO jc = start_cell_index, end_cell_index
+
+           DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+             ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb) &
+                & = ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb)-  &
+                &  (delta_t /  patch_3D%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
+                &    * ( - (div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb)))
+!  write(123,*)'details',level,  ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+!  & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+!  & div_diff_flux_horz(jc,level,jb),div_diff_flx_vert(jc,level,jb),&
+! &ocean_state(n_dom)%p_aux%slopes_squared(jc,level,jb),&
+! &ocean_state(n_dom)%p_aux%taper_function_1(jc,level,jb),&
+! &ocean_state(n_dom)%p_aux%taper_function_2(jc,level,jb)!,&
+
+           ENDDO
+         END DO
+       END DO
+
+
+      !cart    
+      CALL tracer_diffusion_vertical_implicit(                         &
+      & patch_3d,                                                      &
+      & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1),&
+      & physics_parameters%a_tracer_v(:,:,:, tracer_index),            &
+      & operators_coefficients)
+
+          
+      !GM    
+      CALL tracer_diffusion_vertical_implicit(                         &
+      & patch_3d,                                                      &
+      & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index),&
+      & physics_parameters%a_tracer_v(:,:,:, tracer_index),            &
+      & operators_coefficients)
+      
+      
+      ocean_state(n_dom)%p_diag%rho=ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration&
+      &-ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration
+         
+IF(tracer_index==2)THEN
+DO level = 1, 5
+write(0,*)'tracer:GM:Cart',&
+& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
+& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
+& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
+& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
+& maxval( ocean_state(n_dom)%p_diag%rho(:,level,:)),&
+& minval( ocean_state(n_dom)%p_diag%rho(:,level,:)),&
+& maxval( div_diff_flux_horz(:,level,:)),&
+& minval( div_diff_flux_horz(:,level,:))
+END DO
+ENDIF
+      !END DO       
+
+        ! One integration cycle finished on the lowest grid level (coarsest
+        ! resolution). Set model time.
+        CALL add_time(dtime,0,0,0,datetime)
+      
+        ! Not nice, but the name list output requires this
+        time_config%sim_time(1) = time_config%sim_time(1) + dtime
+      
+        ! update accumulated vars
+        CALL update_ocean_statistics(ocean_state(1),     &
+        & surface_fluxes,                                &
+        & patch_2D%cells%owned,       &
+        & patch_2D%edges%owned,       &
+        & patch_2D%verts%owned,       &
+        & n_zlev)
+          
+        CALL output_ocean( patch_3d, &
+          & ocean_state,             &
+          & datetime,                &
+          & surface_fluxes,          &
+          & ocean_ice,               &
+          & jstep, jstep0)
+
+        ! Shift time indices for the next loop
+        ! this HAS to ge into the restart files, because the start with the following loop
+        CALL update_time_indices(jg)
+        ! update intermediate timestepping variables for the tracers
+        ! velocity
+
+      END DO
+    ! ENDIF!(l_no_time_marching)THEN
+    
+    CALL timer_stop(timer_total)
+    
+  END SUBROUTINE ocean_test_GMRedi
+  !-------------------------------------------------------------------------
+
+
+
+
 
 
   !-------------------------------------------------------------------------
@@ -431,7 +676,7 @@ CONTAINS
     CALL calc_neutralslope_coeff( &
       &    patch_3d,              &
       &    p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,:), &
-      &    p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+!       &    p_os(n_dom)%p_prog(nold(1))%h(:,:), &
       &    alph, beta)
 
     !  test values

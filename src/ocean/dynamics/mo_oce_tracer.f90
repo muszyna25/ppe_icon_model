@@ -72,6 +72,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<Optimize:inUse>
   SUBROUTINE advect_tracer_ab(p_patch_3d, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)      :: p_patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: p_os
@@ -278,6 +279,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<Optimize:inUse>
   SUBROUTINE advect_individual_tracer_ab(p_patch_3d, old_ocean_tracer,       &
     & p_os, p_op_coeff,                      &
     & bc_top_tracer, bc_bot_tracer, p_param, &
@@ -426,6 +428,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<Optimize:inUse>
   SUBROUTINE advect_individual_tracer_ab_post_step(p_patch_3d, old_ocean_tracer,       &
     & p_os, p_op_coeff,                    &
     & bc_top_tracer, bc_bot_tracer,p_param,&
@@ -1061,7 +1064,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2012).
-  !<Optimize:inUse>
+!<Optimize:inUse>
   SUBROUTINE prepare_tracer_transport(patch_3d, p_os, p_op_coeff)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d

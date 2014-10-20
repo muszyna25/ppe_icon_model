@@ -473,6 +473,7 @@ CONTAINS
   !! Based on gmres_oce_old
   !! restart functionality and optimization L.Linardakis, MPIM, 2013
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE ocean_restart_gmres_singlePrecesicion( x,lhs, old_h, p_patch_3d, &
     & solverCoefficients, b,                      &
     & tolerance,abstol,m,maxiterex,niter,res)
