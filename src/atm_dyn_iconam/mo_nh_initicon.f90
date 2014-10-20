@@ -2596,9 +2596,9 @@ MODULE mo_nh_initicon
         ! that smi is read, it is lateron converted to w_so (see smi_to_sm_mass)
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
-
-        !FIXME: If I'm not much mistaken, there *should* be a pointer assignment here. As it is, this read_data_3d call overwrites
-        !       the data of the last one!
+        !
+        ! Note that no pointer assignment is missing here, since either W_SO or SMI is read 
+        ! into w_so_t. Whether SMI or W_SO must be read, is taken care of by 'checkgrp'.
         CALL read_data_3d (parameters, filetype, 'smi', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
 
 
