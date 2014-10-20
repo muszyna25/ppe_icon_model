@@ -54,6 +54,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'build_decomposition'
     TYPE(t_pre_patch), ALLOCATABLE :: p_patch_pre(:)
     INTEGER                        :: error_status,jg
+    !> If .true., read fields related to grid refinement from separate  grid files:
+    LOGICAL                        :: lsep_grfinfo
     
     ! Check p_patch allocation status
     
@@ -76,13 +78,13 @@ CONTAINS
                   
     ! compute domain decomposition on-the-fly        
     ALLOCATE(p_patch_pre(n_dom_start:n_dom))
-    CALL import_pre_patches(p_patch_pre,num_lev,nshift)
+    CALL import_pre_patches(p_patch_pre,num_lev,nshift,lsep_grfinfo)
     ! use internal domain decomposition algorithm
     CALL decompose_domain(p_patch, p_patch_pre)
     DEALLOCATE(p_patch_pre)
 
     ! Complete information which is not yet read or calculated
-    CALL complete_patches( p_patch, is_ocean_decomposition )
+    CALL complete_patches( p_patch, is_ocean_decomposition,lsep_grfinfo)
           
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)

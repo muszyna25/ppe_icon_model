@@ -44,7 +44,6 @@ MODULE mo_grid_nml
     & config_l_limited_area               => l_limited_area,                &
     & config_patch_weight                 => patch_weight,                  &
     & config_lredgrid_phys                => lredgrid_phys,                 &
-    & config_lsep_grfinfo                 => lsep_grfinfo,                  &
     & config_dynamics_grid_filename       => dynamics_grid_filename,        &
     & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,       &
     & config_radiation_grid_filename      => radiation_grid_filename,       &
@@ -237,7 +236,6 @@ MODULE mo_grid_nml
     config_l_limited_area    = l_limited_area
     config_patch_weight      = patch_weight
     config_lredgrid_phys     = lredgrid_phys
-    config_lsep_grfinfo      = lsep_grfinfo
     config_use_duplicated_connectivity = use_duplicated_connectivity
     config_use_dummy_cell_closure      = use_dummy_cell_closure
     config_dynamics_grid_filename  = dynamics_grid_filename
@@ -248,6 +246,15 @@ MODULE mo_grid_nml
     config_grid_angular_velocity   = grid_angular_velocity
     config_create_vgrid            = create_vgrid
     config_vertical_grid_filename  = vertical_grid_filename
+
+    ! Throw a warning for deprecated parameters: ---------
+
+    IF (lsep_grfinfo .EQV. .TRUE.) THEN
+      ! default value has been modified; inform the user that this
+      ! switch has no effect:
+      IF (my_process_is_stdio()) &
+        WRITE (0,*) "WARNING: Namelist switch 'lsep_grfinfo' is deprecated and will soon be removed!"
+    END IF
           
   END SUBROUTINE read_grid_namelist
   !-----------------------------------------------------------------------

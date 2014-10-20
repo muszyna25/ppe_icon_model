@@ -107,7 +107,7 @@ MODULE mo_model_domimp_patches
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
     & l_limited_area, max_childdom, dynamics_parent_grid_id, &
     & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
-    & use_duplicated_connectivity, lsep_grfinfo
+    & use_duplicated_connectivity
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level
@@ -208,25 +208,21 @@ CONTAINS
   !!  - only basic patch information for subdivision is read here
   !!    into the full (undivided, global) patch data structure
   !!
-  SUBROUTINE import_pre_patches( patch_pre,num_lev,nshift)
+  SUBROUTINE import_pre_patches( patch_pre,num_lev,nshift,lsep_grfinfo)
 
-    INTEGER,INTENT(in) :: num_lev(:), nshift(:)
+    INTEGER,                   INTENT(in)    :: num_lev(:), nshift(:)
     TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch_pre(n_dom_start:)
-
-    INTEGER :: jg, jg1, n_chd, n_chdc
-    INTEGER :: jgp, jgc            ! parent/child patch index
-    !INTEGER :: jlev
-
-    !LOGICAL :: l_exist
-
-    !CHARACTER(filename_max) :: patch_file, gridtype
-
-    CHARACTER(LEN=uuid_string_length) :: uuid_grid(0:max_dom), uuid_par(0:max_dom), uuid_chi(0:max_dom,5)
-
-    TYPE(t_pre_patch), POINTER ::  &
-      & p_single_patch => NULL()
-
+    !> If .true., read fields related to grid refinement from separate  grid files
+    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo       
+    ! local variables:
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
+    INTEGER                           :: jg, jg1, n_chd, n_chdc
+    INTEGER                           :: jgp, jgc            ! parent/child patch index
+    CHARACTER(LEN=uuid_string_length) :: uuid_grid(0:max_dom), &
+      &                                  uuid_par(0:max_dom),  &
+      &                                  uuid_chi(0:max_dom,5)
+    TYPE(t_pre_patch), POINTER        :: p_single_patch => NULL()
+
     !-----------------------------------------------------------------------
 
     CALL message ('mo_model_domimp_patches:import_pre_patches', &
@@ -394,7 +390,7 @@ CONTAINS
 
       p_single_patch => patch_pre(jg)
 
-      CALL read_pre_patch( jg, p_single_patch, uuid_grid(jg), uuid_par(jg), uuid_chi(jg,:) )
+      CALL read_pre_patch( jg, p_single_patch, uuid_grid(jg), uuid_par(jg), uuid_chi(jg,:), lsep_grfinfo )
 
     ENDDO grid_level_loop
 
@@ -429,10 +425,12 @@ CONTAINS
   !! - generate basic data structures required for the distributed
   !!   read operation
 
-  SUBROUTINE complete_patches(patch, is_ocean_decomposition)
+  SUBROUTINE complete_patches(patch, is_ocean_decomposition, lsep_grfinfo)
 
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
-    LOGICAL, INTENT(IN) :: is_ocean_decomposition
+    TYPE(t_patch), TARGET,     INTENT(inout) :: patch(n_dom_start:)
+    LOGICAL,                   INTENT(IN)    :: is_ocean_decomposition
+    !> If .true., read fields related to grid refinement from separate  grid files
+    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo       
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
@@ -493,7 +491,7 @@ CONTAINS
       ENDDO
 
       ! Get all patch information not read by read_pre_patch
-      CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp )
+      CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
     ! setup communication patterns (also done in sequential runs)
@@ -940,15 +938,16 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi )
+  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo )
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:read_pre_patch'
-    INTEGER,             INTENT(in)    ::  ig           ! domain ID
-
-    TYPE(t_pre_patch), TARGET, INTENT(inout) ::  patch_pre      ! patch data structure
-
+    INTEGER,                           INTENT(in)    ::  ig                  ! domain ID
+    TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
     CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
+    !> If .true., read fields related to grid refinement from separate  grid files:
+    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo 
 
+    ! local variables
     INTEGER, ALLOCATABLE :: &
       & start_idx_c(:,:), end_idx_c(:,:), &  ! temporary arrays to read in index lists
       & start_idx_e(:,:), end_idx_e(:,:), &
@@ -992,13 +991,16 @@ CONTAINS
 
     CALL nf(nf_open(TRIM(patch_pre%grid_filename), nf_nowrite, ncid))
 
+    ! Test, if grid refinement information is available in the NetCDF
+    ! file. If not, try to open "patch_pre%grid_filename_grfinfo":
+    lsep_grfinfo = (nf_inq_varid(ncid, 'refin_c_ctrl', varid) /= nf_noerr)
     IF (lsep_grfinfo) THEN
       WRITE(message_text,'(a,a)') 'Read gridref info from file ', TRIM(patch_pre%grid_filename_grfinfo)
       CALL message ('', TRIM(message_text))
       CALL nf(nf_open(TRIM(patch_pre%grid_filename_grfinfo), nf_nowrite, ncid_grf))
     ELSE
       ncid_grf = ncid
-    ENDIF
+    END IF
 
     uuid_string = 'warning: not given ...' ! To avoid null characters in the standard output
 
@@ -1415,12 +1417,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
-  SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp )
+  SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp, lsep_grfinfo )
 
     INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
+    !> If .true., read fields related to grid refinement from separate  grid files
+    LOGICAL,       INTENT(IN)    :: lsep_grfinfo       
 
     INTEGER :: ncid, dimid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
