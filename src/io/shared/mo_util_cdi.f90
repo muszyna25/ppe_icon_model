@@ -863,7 +863,6 @@ CONTAINS
     INTEGER                       :: ilengthOfTimeRange            ! length of time range in appropriate time units
     INTEGER                       :: taxis_tunit                   ! time axis units
     INTEGER                       :: vlistID, taxisID
-    INTEGER                       :: indicatorOfUnitForTimeRange
     TYPE(timedelta), POINTER      :: forecast_delta                ! forecast time (mtime format)
     INTEGER                       :: forecast_secs                 ! forecast time in seconds
     INTEGER                       :: forecast_time                 ! forecast time in appropriate time units
@@ -943,15 +942,12 @@ CONTAINS
 
     SELECT CASE (taxis_tunit)
     CASE (TUNIT_SECOND)
-       indicatorOfUnitForTimeRange = 13
        ilengthOfTimeRange          = ilengthOfTimeRange_secs
        forecast_time               = forecast_secs
     CASE (TUNIT_MINUTE)
-       indicatorOfUnitForTimeRange = 0
        ilengthOfTimeRange          = INT(ilengthOfTimeRange_secs/60)
        forecast_time               = INT(forecast_secs/60)
     CASE (TUNIT_HOUR)
-       indicatorOfUnitForTimeRange = 1
        ilengthOfTimeRange          = INT(ilengthOfTimeRange_secs/3600)
        forecast_time               = INT(forecast_secs/3600)
     CASE DEFAULT
@@ -960,14 +956,12 @@ CONTAINS
     ! set forecast time: statProc_startDateTime - model_startDateTime
     CALL vlistDefVarIntKey(vlistID, varID, "forecastTime", forecast_time) 
 
-    ! set Indicator of unit for time range over which statistical processing is done
-    ! equal to the Indicator of unit of time range. This is not time dependent and may be 
-    ! moved to some better place. Note that the CDI-internal numbers differ from the official 
-    ! WMO numbers!
-    CALL vlistDefVarIntKey(vlistID, varID, "indicatorOfUnitForTimeRange", indicatorOfUnitForTimeRange)
     !
     ! set length of time range: current time - statProc_startDateTime
     CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+    ! Note that if one of the statistics templates 4.8 or 4.11 is selected, the time unit 
+    ! (GRIB2 key "indicatorOfUnitForTimeRange") is set automatically by CDI.
+    ! It is always set identical to "indicatorOfUnitOFTimeRange"
 
 
     ! cleanup
