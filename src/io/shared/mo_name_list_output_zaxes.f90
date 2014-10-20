@@ -150,11 +150,12 @@ CONTAINS
     CALL define_single_level_axis(of, ZA_meansea, ZAXIS_MEANSEA)
 
     ! Specific soil axis for Runoff_s
-    CALL define_single_level_axis(of, ZA_depth_runoff_s, ZAXIS_DEPTH_BELOW_LAND, opt_unit="mm")
+    CALL define_single_layer_axis(of, ZA_depth_runoff_s, ZAXIS_DEPTH_BELOW_LAND, 0._dp, 0.1_dp, &
+      &                           unit="m")
 
     ! Specific soil axis for Runoff_g
-    CALL define_single_level_axis(of, ZA_depth_runoff_g, ZAXIS_DEPTH_BELOW_LAND, &
-      &                           opt_level_value=0.1_dp * 1000._dp, opt_unit="mm")
+    CALL define_single_layer_axis(of, ZA_depth_runoff_g, ZAXIS_DEPTH_BELOW_LAND, 0.1_dp, 1._dp, &
+      &                           unit="m")
 
     ! Specified height level above ground: 2m
     CALL define_single_level_axis(of, ZA_height_2m, ZAXIS_HEIGHT, opt_level_value=2._dp)
