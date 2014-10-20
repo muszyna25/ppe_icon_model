@@ -568,11 +568,10 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev
          DO jc = i_startidx, i_endidx
 #endif
-           diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl * &
-                                MAX( 0._wp, p_nh_metrics%mixing_length_sq(jc,jk,jb) * &
-                                SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp - &
+           diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl      * &
+                     MAX( les_config(jg)%km_min, p_nh_metrics%mixing_length_sq(jc,jk,jb) * &
+                     SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp                 - &
                      les_config(jg)%rturb_prandtl*prm_diag%buoyancy_prod(jc,jk,jb))) ) 
-
          END DO
        END DO
        DO jc = i_startidx, i_endidx
@@ -1098,15 +1097,23 @@ MODULE mo_sgs_turbulence
 !    CALL sync_patch_array(SYNC_E, p_patch, tot_tend)
 !    CALL rbf_vec_interpol_cell(tot_tend, p_patch, p_int, ddt_u, ddt_v, opt_rlend=min_rlcell_int-1)
 
-    !subgrid fluxes: using vn_new, ddt_u, ddt_v to store sgs_fluxes
+    !subgrid fluxes: using vn_new, unew, vnew to store sgs_fluxes
 
     IF(is_sampling_time)THEN 
  
-      ddt_u  = 0._wp     
-      ddt_v  = 0._wp     
-      vn_new = 0._wp
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
-!$OMP PARALLEL
+!$OMP WORKSHARE
+      unew(:,:,:)   = 0._wp     
+      vnew(:,:,:)   = 0._wp     
+      vn_new(:,:,:) = 0._wp
+!$OMP END WORKSHARE
+
+      rl_start = grf_bdywidth_e+1
+      rl_end   = min_rledge_int
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,stress_c1n,stress_c2n)
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1151,16 +1158,16 @@ MODULE mo_sgs_turbulence
                                   stress_c2n * p_int%c_lin_e(je,2,jb) 
          END DO
       END DO                         
-!$OMP END DO NOWAIT
+!$OMP END DO 
 !$OMP END PARALLEL
 
       !Get sgs flux at cell center
       CALL sync_patch_array(SYNC_E, p_patch, vn_new)
-      CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, ddt_u, ddt_v, &
+      CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, &
                                  opt_rlend=min_rlcell_int)
 
-      CALL levels_horizontal_mean(ddt_u, p_patch%cells%area, p_patch%cells%owned, outvar)
-      CALL levels_horizontal_mean(ddt_v, p_patch%cells%area, p_patch%cells%owned, outvar)
+      CALL levels_horizontal_mean(unew, p_patch%cells%area, p_patch%cells%owned, outvar)
+      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
 
       prm_diag%turb_diag_1dvar(1,idx_sgs_u_flx) = 0._wp
       prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp

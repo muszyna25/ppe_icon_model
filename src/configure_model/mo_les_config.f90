@@ -49,6 +49,7 @@ MODULE mo_les_config
     REAL(wp) :: smag_constant
     REAL(wp) :: turb_prandtl 
     REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
+    REAL(wp) :: km_min  !min turbulent diffusivity
 
     !Scheme for vertical discretization
     INTEGER :: vert_scheme_type !1=explicit, 2=implicit
