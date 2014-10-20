@@ -457,7 +457,7 @@ MODULE mo_surface_les
        zeta   = z1/L 
        zeta0  = z0/L 
        psi    = -bsh*zeta
-       psi    = -bsh*zeta0
+       psi0   = -bsh*zeta0
        factor = Pr * (LOG(z1/z0) - psi + psi0) / akt
      ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
