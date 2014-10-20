@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2051-01-01T00:00:00Z"
+  end_date="2002-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
@@ -141,8 +141,8 @@ cat > ${ocean_namelist} << EOF
   k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v                         =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
   MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
-  !convection_InstabilityThreshold =  -5.0E-5  ! used in update_ho_params - default: -1e-8
-  RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params
+! convection_InstabilityThreshold =  -5.0E-5  ! used in update_ho_params - default=-5e-8
+! RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
   k_tracer_GM_kappa_parameter     = 600.0     !
   k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   =   1.0E-5  !
