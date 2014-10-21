@@ -56,7 +56,7 @@ MODULE mo_les_nml
   !Parameters for additional diagnostic output
   LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
   REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
-  CHARACTER(LEN=7) :: turb_tseries_list(9), turb_profile_list(31) !list of variables  
+  CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(40) !list of variables  
   CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
 
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
@@ -122,11 +122,14 @@ CONTAINS
       'qc     ','wu     ','wv     ','wth    ','wqv    ','wqc    ','ww     ',   & !8-14
       'thth   ','qvqv   ','qcqc   ','uu     ','vv     ','kh     ','km     ',   & !15-21
       'thv    ','wthv   ','wqvd   ','wthd   ','wqcd   ','bynprd ','mechprd',   & !22-28
-      'wud    ','wvd    ','wthsfs '/)                                            !29-31
+      'wud    ','wvd    ','wthsfs ','rh     ','clc    ','qi     ','qs     ',   & !29-35
+      'qr     ','qg     ','qh     ','lwf    ','str    ' /)                       !36-40 
 
     turb_tseries_list = (/                                          &
       'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6
-      'qsfc   ','hbl    ','psfc   '  /)                               !7-9
+      'qsfc   ','hbl    ','psfc   ','swf_toa','lwf_toa','swf_sfc',  & !7-12
+      'lwf_sfc','precp_t','precp_r','precp_s','precp_g','precp_h',  & !13-18
+      'precp_i' /)                                                    !19
 
 
     !------------------------------------------------------------------
