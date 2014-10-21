@@ -20,8 +20,11 @@ MODULE mo_ssodrag
   !     Lott, 1999: Alleviation of stationary biases in a GCM through...
   !                 Monthly Weather Review, 127, pp 788-801.
 
-  USE mo_kind,      ONLY: wp
-  USE mo_exception, ONLY: finish
+  USE mo_kind                 ,ONLY: wp
+  USE mo_exception            ,ONLY: message, print_value
+
+  USE mo_run_config           ,ONLY: nlevp1
+  USE mo_vertical_coord_table ,ONLY: vct
 
   IMPLICIT NONE
 
@@ -33,15 +36,12 @@ MODULE mo_ssodrag
     &       gfrcrit, grcrit, gklift, grahilo, & 
     &       gsigcr , gssec , gtsec , gvsec
 
-  ! nombre de vrais traceurs
-  INTEGER, PARAMETER :: nqmx=2
-  INTEGER, PARAMETER :: nbtr=nqmx-2+1/(nqmx-1)
+  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_ssodrag'
 
-  INTEGER :: nktopg     ! Security value for blocked flow level
-  INTEGER :: ntop = 1   ! An estimate to qualify the upper levels of
-  !                       the model where one wants to impose strees
-  !                       profiles
-  INTEGER ::  nstra     ! no documentation
+  INTEGER  :: nktopg    ! Security value for blocked flow level
+  INTEGER  :: ntop = 1  ! An estimate to qualify the upper levels of
+                        ! the model where one wants to impose strees
+                        ! profiles
   !
   ! Parameters depending on model resolution
   !
@@ -74,62 +74,94 @@ CONTAINS
   !======================================================================
   SUBROUTINE sugwd(klev)
 
-  USE mo_run_config,           ONLY: nlevp1
-  USE mo_vertical_coord_table, ONLY: vct
+  CHARACTER(len=*), PARAMETER :: routine = 'ssodrag'
 
   !  Scalar arguments with intent(In):
   INTEGER, INTENT (IN) :: klev
 
   ! local scalar
   INTEGER  :: jk
-  REAL(wp) :: zstra, zsigt, zpm1r, zpr
+  REAL(wp) :: zsigt, zpm1r, zpr
 
   !          SET THE VALUES OF THE PARAMETERS
   !
 
-  ! The parameters must be linked to the ICON grid resolution. Ideally this
+  ! The parameters depend on the horizontal resolution. Ideally this
   ! is expressed as a function of the (horizontal) area of the column.
     gpicmea = 400.0_wp
     gstd    = 100.0_wp
     gkdrag  = 0.5_wp
     gkwake  = 0.5_wp
 
-  ! PRINT *,' DANS SUGWD NLEV=',klev
-
+  ! Compute globally valid layer index nktopg from the vertical coordinate tables that
+  ! describe the hybrid sigma coordinate as follows:
+  ! - Pressure sigma coord.: ph(jk) = a(jk) + p_sfc*b(jk) [Pa]
+  ! - Height   sigma coord.: zh(jk) = a(jk) + z_sfc*b(jk) [m]
   !
-  zpr=80000.0_wp
-  zstra=0.001_wp
-  zsigt=0.94_wp
-  !old  ZSIGT=0.85_wp
+  ! a(:) and b(:) are obtained from vct(:) as follows:
+  ! - a(1:nlev+1) = vct(       1:       nlev+1) and 
+  ! - b(1:nlev+1) = vct(nlevp1+1:nlevp1+nlev+1) with nlevp1=nlev+1
   !
-  DO 110 jk=klev,1,-1
-    zpm1r = 0.5_wp*(vct(jk)+vct(jk+1)+zpr*(vct(nlevp1+jk)+vct(nlevp1+jk+1)))
-    zpm1r = zpm1r/zpr
+  ! The vertical arrays are ordered from the top of the model (tom) to the surface (sfc):
+  ! - ph(1) = p_tom, ph(nlev+1) = p_sfc
+  ! - zh(1) = z_tom, zh(nlev+1) = z_sfc
+  !
+  ! The a(:) coefficients at the top of the model, where the sigma portion b(:) is zero,
+  ! can be used to distinguish the pressure and height sigma grid:
+  ! - pressure sigma grid : a(1) < a(2)
+  ! - height   sigma grid : a(1) > a(2)
 
-    IF(zpm1r >= zsigt)THEN
-      nktopg=jk
-    ENDIF
-    IF(zpm1r >= zstra)THEN
-      nstra=jk-1
-    ENDIF
-110 END DO
-
-!    PRINT *,' DANS SUGWD nktopg=', nktopg
-!    PRINT *,' DANS SUGWD nstra=', nstra
-!    PRINT *,' DANS SUGWD ntop=', ntop
+  IF (vct(1) < vct(2)) THEN
     !
+    ! pressure sigma grid
+    !
+    zpr   = 80000.0_wp ! Pa   , surface pressure
+    zsigt = 0.94_wp    ! Pa/Pa, sigma for blocked flow depth (0.94 * 800 hPa = 750 hPa)
+    !
+    DO 110 jk=klev,1,-1
+      !
+      ! full level pressure pf(jk) = (ph(jk)+ph(jk+1)/2 for p_sfc=zpr
+      zpm1r = 0.5_wp*(vct(jk)+vct(jk+1)+zpr*(vct(nlevp1+jk)+vct(nlevp1+jk+1)))
+      !
+      ! full level sigma(jk) = pf(jk)/p_sfc for p_sfc=zpr
+      zpm1r = zpm1r/zpr
+      !
+      ! Find highest full level with sigma(jk) >= zsigt
+      IF (zpm1r >= zsigt) THEN
+        nktopg=jk
+      END IF
+      !
+110 END DO
+    !
+  ELSE
+    !
+    ! height sigma grid
+    !
+    zpr   =  1950._wp ! m (800 hPa in International Standard Atmosphere)
+    zsigt =  2460._wp ! m (750 hPa in International Standard Atmosphere)
+    !
+    DO 120 jk=klev,1,-1
+      !
+      ! full level height zf(jk) = (zh(jk)+zh(jk+1)/2 for z_sfc=zpr
+      zpm1r = 0.5_wp*(vct(jk)+vct(jk+1)+zpr*(vct(nlevp1+jk)+vct(nlevp1+jk+1)))
+      !
+      ! Find highest full level with zf(jk) <= zsigt 
+      IF (zpm1r <= zsigt) THEN
+        nktopg=jk
+      END IF
+      !
+120 END DO
+    !
+  END IF
 
-
-!    WRITE(unit=6,fmt='('' *** SSO essential constants ***'')')
-!    WRITE(unit=6,fmt='('' *** SPECIFIED IN SUGWD ***'')')
-!    WRITE(unit=6,fmt='('' Gravity wave ct '',E13.7,'' '')')gkdrag
-!    WRITE(unit=6,fmt='('' Trapped/total wave dag '',E13.7,'' '')')    &
-!         grahilo
-!    WRITE(unit=6,fmt='('' Critical Richardson   = '',E13.7,'' '')')   &
-!         grcrit
-!    WRITE(unit=6,fmt='('' Critical Froude'',e13.7)') gfrcrit
-!    WRITE(unit=6,fmt='('' Low level Wake bluff cte'',e13.7)') gkwake
-!    WRITE(unit=6,fmt='('' Low level lift  cte'',e13.7)') gklift
+  CALL message(thismodule//':'//routine,'*** SSO essential constants ***')
+  CALL print_value('Gravity wave drag coeff.    =',gkdrag )
+  CALL print_value('Trapped/total wave drag     =',grahilo)
+  CALL print_value('Critical Richardson number  =',grcrit )
+  CALL print_value('Critical Froude number      =',gfrcrit)
+  CALL print_value('Low level wake bluff coeff. =',gkwake )
+  CALL print_value('Low level lift  coeff.      =',gklift )
+  CALL message(thismodule//':'//routine,'-------------------------------')
 
   END SUBROUTINE sugwd
   !======================================================================

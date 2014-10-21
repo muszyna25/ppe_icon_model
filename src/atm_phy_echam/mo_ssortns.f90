@@ -13,8 +13,7 @@ MODULE mo_ssortns
   USE mo_kind,                  ONLY: wp
   USE mo_math_constants,        ONLY: pi
   USE mo_physical_constants,    ONLY: grav, rd, cpd, earth_angular_velocity
-  USE mo_ssodrag,               ONLY: sugwd,                                    &
-    &                                 nktopg, ntop, gstd,                       &
+  USE mo_ssodrag,               ONLY: nktopg, ntop, gstd,                       &
     &                                 gkdrag, gklift, gkwake, gpicmea, grahilo, &
     &                                 gfrcrit, grcrit, gsigcr,                  &
     &                                 gssec, gtsec, gvsec
@@ -124,10 +123,6 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
   !
   !*         1.    initialization
   !                --------------
-  !  INITIALIZE CONSTANT FOR THE GWD SCHEME
-  !  ON-LINE SHOULD ONLY BE CALLED AT THE MODEL START UP.
-
-  CALL sugwd(klev)
 
   pustrgw(:) = 0.0_wp
   pvstrgw(:) = 0.0_wp

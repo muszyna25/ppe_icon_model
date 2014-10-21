@@ -76,6 +76,9 @@ MODULE mo_echam_phy_init
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
                                    & init_sfc_indices
 
+  ! subgrid scale orography
+  USE mo_ssodrag,              ONLY: sugwd
+
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
@@ -242,6 +245,13 @@ CONTAINS
 !!$        &         , lham=.FALSE.     &
         &         )
     END IF
+
+    ! For subgrid scale orography scheme
+
+    IF (phy_config%lssodrag) THEN
+      CALL sugwd(nlev)
+    END IF
+
 
     !-------------------------------------------------------------------
     ! Allocate memory for the state vectors "prm_field" and "prm_tend"
