@@ -12,7 +12,7 @@ if [ ! -d "${EXP_ORI}" ]; then
   echo 'no experiment '${EXP_ORI}' found'
   exit 1
 fi
-if [ ! -f ${EXP_ORI}/${EXP_ORI}*_restart_atm_${RESTART_DATE}.nc ]; then
+if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
   echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
   exit 1
 fi
