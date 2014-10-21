@@ -1074,6 +1074,12 @@ MODULE mo_nh_testcases
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics, lprofile )
 
       CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=w_perturb )   
+
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
