@@ -181,7 +181,7 @@ MODULE mo_nh_initicon
     INTEGER :: i_rlstart, i_rlend, i_nchdom
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:init_icon'
+      routine = modname//':init_icon'
 
 
 
@@ -393,7 +393,7 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=filename_max), INTENT(INOUT) :: dwdfg_file(max_dom)             ! first guess
     CHARACTER(LEN=filename_max), INTENT(INOUT) :: dwdana_file(max_dom)            ! analysis
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::open_init_files"
+    CHARACTER(*), PARAMETER :: routine = modname//"::open_init_files"
     INTEGER :: jg, vlistID, jlev, mpi_comm
     INTEGER(KIND=i8) :: flen_fg, flen_ana                     ! filesize in bytes
     LOGICAL :: l_exist
@@ -832,7 +832,7 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
                                                                           !< contained in opt_checkgroup
     ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_2d'
+    CHARACTER(len=*), PARAMETER     :: routine = modname//'mo_nh_initicon:read_data_2d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
@@ -899,7 +899,7 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
                                                                           !< contained in opt_checkgroup
     ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_3d'
+    CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_3d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
@@ -976,7 +976,7 @@ MODULE mo_nh_initicon
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     TYPE(t_list_element), POINTER   :: element
-    CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:initicon_inverse_post_op'
+    CHARACTER(len=*), PARAMETER     :: routine = modname//':initicon_inverse_post_op'
 
     !-------------------------------------------------------------------------
 
@@ -3996,6 +3996,8 @@ MODULE mo_nh_initicon
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_ifs_atm'
+
     INTEGER  :: jg, jb, jc, jt, js, jp, ic
     INTEGER  :: nblks_c, npromz_c, nlen
     REAL(wp) :: zfrice_thrhld, zminsnow_alb, t_fac
@@ -4008,6 +4010,9 @@ MODULE mo_nh_initicon
       nblks_c   = p_patch(jg)%nblks_c
       npromz_c  = p_patch(jg)%npromz_c
 
+      IF (atm_phy_nwp_config(jg)%inwp_surface <= 0) THEN
+        CALL finish(routine, "Surface fields have not been not allocated!");
+      END IF
 
 !$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
