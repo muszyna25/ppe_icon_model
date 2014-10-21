@@ -12,15 +12,22 @@ if [ ! -d "${EXP_ORI}" ]; then
   echo 'no experiment '${EXP_ORI}' found'
   exit 1
 fi
-if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_atm_${RESTART_DATE}.nc ]; then
+if [ ! -f ${EXP_ORI}/${EXP_ORI}*_restart_atm_${RESTART_DATE}.nc ]; then
   echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
   exit 1
 fi
 rm -rf ${EXP_NEW}
 mkdir ${EXP_NEW}
 cd ${EXP_NEW}
-cp ../${EXP_ORI}/${EXP_ORI}_restart_atm_${RESTART_DATE}.nc .
-ln -sf ${EXP_ORI}_restart_atm_${RESTART_DATE}.nc restart_atm_DOM01.nc
+cp ../${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc .
+NDOM=`ls ${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc | wc -w`
+DOM=01
+while [ "${DOM}" -le "${NDOM}" ]; do
+  if [ ${#DOM} -lt 2 ]; then
+    DOM=0${DOM}
+  fi 
+  ln -sf ${EXP_ORI}_restart_atm_DOM${DOM}_${RESTART_DATE}.nc restart_atm_DOM${DOM}.nc
+done
 }
 #------------------------------------------------------------------------
 function print_mode
