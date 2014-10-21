@@ -273,7 +273,7 @@ CONTAINS
 
 
 
-    !Configure LES
+    !Configure LES physics
     DO jg = 1, n_dom
     
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
@@ -300,8 +300,25 @@ CONTAINS
         CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
         atm_phy_nwp_config(jg)%inwp_gwd = 0
       END IF
-  
-    END DO
+ 
+ 
+      ! Round up dt_rad to nearest advection timestep
+      IF( MOD(dt_phy(jg,itrad),dtime_adv)>10._wp*dbl_eps .AND. atm_phy_nwp_config(jg)%is_les_phy)THEN
+        ! write warning only for global domain
+        IF (jg==1) THEN
+          WRITE(message_text,'(a,2F8.1)') &
+            &'WARNING: radiation timestep is not a multiple of fastphy timestep: ', &
+            & dt_phy(jg,itrad), dtime_adv
+          CALL message(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(a,F8.1)') &
+            &'radiation time step is rounded up to next multiple: dt_rad !=!', &
+            & REAL((FLOOR(dt_phy(jg,itrad)/dtime_adv) + 1),wp) * dtime_adv
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
+        dt_phy(jg,itrad) = REAL((FLOOR(dt_phy(jg,itrad)/dtime_adv) + 1),wp) * dtime_adv
+      ENDIF
+
+    END DO !ndom
 
     !Configure lateral boundary condition for limited area model
     IF(l_limited_area) THEN
