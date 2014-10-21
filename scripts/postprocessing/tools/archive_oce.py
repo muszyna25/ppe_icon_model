@@ -804,13 +804,13 @@ LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
 ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
-  if (os.path.exists(ymFile)):
-    os.remove(ymFile)
+# if (os.path.exists(ymFile)):
+#   os.remove(ymFile)
   cdo.cat(input=" ".join(yearMeanFiles),output=ymFile)
   # rm ymFiles
   #map(lambda x: os.remove(x),ymFiles)
-else:
-  print("Use existing ymFile: "+ymFile)
+#else:
+# print("Use existing ymFile: "+ymFile)
 # }}} ===================================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
 lastYearsPeriod    = min(30,len(LOG['years'])/2)
