@@ -262,13 +262,21 @@ CONTAINS
 
     CASE (OMIP_FluxFromFile)         !  12
 
+      ! put wind-stress into atmos_fluxes for later inport to p_sfc_flx, which where done in update_flux_fromFile
+      atmos_fluxes%topBoundCond_windStress_u(:,:) = p_as%topBoundCond_windStress_u(:,:)
+      atmos_fluxes%topBoundCond_windStress_v(:,:) = p_as%topBoundCond_windStress_v(:,:)
+
+      ! assign wind-stress directly to p_sfc_flx in case of reading omip wind-stress only (no other fluxes)
+      !  TODO: use_windstress_only should be set accordingly
+      IF (forcing_windstress_u_type > 0 .AND. forcing_windstress_u_type < 101 ) &
+        & p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
+      IF (forcing_windstress_v_type > 0 .AND. forcing_windstress_v_type < 101 ) &
+        & p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
+
       !IF (iforc_type == 2 .OR. iforc_type == 5) THEN                         !  OMIP or NCEP
       !IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN      !  TODO: cleanup
 
       ! put things from the file into atmos_fluxes for later inport to p_sfc_flx, which where done in update_flux_fromFile
-      atmos_fluxes%topBoundCond_windStress_u(:,:) = p_as%topBoundCond_windStress_u(:,:)
-      atmos_fluxes%topBoundCond_windStress_v(:,:) = p_as%topBoundCond_windStress_v(:,:)
-
       atmos_fluxes%FrshFlux_Precipitation(:,:)    = p_as%FrshFlux_Precipitation(:,:)
       !atmos_fluxes%FrshFlux_Evaporation(:,:)      = p_as%FrshFlux_Evaporation(:,:)
       atmos_fluxes%FrshFlux_Runoff(:,:)           = p_as%FrshFlux_Runoff(:,:)
@@ -345,6 +353,8 @@ CONTAINS
       !settings in init_ocean_forcing() - windstress and relazation ONLY
 
     CASE (OMIP_FluxFromFile)         !  12
+
+    IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN      !  TODO: cleanup
 
     IF (i_sea_ice >= 1) THEN
 
@@ -462,6 +472,8 @@ CONTAINS
         &                      + atmos_fluxes%HeatFlux_Sensible(:,:)  + atmos_fluxes%HeatFlux_Latent(:,:)
 
     ENDIF  !  sea ice
+
+    ENDIF  !  fluxes_type=1 (>0 & <101)
 
   CASE (Coupled_FluxFromAtmo)      !  14
       ! call of sea ice model
