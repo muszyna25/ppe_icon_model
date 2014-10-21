@@ -98,6 +98,7 @@ $builds = {
   :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
   :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
+  :remoteIntelOpenMP => {:host => :thunder4, :subdir => 'intel-openmp',:CC => 'intel'  , :FLAGS => 'hiopt' , :openmp => true},
   :remotePgi         => {:host => :thunder4, :subdir => 'pgi'      , :CC => 'pgi'}     ,
   :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
   :remoteIntelW      => {:host => :wizard  , :subdir => 'intel', :CC => 'intel' } ,
@@ -240,6 +241,7 @@ def connect(build,command,targetDir=$targetDir[build,false])
   cmd << $remoteConnection[build] + " #{REMOTE_USER}@#{hostname} " if isRemote?(build)
   cmd << "'" if isRemote?(build)
   cmd << "source /etc/profile; [[ -f .profile ]] && source .profile; " if isRemote?(build)
+  cmd << "[[ ! -d #{targetDir} ]] && mkdir -p #{targetDir};"
   cmd << "cd #{targetDir};"
 
   # add module command - needed by ICONs configure
@@ -499,6 +501,8 @@ def getOceanOnlyfilelist(build)
   oceanFiles.delete_if {|f| %w[.nc .grb .png .eps .ps .pdf].include?(File.extname(f)) }
 
   oceanFiles.delete_if {|f| /mh-override/.match(f) } unless isLocal?(build)
+  oceanFiles.delete_if {|f| /mh-config-use/.match(f) }
+  oceanFiles.delete_if {|f| /set-up.info/.match(f) }
 
   oceanFiles
 end
@@ -558,12 +562,17 @@ def doSync(build)
     system("cp #{file.path} tempList") if ENV.has_key?('DEBUG')
   end
 
+  # create target directory
+  #call(connect(build,"mkdir -p #{dir}"))
+
+  # sync files
   if isLocal?(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
   else
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
   end
   call(syncCmd)
+
   # create the icon_components file for excluding everything but the ocean
   call(connect(build,<<-EOS
                echo "icon_components=NO_ICON_ATMO NO_JSBACH NO_ICON_TESTBED" >> config/icon_components

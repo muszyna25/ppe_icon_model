@@ -58,7 +58,7 @@ targetGrid=./cell_grid-${GRID}-${MODEL}.nc
 case "${MODEL}" in
  icon)
    remapOperator=genbil
-   #remapOperator=genycon
+   remapOperator=genycon
    if test "x${remapOperator}" != 'xgenbil'; then
      TARGET="${TARGET}_${remapOperator}";
    fi

@@ -58,8 +58,8 @@ TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}-${TIMEAVG}.nc
               FORCE=${FORCE:-0}
 #==============================================================================
 # remapping setup
-remapOperator_general=gencon
-remapOperator_special=gencon
+remapOperator_general=genbil
+remapOperator_special=genbic
 targetGrid=./cell_grid-${GRID}-${MODEL}.nc
 case "${MODEL}" in
  icon)
