@@ -62,9 +62,9 @@ MODULE mo_initicon
   USE mo_initicon_utils,      ONLY: check_input_validity, create_input_groups,                         &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
-  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_data_2d, read_data_3d, &
-                                    read_extana_atm, read_extana_sfc, read_dwdfg_atm, read_dwdfg_sfc,   &
-                                    read_dwdana_atm, read_dwdana_sfc
+  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
+                                    read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc
+                                    
 
   IMPLICIT NONE
 
@@ -241,7 +241,7 @@ MODULE mo_initicon
       IF (init_mode == MODE_COMBINED) THEN
         CALL message(TRIM(routine),'MODE_COMBINED: IFS-atm + GME-soil')
       ELSE
-        CALL message(TRIM(routine),'MODE_COSMODE: IFS-atm + GME-soil')
+        CALL message(TRIM(routine),'MODE_COSMODE: COSMO-atm + COSMO-soil')
       ENDIF
 
       ! process IFS atmosphere analysis data
@@ -340,9 +340,6 @@ MODULE mo_initicon
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-!!$      routine = modname//':process_dwdana_atm'
-
 !-------------------------------------------------------------------------
 
 
@@ -381,9 +378,6 @@ MODULE mo_initicon
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
-
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-!!$      routine = modname//':process_dwdanainc_atm'
 
 !-------------------------------------------------------------------------
 
