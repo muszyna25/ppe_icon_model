@@ -23,11 +23,14 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_nh_initicon_types
+MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mtime,                   ONLY: datetime, timedelta
+  USE mo_dictionary,           ONLY: t_dictionary
+  USE mo_impl_constants,       ONLY: max_dom
+  USE mo_util_cdi_table,       ONLY: t_inventory_list
 
   IMPLICIT NONE
   PRIVATE
@@ -40,7 +43,8 @@ MODULE mo_nh_initicon_types
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
   PUBLIC :: t_pi_sfc
-
+  PUBLIC :: geop_ml_var, alb_snow_var
+  PUBLIC :: ana_varnames_dict, inventory_list_fg, inventory_list_ana
 
   ! atmospheric input variables
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
@@ -120,4 +124,17 @@ MODULE mo_nh_initicon_types
   END TYPE t_initicon_state
  
 
-END MODULE mo_nh_initicon_types
+  CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
+  CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
+
+
+  ! dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names.
+  TYPE (t_dictionary) :: ana_varnames_dict
+
+  ! linked lists for storing CDI file inventory info
+  ! separate lists for analysis and first guess fields
+  TYPE(t_inventory_list), TARGET, SAVE :: inventory_list_fg(max_dom)
+  TYPE(t_inventory_list), TARGET, SAVE :: inventory_list_ana(max_dom)
+
+END MODULE mo_initicon_types

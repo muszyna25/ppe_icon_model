@@ -1221,6 +1221,10 @@ src/atm_dyn_icoham/mo_icoham_dyn_memory.f90 -text
 src/atm_dyn_icoham/mo_icoham_dyn_types.f90 -text
 src/atm_dyn_icoham/mo_si_correction.f90 -text
 src/atm_dyn_iconam/mo_ifs_coord.f90 -text
+src/atm_dyn_iconam/mo_initicon.f90 -text
+src/atm_dyn_iconam/mo_initicon_types.f90 -text
+src/atm_dyn_iconam/mo_initicon_utils.f90 -text
+src/atm_dyn_iconam/mo_io_initicon.f90 -text
 src/atm_dyn_iconam/mo_nh_diagnose_pres_temp.f90 -text
 src/atm_dyn_iconam/mo_nh_diffusion.f90 -text
 src/atm_dyn_iconam/mo_nh_dtp_interface.f90 -text
@@ -1228,8 +1232,6 @@ src/atm_dyn_iconam/mo_nh_feedback.f90 -text
 src/atm_dyn_iconam/mo_nh_held_suarez_interface.f90 -text
 src/atm_dyn_iconam/mo_nh_init_nest_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_init_utils.f90 -text
-src/atm_dyn_iconam/mo_nh_initicon.f90 -text
-src/atm_dyn_iconam/mo_nh_initicon_types.f90 -text
 src/atm_dyn_iconam/mo_nh_nest_utilities.f90 -text
 src/atm_dyn_iconam/mo_nh_prepadv_types.f90 -text
 src/atm_dyn_iconam/mo_nh_prog_util.f90 -text

@@ -70,7 +70,7 @@
     USE mo_util_phys,           ONLY: virtual_temp
     USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
     USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
-    USE mo_nh_initicon_types,   ONLY: t_initicon_state
+    USE mo_initicon_types,      ONLY: t_initicon_state
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &

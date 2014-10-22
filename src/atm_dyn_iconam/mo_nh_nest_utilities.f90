@@ -54,7 +54,7 @@ MODULE mo_nh_nest_utilities
     global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config
-  USE mo_nh_initicon_types,   ONLY: t_pi_atm
+  USE mo_initicon_types,      ONLY: t_pi_atm
   USE mo_advection_config,    ONLY: advection_config
 
   IMPLICIT NONE

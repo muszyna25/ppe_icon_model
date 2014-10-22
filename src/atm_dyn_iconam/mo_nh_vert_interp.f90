@@ -40,7 +40,7 @@ MODULE mo_nh_vert_interp
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_COSMODE
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode
-  USE mo_nh_initicon_types,   ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
   USE mo_vertical_coord_table,ONLY: vct_a

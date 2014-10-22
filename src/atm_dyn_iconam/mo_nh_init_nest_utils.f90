@@ -27,7 +27,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_model_domain,          ONLY: t_patch, p_patch, p_patch_local_parent
   USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nonhydro_state,        ONLY: p_nh_state
-  USE mo_nh_initicon_types,     ONLY: t_initicon_state
+  USE mo_initicon_types,        ONLY: t_initicon_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing

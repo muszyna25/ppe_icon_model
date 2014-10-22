@@ -53,7 +53,7 @@ MODULE mo_sync_latbc
                                     read_2D_1lev_1time, read_2D_1time, t_stream_id, onCells, &
                                     onEdges
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
-  USE mo_nh_initicon_types,   ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen
   USE mo_time_config,         ONLY: time_config

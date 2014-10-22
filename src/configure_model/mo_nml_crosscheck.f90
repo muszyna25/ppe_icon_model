@@ -469,6 +469,10 @@ CONTAINS
                       'length z0 selected!')
         ENDIF
 
+        IF (.NOT. ltestcase .AND. atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
+          CALL finish( TRIM(method_name),'Real-data applications require using a surface scheme!')
+        ENDIF
+
         ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
         IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0).OR.(echam_phy_config%lrad) )  THEN
