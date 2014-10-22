@@ -61,9 +61,9 @@ MODULE mo_initicon
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: check_input_validity, create_input_groups,                         &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
-                                    deallocate_initicon, deallocate_ifs_atm, deallocate_ifs_sfc
+                                    deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
   USE mo_io_initicon,         ONLY: open_init_files, close_init_files, read_data_2d, read_data_3d, &
-                                    read_ifs_atm, read_ifs_sfc, read_dwdfg_atm, read_dwdfg_sfc,    &
+                                    read_extana_atm, read_extana_sfc, read_dwdfg_atm, read_dwdfg_sfc,   &
                                     read_dwdana_atm, read_dwdana_sfc
 
   IMPLICIT NONE
@@ -229,11 +229,11 @@ MODULE mo_initicon
       CALL message(TRIM(routine),'MODE_IFS: perform initialization with IFS analysis')
 
       ! process IFS atmosphere analysis data
-      CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
+      CALL process_extana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
       IF (iforcing == inwp) THEN
         ! process IFS land/surface analysis data
-        CALL process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
+        CALL process_extana_sfc (p_patch, p_lnd_state, initicon, ext_data)
       END IF
 
     CASE(MODE_COMBINED,MODE_COSMODE)
@@ -245,7 +245,7 @@ MODULE mo_initicon
       ENDIF
 
       ! process IFS atmosphere analysis data
-      CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
+      CALL process_extana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
       ! process DWD land/surface analysis
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
@@ -298,8 +298,8 @@ MODULE mo_initicon
     ! Deallocate initicon data type
     !
     CALL deallocate_initicon(initicon)
-    CALL deallocate_ifs_atm (initicon)
-    CALL deallocate_ifs_sfc (initicon)
+    CALL deallocate_extana_atm (initicon)
+    CALL deallocate_extana_sfc (initicon)
 
     ! close first guess and analysis files and corresponding inventory lists
     ! 
@@ -495,9 +495,9 @@ MODULE mo_initicon
 
   !-------------
   !>
-  !! SUBROUTINE process_ifsana_atm
+  !! SUBROUTINE process_extana_atm
   !! Initialization routine of icon:
-  !! - Reads IFS analysis data (atmosphere only)
+  !! - Reads external analysis data (IFS or COSMO; atmosphere only)
   !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON 
   !!   grid and converts variables to the NH set of prognostic variables
   !! - finally copies the results to the prognostic model variables
@@ -506,7 +506,7 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2012-12-19)
   !!
   !!
-  SUBROUTINE process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, &
+  SUBROUTINE process_extana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, &
     &                            initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
@@ -518,16 +518,16 @@ MODULE mo_initicon
 
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-!!$      routine = 'mo_nh_initicons:process_ifsana_atm'
+!!$      routine = 'mo_nh_initicons:process_extana_atm'
 
     LOGICAL :: lomega_in
 
 !-------------------------------------------------------------------------
 
 
-    ! read horizontally interpolated IFS analysis for atmosphere
+    ! read horizontally interpolated external analysis for atmosphere
     ! 
-    CALL read_ifs_atm(p_patch, initicon)
+    CALL read_extana_atm(p_patch, initicon)
 
     IF (init_mode == MODE_COSMODE) THEN
       lomega_in = .FALSE. ! in this case, w is provided as input
@@ -547,16 +547,16 @@ MODULE mo_initicon
     CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
 
 
-  END SUBROUTINE process_ifsana_atm
+  END SUBROUTINE process_extana_atm
 
 
 
 
   !-------------
   !>
-  !! SUBROUTINE process_ifsana_sfc
+  !! SUBROUTINE process_extana_sfc
   !! Initialization routine of icon:
-  !! - Reads IFS analysis data (surface/land only)
+  !! - Reads external analysis data (surface/land only)
   !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON 
   !!   grid and converts variables to the NH set of prognostic variables
   !! - finally copies the results to the prognostic model variables
@@ -565,7 +565,7 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2012-12-19)
   !!
   !!
-  SUBROUTINE process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
+  SUBROUTINE process_extana_sfc (p_patch, p_lnd_state, initicon, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
@@ -575,14 +575,14 @@ MODULE mo_initicon
 
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-!!$      routine = modname//':process_ifsana_sfc'
+!!$      routine = modname//':process_extana_sfc'
 
 !-------------------------------------------------------------------------
 
 
-    ! read horizontally interpolated IFS analysis for surface/land
+    ! read horizontally interpolated external (currently IFS) analysis for surface/land
     ! 
-    CALL read_ifs_sfc(p_patch, initicon, ext_data)
+    CALL read_extana_sfc(p_patch, initicon, ext_data)
 
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
@@ -596,7 +596,7 @@ MODULE mo_initicon
     CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
 
 
-  END SUBROUTINE process_ifsana_sfc
+  END SUBROUTINE process_extana_sfc
 
 
 

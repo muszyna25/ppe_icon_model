@@ -80,8 +80,8 @@ MODULE mo_initicon_utils
 
 
   PUBLIC :: initicon_inverse_post_op, check_input_validity, create_input_groups, copy_initicon2prog_atm, &
-            copy_initicon2prog_sfc, allocate_initicon, allocate_ifs_atm, allocate_ifs_sfc,               &
-            deallocate_initicon, deallocate_ifs_atm, deallocate_ifs_sfc
+            copy_initicon2prog_sfc, allocate_initicon, allocate_extana_atm, allocate_extana_sfc,         &
+            deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
 
 
   CONTAINS
@@ -1266,14 +1266,14 @@ MODULE mo_initicon_utils
 
   !-------------
   !>
-  !! SUBROUTINE allocate_ifs_atm
-  !! Allocates fields for IFS read-in
+  !! SUBROUTINE allocate_extana_atm
+  !! Allocates fields for reading in external analysis data
   !!
-  SUBROUTINE allocate_ifs_atm (jg, nblks_c, initicon)
+  SUBROUTINE allocate_extana_atm (jg, nblks_c, initicon)
     INTEGER,                INTENT(IN)    :: jg, nblks_c
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_ifs_atm'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
 
     IF (nlev_in == 0) THEN
       CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
@@ -1303,15 +1303,15 @@ MODULE mo_initicon_utils
     ENDIF
 
     initicon(jg)%atm_in%linitialized = .TRUE.
-  END SUBROUTINE allocate_ifs_atm
+  END SUBROUTINE allocate_extana_atm
 
 
   !-------------
   !>
-  !! SUBROUTINE allocate_ifs_sfc
-  !! Allocates fields for IFS read-in
+  !! SUBROUTINE allocate_extana_sfc
+  !! Allocates fields for reading in external analysis data
   !!
-  SUBROUTINE allocate_ifs_sfc (jg, nblks_c, initicon)
+  SUBROUTINE allocate_extana_sfc (jg, nblks_c, initicon)
     INTEGER,                INTENT(IN)    :: jg, nblks_c
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
@@ -1330,7 +1330,7 @@ MODULE mo_initicon_utils
       initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
       initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
     initicon(jg)%sfc_in%linitialized = .TRUE.
-  END SUBROUTINE allocate_ifs_sfc
+  END SUBROUTINE allocate_extana_sfc
 
 
   !-------------
@@ -1426,10 +1426,10 @@ MODULE mo_initicon_utils
 
   !-------------
   !>
-  !! SUBROUTINE deallocate_ifs_atm
+  !! SUBROUTINE deallocate_extana_atm
   !! Deallocates the components of the initicon data type
   !!
-  SUBROUTINE deallocate_ifs_atm (initicon)
+  SUBROUTINE deallocate_extana_atm (initicon)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
     ! Local variables: loop control
     INTEGER :: jg
@@ -1466,15 +1466,15 @@ MODULE mo_initicon_utils
       initicon(jg)%atm_in%linitialized = .FALSE.
     ENDDO ! loop over model domains
 
-  END SUBROUTINE deallocate_ifs_atm
+  END SUBROUTINE deallocate_extana_atm
 
 
   !-------------
   !>
-  !! SUBROUTINE deallocate_ifs_sfc
-  !! Deallocates IFS fields
+  !! SUBROUTINE deallocate_extana_sfc
+  !! Deallocates the components of the initicon data type
   !!
-  SUBROUTINE deallocate_ifs_sfc (initicon)
+  SUBROUTINE deallocate_extana_sfc (initicon)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
     ! Local variables: loop control
     INTEGER :: jg
@@ -1498,7 +1498,7 @@ MODULE mo_initicon_utils
       initicon(jg)%sfc_in%linitialized = .FALSE.
     ENDDO ! loop over model domains
 
-  END SUBROUTINE deallocate_ifs_sfc
+  END SUBROUTINE deallocate_extana_sfc
 
 END MODULE mo_initicon_utils
 

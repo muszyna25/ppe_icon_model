@@ -67,7 +67,7 @@ MODULE mo_io_initicon
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list, &
     &                               find_inventory_list_element
   USE mo_io_util,             ONLY: get_filetype
-  USE mo_initicon_utils,      ONLY: initicon_inverse_post_op, allocate_ifs_atm, allocate_ifs_sfc
+  USE mo_initicon_utils,      ONLY: initicon_inverse_post_op, allocate_extana_atm, allocate_extana_sfc
 
   IMPLICIT NONE
 
@@ -94,7 +94,7 @@ MODULE mo_io_initicon
   DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
 
 
-  PUBLIC :: open_init_files, close_init_files, read_data_2d, read_data_3d, read_ifs_atm, read_ifs_sfc, &
+  PUBLIC :: open_init_files, close_init_files, read_data_2d, read_data_3d, read_extana_atm, read_extana_sfc, &
             read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc
 
 
@@ -397,17 +397,17 @@ MODULE mo_io_initicon
 
 
   !>
-  !! Read horizontally interpolated IFS analysis (atmosphere only)
+  !! Read horizontally interpolated external analysis (atmosphere only)
   !!
-  !! Reads horizontally interpolated IFS analysis atmosphere data
-  !! and reads in vertical coordinate table. 
+  !! Reads horizontally interpolated external analysis atmosphere data
+  !! (currently IFS or COSMO) and reads in vertical coordinate table. 
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !! Modification by Daniel Reinert, DWD (2012-12-18)
   !! - encapsulate reading of IFS analysis
   !!
-  SUBROUTINE read_ifs_atm (p_patch, initicon)
+  SUBROUTINE read_extana_atm (p_patch, initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
@@ -423,7 +423,7 @@ MODULE mo_io_initicon
     CHARACTER(LEN=10) :: psvar 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_ifs_atm'
+      routine = 'mo_nh_initicon:read_extana_atm'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
 
@@ -594,7 +594,7 @@ MODULE mo_io_initicon
       ENDIF
 
       ! allocate data structure
-      CALL allocate_ifs_atm(jg, p_patch(jg)%nblks_c, initicon)
+      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, initicon)
 
       ! start reading atmospheric fields
       !
@@ -661,7 +661,7 @@ MODULE mo_io_initicon
       ! Note that here the IFS input vertical grid is set up. This has to be distinguished 
       ! from vct_a, vct_b, vct for the ICON vertical grid.
       !
-      IF (init_mode /= MODE_COSMODE) THEN 
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN 
 
         IF (jg == 1) THEN
           
@@ -694,7 +694,7 @@ MODULE mo_io_initicon
 
         ENDIF  ! jg=1
 
-      ELSE ! in case of COSMO-DE initial data
+      ELSE IF (init_mode == MODE_COSMODE) THEN ! in case of COSMO-DE initial data
 
         CALL read_3d_1time(stream_id, onCells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
         CALL read_3d_1time(stream_id, onCells, 'P', fill_array=initicon(jg)%atm_in%pres)
@@ -721,7 +721,11 @@ MODULE mo_io_initicon
           ENDDO
         ENDDO
 !$OMP END DO
-!$OMP END PARALLEL        
+!$OMP END PARALLEL
+      ELSE
+
+        CALL finish(TRIM(routine),'Incorrect init_mode')
+
       ENDIF ! init_mode = MODE_COSMODE
 
       ! close file
@@ -731,23 +735,24 @@ MODULE mo_io_initicon
 
     ENDDO ! loop over model domains
 
-  END SUBROUTINE read_ifs_atm
+  END SUBROUTINE read_extana_atm
 
 
 
 
 
   !>
-  !! Read horizontally interpolated IFS analysis (surface only)
+  !! Read horizontally interpolated external analysis (surface only)
   !!
-  !! Reads horizontally interpolated IFS analysis surface data
+  !! Reads horizontally interpolated external analysis surface data
+  !! Currently, only IFS data are processed here
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !! Modification by Daniel Reinert, DWD (2012-12-18)
   !! - encapsulate reading of IFS analysis
   !!
-  SUBROUTINE read_ifs_sfc (p_patch, initicon, ext_data)
+  SUBROUTINE read_extana_sfc (p_patch, initicon, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
@@ -764,7 +769,7 @@ MODULE mo_io_initicon
     CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_ifs_sfc'
+      routine = 'mo_nh_initicon:read_extana_sfc'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
 
@@ -892,7 +897,7 @@ MODULE mo_io_initicon
       CALL p_bcast(geop_sfc_var_ndims, p_io, mpi_comm)
 
       ! allocate data structure
-      CALL allocate_ifs_sfc(jg, p_patch(jg)%nblks_c, initicon)
+      CALL allocate_extana_sfc(jg, p_patch(jg)%nblks_c, initicon)
 
 
       ! start reading surface fields
@@ -960,7 +965,7 @@ MODULE mo_io_initicon
 
     ENDDO ! loop over model domains
 
-  END SUBROUTINE read_ifs_sfc
+  END SUBROUTINE read_extana_sfc
 
 
 
