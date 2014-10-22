@@ -1266,11 +1266,20 @@ CONTAINS
       !
       ! fill non-land points with SST
       ! It is assured that all mixed land/water points only contain pure land temperatures
-      DO jk = 2, nlev_soil+1
+      ! Note that the climatological layer is explicitly omitted.
+      DO jk = 2, nlev_soil
         DO jc = i_startidx, i_endidx
           lnd_diag%t_so(jc,jk,jb) = MERGE(lnd_diag%t_so(jc,jk,jb),lnd_diag%t_s(jc,jb),lmask(jc))
         ENDDO  ! jc
       ENDDO  ! jk
+      !
+      ! climatological layer: Fill with T_CL over non-land points. 
+      ! Land points are already filled with T_CL
+      DO jc = i_startidx, i_endidx
+        lnd_diag%t_so(jc,nlev_soil+1,jb) = MERGE(lnd_diag%t_so(jc,nlev_soil+1,jb), &
+          &                                      ext_data%atm%t_cl(jc,jb),         &
+          &                                      lmask(jc))
+      ENDDO  ! jc
 
     ENDDO  ! jb
 !$OMP END DO
