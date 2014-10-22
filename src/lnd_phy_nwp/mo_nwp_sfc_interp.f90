@@ -27,7 +27,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_parallel_config,     ONLY: nproma 
   USE mo_initicon_config,     ONLY: nlevsoil_in, nlev_in
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE mo_phyparam_soil,       ONLY: cporv
@@ -350,7 +350,9 @@ CONTAINS
       ! Conversion of soil moisture index SMI into TERRA soil moisture [m]
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
       !   safety: min=air dryness point, max=pore volume
-      DO jk = 1, nlev_soil-1
+      ! conversion is only done for hydrological active layers. Remaining layers are filled 
+      ! based on a zero gradient assumption.
+      DO jk = 1, ibot_w_so
 
         zwsoil(:) = 0._wp
 
@@ -407,11 +409,12 @@ CONTAINS
       ENDDO  ! jk
 
 
-      ! assume no-gradient condition for soil moisture reservoir layer
-      DO jc = 1, nlen
-        wsoil(jc,nlev_soil,jb) = wsoil(jc,nlev_soil-1,jb)*          &
-                                        dzsoil_icon(nlev_soil)/dzsoil_icon(nlev_soil-1)
-      ENDDO
+      ! assume no-gradient condition for hydraulical non-active layers
+      DO jk = ibot_w_so+1, nlev_soil
+        DO jc = 1, nlen
+          wsoil(jc,jk,jb) = wsoil(jc,jk-1,jb) *  dzsoil_icon(jk)/dzsoil_icon(jk-1)
+        ENDDO
+      ENDDO  ! jk
 
       IF (lerr) THEN
         CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")

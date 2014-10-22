@@ -36,9 +36,10 @@ MODULE mo_nwp_sfc_interface
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-    &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
-    &                               isub_water, isub_seaice, isub_lake, itype_interception
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,    &
+    &                               ntiles_water, lseaice, llake, lmulti_snow,        &
+    &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
+    &                               isub_lake, itype_interception
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -481,6 +482,7 @@ CONTAINS
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
+        &  ke_soil_hy   = ibot_w_so                          , & !IN number of hydrological active soil layers
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & !IN processing soil level structure 
         &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , & !IN !!! Dangerous HACK !!!
         &  nclass_gscp  = atm_phy_nwp_config(jg)%nclass_gscp , & !IN number of hydrometeor classes

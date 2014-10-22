@@ -463,6 +463,7 @@ END SUBROUTINE message
                   iendpar          , & ! end index for computations in the parallel program
                   ldiag_tg         , & ! if true: diagnose t_g and snow-cover fraction with tgcom
                   ke_soil, ke_snow , &
+                  ke_soil_hy       , & ! number of active soil moisture layers
                   czmls            , & ! processing soil level structure 
                   inwp_turb        , & ! turbulence scheme number
                   nclass_gscp      , & ! number of hydrometeor classes of grid scale microphysics
@@ -580,7 +581,8 @@ END SUBROUTINE message
                   ie,                & ! array dimensions
                   istartpar,         & ! start index for computations in the parallel program
                   iendpar,           & ! end index for computations in the parallel program
-                  ke_soil, ke_snow      
+                  ke_soil, ke_snow,  &
+                  ke_soil_hy           ! number of active soil moisture layers      
   REAL    (KIND = ireals), DIMENSION(ke_soil+1), INTENT(IN) :: &
                   czmls                ! processing soil level structure 
   LOGICAL, INTENT(IN) :: ldiag_tg      ! if .TRUE., use tgcom to diagnose t_g and snow-cover fraction
@@ -754,7 +756,6 @@ END SUBROUTINE message
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
     k              , & ! loop index for snow layers
-    ke_soil_hy     , & ! number of active soil moisture layers
     i,ic           , & ! loop index in x-direction              
     icount_snow    , & ! Counter for snow
     icount_soil    , & ! "true" soil
@@ -767,7 +768,6 @@ END SUBROUTINE message
     msr_off        , & ! number of layers contributing to surface run off
     istarts        , & ! start index for x-direction      
     iends          , & ! end   index for x-direction     
-    i250           , & ! number of layers above a soil depth of 2.50 m
     k10cm          , & ! index of half level closest to 0.1 m
     k100cm             ! index of half level closest to 1.0 m
 
@@ -2468,22 +2468,6 @@ END IF
   ! Number of soil layers contributing to surface run-off
   msr_off  = 0
 
-! Note:
-!
-! - Introduction of i250, i.e. index of last soil layer completely above
-!   2.5m soil depth
-! - Usage of i250 to compute subsoil runoff (runoff_g) as drainage flux
-!   through bottom of this layer (as suggested by the Rhone-Aggregation
-!   Experiment)and to control switching off of soil moisture gradient
-!   related flux below (i.e. only sedimentation flux
-!   allowed between i250 and i250+1)
-  ! no. of layers above 2.5 m soil depth
-  i250 = 0
-  DO kso=1,ke_soil+1
-    IF (zzhls(kso)<=2.5_ireals) i250=kso
-    ke_soil_hy = i250
-  END DO
-
   zdtdrhw = zdt/rho_w   ! timestep/density of liquid water
 
   ! time constant for infiltration of water from interception store
@@ -3151,7 +3135,12 @@ ELSE   IF (itype_interception == 2) THEN
     zro_sfak = zsf_heav(0.5_ireals + REAL(msr_off - kso,ireals))  ! 1.0 for 'surface runoff'
     zro_gfak = 1._ireals - zro_sfak                               ! 1.0 for 'ground runoff'
 
-    IF (kso==i250) THEN  
+    ! - Compute subsoil runoff (runoff_g) as drainage flux through bottom 
+    !   of layer ke_soil_hy (as suggested by the Rhone-Aggregation
+    !   Experiment)
+    ! - soil moisture gradient related flux is switched off below 
+    !   (i.e. only sedimentation flux allowed between ke_soil_hy and ke_soil_hy+1)
+    IF (kso==ke_soil_hy) THEN  
       zfmb_fak = 1.0_ireals
     ELSE
       zfmb_fak = 0.0_ireals

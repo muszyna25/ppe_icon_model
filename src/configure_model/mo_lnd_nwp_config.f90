@@ -25,14 +25,14 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,            ONLY: wp
-  USE mo_impl_constants,  ONLY: zml_soil
+  USE mo_impl_constants,  ONLY: zml_soil, dzsoil
   USE mo_io_units,        ONLY: filename_max
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water
+  PUBLIC :: nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl
@@ -87,6 +87,7 @@ MODULE mo_lnd_nwp_config
 
   ! derived variables
   INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
+  INTEGER ::  ibot_w_so   !< number of hydrological active soil layers 
   INTEGER ::  isub_water  !< (open) water points tile number
   INTEGER ::  isub_lake   !< lake points tile number
   INTEGER ::  isub_seaice !< seaice tile number
@@ -112,6 +113,10 @@ CONTAINS
   !!
   SUBROUTINE configure_lnd_nwp()
   !
+    ! local variables
+    INTEGER  :: kso              ! soil loop index
+    REAL(wp) :: depth_hl         ! half level depth
+
     CHARACTER(len=*), PARAMETER::  &
       &  routine = 'mo_lnd_nwp_config: configure_lnd_nwp'
     !-----------------------------------------------------------------------
@@ -120,6 +125,19 @@ CONTAINS
     ! Note that this number must be consistent with the number of entries 
     ! in zml_soil. zml_soil provides soil layer full level heights (confirmed).
     nlev_soil = SIZE(zml_soil)
+
+
+    ! number of hydraulical active soil layers ibot_w_so
+    !
+    ! currently, we take all those layers which are located completely 
+    ! above 2.5m soil depth
+    DO kso=1,nlev_soil
+      depth_hl = zml_soil(kso) + 0.5_wp*dzsoil(kso)
+      IF (depth_hl<=2.5_wp) ibot_w_so=kso
+    ENDDO
+    ! make sure that ibot_w_so>=2
+    ibot_w_so = MAX(2, ibot_w_so)
+
 
     IF (ntiles_lnd == 1) THEN ! Reset options that can be used in combination with tile approach
       lsnowtile     = .FALSE.
