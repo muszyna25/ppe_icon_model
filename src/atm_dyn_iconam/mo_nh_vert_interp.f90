@@ -37,7 +37,7 @@ MODULE mo_nh_vert_interp
   USE mo_run_config,          ONLY: iforcing
   USE mo_io_config,           ONLY: itype_pres_msl
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
-    &                               PRES_MSL_METHOD_IFS_CORR, MODE_COSMODE
+    &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode
   USE mo_initicon_types,      ONLY: t_initicon_state
@@ -299,7 +299,7 @@ CONTAINS
 
     ! 1. Compute pressure and height of input data, using the IFS routines
 
-    IF (init_mode /= MODE_COSMODE) THEN
+    IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN ! i.e. atmospheric data from IFS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
 !$OMP            rdalpha, geop_mc) ICON_OMP_DEFAULT_SCHEDULE
