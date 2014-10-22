@@ -75,7 +75,7 @@ MODULE mo_oce_physics
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_reference,           &
     & grid_unstructured_edge, grid_unstructured_cell, &
     & za_depth_below_sea, za_depth_below_sea_half,    &
-    & datatype_pack16, datatype_flt32, filetype_nc2
+    & datatype_pack16, datatype_flt32
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_patch_array, global_max
   USE  mo_oce_thermodyn,      ONLY: calculate_density_onColumn

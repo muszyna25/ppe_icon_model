@@ -44,6 +44,7 @@ MODULE mo_util_cdi
 
   PRIVATE
 
+  PUBLIC :: has_filetype_netcdf
   PUBLIC :: read_cdi_2d, read_cdi_3d
   PUBLIC :: get_cdi_varID
   PUBLIC :: test_cdi_varID
@@ -91,6 +92,18 @@ MODULE mo_util_cdi
   END TYPE
 
 CONTAINS
+
+  !> Provides a common interface to all NetCDF flavors used within
+  !> ICON.
+  !
+  FUNCTION has_filetype_netcdf(cdi_filetype)
+    LOGICAL :: has_filetype_netcdf
+    INTEGER, INTENT(IN) :: cdi_filetype
+
+    has_filetype_netcdf = ((cdi_filetype == FILETYPE_NC)  .OR. &
+      &                    (cdi_filetype == FILETYPE_NC2) .OR. &
+      &                    (cdi_filetype == FILETYPE_NC4))
+  END FUNCTION has_filetype_netcdf
 
 
   !---------------------------------------------------------------------------------------------------------------------------------

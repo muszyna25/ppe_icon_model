@@ -77,7 +77,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF,          &
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,       &
   &                               ZA_TOA, ZA_DEPTH_BELOW_LAND, DATATYPE_FLT32,   &
-  &                               DATATYPE_PACK16, FILETYPE_NC2, TSTEP_INSTANT,  &
+  &                               DATATYPE_PACK16, TSTEP_INSTANT,                &
   &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN,  &
   &                               TSTEP_CONSTANT, ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &

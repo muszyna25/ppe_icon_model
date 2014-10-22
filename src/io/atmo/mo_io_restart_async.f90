@@ -3334,10 +3334,8 @@ CONTAINS
 
     ! assume all restart variables uses the same file format
     SELECT CASE (p_re_list%p%restart_type)
-      CASE (FILETYPE_NC2)
-        restart_type = FILETYPE_NC2
-      CASE (FILETYPE_NC4)
-        restart_type = FILETYPE_NC4
+      CASE (FILETYPE_NC2, FILETYPE_NC4)
+        restart_type = p_re_list%p%restart_type
       CASE default
         CALL finish(subname, UNKNOWN_FILE_FORMAT)
     END SELECT

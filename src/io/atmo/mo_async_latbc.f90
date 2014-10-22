@@ -96,9 +96,9 @@ MODULE mo_async_latbc
     USE mo_time_config,               ONLY: time_config
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
          &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
-         &                                  vlistNvars, zaxisInqSize, vlistInqVarName, &
-         &                                  vlistInqVarGrid, streamClose, &
-         &                                  FILETYPE_NC2, FILETYPE_GRB2, streamInqFiletype 
+         &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
+         &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
+         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
@@ -485,7 +485,7 @@ MODULE mo_async_latbc
 
          ! Search name mapping for name in GRIB2 file
          SELECT CASE(filetype)
-         CASE (FILETYPE_NC2)
+         CASE (FILETYPE_NC2, FILETYPE_NC4)
             IF (latbc_config%itype_latbc == 1) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp)))

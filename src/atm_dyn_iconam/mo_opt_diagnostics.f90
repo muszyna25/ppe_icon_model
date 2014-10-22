@@ -38,7 +38,6 @@ MODULE mo_opt_diagnostics
     &                                new_var_list, delete_var_list
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
     &                                level_type_hl, level_type_il
-  USE mo_cdi_constants,        ONLY: FILETYPE_NC2
 
 
   IMPLICIT NONE

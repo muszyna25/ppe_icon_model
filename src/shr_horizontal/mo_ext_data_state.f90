@@ -90,7 +90,9 @@ MODULE mo_ext_data_state
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
     &                              ZA_LAKE_BOTTOM
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
-    &                              read_cdi_3d, t_inputParameters, makeInputParameters, deleteInputParameters
+    &                              read_cdi_3d, t_inputParameters,                 &
+    &                              makeInputParameters, deleteInputParameters,     &
+    &                              has_filetype_netcdf
   USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==), uuid_unparse,  &
     &                              uuid_string_length
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
@@ -1635,9 +1637,7 @@ CONTAINS
 
       ! Search for glacier fraction in Extpar file
       !
-      IF ((cdi_filetype == FILETYPE_NC)  .OR. &
-        & (cdi_filetype == FILETYPE_NC2) .OR. &
-        & (cdi_filetype == FILETYPE_NC4)) THEN
+      IF (has_filetype_netcdf(cdi_filetype)) THEN
         var_id = test_cdi_varID(cdi_extpar_id,'ICE')
       ELSE IF (cdi_filetype == FILETYPE_GRB2) THEN
         var_id = test_cdi_varID(cdi_extpar_id,'FR_ICE')
@@ -2038,9 +2038,7 @@ CONTAINS
           ! key "localInformationNumber".
           vlist_id = streamInqVlist(cdi_extpar_id(jg))
 
-          IF ((cdi_filetype(jg) == FILETYPE_NC)  .OR. &
-            & (cdi_filetype(jg) == FILETYPE_NC2) .OR. &
-            & (cdi_filetype(jg) == FILETYPE_NC4)) THEN
+          IF (has_filetype_netcdf(cdi_filetype(jg))) THEN
             ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
             IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
               i_lctype(jg) = 1

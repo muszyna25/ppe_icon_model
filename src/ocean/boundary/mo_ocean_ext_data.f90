@@ -72,7 +72,7 @@ MODULE mo_ocean_ext_data
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
+    &                              DATATYPE_FLT32, DATATYPE_PACK16,                &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
 
   USE mo_master_control,        ONLY: is_restart_run

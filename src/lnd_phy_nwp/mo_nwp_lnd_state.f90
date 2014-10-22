@@ -72,7 +72,7 @@ MODULE mo_nwp_lnd_state
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
     &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER,          &
     &                                DATATYPE_PACK16, DATATYPE_PACK24,           &
-    &                                FILETYPE_NC2, TSTEP_ACCUM
+    &                                TSTEP_ACCUM
 
 
 

@@ -60,7 +60,7 @@ MODULE mo_io_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN, dict_resize
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
-  USE mo_cdi_constants,       ONLY: filetype_nc2, filetype_grb2, &
+  USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
     &                               streamInqVlist, streamOpenRead, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
@@ -289,7 +289,7 @@ MODULE mo_io_initicon
     IF (lread) THEN
 
       SELECT CASE(filetype)
-      CASE (FILETYPE_NC2)
+      CASE (FILETYPE_NC2, FILETYPE_NC4)
         ! Trivial name mapping for NetCDF file
         mapped_name = TRIM(varname)
 
@@ -355,7 +355,7 @@ MODULE mo_io_initicon
     IF (lread) THEN
 
       SELECT CASE(filetype)
-      CASE (FILETYPE_NC2)
+      CASE (FILETYPE_NC2, FILETYPE_NC4)
         !
         ! Trivial name mapping for NetCDF file
         mapped_name = TRIM(varname)
