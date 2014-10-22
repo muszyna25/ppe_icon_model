@@ -309,7 +309,7 @@ CONTAINS
       ! Check whether the radiation time step is a multiple of the convection time step.
       ! If not, then adapt the radiation time step. I.e. the radiation time step is rounded up to 
       ! the next full multiple.
-      IF( MOD(dt_rad(jg),dt_conv(jg)) > 10._wp*dbl_eps .AND. inwp_turb(jg)/=ismag ) THEN
+      IF( MOD(dt_rad(jg),dt_conv(jg)) > 10._wp*dbl_eps .AND. inwp_convection(jg)>0 ) THEN
         ! write warning only for global domain
         IF (jg==1) THEN
           WRITE(message_text,'(a,2F8.1)') &
