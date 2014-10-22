@@ -20,7 +20,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_io_initicon
+MODULE mo_initicon_io
 
   USE mo_kind,                ONLY: wp, i8
   USE mo_io_units,            ONLY: filename_max
@@ -1551,5 +1551,5 @@ MODULE mo_io_initicon
   END SUBROUTINE read_dwdana_sfc
 
 
-END MODULE mo_io_initicon
+END MODULE mo_initicon_io
 
