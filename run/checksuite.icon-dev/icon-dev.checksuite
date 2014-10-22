@@ -26,7 +26,12 @@ while [ "${DOM}" -le "${NDOM}" ]; do
   if [ ${#DOM} -lt 2 ]; then
     DOM=0${DOM}
   fi 
-  ln -sf ${EXP_ORI}_restart_atm_DOM${DOM}_${RESTART_DATE}.nc restart_atm_DOM${DOM}.nc
+  if [ ${NDOM} -eq 1 ]; then
+    ln -sf ${EXP_ORI}_restart_atm_${RESTART_DATE}.nc restart_atm_DOM${DOM}.nc
+  else
+    ln -sf ${EXP_ORI}_restart_atm_DOM${DOM}_${RESTART_DATE}.nc restart_atm_DOM${DOM}.nc
+  fi
+  DOM=$(( DOM + 1 ))
 done
 }
 #------------------------------------------------------------------------
