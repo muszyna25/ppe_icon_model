@@ -127,12 +127,11 @@ must be started $90$ minutes prior to the actual starting time of the assimilati
 The analysis increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV}, whose validity time is 00:00 CET are added over 
 $3$ hours until at 1:30 the free forecast starts. Then, two first guess data sets are written into the database. One at 1:30 CET, which will 
 be used for starting the next 3h assimilation run, and a second one at 3:00 CET, which is required as input for the assimilation system 
-itself. Thus in general, using the IAU method requires some care in terms of which fields (with which validity times) must be written to the 
-database for later use.
+itself. Thus in general, using the IAU method requires some care in terms of reading and writing the right fields at the right times.
 \begin{figure}[hbt]
  \centering
  \includegraphics[width=1.0\textwidth]{IAU_scheme_2.png}
- \caption{Time line for ICON assimilation run starting at 00:00CET.}\label{fig_IAU_scheme}
+ \caption{Time line for an ICON assimilation run starting at 00:00CET.}\label{fig_IAU_scheme}
 \end{figure}
 
 %In principle, this method is not restricted to atmospheric fields, but also applicable to assimilated soil and surface fields. Possible candidates 

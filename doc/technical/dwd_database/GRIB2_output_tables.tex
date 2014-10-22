@@ -262,10 +262,10 @@ unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit dis
 
 Soil temperature is defined at the soil depths given in Table \ref{tab_soillayer} (column 2). Levels $1$ to $8$ define the full levels of the soil model. A zero gradient 
 condition is assumed between levels $0$ and $1$, meaning that temperatures at the surface-atmosphere interface are set equal to the temperature at the first full level depth.
-($0.5\,\mathrm{cm}$). Temperatures are prognosed for levels $1$ to $7$. At the lowermost level ($1458\,\mathrm{cm}$) the temperature is fixed to the climatological 
-average $2\,\mathrm{m}$-temperature.
+($0.5\,\mathrm{cm}$). Temperatures are prognosed for layers $1$ to $7$. At the lowermost layer (mid-level height $1458\,\mathrm{cm}$) the temperature is fixed 
+to the climatological average $2\,\mathrm{m}$-temperature.
 
-Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowermost layers \texttt{W\_SO} is time constant.
+Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowermost layers \texttt{W\_SO} is filled with \texttt{W\_SO(6)} (zero gradient condition).
 
 \begin{table}
 \center
@@ -368,4 +368,18 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
 %\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
 \begin{description}[leftmargin=3.0cm,style=sameline]
  \item [T\_ICE] Ice temperature over sea-ice and frozen lake points. Ice-free points over land, sea and lakes are set to \texttt{T\_SO(0)}.
+\end{description}
+
+
+\subsection{Soil products}
+% uses package enumitem
+%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
+\begin{description}[leftmargin=3.0cm,style=sameline]
+ \item [T\_SO] Temperature of the soil and earth surface (uppermost level). The soil full level depths at which the 
+the soil temperature is defined are given in Table \ref{tab_soillayer}. The temperature at the uppermost level \texttt{T\_SO(0)} 
+is not prognostic. It is rather set equal to the temperature at the first prognostic level \texttt{T\_SO(1)}. The temperature 
+at the lowermost level \texttt{T\_SO(8)} is set to the climatological $2\,\mathrm{m}$ temperature \texttt{T\_2M\_CL}. At 
+sea-points, \texttt{T\_SO(0:7)} is filled with the sea-surface temperature. Note that \texttt{T\_SO(0)} does not necessarily 
+represent the temperature at the interface soil-atmosphere. I.e.\ Over snow/ice covered surfaces, \texttt{T\_SO(0)} 
+represents the temperature below snow/ice.
 \end{description}
