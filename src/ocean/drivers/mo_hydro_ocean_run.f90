@@ -288,6 +288,7 @@ CONTAINS
     !  not yet mature
     !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
     !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
+    !     & operators_coefficients,                                       &
     !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, datetime)
       ENDIF
 

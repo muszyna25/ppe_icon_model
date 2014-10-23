@@ -23,8 +23,9 @@ MODULE mo_oce_diagnostics
   USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices, check_global_indexes
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, get_my_mpi_work_id, &
     & p_comm_work_test, p_comm_work, p_io, p_bcast
-  USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks, &
+    &                              sync_c, sync_e, sync_patch_array
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, cvec2gvec
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_math_constants,     ONLY: rad2deg, dbl_eps
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
@@ -57,6 +58,7 @@ MODULE mo_oce_diagnostics
   USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+  USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum
@@ -67,6 +69,7 @@ MODULE mo_oce_diagnostics
   !PRIVATE
   
   CHARACTER(LEN=12)           :: str_module    = 'oceDiag     '  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
   
   INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
   INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
@@ -1188,7 +1191,7 @@ CONTAINS
     REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
     REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
     
-    TYPE(t_patch), POINTER  :: p_patch
+    TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
     
     !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
@@ -1202,9 +1205,9 @@ CONTAINS
     rsmth           = REAL(jsmth2*jsmth2, wp)
     
     ! with all cells no sync is necessary
-    p_patch   => patch_3d%p_patch_2d(1)
-    all_cells => p_patch%cells%ALL
-    dom_cells => p_patch%cells%in_domain
+    patch_2d  => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    dom_cells => patch_2d%cells%in_domain
     
     ! (1) barotropic system:
     !     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
@@ -1222,6 +1225,11 @@ CONTAINS
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO
+                
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('calc_psi:    u_vint    ', u_vint        , str_module, idt_src, in_subset=patch_2d%cells%owned)
+    !---------------------------------------------------------------------
     
     IF (idiag_psi == 1) RETURN
     
@@ -1232,8 +1240,8 @@ CONTAINS
     DO jb = dom_cells%start_block, dom_cells%end_block
       CALL get_index_range(dom_cells, jb, start_index, end_index)
       DO jc = start_index, end_index
-        z_lat_deg = p_patch%cells%center(jc,jb)%lat * rad2deg
-        z_lon_deg = p_patch%cells%center(jc,jb)%lon * rad2deg
+        z_lat_deg = patch_2d%cells%center(jc,jb)%lat * rad2deg
+        z_lon_deg = patch_2d%cells%center(jc,jb)%lon * rad2deg
         
         !  ! 0 <= lon <= 360 deg
         !  z_lon_deg = z_lon_deg + 180.0_wp
@@ -1311,6 +1319,11 @@ CONTAINS
       WRITE(82,*) 'jlat=',jlat
       WRITE(82,'(1p10e12.3)') (psi_reg(jlon,jlat),jlon=1,nlon)
     ENDDO
+                
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('calc_psi:    u_vint    ', u_vint        , str_module, idt_src, in_subset=patch_2d%cells%owned)
+    !---------------------------------------------------------------------
     
   END SUBROUTINE calc_psi
   !-------------------------------------------------------------------------
@@ -1327,7 +1340,7 @@ CONTAINS
   !! Developed  by  Stephan Lorenz, MPI-M (2014).
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_psi_vn (patch_3D, vn, prism_thickness_e, u_vint, v_vint, datetime)
+  SUBROUTINE calc_psi_vn (patch_3D, vn, prism_thickness_e, op_coeff, u_vint, v_vint, datetime)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: vn(:,:,:)                 ! normal velocity at cell edges
@@ -1335,35 +1348,45 @@ CONTAINS
     ! dims: (nproma,nlev,alloc_edge_blocks)
     REAL(wp), INTENT(inout)            :: u_vint(:,:)               ! barotropic zonal velocity on cell centers
     REAL(wp), INTENT(inout)            :: v_vint(:,:)               ! barotropic meridional velocity on cell centers
+    TYPE(t_operator_coeff),INTENT(in)  :: op_coeff
     TYPE(t_datetime), INTENT(in)       :: datetime
     !
-    INTEGER  :: jb, je, jk, start_index_e, end_index_e
-    REAL(wp) :: vn_vint(nproma,patch_3d%p_patch_2d(1)%nblks_e)      ! vertical integral on regular grid
+    INTEGER  :: jb, jc, je, jk, start_index, end_index
+    ! vertical integral vn on edges and in cartesian coordinates - no 2-dim mapping is available
+    REAL(wp) :: vn_vint(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: u_2d(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)   !  scratch arrays for test
+    REAL(wp) :: v_2d(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)   !  scratch arrays for test
+    TYPE(t_cartesian_coordinates) :: vint_cc(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     
-    TYPE(t_patch), POINTER  :: p_patch
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_patch), POINTER  :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_edges, all_cells
     
     !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi_vn')
     
     !-----------------------------------------------------------------------
     
-    vn_vint(:,:)    = 0.0_wp
+    patch_2d  => patch_3d%p_patch_2d(1)
+    all_edges => patch_2d%edges%ALL
+    all_cells => patch_2d%cells%ALL
     
-    ! with all edges no sync is necessary
-    p_patch   => patch_3d%p_patch_2d(1)
-    all_edges => p_patch%edges%ALL
+    vn_vint  (:,:,:)    = 0.0_wp
+    vint_cc(:,:,:)%x(1) = 0.0_wp
+    vint_cc(:,:,:)%x(2) = 0.0_wp
+    vint_cc(:,:,:)%x(3) = 0.0_wp
+    u_2d       (:,:)    = 0.0_wp
+    v_2d       (:,:)    = 0.0_wp
     
     ! (1) barotropic system:
     !     vertical integration of normal velocity times vertical layer thickness [m/s*m]
-!ICON_OMP_PARALLEL_DO PRIVATE(je, jk, start_index_e, end_index_e) SCHEDULE(dynamic)
+!ICON_OMP_PARALLEL_DO PRIVATE(je, jk, start_index, end_index) SCHEDULE(dynamic)
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, start_index_e, end_index_e)
-      vn_vint(:,jb) = 0.0_wp
-      DO je = start_index_e, end_index_e
+      CALL get_index_range(all_edges, jb, start_index, end_index)
+      vn_vint(:,1,jb) = 0.0_wp
+      DO je = start_index, end_index
       
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
         
-          vn_vint(je,jb) = vn_vint(je,jb) - vn(je,jk,jb) * prism_thickness_e(je,jk,jb)
+          vn_vint(je,1,jb) = vn_vint(je,1,jb) - vn(je,jk,jb) * prism_thickness_e(je,jk,jb)
           
         END DO
       END DO
@@ -1371,6 +1394,36 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     
     ! (2) remapping normal velocity to zonal and meridional velocity at cell centers
+    CALL sync_patch_array(sync_e, patch_2D, vn_vint)       
+    CALL map_edges2cell_3d(patch_3D, vn_vint, op_coeff, vint_cc)
+    CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(1))
+    CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(2))
+    CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(3))
+
+    ! calculate zonal and meridional velocity:
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        CALL cvec2gvec(vint_cc(jc,1,jb)%x(1), vint_cc(jc,1,jb)%x(2), vint_cc(jc,1,jb)%x(3), &
+          &            patch_2d%cells%center(jc,jb)%lon, patch_2d%cells%center(jc,jb)%lat,  &
+          &            u_2d(jc,jb), v_2d(jc,jb))
+!         &            u_vint(jc,jb), v_vint(jc,jb))
+      END DO
+    END DO
+    !CALL sync_patch_array(sync_c, patch_2D, u_vint)       
+    !CALL sync_patch_array(sync_c, patch_2D, v_vint)       
+    CALL sync_patch_array(sync_c, patch_2D, u_2d)       
+    CALL sync_patch_array(sync_c, patch_2D, v_2d)       
+
+    ! hack for test: calc_psy for u_vint, calc_psi_vn for v_vint - accumulated and written out
+    v_vint(:,:) = u_2d(:,:)
+                
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('calc_psi_vn: u_vint    ', u_vint      , str_module, idt_src, in_subset=patch_2d%cells%owned)
+    CALL dbg_print('calc_psi_vn: vi_cc%x(1)' ,vint_cc%x(1), str_module, idt_src, in_subset=patch_2d%cells%owned)
+    !---------------------------------------------------------------------
+
     
   END SUBROUTINE calc_psi_vn
   !-------------------------------------------------------------------------
