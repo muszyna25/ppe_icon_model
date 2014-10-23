@@ -30,7 +30,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
-  USE mo_phyparam_soil,       ONLY: cporv
+  USE mo_phyparam_soil,       ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_exception,           ONLY: message, message_text, finish
 
@@ -358,7 +358,19 @@ CONTAINS
 
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
+
           jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+
+          ! Catch problematic coast cases: ICON-land but Ocean for source dataset
+          ! 
+          ! can we do better than this??
+          IF ( wsoil(jc,jk,jb) <= -999._wp )  THEN   ! check for missing value
+            ! set dummy value (50% of pore volume)
+            zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
+
+            CYCLE
+          ENDIF
+
 
           SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
             CASE (1,2)  !ice,rock
@@ -366,48 +378,39 @@ CONTAINS
             zwsoil(jc) = 0._wp
 
             CASE(3)  !sand
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.364_wp, &
-            & MAX((wsoil(jc,jk,jb)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(3), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(3) - cpwp(3)) + cpwp(3)),cadp(3)))
 
             CASE(4)  !sandyloam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.445_wp, &
-            & MAX((wsoil(jc,jk,jb)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(4), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(4) - cpwp(4)) + cpwp(4)),cadp(4)))
 
             CASE(5)  !loam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.455_wp, &
-            & MAX((wsoil(jc,jk,jb)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(5), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(5) - cpwp(5)) + cpwp(5)),cadp(5)))
 
             CASE(6)  !clayloam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.475_wp, &
-            & MAX((wsoil(jc,jk,jb)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(6), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(6) - cpwp(6)) + cpwp(6)),cadp(6)))
 
             CASE(7)  !clay
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.507_wp, &
-            & MAX((wsoil(jc,jk,jb)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(7), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(7) - cpwp(7)) + cpwp(7)),cadp(7)))
 
             CASE(8)  !peat
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.863_wp, &
-            & MAX((wsoil(jc,jk,jb)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(8), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(8) - cpwp(8)) + cpwp(8)),cadp(8)))
 
             CASE(9,10)!sea water, sea ice
             ! ERROR landpoint has soiltype sea water or sea ice
             lerr = .TRUE.
-          END SELECT
 
-          ! We need to catch problematic coast cases: ICON-land but IFS/GME-ocean &
-          ! for moisture (and in principle for temperature as well)
-          ! 
-          ! can we do better than this??
-          IF ( wsoil(jc,jk,jb) <= -999._wp )  THEN   ! check for missing value
-            ! set dummy value (50% of pore volume)
-            zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
-          ENDIF
+          END SELECT
 
         ENDDO  ! ic
         ! overwrite wsoil
         wsoil(1:nlen,jk,jb) = zwsoil(1:nlen)
       ENDDO  ! jk
-
 
       ! assume no-gradient condition for hydraulical non-active layers
       DO jk = ibot_w_so+1, nlev_soil
@@ -486,27 +489,29 @@ CONTAINS
             ! set wsoil to 0 for ice and rock
             smi(jc) = 0._wp
 
+
             CASE(3)  !sand
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.042_wp)/(0.196_wp - 0.042_wp)
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(3))/(cfcap(3) - cpwp(3))
 
             CASE(4)  !sandyloam
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.1_wp  )/(0.26_wp  - 0.1_wp  )
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(4))/(cfcap(4) - cpwp(4))
 
             CASE(5)  !loam
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.11_wp )/(0.34_wp  - 0.11_wp )
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(5))/(cfcap(5) - cpwp(5))
 
             CASE(6)  !clayloam
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.185_wp)/(0.37_wp  - 0.185_wp)
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(6))/(cfcap(6) - cpwp(6))
 
             CASE(7)  !clay
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.257_wp)/(0.463_wp - 0.257_wp)
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(7))/(cfcap(7) - cpwp(7))
 
             CASE(8)  !peat
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.265_wp)/(0.763_wp - 0.265_wp)
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(8))/(cfcap(8) - cpwp(8))
 
             CASE(9,10)!sea water, sea ice
             ! ERROR landpoint has soiltype sea water or sea ice
             lerr = .TRUE.
+
           END SELECT
 
         ENDDO  ! ic
