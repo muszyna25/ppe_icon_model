@@ -173,6 +173,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::read_restart_header"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
+    CHARACTER(len=132) :: message_text
     LOGICAL                        :: lsuccess, lexists
     INTEGER                        :: idom, total_dom, fileID, vlistID, root_pe
 
@@ -199,6 +200,13 @@ CONTAINS
     !
     IF (my_process_is_mpi_workroot()) THEN
       fileID  = streamOpenRead(rst_filename)
+      ! check if the file could be opened
+      IF (fileID < 0) THEN
+        WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), &
+             ' cannot be opened: ', TRIM(cdiStringError(fileID))
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+
       vlistID = streamInqVlist(fileID)
     END IF
     CALL read_and_bcast_restart_namelists(vlistID, my_process_is_mpi_workroot(), &

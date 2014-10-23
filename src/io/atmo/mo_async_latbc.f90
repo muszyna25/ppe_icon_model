@@ -94,11 +94,12 @@ MODULE mo_async_latbc
     USE mo_util_string,               ONLY: add_to_list
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
     USE mo_time_config,               ONLY: time_config
-    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,    &
          &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
-         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
+         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
+         &                                  cdistringerror
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
@@ -416,6 +417,7 @@ MODULE mo_async_latbc
       CHARACTER(LEN=filename_max) :: latbc_file
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
+      CHARACTER(len=132) :: message_text
       INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID, &
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
@@ -480,6 +482,11 @@ MODULE mo_async_latbc
          ! open file
          !
          fileID_latbc = streamOpenRead(TRIM(latbc_file))
+         IF (fileID_latbc < 0) THEN
+           WRITE(message_text,'(4a)') 'File ', TRIM(latbc_file), &
+                ' cannot be opened: ', TRIM(cdiStringError(fileID_latbc))
+           CALL finish(routine, TRIM(message_text))
+         ENDIF
 
          filetype = streamInqFiletype(fileID_latbc)
 
@@ -595,6 +602,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       INTEGER :: jlev, fileID_latbc 
       LOGICAL :: l_exist
+      CHARACTER(len=132) :: message_text
       CHARACTER(LEN=filename_max) :: latbc_filename
 
       ! prefetch processor opens the file and checks if variables are present
@@ -611,6 +619,11 @@ MODULE mo_async_latbc
          ! open file
          !
          fileID_latbc = streamOpenRead(TRIM(latbc_file))
+         IF (fileID_latbc < 0) THEN
+           WRITE(message_text,'(4a)') 'File ', TRIM(latbc_file), &
+                ' cannot be opened: ', TRIM(cdiStringError(fileID_latbc))
+           CALL finish(routine, TRIM(message_text))
+         ENDIF
 
          !
          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input

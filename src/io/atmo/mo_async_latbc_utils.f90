@@ -441,6 +441,7 @@
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::prefetch_latbc_icon_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
+      CHARACTER(len=132) :: message_text
 
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -455,6 +456,12 @@
       ! open file
       !
       latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
+      ! check if the file could be opened
+      IF (latbc_fileid < 0) THEN
+        WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
+             ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
       ! initializing the displacement array for each compute processor
       ioff(:) = 0_MPI_ADDRESS_KIND
@@ -735,6 +742,7 @@
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_ifs_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
+      CHARACTER(LEN=132) :: message_text
 
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -750,6 +758,12 @@
 
       ! opening and reading file
       latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
+      ! check if the file could be opened
+      IF (latbc_fileid < 0) THEN
+        WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
+             ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
       ! initializing the displacement array for each compute processor
       ioff(:) = 0_MPI_ADDRESS_KIND

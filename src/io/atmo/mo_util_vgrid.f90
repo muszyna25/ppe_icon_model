@@ -245,6 +245,7 @@ CONTAINS
     REAL(dp), ALLOCATABLE      :: levels(:)
     TYPE(t_uuid)               :: uuid
     CHARACTER(len=1)           :: uuid_string(16)
+    CHARACTER(len=132) :: message_text
 
     CALL message(routine, "create vertical grid description file.")
 
@@ -305,6 +306,13 @@ CONTAINS
 
       !--- open file via CDI
       cdiFileID   = streamOpenWrite(TRIM(filename), output_type)
+      ! check if the file could be opened
+      IF (cdiFileID < 0) THEN
+        WRITE(message_text,'(4a)') 'File ', TRIM(filename), &
+             ' cannot be opened: ', TRIM(cdiStringError(cdiFileID))
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+
       ! assign the vlist (which must have ben set before)
       CALL streamDefVlist(cdiFileID, cdiVlistID)
       ! streamDefTimestep is required, even without time axis!
@@ -379,6 +387,12 @@ CONTAINS
 
       !--- open file
       cdiFileID = streamOpenRead(TRIM(filename))
+      ! check if the file could be opened
+      IF (cdiFileID < 0) THEN
+        WRITE(message_text,'(4a)') 'File ', TRIM(filename), &
+             ' cannot be opened: ', TRIM(cdiStringError(cdiFileID))
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
       !--- read vct_a, vct_b
       cdiVarID_vct_a     = get_cdi_varID(cdiFileID, "vct_a")

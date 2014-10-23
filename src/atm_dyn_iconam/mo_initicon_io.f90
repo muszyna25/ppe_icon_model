@@ -59,7 +59,7 @@ MODULE mo_initicon_io
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
-    &                               streamInqVlist, streamOpenRead
+    &                               streamInqVlist, streamOpenRead, cdiStringError
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, &
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list
@@ -147,6 +147,12 @@ MODULE mo_initicon_io
         WRITE (0,"(a)") " "
         WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdfg_file(jg))
         fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
+        ! check if the file could be opened
+        IF (fileID_fg(jg) < 0) THEN
+          WRITE(message_text,'(4a)') 'File ', TRIM(dwdfg_file(jg)), &
+               ' cannot be opened: ', TRIM(cdiStringError(fileID_fg(jg)))
+          CALL finish(routine, TRIM(message_text))
+        ENDIF
 
         ! check whether the file is empty (does not work unfortunately; internal CDI error)
         flen_fg = util_filesize(TRIM(dwdfg_file(jg)))
@@ -190,6 +196,12 @@ MODULE mo_initicon_io
           WRITE (0,"(a)") " "
           WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdana_file(jg))
           fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
+          ! check if the file could be opened
+          IF (fileID_ana(jg) < 0) THEN
+            WRITE(message_text,'(4a)') 'File ', TRIM(dwdana_file(jg)), &
+                 ' cannot be opened: ', TRIM(cdiStringError(fileID_ana(jg)))
+            CALL finish(routine, TRIM(message_text))
+          ENDIF
 
           ! check whether the file is empty (does not work unfortunately; internal CDI error)
           flen_ana = util_filesize(TRIM(dwdana_file(jg)))
