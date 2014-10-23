@@ -27,12 +27,12 @@
 !!
 !!    This filename can be customized using the namelist parameter
 !!    "mo_run_nml/restart_filename".
-!! 
+!!
 !!    This file contains
 !!    -  data
 !!    -  namelists
 !!    -  several attributes
-!! 
+!!
 !!    Note:
 !!    -  We read the namelists only once and assume that these
 !!       are identical for all domains.
@@ -44,7 +44,7 @@
 !!    Symbolic link to data file
 !!    --------------------------
 !!      "restart_<modeltype>_DOMxx.nc"
-!!   
+!!
 !!    Note:
 !!    -  The domain-dependent suffix "...DOMxx" is also required for non-nested setups.
 !!
@@ -1131,7 +1131,7 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: ocean_Zlevels
     REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellMiddle(:)
     REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellInterfaces(:)
-    
+
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: inlev_soil, inlev_snow, i, nice_class
@@ -1267,24 +1267,24 @@ CONTAINS
     ENDIF
 !DR end preliminary fix
 
-    ndepth = 0   
+    ndepth = 0
     IF (PRESENT(ocean_Zheight_CellMiddle) ) THEN
-      IF (.not. PRESENT(ocean_Zheight_CellInterfaces) .or. .not. PRESENT(ocean_Zlevels) ) & 
+      IF (.not. PRESENT(ocean_Zheight_CellInterfaces) .or. .not. PRESENT(ocean_Zlevels) ) &
         CALL finish('create_restart_file','Ocean level parameteres not complete')
       IF (.not. use_ocean_levels) THEN
         ! initialize the ocean levels
-	IF (ALLOCATED(private_depth_half))  &
-	  &  DEALLOCATE(private_depth_half, private_depth_full)
-	ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
-	private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
-	private_depth_full(:) = ocean_Zheight_CellMiddle(:)
+        IF (ALLOCATED(private_depth_half))  &
+          &  DEALLOCATE(private_depth_half, private_depth_full)
+        ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
+        private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
+        private_depth_full(:) = ocean_Zheight_CellMiddle(:)
       END IF
       ndepth = ocean_Zlevels
       use_ocean_levels = .TRUE.
      END IF
-    
 
-    IF (PRESENT(opt_output_jfile)) THEN 
+
+    IF (PRESENT(opt_output_jfile)) THEN
       DO i=1,SIZE(opt_output_jfile)
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
         CALL set_restart_attribute( TRIM(attname), opt_output_jfile(i) )
@@ -1840,8 +1840,8 @@ CONTAINS
         nvars = vlistNvars(vlistID)
       END IF
       CALL p_bcast(nvars, root_pe, comm=p_comm_work)
-      
-      !AD: This call is already made in read_restart_header. Why do it twice?  
+
+      !AD: This call is already made in read_restart_header. Why do it twice?
       CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
       !
       for_all_vars: DO varID = 0, (nvars-1)

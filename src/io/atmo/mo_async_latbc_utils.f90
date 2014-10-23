@@ -6,7 +6,7 @@
   !!
   !! @par Revision History
   !! Initial version by M. Pondkule, DWD (2014-01-27)
-  !! Allow boundary data from the ICON output by S. Brdar, DWD (2013-07-19) 
+  !! Allow boundary data from the ICON output by S. Brdar, DWD (2013-07-19)
   !!
   !! @par Copyright
   !! 2002-2013 by DWD and MPI-M
@@ -39,19 +39,19 @@
   !----------------------------
 #include "omp_definitions.inc"
   !----------------------------
-  
+
   MODULE mo_async_latbc_utils
 
 #ifndef NOMPI
     USE mpi
     USE mo_mpi,                 ONLY: my_process_is_mpi_test, &
          &                            my_process_is_pref, my_process_is_work,   &
-         &                            my_process_is_io, p_comm_work                            
+         &                            my_process_is_io, p_comm_work
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
     USE mo_mpi,                 ONLY: p_isend, p_irecv, p_barrier, p_wait, &
-         &                            p_send, p_recv   
+         &                            p_send, p_recv
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
@@ -75,7 +75,7 @@
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN         
+         &                            MAX_TIMEDELTA_STR_LEN
     USE mo_mtime_extensions,    ONLY: get_datetime_string
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
@@ -85,7 +85,7 @@
     USE mo_initicon_config,     ONLY: init_mode
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                            operator(+)                             
+         &                            operator(+)
     USE mo_mtime_extensions,    ONLY: get_duration_string_real, getTimeDeltaFromDateTime
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
 
@@ -104,7 +104,7 @@
     ! handshake subroutines
     PUBLIC :: async_pref_send_handshake
     PUBLIC :: compute_wait_for_async_pref
-    PUBLIC :: async_pref_wait_for_start 
+    PUBLIC :: async_pref_wait_for_start
     PUBLIC :: compute_start_async_pref
     PUBLIC :: compute_shutdown_async_pref
 
@@ -112,7 +112,7 @@
          &     latbc_data, latbc_fileid, start_latbc_tlev, end_latbc_tlev,  &
          &     update_lin_interpolation, deallocate_pref_latbc_data, &
          &     get_field_index, prefetch_latbc_icon_data, &
-         &     prefetch_latbc_ifs_data, mtime_read 
+         &     prefetch_latbc_ifs_data, mtime_read
 
     !------------------------------------------------------------------------------------------------
     ! CONSTANTS
@@ -123,9 +123,9 @@
     INTEGER, PARAMETER :: msg_pref_start    = 56984
     INTEGER, PARAMETER :: msg_pref_done     = 26884
     INTEGER, PARAMETER :: msg_pref_shutdown = 48965
-    INTEGER, PARAMETER :: msg_latbc_done    = 20883 
+    INTEGER, PARAMETER :: msg_latbc_done    = 20883
     CHARACTER(len=*), PARAMETER :: version = '$Id$'
-    CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils' 
+    CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils'
     INTEGER                :: latbc_fileid, &
          start_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
          end_latbc_tlev     ! last_ext_tlev is the last written time level index
@@ -229,7 +229,7 @@
          !$OMP WORKSHARE
          latbc_data(tlev)%topography_c(:,:) = opt_ext_data%atm%topography_c(:,:)
          latbc_data(tlev)%z_ifc(:,:,:) = opt_p_nh_state%metrics%z_ifc(:,:,:)
-         latbc_data(tlev)%z_mc (:,:,:) = opt_p_nh_state%metrics%z_mc (:,:,:) 
+         latbc_data(tlev)%z_mc (:,:,:) = opt_p_nh_state%metrics%z_mc (:,:,:)
          !$OMP END WORKSHARE
          !$OMP END PARALLEL
 
@@ -237,7 +237,7 @@
 
 #endif
     END SUBROUTINE allocate_pref_latbc_data
-  
+
     !-------------------------------------------------------------------------
     !>
     !! @par Revision History
@@ -246,7 +246,7 @@
     !!
 
     SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
-      TYPE(t_patch_data),     INTENT(IN)   :: patch_data  
+      TYPE(t_patch_data),     INTENT(IN)   :: patch_data
       TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
@@ -272,18 +272,18 @@
       CALL get_datetime_string(sim_end, time_config%end_datetime)
       CALL get_datetime_string(sim_cur_read, time_config%cur_datetime)
 
-      event_name = 'Prefetch input'    
+      event_name = 'Prefetch input'
 
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
-           TRIM(sim_start), TRIM(sim_end), TRIM(latbc_config%dt_latbc)) 
+           TRIM(sim_start), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
       tdiff = (0.5*dtime)
-      CALL get_duration_string_real(tdiff, tdiff_string) 
+      CALL get_duration_string_real(tdiff, tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 
-      delta_dtime => newTimedelta(latbc_config%dt_latbc) 
+      delta_dtime => newTimedelta(latbc_config%dt_latbc)
 
-      mtime_read  => newDatetime(TRIM(sim_cur_read)) 
+      mtime_read  => newDatetime(TRIM(sim_cur_read))
 
       ! prepare read/last indices
       start_latbc_tlev = 1   ! read in the first time-level slot
@@ -309,7 +309,7 @@
          CALL pref_latbc_data( patch_data,datetime=time_config%cur_datetime, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
          ! Inform compute PEs that we are done
-         CALL async_pref_send_handshake() 
+         CALL async_pref_send_handshake()
       END IF
 
       CALL message(TRIM(routine),'done')
@@ -320,7 +320,7 @@
     !>
     !! Read horizontally interpolated atmospheric boundary data
     !!
-    !! The subroutine reads atmospheric boundary data and projects on 
+    !! The subroutine reads atmospheric boundary data and projects on
     !! the ICON global grid
     !!
     !! @par Revision History
@@ -344,10 +344,10 @@
       LOGICAL                               :: ltime_incr
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_data"
 
-      IF( my_process_is_work()) THEN 
+      IF( my_process_is_work()) THEN
          ! compute current datetime in a format appropriate for mtime
          CALL get_datetime_string(sim_cur, datetime) ! time_config%cur_datetime)
-         mtime_date  => newDatetime(TRIM(sim_cur)) 
+         mtime_date  => newDatetime(TRIM(sim_cur))
 
          ! check for event been active
          isactive = isCurrentEventActive(prefetchEvent, mtime_date, my_duration_slack)
@@ -377,12 +377,12 @@
          ENDIF
       ENDIF
 
-      ! compute processors wait for msg from 
-      ! prefetch processor that they can start 
-      ! reading latbc data from memory window 
-      IF((.NOT. my_process_is_io() .AND. & 
+      ! compute processors wait for msg from
+      ! prefetch processor that they can start
+      ! reading latbc data from memory window
+      IF((.NOT. my_process_is_io() .AND. &
            & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN 
+           & .NOT. my_process_is_mpi_test()) THEN
          CALL compute_wait_for_async_pref()
       END IF
 
@@ -396,7 +396,7 @@
       ! New boundary data time-level is always read in latbc_data(start_latbc_tlev),
       ! whereas latbc_data(end_latbc_tlev) always holds the last read boundary data
       !
-      start_latbc_tlev = end_latbc_tlev 
+      start_latbc_tlev = end_latbc_tlev
       end_latbc_tlev = 3 - start_latbc_tlev
 
       !
@@ -404,7 +404,7 @@
       !
       IF (latbc_config%itype_latbc == 1) THEN
          IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_ifs_data( patch_data )        
+            CALL prefetch_latbc_ifs_data( patch_data )
          ELSE IF( my_process_is_work()) THEN
             CALL compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int )
             ! NOMPI
@@ -421,7 +421,7 @@
             CALL compute_boundary_tendencies(p_patch, p_nh_state)
          ENDIF
       ENDIF
-#endif 
+#endif
     END SUBROUTINE pref_latbc_data
 
     !-------------------------------------------------------------------------
@@ -445,7 +445,7 @@
 
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
-      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename) 
+      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
@@ -484,7 +484,7 @@
             CASE default
                CALL finish(routine,'unknown grid type')
             END SELECT
-         ELSE 
+         ELSE
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 2d variables
@@ -509,7 +509,7 @@
 
     !-------------------------------------------------------------------------
     !>
-    !! Copy horizontally interpolated atmospheric IFS analysis. 
+    !! Copy horizontally interpolated atmospheric IFS analysis.
     !!
     !! This subroutine is called by compute processors.
     !! The following steps are performed:
@@ -547,15 +547,15 @@
 
       ! Reading the next time step
 #ifndef NOMPI
-      IF((.NOT. my_process_is_io() .AND. & 
+      IF((.NOT. my_process_is_io() .AND. &
            & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN 
+           & .NOT. my_process_is_mpi_test()) THEN
          CALL compute_start_async_pref()
       ENDIF
 #endif
 
       ! Get patch ID
-      p_ri => patch_data%cells 
+      p_ri => patch_data%cells
 
       !
       ! get prognostic 3d fields
@@ -586,7 +586,7 @@
             latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             !          IF( p_pe_work == p_work_pe0 ) &
-            !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb) 
+            !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb)
          ENDDO
       ENDDO
       !$OMP END DO
@@ -627,7 +627,7 @@
       ENDDO
       !$OMP END DO
 
-      jc = get_field_index('qc') 
+      jc = get_field_index('qc')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -639,7 +639,7 @@
       !$OMP END DO
 
       ! Read parameter qi
-      jm = get_field_index('qi') 
+      jm = get_field_index('qi')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -677,7 +677,7 @@
       !$OMP END PARALLEL
 
       ! boundary exchange for a 2-D and 3-D array to fill HALO region.
-      ! This addition by M.Pondkule, DWD (11/06/2014)  
+      ! This addition by M.Pondkule, DWD (11/06/2014)
       CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%temp)
       CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm_in%u)
       CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm_in%v)
@@ -705,7 +705,7 @@
            &                temp_v=temp_v )
 
       !
-      ! Compute NH prognostic thermodynamical variables 
+      ! Compute NH prognostic thermodynamical variables
       !
       CALL convert_thdvars( p_patch, latbc_data(tlev)%atm%pres, temp_v,              &
            &                   latbc_data(tlev)%atm%rho,                                   &
@@ -726,8 +726,8 @@
     !! This subroutine is called by prefetch processor.
     !! The following steps are performed:
     !! - read atmospheric IFS analysis data,
-    !! - Write IFS analysis data to memory window buffer. The offset for data 
-    !!   is set such that each of dataset belongs to the respective compute processor, 
+    !! - Write IFS analysis data to memory window buffer. The offset for data
+    !!   is set such that each of dataset belongs to the respective compute processor,
     !!
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-04-25)
@@ -746,7 +746,7 @@
 
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
-      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename) 
+      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -787,7 +787,7 @@
                CALL finish(routine,'unknown grid type')
             END SELECT
 
-         ELSE 
+         ELSE
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 2d variables
@@ -814,7 +814,7 @@
 
     !-------------------------------------------------------------------------
     !>
-    !! Copy horizontally interpolated atmospheric IFS analysis. 
+    !! Copy horizontally interpolated atmospheric IFS analysis.
     !!
     !! This subroutine is called by compute processors.
     !! The following steps are performed:
@@ -842,7 +842,7 @@
       nlev_in   = latbc_config%nlev_in
       tlev      = start_latbc_tlev
 
-      !   WRITE(0,*) 'compute_latbc_ifs_data: tlev ', tlev  
+      !   WRITE(0,*) 'compute_latbc_ifs_data: tlev ', tlev
 
       ! Offset in memory window for async prefetching
       eoff = 0_i8
@@ -854,9 +854,9 @@
       ENDDO
 
       ! Reading the next time step
-      IF((.NOT. my_process_is_io() .AND. & 
+      IF((.NOT. my_process_is_io() .AND. &
            & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN 
+           & .NOT. my_process_is_mpi_test()) THEN
          CALL compute_start_async_pref()
       END IF
 
@@ -864,7 +864,7 @@
       p_ri => patch_data%cells
 
       ! copying tha variable values from prefetch buffer to the respective allocated variable
-      !$OMP PARALLEL PRIVATE(jm,jv,jc) 
+      !$OMP PARALLEL PRIVATE(jm,jv,jc)
       jm = get_field_index('T')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
@@ -879,7 +879,7 @@
 
       ! Read horizontal component of velocity (U and V)
       IF (latbc_buffer%lread_vn) THEN
-         jm = get_field_index('VN')  
+         jm = get_field_index('VN')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, patch_data%edges%n_own !p_patch%n_patch_cells
@@ -901,7 +901,7 @@
                latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
                latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
                !          IF( p_pe_work == p_work_pe0 ) &
-               !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb) 
+               !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb)
             ENDDO
          ENDDO
          !$OMP END DO
@@ -919,11 +919,11 @@
                latbc_data(tlev)%atm_in%omega(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO 
+         !$OMP END DO
       ELSE
          lconvert_omega2w = .FALSE.
          jv = get_field_index('W')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
+         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -931,13 +931,13 @@
                latbc_data(tlev)%atm_in%w_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO 
+         !$OMP END DO
       ENDIF
 
       IF (init_mode == MODE_COSMODE) THEN
          ! Read parameter HHL
          jm = get_field_index('HHL')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
+         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -945,11 +945,11 @@
                latbc_data(tlev)%atm_in%z3d_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO 
+         !$OMP END DO
 
          ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
          !
-         !$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE 
+         !$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
          DO jk = 1, nlev_in    !!!!!!!!need to reset nlev_in to a new value from stored n_lev values
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -963,12 +963,12 @@
                     &   REAL(latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb), wp)) * 0.5_wp
             ENDDO
          ENDDO
-         !$OMP END DO 
+         !$OMP END DO
       ENDIF
 
       ! Read parameter QV, QC and QI
       jv = get_field_index('QV')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
+      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -976,10 +976,10 @@
             latbc_data(tlev)%atm_in%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO 
+      !$OMP END DO
 
-      jc = get_field_index('QC') 
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
+      jc = get_field_index('QC')
+      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -989,7 +989,7 @@
       ENDDO
       !$OMP END DO
 
-      jm = get_field_index('QI') 
+      jm = get_field_index('QI')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1015,7 +1015,7 @@
       ELSE
          !$OMP WORKSHARE
          latbc_data(tlev)%atm_in%qr(:,:,:)=0._wp
-         !$OMP END WORKSHARE 
+         !$OMP END WORKSHARE
       ENDIF
 
       IF (latbc_buffer%lread_qs) THEN
@@ -1037,7 +1037,7 @@
       ENDIF
 
       ! Read parameter surface pressure (LNPS)
-      jm = get_field_index(latbc_buffer%psvar) 
+      jm = get_field_index(latbc_buffer%psvar)
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1046,7 +1046,7 @@
             latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO 
+      !$OMP END DO
 
       IF (init_mode == MODE_COSMODE) THEN
          ! Read parameter Pressure
@@ -1059,11 +1059,11 @@
                latbc_data(tlev)%atm_in%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO 
+         !$OMP END DO
       ENDIF
 
       ! Read parameter  surface Geopotential (GEOSP)
-      jm = get_field_index(latbc_buffer%geop_ml_var) 
+      jm = get_field_index(latbc_buffer%geop_ml_var)
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1072,12 +1072,12 @@
             latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO 
+      !$OMP END DO
       !$OMP END PARALLEL
 
-      ! boundary exchange for a 2-D and 3-D array, must be removed when the routines 
+      ! boundary exchange for a 2-D and 3-D array, must be removed when the routines
       ! of vertical interpolation no longer will run starting from HALO region.
-      ! This addition by M.Pondkule, DWD (22/05/2014)     
+      ! This addition by M.Pondkule, DWD (22/05/2014)
       CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%temp)
       CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qv)
       CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qc)
@@ -1123,7 +1123,7 @@
       CALL message(TRIM(routine), message_text)
 
       IF(my_process_is_work()) THEN
-         ! 
+         !
          ! deallocate boundary data memory
          !
          DO tlev = 1, 2
@@ -1167,7 +1167,7 @@
          END DO
       ENDIF
 
-      ! deallocating prefetch input event 
+      ! deallocating prefetch input event
       CALL deallocateEvent(prefetchEvent)
       ! deallocating Date and time
       CALL deallocateDatetime(mtime_date)
@@ -1298,7 +1298,7 @@
     SUBROUTINE async_pref_send_handshake()
 #ifndef NOMPI
       REAL(wp) :: msg
-      ! Simply send a message from Input prefetching PE 0 to work PE 0 
+      ! Simply send a message from Input prefetching PE 0 to work PE 0
       ! p_pe_work == 0 signifies processor 0 in Input prefetching PEs
       ! Note: We have to do this in a non-blocking fashion in order to
       !       receive "ready file" messages
@@ -1332,9 +1332,9 @@
 
 
     !-------------------------------------------------------------------------------------------------
-    !> async_pref_wait_for_start: Wait for a message from compute PE that we should start 
-    !  tranferring the prefetch data or finish. The counterpart on the compute side is   
-    !  compute_start_async_pref/compute_shutdown_async_pref 
+    !> async_pref_wait_for_start: Wait for a message from compute PE that we should start
+    !  tranferring the prefetch data or finish. The counterpart on the compute side is
+    !  compute_start_async_pref/compute_shutdown_async_pref
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2013-03-19)
     !
@@ -1372,7 +1372,7 @@
     END SUBROUTINE async_pref_wait_for_start
 
     !-------------------------------------------------------------------------------------------------
-    !> compute_start_async_pref: Send a message to prefetching PEs that they should start 
+    !> compute_start_async_pref: Send a message to prefetching PEs that they should start
     !  prefetching input. The counterpart on the prefetching side is async_pref_wait_for_start
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2013-03-19)
@@ -1447,14 +1447,14 @@
            "mo_async_latbc_utils::update_lin_interpolation"
 
       ! compute current datetime in a format appropriate for mtime
-      CALL get_datetime_string(sim_step, step_datetime) 
+      CALL get_datetime_string(sim_step, step_datetime)
       mtime_step  => newDatetime(TRIM(sim_step))
 
       delta_tstep => newTimedelta(latbc_config%dt_latbc)
       CALL getTimeDeltaFromDateTime (mtime_read, mtime_step, delta_tstep)
 
       IF(delta_tstep%month /= 0) &
-           CALL finish(TRIM(routine), "time difference for reading boundary data cannot be more than a month.") 
+           CALL finish(TRIM(routine), "time difference for reading boundary data cannot be more than a month.")
 
       ! compute the number of "dtime_latbc" intervals fitting into the time difference "delta_tstep":
 

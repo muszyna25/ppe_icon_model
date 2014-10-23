@@ -77,12 +77,12 @@ MODULE mo_initicon_io
 
 
   ! Remark on usage of "cdiDefMissval"
-  
+
   ! Inside the GRIB_API (v.1.9.18) the missing value is converted into
   ! LONG INT for a test, but the default CDI missing value is outside
   ! of the valid range for LONG INT (U. Schulzweida, bug report
   ! SUP-277). This causes a crash with INVALID OPERATION.
-  
+
   ! As a workaround we can choose a different missing value in the
   ! calling subroutine (here). For the SX-9 this must lie within 53
   ! bits, because "the SX compiler generates codes using HW
@@ -118,7 +118,7 @@ MODULE mo_initicon_io
     LOGICAL :: l_exist
 
 
-    CALL cdiDefMissval(cdimissval) 
+    CALL cdiDefMissval(cdimissval)
     fileID_fg(:)  = -1
     fileID_ana(:) = -1
     dwdfg_file (:)=' '
@@ -227,7 +227,7 @@ MODULE mo_initicon_io
 
 
     IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test 
+      mpi_comm = p_comm_work_test
     ELSE
       mpi_comm = p_comm_work
     ENDIF
@@ -280,7 +280,7 @@ MODULE mo_initicon_io
     CHARACTER(len=*),  INTENT(IN)    :: varname        !< var name of field to be read
     REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:)   !< output field
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
                                                                           !< contained in opt_checkgroup
     ! local variables
     CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_2d'
@@ -293,7 +293,7 @@ MODULE mo_initicon_io
     ELSE
       lread = .TRUE.
     ENDIF
-!!$      write(0,*) "lread: varname",lread, varname 
+!!$      write(0,*) "lread: varname",lread, varname
 
 
     IF (lread) THEN
@@ -347,7 +347,7 @@ MODULE mo_initicon_io
     INTEGER,           INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
                                                                           !< contained in opt_checkgroup
     ! local variables
     CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_3d'
@@ -394,9 +394,9 @@ MODULE mo_initicon_io
       CALL read_cdi_3d (parameters, mapped_name, nlevs, var_out, opt_tileidx)
 
       ! Perform inverse post_op on input field, if necessary
-      !  
-      ! SMI is skipped manually, since it is not contained in any of the ICON variable 
-      ! lists, and is thus not handled correctly by the following routine. 
+      !
+      ! SMI is skipped manually, since it is not contained in any of the ICON variable
+      ! lists, and is thus not handled correctly by the following routine.
       IF( TRIM(mapped_name)/='smi' .AND. TRIM(mapped_name)/='SMI') &
         CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
 
@@ -410,7 +410,7 @@ MODULE mo_initicon_io
   !! Read horizontally interpolated external analysis (atmosphere only)
   !!
   !! Reads horizontally interpolated external analysis atmosphere data
-  !! (currently IFS or COSMO) and reads in vertical coordinate table. 
+  !! (currently IFS or COSMO) and reads in vertical coordinate table.
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
@@ -430,7 +430,7 @@ MODULE mo_initicon_io
     TYPE(t_stream_id) :: stream_id
     INTEGER :: ist, psvar_ndims, geopvar_ndims
 
-    CHARACTER(LEN=10) :: psvar 
+    CHARACTER(LEN=10) :: psvar
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_extana_atm'
@@ -448,7 +448,7 @@ MODULE mo_initicon_io
       jlev = p_patch(jg)%level
 
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
@@ -461,7 +461,7 @@ MODULE mo_initicon_io
 
       ! Read in data from IFS2ICON
       !
-      IF(my_process_is_stdio() ) THEN 
+      IF(my_process_is_stdio() ) THEN
 
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -564,7 +564,7 @@ MODULE mo_initicon_io
         !
         IF (nf_inq_varid(ncid, 'VN', varid) == nf_noerr) THEN
           lread_vn = .TRUE.
-        ELSE 
+        ELSE
           lread_vn = .FALSE.
         ENDIF
 
@@ -577,7 +577,7 @@ MODULE mo_initicon_io
         &                       default_read_method)
 
       IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test 
+        mpi_comm = p_comm_work_test
       ELSE
         mpi_comm = p_comm_work
       ENDIF
@@ -641,7 +641,7 @@ MODULE mo_initicon_io
       ELSE
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
-     
+
       IF (psvar_ndims==2)THEN
         CALL read_2d_1time(stream_id, onCells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
@@ -664,13 +664,13 @@ MODULE mo_initicon_io
 
       ! Allocate and read in vertical coordinate tables
       !
-      ! Note that here the IFS input vertical grid is set up. This has to be distinguished 
+      ! Note that here the IFS input vertical grid is set up. This has to be distinguished
       ! from vct_a, vct_b, vct for the ICON vertical grid.
       !
-      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN 
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
 
         IF (jg == 1) THEN
-          
+
           ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
           IF(my_process_is_stdio()) THEN
@@ -682,7 +682,7 @@ MODULE mo_initicon_io
           ENDIF
 
           IF(p_test_run) THEN
-            mpi_comm = p_comm_work_test 
+            mpi_comm = p_comm_work_test
           ELSE
             mpi_comm = p_comm_work
           ENDIF
@@ -709,7 +709,7 @@ MODULE mo_initicon_io
 !$OMP PARALLEL
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1,p_patch(jg)%nblks_c
-        
+
           IF (jb /= p_patch(jg)%nblks_c) THEN
             i_endidx = nproma
           ELSE
@@ -788,7 +788,7 @@ MODULE mo_initicon_io
       jlev = p_patch(jg)%level
 
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
@@ -800,7 +800,7 @@ MODULE mo_initicon_io
 
       ! Read in data from IFS2ICON
       !
-      IF(my_process_is_stdio() ) THEN 
+      IF(my_process_is_stdio() ) THEN
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
@@ -831,8 +831,8 @@ MODULE mo_initicon_io
           & 'Number of patch cells and cells in IFS2ICON file do not match.')
         ENDIF
 
-        ! Check, if the surface-level surface geopotential (GEOP_SFC) is available. 
-        ! If GEOP_SFC is missing, a warning will be issued and the model-level surface 
+        ! Check, if the surface-level surface geopotential (GEOP_SFC) is available.
+        ! If GEOP_SFC is missing, a warning will be issued and the model-level surface
         ! geopotential (GEOSP or GEOP_ML) will be used instead.
         IF (nf_inq_varid(ncid, 'GEOP_SFC', varid) == nf_noerr) THEN
           geop_sfc_var = 'GEOP_SFC'
@@ -853,8 +853,8 @@ MODULE mo_initicon_io
           CALL finish(TRIM(ROUTINE),'surface geopotential variable '//TRIM(geop_sfc_var)//' is missing')
         ENDIF
 
-        ! Check, if the snow albedo ALB_SNOW is available. 
-        ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW 
+        ! Check, if the snow albedo ALB_SNOW is available.
+        ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW
         ! will be used instead to determine FRESHSNOW.
         IF (nf_inq_varid(ncid, 'ALB_SNOW', varid) == nf_noerr) THEN
           WRITE (message_text,'(a,a)')                            &
@@ -891,7 +891,7 @@ MODULE mo_initicon_io
         &                       default_read_method)
 
       IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test 
+        mpi_comm = p_comm_work_test
       ELSE
         mpi_comm = p_comm_work
       ENDIF
@@ -924,7 +924,7 @@ MODULE mo_initicon_io
       IF ( l_sst_in) THEN
         CALL read_2d_1time(stream_id, onCells, 'SST', &
           &                fill_array=initicon(jg)%sfc_in%sst)
-      ELSE 
+      ELSE
        initicon(jg)%sfc_in%sst(:,:)=0.0_wp
       END IF
 
@@ -980,7 +980,7 @@ MODULE mo_initicon_io
   !!
   !! Read DWD first guess (atmosphere only)
   !! First guess (FG) is read for theta_v, rho, vn, w, tke,
-  !! whereas DA output is read for T, p, u, v, 
+  !! whereas DA output is read for T, p, u, v,
   !! qv, qc, qi, qr, qs.
   !!
   !! @par Revision History
@@ -988,7 +988,7 @@ MODULE mo_initicon_io
   !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
   !! Modifications by Daniel Reinert, DWD (2014-01-27)
   !! - split off reading of FG fields
-  !! 
+  !!
   !!
   SUBROUTINE read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
@@ -1019,7 +1019,7 @@ MODULE mo_initicon_io
       nlev   = p_patch(jg)%nlev
       nlevp1 = p_patch(jg)%nlevp1
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
@@ -1030,7 +1030,7 @@ MODULE mo_initicon_io
       ! Read in DWD first guess (atmosphere)  !
       !---------------------------------------!
 
-      IF(my_process_is_stdio() ) THEN 
+      IF(my_process_is_stdio() ) THEN
         CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
       ENDIF  ! p_io
 
@@ -1228,7 +1228,7 @@ MODULE mo_initicon_io
   !>
   !! Read DA-analysis fields (atmosphere only)
   !!
-  !! Depending on the initialization mode, either ful fields or increments 
+  !! Depending on the initialization mode, either ful fields or increments
   !! are read (atmosphere only):
   !! MODE_DWDANA: The following full fields are read, if available
   !!              u, v, t, p, qv
@@ -1271,7 +1271,7 @@ MODULE mo_initicon_io
 
     DO jg = 1, n_dom
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
@@ -1281,7 +1281,7 @@ MODULE mo_initicon_io
       ! save some paperwork
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
-      ! Depending on the initialization mode chosen (incremental vs. non-incremental) 
+      ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
       IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
         IF (jg > 1 .AND. lp2cintp_incr(jg)) THEN
@@ -1296,7 +1296,7 @@ MODULE mo_initicon_io
         my_ptr => initicon(jg)%atm
       ENDIF
 
-      IF( lread_ana .AND. my_process_is_stdio() ) THEN 
+      IF( lread_ana .AND. my_process_is_stdio() ) THEN
         CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
       ENDIF  ! p_io
 
@@ -1306,8 +1306,8 @@ MODULE mo_initicon_io
 
       ! start reading DA output (atmosphere only)
       ! The dynamical variables temp, pres, u and v, which need further processing,
-      ! are either stored in initicon(jg)%atm or initicon(jg)%atm_inc, depending on whether 
-      ! IAU is used or not. The moisture variables, which can be taken over directly from 
+      ! are either stored in initicon(jg)%atm or initicon(jg)%atm_inc, depending on whether
+      ! IAU is used or not. The moisture variables, which can be taken over directly from
       ! the Analysis, are written to the NH prognostic state
       !
       my_ptr3d => my_ptr%temp
@@ -1363,7 +1363,7 @@ MODULE mo_initicon_io
   !!
   !! Read DWD first guess for land/surface.
   !! First guess is read for:
-  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow, 
+  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow,
   !! rho_snow, w_so, w_so_ice, t_so, gz0
   !!
   !!
@@ -1401,7 +1401,7 @@ MODULE mo_initicon_io
 
     DO jg = 1, n_dom
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
@@ -1409,7 +1409,7 @@ MODULE mo_initicon_io
       ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
 
 
-      IF(my_process_is_stdio() ) THEN 
+      IF(my_process_is_stdio() ) THEN
         CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
       ENDIF  ! p_io
 
@@ -1433,7 +1433,7 @@ MODULE mo_initicon_io
       CALL read_data_2d(parameters, filetype, 'h_ice', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice, opt_checkgroup=checkgrp)
 
       ! tile based fields
-      DO jt=1, ntiles_total + ntiles_water 
+      DO jt=1, ntiles_total + ntiles_water
 
         my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 't_g', my_ptr2d, opt_checkgroup=checkgrp)
@@ -1441,7 +1441,7 @@ MODULE mo_initicon_io
         my_ptr2d =>p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, opt_checkgroup=checkgrp)
 
-        ! Uninitialized t_g in the boundary region will create floating point 
+        ! Uninitialized t_g in the boundary region will create floating point
         ! run-time error in the land scheme.
         ! Aggregated values are not prog variables, aggregated values are calculated in init_nwp_phy  (PR)
         IF (init_mode == MODE_COSMODE) THEN
@@ -1510,18 +1510,18 @@ MODULE mo_initicon_io
 
         ! multi layer fields
         !
-        ! Note that either w_so OR smi is written to w_so_t. Which one is required depends 
-        ! on the initialization mode. Checking grp_vars_fg takes care of this. In case 
+        ! Note that either w_so OR smi is written to w_so_t. Which one is required depends
+        ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
         ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
         !
-        ! Note that no pointer assignment is missing here, since either W_SO or SMI is read 
+        ! Note that no pointer assignment is missing here, since either W_SO or SMI is read
         ! into w_so_t. Whether SMI or W_SO must be read, is taken care of by 'checkgrp'.
         CALL read_data_3d (parameters, filetype, 'smi', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
 
 
-        ! Skipped in MODE_COMBINED and in MODE_COSMODE. In that case, w_so_ice 
+        ! Skipped in MODE_COMBINED and in MODE_COSMODE. In that case, w_so_ice
         ! is re-diagnosed in terra_multlay_init
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 'w_so_ice', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
@@ -1532,7 +1532,7 @@ MODULE mo_initicon_io
       ENDDO ! jt
 
 
-      ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil) 
+      ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
       ! Instead z0 is re-initialized (see mo_nwp_phy_init)
       CALL read_data_2d(parameters, filetype, 'gz0', prm_diag(jg)%gz0, opt_checkgroup=checkgrp )
 
@@ -1572,7 +1572,7 @@ MODULE mo_initicon_io
   !!
   !! Read DWD analysis for land/surface.
   !! Analysis is read for:
-  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow, 
+  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow,
   !! rho_snow, w_so, w_so_ice, t_so, gz0
   !!
   !!
@@ -1609,7 +1609,7 @@ MODULE mo_initicon_io
 
     DO jg = 1, n_dom
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
@@ -1617,7 +1617,7 @@ MODULE mo_initicon_io
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
-      IF(my_process_is_stdio()) THEN 
+      IF(my_process_is_stdio()) THEN
         CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
       ENDIF   ! p_io
 

@@ -6,7 +6,7 @@
   !!
   !! @par Revision History
   !! Initial release by M. Pondkule, DWD (2013-10-31)
-  !! 
+  !!
   !!
   !! @par Copyright
   !! 2002-2013 by DWD and MPI-M
@@ -36,7 +36,7 @@
   !! software.
   !!
   !!
- 
+
 #if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
 #define HAVE_F2003
 #endif
@@ -56,7 +56,7 @@ MODULE mo_async_latbc
     USE mo_io_units,                  ONLY: nerr
     USE mo_exception,                 ONLY: finish, message, message_text
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
-         &                                  my_process_is_mpi_test, p_int, p_real_sp                 
+         &                                  my_process_is_mpi_test, p_int, p_real_sp
     USE mo_parallel_config,           ONLY: nproma
     USE mo_model_domain,              ONLY: p_patch
     USE mo_model_domain,              ONLY: t_patch
@@ -65,21 +65,21 @@ MODULE mo_async_latbc
     ! MPI Communicators
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
-    USE mo_mpi,                       ONLY: p_bcast 
+    USE mo_mpi,                       ONLY: p_bcast
     ! MPI Process type intrinsics
     USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
     USE mo_mpi,                       ONLY: num_work_procs, p_n_work
     ! Processor numbers
-    USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0 
-    USE mo_time_config,               ONLY: time_config 
+    USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
+    USE mo_time_config,               ONLY: time_config
     USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: n_dom, nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
-         &                                  async_pref_send_handshake,  async_pref_wait_for_start         
-    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH 
+         &                                  async_pref_send_handshake,  async_pref_wait_for_start
+    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
     USE mo_intp_data_strc,            ONLY: p_int_state
@@ -90,7 +90,7 @@ MODULE mo_async_latbc
          &                                  collect_group
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
-         &                                  dict_finalize                                    
+         &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
     USE mo_time_config,               ONLY: time_config
@@ -104,7 +104,7 @@ MODULE mo_async_latbc
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID
-   
+
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
 #endif
@@ -140,7 +140,7 @@ MODULE mo_async_latbc
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc'
 
     TYPE(t_patch_data), PUBLIC, SAVE, TARGET :: patch_data
-  
+
     !------------------------------------------------------------------------------------------------
     ! Broadcast root for intercommunicator broadcasts form compute PEs to prefetching
     ! PE using p_comm_work_2_pref
@@ -155,9 +155,9 @@ MODULE mo_async_latbc
 
 #ifndef NOMPI
 
-      IF((.not. my_process_is_io() .AND.& 
+      IF((.not. my_process_is_io() .AND.&
            & .not. my_process_is_pref()) .AND.&
-           & .not. my_process_is_mpi_test()) THEN   
+           & .not. my_process_is_mpi_test()) THEN
 
          CALL compute_wait_for_async_pref()
          CALL compute_shutdown_async_pref()
@@ -177,7 +177,7 @@ MODULE mo_async_latbc
       DEALLOCATE(patch_data%edges%pe_own)
       DEALLOCATE(patch_data%edges%pe_off)
    !   DEALLOCATE(patch_data%mem_win%mem_ptr_sp)
-  
+
       ! deallocating intermediate storage latbc_buffer
       DEALLOCATE(latbc_buffer%grp_vars)
       DEALLOCATE(latbc_buffer%hgrid)
@@ -198,17 +198,17 @@ MODULE mo_async_latbc
     !
     SUBROUTINE prefetch_input( datetime, p_patch, p_int_state, p_nh_state)
       TYPE(t_datetime), OPTIONAL, INTENT(INOUT) :: datetime
-      TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch  
+      TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
-      CHARACTER(*), PARAMETER :: method_name = "prefetch_input"                 
+      CHARACTER(*), PARAMETER :: method_name = "prefetch_input"
 
 #ifndef NOMPI
-      ! Set input prefetch attributes    
+      ! Set input prefetch attributes
       IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, datetime=datetime) 
+         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, datetime=datetime)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data(patch_data) 
+         CALL pref_latbc_data(patch_data)
       END IF
 #endif
       ! NOMPI
@@ -229,11 +229,11 @@ MODULE mo_async_latbc
 
       ! call to initalize the prefetch processor with grid data
       CALL init_prefetch()
-      ! Enter prefetch loop    
+      ! Enter prefetch loop
       DO
          ! Wait for a message from the compute PEs to start
          CALL async_pref_wait_for_start(done)
-         IF(done) EXIT ! leave loop, we are done 
+         IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
          CALL prefetch_input()
          ! Inform compute PEs that we are done
@@ -291,7 +291,7 @@ MODULE mo_async_latbc
 
 #ifndef NOMPI
       ! local variables:
-      CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data" 
+      CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data"
 
       ! allocate patch data structure
       ! set number of global cells/edges/verts and patch ID
@@ -300,8 +300,8 @@ MODULE mo_async_latbc
          patch_data%nlev          = p_patch(1)%nlev
          patch_data%nlevp1        = p_patch(1)%nlevp1
          patch_data%level         = p_patch(1)%level
-         patch_data%nblks_c       = p_patch(1)%nblks_c 
-         patch_data%nblks_e       = p_patch(1)%nblks_e 
+         patch_data%nblks_c       = p_patch(1)%nblks_c
+         patch_data%nblks_e       = p_patch(1)%nblks_e
          patch_data%n_patch_cells = p_patch(1)%n_patch_cells
          patch_data%n_patch_edges = p_patch(1)%n_patch_edges
          patch_data%n_patch_cells_g = p_patch(1)%n_patch_cells_g
@@ -318,7 +318,7 @@ MODULE mo_async_latbc
       CALL p_bcast(patch_data%n_patch_edges, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
-   
+
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
@@ -329,7 +329,7 @@ MODULE mo_async_latbc
          ! set reorder data on work PE
          CALL set_reorder_data( p_patch(1)%n_patch_cells_g, p_patch(1)%n_patch_cells, &
               p_patch(1)%cells%decomp_info%owner_mask, p_patch(1)%cells%decomp_info%glb_index, &
-              patch_data%cells )    
+              patch_data%cells )
 
          CALL set_reorder_data( p_patch(1)%n_patch_edges_g, p_patch(1)%n_patch_edges, &
               p_patch(1)%edges%decomp_info%owner_mask, p_patch(1)%edges%decomp_info%glb_index, &
@@ -344,7 +344,7 @@ MODULE mo_async_latbc
       ENDIF
 
       ! subroutine to check whether some variable is specified
-      ! in input file and setting flag for its further usage   
+      ! in input file and setting flag for its further usage
       IF (latbc_config%itype_latbc == 1) &
            &  CALL check_variable()
 #endif
@@ -358,17 +358,17 @@ MODULE mo_async_latbc
     SUBROUTINE init_prefetch()
 
       ! local variables:
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch" 
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch"
 
       ! bcast_root is not used in this case
       bcast_root = 0
 
 #ifndef NOMPI
-     
+
       ! Set broadcast root for intercommunicator broadcasts
       IF(my_process_is_pref()) THEN
          ! Root is proc 0 on the prefetch PE
-         bcast_root = 0 
+         bcast_root = 0
       ELSE
          ! Special root setting for inter-communicators:
          ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
@@ -393,7 +393,7 @@ MODULE mo_async_latbc
          CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
       ELSE IF( my_process_is_pref()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data) 
+         CALL prepare_pref_latbc_data(patch_data)
       ENDIF
 
       CALL message(routine,'Done')
@@ -413,7 +413,7 @@ MODULE mo_async_latbc
       CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:)
       ! dictionary which maps prefetch variable names onto
       ! GRIB2 shortnames or NetCDF var names.
-      TYPE (t_dictionary) :: latbc_varnames_dict   
+      TYPE (t_dictionary) :: latbc_varnames_dict
       CHARACTER(LEN=filename_max) :: latbc_file
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
@@ -430,8 +430,8 @@ MODULE mo_async_latbc
       ALLOCATE(grp_vars(200))
       ALLOCATE(StrLowCasegrp(200))
 
-      ! initialising counter 
-      counter = 0   
+      ! initialising counter
+      counter = 0
 
       !>Looks for variable groups ("group:xyz") and collects
       ! them to map prefetch variable names onto
@@ -439,7 +439,7 @@ MODULE mo_async_latbc
       !
       ! variables in this group are ICON, COSMO or IFS
       ! data which are read by the prefetch PE:
-      grp_name = 'LATBC_PREFETCH_VARS' 
+      grp_name = 'LATBC_PREFETCH_VARS'
 
       ! loop over all variables and collects the variables names
       ! corresponding to the group "grp_name"
@@ -448,8 +448,8 @@ MODULE mo_async_latbc
            &                lremap_lonlat=.FALSE. )
 
       ! adding the variable 'GEOSP' to hte list by add_to_list
-      ! as the variable cannot be found in metadata variable list 
-      IF (latbc_config%itype_latbc == 1) & 
+      ! as the variable cannot be found in metadata variable list
+      IF (latbc_config%itype_latbc == 1) &
            CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc_buffer%geop_ml_var/) , 1)
 
       ! read the map file into dictionary data structure
@@ -459,13 +459,13 @@ MODULE mo_async_latbc
          CALL dict_loadfile(latbc_varnames_dict, TRIM(latbc_varnames_map_file))
       END IF
 
-      ! allocate the number of vertical levels with the 
-      ! same size as number of variables 
+      ! allocate the number of vertical levels with the
+      ! same size as number of variables
       ALLOCATE(latbc_buffer%nlev(ngrp_prefetch_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
-      ! allocate the array for variable ID 
-      ! with same size as number of variables 
+      ! allocate the array for variable ID
+      ! with same size as number of variables
       ALLOCATE(latbc_buffer%varID(ngrp_prefetch_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
@@ -533,26 +533,26 @@ MODULE mo_async_latbc
          ! get the number of variables
          nvars = vlistNvars(vlistID)
 
-         ! get the number of vertical levels for the 
+         ! get the number of vertical levels for the
          ! required prefetch variables
          LOOP : DO varID=0,(nvars-1)
             CALL vlistInqVarName(vlistID, varID, name)
             !    WRITE(0,*) 'name ', name
-            DO jp = 1, ngrp_prefetch_vars !latbc_buffer%ngrp_vars 
+            DO jp = 1, ngrp_prefetch_vars !latbc_buffer%ngrp_vars
                IF(name == latbc_buffer%grp_vars(jp)) THEN
                   ! get the vertical axis ID
                   zaxisID = vlistInqVarZaxis(vlistID, varID)
                   ! get the grid ID using vlistID and varID
                   gridID = vlistInqVarGrid(vlistID, varID)
                   counter = counter + 1
-                  ! get the respective vertical levels for 
+                  ! get the respective vertical levels for
                   ! the respective variable
                   latbc_buffer%nlev(counter) = zaxisInqSize(zaxisID)
                   !variable ID for variable to be read from file
                   latbc_buffer%varID(counter) = varID
 
                   ! getting the variable name in the file
-                  latbc_buffer%mapped_name(counter) = TRIM(name)  
+                  latbc_buffer%mapped_name(counter) = TRIM(name)
 
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = TRIM(grp_vars(jp))
@@ -562,7 +562,7 @@ MODULE mo_async_latbc
             ENDDO
          END DO LOOP
 
-         ! closes the open dataset 
+         ! closes the open dataset
          CALL streamClose(fileID_latbc)
       END IF
 
@@ -574,15 +574,15 @@ MODULE mo_async_latbc
 
       !WRITE(0,*) 'mapped_name ',  latbc_buffer%mapped_name(1:counter), 'ngrp_vars ', ngrp_prefetch_vars
 
-      ! getting the count of number of variables in 
+      ! getting the count of number of variables in
       ! the file to be read
       latbc_buffer%ngrp_vars = counter
 
       ! destroy variable name dictionaries:
       CALL dict_finalize(latbc_varnames_dict)
 
-      ! allocate the number of buffer sizes for variables 
-      ! with same size as number of variables 
+      ! allocate the number of buffer sizes for variables
+      ! with same size as number of variables
       ALLOCATE(latbc_buffer%vars(latbc_buffer%ngrp_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 #endif
@@ -592,7 +592,7 @@ MODULE mo_async_latbc
 
     !-------------------------------------------------------------------------------------------------
     !> open file to determine a variable or its alternative variable is provided as input
-    ! and setting flag for its further usage   
+    ! and setting flag for its further usage
 
     SUBROUTINE check_variable()
 
@@ -600,7 +600,7 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(LEN=filename_max) :: latbc_file
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
-      INTEGER :: jlev, fileID_latbc 
+      INTEGER :: jlev, fileID_latbc
       LOGICAL :: l_exist
       CHARACTER(len=132) :: message_text
       CHARACTER(LEN=filename_max) :: latbc_filename
@@ -681,11 +681,11 @@ MODULE mo_async_latbc
 
       ! broadcast data to prefetching and compute PE's
       ! public constant: p_comm_work_pref_compute_pe0
-      CALL p_bcast(latbc_buffer%psvar, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
+      CALL p_bcast(latbc_buffer%psvar, p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc_buffer%geop_ml_var, p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc_buffer%lread_qs, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
-      CALL p_bcast(latbc_buffer%lread_qr, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
-      CALL p_bcast(latbc_buffer%lread_vn, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
+      CALL p_bcast(latbc_buffer%lread_qs, p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc_buffer%lread_qr, p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc_buffer%lread_vn, p_comm_work_pref_compute_pe0, p_comm_work_pref)
 #endif
 
     END SUBROUTINE check_variable
@@ -703,13 +703,13 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
       INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
-           &                           all_nvars, nvars, i2   
+           &                           all_nvars, nvars, i2
       INTEGER, ALLOCATABLE          :: info_storage(:,:)
       TYPE(t_list_element), POINTER :: element
       TYPE(t_var_metadata)          :: info
       TYPE(t_var_list)              :: p_var_list
       ! var_list_name should have at least the length of var_list names
-      CHARACTER(LEN=256)            :: var_list_name  
+      CHARACTER(LEN=256)            :: var_list_name
 
       ! There is nothing to do for the test PE:
       IF(my_process_is_mpi_test()) RETURN
@@ -749,7 +749,7 @@ MODULE mo_async_latbc
       ! allocate the array of variables
       ALLOCATE(patch_data%var_data(all_var))
 
-      i2 = 0 
+      i2 = 0
       ! For each var list, get its components
       DO iv = 1, nv
 
@@ -770,7 +770,7 @@ MODULE mo_async_latbc
          ENDIF
 
          ! Send basic info:
-         CALL p_bcast(list_info, bcast_root, p_comm_work_2_pref) 
+         CALL p_bcast(list_info, bcast_root, p_comm_work_2_pref)
 
          IF(my_process_is_pref()) THEN
             nelems = list_info
@@ -795,7 +795,7 @@ MODULE mo_async_latbc
             DO
                IF(.NOT.ASSOCIATED(element)) EXIT
                i2 = i2 + 1
-               patch_data%var_data(i2)%info = element%field%info 
+               patch_data%var_data(i2)%info = element%field%info
                nelems = nelems+1
                info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
                element => element%next_list_element
@@ -824,8 +824,8 @@ MODULE mo_async_latbc
                element%next_list_element => NULL()
 
                ! Set info structure from binary representation in info_storage
-               element%field%info = TRANSFER(info_storage(:, n), info) 
-               patch_data%var_data(i2)%info = element%field%info 
+               element%field%info = TRANSFER(info_storage(:, n), info)
+               patch_data%var_data(i2)%info = element%field%info
             ENDDO
          ENDIF
          DEALLOCATE(info_storage)
@@ -907,7 +907,7 @@ MODULE mo_async_latbc
       CALL MPI_Allgather(p_reo%n_own,  1, p_int, &
            p_reo%pe_own, 1, p_int, &
            p_comm_work, mpi_error)
-    
+
       CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
 
       ! Get offset within result array
@@ -1007,7 +1007,7 @@ MODULE mo_async_latbc
          IF(ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
       ENDIF
 
-      CALL p_bcast(p_reo%pe_own, bcast_root, p_comm_work_2_pref)   
+      CALL p_bcast(p_reo%pe_own, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(p_reo%pe_off, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(p_reo%reorder_index, bcast_root, p_comm_work_2_pref)
 #endif
@@ -1028,21 +1028,21 @@ MODULE mo_async_latbc
       ! There is nothing to do for the test PE:
       IF(my_process_is_mpi_test()) RETURN
 
-      patch_data%mem_win%mpi_win = MPI_WIN_NULL 
+      patch_data%mem_win%mpi_win = MPI_WIN_NULL
 
-      ! Get size and offset of the data for the input 
+      ! Get size and offset of the data for the input
       mem_size = 0_i8
 
       ALLOCATE(grp_vars_bool(latbc_buffer%ngrp_vars))
       ALLOCATE(latbc_buffer%hgrid(latbc_buffer%ngrp_vars))
 
-      DO jp = 1, latbc_buffer%ngrp_vars 
+      DO jp = 1, latbc_buffer%ngrp_vars
          grp_vars_bool(jp) = .FALSE.
       ENDDO
 
       ! Go over all input variables
       DO iv = 1, SIZE(patch_data%var_data)
-         DO jp = 1, latbc_buffer%ngrp_vars 
+         DO jp = 1, latbc_buffer%ngrp_vars
             ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
             IF((TRIM(StrLowCasegrp(jp)) == TRIM(patch_data%var_data(iv)%info%name)) .OR. &
                  & (TRIM(StrLowCasegrp(jp))//'.TL1' == TRIM(patch_data%var_data(iv)%info%name))) THEN
@@ -1052,7 +1052,7 @@ MODULE mo_async_latbc
                   IF (patch_data%var_data(iv)%info%ndims == 2) THEN
                      nlevs = 1
                   ELSE
-                     nlevs = latbc_buffer%nlev(jp) !latbc_config%nlev_in 
+                     nlevs = latbc_buffer%nlev(jp) !latbc_config%nlev_in
                   ENDIF
 
                   IF (nlevs == 0) CYCLE
@@ -1063,20 +1063,20 @@ MODULE mo_async_latbc
                      mem_size = mem_size + INT(nlevs*patch_data%cells%n_own,i8)
 
                      IF(my_process_is_work())THEN
-                        ! allocate the buffer sizes for variables on compute processors 
+                        ! allocate the buffer sizes for variables on compute processors
                         ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, nlevs, patch_data%nblks_c), STAT=ierrstat)
                         IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
                      ENDIF
 
                      ! variable stored in cell center location
                      latbc_buffer%hgrid(jp) = patch_data%var_data(iv)%info%hgrid
-                     hgrid = patch_data%var_data(iv)%info%hgrid 
+                     hgrid = patch_data%var_data(iv)%info%hgrid
 
                   CASE (GRID_UNSTRUCTURED_EDGE)
                      mem_size = mem_size + INT(nlevs*patch_data%edges%n_own,i8)
 
                      IF(my_process_is_work())THEN
-                        ! allocate the buffer sizes for variables on compute processors 
+                        ! allocate the buffer sizes for variables on compute processors
                         ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, nlevs, patch_data%nblks_e), STAT=ierrstat)
                         IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
                      ENDIF
@@ -1093,13 +1093,13 @@ MODULE mo_async_latbc
                ENDIF
             ENDIF
          ENDDO
-      ENDDO ! vars 
+      ENDDO ! vars
 
       IF (latbc_config%itype_latbc == 1) THEN
-         DO jp = 1, latbc_buffer%ngrp_vars 
+         DO jp = 1, latbc_buffer%ngrp_vars
             IF (TRIM(latbc_buffer%mapped_name(jp)) == TRIM(latbc_buffer%geop_ml_var)) THEN
                ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
-               ! as the variable GEOSP doesnt exist in metadata 
+               ! as the variable GEOSP doesnt exist in metadata
                mem_size = mem_size + INT(1*patch_data%cells%n_own,i8)
 
                IF(my_process_is_work())THEN
@@ -1113,7 +1113,7 @@ MODULE mo_async_latbc
             ENDIF
          ENDDO
       ENDIF
-      
+
       DEALLOCATE(StrLowCasegrp)
 
       ! allocate amount of memory needed with MPI_Alloc_mem

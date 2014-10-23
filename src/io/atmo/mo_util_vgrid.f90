@@ -109,7 +109,7 @@ CONTAINS
         ELSE IF (ivctype == 2) THEN
           CALL init_sleve_coord(p_patch(1)%nlev, vct_a, vct_b)
         ENDIF
-               
+
         IF (ivctype == 1) THEN
           CALL prepare_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b, vct, nflatlev)
         ELSE IF (ivctype == 2) THEN
@@ -129,7 +129,7 @@ CONTAINS
     DO jg = 1,n_dom
       nlevp1   = p_patch(jg)%nlev + 1
       nblks_c  = p_patch(jg)%nblks_c
-      
+
       ! Note: We allocate only the temporary field for the
       !       vertex-half-level coordinates "z_ifv". The
       !       corresponding cell-half-level coordinates "z_ifc" are
@@ -188,13 +188,13 @@ CONTAINS
           END DO
         ELSE
 
-          ! If the vertical grid is created on the fly and not stored for later use, 
-          ! a vertical grid UUID is rather useless. Thus, only a dummy UUID 
+          ! If the vertical grid is created on the fly and not stored for later use,
+          ! a vertical grid UUID is rather useless. Thus, only a dummy UUID
           ! is created and written to the output data files:
           !
           IF (my_process_is_mpi_workroot()) THEN
              DO jg = 1,n_dom
-               ! fill UUID with zero-bytes  
+               ! fill UUID with zero-bytes
                vgrid_buffer(jg)%uuid(:) = ACHAR(0)
              ENDDO
           END IF
@@ -210,14 +210,14 @@ CONTAINS
         DO jg = 1,n_dom
           CALL read_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), TRIM(vertical_grid_filename(jg)))
 
-          ! Reset topography_c to z_ifc(nlevp1) in order to ensure identity 
+          ! Reset topography_c to z_ifc(nlevp1) in order to ensure identity
           ! in case of nesting (topography blending/feedback)
           nlevp1 = p_patch(jg)%nlev + 1
           ext_data(jg)%atm%topography_c(:,:) = vgrid_buffer(jg)%z_ifc(:,nlevp1,:)
 
         END DO
 
-      END IF 
+      END IF
     END IF
 
   END SUBROUTINE construct_vertical_grid
@@ -284,7 +284,7 @@ CONTAINS
       CALL gridDefUUID(cdiCellGridID, uuid_string)
       CALL gridDefNumber(cdiCellGridID, number_of_grid_used)
       CALL gridDefPosition(cdiCellGridID, 1)
-       
+
       !--- set UUID for vertical grid
       CALL uuid_generate(uuid)
       CALL uuid2char(uuid, vgrid_buffer(p_patch%id)%uuid)
@@ -408,7 +408,7 @@ CONTAINS
       CALL gridInqUUID(cdiGridID, vfile_uuidOfHGrid_string)
       CALL char2uuid(vfile_uuidOfHGrid_string, vfile_uuidOfHGrid)
 
-      ! compare horizontal UUID contained in the vertical grid file with the 
+      ! compare horizontal UUID contained in the vertical grid file with the
       ! UUID of the horizontal grid file
       lmatch = (p_patch%grid_uuid == vfile_uuidOfHGrid)
       IF (.NOT. lmatch) THEN
@@ -447,7 +447,7 @@ CONTAINS
 
     END IF
 
-    ! broadcast data: 
+    ! broadcast data:
     CALL p_bcast(vct_a,                         p_io, p_comm_work)
     CALL p_bcast(vct_b,                         p_io, p_comm_work)
     CALL p_bcast(nflat,                         p_io, p_comm_work)
