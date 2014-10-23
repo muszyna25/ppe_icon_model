@@ -1,4 +1,3 @@
-#!/bin/bash
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -14,6 +13,10 @@
 # Stephan Lorenz, MPI-M, 2011-01 / 2013-07
 #
 #-----------------------------------------------------------------------------
+#
+# _bb_table_Description_  OMIP experiment
+# _bb_table_Model_        ICON ocean model
+#
 #-----------------------------------------------------------------------------
 #
 # These variables are set in the header section of the completed run script:
@@ -142,6 +145,7 @@ cat > ${ocean_namelist} << EOF
  profiling_output = 3
  msg_timestamp        = .FALSE.
  debug_check_level    = 10
+ restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
   output_start     = "${start_date}"
