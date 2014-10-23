@@ -21,7 +21,7 @@ MODULE mo_echam_conv_config
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, print_value, message, message_text
   USE mo_impl_constants,     ONLY: SUCCESS
-  USE mo_physical_constants, ONLY: grav
+  USE mo_physical_constants, ONLY: grav, p0sl_bg, p0ref
 
   IMPLICIT NONE
   PRIVATE
@@ -93,14 +93,13 @@ CONTAINS
   !! @Revision history
   !! Adapted from ECHAM6 by Hui Wan (MPI-M, 2010-2011)
   !!
-  SUBROUTINE configure_echam_convection( nlev, vct_a, vct_b, ceta )
+  SUBROUTINE configure_echam_convection( nlev, vct_a, vct_b )
 
     INTEGER, INTENT(IN) :: nlev
     REAL(WP),INTENT(IN) :: vct_a(nlev+1)
     REAL(WP),INTENT(IN) :: vct_b(nlev+1)
-    REAL(WP),INTENT(IN) :: ceta (nlev)
 
-    REAL(wp) :: zp(nlev), zph(nlev+1), ztmp
+    REAL(wp) :: zp(nlev), zph(nlev+1), ztmp, zeta(nlev)
     INTEGER  :: jk, istat
 
     CHARACTER(LEN=*),PARAMETER :: &
@@ -142,31 +141,58 @@ CONTAINS
 
     !------------------------------------------------------------------------
     ! Determine highest level *nmctop* for cloud base of midlevel convection
-    ! assuming nmctop=9 (300 hPa) for the standard 19 level model
-    !------------------------------------------------------------------------
-    ! Compute half level pressure values, assuming 101320 Pa surface pressure
+    ! - highest level below 300 hPa
+    !
+    ! Use the vertical coordinate tables that describe the hybrid sigma 
+    ! coordinate as follows:
+    ! - Pressure sigma coord.: ph(jk) = a(jk) + p_sfc*b(jk) [Pa]
+    ! - Height   sigma coord.: zh(jk) = a(jk) + z_sfc*b(jk) [m]
+    !                                 = a(jk) for a flat surface at z_sfc = 0 m
+    !
+    ! The vertical arrays are ordered from the top of the model (tom) to the surface (sfc):
+    ! - ph(1) = p_tom, ph(nlev+1) = p_sfc
+    ! - zh(1) = z_tom, zh(nlev+1) = z_sfc
+    !
+    ! The a(:) coefficients at the top of the model, where the sigma portion b(:) is zero,
+    ! can be used to distinguish the pressure and height sigma grid:
+    ! - pressure sigma grid : a(1) < a(2)
+    ! - height   sigma grid : a(1) > a(2)
 
-    DO jk=1,nlev+1
-      zph(jk) = vct_a(jk) + vct_b(jk)*101320.0_wp
-    END DO
-
-    ! Compute full level pressure
-
+    IF (vct_a(1) < vct_a(2)) THEN
+      !
+      ! pressure sigma grid
+      !
+      ! half level pressure
+      DO jk=1,nlev+1
+        zph(jk) = vct_a(jk) + vct_b(jk)*p0sl_bg
+      END DO
+      !
+    ELSE
+      !
+      ! height sigma grid
+      !
+      ! half level pressure assuming 7500 m scale height
+      DO jk=1,nlev+1
+        zph(jk) = p0sl_bg*EXP(-vct_a(jk)/7500._wp) 
+      END DO
+      !
+    END IF
+    !
+    ! full level pressure and eta
     DO jk = 1, nlev
-      zp(jk) = (zph(jk)+zph(jk+1))*0.5_wp
+      zp(jk)   = (zph(jk)+zph(jk+1))*0.5_wp
+      zeta(jk) = zp(jk)/p0ref
     END DO
-
-    ! Search for 300 hPa level
-
+    !
+    ! search for 300 hPa level
     DO jk = 1, nlev
       echam_conv_config%nmctop = jk
-      IF(zp(jk).GE.30000.0_wp) EXIT
+      IF(zp(jk) > 30000.0_wp) EXIT
     END DO
-
+    !
     CALL message('','')
-    CALL print_value('lowest model level for cloud base '//&
-                     'of mid level convection: nmctop = ', &
-                     echam_conv_config%nmctop)
+    CALL print_value('highest level for cloud base of mid level convection: nmctop = ', &
+      &              echam_conv_config%nmctop)
     CALL message('','')
 
     !--------------------------------------
@@ -177,7 +203,7 @@ CONTAINS
     IF (istat/=SUCCESS) CALL finish(TRIM(routine),'allocation of cevapcu failed')
 
     DO jk = 1,nlev
-       ztmp = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(ceta(jk))
+       ztmp = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(zeta(jk))
        echam_conv_config%cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp/grav
     END DO
 

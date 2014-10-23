@@ -75,7 +75,7 @@ USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 ! LGS - for the implementation of ECHAM physics in iconam
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
-USE mo_vertical_coord_table,ONLY: vct_a, vct_b!, ceta
+USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
 USE mo_mtime_extensions,    ONLY: get_datetime_string
@@ -133,8 +133,6 @@ CONTAINS
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     REAL(wp) :: sim_time
-
-    REAL(wp), ALLOCATABLE :: ceta(:)   ! *full hybrid vertical levels.
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -256,14 +254,8 @@ CONTAINS
 ! LGS
 !
     IF ( iforcing == iecham ) THEN
-      ALLOCATE (ceta(nlev), STAT=ist)
-      IF(ist/=success)THEN
-        CALL finish (TRIM(routine), ' allocation of ceta failed')
-      END IF
-      !! ultimately iconam should not use ceta (only used in configure_echam_convection)
-      !! calling init_vertical_coord_table is a temporary fix.  
       CALL init_echam_phy( p_patch(1:), nh_test_name, &
-        & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
+        & nlev, vct_a, vct_b, time_config%cur_datetime )
       !! many of the initial conditions for the echam 'field' are set here
       DO jg = 1,n_dom
         CALL initcond_echam_phy( jg                                               ,&

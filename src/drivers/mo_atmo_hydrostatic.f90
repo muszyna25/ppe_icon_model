@@ -30,7 +30,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 
-  USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta
+  USE mo_vertical_coord_table,ONLY: vct_a, vct_b
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
                                     perform_ha_stepping
@@ -124,7 +124,7 @@ CONTAINS
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ctest_name, &
-                            & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
+                            & nlev, vct_a, vct_b, time_config%cur_datetime )
     END IF
 
     !------------------------------------------------------------------
