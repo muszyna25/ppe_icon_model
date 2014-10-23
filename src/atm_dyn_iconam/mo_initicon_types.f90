@@ -53,9 +53,9 @@ MODULE mo_initicon_types
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: psfc, phi_sfc
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d_ifc, w_ifc, z3d, u, v, omega, &
-      &                                         w, vn, qv, qc, qi, qr, qs
+    REAL(wp), POINTER, DIMENSION(:,:)   :: psfc, phi_sfc
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: temp, pres, z3d_ifc, w_ifc, z3d, u, v, omega, &
+      &                                         w, vn, qv, qc, qi, qr, qs, rho, theta_v, tke, tke_ifc
 
   END TYPE t_pi_atm_in
 
@@ -80,7 +80,7 @@ MODULE mo_initicon_types
     LOGICAL :: linitialized
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
-                                               pres, qv, qc, qi, qr, qs
+                                               pres, qv, qc, qi, qr, qs, tke
 
   END TYPE t_pi_atm
 

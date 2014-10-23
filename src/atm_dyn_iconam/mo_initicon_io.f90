@@ -44,7 +44,7 @@ MODULE mo_initicon_io
     &                               MODE_COMBINED, MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work, p_comm_work_test
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
@@ -65,6 +65,7 @@ MODULE mo_initicon_io
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: initicon_inverse_post_op, allocate_extana_atm, allocate_extana_sfc
+  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
 
   IMPLICIT NONE
 
@@ -92,7 +93,7 @@ MODULE mo_initicon_io
 
 
   PUBLIC :: open_init_files, close_init_files, read_data_2d, read_data_3d, read_extana_atm, read_extana_sfc, &
-            read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc
+            read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii
 
 
 
@@ -591,17 +592,13 @@ MODULE mo_initicon_io
       ENDIF
 
       ! allocate data structure
-      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, initicon)
+      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
 
       ! start reading atmospheric fields
       !
       CALL read_3d_1time(stream_id, onCells, 'T', fill_array=initicon(jg)%atm_in%temp)
 
       IF (lread_vn) THEN
-        ALLOCATE(initicon(jg)%atm_in%vn(nproma,nlev_in,p_patch(jg)%nblks_e), STAT=ist)
-        IF (ist /= SUCCESS) THEN
-          CALL finish ( TRIM(routine), 'allocation of atm_in%vn failed')
-        ENDIF
         CALL read_3d_1time(stream_id, onEdges, 'VN', fill_array=initicon(jg)%atm_in%vn)
       ELSE
         CALL read_3d_1time(stream_id, onCells, 'U', fill_array=initicon(jg)%atm_in%u)
@@ -993,7 +990,7 @@ MODULE mo_initicon_io
     INTEGER :: jg
     INTEGER :: nlev, nlevp1
 
-    INTEGER :: ngrp_vars_fg, filetype, communicator
+    INTEGER :: ngrp_vars_fg, filetype
 
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
     TYPE(t_inputParameters) :: parameters
@@ -1003,12 +1000,6 @@ MODULE mo_initicon_io
       routine = modname//':read_dwdfg_atm'
 
     !-------------------------------------------------------------------------
-
-    IF(p_test_run) THEN
-        communicator = p_comm_work_test
-    ELSE
-        communicator = p_comm_work
-    ENDIF
 
     DO jg = 1, n_dom
 
@@ -1075,6 +1066,152 @@ MODULE mo_initicon_io
   END SUBROUTINE read_dwdfg_atm
 
 
+  !>
+  !! Read DWD first guess (atmosphere only) and store to initicon input state
+  !! First guess (FG) is read for theta_v, rho, vn, w, tke,
+  !! whereas DA output is read for T, p, u, v, 
+  !! qv, qc, qi, qr, qs.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-18)
+  !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
+  !! Modifications by Daniel Reinert, DWD (2014-01-27)
+  !! - split off reading of FG fields
+  !! 
+  !!
+  SUBROUTINE read_dwdfg_atm_ii (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    INTEGER,                INTENT(IN)    :: fileID_fg(:), filetype_fg(:)
+
+    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
+    CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
+
+    INTEGER :: jg, jk, jc, jb, i_endidx
+    INTEGER :: nlev, nlevp1
+
+    INTEGER :: ngrp_vars_fg, filetype
+
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    REAL(wp) :: tempv, exner
+    TYPE(t_inputParameters) :: parameters
+    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = modname//':read_dwdfg_atm_ii'
+
+    !-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom
+
+      ! later on, the number of input model levels needs to be determined here.
+      ! as a first step, we assume that nlev_in = nlev
+      nlev_in = p_patch(jg)%nlev
+
+      ! allocate data structure for reading input data
+      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+
+      ! number of vertical full and half levels
+      nlev   = p_patch(jg)%nlev
+      nlevp1 = p_patch(jg)%nlevp1
+
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      ! save some paperwork
+      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
+
+      !---------------------------------------!
+      ! Read in DWD first guess (atmosphere)  !
+      !---------------------------------------!
+
+      IF(my_process_is_stdio() ) THEN 
+        CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
+      ENDIF  ! p_io
+
+      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
+
+      filetype = filetype_fg(jg)
+      checkgrp => initicon(jg)%grp_vars_fg(1:ngrp_vars_fg)
+
+      ! start reading first guess (atmosphere only)
+      !
+      CALL read_data_3d (parameters, filetype, 'z_ifc', nlev_in+1, initicon(jg)%atm_in%z3d_ifc)
+
+      CALL read_data_3d (parameters, filetype, 'theta_v', nlev_in, initicon(jg)%atm_in%theta_v)
+      CALL read_data_3d (parameters, filetype, 'rho', nlev_in, initicon(jg)%atm_in%rho)
+      CALL read_data_3d (parameters, filetype, 'w', nlev_in+1, initicon(jg)%atm_in%w_ifc)
+      CALL read_data_3d (parameters, filetype, 'tke', nlev_in+1, initicon(jg)%atm_in%tke_ifc)
+
+      CALL read_data_3d (parameters, filetype, 'qv', nlev_in, initicon(jg)%atm_in%qv)
+
+      CALL read_data_3d (parameters, filetype, 'qc', nlev_in, initicon(jg)%atm_in%qc)
+
+      CALL read_data_3d (parameters, filetype, 'qi', nlev_in, initicon(jg)%atm_in%qi)
+
+      IF ( iqr /= 0 ) THEN
+        CALL read_data_3d (parameters, filetype, 'qr', nlev_in, initicon(jg)%atm_in%qr)
+      ELSE
+        initicon(jg)%atm_in%qr(:,:,:) = 0._wp
+      END IF
+
+      IF ( iqs /= 0 ) THEN
+        CALL read_data_3d (parameters, filetype, 'qs', nlev_in, initicon(jg)%atm_in%qs)
+      ELSE
+        initicon(jg)%atm_in%qs(:,:,:) = 0._wp
+      END IF
+
+      CALL deleteInputParameters(parameters)
+
+      !This call needs its own input parameter object because it's edge based.
+      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_edges_g, p_patch(jg)%comm_pat_scatter_e)
+      CALL read_data_3d (parameters, filetype, 'vn', nlev_in, initicon(jg)%atm_in%vn)
+      CALL deleteInputParameters(parameters)
+
+      ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
+      ! into temperature and pressure as expected by the vertical interpolation routine  
+!$OMP PARALLEL
+!$OMP DO PRIVATE (jk,jc,jb,i_endidx,tempv,exner) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1,p_patch(jg)%nblks_c
+        
+        IF (jb /= p_patch(jg)%nblks_c) THEN
+          i_endidx = nproma
+        ELSE
+          i_endidx = p_patch(jg)%npromz_c
+        ENDIF
+
+        DO jk = 1, nlev_in
+          DO jc = 1, i_endidx
+
+            initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
+              &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
+            initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
+              &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+            initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
+              &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
+
+            exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+            tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+
+            initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+            initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+              (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+               initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDDO ! loop over model domains
+
+  END SUBROUTINE read_dwdfg_atm_ii
+
+
 
   !>
   !! Read DA-analysis fields (atmosphere only)
@@ -1104,7 +1241,7 @@ MODULE mo_initicon_io
     INTEGER :: jg, jgp
     INTEGER :: nlev
 
-    INTEGER :: ngrp_vars_ana, communicator, filetype
+    INTEGER :: ngrp_vars_ana, filetype
 
     TYPE(t_pi_atm), POINTER :: my_ptr
     REAL(wp),       POINTER :: my_ptr3d(:,:,:)
@@ -1115,12 +1252,6 @@ MODULE mo_initicon_io
       routine = modname//':read_dwdana_atm'
 
     !-------------------------------------------------------------------------
-
-    IF(p_test_run) THEN
-        communicator = p_comm_work_test
-    ELSE
-        communicator = p_comm_work
-    ENDIF
 
     !----------------------------------------!
     ! read in DWD analysis (atmosphere)      !
@@ -1239,7 +1370,7 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
 
-    INTEGER :: jg, jt, jb, jc, i_endidx, communicator, filetype
+    INTEGER :: jg, jt, jb, jc, i_endidx, filetype
 
     INTEGER :: ngrp_vars_fg
     REAL(wp), POINTER :: my_ptr2d(:,:)
@@ -1251,12 +1382,6 @@ MODULE mo_initicon_io
       routine = modname//':read_dwdfg_sfc'
 
     !-------------------------------------------------------------------------
-
-    IF(p_test_run) THEN
-        communicator = p_comm_work_test
-    ELSE
-        communicator = p_comm_work
-    ENDIF
 
     !----------------------------------------!
     ! read in DWD First Guess (surface)      !
@@ -1454,7 +1579,7 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
 
     INTEGER :: jg, jt
-    INTEGER :: ngrp_vars_ana, filetype, communicator
+    INTEGER :: ngrp_vars_ana, filetype
 
     REAL(wp), POINTER :: my_ptr2d(:,:)
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
@@ -1465,12 +1590,6 @@ MODULE mo_initicon_io
       routine = modname//':read_dwdana_sfc'
 
     !-------------------------------------------------------------------------
-
-    IF(p_test_run) THEN
-        communicator = p_comm_work_test
-    ELSE
-        communicator = p_comm_work
-    ENDIF
 
     !----------------------------------------!
     ! read in DWD analysis (surface)         !

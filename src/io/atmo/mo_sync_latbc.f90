@@ -731,6 +731,7 @@ MODULE mo_sync_latbc
       DEALLOCATE(p_latbc_data(tlev)%atm%vn, &
                  p_latbc_data(tlev)%atm%u, &
                  p_latbc_data(tlev)%atm%v, &
+                 p_latbc_data(tlev)%atm_in%vn, &
                  p_latbc_data(tlev)%atm%w, &
                  p_latbc_data(tlev)%atm%temp, &
                  p_latbc_data(tlev)%atm%exner, &
@@ -743,9 +744,6 @@ MODULE mo_sync_latbc
                  p_latbc_data(tlev)%atm%qr, &
                  p_latbc_data(tlev)%atm%qs )
 
-      IF (ALLOCATED(p_latbc_data(tlev)%atm_in%vn)) THEN
-        DEALLOCATE(p_latbc_data(tlev)%atm_in%vn)
-      ENDIF
     END DO
 
   END SUBROUTINE deallocate_latbc_data

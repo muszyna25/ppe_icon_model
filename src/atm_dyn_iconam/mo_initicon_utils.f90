@@ -39,7 +39,7 @@ MODULE mo_initicon_utils
     &                               lconsistency_checks
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
-    &                               MODE_COMBINED, MODE_COSMODE
+    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text, warning
   USE mo_grid_config,         ONLY: n_dom
@@ -435,7 +435,7 @@ MODULE mo_initicon_utils
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_DWDANA_INC)
+        CASE(MODE_DWDANA, MODE_DWDANA_INC,MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
@@ -869,6 +869,14 @@ MODULE mo_initicon_utils
           p_nh_state(jg)%prog(nnew(jg))%w(jc,nlevp1,jb) = initicon(jg)%atm%w(jc,nlevp1,jb)
         ENDDO
 
+        IF (init_mode == MODE_ICONVREMAP) THEN ! copy also TKE field
+          DO jk = 1, nlevp1
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tke(jc,jk,jb) = initicon(jg)%atm%tke(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
       ENDDO  ! jb
 !$OMP END DO NOWAIT
 
@@ -1178,7 +1186,7 @@ MODULE mo_initicon_utils
                initicon(jg)%grp_vars_ana_default(100)  )
 
       ! Allocate atmospheric output data
-      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED/)==init_mode) ) THEN
+      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED, MODE_ICONVREMAP/)==init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
                  initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
                  initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
@@ -1197,6 +1205,9 @@ MODULE mo_initicon_utils
         initicon(jg)%atm%linitialized = .TRUE.
       ENDIF
 
+      IF ( init_mode == MODE_ICONVREMAP ) THEN
+        ALLOCATE(initicon(jg)%atm%tke(nproma,nlevp1,nblks_c))
+      ENDIF
 
       ! Allocate surface output data
       IF ( init_mode == MODE_IFSANA ) THEN
@@ -1275,8 +1286,8 @@ MODULE mo_initicon_utils
   !! SUBROUTINE allocate_extana_atm
   !! Allocates fields for reading in external analysis data
   !!
-  SUBROUTINE allocate_extana_atm (jg, nblks_c, initicon)
-    INTEGER,                INTENT(IN)    :: jg, nblks_c
+  SUBROUTINE allocate_extana_atm (jg, nblks_c, nblks_e, initicon)
+    INTEGER,                INTENT(IN)    :: jg, nblks_c, nblks_e
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
     ! Local variables: loop control and dimensions
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
@@ -1294,6 +1305,7 @@ MODULE mo_initicon_utils
       initicon(jg)%atm_in%temp    (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%u       (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%v       (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%vn      (nproma,nlev_in,nblks_e),   &
       initicon(jg)%atm_in%w       (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%omega   (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qv      (nproma,nlev_in,nblks_c),   &
@@ -1302,10 +1314,18 @@ MODULE mo_initicon_utils
       initicon(jg)%atm_in%qr      (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qs      (nproma,nlev_in,nblks_c)    )
 
-    IF (init_mode == MODE_COSMODE) THEN
+    IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP) THEN
       ALLOCATE( &
         initicon(jg)%atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
         initicon(jg)%atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
+    ENDIF
+
+    IF (init_mode == MODE_ICONVREMAP) THEN
+      ALLOCATE( &
+        initicon(jg)%atm_in%rho     (nproma,nlev_in  ,nblks_c), &
+        initicon(jg)%atm_in%theta_v (nproma,nlev_in  ,nblks_c), &
+        initicon(jg)%atm_in%tke     (nproma,nlev_in  ,nblks_c), &
+        initicon(jg)%atm_in%tke_ifc (nproma,nlev_in+1,nblks_c)  )
     ENDIF
 
     initicon(jg)%atm_in%linitialized = .TRUE.
@@ -1388,6 +1408,9 @@ MODULE mo_initicon_utils
                    initicon(jg)%atm%qs       )
       ENDIF
 
+      IF ( init_mode == MODE_ICONVREMAP ) THEN
+        DEALLOCATE(initicon(jg)%atm%tke)
+      ENDIF
 
       ! surface output data
       IF (initicon(jg)%sfc%linitialized) THEN
@@ -1451,6 +1474,7 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm_in%temp,    &
                  initicon(jg)%atm_in%u,       &
                  initicon(jg)%atm_in%v,       &
+                 initicon(jg)%atm_in%vn,      &
                  initicon(jg)%atm_in%w,       &
                  initicon(jg)%atm_in%z3d,     &
                  initicon(jg)%atm_in%omega,   &
@@ -1459,14 +1483,19 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm_in%qi,      &
                  initicon(jg)%atm_in%qr,      &
                  initicon(jg)%atm_in%qs )
-      IF (ALLOCATED(initicon(jg)%atm_in%vn)) THEN
-        DEALLOCATE(initicon(jg)%atm_in%vn)
-      ENDIF
 
-      IF (init_mode == MODE_COSMODE) THEN
+      IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP) THEN
         DEALLOCATE( &
                  initicon(jg)%atm_in%z3d_ifc, &
                  initicon(jg)%atm_in%w_ifc    )
+      ENDIF
+
+      IF (init_mode == MODE_ICONVREMAP) THEN
+        DEALLOCATE( &
+          initicon(jg)%atm_in%rho,     &
+          initicon(jg)%atm_in%theta_v, &
+          initicon(jg)%atm_in%tke,     &
+          initicon(jg)%atm_in%tke_ifc  )
       ENDIF
 
       initicon(jg)%atm_in%linitialized = .FALSE.

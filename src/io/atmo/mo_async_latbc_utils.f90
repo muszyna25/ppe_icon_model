@@ -1137,6 +1137,7 @@
             DEALLOCATE(latbc_data(tlev)%atm%vn, &
                  latbc_data(tlev)%atm%u, &
                  latbc_data(tlev)%atm%v, &
+                 latbc_data(tlev)%atm_in%vn, &
                  latbc_data(tlev)%atm%w, &
                  latbc_data(tlev)%atm%temp, &
                  latbc_data(tlev)%atm%exner, &
@@ -1149,9 +1150,6 @@
                  latbc_data(tlev)%atm%qr, &
                  latbc_data(tlev)%atm%qs )
 
-            IF (ALLOCATED(latbc_data(tlev)%atm_in%vn)) THEN
-               DEALLOCATE(latbc_data(tlev)%atm_in%vn)
-            ENDIF
          END DO
       ENDIF
 

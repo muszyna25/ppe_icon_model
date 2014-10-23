@@ -38,9 +38,9 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,             &
     &                               rho_incr_filter_wgt, lread_ana,         &
     &                               lp2cintp_incr
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
-    &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,      &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
+    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA, MODE_ICONVREMAP, &
+    &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,           &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
   USE mo_exception,           ONLY: message, finish
@@ -62,7 +62,8 @@ MODULE mo_initicon
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
-                                    read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc
+                                    read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
+                                    read_dwdfg_atm_ii
                                     
 
   IMPLICIT NONE
@@ -168,7 +169,7 @@ MODULE mo_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -196,7 +197,18 @@ MODULE mo_initicon
       CALL message(TRIM(routine),'MODE_DWD: perform initialization with DWD analysis')
 
       ! process DWD atmosphere analysis data
-      CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
+      CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+      ! process DWD land/surface analysis data
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE(MODE_ICONVREMAP)   ! read in ICON prognostic variables (DWD first-guess fields) and 
+                            ! perform vertical remapping
+
+      CALL message(TRIM(routine),'MODE_VREMAP: read ICON data and perform vertical remapping')
+
+      ! process ICON (DWD) atmosphere first-guess data (having different vertical levels than the current grid)
+      CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
@@ -333,26 +345,43 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2012-12-20)
   !!
   !!
-  SUBROUTINE process_dwdana_atm (p_patch, p_nh_state, p_int_state)
+  SUBROUTINE process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
 
 !-------------------------------------------------------------------------
 
+    IF (init_mode == MODE_ICONVREMAP) THEN
 
-    ! read DWD first guess and analysis from DA for atmosphere
-    ! 
-    CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+      ! read DWD first guess for atmosphere and store to initicon input state variables
+      ! (input data are allowed to have a different number of model levels than the current model grid)
+      CALL read_dwdfg_atm_ii (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
-    IF(lread_ana) &   
-     CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+      ! Perform vertical interpolation from input ICON grid to output ICON grid
+      !
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+                           opt_convert_omega2w=.FALSE.)
 
+      ! Finally copy the results to the prognostic model variables
+      !
+      CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
 
-    ! merge first guess with DA analysis and 
-    ! convert variables to the NH set of prognostic variables
-    CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
+    ELSE
+
+      ! read DWD first guess for atmosphere
+      CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+      IF(lread_ana) &   ! read DWD analysis from DA for atmosphere
+        CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+
+      ! merge first guess with DA analysis and 
+      ! convert variables to the NH set of prognostic variables
+      CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
+
+    ENDIF
 
   END SUBROUTINE process_dwdana_atm
 

@@ -37,7 +37,7 @@ MODULE mo_nh_vert_interp
   USE mo_run_config,          ONLY: iforcing
   USE mo_io_config,           ONLY: itype_pres_msl
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
-    &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED
+    &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED, MODE_ICONVREMAP
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode
   USE mo_initicon_types,      ONLY: t_initicon_state
@@ -367,7 +367,7 @@ CONTAINS
 
 
     ! horizontal wind components
-    IF (ALLOCATED(initicon%atm_in%vn) .AND. l_use_vn) THEN
+    IF (l_use_vn) THEN
 
       !
       ! prepare interpolation coefficients for edges
@@ -501,8 +501,6 @@ CONTAINS
                          initicon%atm%rho, initicon%atm%exner,   &
                          initicon%atm%theta_v                    )
 
-
-
     ! Convert omega to w
     IF (lconvert_omega2w) THEN
     
@@ -530,6 +528,15 @@ CONTAINS
     CALL adjust_w(p_patch, p_int, initicon%atm%vn, initicon%z_ifc, initicon%atm%w)
 
     CALL sync_patch_array(SYNC_C,p_patch,initicon%atm%w)
+
+
+    IF (init_mode == MODE_ICONVREMAP) THEN
+      CALL lin_intp(initicon%atm_in%tke, initicon%atm%tke,                 &
+                    p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlevp1,    &
+                    wfac_lin_w, idx0_lin_w, bot_idx_lin_w, wfacpbl1, kpbl1,&
+                    wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE., &
+                    l_pd_limit=.TRUE., lower_limit=1.e-5_wp)
+    ENDIF
 
   END SUBROUTINE vert_interp
 

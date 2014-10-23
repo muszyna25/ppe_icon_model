@@ -25,7 +25,7 @@ MODULE mo_initicon_nml
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
     &                              MODE_DWDANA_INC, MODE_IAU, MODE_COMBINED, &
-    &                              MODE_COSMODE
+    &                              MODE_COSMODE, MODE_ICONVREMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -144,7 +144,7 @@ CONTAINS
 
   !local variable
   INTEGER :: i_status
-  INTEGER :: z_go_init(6)   ! for consistency check
+  INTEGER :: z_go_init(7)   ! for consistency check
   INTEGER :: iunit
 
   CHARACTER(len=*), PARAMETER ::  &
@@ -209,10 +209,10 @@ CONTAINS
   ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
-      &  'Invalid initialization mode. Must be init_mode=1, 2, 3, 4, 5 or 6')
+      &  'Invalid initialization mode. init_mode must be between 1 and 7')
   ENDIF
 
   ! Check whether a NetCDF<=>GRIB2 Map File is needed, and if so, whether 
@@ -240,7 +240,7 @@ CONTAINS
   ENDIF
 
   ! Check whether init_mode and lread_ana are consistent
-  IF (ANY((/MODE_COMBINED,MODE_COSMODE/)==init_mode) .AND. lread_ana) THEN
+  IF (ANY((/MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)==init_mode) .AND. lread_ana) THEN
     lread_ana = .FALSE.
     WRITE(message_text,'(a,i2,a)') 'init_mode=', init_mode, &
       '. no analysis required => lread_ana re-set to .FALSE.'
