@@ -245,7 +245,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)  :: var3df, var3dh, theta, w_mc
     REAL(wp), ALLOCATABLE, DIMENSION(:)   :: &
               umean, vmean, thmean, qvmean, qcmean, wmean, outvar, thvmean
-    REAL(wp) :: outvar0d, w_loc, th_loc, wth_loc
+    REAL(wp) :: outvar0d, w_loc, th_loc, wth_loc, day_sec
 
     ! Local array bounds:
 
@@ -260,6 +260,8 @@ CONTAINS
 
     IF(msg_level>18) & 
       CALL message(routine,'Start!')
+
+    day_sec = 86400._wp
 
     jg         = p_patch%id
     nlev       = p_patch%nlev
@@ -733,10 +735,12 @@ CONTAINS
      CASE('lwf')
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
-     CASE('str')
+     CASE('swf')
        CALL levels_horizontal_mean(prm_diag%trsolall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
-
+       CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar0d)
+       outvar = outvar*outvar0d
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -781,35 +785,41 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%z_pbl, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('psfc')
        CALL levels_horizontal_mean(p_diag%pres_sfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
-     CASE('swf_toa')
+     CASE('swf_tom')
        CALL levels_horizontal_mean(prm_diag%swflxtoa, p_patch%cells%area, p_patch%cells%owned, outvar0d)
-     CASE('lwf_toa')
+     CASE('lwf_tom')
        CALL levels_horizontal_mean(prm_diag%lwflxall(:,1,:), p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('swf_sfc')
        CALL levels_horizontal_mean(prm_diag%swflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('lwf_sfc')
        CALL levels_horizontal_mean(prm_diag%lwflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('precp_t')
-       CALL levels_horizontal_mean(prm_diag%tot_prec, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+       CALL levels_horizontal_mean(prm_diag%tot_prec_rate_avg, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+       outvar0d = outvar0d * day_sec
      CASE('precp_r')
-       CALL levels_horizontal_mean(prm_diag%rain_gsp, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+       CALL levels_horizontal_mean(prm_diag%rain_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+       outvar0d = outvar0d * day_sec
      CASE('precp_s')
-       CALL levels_horizontal_mean(prm_diag%snow_gsp, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+       CALL levels_horizontal_mean(prm_diag%snow_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+       outvar0d = outvar0d * day_sec
      CASE('precp_g')
        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN    
-         CALL levels_horizontal_mean(prm_diag%graupel_gsp, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+         CALL levels_horizontal_mean(prm_diag%graupel_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+         outvar0d = outvar0d * day_sec
        ELSE
          outvar0d = 0._wp
        END IF
      CASE('precp_h')
        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN    
-         CALL levels_horizontal_mean(prm_diag%hail_gsp, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+         CALL levels_horizontal_mean(prm_diag%hail_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+         outvar0d = outvar0d * day_sec
        ELSE
          outvar0d = 0._wp
        END IF
      CASE('precp_i')
        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN    
-         CALL levels_horizontal_mean(prm_diag%ice_gsp, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+         CALL levels_horizontal_mean(prm_diag%ice_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+         outvar0d = outvar0d * day_sec
        ELSE
          outvar0d = 0._wp
        END IF
@@ -1095,8 +1105,8 @@ CONTAINS
        longname = 'net longwave flux'
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
-     CASE('str') 
-       longname = 'shortwave net tranmissivity'
+     CASE('swf') 
+       longname = 'net shortwave flux'
        unit     = ''
        is_at_full_level(n) = .FALSE.
      CASE DEFAULT 
@@ -1170,11 +1180,11 @@ CONTAINS
      CASE('psfc')
        longname = 'surface pressure'
        unit     = 'Pa'
-     CASE('swf_toa')
-       longname = 'net shortwave flux at TOA'
+     CASE('swf_tom')
+       longname = 'net shortwave flux at model top'
        unit     = 'W/m2'
-     CASE('lwf_toa')
-       longname = 'net longwave flux at TOA'
+     CASE('lwf_tom')
+       longname = 'net longwave flux at model top'
        unit     = 'W/m2'
      CASE('swf_sfc')
        longname = 'net shortwave flux at sfc'
@@ -1183,23 +1193,23 @@ CONTAINS
        longname = 'net longwave flux at sfc'
        unit     = 'W/m2'
      CASE('precp_t')
-       longname = 'total gridscale precipitation'
-       unit     = 'kg/m2'
+       longname = 'time avg total gridscale precipitation'
+       unit     = 'mm/day'
      CASE('precp_r')
-       longname = 'gridscale rain'
-       unit     = 'kg/m2'
+       longname = 'gridscale rain rate'
+       unit     = 'mm/day'
      CASE('precp_s')
-       longname = 'gridscale snow'
-       unit     = 'kg/m2'
+       longname = 'gridscale snow rate'
+       unit     = 'mm/day'
      CASE('precp_g')
-       longname = 'gridscale graupel'
-       unit     = 'kg/m2'
+       longname = 'gridscale graupel rate'
+       unit     = 'mm/day'
      CASE('precp_h')
-       longname = 'gridscale hail'
-       unit     = 'kg/m2'
+       longname = 'gridscale hail rate'
+       unit     = 'mm/day'
      CASE('precp_i')
-       longname = 'gridscale ice'
-       unit     = 'kg/m2'
+       longname = 'gridscale ice rate'
+       unit     = 'mm/day'
      END SELECT  
   
      dimname(1) = tname
