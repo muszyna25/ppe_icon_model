@@ -1,7 +1,7 @@
 !OPTION! -cont -msg o
 !! this command should fix the problem of copying arrays in a subroutine call
 !>
-!! This module is the interface between nwp_nh_interface to the 
+!! This module is the interface between nwp_nh_interface to the
 !! turbulence parameterisations:
 !! inwp_turb == 1 == turbulence scheme by M. Raschendorfer run in COSMO
 !! inwp_turb == 2 == turbulence scheme imported from the GME
@@ -38,7 +38,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
-  USE mo_nwp_phy_state,        ONLY: phy_params 
+  USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqtke
@@ -47,7 +47,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE mo_data_flake,           ONLY: h_Ice_min_flk, tpl_T_f
   USE src_turbdiff,            ONLY: organize_turbdiff
-  USE mo_satad,                ONLY: sat_pres_water, spec_humi  
+  USE mo_satad,                ONLY: sat_pres_water, spec_humi
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
   USE mo_util_phys,            ONLY: nwp_dyn_gust
   USE mo_run_config,           ONLY: ltestcase
@@ -73,8 +73,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
                           & p_prog_rcf,                        & !>inout
                           & p_diag ,                           & !>inout
                           & prm_diag,                          & !>inout
-                          & wtr_prog_new,                      & !>in 
-                          & lnd_prog_new,                      & !>inout 
+                          & wtr_prog_new,                      & !>in
+                          & lnd_prog_new,                      & !>inout
                           & lnd_diag                           ) !>inout
 
 
@@ -87,7 +87,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_new    !< prog vars for wtr
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
-  REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
+  REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for
                                                                !< turbulence
 
   CHARACTER(len=*),PARAMETER :: routine = 'mo_nwp_turbtrans_interface:nwp_turbtrans'
@@ -133,7 +133,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: tkvm_t, tkvh_t
 
   ! 2D fields (tiles)
-  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water) :: gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
+  REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water) :: gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, sai_t, shfl_s_t,  &
    lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t
 
@@ -152,7 +152,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! local variables related to the blocking
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
-  
+
   ! exclude boundary interpolation zone of nested domains
   rl_start = grf_bdywidth_c+1
   rl_end   = min_rlcell_int
@@ -160,14 +160,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   i_startblk = p_patch%cells%start_blk(rl_start,1)
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-  
+
   IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
-!$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &  
+!$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
 !$OMP tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t,     &
 !$OMP qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm) ICON_OMP_GUIDED_SCHEDULE
@@ -195,15 +195,15 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ELSE IF ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
 
-!DR Note that this must be re-checked, once turbtran is called at the very end 
-!DR of the fast physics part.   
+!DR Note that this must be re-checked, once turbtran is called at the very end
+!DR of the fast physics part.
 !DIR$ IVDEP
          DO jc = i_startidx, i_endidx
           lnd_prog_new%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
                       ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
           lnd_diag%qv_s (jc,jb) = &
              &         spec_humi(sat_pres_water(lnd_prog_new%t_g(jc,jb)),&
-             &                                   p_diag%pres_sfc(jc,jb) )          
+             &                                   p_diag%pres_sfc(jc,jb) )
           lnd_diag%qv_s(jc,jb) = MIN (lnd_diag%qv_s(jc,jb) ,p_prog_rcf%tracer(jc,nlev,jb,iqv))
          END DO
         ELSE
@@ -263,7 +263,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
     IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
 
 !-------------------------------------------------------------------------
-!< COSMO turbulence scheme by M. Raschendorfer  
+!< COSMO turbulence scheme by M. Raschendorfer
 !-------------------------------------------------------------------------
 
       ierrstat = 0
@@ -415,9 +415,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             qv_s_t (ic,jt)      = lnd_diag%qv_s_t   (jc,jb,jt)
             sai_t  (ic,jt)      = ext_data%atm%sai_t(jc,jb,jt)
             tvs_t  (ic,1:2,1,jt)= z_tvs             (jc,nlev-1:nlev,1)
-            tvs_t  (ic,3,1,jt)  = prm_diag%tvs_s_t  (jc,jb,jt)      ! tile-specific for lowest level   
+            tvs_t  (ic,3,1,jt)  = prm_diag%tvs_s_t  (jc,jb,jt)      ! tile-specific for lowest level
             tkvm_t (ic,1,jt)    = prm_diag%tkvm     (jc,nlev,jb)
-            tkvm_t (ic,2,jt)    = prm_diag%tkvm_s_t (jc,jb,jt)     ! tile-specific for lowest level       
+            tkvm_t (ic,2,jt)    = prm_diag%tkvm_s_t (jc,jb,jt)     ! tile-specific for lowest level
             tkvh_t (ic,1,jt)    = prm_diag%tkvh     (jc,nlev,jb)
             tkvh_t (ic,2,jt)    = prm_diag%tkvh_s_t (jc,jb,jt)     ! tile-specific for lowest level
 
@@ -579,7 +579,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
 
-      ! Re-compute TKE at lowest main levels. Note that slight temporal inconsistencies are 
+      ! Re-compute TKE at lowest main levels. Note that slight temporal inconsistencies are
       ! ignored at this point.
       IF (advection_config(jg)%iadv_tke > 0) THEN
         DO jc=i_startidx, i_endidx
@@ -592,7 +592,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
     ELSE IF (  ANY( (/igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb) ) THEN
 
 !-------------------------------------------------------------------------
-!> GME turbulence scheme 
+!> GME turbulence scheme
 !-------------------------------------------------------------------------
 
       ! turbulent diffusion coefficients at the surface
@@ -609,9 +609,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           umfl_s=prm_diag%umfl_s_t(:,jb,1), vmfl_s=prm_diag%vmfl_s_t(:,jb,1))   !out, out
 
 
-      !DR inside "nearsfc", lhfl_s is converted to qhfl_s via 
-      !DR qhfl_s = lhfl_s/lh_v. This is incorrect over snow and ice. 
-      !DR Shouldn't we simply pass qhfl_s ? 
+      !DR inside "nearsfc", lhfl_s is converted to qhfl_s via
+      !DR qhfl_s = lhfl_s/lh_v. This is incorrect over snow and ice.
+      !DR Shouldn't we simply pass qhfl_s ?
       !
       ! diagnose 2 m temperature, humidity, 10 m wind
       CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),            & !in
@@ -658,7 +658,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           prm_diag%u_10m_t(jc,jb,jt) = prm_diag%u_10m(jc,jb)
           prm_diag%v_10m_t(jc,jb,jt) = prm_diag%v_10m(jc,jb)
 
-          ! Copy sensible and latent heat fluxes to tile-based variables 
+          ! Copy sensible and latent heat fluxes to tile-based variables
           ! (needed by Flake, sea-ice model)
           prm_diag%shfl_s_t(jc,jb,jt) = prm_diag%shfl_s(jc,jb)
           prm_diag%lhfl_s_t(jc,jb,jt) = prm_diag%lhfl_s(jc,jb)

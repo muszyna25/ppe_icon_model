@@ -68,7 +68,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime, pstep_len
-  
+
     REAL(wp),INTENT(IN) ::           &
       & pfrc      (kbdim,ksfc_type), &!< area fraction of each surface type
       & pcfm_tile (kbdim,ksfc_type), &!< exchange coeff
@@ -84,7 +84,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pcptgz  (kbdim,klev)  !< dry static energy
     REAL(wp),INTENT(IN) :: prhoh   (kbdim,klev)  !< air density at half levels
     REAL(wp),INTENT(IN) :: pqshear (kbdim,klev)
-  
+
     REAL(wp),INTENT(IN) :: pum1    (kbdim,klev)  !< u-wind at step t-dt
     REAL(wp),INTENT(IN) :: pvm1    (kbdim,klev)  !< q-wind at step t-dt
     REAL(wp),INTENT(IN) :: ptm1    (kbdim,klev)  !< temperature at step t-dt
@@ -92,7 +92,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pxlm1   (kbdim,klev)  !< cloud water concentration at step t-dt
     REAL(wp),INTENT(IN) :: pxim1   (kbdim,klev)  !< cloud ice   concentration at step t-dt
     REAL(wp),INTENT(IN) :: pxtm1   (kbdim,klev,ktrac) !< specific density of other tracers at step t-dt
-  
+
     REAL(wp),INTENT(IN) :: pcd                   !< specific heat of dry air
     REAL(wp),INTENT(IN) :: pcv                   !< specific heat of water vapor
 
@@ -100,7 +100,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pgeom1 (kbdim,klev)   !< geopotential above ground
     REAL(wp),INTENT(IN) :: pztkevn(kbdim,klev)   !< intermediate value of tke
 #ifdef __ICON__
-    REAL(wp),INTENT(IN) :: ptkem1(kbdim,klev)    !< TKE at time step t-dt 
+    REAL(wp),INTENT(IN) :: ptkem1(kbdim,klev)    !< TKE at time step t-dt
 #else
     REAL(wp),INTENT(INOUT) :: ptkem1(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: ptkem0(kbdim,klev)
@@ -110,8 +110,8 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  !<
 
     REAL(wp),INTENT(INOUT) :: pzthvvar (kbdim,klev) !< intermediate value of thvvar
-    REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev) !< distribution width (b-a) 
-                                                    !< in: step t-dt, out: modified 
+    REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev) !< distribution width (b-a)
+                                                    !< in: step t-dt, out: modified
                                                     !< due to vertical diffusion
 
     ! Roughness length
@@ -123,7 +123,7 @@ CONTAINS
 
     ! Temporally and vertically integrated dissipation of kinetic energy
 
-    REAL(wp),INTENT(INOUT) :: pkedisp(kbdim) 
+    REAL(wp),INTENT(INOUT) :: pkedisp(kbdim)
 
     ! Tendencies
 
@@ -134,7 +134,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pxlte(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
-  
+
     REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
@@ -142,9 +142,9 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pxlte_vdf(kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxite_vdf(kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxtte_vdf(kbdim,klev,ktrac)  ! OUT
-  
+
     ! Some other diagnostics
-  
+
     REAL(wp),INTENT(INOUT) :: pxvarprod    (kbdim,klev) !< shear production
                                                       !< of the variance of total water    out
     REAL(wp),INTENT(INOUT) :: pvmixtau     (kbdim,klev) !< vertical mixing time scale    out
@@ -156,13 +156,13 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: psh_vdiff (kbdim)         ! sens. heat flux
     REAL(wp),INTENT(INOUT) :: pqv_vdiff (kbdim)         ! qv flux
 
-  
+
     !-----------------------------------------------------------------------
-    ! 6. Obtain solution of the tri-diagonal system by back-substitution. 
+    ! 6. Obtain solution of the tri-diagonal system by back-substitution.
     !    Then compute tendencies and diagnose moisture flux etc.
     !-----------------------------------------------------------------------
     CALL rhs_bksub( kproma, kbdim, itop, klev, aa, bb ) ! in,...,in, inout
-  
+
     CALL vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,   &! in
                          & ktrac, ksfc_type, idx_lnd, idx_wtr, idx_ice, &! in
                          & pdtime, pstep_len,                           &! in

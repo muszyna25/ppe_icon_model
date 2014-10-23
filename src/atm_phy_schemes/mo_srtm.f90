@@ -38,10 +38,10 @@ MODULE mo_srtm
   !                                                         ! 400nm wavelength
 
   INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
-                                             ! 2: generalized overlap (Hogan, Illingworth, 2000) 
+                                             ! 2: generalized overlap (Hogan, Illingworth, 2000)
                                              ! 3: maximum overlap
                                              ! 4: random overlap
-  REAL(wp), PARAMETER :: zdecorr = 2000.0_wp ! decorrelation length scale del(z0) 
+  REAL(wp), PARAMETER :: zdecorr = 2000.0_wp ! decorrelation length scale del(z0)
 
 CONTAINS
 
@@ -267,7 +267,7 @@ CONTAINS
           ccmax = MAX( zfrcl(ic,jk),  zcloud(ic) )
           ccran =      zfrcl(ic,jk) + zcloud(ic) - &
                    & ( zfrcl(ic,jk) * zcloud(ic) )
-          IF ( zfrcl_above(ic) > 0.0_wp ) THEN 
+          IF ( zfrcl_above(ic) > 0.0_wp ) THEN
             alpha = exp( - (z_mc(ic,jk-1)-z_mc(ic,jk)) / zdecorr )
           ELSE             ! layer thickness ???
             alpha = 0.0_wp

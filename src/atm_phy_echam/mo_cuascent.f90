@@ -447,7 +447,7 @@ pmrateprecip(1:kproma,:)=0._wp
 !
      ik=jk
      icall=1
-     
+
 
      CALL cuadjtq(kproma, kbdim, klev, ik,                             &
           zph,      ptu,      pqu,      loidx, locnt,  icall)
@@ -843,7 +843,7 @@ pmrateprecip(1:kproma,:)=0._wp
        loflag(jl) = .FALSE.
        IF (klab(jl,jk+1) > 0) THEN
          is = is+1
-         loidx(is) = jl 
+         loidx(is) = jl
          loflag(jl) = .TRUE.
        ENDIF
 409  ENDDO
@@ -1387,7 +1387,7 @@ LOGICAL  :: llo1,llo2
 !
 INTEGER  :: jl, iklwmin
 REAL(wp) :: zrg, zrrho, zdprho, zpmid, zentr, zentest
-          
+
 !
 !----------------------------------------------------------------------
 !

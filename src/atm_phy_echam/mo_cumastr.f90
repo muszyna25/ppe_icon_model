@@ -35,7 +35,7 @@ PRIVATE
 
 PUBLIC :: cucall
 
-CONTAINS 
+CONTAINS
 
 SUBROUTINE cucall(   iconv,                                          &! in
                      nmctop, cevapcu,                                &! in
@@ -114,12 +114,12 @@ SUBROUTINE cucall(   iconv,                                          &! in
   REAL(wp)::  pxtecl(kbdim,klev),       pxteci(kbdim,klev)
   REAL(wp)::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
               pxlte(kbdim,klev),        pxite(kbdim,klev)
-  
+
   REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim), pcon_dtrl(kbdim), pcon_dtri(kbdim)
   REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim)
-  REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                               
-  REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-  REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+  REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)
+  REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+  REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 
   REAL(wp)::  ztp1(kbdim,klev),         zqp1(kbdim,klev),              &
               zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
@@ -139,7 +139,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
   REAL(wp)::  ztopmax(kbdim)
   LOGICAL ::  locum(kbdim),             ldland(kbdim)
 
-  !  Local scalars: 
+  !  Local scalars:
   REAL(wp):: ztmst, zxlp1, zxip1
   INTEGER :: ilevmin, jk, jl, jt
 
@@ -147,7 +147,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
 
   field  => prm_field(1)
 
-  !  Executable statements 
+  !  Executable statements
 
 !
 !-----------------------------------------------------------------------
@@ -193,27 +193,27 @@ SUBROUTINE cucall(   iconv,                                          &! in
      locum(jl)=.FALSE.
 130 END DO
 
-! temporary fields for debugging.  
+! temporary fields for debugging.
   DO jk=1,klev
      DO jl=1,kproma
-        field%debug_3d_1(jl,jk,krow)=ptm1(jl,jk)        
-        field%debug_3d_2(jl,jk,krow)=pqm1(jl,jk)        
-        field%debug_3d_2b(jl,jk,krow)=pxlm1(jl,jk)        
-        field%debug_3d_2c(jl,jk,krow)=pxim1(jl,jk)        
-        field%debug_3d_3(jl,jk,krow)=ptte(jl,jk)        
-        field%debug_3d_4(jl,jk,krow)=pqte(jl,jk)        
-        field%debug_3d_5(jl,jk,krow)=ztp1(jl,jk)        
-        field%debug_3d_6(jl,jk,krow)=zqp1(jl,jk)        
-        field%debug_3d_7(jl,jk,krow)=zqsat(jl,jk)        
-        field%debug_3d_8(jl,jk,krow)=pverv(jl,jk)        
-        field%debug_3d_9(jl,jk,krow)=paphp1(jl,jk)        
-        field%debug_3d_10(jl,jk,krow)=papp1(jl,jk)        
-        field%debug_3d_11(jl,jk,krow)=pgeo(jl,jk)    
+        field%debug_3d_1(jl,jk,krow)=ptm1(jl,jk)
+        field%debug_3d_2(jl,jk,krow)=pqm1(jl,jk)
+        field%debug_3d_2b(jl,jk,krow)=pxlm1(jl,jk)
+        field%debug_3d_2c(jl,jk,krow)=pxim1(jl,jk)
+        field%debug_3d_3(jl,jk,krow)=ptte(jl,jk)
+        field%debug_3d_4(jl,jk,krow)=pqte(jl,jk)
+        field%debug_3d_5(jl,jk,krow)=ztp1(jl,jk)
+        field%debug_3d_6(jl,jk,krow)=zqp1(jl,jk)
+        field%debug_3d_7(jl,jk,krow)=zqsat(jl,jk)
+        field%debug_3d_8(jl,jk,krow)=pverv(jl,jk)
+        field%debug_3d_9(jl,jk,krow)=paphp1(jl,jk)
+        field%debug_3d_10(jl,jk,krow)=papp1(jl,jk)
+        field%debug_3d_11(jl,jk,krow)=pgeo(jl,jk)
      END DO
   END DO
   DO jl=1,kproma
-     field%debug_2d_1(jl,krow)=pqhfla(jl)   
-     field%debug_2d_2(jl,krow)=pthvsig(jl)        
+     field%debug_2d_1(jl,krow)=pqhfla(jl)
+     field%debug_2d_2(jl,krow)=pthvsig(jl)
   END DO
 !
 !
@@ -339,7 +339,7 @@ SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
            ldcum,    ktype,    kcbot,    kctop,                         &
            ptu,      pqu,      plu,      plude,                         &
            pmfu,     pmfd,     prain,    pthvsig,                       &
-           pxtecl,   pxteci,   nmctop,   cevapcu,  time_step_len,       &        
+           pxtecl,   pxteci,   nmctop,   cevapcu,  time_step_len,       &
            ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv     )
 !
 !**** *CUMASTR*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
@@ -432,9 +432,9 @@ INTEGER, INTENT(IN)  :: nmctop
 REAL(wp),INTENT(INOUT):: pch_concloud(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
-REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
-REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
+REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -446,7 +446,7 @@ REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
            pvom(kbdim,klev),        pvol(kbdim,klev),                  &
            pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
            paphp1(kbdim,klevp1),                                       &
-           pverv(kbdim,klev)                                            
+           pverv(kbdim,klev)
 REAL(wp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
            plu(kbdim,klev),         plude(kbdim,klev),                 &
            pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
@@ -1136,7 +1136,7 @@ SUBROUTINE cumastrt( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            ldcum,    ktype,    kcbot,    kctop,                        &
            ptu,      pqu,      plu,      plude,                        &
            pmfu,     pmfd,     prain,    pthvsig,                      &
-           pxtecl,   pxteci,   nmctop,   cevapcu,  time_step_len,      &        
+           pxtecl,   pxteci,   nmctop,   cevapcu,  time_step_len,      &
            ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv     )
 !
 !**** *CUMASTRT*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
@@ -1229,9 +1229,9 @@ INTEGER, INTENT(IN)  :: nmctop
 REAL(wp),INTENT(INOUT):: pch_concloud(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
-REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
-REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
+REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1253,7 +1253,7 @@ REAL(wp):: pthvsig(kbdim)
 INTEGER :: kcbot(kbdim),            kctop(kbdim),                      &
            ktype(kbdim)
 REAL(wp):: pxtec(kbdim,klev),       pqtec(kbdim,klev),                 &
-           pxtecl(kbdim,klev),      pxteci(kbdim,klev),                &  
+           pxtecl(kbdim,klev),      pxteci(kbdim,klev),                &
            pqude(kbdim,klev)
 REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
            zxenh(kbdim,klev),       zalvsh(kbdim,klev),                &
@@ -1671,7 +1671,7 @@ SUBROUTINE cumastrh( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            ldcum,    ktype,    kcbot,    kctop,                        &
            ptu,      pqu,      plu,      plude,                        &
            pmfu,     pmfd,     prain,    pthvsig,                      &
-           pxtecl,   pxteci,   nmctop,   cevapcu,  time_step_len,      &        
+           pxtecl,   pxteci,   nmctop,   cevapcu,  time_step_len,      &
            ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv     )
 !
 !**** *CUMASTRH*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
@@ -1764,9 +1764,9 @@ INTEGER, INTENT(IN)  :: nmctop
 REAL(wp),INTENT(INOUT):: pch_concloud(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
-REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
-REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
+REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------

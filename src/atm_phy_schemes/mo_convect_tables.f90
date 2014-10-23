@@ -981,7 +981,7 @@ CONTAINS
     INTEGER,            INTENT(in)  :: list(kidx)
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
- 
+
     INTEGER :: idx(size)
     REAL(wp) :: zalpha(size)
 
@@ -1155,7 +1155,7 @@ CONTAINS
   END SUBROUTINE lookuperror
 
   !>
-  !! Compute saturation specific humidity 
+  !! Compute saturation specific humidity
   !! from the given temperature and pressure.
   !!
   SUBROUTINE compute_qsat( kproma, kbdim, ppsfc, ptsfc, pqs )

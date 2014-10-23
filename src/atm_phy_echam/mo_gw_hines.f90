@@ -4,17 +4,17 @@
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
 !>
-!! Hines parameterization for the vertical transport and dissipation 
+!! Hines parameterization for the vertical transport and dissipation
 !! of unresolved gravity wave spectra originating from the troposphere.
 !!
 !!
 !! Authors:
-!!    
+!!
 !! @author   c. mclandress   ists   august 1995
 !! @author   n. mcfarlane    cccma  may 1995
 !! @author   m. charron      mpi-m  2000-2001
-!! @author   e. manzini      mpi-m  february 2002 (re-write, based on cccgwd)                 
-!! @author   h. schmidt      mpi-m  march 2003 
+!! @author   e. manzini      mpi-m  february 2002 (re-write, based on cccgwd)
+!! @author   h. schmidt      mpi-m  march 2003
 !! @author   h. schmidt      mpi-m  april 2010 (add latitude dependent source function)
 !!
 !!
@@ -36,7 +36,7 @@ MODULE mo_gw_hines
 !!$  USE mo_profile,    ONLY: trace_start, trace_stop
 !!$#endif
 
-  USE mo_exception,            ONLY: message_text, message, finish 
+  USE mo_exception,            ONLY: message_text, message, finish
 
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
@@ -69,13 +69,13 @@ MODULE mo_gw_hines
 
   REAL(wp) :: slope      = 1.0_wp
 
-  REAL(wp) :: f1         = 1.5_wp 
-  REAL(wp) :: f2         = 0.3_wp 
-  REAL(wp) :: f3         = 1.0_wp 
-  REAL(wp) :: f5         = 1.0_wp 
-  REAL(wp) :: f6         = 0.5_wp   
+  REAL(wp) :: f1         = 1.5_wp
+  REAL(wp) :: f2         = 0.3_wp
+  REAL(wp) :: f3         = 1.0_wp
+  REAL(wp) :: f5         = 1.0_wp
+  REAL(wp) :: f6         = 0.5_wp
 
-  INTEGER  :: icutoff    = 0   
+  INTEGER  :: icutoff    = 0
   REAL(wp) :: alt_cutoff = 105.e3_wp
 
   REAL(wp) :: smco       = 2.0_wp      !  (test value: smco = 1.0)
@@ -101,9 +101,9 @@ MODULE mo_gw_hines
 !!$
 !!$  LOGICAL  :: lozpr         !< true: for background enhancement associated with precipitation
 !!$                            !< (Manzini et al., 1997)
-!!$  REAL(wp) :: pcrit         !< [mm/d] critical precipitation value, above which 
+!!$  REAL(wp) :: pcrit         !< [mm/d] critical precipitation value, above which
 !!$                            !< gravity wave rms wind enhancement is applied
-!!$  REAL(wp) :: pcons         !< [] adimensional factor for background enhancement 
+!!$  REAL(wp) :: pcons         !< [] adimensional factor for background enhancement
 !!$                            !< associated with precipitation
 
   LOGICAL  :: lrmscon_lat   !< true:  use latitude dependent rmscon
@@ -111,7 +111,7 @@ MODULE mo_gw_hines
                             !<      use rmscon
                             !< - |latitude| <= lat_rmscon_eq:
                             !<      use rmscon_eq
-                            !< - lat_rmscon_eq < |latitude| < lat_rmscon: 
+                            !< - lat_rmscon_eq < |latitude| < lat_rmscon:
                             !<      use linear interpolation between rmscon_eq and rmscon
                             !< false: use rmscon for all latitudes
                             !< attention: may be overwritten if lfront or lozpr is true
@@ -133,7 +133,7 @@ CONTAINS
     &                   pum1       ,&! in,  u
     &                   pvm1       ,&! in,  v
     &                   lat_deg    ,&! in,  latitude in deg N
-!!$    &                   paprflux   ,&! in, precipitation flux at surface 
+!!$    &                   paprflux   ,&! in, precipitation flux at surface
     &                   dissip_gwh ,&! out,     Q|Hines
     &                   tend_u_gwh ,&! out, du/dt|Hines
     &                   tend_v_gwh ) ! out, dv/dt|Hines
@@ -141,13 +141,13 @@ CONTAINS
 
     !
     ! Description:
-    ! 
-    !   Hines parameterization from ccc/mam (Hines, 1997a,b):       
-    !   physical tendencies of the prognostic variables u,v 
-    !   due to vertical transports by a broad band spectrum
-    !   of gravity waves. 
     !
-    !   Note that diffusion coefficient and  heating rate 
+    !   Hines parameterization from ccc/mam (Hines, 1997a,b):
+    !   physical tendencies of the prognostic variables u,v
+    !   due to vertical transports by a broad band spectrum
+    !   of gravity waves.
+    !
+    !   Note that diffusion coefficient and  heating rate
     !   only calculated if lheatcal = .TRUE.
     !
     !        *gw_hines* is called from *physc*.
@@ -183,12 +183,12 @@ CONTAINS
     !  Local arrays for ccc/mam hines gwd scheme:
 
     ! Important local parameter (passed to all subroutines):
-    INTEGER, PARAMETER :: nazmth = 8     ! max azimuth array dimension size 
+    INTEGER, PARAMETER :: nazmth = 8     ! max azimuth array dimension size
 
-    REAL(wp) :: pressg(nc)               ! Surface pressure (pascal)  
+    REAL(wp) :: pressg(nc)               ! Surface pressure (pascal)
 !!$    REAL(wp) :: zpr(nc)                  ! precipitation (check dims: echam5 change)
 
-    ! * Vertical positioning arrays and work arrays:                       
+    ! * Vertical positioning arrays and work arrays:
     REAL(wp) :: sgj(nc,nlev)
     REAL(wp) :: shj(nc,nlev)
     REAL(wp) :: shxkj(nc,nlev)
@@ -198,22 +198,22 @@ CONTAINS
     REAL(wp) :: utendgw(nc,nlev)         ! zonal tend, gravity wave spectrum (m/s^2)
     REAL(wp) :: vtendgw(nc,nlev)         ! merid tend, gravity wave spectrum (m/s^2)
     REAL(wp) :: heat_gw(nc,nlev)         ! heating, gravity wave spectrum (J/kg/s)
-    REAL(wp) :: diffco(nc,nlev)          ! diffusion coefficient (m^2/s) 
+    REAL(wp) :: diffco(nc,nlev)          ! diffusion coefficient (m^2/s)
 
     REAL(wp) :: flux_u(nc,nlev)          ! zonal momentum flux (pascals)
-    REAL(wp) :: flux_v(nc,nlev)          ! meridional momentum flux (pascals) 
+    REAL(wp) :: flux_v(nc,nlev)          ! meridional momentum flux (pascals)
 
     REAL(wp) :: uhs(nc,nlev)             ! zonal wind (m/s), input for hines param
     REAL(wp) :: vhs(nc,nlev)             ! merid wind (m/s), input for hines param
     REAL(wp) :: bvfreq(nc,nlev)          ! background brunt vassala frequency (rad/s)
     REAL(wp) :: density(nc,nlev)         ! background density (kg/m^3)
-    REAL(wp) :: visc_mol(nc,nlev)        ! molecular viscosity (m^2/s) 
+    REAL(wp) :: visc_mol(nc,nlev)        ! molecular viscosity (m^2/s)
     REAL(wp) :: alt(nc,nlev)             ! background altitude (m)
 
-    REAL(wp) :: rmswind(nc)              ! rms gravity wave  wind, lowest level (m/s) 
-    REAL(wp) :: anis(nc,nazmth)          ! anisotropy factor (sum over azimuths = 1) 
+    REAL(wp) :: rmswind(nc)              ! rms gravity wave  wind, lowest level (m/s)
+    REAL(wp) :: anis(nc,nazmth)          ! anisotropy factor (sum over azimuths = 1)
     REAL(wp) :: k_alpha(nc,nazmth)       ! horizontal wavenumber of each azimuth (1/m)
-    LOGICAL  :: lorms(nc)                ! .true. for rmswind /=0 at launching level 
+    LOGICAL  :: lorms(nc)                ! .true. for rmswind /=0 at launching level
 
     REAL(wp) :: m_alpha(nc,nlev,nazmth)  ! cutoff vertical wavenumber (1/m)
     REAL(wp) :: mmin_alpha(nc,nazmth)    ! minumum value of m_alpha
@@ -240,7 +240,7 @@ CONTAINS
     dissip_gwh(:,:) = 0.0_wp
     tend_u_gwh(:,:) = 0.0_wp
     tend_v_gwh(:,:) = 0.0_wp
-    
+
     IF (ltimer) call timer_start(timer_gw_hines)
     !
     !--  Check consistency of nc, jcs and jce
@@ -280,7 +280,7 @@ CONTAINS
     diffco(:,:) = 0.0_wp
 
     flux_u(:,:) = 0.0_wp
-    flux_v(:,:) = 0.0_wp 
+    flux_v(:,:) = 0.0_wp
 
     uhs(:,:) = 0.0_wp
     vhs(:,:) = 0.0_wp
@@ -297,7 +297,7 @@ CONTAINS
 
     rgocp=rd/cpd
 
-    ! Vertical positioning arrays: 
+    ! Vertical positioning arrays:
     vtmp(1:nc) = rgocp
     DO jk=1,nlev
 !IBM* novector
@@ -312,7 +312,7 @@ CONTAINS
 
 !     sgj(1:nc,1:nlev)=shj(1:nc,1:nlev)
 
-    ! Surface pressure: 
+    ! Surface pressure:
     pressg(1:nc)=paphm1(jcs:jce,nlev+1)
 
     !
@@ -380,7 +380,7 @@ CONTAINS
 
     !     * defile bottom launch level (emission level of gws)
 
-    levbot = nlev-emiss_lev   
+    levbot = nlev-emiss_lev
 
     !     * initialize switch for column calculation
 
@@ -416,14 +416,14 @@ CONTAINS
 
 !!$       !     * modulation by precipitation:
 !!$       IF (lozpr) THEN
-!!$          DO jl=1,nc 
+!!$          DO jl=1,nc
 !!$             IF (zpr(jl) > pcrit) THEN
 !!$                rmswind(jl) = rmscon + ( (zpr(jl)-pcrit)/zpr(jl) )*pcons
 !!$             ENDIF
 !!$          END DO
 !!$       ENDIF
 
-    DO jl=1,nc 
+    DO jl=1,nc
       IF (rmswind(jl) > 0.0_wp) THEN
         lorms(jl) = .TRUE.
       ENDIF
@@ -433,16 +433,16 @@ CONTAINS
     !     * calculate gw tendencies (note that diffusion coefficient and
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
-    CALL hines_extro ( nc, nlev, nazmth,                          & 
+    CALL hines_extro ( nc, nlev, nazmth,                          &
       &                utendgw, vtendgw, heat_gw, diffco,         &
-      &                flux_u, flux_v,                            & 
-      &                uhs, vhs, bvfreq, density, visc_mol, alt,  & 
+      &                flux_u, flux_v,                            &
+      &                uhs, vhs, bvfreq, density, visc_mol, alt,  &
       &                rmswind, anis, k_alpha, sigsqmcw,          &
-      &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    & 
+      &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    &
       &                levbot, lorms)
 
 
-    !   update tendencies: 
+    !   update tendencies:
     !
     DO jk=1, nlev
       dissip_gwh(jcs:jce,jk) = heat_gw(1:nc,jk)
@@ -471,7 +471,7 @@ CONTAINS
     !  on hines' doppler spread theory. this routine calculates zonal
     !  and meridional components of gravity wave drag, heating rates
     !  and diffusion coefficient on a longitude by altitude grid.
-    !  no "mythical" lower boundary region calculation is made. 
+    !  no "mythical" lower boundary region calculation is made.
     !
     !  aug. 13/95 - c. mclandress
     !  sept. /95  - n. mcfarlane
@@ -493,7 +493,7 @@ CONTAINS
     !     * vel_u      = background zonal wind component (m/s).
     !     * vel_v      = background meridional wind component (m/s).
     !     * bvfreq     = background brunt vassala frequency (radians/sec).
-    !     * density    = background density (kg/m^3) 
+    !     * density    = background density (kg/m^3)
     !     * visc_mol   = molecular viscosity (m^2/s)
     !     * alt        = altitude of momentum, density, buoyancy levels (m)
     !     *              (note: levels ordered so that alt(i,1) > alt(i,2), etc.)
@@ -501,12 +501,12 @@ CONTAINS
     !     * anis      = anisotropy factor (sum over azimuths is one)
     !     * lorms     = .true. for drag computation (column selector)
     !     * k_alpha    = horizontal wavenumber of each azimuth (1/m).
-    !     * lev2       = index of last level (eg bottom) for drag calculation 
+    !     * lev2       = index of last level (eg bottom) for drag calculation
     !     *              (i.e., lev1 < lev2 <= nlevs).
     !     * nlons      = number of longitudes.
     !     * nlevs      = number of vertical levels.
     !     * nazmth     = azimuthal array dimension (nazmth >= naz).
-    ! 
+    !
     !  ouput diagnostics:
     !     * m_alpha      = cutoff vertical wavenumber (1/m).
     !     * mmin_alpha   = minimum value of cutoff wavenumber.
@@ -516,7 +516,7 @@ CONTAINS
     !     * v_alpha      = wind component at each azimuth (m/s) and if lheatcal=.TRUE.
     !     *                holds vertical derivative of cutoff wavenumber.
     !     * sigma_alpha  = total rms wind in each azimuth (m/s).
-    !     * ak_alpha     = spectral amplitude factor at each azimuth 
+    !     * ak_alpha     = spectral amplitude factor at each azimuth
     !     *                (i.e.,{ajkj}) in m^4/s^2.
     !     * densb        = background density at bottom level.
     !     * bvfb         = buoyancy frequency at bottom level and
@@ -527,7 +527,7 @@ CONTAINS
 
     INTEGER  :: nlons, nlevs, nazmth, lev2
 
-    REAL(wp) :: drag_u(nlons,nlevs),   drag_v(nlons,nlevs) 
+    REAL(wp) :: drag_u(nlons,nlevs),   drag_v(nlons,nlevs)
     REAL(wp) :: heat(nlons,nlevs),     diffco(nlons,nlevs)
     REAL(wp) :: flux_u(nlons,nlevs),   flux_v(nlons,nlevs)
     REAL(wp) :: flux(nlons,nlevs,nazmth)
@@ -541,7 +541,7 @@ CONTAINS
 
     REAL(wp) :: m_alpha(nlons,nlevs,nazmth), v_alpha(nlons,nlevs,nazmth)
     REAL(wp) :: ak_alpha(nlons,nazmth),      k_alpha(nlons,nazmth)
-    REAL(wp) :: mmin_alpha(nlons,nazmth)    
+    REAL(wp) :: mmin_alpha(nlons,nazmth)
     REAL(wp) :: smoothr1(nlons,nlevs), smoothr2(nlons,nlevs)
 
     LOGICAL  :: lorms(nlons), losigma_t(nlons,nlevs)
@@ -554,12 +554,12 @@ CONTAINS
 !!$#ifdef _PROFILE
 !!$  CALL trace_start ('hines_extro', 21)
 !!$#endif
-    !----------------------------------------------------------------------- 
+    !-----------------------------------------------------------------------
     !
 
     ! range of longitude index:
-    il1 = 1      
-    il2 = nlons     
+    il1 = 1
+    il2 = nlons
 
     lev1=1              ! top level index
 
@@ -583,7 +583,7 @@ CONTAINS
     !
     !  compute azimuthal wind components from zonal and meridional winds.
     !
-    CALL hines_wind ( v_alpha,                                     & 
+    CALL hines_wind ( v_alpha,                                     &
       &               vel_u, vel_v, naz,                           &
       &               il1, il2, lev1, lev2, nlons, nlevs, nazmth )
     !
@@ -596,9 +596,9 @@ CONTAINS
       &                 sigsqmcw, sigmatm,                         &
       &                 il1, il2, lev1, lev2, nlons, nlevs, nazmth)
     !
-    !  smooth cutoff wavenumbers and total rms velocity in the vertical 
+    !  smooth cutoff wavenumbers and total rms velocity in the vertical
     !  direction nsmax times, using flux_u as temporary work array.
-    !   
+    !
     IF (nsmax>0)  THEN
        DO n = 1,naz
           DO l=lev1,lev2
@@ -630,7 +630,7 @@ CONTAINS
     !
     !  cutoff drag above alt_cutoff, using bvfb as temporary work array.
     !
-    IF (icutoff==1)  THEN     
+    IF (icutoff==1)  THEN
        CALL hines_exp ( drag_u, bvfb, alt, alt_cutoff,  &
          &              il1, il2, lev1, lev2, nlons, nlevs )
        CALL hines_exp ( drag_v, bvfb, alt, alt_cutoff,  &
@@ -677,11 +677,11 @@ CONTAINS
     &                       il1, il2, levtop, levbot, nlons, nlevs, nazmth)
     !
     !  this routine calculates the cutoff vertical wavenumber and velocity
-    !  variances on a longitude by altitude grid for the hines' doppler 
+    !  variances on a longitude by altitude grid for the hines' doppler
     !  spread gravity wave drag parameterization scheme.
     !  note: (1) only values of four or eight can be used for # azimuths (naz).
-    !        (2) only values of 1.0, 1.5 or 2.0 can be used for slope (slope). 
-    !        (3) if m_min not zero, only slope=1. can be used. 
+    !        (2) only values of 1.0, 1.5 or 2.0 can be used for slope (slope).
+    !        (3) if m_min not zero, only slope=1. can be used.
     !
     !  aug. 10/95 - c. mclandress
     !  2000-2001  - m. charron
@@ -692,7 +692,7 @@ CONTAINS
     !     * m_alpha      = cutoff wavenumber at each azimuth (1/m).
     !     * sigma_t      = total rms horizontal wind (m/s).
     !     * sigma_alpha  = total rms wind in each azimuth (m/s).
-    !     * ak_alpha     = spectral amplitude factor at each azimuth 
+    !     * ak_alpha     = spectral amplitude factor at each azimuth
     !     *                (i.e.,{ajkj}) in m^4/s^2.
     !     * losigma_t    =  .true. for total sigma not zero
     !     * mmin_alpha   = minimum value of cutoff wavenumber.
@@ -700,7 +700,7 @@ CONTAINS
 
     !  input arguements:
     !
-    !     * v_alpha  = wind component at each azimuth (m/s). 
+    !     * v_alpha  = wind component at each azimuth (m/s).
     !     * visc_mol = molecular viscosity (m^2/s)
     !     * density  = background density (kg/m^3).
     !     * densb    = background density at model bottom (kg/m^3).
@@ -708,11 +708,11 @@ CONTAINS
     !     * bvfb     = background brunt vassala frequency at model bottom.
     !     * rms_wind = root mean square gravity wave wind at lowest level (m/s).
     !     * anis      = anisotropy factor (sum over azimuths is one)
-    !     * lorms       = .true. for drag computation at lowest level 
+    !     * lorms       = .true. for drag computation at lowest level
 
     !     * levbot   = index of lowest vertical level.
-    !     * levtop   = index of highest vertical level 
-    !     *            (note: if levtop < levbot then level index 
+    !     * levtop   = index of highest vertical level
+    !     *            (note: if levtop < levbot then level index
     !     *             increases from top down).
     !     * il1      = first longitudinal index to use (il1 >= 1).
     !     * il2      = last longitudinal index to use (il1 <= il2 <= nlons).
@@ -728,7 +728,7 @@ CONTAINS
     !     * i_alpha    = hines' integral at a single level.
     !
     !     * do_alpha = .true. for the azimuths and longitudes for
-    !                   which to continue to compute the drag above  
+    !                   which to continue to compute the drag above
     !                   the lowest level
 
 
@@ -748,7 +748,7 @@ CONTAINS
 !     REAL(wp) :: f2mod(nlons,nlevs)
     REAL(wp) :: density(nlons,nlevs),  densb(nlons)
     REAL(wp) :: bvfreq(nlons,nlevs),   bvfb(nlons),  rms_wind(nlons)
-    REAL(wp) :: anis(nlons,nazmth) 
+    REAL(wp) :: anis(nlons,nazmth)
     REAL(wp) :: i_alpha(nlons,nazmth), mmin_alpha(nlons,nazmth)
 
     LOGICAL  :: lorms(nlons), losigma_t(nlons,nlevs), do_alpha(nlons,nazmth)
@@ -773,7 +773,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_wavnum'
 
-    !-----------------------------------------------------------------------     
+    !-----------------------------------------------------------------------
     !
 !!$#ifdef _PROFILE
 !!$     CALL trace_start ('hines_wavnum', 22)
@@ -789,8 +789,8 @@ CONTAINS
     !  indices of levels to process.
     !
     IF (levbot > levtop)  THEN
-       istart = levbot - 1     
-       lend   = levtop         
+       istart = levbot - 1
+       lend   = levtop
        lincr  = -1
     ELSE
        CALL finish(TRIM(routine),'level index not increasing downward')
@@ -835,11 +835,11 @@ CONTAINS
       &                sigsqmcw, naz, levbot,         &
       &                il1, il2, nlons, nlevs, nazmth)
     !
-    !  calculate cutoff wavenumber and spectral amplitude factor 
+    !  calculate cutoff wavenumber and spectral amplitude factor
     !  at bottom level where it is assumed that background winds vanish
     !  and also initialize minimum value of cutoff wavnumber.
     !
-    
+
      IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) ) THEN
        ! here slope=1 -> use parameters s1p1_par_integer for exponential and s1p1_par_real for factor
        DO n = 1,naz
@@ -867,24 +867,24 @@ CONTAINS
           DO j = 1,nlorms
              i = ilorms(j)
                 m_alpha(i,levbot,n) = bvfb(i)/(f1*sigma_alpha(i,levbot,n) + f2*sigma_t(i,levbot))
-                ak_alpha(i,n)       = sp1_var_real * sigsqh_alpha(i,levbot,n) * vtmp1(j) 
+                ak_alpha(i,n)       = sp1_var_real * sigsqh_alpha(i,levbot,n) * vtmp1(j)
                 mmin_alpha(i,n)     = m_alpha(i,levbot,n)
           END DO
        END DO
     ENDIF
     !
-    !  calculate quantities from the bottom upwards, 
+    !  calculate quantities from the bottom upwards,
     !  starting one level above bottom.
     !
     DO l = istart,lend,lincr
        !
        !  level beneath present level.
        !
-       lbelow = l - lincr 
+       lbelow = l - lincr
        !
        !  calculate n/m_m where m_m is maximum permissible value of the vertical
        !  wavenumber (i.e., m > m_m are obliterated) and n is buoyancy frequency.
-       !  m_m is taken as the smaller of the instability-induced 
+       !  m_m is taken as the smaller of the instability-induced
        !  wavenumber (m_sub_m_turb) and that imposed by molecular viscosity
        !  (m_sub_m_mol). since variance at this level is not yet known
        !  use value at level below.
@@ -913,7 +913,7 @@ CONTAINS
        END DO
 
        CALL vec_cbrt(vtmp2, vtmp2, n=nlorms)
-       
+
        DO j = 1,nlorms
           i = ilorms(j)
           m_sub_m_turb = vtmp1(j)
@@ -977,7 +977,7 @@ CONTAINS
        !
 !IBM* novector
        DO i = il1,il2
-          sigfac(i) = densb(i) / density(i,l) * bvfreq(i,l) / bvfb(i) 
+          sigfac(i) = densb(i) / density(i,l) * bvfreq(i,l) / bvfb(i)
        END DO
        DO n = 1,naz
           DO i = il1,il2
@@ -1012,7 +1012,7 @@ CONTAINS
   SUBROUTINE hines_wind (v_alpha,vel_u,vel_v,  &
     &                    naz,il1,il2,lev1,lev2,nlons,nlevs,nazmth)
     !
-    !  this routine calculates the azimuthal horizontal background wind components 
+    !  this routine calculates the azimuthal horizontal background wind components
     !  on a longitude by altitude grid for the case of 4 or 8 azimuths for
     !  the hines' doppler spread gwd parameterization scheme.
     !
@@ -1020,7 +1020,7 @@ CONTAINS
     !
     !  output arguement:
     !
-    !     * v_alpha   = background wind component at each azimuth (m/s). 
+    !     * v_alpha   = background wind component at each azimuth (m/s).
     !     *             (note: first azimuth is in eastward direction
     !     *              and rotate in counterclockwise direction.)
     !
@@ -1031,7 +1031,7 @@ CONTAINS
     !     * naz       = actual number of horizontal azimuths used (must be 4 or 8).
     !     * il1       = first longitudinal index to use (il1 >= 1).
     !     * il2       = last longitudinal index to use (il1 <= il2 <= nlons).
-    !     * lev1      = first altitude level to use (lev1 >=1). 
+    !     * lev1      = first altitude level to use (lev1 >=1).
     !     * lev2      = last altitude level to use (lev1 < lev2 <= nlevs).
     !     * nlons     = number of longitudes.
     !     * nlevs     = number of vertical levels.
@@ -1053,12 +1053,12 @@ CONTAINS
     !
     INTEGER  :: i, l
     REAL(wp) :: u, v, vmu, vpu, umin
-    !----------------------------------------------------------------------- 
+    !-----------------------------------------------------------------------
 
 
     umin  = 0.001_wp
 
-    SELECT CASE (naz) 
+    SELECT CASE (naz)
        !
     CASE(4)  !  case with 4 azimuths.
 
@@ -1069,7 +1069,7 @@ CONTAINS
              u = vel_u(i,l)
              IF (ABS(u) < umin)  u = umin
              v = vel_v(i,l)
-             IF (ABS(v) < umin)  v = umin 
+             IF (ABS(v) < umin)  v = umin
              !
              v_alpha(i,l,1) = u     ! east
              v_alpha(i,l,2) = v     ! north
@@ -1087,7 +1087,7 @@ CONTAINS
           DO i = il1,il2
              !
              u = vel_u(i,l)
-             IF (ABS(u) < umin)  u = SIGN(umin,u) 
+             IF (ABS(u) < umin)  u = SIGN(umin,u)
              v = vel_v(i,l)
              IF (ABS(v) < umin)  v = SIGN(umin,v)
              vpu = v + u
@@ -1113,16 +1113,16 @@ CONTAINS
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_wind
 
-  SUBROUTINE hines_flux ( flux_u, flux_v, flux, drag_u, drag_v,        & 
+  SUBROUTINE hines_flux ( flux_u, flux_v, flux, drag_u, drag_v,        &
     &                     alt, density, densb,                         &
     &                     m_alpha, ak_alpha, k_alpha,                  &
     &                     m_min, naz,                           &
     &                     il1, il2, lev1, lev2, nlons, nlevs, nazmth,  &
     &                     lorms )
     !
-    !  calculate zonal and meridional components of the vertical flux 
+    !  calculate zonal and meridional components of the vertical flux
     !  of horizontal momentum and corresponding wave drag (force per unit mass)
-    !  on a longitude by altitude grid for the hines' doppler spread 
+    !  on a longitude by altitude grid for the hines' doppler spread
     !  gwd parameterization scheme.
     !  note: only 4 or 8 azimuths can be used.
     !
@@ -1150,7 +1150,7 @@ CONTAINS
     !     * naz       = actual number of horizontal azimuths used (must be 4 or 8).
     !     * il1       = first longitudinal index to use (il1 >= 1).
     !     * il2       = last longitudinal index to use (il1 <= il2 <= nlons).
-    !     * lev1      = first altitude level to use (lev1 >=1). 
+    !     * lev1      = first altitude level to use (lev1 >=1).
     !     * lev2      = last altitude level to use (lev1 < lev2 <= nlevs).
     !     * nlons     = number of longitudes.
     !     * nlevs     = number of vertical levels.
@@ -1178,7 +1178,7 @@ CONTAINS
     REAL(wp) ::  ak_k_alpha(nlons,nazmth)
     INTEGER  :: i, l, lev1p, lev2m, k
     REAL(wp) ::  dendz, dendz2
-    
+
     REAL(wp) ::  inv_slope
     REAL(wp) ::  densb_slope(nlons)
     !-----------------------------------------------------------------------
@@ -1301,30 +1301,30 @@ CONTAINS
     END IF
     !
     !  calculate drag at intermediate levels
-    !      
+    !
     DO l = lev1p,lev2m
 !IBM* NOVECTOR
        DO i = il1,il2
           IF (lorms(i)) THEN
-             dendz2 = density(i,l) * ( alt(i,l-1) - alt(i,l) ) 
+             dendz2 = density(i,l) * ( alt(i,l-1) - alt(i,l) )
              drag_u(i,l) = - ( flux_u(i,l-1) - flux_u(i,l) ) / dendz2
-             drag_v(i,l) = - ( flux_v(i,l-1) - flux_v(i,l) ) / dendz2       
+             drag_v(i,l) = - ( flux_v(i,l-1) - flux_v(i,l) ) / dendz2
           ENDIF
        END DO
     END DO
     !
-    !  calculate drag at intermediate levels using centered differences (not used) 
+    !  calculate drag at intermediate levels using centered differences (not used)
     !ccc       dendz2 = density(i,l) * ( alt(i,l+1) - alt(i,l-1) )
     !ccc       drag_u(i,l) = - ( flux_u(i,l+1) - flux_u(i,l-1) ) / dendz2
     !ccc       drag_v(i,l) = - ( flux_v(i,l+1) - flux_v(i,l-1) ) / dendz2
 
 
     !  drag at first and last levels using one-side differences.
-    ! 
+    !
 !IBM* NOVECTOR
     DO i = il1,il2
        IF (lorms(i)) THEN
-          dendz = density(i,lev1) * ( alt(i,lev1) - alt(i,lev1p) ) 
+          dendz = density(i,lev1) * ( alt(i,lev1) - alt(i,lev1p) )
           drag_u(i,lev1) =  flux_u(i,lev1)  / dendz
           drag_v(i,lev1) =  flux_v(i,lev1)  / dendz
        ENDIF
@@ -1354,11 +1354,11 @@ CONTAINS
   SUBROUTINE hines_heat ( heat, diffco,                                 &
     &                     alt, bvfreq, density, sigma_t, sigma_alpha,   &
     &                     flux, visc_mol, kstar, f1, f2, f3, f5, f6,    &
-    &                     naz, il1, il2, lev1, lev2, nlons, nlevs,      & 
+    &                     naz, il1, il2, lev1, lev2, nlons, nlevs,      &
     &                     nazmth, losigma_t )
     !
-    !  this routine calculates the gravity wave induced heating and 
-    !  diffusion coefficient on a longitude by altitude grid for  
+    !  this routine calculates the gravity wave induced heating and
+    !  diffusion coefficient on a longitude by altitude grid for
     !  the hines' doppler spread gravity wave drag parameterization scheme.
     !
     !  This routine can be used for nonzero minimum cutoff wavenumber (m_min)
@@ -1366,7 +1366,7 @@ CONTAINS
     !  since its vertical derivative is zero.
     !
     !  aug. 6/95 - c. mclandress
-    !  2001      - m. charron  
+    !  2001      - m. charron
     !
     !  output arguements:
     !
@@ -1388,7 +1388,7 @@ CONTAINS
     !
     !     * il1         = first longitudinal index to use (il1 >= 1).
     !     * il2         = last longitudinal index to use (il1 <= il2 <= nlons).
-    !     * lev1        = first altitude level to use (lev1 >=1). 
+    !     * lev1        = first altitude level to use (lev1 >=1).
     !     * lev2        = last altitude level to use (lev1 < lev2 <= nlevs).
     !     * nlons       = number of longitudes.
     !     * nlevs       = number of vertical levels.
@@ -1401,7 +1401,7 @@ CONTAINS
     INTEGER  ::  naz, il1, il2, lev1, lev2, nlons, nlevs, nazmth
     REAL(wp) ::  kstar, f1, f2, f3, f5, f6
     REAL(wp) ::  heat(nlons,nlevs), diffco(nlons,nlevs)
-    REAL(wp) ::  alt(nlons,nlevs), bvfreq(nlons,nlevs), density(nlons,nlevs) 
+    REAL(wp) ::  alt(nlons,nlevs), bvfreq(nlons,nlevs), density(nlons,nlevs)
     REAL(wp) ::  sigma_t(nlons,nlevs),  sigma_alpha(nlons,nlevs,nazmth)
     REAL(wp) ::  flux(nlons,nlevs,nazmth), visc_mol(nlons,nlevs)
     LOGICAL  ::  losigma_t(nlons,nlevs)
@@ -1413,12 +1413,12 @@ CONTAINS
     REAL(wp) :: visc, visc_min
 
     REAL(wp) :: dfdz(nlons,nlevs,nazmth)
-    !-----------------------------------------------------------------------   
+    !-----------------------------------------------------------------------
 
-    visc_min = 1.e-10_wp 
+    visc_min = 1.e-10_wp
 
     lev1p = lev1 + 1
-    lev2m = lev2 - 1   
+    lev2m = lev2 - 1
 
     DO l = lev1p,lev2m
        DO i = il1,il2
@@ -1464,8 +1464,8 @@ CONTAINS
     !  heating and diffusion.
 
     !
-    !  maximum permissible value of cutoff wavenumber is the smaller 
-    !  of the instability-induced wavenumber (m_sub_m_turb) and 
+    !  maximum permissible value of cutoff wavenumber is the smaller
+    !  of the instability-induced wavenumber (m_sub_m_turb) and
     !  that imposed by molecular viscosity (m_sub_m_mol).
     !
     !
@@ -1493,8 +1493,8 @@ CONTAINS
   SUBROUTINE hines_sigma (sigma_t,sigma_alpha,sigsqh_alpha,  &
     &                     naz,lev,il1,il2,nlons,nlevs,nazmth)
     !
-    !  this routine calculates the total rms and azimuthal rms horizontal 
-    !  velocities at a given level on a longitude by altitude grid for 
+    !  this routine calculates the total rms and azimuthal rms horizontal
+    !  velocities at a given level on a longitude by altitude grid for
     !  the hines' doppler spread gwd parameterization scheme.
     !  note: only four or eight azimuths can be used.
     !
@@ -1529,8 +1529,8 @@ CONTAINS
     !  internal variables.
     !
     INTEGER  :: i, n
-    REAL(wp) :: sum_even, sum_odd 
-    !-----------------------------------------------------------------------     
+    REAL(wp) :: sum_even, sum_odd
+    !-----------------------------------------------------------------------
     !
     !  calculate azimuthal rms velocity for the 4 azimuth case.
     !
@@ -1590,7 +1590,7 @@ CONTAINS
     END DO
     sigma_t(il1:il2,lev) = SQRT(sigma_t(il1:il2,lev))
     !
-    !-----------------------------------------------------------------------     
+    !-----------------------------------------------------------------------
   END SUBROUTINE hines_sigma
 
   SUBROUTINE hines_intgrl (i_alpha,                                     &
@@ -1617,12 +1617,12 @@ CONTAINS
     !
     !  input arguements:
     !
-    !     * v_alpha = azimuthal wind component (m/s). 
+    !     * v_alpha = azimuthal wind component (m/s).
     !     * m_alpha = azimuthal cutoff vertical wavenumber (1/m).
     !     * bvfb    = background brunt vassala frequency at model bottom.
     !     * m_min   = minimum allowable cutoff vertical wavenumber (1/m)
     !     *           for spectral slope of one.
-    !     * slope   = slope of initial vertical wavenumber spectrum 
+    !     * slope   = slope of initial vertical wavenumber spectrum
     !     *           (must use slope = 1., 1.5 or 2.)
     !     * naz     = actual number of horizontal azimuths used.
     !     * lev     = altitude level to process.
@@ -1675,8 +1675,8 @@ CONTAINS
 !!$     CALL trace_start ('hines_intgrl', 23)
 !!$#endif
 
-    q_min = 1.0_wp 
-    qm_min = 0.01_wp 
+    q_min = 1.0_wp
+    qm_min = 0.01_wp
 
 !IBM *NOVECTOR
     DO i = il1,il2
@@ -1837,7 +1837,7 @@ CONTAINS
     !  for real value slope = 1.5
     !
     IF ( ABS(slope-1.5_wp) < EPSILON(1.0_wp) )  THEN
-       ic = 0 
+       ic = 0
        DO n = 1,naz
           DO j = 1,nlorms
              i = ilorms(j)
@@ -1872,13 +1872,13 @@ CONTAINS
           END DO
        END DO
        ! taylor series expansion is a very rare event.
-       ! do sparse processing here separately 
+       ! do sparse processing here separately
 !CDIR NODEP
        DO ix = 1, ic
           n = ixnaz(ix)
           i = ixi(ix)
           q_alpha = v_alpha(i,lev,n) * rbvfb(i)
-          qm = q_alpha * m_alpha(i,lev,n)   
+          qm = q_alpha * m_alpha(i,lev,n)
           IF ( ABS(q_alpha) < EPSILON(1.0_wp) )  THEN
              i_alpha(i,n) = m_alpha(i,lev,n)**2.5_wp / 2.5_wp
           ELSE
@@ -1938,7 +1938,7 @@ CONTAINS
           CALL finish(TRIM(routine),'Hines i_alpha integral is negative')
 
        END IF
-  
+
     END DO
 !!$#ifdef _PROFILE
 !!$     CALL trace_stop ('hines_intgrl', 23)
@@ -1955,7 +1955,7 @@ CONTAINS
 !!$    !
 !!$    !  print out altitude profiles of various quantities from
 !!$    !  hines' doppler spread gravity wave drag parameterization scheme.
-!!$    !  (note: only for naz = 4 or 8). 
+!!$    !  (note: only for naz = 4 or 8).
 !!$    !
 !!$    !  aug. 8/95 - c. mclandress
 !!$    !
@@ -1989,13 +1989,13 @@ CONTAINS
 !!$    !
 !!$    n_east = 1
 !!$    IF (naz==4)  THEN
-!!$       n_west  = 3       
+!!$       n_west  = 3
 !!$       n_north = 2
-!!$       n_south = 4       
+!!$       n_south = 4
 !!$    ELSE IF (naz==8)  THEN
-!!$       n_west  = 5       
+!!$       n_west  = 5
 !!$       n_north = 3
-!!$       n_south = 7       
+!!$       n_south = 7
 !!$    END IF
 !!$    !
 !!$    !  print out values for range of longitudes.
@@ -2005,9 +2005,9 @@ CONTAINS
 !!$       !  print east-west wind, sigmas, cutoff wavenumbers, flux and drag.
 !!$       !
 !!$       IF (iu_print==1)  THEN
-!!$          WRITE (nout,*) 
+!!$          WRITE (nout,*)
 !!$          WRITE (nout,'(a,i3)') 'hines gw (east-west) at longitude i =',i
-!!$          WRITE (nout,6005) 
+!!$          WRITE (nout,6005)
 !!$6005      FORMAT (15x,' u ',2x,'sig_e',2x,'sig_t',3x,'m_e', 4x,'m_w',4x,'fluxu',5x,'gwdu')
 !!$          DO l = levprt1,levprt2
 !!$             WRITE (nout,6701) alt(i,l)/1.e3_wp, v_alpha(i,l,n_east),   &
@@ -2022,9 +2022,9 @@ CONTAINS
 !!$       !  print north-south winds, sigmas, cutoff wavenumbers, flux and drag.
 !!$       !
 !!$       IF (iv_print==1)  THEN
-!!$          WRITE(nout,*) 
+!!$          WRITE(nout,*)
 !!$          WRITE(nout,'(a,i3)') 'hines gw (north-south) at longitude i =',i
-!!$          WRITE(nout,6006) 
+!!$          WRITE(nout,6006)
 !!$6006      FORMAT (15x,' v ',2x,'sig_n',2x,'sig_t',3x,'m_n',4x,'m_s',4x,'fluxv',5x,'gwdv')
 !!$          DO l = levprt1,levprt2
 !!$             WRITE (nout,6701) alt(i,l)/1.e3_wp, v_alpha(i,l,n_north),    &
@@ -2043,7 +2043,7 @@ CONTAINS
   SUBROUTINE hines_exp (darr, data_zmax, alt, alt_exp,     &
     &                   il1, il2, lev1, lev2, nlons, nlevs)
     !
-    !  this routine exponentially damps a longitude by altitude array 
+    !  this routine exponentially damps a longitude by altitude array
     !  of darr above a specified altitude.
     !
     !  aug. 13/95 - c. mclandress
@@ -2060,7 +2060,7 @@ CONTAINS
 
     !     * il1     = first longitudinal index to use (il1 >= 1).
     !     * il2     = last longitudinal index to use (il1 <= il2 <= nlons).
-    !     * lev1    = first altitude level to use (lev1 >=1). 
+    !     * lev1    = first altitude level to use (lev1 >=1).
     !     * lev2    = last altitude level to use (lev1 < lev2 <= nlevs).
     !     * nlons   = number of longitudes.
     !     * nlevs   = number of vertical
@@ -2083,9 +2083,9 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_exp'
 
-    !-----------------------------------------------------------------------     
-    
-    hscale = 5.e3_wp 
+    !-----------------------------------------------------------------------
+
+    hscale = 5.e3_wp
 
     !  index of lowest altitude level (bottom of drag calculation).
     !
@@ -2105,14 +2105,14 @@ CONTAINS
     DO i = il1,il2
        DO l = levtop,levbot,lincr
           IF (alt(i,l) >= alt_exp)  THEN
-             data_zmax(i) = darr(i,l) 
+             data_zmax(i) = darr(i,l)
           END IF
        END DO
     END DO
     !
     !  exponentially damp field above alt_exp to model top at l=1.
     !
-    DO l = 1,lev2 
+    DO l = 1,lev2
        nalt = 0
        DO i = il1,il2
           IF (alt(i,l) >= alt_exp)  THEN
@@ -2140,7 +2140,7 @@ CONTAINS
     &                     il1, il2, lev1, lev2, nlons, nlevs)
     !
     !  smooth a longitude by altitude array in the vertical over a
-    !  specified number of levels using a three point smoother. 
+    !  specified number of levels using a three point smoother.
     !
     !  note: input array darr is modified on output!
     !
@@ -2156,14 +2156,14 @@ CONTAINS
     !     * work    = work array of same dimension as darr.
     !     * coeff   = smoothing coefficient for a 1:coeff:1 stencil.
     !     *           (e.g., coeff = 2 will result in a smoother which
-    !     *           weights the level l gridpoint by two and the two 
+    !     *           weights the level l gridpoint by two and the two
     !     *           adjecent levels (l+1 and l-1) by one).
     !     * nsmooth = number of times to smooth in vertical.
-    !     *           (e.g., nsmooth=1 means smoothed only once, 
+    !     *           (e.g., nsmooth=1 means smoothed only once,
     !     *           nsmooth=2 means smoothing repeated twice, etc.)
     !     * il1     = first longitudinal index to use (il1 >= 1).
     !     * il2     = last longitudinal index to use (il1 <= il2 <= nlons).
-    !     * lev1    = first altitude level to use (lev1 >=1). 
+    !     * lev1    = first altitude level to use (lev1 >=1).
     !     * lev2    = last altitude level to use (lev1 < lev2 <= nlevs).
     !     * nlons   = number of longitudes.
     !     * nlevs   = number of vertical levels.
@@ -2180,7 +2180,7 @@ CONTAINS
     !
     INTEGER  :: i, l, ns, lev1p, lev2m
     REAL(wp) :: sum_wts
-    !-----------------------------------------------------------------------     
+    !-----------------------------------------------------------------------
     !
     !  calculate sum of weights.
     !
@@ -2208,7 +2208,7 @@ CONTAINS
        !
        DO l = lev1p,lev2m
           DO i = il1,il2
-             darr(i,l) = (work(i,l+1)+coeff*work(i,l)+work(i,l-1) ) / sum_wts 
+             darr(i,l) = (work(i,l+1)+coeff*work(i,l)+work(i,l-1) ) / sum_wts
           END DO
        END DO
     END DO
@@ -2231,7 +2231,7 @@ CONTAINS
 !!$    !
 !!$    !  input arguments:
 !!$    !
-!!$    !     * klon     = number of longitudes 
+!!$    !     * klon     = number of longitudes
 !!$    !     * nazmth   = azimuthal array dimension (nazmth >= naz).
 !!$    !
 !!$    !  subroutine arguments.

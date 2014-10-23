@@ -18,9 +18,9 @@ MODULE mo_cuadjust
 #ifdef _PROFILE
   USE mo_profile,        ONLY: trace_start, trace_stop
 #endif
-                 
+
   IMPLICIT NONE
-  
+
   PRIVATE
 
   PUBLIC :: cuadjtq

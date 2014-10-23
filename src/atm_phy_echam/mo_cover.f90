@@ -92,7 +92,7 @@ USE mo_echam_cloud_params, ONLY : ncctop, cqtmin, cbeta_pq, jbmin, jbmax, csatsc
 #ifdef _PROFILE
 USE mo_profile,            ONLY : trace_start, trace_stop
 #endif
-  
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
@@ -157,7 +157,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
 !
 !   Temporary arrays
 !
-  REAL(wp)   ::  zdtmin(kbdim), za(kbdim) 
+  REAL(wp)   ::  zdtmin(kbdim), za(kbdim)
 !
 !   Pointers and counters for iteration and diagnostic loop:
 !
@@ -227,7 +227,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
 !
 !       1.3   Checking occurrence of low-level inversion
 !             (below 2000 m, sea points only, no convection)
-!  
+!
   locnt = 0
   DO jl = 1,kproma
      IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
@@ -659,7 +659,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
            loidx(nl)   = INT(ztt)
         END DO
 
-! power6 optimization : split loop to hide float-to-int coversion 
+! power6 optimization : split loop to hide float-to-int coversion
 !                       load-hit-store latency
 
 !IBM* ASSERT(NODEPS)

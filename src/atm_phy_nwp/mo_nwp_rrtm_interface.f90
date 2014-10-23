@@ -29,7 +29,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -170,7 +170,7 @@ CONTAINS
     END SELECT
 
     IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
-    
+
     rl_start = 1
     rl_end   = min_rlcell_int
 
@@ -285,7 +285,7 @@ CONTAINS
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
           ENDDO
         ENDDO
-        
+
         ! The routine aerdis is called to recieve some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
@@ -354,9 +354,9 @@ CONTAINS
           ENDDO
         ENDDO
 
-        
+
       ELSEIF ( irad_o3 == 6 ) THEN !ozone, but no aerosols
-        
+
          ! 3-dimensional O3
         ! top level
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
@@ -390,7 +390,7 @@ CONTAINS
         zaeq3(1:i_endidx,:,jb) = 0.0_wp
         zaeq4(1:i_endidx,:,jb) = 0.0_wp
         zaeq5(1:i_endidx,:,jb) = 0.0_wp
-        
+
       ELSEIF ( irad_aero == 5 ) THEN !aerosols, but no ozone:
 
         DO jk = 2, nlevp1
@@ -517,8 +517,8 @@ CONTAINS
             zaeqdo(jc,jb)    = zaeqdn
 
           ENDDO
-        ENDDO       
-        
+        ENDDO
+
       ELSE !no aerosols
 
         zaeq1(1:i_endidx,:,jb) = 0.0_wp
@@ -556,7 +556,7 @@ CONTAINS
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    
+
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
@@ -691,7 +691,7 @@ CONTAINS
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    
+
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_external_data),INTENT(in):: ext_data
@@ -700,7 +700,7 @@ CONTAINS
       & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
-      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)    
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
@@ -1189,7 +1189,7 @@ CONTAINS
         zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_lwflx_up_sfc, zrg_trsol_up_toa,       &
         zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,    &
         zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld)
-      
+
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
 
@@ -1204,7 +1204,7 @@ CONTAINS
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    
+
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in)        :: ext_data
 
@@ -1214,7 +1214,7 @@ CONTAINS
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    
+
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),    INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),        INTENT(inout):: lnd_prog
@@ -1237,9 +1237,9 @@ CONTAINS
         & test_lwflxclr(:, :, :),  &
         & test_trsolclr(:, :, :),  &
         & test_lwflxall(:, :, :),  &
-        & test_trsolall(:, :, :)    
+        & test_trsolall(:, :, :)
     REAL(wp) :: check_diff
-    
+
     CHARACTER(*), PARAMETER :: method_name = "nwp_rrtm_radiation_repartition"
 
     IF (timers_level > 3) CALL timer_start(timer_preradiaton)
@@ -1247,7 +1247,7 @@ CONTAINS
     IF (msg_level >= 12) &
       &  CALL message('mo_nwp_rad_interface',   &
       &  'RRTM radiation on redistributed grid')
-    
+
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
@@ -1268,7 +1268,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
     IF (test_parallel_radiation) THEN
-    
+
       ! allocate temp arrays for comparing the results
       ! from the direct radiation call and the redistributed
       ! radiation call
@@ -1278,7 +1278,7 @@ CONTAINS
         & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_lwflxall(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_trsolall(nproma, nlevp1, pt_patch%nblks_c),  &
-        & STAT=return_status)        
+        & STAT=return_status)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
@@ -1354,13 +1354,13 @@ CONTAINS
 !$OMP END PARALLEL
 
     ENDIF !test_parallel_radiation
-    
+
 
     IF (timers_level > 3) THEN
       CALL timer_stop(timer_preradiaton)
       CALL timer_start(timer_radiaton_recv)
     ENDIF
-    
+
     ! this maybe used, so we fill it while not an output of the radiation
     prm_diag%tsfctrad(:,:) = lnd_prog%t_g(:,:)
     CALL recv_rrtm_input( &
@@ -1394,19 +1394,19 @@ CONTAINS
           & zaeq5      = zaeq5(:,:,:)                 ,&!< in aerosol stratospheric background
           & patch      = pt_patch                     ,&!< in
           & rrtm_data  = rrtm_data)                     !< out, pointer to rrtm input values
-    
+
     IF (timers_level > 3) THEN
       CALL timer_stop(timer_radiaton_recv)
       CALL timer_start(timer_radiaton_comp)
     ENDIF
-    
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
-    
+
       i_endidx = rrtm_data%block_size
       IF (jb == rrtm_data%no_of_blocks) i_endidx = rrtm_data%end_index
-      
+
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft
       DO jc = 1, i_endidx
@@ -1419,7 +1419,7 @@ CONTAINS
       ! no distiction between vis and nir albedo
       rrtm_data%albedo_nir_dir(1:i_endidx,jb) = rrtm_data%albedo_vis_dir(1:i_endidx,jb)
       rrtm_data%albedo_nir_dif(1:i_endidx,jb) = rrtm_data%albedo_vis_dif(1:i_endidx,jb)
-      
+
       CALL radiation(               &
                               !
                               ! input
@@ -1489,19 +1489,19 @@ CONTAINS
       & prm_diag%trsolall(:,:,:), &!< out sol. transmissivity, all sky, net down
       & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
       & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
-    
+
     IF (timers_level > 3) &
       & CALL timer_stop(timer_radiaton_send)
-    
-    
+
+
     IF (test_parallel_radiation) THEN
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           &                         i_startidx, i_endidx, rl_start, rl_end)
-               
+
         DO jc = i_startidx, i_endidx
-        
+
           check_diff = MAXVAL(ABS(prm_diag%lwflxall(jc,:,jb) - test_lwflxall(jc,:,jb)))
           IF (check_diff > 0.0_wp) THEN
             write(0,*) " jc,jb=", jc,jb
@@ -1509,7 +1509,7 @@ CONTAINS
             write(0,*) " test_lwflxall=", test_lwflxall(jc,:,jb)
             CALL finish(method_name,"lwflxall differs")
           ENDIF
-        
+
           check_diff = MAXVAL(ABS(prm_diag%trsolall(jc,:,jb) - test_trsolall(jc,:,jb)))
           IF (check_diff > 0.0_wp) THEN
             write(0,*) " jc,jb=", jc,jb
@@ -1517,14 +1517,14 @@ CONTAINS
             write(0,*) " test_trsolall=", test_trsolall(jc,:,jb)
             CALL finish(method_name,"trsolall differs")
           ENDIF
-        
+
        ENDDO
      ENDDO
 
      DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
 
    ENDIF ! test_parallel_radiation
-      
+
 
   END SUBROUTINE nwp_rrtm_radiation_repartition
   !---------------------------------------------------------------------------------------

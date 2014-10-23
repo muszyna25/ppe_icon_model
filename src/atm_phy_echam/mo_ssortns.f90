@@ -915,7 +915,7 @@ SUBROUTINE gwstress( kproma, kbdim, klev, kgwd,                     &
   REAL(wp) :: prho(kbdim,klev+1), pstab(kbdim,klev+1), ptau(kbdim,klev+1),  &
        pvph(kbdim,klev+1), pstd(kbdim)
 
-  !  Local scalars: 
+  !  Local scalars:
   INTEGER :: jl, ji
   REAL(wp)    :: zeff  ! effective height seen by the flow when there is blocking
 
@@ -984,7 +984,7 @@ SUBROUTINE gwprofil( kbdim, klev,                            &
 
   ! scalar arguments with intent(IN):
   INTEGER, INTENT(in) :: kbdim, klev
-  INTEGER, INTENT(in) :: kgwd     ! Total points where oro scheme is active    
+  INTEGER, INTENT(in) :: kgwd     ! Total points where oro scheme is active
   !
   INTEGER :: kkcrith(kbdim), kcrit(kbdim), kdx(kbdim)
 
@@ -994,14 +994,14 @@ SUBROUTINE gwprofil( kbdim, klev,                            &
        prho  (kbdim,klev+1), pvph (kbdim,klev+1),               &
        pri   (kbdim,klev+1), ptau(kbdim,klev+1)
 
-  !  Local scalars: 
+  !  Local scalars:
   INTEGER :: ji, jl, jk
   REAL(wp) :: zsqr, zalfa, zriw, zdel, zb, zalpha, zdz2n, zdelp, zdelpt
 
-  !  Local arrays: 
+  !  Local arrays:
   REAL(wp) :: zdz2 (kbdim,klev) , znorm(kbdim) , zoro(kbdim), ztau (kbdim,klev+1)
   !
-  !  Executable statements  
+  !  Executable statements
 
 !CDIR NODEP
 !DIR$ CONCURRENT
@@ -1207,10 +1207,10 @@ SUBROUTINE orolift( kproma, kbdim, klev,  &
   REAL(wp)    :: zcons1,ztmst
   LOGICAL :: lifthigh
 
-  ! Local arrays:   
+  ! Local arrays:
   INTEGER :: iknub(kbdim),  iknul(kbdim)
   REAL(wp)    ::  zdudt(kbdim), zdvdt(kbdim)
- 
+
   REAL(wp)    :: pulow(kbdim), pvlow(kbdim)
   REAL(wp)    :: ztau(kbdim,klev+1), ztav(kbdim,klev+1), zrho(kbdim,klev+1)
   REAL(wp)    :: zhcrit(kbdim,klev)
@@ -1405,7 +1405,7 @@ SUBROUTINE orolift( kproma, kbdim, klev,  &
 
   ENDIF
   !           PRINT *,' out orolift'
-  RETURN 
+  RETURN
 END SUBROUTINE orolift
 
 END MODULE mo_ssortns

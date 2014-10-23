@@ -873,7 +873,7 @@ CONTAINS
           npoints1 = 0
           npoints2 = 0
           npoints3 = 0
- 
+
           ! Cloudy layer
 !CDIR NODEP,VOVERTAKE,VOB
           DO icld = 1, n_cloudpoints(lev)

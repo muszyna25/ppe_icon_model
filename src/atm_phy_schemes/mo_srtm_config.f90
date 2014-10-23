@@ -258,7 +258,7 @@
       & 3.803964_wp,  6.413186_wp,  7.44969_wp,   7.032908_wp,  17.63879_wp, &
       & 32.63096_wp,  7.861645_wp,  110.624_wp,   69.16621_wp,  109.3144_wp, &
       & 41.19017_wp,  15.00594_wp, 1.009717_wp,   4.195554_wp  /)
-      ! sum of 14 bands is: 433.3371 
+      ! sum of 14 bands is: 433.3371
 
     REAL(wp), PARAMETER :: ssi_amip(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
                                 ! AMIP-type CMIP5 simulation (average from 1979-1988)

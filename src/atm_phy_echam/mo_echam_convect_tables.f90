@@ -17,12 +17,12 @@ MODULE mo_echam_convect_tables
   !
   ! D. Salmond, CRAY (UK), August 1991, original code
   ! L. Kornblueh, MPI, April 2003, cleanup and move of table setup code
-  !                            from setphys.f90 in module  
+  !                            from setphys.f90 in module
   ! M. Puetz, IBM, April 2009, added spline option
-  ! L. Kornblueh, MPI, July 2010, corrected inconsistent use of saturation 
-  !                            vapour formulae 
+  ! L. Kornblueh, MPI, July 2010, corrected inconsistent use of saturation
+  !                            vapour formulae
   ! L. Kornblueh, August 2010, corrected index bug causing inconsistencies
-  !                            in table lookup for splines     
+  !                            in table lookup for splines
 
   USE mo_kind,      ONLY: wp
   USE mo_exception, ONLY: message_text, message, finish
@@ -35,22 +35,22 @@ MODULE mo_echam_convect_tables
 
   PRIVATE
 
-  ! Reference: Sonntag D., 1990: Important new values of the physical 
-  ! constants of 1986, vapour pressure formulations based on ITS-90, 
-  ! and psychrometer formulae. Z. Meteor. 70, pp 340-344. 
-  
-  REAL(wp), PARAMETER :: cavl1 = -6096.9385_wp  
+  ! Reference: Sonntag D., 1990: Important new values of the physical
+  ! constants of 1986, vapour pressure formulations based on ITS-90,
+  ! and psychrometer formulae. Z. Meteor. 70, pp 340-344.
+
+  REAL(wp), PARAMETER :: cavl1 = -6096.9385_wp
   REAL(wp), PARAMETER :: cavl2 =    21.2409642_wp
   REAL(wp), PARAMETER :: cavl3 =    -2.711193_wp
   REAL(wp), PARAMETER :: cavl4 =     1.673952_wp
-  REAL(wp), PARAMETER :: cavl5 =     2.433502_wp 
-  
-  REAL(wp), PARAMETER :: cavi1 = -6024.5282_wp  
-  REAL(wp), PARAMETER :: cavi2 =    29.32707_wp  
+  REAL(wp), PARAMETER :: cavl5 =     2.433502_wp
+
+  REAL(wp), PARAMETER :: cavi1 = -6024.5282_wp
+  REAL(wp), PARAMETER :: cavi2 =    29.32707_wp
   REAL(wp), PARAMETER :: cavi3 =     1.0613868_wp
   REAL(wp), PARAMETER :: cavi4 =    -1.3198825_wp
-  REAL(wp), PARAMETER :: cavi5 =    -0.49382577_wp        
-  
+  REAL(wp), PARAMETER :: cavi5 =    -0.49382577_wp
+
   ! variables public
 
   PUBLIC :: jptlucu1          ! lookup table lower bound
@@ -96,8 +96,8 @@ MODULE mo_echam_convect_tables
 
   ! subroutines public
 
-  PUBLIC :: init_convect_tables ! initialize LUTs 
-  PUBLIC :: lookuperror         ! error handling routine 
+  PUBLIC :: init_convect_tables ! initialize LUTs
+  PUBLIC :: lookuperror         ! error handling routine
 
   !---------------------------------------------------------------------------
   !
@@ -112,13 +112,13 @@ MODULE mo_echam_convect_tables
   !
   REAL(wp), PARAMETER :: fdeltat  =   0.001_wp  ! distance of table knots [K]
   ! division is not sufficiently precise, have to replace 1.0_wp/fdeltat
-  REAL(wp), PARAMETER :: rfdeltat = 1000.0_wp       
+  REAL(wp), PARAMETER :: rfdeltat = 1000.0_wp
   !
   !-- spline interpolation:
   !
   REAL(wp), PARAMETER :: sdeltat  =   0.025_wp  ! distance of table knots [K]
   ! division is not sufficiently precise, have to replace 1.0_wp/sdeltat
-  REAL(wp), PARAMETER :: rsdeltat =  40.0_wp    
+  REAL(wp), PARAMETER :: rsdeltat =  40.0_wp
   !
   !---------------------------------------------------------------------------
   !
@@ -152,7 +152,7 @@ MODULE mo_echam_convect_tables
   !
   !   For the spline interpolation the melting point tmelt = 273.15
   !   is resembled twice at index = lucubctr and index = lucubctr-1
-  !   to be able to interpolate values close to the melting point 
+  !   to be able to interpolate values close to the melting point
   !   correctly.
   !
   INTEGER, PARAMETER :: idxctr   = lucupctr
@@ -176,18 +176,18 @@ MODULE mo_echam_convect_tables
   REAL(wp), PARAMETER :: flucupmax = REAL(lucupmax,wp)
 #endif
 
-  ! logical is fine and logical, but fp faster 
+  ! logical is fine and logical, but fp faster
   LOGICAL  :: lookupoverflow = .FALSE.          ! preset with false
   REAL(wp) :: flookupoverflow = 0.0_wp          ! preset with false
 
   REAL(wp) :: tlucua(jptlucu1-1:jptlucu2+1)     ! table - Es*Rd/Rv, mixed phases
   REAL(wp) :: tlucuaw(jptlucu1-1:jptlucu2+1)    ! table - Es*Rd/Rv, water phase only
   REAL(wp) :: tlucuad(jptlucu1-1:jptlucu2+1)    ! table - dEs/dT*Rd/Rv, mixed phases
-  REAL(wp) :: tlucuawd(jptlucu1-1:jptlucu2+1)   ! table - dEs/dT*Rd/Rv, water phase only 
+  REAL(wp) :: tlucuawd(jptlucu1-1:jptlucu2+1)   ! table - dEs/dT*Rd/Rv, water phase only
   REAL(wp) :: tlucub(jptlucu1-1:jptlucu2+1)     ! table - inner dEs/dT*L/cp, mixed phases
   REAL(wp) :: tlucubw(jptlucu1-1:jptlucu2+1)    ! table - inner dEs/dT*L/cp, water phase only
   REAL(wp) :: tlucuc(jptlucu1-1:jptlucu2+1)     ! table - L/cp, mixed phases
-  REAL(wp) :: tlucucw(jptlucu1-1:jptlucu2+1)    ! table - L/cp, water phase only 
+  REAL(wp) :: tlucucw(jptlucu1-1:jptlucu2+1)    ! table - L/cp, water phase only
 
   ! fused tables for splines
   REAL(wp) :: tlucu(1:2,lucupmin-2:lucupmax+1)     ! fused table
@@ -216,7 +216,7 @@ CONTAINS
     CALL message('',message_text)
     WRITE (message_text,'(a)')         'Full table settings  : '
     CALL message('',message_text)
-    WRITE (message_text,'(a,f12.3,a)') '  Temperature delta  : ', fdeltat, ' [K]' 
+    WRITE (message_text,'(a,f12.3,a)') '  Temperature delta  : ', fdeltat, ' [K]'
     CALL message('',message_text)
     WRITE (message_text,'(a,f12.3,a)') '  Inverse delta      : ', rfdeltat, ' [1/K]'
     CALL message('',message_text)
@@ -224,22 +224,22 @@ CONTAINS
     CALL message('',message_text)
     WRITE (message_text,'(a)')         'Spline table settings: '
     CALL message('',message_text)
-    WRITE (message_text,'(a,f12.3,a)') '  Temperature delta  : ', sdeltat, ' [K]' 
+    WRITE (message_text,'(a,f12.3,a)') '  Temperature delta  : ', sdeltat, ' [K]'
     CALL message('',message_text)
     WRITE (message_text,'(a,f12.3,a)') '  Inverse delta      : ', rsdeltat, ' [1/K]'
     CALL message('',message_text)
     WRITE (message_text,'(a,3i8)')     '  Indices [lb,ctr,ub]: ', lucupmin, lucupctr, lucupmax
     CALL message('',message_text)
-    WRITE (message_text,'(a,2i8)')     '  Table split indices: ', idxctr, idxctrm1 
+    WRITE (message_text,'(a,2i8)')     '  Table split indices: ', idxctr, idxctrm1
     CALL message('',message_text)
 
     zalvdcp = alv/cpd
     zalsdcp = als/cpd
 
-    ! extend the table by one to safe guard code for accessing it+1, when 
+    ! extend the table by one to safe guard code for accessing it+1, when
     ! it is already checked
 
-    ! This are the old tables, extending over 350000 values: kills performance 
+    ! This are the old tables, extending over 350000 values: kills performance
 
 !IBM* NOVECTOR
     DO it = jptlucu1-1, jptlucu2+1
@@ -684,7 +684,7 @@ CONTAINS
         zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
         ! check dual phase conditions:
         ! lo2 = (ptm1(jl,jk) < cthomi) .OR. (ptm1(jl,jk) < tmelt .AND. zxised > csecfrl)
-        ztest = FSEL(temp(jl)-tmelt,0.0_wp,1.0_wp) 
+        ztest = FSEL(temp(jl)-tmelt,0.0_wp,1.0_wp)
         ztest = FSEL(csecfrl-xi(jl),0.0_wp,ztest)
         ztest = FSEL(temp(jl)-cthomi,ztest,1.0_wp)
         ! normalize ztest to 0 and 1
@@ -735,7 +735,7 @@ CONTAINS
         zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
         ! check dual phase conditions
         ! lo2 = (ptm1(jl,jk) < cthomi) .OR. (ptm1(jl,jk) < tmelt .AND. zxised > csecfrl)
-        ztest = FSEL(temp(jl)-tmelt,0.0_wp,1.0_wp) 
+        ztest = FSEL(temp(jl)-tmelt,0.0_wp,1.0_wp)
         ztest = FSEL(csecfrl-xi(jl),0.0_wp,ztest)
         ztest = FSEL(temp(jl)-cthomi,ztest,1.0_wp)
         ! normalize ztest to 0 and 1
@@ -897,6 +897,6 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: name
     CALL finish (name, ' lookup table overflow')
   END SUBROUTINE lookuperror
-  !----------------------------------------------------------------------------  
+  !----------------------------------------------------------------------------
 END MODULE mo_echam_convect_tables
 

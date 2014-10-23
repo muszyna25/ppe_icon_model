@@ -186,7 +186,7 @@ CONTAINS
     REAL(wp) :: zdeclination_sun
     REAL(wp) :: ztime_dateline
 
-    REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon 
+    REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon
 
     ! Temporary variables used for cloud droplet number concentration
 
@@ -359,7 +359,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (phy_config%lrad) THEN 
+    IF (phy_config%lrad) THEN
 
        SELECT CASE(izenith)
        CASE(0)
@@ -409,7 +409,7 @@ CONTAINS
        !
        ! for radiative heating : effective sfc temp. [K]
        ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
-       ! 
+       !
        ! for radiative transfer: radiative sfc temp. [K]
        ztemperature_rad(:) = 0._wp
        DO jsfc=1,nsfc_type
@@ -492,7 +492,7 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
                                        COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
                                        COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
-          CASE(5) 
+          CASE(5)
           ! Radiative convective equilibrium
           ! circular non-seasonal orbit,
           ! perpetual equinox,
@@ -1038,7 +1038,7 @@ CONTAINS
                      & psoflw=field%swflxsfc(:,jb),ptsw=field%tsfc(:,jb) )
 !
 ! update tsfc_tile (radheat also uses tsfc) if ml_ocean is called
-      field%tsfc_tile(:,jb,1) = field%tsfc(:,jb) 
+      field%tsfc_tile(:,jb,1) = field%tsfc(:,jb)
     ENDIF
 
     ! Merge surface temperatures
@@ -1426,7 +1426,7 @@ CONTAINS
     !  total precipitation flux
        field% totprec (jcs:jce,jb)     =  field% rsfl (jcs:jce,jb) & ! rain large scale
             &                            +field% ssfl (jcs:jce,jb) & ! snow large scale
-            &                            +field% rsfc (jcs:jce,jb) & ! rain convection 
+            &                            +field% rsfc (jcs:jce,jb) & ! rain convection
             &                            +field% ssfc (jcs:jce,jb)   ! snow convection
 
     ! accumulated total precipitation flux => average when output

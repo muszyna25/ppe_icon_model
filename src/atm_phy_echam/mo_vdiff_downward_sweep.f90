@@ -1,5 +1,5 @@
 !>
-!! @brief First half of the driver routine for turbulent mixing. 
+!! @brief First half of the driver routine for turbulent mixing.
 !!
 !! @author Hui Wan, MPI-M
 !!
@@ -110,7 +110,7 @@ CONTAINS
       & pz0m_tile(kbdim,ksfc_type)  !< roughness length at step t-dt
 
 #ifdef __ICON__
-    REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at step t-dt 
+    REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at step t-dt
 #else
     REAL(wp),INTENT(INOUT) :: ptkem1(kbdim,klev)  !< TKE at step t-dt
     REAL(wp),INTENT(INOUT) :: ptkem0(kbdim,klev)  !< TKE at step t
@@ -148,7 +148,7 @@ CONTAINS
 
     ! Coefficient matrices and right-hand-side vectors.
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
- 
+
     REAL(wp),INTENT(INOUT) ::           &  ! out
       & aa     (kbdim,klev,3,nmatrix)  ,&!< coeff. matrices, all variables
       & aa_btm (kbdim,3,ksfc_type,imh:imqv),&!< last row of coeff. matrix of heat and moisture
@@ -233,7 +233,7 @@ CONTAINS
 
 ! TODO: ME has to be checked:
 !
-    IF (phy_config%lamip) THEN  
+    IF (phy_config%lamip) THEN
     CALL sfc_exchange_coeff_amip( kproma, kbdim, ksfc_type,         &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
 !                           & lsfc_mom_flux, lsfc_heat_flux,         &! in
@@ -262,7 +262,7 @@ CONTAINS
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_tile(:,:))                          ! out
 
-    ELSE IF (phy_config%ljsbach .AND. .NOT. phy_config%lamip) THEN  
+    ELSE IF (phy_config%ljsbach .AND. .NOT. phy_config%lamip) THEN
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & lsfc_mom_flux, lsfc_heat_flux,         &! in
@@ -322,7 +322,7 @@ CONTAINS
                            &  pustar(:)                             )! out, for "atm_exchange_coeff"
                                                                      ! at next time step
     END IF ! ljsbach
-  
+
     !-----------------------------------------------------------------------
     ! 3. Set up coefficient matrix of the tri-diagonal system, then perform
     !    Gauss elimination for it. The matrix is built from
@@ -334,38 +334,38 @@ CONTAINS
     !      whether there is turbulent flux at the lower boundary for each
     !      quantity subject to turbulent mixing.
     !-----------------------------------------------------------------------
-  
+
     zconst = tpfac1*pstep_len*grav*grav
     zfactor(1:kproma,1:klevm1) = zfactor(1:kproma,1:klevm1)*zconst
-  
+
     zconst = tpfac1*pstep_len*grav/rd
     zfactor(1:kproma,  klev)   = zfactor(1:kproma,  klev)  *zconst
-  
+
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
                           & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
                           & pcftke   (:,:),   pcfthv(:,:),                &! in
                           & zfactor  (:,:),   zrdpm, zrdph,               &! in
                           & aa, aa_btm                                    )! out
- 
+
     ! Save for output, to be used in "update_surface"
     pfactor_sfc(1:kproma) = zfactor(1:kproma,klev)
 
     !-----------------------------------------------------------------------
-    ! 4. Set up right-hand side of the tri-diagonal system and perform 
+    ! 4. Set up right-hand side of the tri-diagonal system and perform
     !    Gauss elimination. Factors that determine the r.h.s. include
     !    - time stepping scheme used for vertical diffusion
     !    - whether there is any other process (e.g., tracer emission)
     !      solved together with vertical diffusion.
     !-----------------------------------------------------------------------
-  
+
     CALL rhs_setup( kproma, kbdim, itop, klev, klevm1,    &! in
                   & ksfc_type, ktrac, tpfac2, pstep_len,  &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
                   & zrdpm, pztkevn, pzthvvar, aa,         &! in
                   & bb, bb_btm                            )! out
-  
+
     CALL rhs_elim ( kproma, kbdim, itop, klev, klevm1, &! in
                   & aa, bb                             )! in, inout
 
