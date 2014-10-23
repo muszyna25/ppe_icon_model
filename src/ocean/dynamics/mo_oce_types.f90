@@ -211,6 +211,8 @@ MODULE mo_oce_types
       & v(:,:,:)              ,& ! reconstructed meridional velocity component. Unit [m/s]
     ! dimension: (nproma, n_zlev, alloc_cell_blocks)
       & u_vint(:,:)           ,& ! barotropic zonal velocity. Unit [m*m/s]
+    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
+      & v_vint(:,:)           ,& ! barotropic meridional velocity. Unit [m*m/s]
     ! dimension: (nproma, alloc_cell_blocks)
       & ptp_vn(:,:,:)         ,& ! normal velocity after mapping P^T P
     ! dimension: (nproma, n_zlev, nblks_e)
@@ -363,6 +365,7 @@ MODULE mo_oce_types
       & mass_flx_e(:,:,:)       ,& ! mass flux at edges. Unit [?].
       & div_mass_flx_c(:,:,:)   ,& ! divergence of mass flux at cells. Unit [?].
       & u_vint(:,:)             ,& ! barotropic zonal velocity. Unit [m*m/s]
+      & v_vint(:,:)             ,& ! barotropic meridional velocity. Unit [m*m/s]
       & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
       & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
       ! & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.

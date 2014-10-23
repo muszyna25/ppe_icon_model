@@ -595,6 +595,11 @@ CONTAINS
       & t_cf_var('u_vint','m*m/s','barotropic zonal velocity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'v_vint', ocean_state_diag%v_vint, grid_unstructured_cell, &
+      & za_surface, &
+      & t_cf_var('v_vint','m*m/s','barotropic meridional velocity', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_restart_list, 'ptp_vn', ocean_state_diag%ptp_vn, &
       & grid_unstructured_cell, za_depth_below_sea, &
       & t_cf_var('ptp_vn','m/s','normal velocity in cartesian coordinates', &
@@ -1168,6 +1173,11 @@ CONTAINS
       & t_cf_var('u_vint_acc', 'm*m/s', 'barotropic zonal velocity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
+    CALL add_var(ocean_default_list, 'v_vint_acc', ocean_state_acc%v_vint , &
+      & grid_unstructured_cell, za_surface, &
+      & t_cf_var('v_vint_acc', 'm*m/s', 'barotropic meridional velocity', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'vort_acc', ocean_state_acc%vort, &
       & grid_unstructured_vert, za_depth_below_sea, &
       & t_cf_var('vort_acc','1/s','vorticity', DATATYPE_FLT32),&

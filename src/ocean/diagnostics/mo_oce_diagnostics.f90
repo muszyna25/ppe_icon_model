@@ -83,6 +83,7 @@ MODULE mo_oce_diagnostics
   PUBLIC :: t_oce_timeseries
   PUBLIC :: calc_moc
   PUBLIC :: calc_psi
+  PUBLIC :: calc_psi_vn
   
   TYPE t_oce_monitor
     REAL(wp) :: volume
@@ -1312,6 +1313,66 @@ CONTAINS
     ENDDO
     
   END SUBROUTINE calc_psi
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !
+  !
+  !!  Calculation of horizontal stream function using normal velocity on edges
+  !
+  !>
+  !>  Calculation of horizontal stream function using normal velocity on edges
+  !!
+  !! @par Revision History
+  !! Developed  by  Stephan Lorenz, MPI-M (2014).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE calc_psi_vn (patch_3D, vn, prism_thickness_e, u_vint, v_vint, datetime)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
+    REAL(wp), INTENT(in)               :: vn(:,:,:)                 ! normal velocity at cell edges
+    REAL(wp), INTENT(in)               :: prism_thickness_e(:,:,:)  ! elevation on cell edges
+    ! dims: (nproma,nlev,alloc_edge_blocks)
+    REAL(wp), INTENT(inout)            :: u_vint(:,:)               ! barotropic zonal velocity on cell centers
+    REAL(wp), INTENT(inout)            :: v_vint(:,:)               ! barotropic meridional velocity on cell centers
+    TYPE(t_datetime), INTENT(in)       :: datetime
+    !
+    INTEGER  :: jb, je, jk, start_index_e, end_index_e
+    REAL(wp) :: vn_vint(nproma,patch_3d%p_patch_2d(1)%nblks_e)      ! vertical integral on regular grid
+    
+    TYPE(t_patch), POINTER  :: p_patch
+    TYPE(t_subset_range), POINTER :: all_edges
+    
+    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi_vn')
+    
+    !-----------------------------------------------------------------------
+    
+    vn_vint(:,:)    = 0.0_wp
+    
+    ! with all edges no sync is necessary
+    p_patch   => patch_3d%p_patch_2d(1)
+    all_edges => p_patch%edges%ALL
+    
+    ! (1) barotropic system:
+    !     vertical integration of normal velocity times vertical layer thickness [m/s*m]
+!ICON_OMP_PARALLEL_DO PRIVATE(je, jk, start_index_e, end_index_e) SCHEDULE(dynamic)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, start_index_e, end_index_e)
+      vn_vint(:,jb) = 0.0_wp
+      DO je = start_index_e, end_index_e
+      
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+        
+          vn_vint(je,jb) = vn_vint(je,jb) - vn(je,jk,jb) * prism_thickness_e(je,jk,jb)
+          
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+    
+    ! (2) remapping normal velocity to zonal and meridional velocity at cell centers
+    
+  END SUBROUTINE calc_psi_vn
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
