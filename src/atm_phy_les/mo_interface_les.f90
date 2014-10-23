@@ -1084,16 +1084,10 @@ CONTAINS
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-
-            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) 
-
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
-              &                             * (z_ddt_temp(jc,jk,jb)                          &
+              &                             * z_ddt_temp(jc,jk,jb)                           &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
-              &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv)-z_ddt_qsum ))
-
+              &                             - z_qsum(jc,jk))
           ENDDO
         ENDDO
 
@@ -1108,19 +1102,15 @@ CONTAINS
               z_ddt_temp(jc,jk,jb) = z_ddt_temp(jc,jk,jb)               &
                                 +  prm_nwp_tend%ddt_temp_ls(jk)
 
-
               ! Convert temperature tendency into Exner function tendency
-              z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-                &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
-                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
+              z_ddt_qsum =   prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
                 &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
 
               pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
-                &                             * (z_ddt_temp(jc,jk,jb)                             &
+                &                             * ( z_ddt_temp(jc,jk,jb)                         &
                 &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
                 &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
-                &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
-                &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
+                &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_ls(jk,iqv) - z_ddt_qsum) )
 
             END DO  ! jc
           END DO  ! jk
