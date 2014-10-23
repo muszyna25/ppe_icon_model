@@ -86,14 +86,14 @@ MODULE mo_math_utilities
   USE mo_math_types
   USE mo_util_sort,           ONLY: quicksort
   IMPLICIT NONE
-  
+
   PRIVATE
-  
+
   PUBLIC :: t_cartesian_coordinates
   PUBLIC :: t_geographical_coordinates
   PUBLIC :: t_line
   PUBLIC :: t_tangent_vectors
-  
+
   PUBLIC :: cc2gc
   PUBLIC :: gc2cc
   PUBLIC :: cc2tv
@@ -119,10 +119,10 @@ MODULE mo_math_utilities
   PUBLIC :: rotate_z,rotate_x,rotate_y
   PUBLIC :: norma_of_vector_product
   PUBLIC :: project_point_to_plane
-  
+
   PUBLIC :: disp_new
   PUBLIC :: disp_new_vect
-  
+
   PUBLIC :: cc_dot_product
   PUBLIC :: cc_norm
   PUBLIC :: vector_product
@@ -149,11 +149,11 @@ MODULE mo_math_utilities
   PUBLIC :: merge_values_into_set
   PUBLIC :: find_values_in_set
   PUBLIC :: deallocate_set
- 
+
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
-  PUBLIC :: OPERATOR(*)    
-  
+  PUBLIC :: OPERATOR(*)
+
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
   END INTERFACE
@@ -173,7 +173,7 @@ MODULE mo_math_utilities
     MODULE PROCEDURE arc_length_v_generic
   END INTERFACE
 
-  
+
   !> Derived type specifying a set of REAL(wp) values.
   !
   TYPE t_value_set
@@ -201,9 +201,9 @@ MODULE mo_math_utilities
 #define d_sqrdistance_3d(v1,v2) DOT_PRODUCT((v1%x-v2%x),(v1%x-v2%x))
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_math_utilities'
-  
+
 CONTAINS
-  
+
   !-------------------------------------------------------------------------
   INTEGER FUNCTION check_orientation (lonc, lon, lat, n)
     INTEGER, INTENT(in) :: n
@@ -269,9 +269,9 @@ CONTAINS
     REAL(wp), INTENT(in)  :: p_gu, p_gv     ! zonal and meridional vec. component
     REAL(wp), INTENT(in)  :: p_long, p_lat  ! geo. coord. of data point
     TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
-    
+
     REAL(wp), INTENT(out) :: p_cu, p_cv, p_cw            ! Cart. vector
-    
+
     REAL(wp)              :: z_cln, z_sln, z_clt, z_slt  ! sin and cos of
     INTEGER               :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:gvec2cvec'
@@ -280,9 +280,9 @@ CONTAINS
     geometry_type = sphere_geometry
     IF (PRESENT(geometry_info)) &
       geometry_type = geometry_info%geometry_type
-    
+
     SELECT CASE(geometry_type)
-    
+
     CASE (planar_torus_geometry)
       p_cu  = p_gu
       p_cv  = p_gv
@@ -292,7 +292,7 @@ CONTAINS
       z_cln = COS(p_long)
       z_slt = SIN(p_lat)
       z_clt = COS(p_lat)
-    
+
       p_cu = z_sln * p_gu + z_slt * z_cln * p_gv
       p_cu = -1._wp * p_cu
       p_cv = z_cln * p_gu - z_slt * z_sln * p_gv
@@ -307,7 +307,7 @@ CONTAINS
 
   END SUBROUTINE gvec2cvec
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Converts cartesian velocity vector @f$(p\_cu, p\_cv, p\_cw)@f$.
@@ -334,7 +334,7 @@ CONTAINS
     TYPE(t_grid_geometry_info), INTENT(in), OPTIONAL :: geometry_info
 
     REAL(wp), INTENT(out) :: p_gu, p_gv        ! zonal and meridional vec. comp.
-    
+
     REAL(wp)              :: z_cln, z_clt, z_sln, z_slt  ! sin and cos of
     INTEGER               :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:cvec2gvec'
@@ -343,9 +343,9 @@ CONTAINS
     geometry_type = sphere_geometry
     IF (PRESENT(geometry_info)) &
       geometry_type = geometry_info%geometry_type
-    
+
     SELECT CASE(geometry_type)
-    
+
     CASE (planar_torus_geometry)
        p_gu = p_cu
        p_gv = p_cv
@@ -355,7 +355,7 @@ CONTAINS
       z_cln = COS(p_long)
       z_slt = SIN(p_lat)
       z_clt = COS(p_lat)
-      
+
       p_gu = z_cln * p_cv - z_sln * p_cu
       p_gv = z_cln * p_cu + z_sln * p_cv
       p_gv = z_slt * p_gv
@@ -366,10 +366,10 @@ CONTAINS
        p_gu = p_cu
        p_gv = p_cv
     END SELECT
-    
+
   END SUBROUTINE cvec2gvec
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Converts  vectors (in)  cartesian coordinate representation
@@ -394,7 +394,7 @@ CONTAINS
 
   END FUNCTION cc2tv
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE cartesian_to_geographical(cartesian, no_of_points, geo_coordinates, &
     & start_point, end_point )
@@ -418,15 +418,15 @@ CONTAINS
         CALL finish ('cartesian_to_geographical', 'Problem in allocating local arrays')
       ENDIF
     ENDIF
-    
-!$OMP PARALLEL 
+
+!$OMP PARALLEL
 !$OMP DO PRIVATE(i)
     DO i=start_p, end_p
         geo_coordinates(i) = cc2gc(cartesian(i))
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-    
+
   END SUBROUTINE cartesian_to_geographical
   !-------------------------------------------------------------------------
 
@@ -448,7 +448,7 @@ CONTAINS
     ENDIF
 
 
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(i, cos_lat, check)
     DO i=1,no_of_points
       cos_lat           = COS(geo_coordinates(i)%lat)
@@ -471,7 +471,7 @@ CONTAINS
 
   END SUBROUTINE geographical_to_cartesian
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION norma (v) result(length)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v
@@ -481,7 +481,7 @@ CONTAINS
 
   END FUNCTION norma
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   PURE FUNCTION normalize(v) result(n)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v
@@ -491,7 +491,7 @@ CONTAINS
 
   END FUNCTION normalize
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION angle_of_vectors(v1,v2) result(angle)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v1,v2
@@ -506,7 +506,7 @@ CONTAINS
 
   END FUNCTION angle_of_vectors
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Returns a coordinate system (x,y),
@@ -559,11 +559,11 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: middle
 
     middle%x = (p1%x + p2%x) / 2.0_wp
-  
+
   END FUNCTION middle
   !--------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
@@ -573,27 +573,27 @@ CONTAINS
   !! Previous version by Luis Kornblueh (2004) discarded.
   !!
   ELEMENTAL FUNCTION arc_length_sphere (p_x, p_y)  result (p_arc)
-  
+
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
-    
+
     REAL(wp)            :: p_arc          ! length of geodesic arc
-    
+
     REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
     REAL(wp)            :: z_cc           ! cos of angle between endpoints
-    
+
     !-----------------------------------------------------------------------
-    
+
     z_lx = d_norma_3d(p_x)
     z_ly = d_norma_3d(p_y)
-    
+
     z_cc = DOT_PRODUCT(p_x%x, p_y%x)/(z_lx*z_ly)
-    
-    ! in case we get numerically incorrect solutions    
+
+    ! in case we get numerically incorrect solutions
     IF (z_cc > 1._wp )  z_cc =  1._wp
     IF (z_cc < -1._wp ) z_cc = -1._wp
-    
+
     p_arc = ACOS(z_cc)
-    
+
   END FUNCTION arc_length_sphere
 
   !-------------------------------------------------------------------------
@@ -606,37 +606,37 @@ CONTAINS
   !! Modified by Anurag Dipankar, MPIM (2012-12-27)
   !! -Elemental form of the function wasn't allowing call to another routines
   FUNCTION arc_length_generic (p_x, p_y, geometry_info)  result (p_arc)
-  
+
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_x, p_y  ! endpoints
     TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
-    
+
     REAL(wp)            :: p_arc          ! length of geodesic arc
-    
+
     INTEGER             :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------
-    
+
     geometry_type = geometry_info%geometry_type
-    
+
     SELECT CASE(geometry_type)
-    
+
     CASE (planar_torus_geometry)
-      !Assuming that the flat geometry is nothing but a small arc 
+      !Assuming that the flat geometry is nothing but a small arc
       !over sphere. This assumption doesn't really affect any calculation
-      !AD (20 Sept 2013) Now we use the planar distance instead. RBF scale 
+      !AD (20 Sept 2013) Now we use the planar distance instead. RBF scale
       !has been adjusted accordingly
-      p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) 
+      p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info)
     CASE (sphere_geometry)
-      !    
+      !
       p_arc = arc_length_sphere (p_x, p_y)
-    CASE DEFAULT    
+    CASE DEFAULT
       !
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
 
   END FUNCTION arc_length_generic
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Computes length of geodesic arc with endpoints x0,x1.
@@ -661,7 +661,7 @@ CONTAINS
 
   END FUNCTION arc_length_on_unitsphere
   !-----------------------------------------------------------------------
-    
+
   !-------------------------------------------------------------------------
   !>
   !! Computes length of geodesic arc with endpoints @f$p\_x, p\_y@f$.
@@ -675,26 +675,26 @@ CONTAINS
   !!
   PURE FUNCTION arc_length_v_sphere (p_x, p_y)  result (p_arc)
     REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
-    
+
     REAL(wp)            :: p_arc          ! length of geodesic arc
-    
+
     REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
     REAL(wp)            :: z_cc           ! cos of angle between endpoints
-    
+
     !-----------------------------------------------------------------------
-    
+
     z_lx = SQRT(DOT_PRODUCT(p_x,p_x))
     z_ly = SQRT(DOT_PRODUCT(p_y,p_y))
-    
+
     z_cc = DOT_PRODUCT(p_x, p_y)/(z_lx*z_ly)
-    
+
     ! in case we get numerically incorrect solutions
-    
+
     IF (z_cc > 1._wp )  z_cc =  1._wp
     IF (z_cc < -1._wp ) z_cc = -1._wp
-    
+
     p_arc = ACOS(z_cc)
-    
+
   END FUNCTION arc_length_v_sphere
 
   !-------------------------------------------------------------------------
@@ -712,19 +712,19 @@ CONTAINS
   FUNCTION arc_length_v_generic (p_x, p_y, geometry_info)  result (p_arc)
     REAL(wp), INTENT(in) :: p_x(3), p_y(3)  ! endpoints
     TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
-    
+
     REAL(wp)            :: p_arc          ! length of geodesic arc
-    
+
     INTEGER             :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------
-    
+
     geometry_type = geometry_info%geometry_type
-    
+
     SELECT CASE(geometry_type)
-    
+
     CASE (planar_torus_geometry)
-      !Assuming that the flat geometry is nothing but a small arc 
+      !Assuming that the flat geometry is nothing but a small arc
       !over sphere. This assumption doesn't really affect any calculation
       !AD (20 Sept 2013) Now we use the planar distance in these calculations
       !for TORUS. RBF scale has been adjusted accordingly
@@ -733,14 +733,14 @@ CONTAINS
     CASE (sphere_geometry)
       !
       p_arc = arc_length_v_sphere (p_x, p_y)
-    CASE DEFAULT    
+    CASE DEFAULT
       !
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
-    
+
   END FUNCTION arc_length_v_generic
   !-------------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Computes the cosine of the length of geodesic arc with endpoints x0,x1.
@@ -765,17 +765,17 @@ CONTAINS
 
   END FUNCTION cos_arc_length
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   ! returns the torus modulo coordinates of v1 that are
   ! closest to v0
   FUNCTION plane_torus_closest_coordinates(v0, v1, &
     & geometry_info) result(new_v1_coord)
-    
+
     REAL(wp), INTENT(in) :: v0(3), v1(3)
     TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
-    
+
     REAL(wp) :: length_of_torus, height_of_torus
     TYPE(t_cartesian_coordinates) :: new_v1_coord
 
@@ -783,33 +783,33 @@ CONTAINS
     height_of_torus = geometry_info%domain_height
     ! check the x coordinate
     IF ( ABS(v0(1) - v1(1)) >  length_of_torus * 0.5_wp) THEN
-      ! we will wrap around + or -  length_of_torus       
+      ! we will wrap around + or -  length_of_torus
       IF (v0(1) > v1(1)) THEN
         new_v1_coord%x(1) = v1(1) + length_of_torus
       ELSE
         new_v1_coord%x(1) = v1(1) - length_of_torus
       ENDIF
     ELSE
-      ! keep the same 
+      ! keep the same
       new_v1_coord%x(1) = v1(1)
     ENDIF
 
     ! check the y coordinate
     IF ( ABS(v0(2) - v1(2)) >  height_of_torus * 0.5_wp) THEN
-      ! we will wrap around + or -  length_of_torus       
+      ! we will wrap around + or -  length_of_torus
       IF (v0(2) > v1(2)) THEN
         new_v1_coord%x(2) = v1(2) + height_of_torus
       ELSE
         new_v1_coord%x(2) = v1(2) - height_of_torus
       ENDIF
     ELSE
-      ! keep the same 
+      ! keep the same
       new_v1_coord%x(2) = v1(2)
     ENDIF
 
     ! this should be zero
     new_v1_coord%x(3) = v1(3)
-    
+
   END FUNCTION plane_torus_closest_coordinates
   !--------------------------------------------------------------------
 
@@ -824,7 +824,7 @@ CONTAINS
     dv = plane_torus_closest_coordinates(v0, v1, geometry_info)
     dv%x = dv%x - v0
     plane_torus_distance = d_norma_3d(dv)
-    
+
   END FUNCTION plane_torus_distance
   !--------------------------------------------------------------------
 
@@ -839,7 +839,7 @@ CONTAINS
 
   END FUNCTION sphere_cartesian_midpoint
   !-------------------------------------------------------------------------
-   
+
   !-----------------------------------------------------------------------
   !>
   !! Computes the sin between two vectors x0, x1
@@ -858,7 +858,7 @@ CONTAINS
 
   END FUNCTION sin_cc
   !-----------------------------------------------------------------------
- 
+
   !-------------------------------------------------------------------------
   !>
   !! Computes spherical area of a triangle
@@ -927,7 +927,7 @@ CONTAINS
 
   END FUNCTION triangle_area
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Determines the circum_center of triangle with vertices v0,v1,v2.
@@ -1068,7 +1068,7 @@ CONTAINS
 
   END FUNCTION project_point_to_plane
   !-------------------------------------------------------------------------
-    
+
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION plane_angle_of_three_points(p1, p2, p3) result(angle)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p1,p2,p3
@@ -1083,7 +1083,7 @@ CONTAINS
 
   END FUNCTION plane_angle_of_three_points
   !-------------------------------------------------------------------------
-    
+
 
   !-------------------------------------------------------------------------
   !>
@@ -1251,7 +1251,7 @@ CONTAINS
 
   END FUNCTION norma_of_vector_product
   !-------------------------------------------------------------------------
-     
+
   !-------------------------------------------------------------------------
   !>
   !!  Calculates coordinates of a grid point (longin, latin) in relation to
@@ -1308,75 +1308,75 @@ CONTAINS
   !! Developed and tested by Th. Heinze (2006-07-20)
   !!
   PURE SUBROUTINE disp_new(longin, latin, reflongin, reflatin, dislong, dislat)
-    
+
     REAL(wp), INTENT(in)   :: longin, latin, reflongin, reflatin
     REAL(wp), INTENT(out)  :: dislong, dislat
-    
+
     TYPE(t_geographical_coordinates) :: gpoint, gpoint_rot
     TYPE(t_cartesian_coordinates)    :: cpoint, row, cpoint_rot
-    
+
     REAL(wp)               :: z_long, z_lat, z_reflong, z_reflat
     REAL(wp)               :: z_cos_a, z_cos_b, z_sin_a, z_sin_b
     REAL(wp)               :: z_twopi
-    
+
     z_twopi = 2._wp * pi
-    
-    ! check if all angles are in the wright range    
+
+    ! check if all angles are in the wright range
     z_long = longin
     IF (z_long < 0._wp) z_long = z_long + z_twopi
-    
+
     z_reflong = reflongin
     IF (z_reflong < 0._wp) z_reflong = z_reflong + z_twopi
-    
+
     z_lat    = latin
     z_reflat = reflatin
-    
+
     ! get cartesian coordinates of (z_long, z_lat)
-    
+
     gpoint%lon = z_long
     gpoint%lat = z_lat
-    
+
     cpoint =  gc2cc(gpoint)
-    
-    ! calculate rotation matrix    
+
+    ! calculate rotation matrix
     z_cos_a = COS(z_reflong)
     z_sin_a = SIN(z_reflong)
     z_cos_b = COS(z_reflat)
     z_sin_b = SIN(z_reflat)
-    
-    ! first row stored in a cartesian vector (just for using cc_dot_product)    
+
+    ! first row stored in a cartesian vector (just for using cc_dot_product)
     row%x(1) = z_cos_a * z_cos_b
     row%x(2) = z_sin_a * z_cos_b
     row%x(3) = z_sin_b
-    
-    ! first component of rotated cpoint    
+
+    ! first component of rotated cpoint
     cpoint_rot%x(1) = cc_dot_product (row, cpoint)
-    
-    ! second row stored in a cartesian vector (just for using cc_dot_product)    
+
+    ! second row stored in a cartesian vector (just for using cc_dot_product)
     row%x(1) = -1._wp * z_sin_a
     row%x(2) = z_cos_a
     row%x(3) = 0._wp
-    
-    ! second component of rotated cpoint    
+
+    ! second component of rotated cpoint
     cpoint_rot%x(2) = cc_dot_product (row, cpoint)
-    
-    ! third row stored in a cartesian vector (just for using cc_dot_product)    
+
+    ! third row stored in a cartesian vector (just for using cc_dot_product)
     row%x(1) = -1._wp * z_cos_a * z_sin_b
     row%x(2) = -1._wp * z_sin_a * z_sin_b
     row%x(3) = z_cos_b
-    
-    ! third component of rotated cpoint    
+
+    ! third component of rotated cpoint
     cpoint_rot%x(3) = cc_dot_product (row, cpoint)
-    
+
     ! get geographic coordinates of cpoint_rot
     gpoint_rot = cc2gc(cpoint_rot)
-    
+
     dislong = gpoint_rot%lon
     dislat  = gpoint_rot%lat
-    
+
   END SUBROUTINE disp_new
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Compute the zonal and meridional components of a vector with respect.
@@ -1395,7 +1395,7 @@ CONTAINS
   !!
   SUBROUTINE disp_new_vect(p_gu,p_gv,lon,lat,barlon,barlat, &
     & new_lon,new_lat,new_p_gu,new_p_gv)
-    
+
     REAL(wp), INTENT(in) :: &
       & p_gu, p_gv,       & ! original lon-lat components
       & lon, lat,         & ! original lon and lat
@@ -1409,28 +1409,28 @@ CONTAINS
     REAL(wp) :: p_c(3), r1(3,3), r2(3,3), rot_p_c(3)
     !
     !--------------------------------------------------------------------
-    
+
     ! 1) convert to Cartesian coordinates
     CALL gvec2cvec(p_gu,p_gv,lon,lat,p_c(1),p_c(2),p_c(3))
-    
+
     ! 2) apply the rotation
     r1(1,:) = (/  COS(barlon) , SIN(barlon) , 0.0_wp /)
     r1(2,:) = (/ -SIN(barlon) , COS(barlon) , 0.0_wp /)
     r1(3,:) = (/     0.0_wp   ,    0.0_wp   , 1.0_wp /)
-    
+
     r2(1,:) = (/  COS(barlat) , 0.0_wp , SIN(barlat) /)
     r2(2,:) = (/     0.0_wp   , 1.0_wp ,    0.0_wp   /)
     r2(3,:) = (/ -SIN(barlat) , 0.0_wp , COS(barlat) /)
-    
+
     rot_p_c = MATMUL(r2,MATMUL(r1,p_c))
-    
+
     ! 3) back to geographical coordinates
     CALL cvec2gvec(rot_p_c(1),rot_p_c(2),rot_p_c(3), &
       & new_lon,new_lat,new_p_gu,new_p_gv)
-    
+
   END SUBROUTINE disp_new_vect
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Converts cartesian coordinates to geographical.
@@ -1441,50 +1441,50 @@ CONTAINS
   !! Completely new version by Thomas Heinze (2006-07-20)
   !!
   ELEMENTAL FUNCTION cc2gc(p_x) result (p_pos)
-    
-    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x          ! Cart. coordinates    
+
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x          ! Cart. coordinates
     TYPE(t_geographical_coordinates)          :: p_pos        ! geo. coordinates
-    
-    REAL(wp)                                :: z_x, z_y, z_z, z_r    
+
+    REAL(wp)                                :: z_x, z_y, z_z, z_r
     !-----------------------------------------------------------------------
-    
+
     z_x = p_x%x(1)
     z_y = p_x%x(2)
     z_z = p_x%x(3)
-    
+
     z_r = z_x * z_x + z_y * z_y
     z_r = SQRT(z_r)
-    
+
     IF (ABS(z_r) < dbl_eps) THEN    ! one of the poles
-          
+
       IF (z_z > 0.0_wp) THEN
         p_pos%lat = pi_2
       ELSE
         p_pos%lat = -1._wp * pi_2
       END IF
       p_pos%lon = 0._wp
-      
+
     ELSE
-      
+
       p_pos%lat = ATAN2 ( z_z, z_r)
-          
+
       IF (ABS(z_x) < dbl_eps) THEN    ! z_x == 0 ?
-              
+
         IF (z_y >= 0.0_wp) THEN
           p_pos%lon = pi_2
         ELSE
           p_pos%lon = -1._wp * pi_2
         END IF
-        
+
       ELSE
         p_pos%lon = ATAN2( z_y, z_x)
       END IF
-      
+
     END IF
-    
+
   END FUNCTION cc2gc
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Converts geographical to cartesian coordinates.
@@ -1494,26 +1494,26 @@ CONTAINS
   !! Developed  by Luis Kornblueh  (2004).
   !!
   ELEMENTAL FUNCTION gc2cc (p_pos)  result(p_x)
-    
+
     TYPE(t_geographical_coordinates), INTENT(in) :: p_pos     ! geo. coordinates
-    
+
     TYPE(t_cartesian_coordinates)                :: p_x       ! Cart. coordinates
-    
+
     REAL (wp)                                  :: z_cln, z_sln, z_clt, z_slt
-    
-    !-----------------------------------------------------------------------    
+
+    !-----------------------------------------------------------------------
     z_sln = SIN(p_pos%lon)
     z_cln = COS(p_pos%lon)
     z_slt = SIN(p_pos%lat)
     z_clt = COS(p_pos%lat)
-    
+
     p_x%x(1) = z_cln*z_clt
     p_x%x(2) = z_sln*z_clt
     p_x%x(3) = z_slt
-    
+
   END FUNCTION gc2cc
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!  Calculates dot product of to cartesian coordinates.
@@ -1524,14 +1524,14 @@ CONTAINS
   ELEMENTAL FUNCTION cc_dot_product(cc_x1, cc_x2)  result (p_prod)
     !
     TYPE(t_cartesian_coordinates), INTENT(in):: cc_x1, cc_x2 ! cart. coordinates
-    
+
     REAL(wp) :: p_prod    ! scalar product of cart.coordinates
-    
+
     p_prod = DOT_PRODUCT (cc_x1%x, cc_x2%x)
-    
+
   END FUNCTION cc_dot_product
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!  Calculates 2 norm for vectors in cartesian coordinates.
@@ -1543,14 +1543,14 @@ CONTAINS
   ELEMENTAL FUNCTION cc_norm(cc_x1)  result (norm)
     !
     TYPE(t_cartesian_coordinates), INTENT(in) :: cc_x1 ! cart. coordinates
-    
-    REAL(wp) :: norm   
-    
+
+    REAL(wp) :: norm
+
     norm = SQRT(cc_dot_product(cc_x1,cc_x1))
-    
+
   END FUNCTION cc_norm
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Computes vector product of x0,x1.
@@ -1560,53 +1560,53 @@ CONTAINS
   !! Developed  by Luis Kornblueh  (2004).
   !!
   ELEMENTAL FUNCTION vector_product (x0, x1) result(x2)
-    
+
     TYPE(t_cartesian_coordinates), INTENT(in) :: x0, x1
-    
+
     TYPE(t_cartesian_coordinates) :: x2
-    
-    !-----------------------------------------------------------------------    
+
+    !-----------------------------------------------------------------------
     x2%x(1) = x0%x(2)*x1%x(3) - x0%x(3)*x1%x(2)
     x2%x(2) = x0%x(3)*x1%x(1) - x0%x(1)*x1%x(3)
     x2%x(3) = x0%x(1)*x1%x(2) - x0%x(2)*x1%x(1)
-    
+
   END FUNCTION vector_product
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------  
+
+  !-------------------------------------------------------------------------
   PURE FUNCTION cartesian_coordinates_plus(x,y) result(z)
-    
+
     TYPE(t_cartesian_coordinates) :: z
     TYPE(t_cartesian_coordinates), INTENT(in) :: x,y
-    
+
     z%x = x%x + y%x
-    
+
   END FUNCTION cartesian_coordinates_plus
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   PURE FUNCTION cartesian_coordinates_minus(x,y) result(z)
-    
+
     TYPE(t_cartesian_coordinates) :: z
     TYPE(t_cartesian_coordinates), INTENT(in) :: x,y
-    
+
     z%x = x%x - y%x
-    
+
   END FUNCTION cartesian_coordinates_minus
   !-------------------------------------------------------------------------
-  
-  !-----------------------------------------------------------------------  
+
+  !-----------------------------------------------------------------------
   PURE FUNCTION cartesian_coordinates_prod(a,x) result(y)
-    
+
     TYPE(t_cartesian_coordinates) :: y
     REAL(wp), INTENT(in) :: a
     TYPE(t_cartesian_coordinates), INTENT(in) :: x
-    
+
     y%x = a * x%x
-    
+
   END FUNCTION cartesian_coordinates_prod
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Calculates integral @f$\int_{\tau} \Psi@f$ over spherical triangle @f$\tau@f$.
@@ -1622,19 +1622,19 @@ CONTAINS
   !! Original version by Thomas Heinze (2006-10-19).
   !!
   FUNCTION integral_over_triangle (weight, values) result(p_integ)
-    
+
     REAL(wp), INTENT(in) :: weight(3), values(3)
-    
+
     REAL(wp)             :: p_integ
-    
+
     !-----------------------------------------------------------------------
-    
+
     p_integ = DOT_PRODUCT( weight, values)
     p_integ = p_integ / 6._wp
-    
+
   END FUNCTION integral_over_triangle
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Rotate counterclockwise (seen from positive axis direction)
@@ -1711,24 +1711,24 @@ CONTAINS
   !!  developed by Guenther Zaengl, 2009-03-13
   !!
   SUBROUTINE rotate_latlon( lat, lon, pollat, pollon )
-    
+
     REAL(wp), INTENT(inout) :: lat, lon
     REAL(wp), INTENT(in)    :: pollat, pollon
-        
+
     REAL(wp) :: rotlat, rotlon
-    
-    !-----------------------------------------------------------------------    
+
+    !-----------------------------------------------------------------------
     rotlat = ASIN(SIN(lat)*SIN(pollat) + COS(lat)*COS(pollat)*COS(lon-pollon))
     rotlon = ATAN2( COS(lat)*SIN(lon-pollon) , &
       & (COS(lat)*SIN(pollat)*COS(lon-pollon)- SIN(lat)*COS(pollat)) )
-    
+
     lat = rotlat
     lon = rotlon
-    
+
   END SUBROUTINE rotate_latlon
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   !! Provides rotation angle between coordinate systems
@@ -1746,20 +1746,20 @@ CONTAINS
     REAL(wp), INTENT(in) :: lat, lon
     REAL(wp), INTENT(in) :: pollat, pollon
     REAL(wp), INTENT(out):: sin_d, cos_d
-    
+
     REAL(wp) :: z_lamdiff, z_a, z_b, z_sq
     !-----------------------------------------------------------------------
-    
+
     z_lamdiff = pollon - lon
     z_a       = COS(pollat)*SIN(z_lamdiff)
     z_b       = COS(lat)*SIN(pollat)-SIN(lat)*COS(pollat)*COS(z_lamdiff)
     z_sq      = SQRT(z_a*z_a + z_b*z_b)
     sin_d     = z_a/z_sq
     cos_d     = z_b/z_sq
-    
+
   END SUBROUTINE rotate_latlon_vec
   !-------------------------------------------------------------------------
-    
+
   !-------------------------------------------------------------------------
   !>
   !! gnomonic projection for unit sphere.
@@ -1791,24 +1791,24 @@ CONTAINS
     REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
     REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
     REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
-    
+
     REAL(wp) :: zk   ! scale factor perpendicular to the radius from the
     ! center of the map
     REAL(wp) :: cosc ! cosine of the angular distance of the given point
     ! (lat,lon) from the center of projection
-    
+
     !-----------------------------------------------------------------------
-    
+
     cosc = SIN(lat_c)*SIN(lat) + COS(lat_c)*COS(lat)*COS(lon-lon_c)
     zk   = 1._wp/cosc
-    
+
     x    = zk * COS(lat)*SIN(lon-lon_c)
     y    = zk * ( COS(lat_c)*SIN(lat) - SIN(lat_c)*COS(lat)*COS(lon-lon_c) )
-    
+
   END SUBROUTINE gnomonic_proj
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! azimuthal equidistant projection for unit sphere.
@@ -1840,24 +1840,24 @@ CONTAINS
     REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
     REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
     REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
-    
+
     REAL(wp) :: zk   ! scale factor perpendicular to the radius from the
     ! center of the map
     REAL(wp) :: c    ! angular distance of the given point (lat,lon)
     ! from the center of projection
-    
+
     !-----------------------------------------------------------------------
-    
+
     c  = ACOS(SIN(lat_c)*SIN(lat) + COS(lat_c)*COS(lat)*COS(lon-lon_c))
     zk = c/SIN(c)
-    
+
     x  = zk * COS(lat)*SIN(lon-lon_c)
     y  = zk * ( COS(lat_c)*SIN(lat) - SIN(lat_c)*COS(lat)*COS(lon-lon_c) )
-    
+
   END SUBROUTINE az_eqdist_proj
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! orthographic projection for unit sphere.
@@ -1886,22 +1886,22 @@ CONTAINS
     REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
     REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
     REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
-    
+
     !-----------------------------------------------------------------------
-    
+
     x = COS(lat)*SIN(lon-lon_c)
     y = COS(lat_c)*SIN(lat) - SIN(lat_c)*COS(lat)*COS(lon-lon_c)
-    
+
   END SUBROUTINE orthogr_proj
   !-------------------------------------------------------------------------
-  
-  
+
+
   !!-----------------------------------------------------------------------
   !!>
   !! The following functions are needed for the ECHAM physics
   !!
   FUNCTION betacf(p,q,x)
-    
+
     !! Description:
     !!
     !!  used by betai: evaluates continued fraction for incomplete
@@ -1912,24 +1912,24 @@ CONTAINS
     !!   See Numerical Recipes (Fortran)
     !!
     !! @author   A. Tompkins, MPI, 2000
-    !!    
+    !!
     USE mo_kind,      ONLY: wp
     USE mo_exception, ONLY: finish
-    
+
     IMPLICIT NONE
-    
+
     REAL(wp)             :: betacf
     REAL(wp), INTENT(in) :: p,q, & ! beta shape parameters
       & x      ! integration limit
-    
+
     INTEGER :: maxit = 100, m, m2
     REAL(wp) :: zeps = 3.e-7_wp, fpmin = 1.e-30_wp, &
       & aa, c, d, del, h, qab, qam, qap
-    
+
     qab = p+q
-    
+
     !! these q's will be used in factors that occur in the coe cients (6.4.6).
-    
+
     qap = p+1.0_wp
     qam = p-1.0_wp
     c = 1.0_wp
@@ -1963,14 +1963,14 @@ CONTAINS
       ENDIF
     ENDDO
     betacf = h
-    
+
   END FUNCTION betacf
   !-----------------------------------------------------------------------
-  
-  
-  !-----------------------------------------------------------------------  
+
+
+  !-----------------------------------------------------------------------
   FUNCTION gammln(xx)
-    
+
     !! Description:
     !!
     !! Gamma function calculation
@@ -1980,23 +1980,23 @@ CONTAINS
     !!   See Numerical Recipes
     !!
     !! @author  A. Tompkins, MPI, 2000
-    !    
+    !
     USE mo_kind, ONLY: wp
-    
+
     IMPLICIT NONE
-    
+
     REAL(wp)             :: gammln
     REAL(wp), INTENT(in) :: xx
-    
+
     INTEGER :: j
-    
+
     REAL(wp) :: ser, tmp, x, y
     REAL(wp), PARAMETER :: cof(6) = (/ &
       & 76.18009172947146_wp, -86.50532032941677_wp, &
       & 24.01409824083091_wp, -1.231739572450155_wp, &
       & 0.1208650973866179e-2_wp, -0.5395239384953e-5_wp /)
     REAL(wp), PARAMETER :: stp = 2.5066282746310005_wp
-    
+
     x = xx
     y = x
     tmp = x+5.5_wp
@@ -2007,14 +2007,14 @@ CONTAINS
       ser = ser+cof(j)/y
     ENDDO
     gammln = tmp+LOG(stp*ser/x)
-    
+
   END FUNCTION gammln
-  !-----------------------------------------------------------------------  
-  
-  
-  !-----------------------------------------------------------------------  
+  !-----------------------------------------------------------------------
+
+
+  !-----------------------------------------------------------------------
   FUNCTION betai(p,q,x)
-    
+
     !! Description:
     !!
     !! Uses betacf, gammln; returns the incomplete beta function I x (a; b).
@@ -2023,18 +2023,18 @@ CONTAINS
     !!   See Numerical Recipes (Fortran)
     !!
     !! @author   A. Tompkins, MPI, 2000
-    !!    
+    !!
     USE mo_kind, ONLY: wp
-    
+
     IMPLICIT NONE
-    
+
     REAL(wp)             :: betai
     REAL(wp), INTENT(in) :: p,q, & ! beta shape parameters
       & x      ! integration limit
     !  local scalars:
     REAL(wp) :: bt
     !  REAL FUNCTION (wp):: betacf,gammln
-    
+
     IF (x > 0.0_wp .AND. x < 1.0_wp ) THEN  ! factors in front of the continued fraction.
       bt = EXP(gammln(p+q)-gammln(p)-gammln(q)+p*LOG(x)+q*LOG(1.0_wp-x))
     ELSE
@@ -2045,10 +2045,10 @@ CONTAINS
     ELSE     ! use continued fraction after making the symmetry transformation.
       betai = 1.0_wp-bt*betacf(q,p,1.0_wp-x)/q !
     ENDIF
-    
+
   END FUNCTION betai
-  !-----------------------------------------------------------------------  
-  
+  !-----------------------------------------------------------------------
+
   !-----------------------------------------------------------------------
   !>
   !! Description:
@@ -2056,21 +2056,21 @@ CONTAINS
   !! Method:
   !!
   FUNCTION gamma_fct(x)
-    
+
     USE mo_kind, ONLY: wp
-    
+
     IMPLICIT NONE
-    
+
     REAL (wp):: gamma_fct
-    
+
     REAL (wp):: cof(6) = (/76.18009173_wp, -86.50532033_wp, &
       & 24.01409822_wp, -1.231739516_wp, &
       & 0.120858003E-2_wp, -0.536382E-5_wp/)
     REAL (wp):: stp=2.50662827465_wp,                           &
       & x, xx, tmp, ser, gamma
-    
+
     INTEGER ::  j
-    
+
     xx  = x  - 1.0_wp
     tmp = xx + 5.5_wp
     tmp = (xx + 0.5_wp) * LOG(tmp) - tmp
@@ -2081,12 +2081,12 @@ CONTAINS
     ENDDO
     gamma = tmp + LOG(stp*ser)
     gamma = EXP(gamma)
-    
+
     gamma_fct = gamma
-    
+
   END FUNCTION gamma_fct
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Calculates the domain mean of the characteristical
@@ -2098,16 +2098,16 @@ CONTAINS
   !! Changed to use total number odf cells insted of root/level by LL, MPI-M (2012-12)
   !! Not used since the charecteristic lenntgh os now part of the grid_geometry_info. LL, MPI-M (2012-12)
 !   SUBROUTINE sphere_cell_mean_char_length( total_number_of_cells, mean_charlen ) ! output
-!     
-!     INTEGER , INTENT(in)  :: total_number_of_cells 
+!
+!     INTEGER , INTENT(in)  :: total_number_of_cells
 !     REAL(wp), INTENT(out) :: mean_charlen
-!     
+!
 !     mean_charlen = SQRT (4._wp*pi*grid_sphere_radius**2 /REAL(total_number_of_cells,wp))
-!     
+!
 !   END SUBROUTINE sphere_cell_mean_char_length
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! Checking turn when travelling along three points
@@ -2125,48 +2125,48 @@ CONTAINS
   !!
   ELEMENTAL FUNCTION ccw( p0, p1, p2 )
     !
-    
+
     IMPLICIT NONE
-    
+
     TYPE(t_geographical_coordinates), INTENT(in) :: p0
     TYPE(t_geographical_coordinates), INTENT(in) :: p1
     TYPE(t_geographical_coordinates), INTENT(in) :: p2
-    
+
     INTEGER :: ccw
-    
+
     REAL(wp) :: dx1, dx2, dy1, dy2  ! segment lengths in x and y direction
-    
+
     REAL(wp) :: dx1dy2, dy1dx2
-    
+
     LOGICAL :: lccw
-    
-    !-----------------------------------------------------------------------    
+
+    !-----------------------------------------------------------------------
     ! segment lengths in x and y direction P0-->P1
     dx1 = p1%lon - p0%lon
     dy1 = p1%lat - p0%lat
-    
+
     ! segment lengths in x and y direction P0-->P2
     dx2 = p2%lon - p0%lon
     dy2 = p2%lat - p0%lat
-    
+
     dx1dy2 = dx1 * dy2
     dy1dx2 = dy1 * dx2
-    
-    
+
+
     ! in this case we turn counterclockwise
     ! dy2/dx2 > dy1/dx1
     lccw = dx1dy2 > dy1dx2
-    
+
     ! we set ccw=1 when turning counterclockwise and -1 when
     ! turning clockwise.
     ! The case dy2/dx2 = dy1/dx1 is neglected. In this case
     ! we set ccw = -1
     ccw = MERGE(1, -1, lccw)
-    
+
   END FUNCTION ccw
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! Checks, whether two lines intersect
@@ -2180,27 +2180,27 @@ CONTAINS
   !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 351
   !!
   ELEMENTAL FUNCTION lintersect( line1, line2 )
-        
+
     TYPE(t_line), INTENT(in) :: line1
     TYPE(t_line), INTENT(in) :: line2
-    
+
     INTEGER :: intersect1, intersect2
-    
+
     LOGICAL :: lintersect
-    
-    !-----------------------------------------------------------------------    
+
+    !-----------------------------------------------------------------------
     intersect1 = ccw(line1%p1,line1%p2,line2%p1)      &
       & * ccw(line1%p1,line1%p2,line2%p2)
-    
+
     intersect2 = ccw(line2%p1,line2%p2,line1%p1)      &
       & * ccw(line2%p1,line2%p2,line1%p2)
-    
+
     lintersect = (intersect1 + intersect2) == -2
-    
+
   END FUNCTION lintersect
   !-------------------------------------------------------------------------
-    
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! Computes intersection point of two lines in 2D
@@ -2221,27 +2221,27 @@ CONTAINS
   !! Initial revision by Daniel Reinert  (2012-04-03)
   !!
   FUNCTION line_intersect( line1, line2 ) result(intersect)
-    
+
     TYPE(t_line), INTENT(in) :: line1
     TYPE(t_line), INTENT(in) :: line2
-    
-    REAL(wp) :: m1, m2          !< slopes    
-    REAL(wp) :: intersect(2)    ! coordinates of intersection point 
-    
+
+    REAL(wp) :: m1, m2          !< slopes
+    REAL(wp) :: intersect(2)    ! coordinates of intersection point
+
     !-----------------------------------------------------------------------
-    
+
     ! determine slopes of the two lines
     m1 = (line1%p2%lat - line1%p1%lat)/(line1%p2%lon - line1%p1%lon)
     m2 = (line2%p2%lat - line2%p1%lat)/(line2%p2%lon - line2%p1%lon)
-    
+
     intersect(1) = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
       & / (m1 - m2)
-    
+
     intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
-    
+
   END FUNCTION line_intersect
   !-------------------------------------------------------------------------
- 
+
   !-------------------------------------------------------------------------
   !>
   !! TDMA tridiagonal matrix solver for a_i*x_(i-1) + b_i*x_i + c_i*x_(i+1) = d_i
@@ -2255,14 +2255,14 @@ CONTAINS
   !!       d - right part
   !!       x - the answer
   !!       n - number of equations
-  SUBROUTINE tdma_solver(a,b,c,d,n,varout) 
+  SUBROUTINE tdma_solver(a,b,c,d,n,varout)
        INTEGER, INTENT(in) :: n
        REAL(wp),DIMENSION(n),INTENT(in)  :: a,b,c,d
        REAL(wp),DIMENSION(n),INTENT(out) :: varout
 
        REAL(wp):: m, cp(n), dp(n)
        INTEGER :: i
- 
+
 ! initialize c-prime and d-prime
         cp(1) = c(1)/b(1)
         dp(1) = d(1)/b(1)
@@ -2278,8 +2278,8 @@ CONTAINS
         do i = n-1, 1, -1
           varout(i) = dp(i)-cp(i)*varout(i+1)
         end do
- 
-    END SUBROUTINE tdma_solver
+
+  END SUBROUTINE tdma_solver
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -2341,18 +2341,18 @@ CONTAINS
     ! first step: simply append the value to the end of the list:
     value_set%values      ((n0+1):nn0) = in_values(1:nin_values)
     ! second step: sort the whole set (including duplicates):
-    CALL quicksort(value_set%values(1:nn0)) 
+    CALL quicksort(value_set%values(1:nn0))
     ! revert levels largest-to-smallest if required
     IF (.NOT. value_set%sort_smallest_first) THEN
       value_set%values(1:nn0) = value_set%values(nn0:1:-1)
     END IF
     ! allocate temporary index buffer
     ALLOCATE(idx(nn0), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE of temporary failed!")    
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE of temporary failed!")
     ! third step: loop over the sorted list and mark duplicates
     k = 0
     DO i=1,nn0
-      IF (k == 0) THEN 
+      IF (k == 0) THEN
         k = k + 1
       ELSE
         IF (ABS(value_set%values(i-1) - value_set%values(i)) > tol)  k = k + 1
@@ -2366,7 +2366,7 @@ CONTAINS
     END DO
     ! clean up
     DEALLOCATE(idx, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE of temporary failed!")    
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE of temporary failed!")
   END SUBROUTINE merge_values_into_set
 
 
@@ -2387,7 +2387,7 @@ CONTAINS
     INTEGER,           INTENT(IN)           :: nin_values     !< no. of input values
     REAL(wp),          INTENT(IN)           :: in_values(:)   !< list of input values
     TYPE(t_value_set), INTENT(IN)           :: value_set      !< set of values
-    LOGICAL,           INTENT(OUT)          :: out_flag(:)    !< 
+    LOGICAL,           INTENT(OUT)          :: out_flag(:)    !<
     REAL(wp),          INTENT(IN), OPTIONAL :: opt_tol        !< (optional:) tolerance for floating-point equality
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = '::find_values_in_set'
@@ -2406,7 +2406,7 @@ CONTAINS
     DO i=1,value_set%nvalues
       inner_loop: DO j=1,nin_values
         IF (ABS(value_set%values(i) - in_values(j)) <= tol) THEN
-          out_flag(i) = .TRUE.          
+          out_flag(i) = .TRUE.
           EXIT inner_loop
         END IF
       END DO inner_loop
@@ -2420,7 +2420,7 @@ CONTAINS
   !  Initial implementation: F. Prill, DWD (2014-08-18)
   !
   SUBROUTINE resize_set(value_set, nadditional_values)
-    TYPE(t_value_set), INTENT(INOUT) :: value_set       !< result values (union set)    
+    TYPE(t_value_set), INTENT(INOUT) :: value_set       !< result values (union set)
     INTEGER,           INTENT(IN)    :: nadditional_values
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = '::deallocate_set'
@@ -2432,21 +2432,21 @@ CONTAINS
     IF (ALLOCATED(value_set%values)) THEN
       oldsize = SIZE(value_set%values)
       ALLOCATE(tmp_rbuf(oldsize), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")    
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       tmp_rbuf(1:oldsize) = value_set%values(1:oldsize)
       DEALLOCATE(value_set%values, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")    
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
     ELSE
       value_set%nvalues = 0
     END IF
     newsize = oldsize + nadditional_values
     ALLOCATE(value_set%values(newsize), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")    
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     IF (ALLOCATED(tmp_rbuf)) THEN
       value_set%values(1:oldsize) = tmp_rbuf(1:oldsize)
       ! clean up
       DEALLOCATE(tmp_rbuf, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")    
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
     END IF
   END SUBROUTINE resize_set
 
@@ -2456,7 +2456,7 @@ CONTAINS
   !  Initial implementation: F. Prill, DWD (2014-08-18)
   !
   SUBROUTINE deallocate_set(value_set)
-    TYPE(t_value_set), INTENT(INOUT) :: value_set   !< result values (union set)    
+    TYPE(t_value_set), INTENT(INOUT) :: value_set   !< result values (union set)
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = '::deallocate_set'
     INTEGER :: ierrstat
