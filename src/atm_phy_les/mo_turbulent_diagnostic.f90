@@ -1,5 +1,5 @@
 !>
-!! @brief turbulent diagnosis for LES physics 
+h! @brief turbulent diagnosis for LES physics 
 !!
 !! <Describe the concepts of the procedures and algorithms used in the module.>
 !! <Details of procedures are documented below with their definitions.>
@@ -59,7 +59,7 @@ MODULE mo_turbulent_diagnostic
   INTEGER  :: nrec_tseries,   nrec_profile
   INTEGER  :: fileid_tseries, fileid_profile
   INTEGER  :: sampl_freq_step, avg_interval_step
-  LOGICAL  :: is_sampling_time, is_writing_time
+  LOGICAL  :: is_sampling_time, is_writing_time, is_rh_out
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
@@ -311,6 +311,8 @@ CONTAINS
 
     !Loop over all variables
     DO n = 1 , nvar
+
+     outvar = 0_wp
 
      SELECT CASE (TRIM(turb_profile_list(n)))
 
@@ -704,8 +706,9 @@ CONTAINS
        outvar(1:nlev) = outvar(1:nlev) * cpd
  
      CASE('rh')
-       CALL levels_horizontal_mean(prm_diag%rh, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlev))
+       IF(is_rh_out) &
+         CALL levels_horizontal_mean(prm_diag%rh, p_patch%cells%area,  &
+                                     p_patch%cells%owned, outvar(1:nlev))
      CASE('clc')
        CALL levels_horizontal_mean(prm_diag%clc, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
@@ -719,25 +722,20 @@ CONTAINS
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqr), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qg')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqg), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
-       ELSE
-         outvar = 0._wp
-       END IF        
      CASE('qh')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqh), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
-       ELSE
-         outvar = 0._wp
-       END IF
      CASE('lwf')
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
      CASE('swf')
        CALL levels_horizontal_mean(prm_diag%trsolall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
+       outvar0d = 0._wp
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
        outvar = outvar*outvar0d
@@ -765,6 +763,7 @@ CONTAINS
     !Loop over all variables
     DO n = 1 , nvar
 
+     outvar0d = 0._wp
      SELECT CASE (TRIM(turb_tseries_list(n)))
 
      CASE('ccover')
@@ -803,25 +802,19 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%snow_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_g')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN    
+       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
          CALL levels_horizontal_mean(prm_diag%graupel_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
-       ELSE
-         outvar0d = 0._wp
        END IF
      CASE('precp_h')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN    
+       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
          CALL levels_horizontal_mean(prm_diag%hail_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
-       ELSE
-         outvar0d = 0._wp
        END IF
      CASE('precp_i')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN    
+       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
          CALL levels_horizontal_mean(prm_diag%ice_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
-       ELSE
-         outvar0d = 0._wp
        END IF
      END SELECT  
 
@@ -919,11 +912,12 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE init_les_turbulent_output(p_patch, p_metrics, time, ldelete)
+  SUBROUTINE init_les_turbulent_output(p_patch, p_metrics, time, l_rh, ldelete)
    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
    REAL(wp), INTENT(IN)                  :: time
    LOGICAL, INTENT(IN), OPTIONAL         :: ldelete
+   LOGICAL, INTENT(IN), OPTIONAL         :: l_rh  !if rh to be output or not
   
    CHARACTER (40), ALLOCATABLE, DIMENSION(:) :: dimname, dimlongname, dimunit
    CHARACTER (LEN=80)                        :: longname, unit
@@ -947,6 +941,8 @@ CONTAINS
    !Sampling and output frequencies in terms of time steps
    sampl_freq_step   = NINT(les_config(jg)%sampl_freq_sec/dtime)
    avg_interval_step = NINT(les_config(jg)%avg_interval_sec/dtime)
+
+   is_rh_out = l_rh
 
    nlev   = p_patch%nlev
    nlevp1 = nlev + 1
@@ -1110,7 +1106,8 @@ CONTAINS
        unit     = ''
        is_at_full_level(n) = .FALSE.
      CASE DEFAULT 
-         CALL finish(routine,'This variable does not exist!')
+         WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
+         CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
      END SELECT
 
      dimname(2) = tname
@@ -1210,6 +1207,9 @@ CONTAINS
      CASE('precp_i')
        longname = 'gridscale ice rate'
        unit     = 'mm/day'
+     CASE DEFAULT 
+         WRITE(message_text,'(a)')TRIM(turb_tseries_list(n))
+         CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
      END SELECT  
   
      dimname(1) = tname

@@ -466,11 +466,11 @@ CONTAINS
 
       IF(is_restart_run()) &
         CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
-                               time_config%sim_time(1), ldelete=.FALSE.)
+                               time_config%sim_time(1), l_rh(1), ldelete=.FALSE.)
 
       IF(.NOT.is_restart_run()) &
         CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
-                               time_config%sim_time(1), ldelete=.TRUE.)
+                               time_config%sim_time(1), l_rh(1), ldelete=.TRUE.)
     END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
