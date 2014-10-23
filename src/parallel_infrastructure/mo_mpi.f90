@@ -58,10 +58,10 @@
 !!         description  : Inter(!)communicator work PEs - I/O PEs
 !!       p_comm_input_bcast
 !!         description  : MPI communicator for broadcasts in NetCDF input
-!!       p_comm_work_pref 
+!!       p_comm_work_pref
 !!         description  : MPI Communicator spanning work group and prefetch PEs
 !!       p_comm_work_2_pref
-!!         description  : Inter(!)communicator work PEs - prefetching PEs 
+!!         description  : Inter(!)communicator work PEs - prefetching PEs
 !!
 !!
 !!  Processor splitting
@@ -341,9 +341,7 @@ MODULE mo_mpi
   INTEGER :: num_work_procs
   INTEGER :: process_mpi_io_size
   INTEGER :: process_mpi_restart_size
-! INTEGER :: num_restart_procs    !This seems to be unused (it is always shadowed by a subroutine argument).
   INTEGER :: process_mpi_pref_size
-! INTEGER :: num_prefetch_proc    !This seems to be unused (it is always shadowed by a subroutine argument).
 
   ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
 
@@ -355,7 +353,7 @@ MODULE mo_mpi
   INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
   INTEGER :: p_restart_pe0 ! Number of Restart Output PE 0 within all PEs
                            ! (process_mpi_all_size if no restart PEs)
-  INTEGER :: p_pref_pe0    ! Number of the prefetching PE 0 within all PEs (process_mpi_all_size 
+  INTEGER :: p_pref_pe0    ! Number of the prefetching PE 0 within all PEs (process_mpi_all_size
   !                          if no prefetching PEs)
 
   ! Note: p_n_work, p_pe_work are NOT identical on all PEs
@@ -718,7 +716,7 @@ CONTAINS
     get_mpi_all_restartroot_id = process_mpi_all_restartroot_id
   END FUNCTION get_mpi_all_restartroot_id
   !------------------------------------------------------------------------------
- 
+
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_prefroot_id()
     get_mpi_prefroot_id = process_mpi_all_prefroot_id
@@ -801,7 +799,7 @@ CONTAINS
     my_process_is_pref = (my_mpi_function == pref_mpi_process)
   END FUNCTION my_process_is_pref
   !------------------------------------------------------------------------------
- 
+
   !------------------------------------------------------------------------------
   !>
   LOGICAL FUNCTION my_process_is_mpi_prefroot()
@@ -997,7 +995,7 @@ CONTAINS
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
-    INTEGER,INTENT(INOUT), OPTIONAL :: num_prefetch_proc 
+    INTEGER,INTENT(INOUT), OPTIONAL :: num_prefetch_proc
 
 !   !local variables
     INTEGER :: my_color, peer_comm, peer_comm_restart, peer_comm_pref, p_error
@@ -1011,7 +1009,7 @@ CONTAINS
     ELSE
       sizeof_prefetch_processes = 0
     ENDIF
-    
+
 
 ! check l_test_openmp
 #ifndef _OPENMP
@@ -1056,7 +1054,7 @@ CONTAINS
       & '--> sizeof_prefetch_processes set to 0')
       sizeof_prefetch_processes = 0
     END IF
-    
+
 
     ! set the sequential values
     p_work_pe0 = 0
@@ -1132,7 +1130,7 @@ CONTAINS
     CALL print_info_stderr(method_name, message_text)
 
     ! Everything seems ok. Proceed to setup the communicators and ids
-    ! Set up p_test_pe, p_work_pe0, p_io_pe0, p_restart_pe0, p_pref_pe0 
+    ! Set up p_test_pe, p_work_pe0, p_io_pe0, p_restart_pe0, p_pref_pe0
     ! which are identical on all PEs
     p_work_pe0    = num_test_procs
     p_io_pe0      = num_test_procs + num_work_procs
@@ -1156,7 +1154,7 @@ CONTAINS
       ! Restart PE (if present)
       p_n_work  = num_restart_procs
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs
-    ELSE 
+    ELSE
       p_n_work  = sizeof_prefetch_processes
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs - num_restart_procs
     ENDIF
@@ -1176,7 +1174,7 @@ CONTAINS
       my_mpi_function = io_mpi_process
     ELSE IF(p_pe < p_pref_pe0) THEN
       my_mpi_function = restart_mpi_process
-    ELSE 
+    ELSE
       my_mpi_function = pref_mpi_process
     ENDIF
 
@@ -1269,7 +1267,7 @@ CONTAINS
     ELSE
       ! If no prefetching PEs are present, p_comm_inp_pref must not be used at all
       p_comm_work_pref = MPI_COMM_NULL
-    ENDIF 
+    ENDIF
 
 !     The following is moved to set_comm_input_bcast
 !     ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
@@ -1411,7 +1409,7 @@ CONTAINS
     is_openmp_test_run = l_test_openmp
     ! fill other default
     CALL set_comm_input_bcast()
-    
+
     IF (PRESENT(num_prefetch_proc)) THEN
       num_prefetch_proc = sizeof_prefetch_processes
     ENDIF
@@ -1433,7 +1431,7 @@ CONTAINS
     process_mpi_io_size         = 0
     process_mpi_restart_size    = 0
     process_mpi_pref_size       = 0
-    p_comm_work_pref_compute_pe0 = 0 
+    p_comm_work_pref_compute_pe0 = 0
     is_mpi_test_run = .false.
     is_openmp_test_run = .false.
 
@@ -1453,7 +1451,7 @@ CONTAINS
     ! Number of restart PE 0 within all PEs (process_mpi_all_size if no restart PEs)
     p_restart_pe0  = process_mpi_all_size
     ! Number of prefetching PE 0 within all PEs (process_mpi_all_size if no prefetching PEs)
-    p_pref_pe0     = process_mpi_all_size 
+    p_pref_pe0     = process_mpi_all_size
     p_n_work       = process_mpi_all_size
     p_pe_work      = my_process_mpi_all_id
 
@@ -6614,7 +6612,7 @@ CONTAINS
 
     INTEGER,       INTENT(in) :: kfield
     INTEGER, OPTIONAL, INTENT(in) :: comm
-    INTEGER                   :: p_sum 
+    INTEGER                   :: p_sum
 
 #ifndef NOMPI
     INTEGER :: p_comm
