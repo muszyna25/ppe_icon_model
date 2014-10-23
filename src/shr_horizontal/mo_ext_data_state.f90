@@ -44,7 +44,7 @@ MODULE mo_ext_data_state
     &                              SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def
-  USE mo_run_config,         ONLY: iforcing
+  USE mo_run_config,         ONLY: iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
@@ -58,7 +58,7 @@ MODULE mo_ext_data_state
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, message_text, finish, warning
   USE mo_grid_config,        ONLY: n_dom
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c
@@ -1631,7 +1631,11 @@ CONTAINS
         CALL message(routine,message_text)
 
         WRITE(message_text,'(a)') 'Extpar file and horizontal grid file do not match!'
-        CALL finish(routine, TRIM(message_text))
+        IF (check_uuid_gracefully) THEN
+          CALL warning(routine, TRIM(message_text))
+        ELSE
+          CALL finish(routine, TRIM(message_text))
+        END IF
       ENDIF      
 
 

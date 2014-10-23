@@ -50,6 +50,7 @@ MODULE mo_run_config
   PUBLIC :: debug_check_level
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
+  PUBLIC :: check_uuid_gracefully
 
     ! Namelist variables
     !
@@ -74,6 +75,8 @@ MODULE mo_run_config
     INTEGER :: timers_level    !< what level of timers to run
     LOGICAL :: activate_sync_timers
     INTEGER :: profiling_output = TIMER_MODE_AGGREGATED  !< switch defining the kind of timer output
+
+    LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
   
     INTEGER :: test_mode = 0   !< 0= run the model, /=0 run in test mode
     INTEGER :: debug_check_level = 10  ! Define debug checks level. This is not related to the debug output in

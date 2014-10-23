@@ -110,7 +110,7 @@ MODULE mo_model_domimp_patches
     & use_duplicated_connectivity
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
-    &                              number_of_grid_used, msg_level
+    &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
@@ -399,14 +399,22 @@ CONTAINS
         IF (jg > n_dom_start) THEN
           jgp = patch_pre(jg)%parent_id
           IF (TRIM(uuid_par(jg)) /= TRIM(uuid_grid(jgp))) THEN
-            CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
+            IF (check_uuid_gracefully) THEN
+              CALL warning('import_pre_patches','incorrect uuids in parent-child connectivity file')
+            ELSE
+              CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
+            END IF
           ENDIF
         ENDIF
         IF (patch_pre(jg)%n_childdom > 0) THEN
           DO jg1 = 1, patch_pre(jg)%n_childdom
             jgc = patch_pre(jg)%child_id(jg1)
             IF (TRIM(uuid_chi(jg,jg1)) /= TRIM(uuid_grid(jgc))) THEN
-              CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
+              IF (check_uuid_gracefully) THEN
+                CALL warning('import_pre_patches','incorrect uuids in parent-child connectivity file')
+              ELSE
+                CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
+              END IF
             ENDIF
           ENDDO
         ENDIF
@@ -1019,7 +1027,11 @@ CONTAINS
       CALL nf(nf_get_att_text(ncid_grf, nf_global, 'uuidOfHGrid', uuid_string_grfinfo))
       IF (TRIM(uuid_string_grfinfo) /= TRIM(uuid_string)) THEN
         WRITE(message_text,'(a,a)') 'uuidOfHGrid of grfinfo file does not match uuidOfHGrid of basic grid file'
-        CALL finish (TRIM(method_name), TRIM(message_text))
+        IF (check_uuid_gracefully) THEN
+          CALL warning(TRIM(method_name), TRIM(message_text))
+        ELSE
+          CALL finish (TRIM(method_name), TRIM(message_text))
+        END IF
       ENDIF
       uuid_grid = uuid_string_grfinfo
       ! Read also parent and child grid uuids for subsequent crosscheck

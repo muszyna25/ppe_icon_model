@@ -17,7 +17,7 @@ MODULE mo_util_vgrid
 
   USE mo_cdi_constants          ! We need all
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_exception,                         ONLY: finish, message, message_text
+  USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
   USE mo_dynamics_config,                   ONLY: iequations
   USE mo_grid_config,                       ONLY: n_dom, vertical_grid_filename, create_vgrid
@@ -25,7 +25,7 @@ MODULE mo_util_vgrid
   USE mo_nonhydrostatic_config,             ONLY: ivctype
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_gribout_config,                    ONLY: gribout_config
-  USE mo_run_config,                        ONLY: number_of_grid_used, msg_level
+  USE mo_run_config,                        ONLY: number_of_grid_used, msg_level, check_uuid_gracefully
   !
   USE mo_impl_constants,                    ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                             ishallow_water, SUCCESS
@@ -400,7 +400,11 @@ CONTAINS
       IF (.NOT. lmatch) THEN
         WRITE(message_text,'(a)') 'uuidOfHGrid: Horizontal and vertical grid ', &
           &                       'file do not match!'
-        CALL finish(routine, TRIM(message_text))
+        IF (check_uuid_gracefully) THEN
+          CALL warning(routine, TRIM(message_text))
+        ELSE
+          CALL finish(routine, TRIM(message_text))
+        END IF
       ENDIF
 
       !--- get UUID for vertical grid

@@ -24,7 +24,7 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state
@@ -41,7 +41,7 @@ MODULE mo_initicon_utils
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish, message_text, warning
   USE mo_grid_config,         ONLY: n_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
@@ -261,7 +261,11 @@ MODULE mo_initicon_utils
       IF (.NOT. lmatch_uuid) THEN
         WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for first guess field '&
           &                       //TRIM(grp_vars_fg(ivar))//'.'
-        CALL finish(routine, TRIM(message_text))
+        IF (check_uuid_gracefully) THEN
+          CALL warning(routine, TRIM(message_text))
+        ELSE
+          CALL finish(routine, TRIM(message_text))
+        END IF
       ENDIF
 
 
@@ -300,7 +304,11 @@ MODULE mo_initicon_utils
       IF (.NOT. lmatch_uuid) THEN
         WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for analysis field '&
           &                       //TRIM(grp_vars_ana(ivar))//'.'
-        CALL finish(routine, TRIM(message_text))
+        IF (check_uuid_gracefully) THEN
+          CALL warning(routine, TRIM(message_text))
+        ELSE
+          CALL finish(routine, TRIM(message_text))
+        END IF
       ENDIF
 
 

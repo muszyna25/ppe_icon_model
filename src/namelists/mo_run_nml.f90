@@ -34,7 +34,8 @@ MODULE mo_run_nml
                          & t_output_mode, max_output_modes,           &
                          & config_debug_check_level => debug_check_level, &
                          & config_restart_filename  => restart_filename, &
-                         & config_profiling_output => profiling_output
+                         & config_profiling_output => profiling_output, &
+                         & config_check_uuid_gracefully => check_uuid_gracefully
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, &
@@ -101,6 +102,8 @@ MODULE mo_run_nml
 
   INTEGER :: profiling_output  !< switch defining the kind of timer output
 
+  LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
+
   !> file name for restart/checkpoint files (containg keyword
   !> substition patterns)
   CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
@@ -120,7 +123,8 @@ MODULE mo_run_nml
                      msg_timestamp,                 &
                      debug_check_level,             &
                      restart_filename,              &
-                     profiling_output
+                     profiling_output,              &
+                     check_uuid_gracefully
 
 CONTAINS
   !>
@@ -167,6 +171,7 @@ CONTAINS
 
     restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
     profiling_output = config_profiling_output
+    check_uuid_gracefully = .FALSE.
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -265,6 +270,8 @@ CONTAINS
     END IF
 #endif
     config_profiling_output = profiling_output
+
+    config_check_uuid_gracefully = check_uuid_gracefully
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)
