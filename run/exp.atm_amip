@@ -41,7 +41,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
 (( dt_checkpoint =  300 * day))
-(( dt_restart    = 1500 * day))
+(( dt_restart    = 1200 * day))
 #
 file_interval="P30D"
 
