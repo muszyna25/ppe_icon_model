@@ -62,7 +62,7 @@ MODULE mo_initicon_io
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
     &                               streamInqVlist, streamOpenRead, cdiInqMissval
-  USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
+  USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list, &
     &                               find_inventory_list_element
@@ -1378,7 +1378,7 @@ MODULE mo_initicon_io
         !
         ! Note that either w_so OR smi is written to w_so_t. Which one is required depends 
         ! on the initialization mode. Checking grp_vars_fg takes care of this. In case 
-        ! that smi is read, it is lateron converted to w_so (see smi_to_sm_mass)
+        ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
         !
@@ -1424,7 +1424,7 @@ MODULE mo_initicon_io
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         DO jt=1, ntiles_total
-          CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+          CALL smi_to_wsoil(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
         ENDDO
       ENDDO
     END IF

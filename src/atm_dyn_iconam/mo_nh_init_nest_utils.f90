@@ -61,7 +61,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_seaice_nwp,            ONLY: frsi_min
-  USE mo_nwp_sfc_interp,        ONLY: smi_to_sm_mass, wsoil_to_smi
+  USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
   USE mo_flake,                 ONLY: flake_coldinit
 
   IMPLICIT NONE
@@ -597,7 +597,7 @@ MODULE mo_nh_init_nest_utils
     ENDIF
 
     ! Convert SMI back to wsoil
-    CALL smi_to_sm_mass(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
+    CALL smi_to_wsoil(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
 
     ! Step 3: Add reference state to thermodynamic variables and copy land fields
     ! from the container arrays to the prognostic variables (for the time being,

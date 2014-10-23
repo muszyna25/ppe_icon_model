@@ -39,7 +39,8 @@ MODULE mo_nwp_sfc_interp
 
 
   PUBLIC :: process_sfcfields
-  PUBLIC :: smi_to_sm_mass, wsoil_to_smi
+  PUBLIC :: smi_to_wsoil
+  PUBLIC :: wsoil_to_smi
 
 CONTAINS
 
@@ -298,14 +299,14 @@ CONTAINS
   END SUBROUTINE process_sfcfields
   !-------------
   !>
-  !! SUBROUTINE smi_to_sm_mass
+  !! SUBROUTINE smi_to_wsoil
   !!
   !! Conversion of soil moisture index into TERRA soil moisture [m]
   !!   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
   !!   safety: min=air dryness point, max=pore volume
   !!
-  !! Required input: initicon state
-  !! Output is written on fields of land state
+  !! Required input: soil moisture index
+  !! Output: soil water content [m H2O]. Input field is overwritten
   !!
   !! @par Revision History
   !! Initial version by P Ripodas, DWD(2013-05)
@@ -313,12 +314,11 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2013-10-17)
   !! - updated soil moisture initialization according to process_sfcfields
   !
-  SUBROUTINE smi_to_sm_mass(p_patch, wsoil)
-
+  SUBROUTINE smi_to_wsoil(p_patch, wsoil)
 
     TYPE(t_patch), INTENT(IN)    :: p_patch
     REAL(wp),      INTENT(INOUT) :: wsoil(:,:,:)!soil moisture index in
-                                                !soil moisture mass out [mm H2O]
+                                                !soil moisture mass out [m H2O]
                                                 ! (nproma,nlev_soil,nblks)
     ! LOCAL VARIABLES
     !
@@ -327,7 +327,7 @@ CONTAINS
     INTEGER  :: jg, jb, jk, jc, nlen
     LOGICAL  :: lerr                  ! error flag
 
-    CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_nwp_sfc_interp:smi_to_sm_mass'
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_nwp_sfc_interp:smi_to_wsoil'
 !-------------
 
     jg = p_patch%id
@@ -424,7 +424,7 @@ CONTAINS
 !$OMP END DO 
 !$OMP END PARALLEL
 
-  END SUBROUTINE smi_to_sm_mass
+  END SUBROUTINE smi_to_wsoil
 
 
   !-------------
@@ -441,7 +441,7 @@ CONTAINS
 
 
     TYPE(t_patch), INTENT(IN)    :: p_patch
-    REAL(wp),      INTENT(INOUT) :: wsoil(:,:,:) ! input: soil moisture mass [mm H2O]
+    REAL(wp),      INTENT(INOUT) :: wsoil(:,:,:) ! input: soil moisture mass [m H2O]
                                                  ! output: soil moisture index 
 
     ! LOCAL VARIABLES
