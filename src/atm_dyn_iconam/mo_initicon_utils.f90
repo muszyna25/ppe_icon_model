@@ -31,13 +31,13 @@ MODULE mo_initicon_utils
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, &
+  USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
-    &                               nml_filetype => filetype, timeshift,                &
+    &                               timeshift,                                          &
     &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
     &                               lconsistency_checks
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
@@ -45,13 +45,13 @@ MODULE mo_initicon_utils
   USE mo_grid_config,         ONLY: n_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, lseaice, llake, &
-    &                               isub_lake, ntiles_water, lmulti_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake,            &
+    &                               isub_lake
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
   USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
-  USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
+  USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN, dict_resize
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
@@ -59,13 +59,11 @@ MODULE mo_initicon_utils
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_util_cdi_table,      ONLY: t_inventory_list, t_inventory_element, &
-    &                               new_inventory_list, delete_inventory_list, complete_inventory_list, &
     &                               find_inventory_list_element
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
     &                               t_bool_table
   USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_io_util,             ONLY: get_filetype
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: newDatetime, datetime, OPERATOR(==), OPERATOR(+), &
     &                               deallocateDatetime

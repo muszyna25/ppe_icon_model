@@ -34,21 +34,21 @@ MODULE mo_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,  l_sst_in,  &
+  USE mo_initicon_types,      ONLY: t_initicon_state
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,             &
     &                               rho_incr_filter_wgt, lread_ana,         &
-    &                               nml_filetype => filetype, lp2cintp_incr
+    &                               lp2cintp_incr
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,      &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
-  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
+  USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, lseaice, llake, &
-    &                               isub_lake, ntiles_water, lmulti_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
+    &                               isub_lake
   USE mo_phyparam_soil,       ONLY: cporv, crhosmin_ml
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -58,8 +58,7 @@ MODULE mo_initicon
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_io_util,             ONLY: get_filetype
-  USE mo_initicon_utils,      ONLY: check_input_validity, create_input_groups,                         &
+  USE mo_initicon_utils,      ONLY: create_input_groups,                         &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &

@@ -21,24 +21,22 @@
 MODULE mo_pp_tasks
 
   USE mo_kind,                    ONLY: wp
-  USE mo_exception,               ONLY: message, message_text, finish
+  USE mo_exception,               ONLY: message, finish
   USE mo_impl_constants,          ONLY: SUCCESS,                      &
     & VINTP_METHOD_VN, VINTP_METHOD_LIN, VINTP_METHOD_QV,             &
     & VINTP_METHOD_LIN_NLEVP1,                                        &
-    & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,   &
+    & TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,              &
     & TASK_FINALIZE_IPZ,                                              &
-    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV, TASK_INTP_SYNC,       &
+    & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV,                       &
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
-    & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,     &
+    & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,                            &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
-    & RH_METHOD_IFS_CLIP, vname_len, TASK_COMPUTE_OMEGA
-  USE mo_model_domain,            ONLY: t_patch, p_patch
-  USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
-    &                                   level_type_pl, level_type_hl
+    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA
+  USE mo_model_domain,            ONLY: t_patch
+  USE mo_var_list_element,        ONLY: t_var_list_element
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
-  USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg,       &
-    &                                   cells2edges_scalar
+  USE mo_intp,                    ONLY: cell_avg, cells2edges_scalar
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,                ONLY: rbf_vec_interpol_cell
@@ -51,29 +49,20 @@ MODULE mo_pp_tasks
     &                                   diagnose_pmsl_ifs
   USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
     &                                   t_nh_metrics
-  USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, t_vcoeff, &
     &                                   vcoeff_allocate, vcoeff_deallocate,    &
-    &                                   p_nh_opt_diag, t_vcoeff_lin,           &
-    &                                   t_vcoeff_cub
+    &                                   t_vcoeff_lin, t_vcoeff_cub
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
-  USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config
-  USE mo_name_list_output_config, ONLY: first_output_name_list
-  USE mo_name_list_output_types,  ONLY: t_output_name_list
   USE mo_parallel_config,         ONLY: nproma
   USE mo_dynamics_config,         ONLY: nnow
-  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,               &
-    &                                   GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT, &
+  USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL,                  &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   DATATYPE_FLT32,                          &
-    &                                   DATATYPE_PACK16, is_2d_field
-  USE mo_linked_list,             ONLY: t_var_list, t_list_element
-  USE mo_lonlat_grid,             ONLY: t_lon_lat_grid
+    &                                   is_2d_field
   USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat,                     &
     &                                   rbf_vec_interpol_lonlat
   USE mo_sync,                    ONLY: sync_patch_array,                        &
-    &                                   SYNC_C, SYNC_E, SYNC_V,                  &
+    &                                   SYNC_C, SYNC_E,                          &
     &                                   cumulative_sync_patch_array,             &
     &                                   complete_cumulative_sync
   USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &

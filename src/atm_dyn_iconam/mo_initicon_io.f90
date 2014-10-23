@@ -37,9 +37,9 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lp2cintp_incr,            &
-    &                               ana_varlist, ana_varnames_map_file, lread_ana
+    &                               lread_ana
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
@@ -50,22 +50,19 @@ MODULE mo_initicon_io
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, onCells, onEdges
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters, makeInputParameters, deleteInputParameters
-  USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars
   USE mo_util_string,         ONLY: one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
     &                               ntiles_water, lmulti_snow
   USE mo_master_nml,          ONLY: model_base_dir
-  USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
-    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN, dict_resize
+  USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
-    &                               streamInqVlist, streamOpenRead, cdiInqMissval
+    &                               streamInqVlist, streamOpenRead
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
-  USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
-    &                               new_inventory_list, delete_inventory_list, complete_inventory_list, &
-    &                               find_inventory_list_element
+  USE mo_util_cdi_table,      ONLY: print_cdi_summary, &
+    &                               new_inventory_list, delete_inventory_list, complete_inventory_list
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: initicon_inverse_post_op, allocate_extana_atm, allocate_extana_sfc
 

@@ -42,9 +42,8 @@ MODULE mo_run_nml
     &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &
-                               MAX_CHAR_LENGTH, TIMER_MODE_AGGREGATED,            &
-                               TIMER_MODE_WRITE_FILES, TIMER_MODE_DETAILED
-  USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
+                               MAX_CHAR_LENGTH
+  USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
   USE mo_master_control, ONLY: is_restart_run
@@ -260,15 +259,6 @@ CONTAINS
     config_debug_check_level = debug_check_level
 
     config_restart_filename = restart_filename
-#ifdef __SX__
-    IF (profiling_output == TIMER_MODE_AGGREGATED) THEN
-      IF (my_process_is_stdio()) THEN
-        WRITE (0,*) "!!! SX9 does not support aggregated timer output   !!!"
-        WRITE (0,*) "!!! due to the length restriction for output lines !!!"
-      END IF
-      profiling_output =TIMER_MODE_DETAILED
-    END IF
-#endif
     config_profiling_output = profiling_output
 
     config_check_uuid_gracefully = check_uuid_gracefully
