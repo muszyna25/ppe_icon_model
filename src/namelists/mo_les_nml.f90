@@ -123,11 +123,11 @@ CONTAINS
       'thth   ','qvqv   ','qcqc   ','uu     ','vv     ','kh     ','km     ',   & !15-21
       'thv    ','wthv   ','wqvd   ','wthd   ','wqcd   ','bynprd ','mechprd',   & !22-28
       'wud    ','wvd    ','wthsfs ','rh     ','clc    ','qi     ','qs     ',   & !29-35
-      'qr     ','qg     ','qh     ','lwf    ','str    ' /)                       !36-40 
+      'qr     ','qg     ','qh     ','lwf    ','swf    ' /)                       !36-40 
 
     turb_tseries_list = (/                                          &
       'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6
-      'qsfc   ','hbl    ','psfc   ','swf_toa','lwf_toa','swf_sfc',  & !7-12
+      'qsfc   ','hbl    ','psfc   ','swf_tom','lwf_tom','swf_sfc',  & !7-12
       'lwf_sfc','precp_t','precp_r','precp_s','precp_g','precp_h',  & !13-18
       'precp_i' /)                                                    !19
 
