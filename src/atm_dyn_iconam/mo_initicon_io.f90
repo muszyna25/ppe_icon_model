@@ -955,7 +955,7 @@ MODULE mo_initicon_io
 
       ! In addition, copy climatological deep-soil temperature to soil level nlev_soil
       ! These are limited to -60 deg C because less is definitely nonsense
-      initicon(jg)%sfc%tsoil(:,:,nlev_soil) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(:,:))
+      initicon(jg)%sfc%tsoil(:,nlev_soil,:) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(:,:))
 
     ENDDO ! loop over model domains
 

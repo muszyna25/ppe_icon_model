@@ -70,14 +70,10 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
 
-    INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
+    INTEGER  :: jb, jk, jc, jk1, idx0(nlev_soil-1)
     INTEGER  :: nlen, nlev
 
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
-
-    REAL(wp) :: zwsoil(nproma)        ! local soil moisture field
-    INTEGER  :: i_count, ic           ! counter
-    LOGICAL  :: lerr                  ! error flag
 
     ! Soil layer depths in IFS
     REAL(wp), PARAMETER :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
@@ -89,7 +85,6 @@ CONTAINS
     END IF
 
     nlev = p_patch%nlev
-    jg   = p_patch%id
 
 
     ! Vertical interpolation indices and weights
@@ -113,7 +108,7 @@ CONTAINS
     ENDDO
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow,ic,i_count,zwsoil,lerr)
+!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow)
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
         nlen = nproma
@@ -186,12 +181,12 @@ CONTAINS
         initicon%sfc_in%tsoil(jc,jb,0) = (1._wp-wfac_snow)*initicon%sfc%tskin(jc,jb) + &
                                           wfac_snow*initicon%sfc_in%tsoil(jc,jb,1) ! already height-adjusted
 
-        initicon%sfc%tsoil(jc,jb,0)    = initicon%sfc_in%tsoil(jc,jb,0) ! copy soil-top temperature
+        initicon%sfc%tsoil(jc,0,jb)    = initicon%sfc_in%tsoil(jc,jb,0) ! copy soil-top temperature
 
         initicon%sfc_in%wsoil(jc,jb,0) = initicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
 
         ! outgoing tsoil(nlev_soil) has been initialized with the external parameter field t_cl before
-        initicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = initicon%sfc%tsoil(jc,jb,nlev_soil)
+        initicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = initicon%sfc%tsoil(jc,nlev_soil,jb)
         ! assume no-gradient condition for soil moisture
         initicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = initicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
       ENDDO
@@ -199,105 +194,26 @@ CONTAINS
       ! Vertical interpolation of multi-layer soil fields from IFS levels to TERRA levels
       DO jk = 1, nlev_soil-1
         DO jc = 1, nlen
-          initicon%sfc%tsoil(jc,jb,jk) = wfac_vintp(jk) *initicon%sfc_in%tsoil(jc,jb,idx0(jk))+ &
+          initicon%sfc%tsoil(jc,jk,jb) = wfac_vintp(jk) *initicon%sfc_in%tsoil(jc,jb,idx0(jk))+ &
                                   (1._wp-wfac_vintp(jk))*initicon%sfc_in%tsoil(jc,jb,idx0(jk)+1)
-          initicon%sfc%wsoil(jc,jb,jk) = wfac_vintp(jk) *initicon%sfc_in%wsoil(jc,jb,idx0(jk))+ &
+          initicon%sfc%wsoil(jc,jk,jb) = wfac_vintp(jk) *initicon%sfc_in%wsoil(jc,jb,idx0(jk))+ &
                                   (1._wp-wfac_vintp(jk))*initicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
         ENDDO
       ENDDO
-
-
-      ! (re)-initialize error flag
-      lerr = .FALSE.
-
-      ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
-      !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
-      !   safety: min=air dryness point, max=pore volume
-      DO jk = 1, nlev_soil-1
-
-        ! loop over target (ICON) land points only
-        i_count = ext_data(jg)%atm%lp_count(jb)
-
-        zwsoil(:) = 0._wp
-
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
-
-          SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
-            CASE (1,2)  !ice,rock
-            ! set wsoil to 0 for ice and rock
-            zwsoil(jc) = 0._wp
-
-            CASE(3)  !sand
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.364_wp, &
-            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
-
-            CASE(4)  !sandyloam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.445_wp, &
-            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
-
-            CASE(5)  !loam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.455_wp, &
-            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
-
-            CASE(6)  !clayloam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.475_wp, &
-            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
-
-            CASE(7)  !clay
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.507_wp, &
-            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
-
-            CASE(8)  !peat
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.863_wp, &
-            & MAX((initicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
-
-            CASE(9,10)!sea water, sea ice
-            ! ERROR landpoint has soiltype sea water or sea ice
-            lerr = .TRUE.
-          END SELECT
-
-          ! We need to catch problematic coast cases: ICON-land but IFS-ocean &
-          ! for moisture (and in principle for temperature as well)
-          ! 
-          ! The following criterion is probably too hard. ls_mask(jc,jb) < 0.5_wp does 
-          ! not necessarily mean that the stencil used for the interpolation onto 
-          ! this target point did not contain any IFS-land point. So we may throw away 
-          ! some valid points.
-          ! However, this criterion is save in the sense that we will not miss any 
-          ! problematic point. For a less severe but nevertheless save criterion, 
-          ! information about the type of interpolation (CONSERVATIVE, RBF, NN) would be 
-          ! necessary. This information is not readily available within ICON.  
-          IF ( (initicon%sfc%ls_mask(jc,jb)  < 0.5_wp  ) .AND.   & ! ICON-land but IFS-ocean
-            &  (initicon%sfc%wsoil(jc,jb,jk) < -999._wp) )  THEN   ! check for missing value
-            ! set dummy value (50% of pore volume)
-            zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
-          ENDIF
-
-        ENDDO  ! ic
-        ! overwrite wsoil
-        initicon%sfc%wsoil(1:nlen,jb,jk) = zwsoil(1:nlen)
-
-      ENDDO  ! jk
-
-      ! assume no-gradient condition for soil moisture reservoir layer
-      DO jc = 1, nlen
-        initicon%sfc%wsoil(jc,jb,nlev_soil) = initicon%sfc%wsoil(jc,jb,nlev_soil-1)*          &
-                                                dzsoil_icon(nlev_soil)/dzsoil_icon(nlev_soil-1)
-      ENDDO
-
-      IF (lerr) THEN
-        CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")
-      ENDIF
 
     ENDDO  ! jb
 !$OMP END DO 
 !$OMP END PARALLEL
 
 
+    ! convert SMI (from IFS analysis) to W_SO
+    !
+    CALL smi_to_wsoil(p_patch, initicon%sfc%wsoil)
+
   END SUBROUTINE process_sfcfields
-  !-------------
+
+
+
   !>
   !! SUBROUTINE smi_to_wsoil
   !!

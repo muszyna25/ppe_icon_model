@@ -1055,9 +1055,9 @@ MODULE mo_initicon_utils
               jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jp,jb,jt)= &
-                  &                                              initicon(jg)%sfc%tsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%tsoil(jc,js,jb)
                 p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,jp,jb,jt)= &
-                  &                                              initicon(jg)%sfc%tsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%tsoil(jc,js,jb)
               ENDDO
             ENDDO
 
@@ -1065,9 +1065,9 @@ MODULE mo_initicon_utils
             DO js = 1, nlev_soil
               DO jc = 1, nlen
                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,js,jb,jt)= &
-                  &                                              initicon(jg)%sfc%wsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%wsoil(jc,js,jb)
                 p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%w_so_t(jc,js,jb,jt)= &
-                  &                                              initicon(jg)%sfc%wsoil(jc,jb,js)
+                  &                                              initicon(jg)%sfc%wsoil(jc,js,jb)
               ENDDO
             ENDDO
 
@@ -1220,9 +1220,9 @@ MODULE mo_initicon_utils
                  initicon(jg)%sfc%skinres  (nproma,nblks_c             ), &
                  initicon(jg)%sfc%ls_mask  (nproma,nblks_c             ), &
                  initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
-                 initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
-                 initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
-
+                 initicon(jg)%sfc%tsoil    (nproma,0:nlev_soil,nblks_c ), &
+                 initicon(jg)%sfc%wsoil    (nproma,  nlev_soil,nblks_c )  )
+                 ! note the flipped dimensions with respect to sfc_in!
         initicon(jg)%sfc%linitialized = .TRUE.
       ENDIF
 
