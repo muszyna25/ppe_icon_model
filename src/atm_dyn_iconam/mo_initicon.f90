@@ -68,7 +68,6 @@ MODULE mo_initicon
 
   IMPLICIT NONE
 
-  INCLUDE 'netcdf.inc'
 
   PRIVATE
 

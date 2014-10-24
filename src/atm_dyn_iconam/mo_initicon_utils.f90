@@ -70,16 +70,23 @@ MODULE mo_initicon_utils
 
   IMPLICIT NONE
 
-  INCLUDE 'netcdf.inc'
 
   PRIVATE
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_initicon_utils'
 
 
-  PUBLIC :: initicon_inverse_post_op, check_input_validity, create_input_groups, copy_initicon2prog_atm, &
-            copy_initicon2prog_sfc, allocate_initicon, allocate_extana_atm, allocate_extana_sfc,         &
-            deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
+  PUBLIC :: initicon_inverse_post_op
+  PUBLIC :: check_input_validity
+  PUBLIC :: create_input_groups
+  PUBLIC :: copy_initicon2prog_atm
+  PUBLIC :: copy_initicon2prog_sfc
+  PUBLIC :: allocate_initicon
+  PUBLIC :: allocate_extana_atm
+  PUBLIC :: allocate_extana_sfc
+  PUBLIC :: deallocate_initicon
+  PUBLIC :: deallocate_extana_atm 
+  PUBLIC :: deallocate_extana_sfc
 
 
   CONTAINS
@@ -719,7 +726,7 @@ MODULE mo_initicon_utils
         ana_default_txt = "ANA (expected)"
         ana_this_txt    = "ANA (this run)"
       ENDIF
-      CALL add_column(bool_table, "FG (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
+      CALL add_column(bool_table, "FG (expected)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
       CALL add_column(bool_table, "FG (this run)",           grp_vars_fg_grib2,          ngrp_vars_fg)
       CALL add_column(bool_table, TRIM(ana_default_txt),grp_vars_ana_default_grib2, ngrp_vars_ana_default)
       CALL add_column(bool_table, TRIM(ana_this_txt)   ,grp_vars_ana_grib2,         ngrp_vars_ana)

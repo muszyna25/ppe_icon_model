@@ -70,7 +70,7 @@ CONTAINS
     ! LOCAL VARIABLES
     CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
 
-    INTEGER  :: jb, jk, jc, jk1, idx0(nlev_soil-1)
+    INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
     INTEGER  :: nlen, nlev
 
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
@@ -84,6 +84,7 @@ CONTAINS
       CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
     END IF
 
+    jg   = p_patch%id
     nlev = p_patch%nlev
 
 
@@ -181,12 +182,13 @@ CONTAINS
         initicon%sfc_in%tsoil(jc,jb,0) = (1._wp-wfac_snow)*initicon%sfc%tskin(jc,jb) + &
                                           wfac_snow*initicon%sfc_in%tsoil(jc,jb,1) ! already height-adjusted
 
-        initicon%sfc%tsoil(jc,0,jb)    = initicon%sfc_in%tsoil(jc,jb,0) ! copy soil-top temperature
+        ! Copy climatological deep-soil temperature to extra soil level nlevsoil_in+1
+        ! These are limited to -60 deg C because less is definitely nonsense
+        initicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(jc,jb))
+
 
         initicon%sfc_in%wsoil(jc,jb,0) = initicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
 
-        ! outgoing tsoil(nlev_soil) has been initialized with the external parameter field t_cl before
-        initicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = initicon%sfc%tsoil(jc,nlev_soil,jb)
         ! assume no-gradient condition for soil moisture
         initicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = initicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
       ENDDO
@@ -199,6 +201,16 @@ CONTAINS
           initicon%sfc%wsoil(jc,jk,jb) = wfac_vintp(jk) *initicon%sfc_in%wsoil(jc,jb,idx0(jk))+ &
                                   (1._wp-wfac_vintp(jk))*initicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
         ENDDO
+      ENDDO
+      !
+      ! Fill top and bottom TERRA levels of tsoil
+      DO jc = 1, nlen
+        ! copy soil top temperature from incoming data to soil level 0
+        initicon%sfc%tsoil(jc,0,jb) = initicon%sfc_in%tsoil(jc,jb,0)
+        !
+        ! Copy climatological deep-soil temperature to soil level nlev_soil
+        ! These are limited to -60 deg C because less is definitely nonsense
+        initicon%sfc%tsoil(jc,nlev_soil,jb) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(jc,jb))
       ENDDO
 
     ENDDO  ! jb
