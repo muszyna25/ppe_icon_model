@@ -37,7 +37,7 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lp2cintp_incr,            &
-    &                               lread_ana
+    &                               lread_ana, lread_vn
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
@@ -439,7 +439,6 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
 
     LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
-    LOGICAL :: lread_vn           ! is vn provided as input?
 
     !-------------------------------------------------------------------------
 

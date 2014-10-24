@@ -38,6 +38,7 @@ MODULE mo_initicon_config
   PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana
+  PUBLIC :: lread_vn
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr
@@ -125,6 +126,7 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
 
   INTEGER :: nlev_in   = 0  !< number of model levels of input data
+  LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
 

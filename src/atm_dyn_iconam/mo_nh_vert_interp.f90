@@ -39,7 +39,7 @@ MODULE mo_nh_vert_interp
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED, MODE_ICONVREMAP
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode
+  USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
@@ -277,7 +277,7 @@ CONTAINS
     IF (PRESENT(opt_use_vn)) THEN
       l_use_vn = opt_use_vn
     ELSE
-      l_use_vn = .TRUE. ! use vn field if allocated
+      l_use_vn = lread_vn ! use vn field if available as input from file
     ENDIF
 
     IF( PRESENT(opt_convert_omega2w) ) THEN
