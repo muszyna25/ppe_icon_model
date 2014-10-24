@@ -65,7 +65,7 @@ MODULE mo_nh_testcases_nml
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
-    &       th_cbl, psfc_cbl, pseudo_rhos
+    &       th_cbl, psfc_cbl, pseudo_rhos, sol_const, zenithang
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -88,6 +88,8 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
   REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
+  REAL(wp) :: sol_const              ! [W/m2] solar constant
+  REAL(wp) :: zenithang              ! [degrees] zenith angle 
 
   !Linear profiles of variables for LES testcases
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
@@ -123,7 +125,7 @@ MODULE mo_nh_testcases_nml
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,    &
-                            psfc_cbl
+                            psfc_cbl, sol_const, zenithang
                       
 
   CONTAINS
@@ -173,6 +175,8 @@ MODULE mo_nh_testcases_nml
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
     ape_sst_val            = 29.0_wp ! 29 degC
+    sol_const              = 1361.371_wp ! [W/m2] default value for amip
+    zenithang              = 38._wp ! value used for Popke et al. exps with no diurn cycle
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer

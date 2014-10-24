@@ -104,7 +104,7 @@ MODULE mo_nwp_phy_init
 
   USE data_gwd,               ONLY: sugwwms
 
-  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
   USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run
@@ -157,6 +157,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres
   REAL(wp)            :: gz0(nproma)
+  REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
 
   CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
   INTEGER             :: icur_date    ! current date converted to integer
@@ -658,7 +659,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
       ! solar flux (W/m2) in 14 SW bands
-      ssi_radt(:) = ssi_rce(:)
+      scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
+      ssi_radt(:) = scale_fac*ssi_amip(:)
       ! solar constant (W/m2)
       tsi_radt    = SUM(ssi_radt(:))
     ENDIF
@@ -833,7 +835,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
       tsi_radt = 0._wp
       ! solar flux (W/m2) in 14 SW bands
-      ssi_radt(:) = ssi_rce(:)
+      scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
+      ssi_radt(:) = scale_fac*ssi_amip(:)
       ! solar constant (W/m2)
       tsi_radt    = SUM(ssi_radt(:))
     ENDIF

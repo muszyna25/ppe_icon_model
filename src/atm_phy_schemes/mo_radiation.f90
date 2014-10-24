@@ -81,6 +81,7 @@ MODULE mo_radiation
   USE mo_timer,                ONLY: timer_radiation, timer_start, timer_stop
 
   USE mo_echam_phy_memory,     ONLY: prm_field
+  USE mo_nh_testcases_nml,     ONLY: zenithang
 
   IMPLICIT NONE
 
@@ -335,9 +336,7 @@ CONTAINS
      ! see Popke et al. 2013 and Cronin 2013
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
-        !zsmu0(1:ie,jb) = pi/4._wp ! zenith = 45 deg
-        !zsmu0(1:ie,jb) = 2._wp/3._wp ! Cronin: zenith = 48.19
-        zsmu0(1:ie,jb) = 0.7854_wp ! Popke: zenith = 38
+        zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
@@ -475,9 +474,7 @@ CONTAINS
      ! see Popke et al. 2013 and Cronin 2013
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
-        !zsmu0(1:ie,jb) = pi/4._wp ! zenith = 45 deg
-        !zsmu0(1:ie,jb) = 2._wp/3._wp ! Cronin: zenith = 48.19
-        zsmu0(1:ie,jb) = 0.7854_wp ! Popke: zenith = 38
+        zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
