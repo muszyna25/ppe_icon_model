@@ -708,7 +708,7 @@ run/add_required_ocean_files -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/check.atm_amip -text
-run/checksuite.icon-dev/check.atm_icoles -text
+run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
 run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_cell -text
@@ -730,13 +730,13 @@ run/dict.latbc -text
 run/dict.output.dwd -text
 run/exec.iconrun -text
 run/exp.ICOLES_nestgrid -text
-run/exp.ICOLES_nestgrid_test -text
 run/exp.ICON_limarea -text
 run/exp.atm_amip -text
 run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
@@ -819,7 +819,7 @@ run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
 run/exp.test_atm_amip -text
 run/exp.test_atm_amip_noparams -text
-run/exp.test_atm_icoles -text
+run/exp.test_atm_icoles_nested -text
 run/exp.test_atm_jww_hs -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_hat_rce_120km -text
