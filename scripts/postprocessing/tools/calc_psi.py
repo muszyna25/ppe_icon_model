@@ -45,7 +45,7 @@ if not os.path.isfile(inputfile):
 options = {'VAR'     : 'u_vint_acc',
            'REMAP'   : True,
            'PLOT'    : 'psi.png',
-           'CMAP'    : 'jet',
+           'CMAP'    : 'BrBG',
            'LEVELS'  : [-250,-150,-100,-75,-50,-40,-30,-20,-15,-10,-5,0,5,10,15,20,30,40,50,75,100,150,250],
            'AREA'    : 'global',
            'SHOWMAP' : True,
