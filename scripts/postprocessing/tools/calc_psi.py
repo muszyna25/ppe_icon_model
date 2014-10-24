@@ -99,10 +99,12 @@ if 'global' != area and True == remapInput:
     x_min,x_max = math.floor(x_min), math.ceil(x_max)
     y_min,y_max = math.floor(y_min), math.ceil(y_max)
 
-# remapcon to regular 1deg grid
+# remapnn  to regular 1deg grid - violated divergence-free velocity at ocean boundaries are visible
+# remapcon to regular 1deg grid - smoothing on boundary problems
 # replace missing value with zero for later summation
 if remapInput:
     ifile = cdo.setmisstoc(0.0,input = '-remapcon,r360x180 '+inputfile,options='-P 8')
+#   ifile = cdo.setmisstoc(0.0,input = '-remapnn,r360x180 '+inputfile,options='-P 8')
     if 'global' != area:
         ifile = cdo.sellonlatbox(x_min,x_max,y_min,y_max,input = ifile)
 else:
