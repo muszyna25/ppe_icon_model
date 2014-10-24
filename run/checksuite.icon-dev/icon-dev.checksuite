@@ -12,26 +12,38 @@ if [ ! -d "${EXP_ORI}" ]; then
   echo 'no experiment '${EXP_ORI}' found'
   exit 1
 fi
-if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
+if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
   echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
   exit 1
 fi
 rm -rf ${EXP_NEW}
 mkdir ${EXP_NEW}
 cd ${EXP_NEW}
-cp ../${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc .
-NDOM=`ls ${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc | wc -w`
-DOM=01
-while [ "${DOM}" -le "${NDOM}" ]; do
-  if [ ${#DOM} -lt 2 ]; then
-    DOM=0${DOM}
-  fi 
-  if [ ${NDOM} -eq 1 ]; then
-    ln -sf ${EXP_ORI}_restart_atm_${RESTART_DATE}.nc restart_atm_DOM${DOM}.nc
-  else
-    ln -sf ${EXP_ORI}_restart_atm_DOM${DOM}_${RESTART_DATE}.nc restart_atm_DOM${DOM}.nc
-  fi
-  DOM=$(( DOM + 1 ))
+COMPS=''
+if [ -f ../${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
+COMPS=${COMPS}' atm'
+fi
+if [ -f ../${EXP_ORI}/${EXP_ORI}_restart_oce_*${RESTART_DATE}.nc ]; then
+COMPS=${COMPS}' oce'
+fi
+if [ -f ../${EXP_ORI}/${EXP_ORI}_restart_lnd_*${RESTART_DATE}.nc ]; then
+COMPS=${COMPS}' lnd'
+fi
+for COMP in ${COMPS}; do
+  cp ../${EXP_ORI}/${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc .
+  NDOM=`ls ${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc | wc -w`
+  DOM=01
+  while [ "${DOM}" -le "${NDOM}" ]; do
+    if [ ${#DOM} -lt 2 ]; then
+      DOM=0${DOM}
+    fi 
+    if [ ${NDOM} -eq 1 ]; then
+      ln -sf ${EXP_ORI}_restart_${COMP}_${RESTART_DATE}.nc restart_${COMP}_DOM${DOM}.nc
+    else
+      ln -sf ${EXP_ORI}_restart_${COMP}_DOM${DOM}_${RESTART_DATE}.nc restart_${COMP}_DOM${DOM}.nc
+    fi
+    DOM=$(( DOM + 1 ))
+  done
 done
 }
 #------------------------------------------------------------------------
@@ -331,6 +343,16 @@ if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
   TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_pl lnd_ml phy_2d_ml phy_3d_ml'}
   DATES=${DATES='19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
   RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
+fi
+if [ "${EXPERIMENT}" == 'oce_omip_0160km' ]; then
+  TYPES=${TYPES='R2B04_oceDefault R2B04_oceDiag'}
+  DATES=${DATES='20010101T000000Z'}
+  RESTART_DATE=${RESTART_DATE='20010102T000000Z'}
+fi
+if [ "${EXPERIMENT}" == 'atm_icoles_nested' ]; then
+  TYPES=${TYPES='prog_vars_DOM01_ML prog_vars_DOM02_ML pbl_vars_DOM01_ML pbl_vars_DOM02_ML cloud_diag_DOM01_ML cloud_diag_DOM02_ML'}
+  DATES=${DATES='20130424T000500Z 20130424T001000Z 20130424T001500Z 20130424T002000Z'}
+  RESTART_DATE=${RESTART_DATE='20130424T001000Z'}
 fi
 
 echo " "
