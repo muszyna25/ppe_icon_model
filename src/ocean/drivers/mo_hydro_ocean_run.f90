@@ -78,7 +78,7 @@ MODULE mo_hydro_ocean_run
   PUBLIC  :: write_initial_ocean_timestep
   
   CHARACTER(LEN=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
-  INTEGER :: idt_src                      ! Level of detail for 1 line debug
+  INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
   !-------------------------------------------------------------------------
 
 CONTAINS
@@ -283,6 +283,7 @@ CONTAINS
         CALL calc_psi (patch_3d, ocean_state(jg)%p_diag%u(:,:,:),         &
           & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
           & ocean_state(jg)%p_diag%u_vint, datetime)
+        CALL dbg_print('calc_psi: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 3, in_subset=patch_2d%cells%owned)
           
         ! calculate diagnostic barotropic stream function with vn
     !  not yet mature
@@ -290,6 +291,8 @@ CONTAINS
     !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
     !     & operators_coefficients,                                       &
     !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, datetime)
+    !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
+    !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
       ENDIF
 
       ! update accumulated vars

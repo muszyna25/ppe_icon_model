@@ -1321,8 +1321,8 @@ CONTAINS
     ENDDO
                 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('calc_psi:    u_vint    ', u_vint        , str_module, idt_src, in_subset=patch_2d%cells%owned)
+ !  idt_src=3  ! output print level (1-5, fix)
+ !  CALL dbg_print('calc_psi:    psi_reg   ', psi_reg       , str_module, idt_src, in_subset=patch_2d%cells%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE calc_psi
@@ -1395,7 +1395,9 @@ CONTAINS
     
     ! (2) remapping normal velocity to zonal and meridional velocity at cell centers
     CALL sync_patch_array(sync_e, patch_2D, vn_vint)       
+
     CALL map_edges2cell_3d(patch_3D, vn_vint, op_coeff, vint_cc)
+
     CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(1))
     CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(2))
     CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(3))
@@ -1420,8 +1422,10 @@ CONTAINS
                 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('calc_psi_vn: u_vint    ', u_vint      , str_module, idt_src, in_subset=patch_2d%cells%owned)
-    CALL dbg_print('calc_psi_vn: vi_cc%x(1)' ,vint_cc%x(1), str_module, idt_src, in_subset=patch_2d%cells%owned)
+    CALL dbg_print('calc_psi_vn: u_2d        ', u_2d        , str_module, idt_src, in_subset=patch_2d%cells%owned)
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('calc_psi_vn: v_2d        ', v_2d        , str_module, idt_src, in_subset=patch_2d%cells%owned)
+    CALL dbg_print('calc_psi_vn: vint_cc%x(1)' ,vint_cc%x(1), str_module, idt_src, in_subset=patch_2d%cells%owned)
     !---------------------------------------------------------------------
 
     
