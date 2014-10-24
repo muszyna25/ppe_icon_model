@@ -159,7 +159,8 @@ psi  = -psi * dist * 1.0e-6
 # WRITE PSI {{{ ==========================================================================
 if options['WRITEPSI']:
   # create a copy of the input data and rename the variable
-  psiFileName = cdo.chname('psi,%s'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
+# psiFileName = cdo.chname('psi,%s'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
+  psiFileName = cdo.chname('psi,%s'%(varName),input = ifile, output = os.path.dirname(inputfile)+'u_vint_remapped.nc',force=True,options='-r')
   try:
     from netCDF4 import Dataset
   except:
