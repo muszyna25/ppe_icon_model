@@ -46,8 +46,9 @@ MODULE mo_util_cdi
 
   PUBLIC :: has_filetype_netcdf
   PUBLIC :: read_cdi_2d, read_cdi_3d
-  PUBLIC :: get_cdi_varID
   PUBLIC :: test_cdi_varID
+  PUBLIC :: get_cdi_varID
+  PUBLIC :: get_cdi_NlevRef
   PUBLIC :: set_additional_GRIB2_keys
   PUBLIC :: set_timedependent_GRIB2_keys
   PUBLIC :: t_inputParameters, makeInputParameters, deleteInputParameters
@@ -318,6 +319,42 @@ CONTAINS
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END FUNCTION get_cdi_varID
+
+
+
+  !-------------------------------------------------------------------------
+  !> @return the number of half levels of a generalized Z-axis for a given variable name
+  !
+  !  Uses cdilib for file access.
+  !  Initial revision by D. Reinert, DWD (2014-10-24)
+  !
+  FUNCTION get_cdi_NlevRef(streamID, name, opt_tileidx, opt_dict) RESULT(result_NlevRef)
+    INTEGER                                 :: result_NlevRef
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx       !< tile index, encoded as "localInformationNumber"
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
+    ! local variables
+    INTEGER :: varID                                              ! variable ID
+    INTEGER :: vlistID
+    INTEGER :: zaxisID 
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_NlevRef'
+
+    varID = test_cdi_varID(streamID, name, opt_tileidx, opt_dict)
+    IF (varID== -1) THEN
+      IF (PRESENT(opt_tileidx)) THEN
+        WRITE (0,*) "tileidx = ", opt_tileidx
+      END IF
+      CALL finish(routine, "Variable "//TRIM(name)//" not found!")
+    END IF
+    vlistID = streamInqVlist(streamID)
+    zaxisID = vlistInqVarZaxis(vlistID,varID)
+    IF (zaxisInqType(zaxisID) /= ZAXIS_REFERENCE) THEN
+      CALL finish(routine, "Variable "//TRIM(name)//" has no generalized Z-axis!")
+    ENDIF
+    ! number of half levels of the generalized Z-axis
+    result_NlevRef = zaxisInqNlevRef(zaxisID)
+  END FUNCTION get_cdi_NlevRef
 
 
   !---------------------------------------------------------------------------------------------------------------------------------

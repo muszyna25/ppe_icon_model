@@ -96,7 +96,7 @@ MODULE mo_initicon
   !-------------
   !>
   !! SUBROUTINE init_icon
-  !! Initialization routine of init_icon: Reads in either DWD or IFS analysis
+  !! ICON initialization routine: Reads in either DWD or external (IFS/COSMO) analysis
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)

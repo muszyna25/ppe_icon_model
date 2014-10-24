@@ -49,7 +49,8 @@ MODULE mo_initicon_io
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, onCells, onEdges
-  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters, makeInputParameters, deleteInputParameters
+  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters, &
+    &                               makeInputParameters, deleteInputParameters, get_cdi_NlevRef
   USE mo_util_string,         ONLY: one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
@@ -1097,8 +1098,7 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
 
     INTEGER :: jg, jk, jc, jb, i_endidx
-    INTEGER :: nlev, nlevp1
-
+    INTEGER :: mpi_comm
     INTEGER :: ngrp_vars_fg, filetype
 
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
@@ -1113,20 +1113,33 @@ MODULE mo_initicon_io
 
     DO jg = 1, n_dom
 
-      ! later on, the number of input model levels needs to be determined here.
-      ! as a first step, we assume that nlev_in = nlev
-      nlev_in = p_patch(jg)%nlev
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+
+      ! determine number of HALF LEVELS of generalized Z-AXIS
+      ! use 'theta_v' for testing (may have chosen another one as well)
+      IF(my_process_is_stdio() ) THEN 
+        IF (filetype_fg(jg) == FILETYPE_GRB2) THEN
+          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'theta_v', opt_dict=ana_varnames_dict)
+        ELSE
+          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'theta_v')
+        ENDIF
+        ! number of LAYERS:
+        nlev_in = nlev_in - 1
+      ENDIF  ! p_io
+
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+      CALL p_bcast(nlev_in, p_io, mpi_comm)
 
       ! allocate data structure for reading input data
       CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
 
-      ! number of vertical full and half levels
-      nlev   = p_patch(jg)%nlev
-      nlevp1 = p_patch(jg)%nlevp1
-
-      ! Skip reading the atmospheric input data if a model domain 
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! save some paperwork
       ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
