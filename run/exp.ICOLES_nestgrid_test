@@ -1,0 +1,273 @@
+#--------------------------------------------------------------------------------------------------
+#
+# ICON-LES limited area with nests experiment
+#
+author_list="Anurag Dipankar, MPIM"
+#
+#--------------------------------------------------------------------------------------------------
+#
+# This file describes a limited-area large eddy simulation experiment based on the non-hydrostatic dynamics 
+# and LES physics. It is intialized and forced (laterally) from the COSMO-DE data.The model domains covers
+# Germany with a smaller nests near center. The experiment was used in the HD(CP)2 project for testing
+# purposes. Further details:
+#   - Initial condition from COSMO-DE 
+#   - Land data also from COSMO-DE (using TERRA)
+#   - Lateral boundary data also from COSMO-DE
+#
+# _bb_table_Description_  ICOLES experiment
+# _bb_table_Model_        non-hydrostatic dynamics + LES physics
+#
+#--------------------------------------------------------------------------------------------------
+#
+# Set the model configuration
+#
+#--------------------------------------------------------------------------------------------------
+#
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# simulation start and end date
+start_date="2013-04-24T00:00:00Z" 
+end_date="2013-04-24T00:20:00Z"
+#
+#-----------------------------------------------------------------------------
+# model timestep
+dtime=2
+#
+#restart interval
+dt_checkpoint=600 #10 mins
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # NH equation system
+iforcing=3             # 3 for inwp forcing which then calls the LES physics
+#
+#-----------------------------------------------------------------------------
+# the grid and other files
+#
+# the grid parameters
+grids_folder="/pool/data/ICON/ICON-DE/GRIDS"
+grid_1=icoles_IconChecksuite_DOM01_R4996m
+grid_2=icoles_IconChecksuite_DOM02_R2498m
+atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
+dynamics_parent_grid_id="  0,       1"
+#
+# absolute path to directory with LAM data
+LAMDATA=/pool/data/ICON/ICON-DE
+#
+#LATBC PATH
+LATBC_PATH=$LAMDATA/NUDG_germany/4996/
+#
+#EXT DATA
+ext_data_path=$LAMDATA/EXTPAR
+add_link_file $ext_data_path/extpar_${grid_1}.nc  extpar_${grid_1}.nc
+add_link_file $ext_data_path/extpar_${grid_2}.nc  extpar_${grid_2}.nc
+
+#INITIAL DATA
+init_data_path=$LAMDATA/INIT_germany
+init_date=2013042400
+add_link_file $init_data_path/4996/init_${grid_1}_${init_date}.nc ifs2icon_R2B09_DOM01.nc
+add_link_file $init_data_path/4996/init_${grid_1}_${init_date}.nc dwdFG_R2B09_DOM01.nc
+add_link_file $init_data_path/2500/init_${grid_2}_${init_date}.nc ifs2icon_R2B10_DOM02.nc
+add_link_file $init_data_path/2500/init_${grid_2}_${init_date}.nc dwdFG_R2B10_DOM02.nc
+#
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+dynamics_parent_grid_id="${dynamics_parent_grid_id},"
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+ num_io_procs   = 0
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = ${dynamics_grid_filename}
+ dynamics_parent_grid_id = ${dynamics_parent_grid_id}
+ lfeedback         = .true.
+ l_limited_area    = .true.
+/ 
+&initicon_nml
+ init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
+ ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+ nlevsoil_in            =  8
+ lread_ana              = .false.
+/
+&run_nml
+ num_lev     = 50,50,50     ! number of full levels of vertical grid
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ldynamics   = .TRUE.       ! dynamics
+ ltestcase   = .FALSE.      ! testcase
+ ltransport  = .TRUE.       ! transport
+ iforcing    = ${iforcing}  !
+ ltimer      = .true.       ! 
+ timers_level = 10          !
+ msg_level   = 10           ! detailed report during integration
+ output      = 'nml'
+ restart_filename = "${EXPNAME}_restart_atm_DOM<idom>_<rsttime>.nc"
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+ lcoriolis   = .TRUE.
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+/
+&limarea_nml
+ itype_latbc     = 1
+ dtime_latbc     = 3600.
+ nlev_latbc      = 50
+ latbc_path      = '${LATBC_PATH}'
+ latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
+/
+&diffusion_nml
+ hdiff_order      = 5
+ hdiff_efdt_ratio = 17.5
+ hdiff_smag_fac   = 0.05
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ itype_t_diffu    = 2
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&nwp_phy_nml
+inwp_gscp       = 4,4,4 !two moment microphysics
+inwp_convection = 0,0,0
+inwp_radiation  = 1,1,1
+inwp_cldcover   = 5,5,5
+inwp_turb       = 5,5,5
+inwp_satad      = 1,1,1
+inwp_sso        = 0,0,0
+inwp_gwd        = 0,0,0
+inwp_surface    = 1,1,1
+latm_above_top  = .true.,.true.,.true.
+efdt_min_raylfric = 7200.
+itype_z0         = 2
+dt_rad           = 240.,240.,240.
+/
+&les_nml
+ smag_constant     = 0.23
+ isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
+ vert_scheme_type  = 2
+ ldiag_les_out     = .FALSE.
+/
+&lnd_nml
+ntiles   = 1
+nlev_snow = 2
+lmulti_snow = .true.
+idiag_snowfrac = 1
+lsnowtile = .false.
+frlnd_thrhld = 0.5
+frlake_thrhld = 0.5
+frsea_thrhld = 0.5
+lseaice   = .false.
+llake     = .false.
+itype_lndtbl   =  2
+/
+&radiation_nml
+ irad_o3 = 7
+ irad_aero = 6
+/
+&interpol_nml
+nudge_zone_width  = 8  !-1 create nudge zone in grid
+lsq_high_ord      = 2
+/
+&gridref_nml
+ grf_intmethod_e  = 6
+ grf_scalfbk      = 1
+ grf_tracfbk      = 1
+ denom_diffu_v    = 150.
+ l_mass_consvcorr = .true. 
+ l_density_nudging = .true.
+/
+&nonhydrostatic_nml
+ iadv_rhotheta    =  2
+ ivctype          =  2
+ itime_scheme     =  4
+ exner_expol      =  0.333
+ vwind_offctr     =  0.25
+ damp_height      =  15000.
+ rayleigh_coeff   =  0.25
+ iadv_rcf         =  5
+ lhdiff_rcf       = .true.
+ divdamp_fac      =  0.004
+ divdamp_order    =  4
+ l_open_ubc       = .true.
+ l_nest_rcf       = .true.
+ igradp_method    =  3
+ l_zdiffu_t       = .true.
+ thslp_zdiffu     =  0.02
+ thhgtd_zdiffu    =  125.
+ htop_moist_proc  =  22500.
+ hbot_qvsubstep   =  24000.
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ top_height      = 21000.
+ stretch_fac     = 0.9
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.
+/
+&io_nml
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+/
+&extpar_nml
+ itopo          = 1
+ n_iter_smooth_topo = 0
+ heightdiff_threshold = 3000.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT05M"
+ file_interval    = "PT05M"
+ include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_prog_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT05M"
+ file_interval    = "PT05M"
+ include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_pbl_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'group:pbl_vars','umfl_s','vmfl_s'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT05M"
+ file_interval    = "PT05M"
+ include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_cloud_diag'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars'
+ output_grid      = .TRUE.
+/
+EOF
+#
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------
