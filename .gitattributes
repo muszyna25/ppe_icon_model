@@ -709,7 +709,7 @@ run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/check.atm_amip -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
-run/checksuite.icon-dev/check.oce_omip -text
+run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
 run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_edge -text
@@ -834,6 +834,7 @@ run/exp.test_oce_buildbot -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
+run/exp.test_oce_omip_0160km -text
 run/exp.test_oce_parallel -text
 run/exp.test_oce_testbed_read -text
 run/exp.tracer_solid_body -text
