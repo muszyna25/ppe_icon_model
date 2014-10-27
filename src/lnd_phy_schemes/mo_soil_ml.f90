@@ -831,6 +831,7 @@ END SUBROUTINE message
     t_so_free_new(ie,0:ke_soil+1), &
     t_so_snow_new(ie,0:ke_soil+1), &
     sn_frac(ie), &
+    zf_snow_lim(ie), &
     weight         , &
 !
 !   Plant parameters
@@ -2010,7 +2011,8 @@ END SUBROUTINE message
 
 !       constrain snow depth and consider this constraint for the computation
 !       of average snow density of snow layer
-        zdz_snow (i) =  zdz_snow (i)/MAX(0.01_ireals,zf_snow(i))
+        zf_snow_lim(i) = MAX(0.01_ireals,0.1_ireals*freshsnow(i),zf_snow(i))
+        zdz_snow (i) =  zdz_snow(i)/zf_snow_lim(i)
         zdz_snow (i) =  MAX(cdsmin,zdz_snow(i))
 
 !       limitation of snow depth to 1.5m for snow cover heat transfer
@@ -3553,7 +3555,7 @@ ELSE   IF (itype_interception == 2) THEN
 !                                1.105E-06_ireals*prho_snow(i,nx)**2)
 
 !          zgsb(i) = zalas*(ztsnow(i) - zts(i))/zdz_snow_fl(i)
-          zgsb(i) = zalas*(ztsnow(i) - zts(i))/MAX(zdz_snow_fl(i)*zf_snow(i),cdsmin)
+          zgsb(i) = zalas*(ztsnow(i) - zts(i))/zdz_snow_fl(i)
         END IF
 
         ! total forcing for uppermost soil layer
@@ -4088,19 +4090,19 @@ ENDIF
               !              melting of snow is considered.
               ! a) Heat redistribution
               ztsnew = t0_melt + zepsi
-              ztsnownew      = ztsn(i) + ztsnown(i) - ztsnew +  &
+              ztsnownew      = ztsnown(i) + zf_snow_lim(i)*(ztsn(i) - ztsnew) +  &
                    2._ireals*(ztsn(i) - ztsnew)*zroc(i,1)*zdzhs(1)/zrocs(i)
-              zdtsdt(i)    = zdtsdt(i) + (ztsnew - t_so_new(i,1))*z1d2dt
+              zdtsdt(i)    = zdtsdt(i) + zf_snow_lim(i)*(ztsnew - t_so_new(i,1))*z1d2dt
               zdtsnowdt(i) = zdtsnowdt(i) + (ztsnownew - ztsnown(i))*z1d2dt
               ! b) Melting of snow (if possible)
               IF (ztsnownew > t0_melt) THEN
-                ze_avail     = 0.5_ireals*(ztsnownew - t0_melt)*zrocs(i)
+                ze_avail     = 0.5_ireals*(ztsnownew - t0_melt)*zrocs(i)*zf_snow_lim(i)
                 ze_total     = lh_f*zwsnew(i)*rho_w
                 zfr_melt     = MIN(1.0_ireals,ze_avail/ze_total)
                 zdtsnowdt(i)= zdtsnowdt(i) + (t0_melt - ztsnownew)*z1d2dt
                 zdelt_s      = MAX(0.0_ireals,(ze_avail - ze_total)/(zroc(i,1)* &
                                                                         zdzhs(1)))
-                zdtsdt(i)  = zdtsdt(i) + zdelt_s*z1d2dt
+                zdtsdt(i)  = zdtsdt(i) + zf_snow_lim(i)*zdelt_s*z1d2dt
     
                 ! melted snow is allowed to penetrate the soil (up to field
                 ! capacity), if the soil type is neither ice nor rock (zrock = 0);
