@@ -412,6 +412,7 @@ case "$ac_sitename" in
                 HDF5ROOT    = $software_tree/hdf5-1.8.8-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr
+                CFLAGS   = $CFLAGS -DHAVE_NETCDF4
                 SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
                 IB_LIBS  = -lrdmacm -libverbs
                 # load_profile="." "/client/etc/profile.zmaw"
