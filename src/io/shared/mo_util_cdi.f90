@@ -434,6 +434,9 @@ CONTAINS
     IF(my_process_is_stdio()) THEN
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ELSE
+        ALLOCATE(tmp_buf(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     END IF
 
     ! initialize output field:
@@ -460,10 +463,8 @@ CONTAINS
     END DO ! jk=1,nlevs
 
     ! clean up
-    IF(my_process_is_stdio()) THEN
-        DEALLOCATE(tmp_buf, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    END IF
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
   END SUBROUTINE read_cdi_3d_wp
 
@@ -484,6 +485,9 @@ CONTAINS
     ! allocate a buffer for one vertical level
     IF(my_process_is_stdio()) THEN
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ELSE
+        ALLOCATE(tmp_buf(1), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     END IF
 
@@ -511,10 +515,8 @@ CONTAINS
     END DO ! jk=1,nlevs
 
     ! clean up
-    IF(my_process_is_stdio()) THEN
-        DEALLOCATE(tmp_buf, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    END IF
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
   END SUBROUTINE read_cdi_3d_sp
 
@@ -585,14 +587,15 @@ CONTAINS
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         CALL timeStreamReadVarSliceF(parameters, varID, 0, tmp_buf(:), nmiss)
+    ELSE
+        ALLOCATE(tmp_buf(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     END IF
 
     CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :), .false.)
 
-    IF (my_process_is_stdio()) THEN
-        DEALLOCATE(tmp_buf, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    END IF
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END SUBROUTINE read_cdi_2d_sp
 
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -612,14 +615,15 @@ CONTAINS
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         CALL timeStreamReadVarSlice(parameters, varID, 0, tmp_buf(:), nmiss)
+    ELSE
+        ALLOCATE(tmp_buf(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     END IF
 
     CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :), .false.)
 
-    IF (my_process_is_stdio()) THEN
-        DEALLOCATE(tmp_buf, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    END IF
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END SUBROUTINE read_cdi_2d_wp
 
 
