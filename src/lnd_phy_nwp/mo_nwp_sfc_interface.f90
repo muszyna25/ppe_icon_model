@@ -420,7 +420,7 @@ CONTAINS
           tfv_t(ic)                 =  prm_diag%tfv_t(jc,jb,isubs)
           sobs_t(ic)                =  prm_diag%swflxsfc_t(jc,jb,isubs) 
           thbs_t(ic)                =  prm_diag%lwflxsfc_t(jc,jb,isubs) 
-          pabs_t(ic)                =  prm_diag%swflxsfc_t(jc,jb,isubs) 
+          pabs_t(ic)                =  prm_diag%swflx_par_sfc(jc,jb) 
 
           soiltyp_t(ic)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           plcov_t(ic)               =  ext_data%atm%plcov_t(jc,jb,isubs)
