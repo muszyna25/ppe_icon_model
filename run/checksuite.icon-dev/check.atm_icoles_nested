@@ -35,7 +35,7 @@ export RESTART_DATE='20130424T001000Z'
 # m = mpi test
 # o = omp test
 #
-# default: MD='rnm'
+# default: MD='rnmo'
 #
 export MD='rnm'
 
