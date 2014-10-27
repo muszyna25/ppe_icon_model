@@ -154,7 +154,7 @@ cat > ${ocean_namelist} << EOF
 ! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3
   physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
   use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  GMRedi_configuration            =   1       ! 0=cartesian diffusion 1=GM-Redi combined bolus advection + isopycnal diffusion
+  GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 0: not allowed, 1=zero-layer, 2=Winton
