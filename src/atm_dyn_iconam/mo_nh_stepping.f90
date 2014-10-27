@@ -31,7 +31,7 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                     ONLY: wp
   USE mo_nonhydro_state,           ONLY: p_nh_state
-  USE mo_nonhydrostatic_config,    ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
+  USE mo_nonhydrostatic_config,    ONLY: iadv_rcf, lhdiff_rcf, itime_scheme, &
     &                                    nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2, &
     &                                    ih_clch, ih_clcm, kstart_moist
   USE mo_diffusion_config,         ONLY: diffusion_config
@@ -930,14 +930,6 @@ MODULE mo_nh_stepping
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
     
-    !--------------------------------------------------------------------------
-    ! settings for calling frequency for slow physics
-    !--------------------------------------------------------------------------
-    IF (jg == 1 .AND. linit_dyn(jg)) THEN
-
-      IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
-    ENDIF
-    
     ! Determine parent domain ID
     IF ( jg > 1) THEN
       jgp = p_patch(jg)%parent_id
@@ -1016,7 +1008,7 @@ MODULE mo_nh_stepping
         lclean_mflx    = .FALSE.  ! do NOT re-initialize mass fluxes and velocities
       ENDIF
 
-      IF ( l_nest_rcf .AND. n_dom > 1) THEN
+      IF ( n_dom > 1) THEN
         IF (jg == 1 .AND. MOD(nstep_global,iadv_rcf) == 1 .OR. &
             jg > 1 .AND. MOD(jstep,iadv_rcf) == 1 ) THEN
 
@@ -1529,16 +1521,11 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! If there are nested domains...
-      IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
+      IF (lstep_adv(jg))  THEN
         l_call_nests = .TRUE.
         rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc
         n_now_grf    = nsav1(jg)
         nsteps_nest  = 2*iadv_rcf
-      ELSE IF (.NOT. l_nest_rcf) THEN
-        l_call_nests = .TRUE.
-        rdt_loc = 1._wp/dt_loc
-        n_now_grf    = n_now
-        nsteps_nest  = nest_substeps
       ELSE
         l_call_nests = .FALSE.
       ENDIF
@@ -1647,7 +1634,6 @@ MODULE mo_nh_stepping
         ! Finally, switch between time levels now and new for next time step
         n_temp   = nnow(jg)
         nnow(jg) = nnew(jg)
-        IF (.NOT. l_nest_rcf) nsav1(jg) = nnow(jg)
         nnew(jg) = n_temp
 
         ! Special treatment for processes (i.e. advection) which can be treated with

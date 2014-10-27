@@ -46,7 +46,7 @@ MODULE mo_nonhydro_state
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                                t_nh_ref, t_nh_metrics
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
-  USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, iadv_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
@@ -153,9 +153,9 @@ MODULE mo_nonhydro_state
         ntl_pure = 1
       ENDIF
 
-      ! If grid nesting is not called at every dynamics time step, an extra time
+      ! As grid nesting is not called at every dynamics time step, an extra time
       ! level is needed for full-field interpolation and boundary-tendency calculation
-      IF (l_nest_rcf .AND. n_dom > 1) THEN
+      IF (n_dom > 1) THEN
         ntl = ntl + 1
         nsav1(jg) = ntl
       ENDIF

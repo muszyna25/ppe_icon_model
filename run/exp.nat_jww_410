@@ -140,7 +140,6 @@ inwp_surface    = 0
  rayleigh_coeff = 0.05
  iadv_rcf       = 4
  l_open_ubc     = .false.
- l_nest_rcf     = .true.
  ltheta_up_hori = .TRUE     ! use upstream biased theta advection
 /
 &dynamics_nml

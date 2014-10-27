@@ -260,7 +260,6 @@ cat > NAMELIST_NWP << EOF
  lhdiff_rcf                  =                      .TRUE.        ! .TRUE.=compute diffusion only at advection time steps
  divdamp_order               =                          4         ! order of divergence damping
  l_open_ubc                  =                     .FALSE.        ! .TRUE.=use open upper boundary condition
- l_nest_rcf                  =                      .TRUE.        ! synchronize interpolation/feedback calls with advection
  igradp_method               =                          3         ! discretization of horizontal pressure gradient
  l_zdiffu_t                  =                      .TRUE.        ! specifies computation of Smagorinsky temperature diffusion
  thslp_zdiffu                =                          0.02      ! slope threshold (temperature diffusion)

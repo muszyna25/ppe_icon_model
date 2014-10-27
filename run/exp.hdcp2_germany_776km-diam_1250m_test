@@ -220,7 +220,6 @@ cat > ${atmo_namelist} << EOF
  divdamp_fac = 0.004
  divdamp_order = 4
  l_open_ubc    = .true. ! .true.
- l_nest_rcf   = .true.
  igradp_method = 3
  l_zdiffu_t    = .true.
  thslp_zdiffu   = 0.02

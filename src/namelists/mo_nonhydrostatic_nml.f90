@@ -49,7 +49,6 @@ MODULE mo_nonhydrostatic_nml
                                     & config_igradp_method    => igradp_method    , &
                                     & config_exner_expol      => exner_expol      , &
                                     & config_l_open_ubc       => l_open_ubc       , &
-                                    & config_l_nest_rcf       => l_nest_rcf       , &
                                     & config_l_masscorr_nest  => l_masscorr_nest  , &
                                     & config_l_zdiffu_t       => l_zdiffu_t       , &
                                     & config_thslp_zdiffu     => thslp_zdiffu     , &
@@ -103,7 +102,6 @@ MODULE mo_nonhydrostatic_nml
                                      ! horizontal pressure gradient
   LOGICAL :: l_open_ubc              ! .true.: open upper boundary condition (w=0 otherwise)
 
-  LOGICAL :: l_nest_rcf              ! .true.: call nests only with rcf frequency
   INTEGER :: nest_substeps           ! the number of dynamics substeps for the child patches
   LOGICAL :: l_masscorr_nest         ! Apply mass conservation correction also to nested domain
   
@@ -118,7 +116,7 @@ MODULE mo_nonhydrostatic_nml
                               & hbot_qvsubstep, damp_height, rayleigh_type,               &
                               & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
-                              & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
+                              & nest_substeps, l_masscorr_nest, l_zdiffu_t,               &
                               & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
                               & rhotheta_offctr, lextra_diffu, veladv_offctr
 
@@ -215,8 +213,6 @@ CONTAINS
     exner_expol       = 1._wp/3._wp
     ! TRUE: use the open upper boundary condition
     l_open_ubc        = .FALSE.
-    ! Synchronize nesting calls with large (transport) time steps
-    l_nest_rcf        = .TRUE.
     ! 2 child dynamics substeps (DO NOT CHANGE!!! The code will not work correctly with other values)
     nest_substeps     = 2
     ! TRUE: apply mass conservation correction computed for feedback in the nested domain, too
@@ -282,17 +278,9 @@ CONTAINS
       ENDIF
     ENDDO
 
-
-    ! reset l_nest_rcf to false if iadv_rcf = 1
-    IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
-    IF (nest_substeps == 1) l_nest_rcf = .FALSE.
-    ! for reduced calling frequency of tracer advection / fast physics:
-    ! odd values of iadv_rcf are allowed only if nest calls are 
-    ! synchronized with advection
-    IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,nest_substeps) /= 0 .AND. iadv_rcf /= 1 &
-         .OR. iadv_rcf == 0) THEN
+    IF ( iadv_rcf <= 0) THEN
         CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
-          &'Value must be even or 1 if l_nest_rcf=.FALSE.')
+          &'Value must be positive')
     ENDIF
 
 
@@ -332,7 +320,6 @@ CONTAINS
        config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
        config_l_open_ubc        = l_open_ubc
-       config_l_nest_rcf        = l_nest_rcf
        config_nest_substeps     = nest_substeps
        config_l_zdiffu_t        = l_zdiffu_t
        config_thslp_zdiffu      = thslp_zdiffu

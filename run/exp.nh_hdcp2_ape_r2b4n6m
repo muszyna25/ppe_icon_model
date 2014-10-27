@@ -170,7 +170,6 @@ dt_sso          = ${DT_SSO}
  rayleigh_coeff = 0.05
  iadv_rcf       = 4
  l_open_ubc     = .true.
- l_nest_rcf     = .true.
  htop_moist_proc = 22500
 /
 &sleve_nml

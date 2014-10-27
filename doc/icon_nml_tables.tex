@@ -2737,8 +2737,7 @@ iadv\_rcf&
 I& 5& &
 reduced calling frequency (rcf) for transport/diffusion/physics \\
 1: no rcf (every dynamics-step)\\
-n$>$1: transport every n-th step \\
-Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
+n$>$1: transport every n-th step &
 \tabularnewline
 
 %\hline
@@ -2781,13 +2780,6 @@ Type of divergence damping: \\
 3 = divergence damping acting on 3D divergence \\
 32 = combination of 3D div. damping in the troposphere with transition to 2D div. damping in the stratosphere (recommended for data assimilation cycle only!) &
 lhdiff\_rcf = .TRUE.
-\tabularnewline
-
-%\hline
-l\_nest\_rcf&
-L& .TRUE.& &
-Synchronize interpolation/feedback calls with advection (transport) time steps.
-l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
 \tabularnewline
 
 %\hline

@@ -481,9 +481,7 @@ CONTAINS
 
     IF (l_masscorr_nest) THEN
       ! Add mass conservation correction to child domain in order to prevent
-      ! possible inconsistencies in the mass fields; without l_nest_rcf, the
-      ! correction increments are smaller, so that this correction does not appear
-      ! to be needed.
+      ! possible inconsistencies in the mass fields
       i_startblk = p_gcc%start_blk(grf_bdywidth_c+1,1)
       i_endblk   = p_gcc%end_blk(min_rlcell,i_nchdom)
 

@@ -1632,9 +1632,9 @@ CONTAINS
 
         WRITE(message_text,'(a)') 'Extpar file and horizontal grid file do not match!'
         IF (check_uuid_gracefully) THEN
-          CALL warning(routine, TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ELSE
-          CALL finish(routine, TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         END IF
       ENDIF      
 

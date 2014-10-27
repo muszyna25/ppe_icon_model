@@ -165,7 +165,6 @@ nudge_zone_width  = 8
  iadv_rcf       = 4
  lhdiff_rcf    = .true.
  divdamp_fac   = 0.004
- l_nest_rcf   = .true.
 /
 &sleve_nml                    ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 50.0       ! lowest level thickness (between half-levels), set 0 to do equal spacing
