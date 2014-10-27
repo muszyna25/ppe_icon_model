@@ -33,6 +33,7 @@ export RESTART_DATE='20130424T001000Z'
 # r = restart test
 # n = nproma test
 # m = mpi test
+# o = omp test
 #
 # default: MD='rnm'
 #
