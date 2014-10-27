@@ -88,7 +88,7 @@ MODULE mo_solve_nonhydro
   !! Development started by Guenther Zaengl on 2010-02-03
   !!
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
-                       lprep_adv, lstep_adv, lclean_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
+                       lprep_adv, lclean_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
@@ -103,8 +103,6 @@ MODULE mo_solve_nonhydro
     LOGICAL,                   INTENT(IN)    :: lsave_mflx
     ! Switch if preparations for tracer advection shall be computed
     LOGICAL,                   INTENT(IN)    :: lprep_adv
-    ! Switch if current time step is a tracer advection step (relevant only if lprep_adv = .true.)
-    LOGICAL,                   INTENT(IN)    :: lstep_adv
     ! Switch if mass fluxes computed for tracer advection need to be reinitialized
     LOGICAL,                   INTENT(IN)    :: lclean_mflx
     ! Counter of dynamics time step within a large time step (ranges from 1 to iadv_rcf)

@@ -1240,8 +1240,8 @@ MODULE mo_nh_stepping
         IF (itype_comm == 1) THEN
 
           IF (ldynamics) THEN
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg),        &
-              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),&
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg), &
+              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv,        &
               lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
