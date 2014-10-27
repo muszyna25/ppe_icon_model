@@ -150,7 +150,7 @@ CONTAINS
 
         DEALLOCATE(recvArray)
         DEALLOCATE(sendArray)
-        CALL me%endDistribution(INT(me%pointCount * 8, i8))
+        CALL me%endDistribution(INT(me%pointCount, i8) * 8_i8)
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatterV_dp
 
@@ -208,7 +208,7 @@ CONTAINS
 
         DEALLOCATE(recvArray)
         DEALLOCATE(sendArray)
-        CALL me%endDistribution(INT(me%pointCount * 4, i8))
+        CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatterV_sp
 
