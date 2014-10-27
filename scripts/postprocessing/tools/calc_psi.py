@@ -159,17 +159,20 @@ psi  = -psi * dist * 1.0e-6
 # WRITE PSI {{{ ==========================================================================
 if options['WRITEPSI']:
   # create a copy of the input data and rename the variable
-# psiFileName = cdo.chname('psi,%s'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
-  psiFileName = cdo.chname('psi,%s'%(varName),input = ifile, output = os.path.dirname(inputfile)+'u_vint_remapped.nc',force=True,options='-r')
+  psiFileName = cdo.chname('%s,psi'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
+
   try:
     from netCDF4 import Dataset
   except:
     print("Could not load netCDF4 module!")
 
-  psiFile = Dataset(psiFileName,'r+')
-  psiFileVar = psiFile.variables[varName][:]
-  psiFileVar = psi
-  psiFile.history = psiFile.history + ' changed by calc_psi.py'
+  psiFile                  = Dataset(psiFileName,'r+')
+  psiFileVar               = psiFile.variables['psi']
+  psiFileVar.standard_name = "barotropic stream function"
+  psiFileVar.long_name     = "psi"
+  psiFileVar.units         = "Sv"
+  psiFileVar[1,:,:]        = psi[:,:]
+  psiFile.history          = psiFile.history + ' changed by calc_psi.py'
   psiFile.close()
 # }}} ===================================================================================
 # PLOTTING {{{ ==========================================================================
