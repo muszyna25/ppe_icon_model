@@ -157,7 +157,7 @@ MODULE mo_pp_scheduler
 
   USE mo_kind,                    ONLY: wp
   USE mo_exception,               ONLY: message, message_text, finish
-  USE mo_impl_constants,          ONLY: SUCCESS, HINTP_TYPE_NONE, max_dom, max_var_ml,      &
+  USE mo_impl_constants,          ONLY: SUCCESS, HINTP_TYPE_NONE, max_var_ml,               &
     &                                   max_var_pl, max_var_hl, max_var_il, TASK_NONE,      &
     &                                   TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,  &
     &                                   TASK_FINALIZE_IPZ, TASK_INTP_HOR_LONLAT,            &
@@ -166,24 +166,22 @@ MODULE mo_pp_scheduler
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
     &                                   vname_len, TASK_COMPUTE_OMEGA
-  USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_var_list,                ONLY: add_var, get_all_var_names,                         &
-    &                                   nvar_lists, var_lists, get_var_name,                &
+  USE mo_model_domain,            ONLY: p_patch, p_phys_patch
+  USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel
-  USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,                  &
+  USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta,                 &
-    &                                   VINTP_TYPE_LIST, VARNAME_LEN, t_post_op_meta
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, VINTP_TYPE_LIST, VARNAME_LEN,       &
+    &                                   t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_types,            &
     &                                   vintp_type_id
-  USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,                      &
+  USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
     &                                   t_lon_lat_intp, p_int_state,                        &
     &                                   MAX_LONLAT_GRIDS
   USE mo_nonhydro_state,          ONLY: p_nh_state
-  USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, t_nh_opt_diag, p_nh_opt_diag
-  USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
+  USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, p_nh_opt_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
-  USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
+  USE mo_nh_pzlev_config,         ONLY: nh_pzlev_config
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_name_list_output_types,  ONLY: t_output_name_list
   USE mo_parallel_config,         ONLY: nproma
@@ -194,7 +192,6 @@ MODULE mo_pp_scheduler
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                          &
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,                &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
-    &                                   GRID_UNSTRUCTURED_EDGE,                             &
     &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC,     &
     &                                   is_2d_field
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
@@ -202,9 +199,8 @@ MODULE mo_pp_scheduler
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl, pp_task_edge2cell,                & 
-    &                                   t_data_input, t_data_output,                        &
     &                                   t_simulation_status, t_job_queue, job_queue,        &
-    &                                   MAX_NAME_LENGTH, HIGH_PRIORITY,                     &
+    &                                   HIGH_PRIORITY,                                      &
     &                                   DEFAULT_PRIORITY0, DEFAULT_PRIORITY1,               &
     &                                   DEFAULT_PRIORITY2, DEFAULT_PRIORITY3,               &
     &                                   DEFAULT_PRIORITY4, LOW_PRIORITY, dbg_level
@@ -330,7 +326,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:init_vn_horizontal")
     TYPE(t_list_element), POINTER :: element_u, element_v, element, new_element, new_element_2
-    INTEGER                       :: i, shape3d_ll(3), shape3d_e(3), nblks_lonlat, &
+    INTEGER                       :: i, shape3d_ll(3), nblks_lonlat, &
       &                              nblks_e, nlev, jg, tl
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
@@ -413,7 +409,6 @@ CONTAINS
         ptr_int_lonlat => lonlat_grid_list(ll_grid_id)%intp(jg)
         nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
         shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
-        shape3d_e  = (/ nproma, nlev, nblks_e /)
 
         !-- create new cell-based variables "u", "v" on lon-lat grid
         !   for the same time level

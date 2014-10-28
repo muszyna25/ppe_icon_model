@@ -27,7 +27,6 @@ MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
-  USE mtime,                   ONLY: datetime, timedelta
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_util_cdi_table,       ONLY: t_inventory_list
