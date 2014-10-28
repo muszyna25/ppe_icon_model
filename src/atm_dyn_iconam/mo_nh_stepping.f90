@@ -632,7 +632,7 @@ MODULE mo_nh_stepping
     DO jg = 1, n_dom
       IF (linit_dyn(jg)) THEN
 !$OMP WORKSHARE
-        p_nh_state(jg)%diag%exner_old(:,:,:) = p_nh_state(jg)%prog(nnow(1))%exner(:,:,:)
+        p_nh_state(jg)%diag%exner_old(:,:,:) = p_nh_state(jg)%prog(nnow(jg))%exner(:,:,:)
 !$OMP END WORKSHARE
       ENDIF
     ENDDO
@@ -1508,7 +1508,11 @@ MODULE mo_nh_stepping
       IF (lstep_adv(jg))  THEN
         l_call_nests = .TRUE.
         rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc
-        n_now_grf    = nsav1(jg)
+        IF (iadv_rcf == 1) THEN
+          n_now_grf  = nnow(jg)
+        ELSE
+          n_now_grf  = nsav1(jg)
+        ENDIF
         nsteps_nest  = 2*iadv_rcf
       ELSE
         l_call_nests = .FALSE.
