@@ -45,7 +45,7 @@ MODULE mo_fortran_tools
   PUBLIC :: t_ptr_2d3d
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer!,pcen,ptenc
-
+  PUBLIC :: swap
 
   INTERFACE assign_if_present
     MODULE PROCEDURE assign_if_present_character
@@ -55,6 +55,10 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
   END INTERFACE assign_if_present
+
+  INTERFACE swap
+    MODULE PROCEDURE swap_int
+  END INTERFACE swap
 
 CONTAINS
 
@@ -114,5 +118,26 @@ CONTAINS
     IF ( x == -HUGE(x) ) RETURN
     y = x
   END SUBROUTINE assign_if_present_real
+
+
+  !>
+  !! Swap content of two Integers 
+  !!
+  !! Swap content of two Integers
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-10-28)
+  !!
+  SUBROUTINE swap_int(a,b)
+    INTEGER, INTENT(INOUT) :: a
+    INTEGER, INTENT(INOUT) :: b
+
+    ! local variables
+    INTEGER :: temp
+  !-----------------------------
+    temp = a
+    a    = b
+    b    = temp
+  END SUBROUTINE swap_int
 
 END MODULE mo_fortran_tools

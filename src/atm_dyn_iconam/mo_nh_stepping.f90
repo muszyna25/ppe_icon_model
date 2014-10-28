@@ -145,10 +145,9 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
   USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
-  USE mo_loopindices,              ONLY: get_indices_c   
   USE mo_io_config,                ONLY: inextra_3d
   USE mo_nonhydro_types,           ONLY: t_nh_diag
-                       
+  USE mo_fortran_tools,            ONLY: swap
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -898,7 +897,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp, n_sedi
+    INTEGER :: n_now_grf, n_now, n_new, n_save, n_sedi
     INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
   
     INTEGER :: jstep, jgp, jgc, jn
@@ -1632,17 +1631,13 @@ MODULE mo_nh_stepping
 
       IF (test_mode <= 0) THEN ! ... normal execution of time stepping
         ! Finally, switch between time levels now and new for next time step
-        n_temp   = nnow(jg)
-        nnow(jg) = nnew(jg)
-        nnew(jg) = n_temp
+        CALL swap(nnow(jg), nnew(jg))
 
         ! Special treatment for processes (i.e. advection) which can be treated with
         ! reduced calling frequency. Switch between time levels now and new immediately
         ! AFTER the last transport timestep.
         IF (lstep_adv(jg)) THEN
-          n_temp       = nnow_rcf(jg)
-          nnow_rcf(jg) = nnew_rcf(jg)
-          nnew_rcf(jg) = n_temp
+          CALL swap(nnow_rcf(jg), nnew_rcf(jg))
         ENDIF
       ENDIF
 
@@ -1986,42 +1981,7 @@ MODULE mo_nh_stepping
 
   END SUBROUTINE diag_for_output_dyn
 
-  !-------------------------------------------------------------------------
-  !>
-  !! Used only for DEBUGGING purpose 
-  !! Computes the difference between variable field using synchronous 
-  !! and asynchronous communication
-  !! @par Revision History
-  !! Developed by Mukund Pondkule, DWD (2014-06-17)
-  !!
-  SUBROUTINE field_difference
-    INTEGER :: nlevs, i_startblk, i_startidx, i_endidx, &
-      &        jb, jc, jk, nblks_c   
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      &  routine = 'mo_nh_stepping:field_difference'
 
-    TYPE(t_nh_diag) , POINTER :: diag
-
-    diag => p_nh_state(1)%diag
-    nlevs = p_patch(1)%nlev
-    nblks_c = p_patch(1)%nblks_c
-
-    i_startblk = p_patch(1)%cells%start_blk(1,1)
-
-    DO jk = 1, nlevs 
-       DO jb = i_startblk, nblks_c
-          CALL get_indices_c(p_patch(1), jb, i_startblk, nblks_c, &
-               i_startidx, i_endidx, 1, grf_bdywidth_c)
-
-          DO jc = i_startidx, i_endidx  
-             diag%extra_3d(jc,jk,jb,1:inextra_3d) =  p_latbc_data(last_latbc_tlev)%atm%temp(jc,jk,jb)  &
-             &                                       - latbc_data(end_latbc_tlev)%atm%temp(jc,jk,jb)  
-          ENDDO
-       ENDDO
-    ENDDO
-  !   ENDIF
-    
-  END SUBROUTINE field_difference
 
   !-------------------------------------------------------------------------
   !>
