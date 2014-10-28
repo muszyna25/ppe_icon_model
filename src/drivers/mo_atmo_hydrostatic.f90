@@ -20,7 +20,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqv, iqc, iqt
-  USE mo_dynamics_config,   ONLY: iequations, nnow
+  USE mo_dynamics_config,   ONLY: iequations, nnow, idiv_method
   USE mo_advection_config,  ONLY: configure_advection
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: n_diags, n_checkpoints
@@ -34,7 +34,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
                                     perform_ha_stepping
-
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy !, additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
@@ -117,9 +117,10 @@ CONTAINS
     ! as early as possible. Input variables which are usually provided by 
     ! nonhydrostatic_nml are set to default values. 
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
-       &                      iequations, iforcing, iqc, iqt,          &
-       &                      1, 0, .FALSE., .FALSE., ntracer          ) 
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
+        &                      iequations, iforcing, iqc, iqt,          &
+        &                      1, 0, .FALSE., .FALSE., ntracer,         &
+        &                      idiv_method, ha_dyn_config%itime_scheme ) 
     ENDDO
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN

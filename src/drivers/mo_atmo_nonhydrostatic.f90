@@ -35,7 +35,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                nlev,                 &
   &                                iqv, iqc, iqt,        &
   &                                number_of_grid_used
-USE mo_dynamics_config,      ONLY: iequations, nnow
+USE mo_dynamics_config,      ONLY: iequations, nnow, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
@@ -43,7 +43,8 @@ USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: iadv_rcf, kstart_moist, kend_qvsubstep, l_open_ubc
+USE mo_nonhydrostatic_config,ONLY: iadv_rcf, kstart_moist, kend_qvsubstep, l_open_ubc, &
+  &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
@@ -231,7 +232,8 @@ CONTAINS
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
-       &                      lvert_nest, l_open_ubc, ntracer ) 
+       &                      lvert_nest, l_open_ubc, ntracer,         &
+       &                      idiv_method, itime_scheme ) 
     ENDDO
 
 #ifdef MESSY

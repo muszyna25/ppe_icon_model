@@ -28,7 +28,8 @@ MODULE mo_advection_config
     &                              MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
     &                              MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,  &
     &                              FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
-    &                              ino_flx, izero_grad, iparent_flx, inwp
+    &                              ino_flx, izero_grad, iparent_flx, inwp, &
+    &                              TRACER_ONLY
 
   IMPLICIT NONE
   PUBLIC
@@ -155,6 +156,11 @@ MODULE mo_advection_config
                                  !< advection scheme applicable to a height      
                                  !< based coordinate system (coeff_grid=-1)      
 
+    LOGICAL  :: lfull_comp       !< .TRUE. : the full set of setup computations 
+                                 !<          is executed in prepare_tracer
+                                 !< .FALSE.: the majority of setup computations
+                                 !<          is performed in the dycore.  
+
     ! scheme specific derived variables
     !
     TYPE(t_scheme) :: ppm_v      !< vertical PPM scheme
@@ -223,7 +229,7 @@ CONTAINS
   SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,        &
     &                            iqc, iqt,                                             &
     &                            kstart_moist, kend_qvsubstep, lvert_nest, l_open_ubc, &
-    &                            ntracer )
+    &                            ntracer, idiv_method, itime_scheme)
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
@@ -234,6 +240,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: kstart_moist
     INTEGER, INTENT(IN) :: kend_qvsubstep
     INTEGER, INTENT(IN) :: ntracer
+    INTEGER, INTENT(IN) :: idiv_method
+    INTEGER, INTENT(IN) :: itime_scheme
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
 
@@ -247,6 +255,24 @@ CONTAINS
     ! set dependent transport variables/model components, depending on 
     ! the transport namelist and potentially other namelsists.
     !
+
+    ! The full set of setup computations is NOT executed in prepare_tracer 
+    ! when the tracer advection is running together with the dynmical core 
+    ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
+    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+    !
+    ! lfull_comp is only used by the nonhydrostatic core.
+    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
+      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
+      &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
+      &  advection_config(jg)%iord_backtraj == 2                      .OR. &
+      &  idiv_method  == 2                                            .OR. &
+      &  itime_scheme == TRACER_ONLY                                       ) THEN
+      advection_config(jg)%lfull_comp = .TRUE.
+    ELSE
+      advection_config(jg)%lfull_comp = .FALSE. ! do not perform full set of computations in prepare_tracer
+    ENDIF
+
 
     ! check, whether Strang-splitting has been chosen and adapt cSTR accordingly
     IF ( advection_config(jg)%lstrang ) THEN

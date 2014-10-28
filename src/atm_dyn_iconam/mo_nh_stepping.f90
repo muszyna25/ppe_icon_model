@@ -910,8 +910,6 @@ MODULE mo_nh_stepping
     INTEGER :: idyn_timestep
     LOGICAL :: l_recompute, lsave_mflx, lprep_adv
 
-    LOGICAL :: lfull_comp    ! full set of computations in prepare_tracer
-
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
@@ -1052,7 +1050,6 @@ MODULE mo_nh_stepping
         CALL main_tracer_beforeadv
 #endif
 
-        lfull_comp = .TRUE.  ! full set of computations in prepare_tracer required
 
         SELECT CASE ( TRIM(nh_test_name) )
 
@@ -1111,7 +1108,8 @@ MODULE mo_nh_stepping
         CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(n_now),     &! in
           &         p_nh_state(jg)%prog(n_new),                           &! in
           &         p_nh_state(jg)%metrics, p_int_state(jg),              &! in
-          &         iadv_rcf, lstep_adv(jg), lclean_mflx, lfull_comp,     &! in
+          &         iadv_rcf, lstep_adv(jg), lclean_mflx,                 &! in
+          &         advection_config(jg)%lfull_comp,                      &! in
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
@@ -1205,20 +1203,6 @@ MODULE mo_nh_stepping
         ENDIF
 
 
-        ! The full set of computations is NOT executed in prepare_tracer 
-        ! when the tracer advection is running together with the dynmical core 
-        ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
-        ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
-        IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
-          &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
-          &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
-          &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
-          lfull_comp = .TRUE.
-        ELSE
-          lfull_comp = .FALSE. ! do not perform full set of computations in prepare_tracer
-        ENDIF
-
-
 
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
@@ -1271,11 +1255,12 @@ MODULE mo_nh_stepping
 
           ! Diagnose some velocity-related quantities for the tracer
           ! transport scheme
-          IF (lstep_adv(jg) .OR. lfull_comp) &
+          IF (lstep_adv(jg) .OR. advection_config(jg)%lfull_comp) &
             CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(n_now),   &! in
             &         p_nh_state(jg)%prog(n_new),                           &! in
             &         p_nh_state(jg)%metrics, p_int_state(jg),              &! in
-            &         iadv_rcf, lstep_adv(jg), lclean_mflx, lfull_comp,     &! in
+            &         iadv_rcf, lstep_adv(jg), lclean_mflx,                 &! in
+            &         advection_config(jg)%lfull_comp,                      &! in
             &         p_nh_state(jg)%diag,                                  &! inout
             &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
             &         prep_adv(jg)%w_traj,  prep_adv(jg)%mass_flx_ic,       &! inout
