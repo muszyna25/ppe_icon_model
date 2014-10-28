@@ -289,6 +289,9 @@ MODULE mo_nh_stepping
       &                  p_nh_state(jg)%metrics,       &
       &                  p_nh_state(jg)%prog(nnow(jg)),&
       &                  p_nh_state(jg)%diag, itlev = 2)
+
+    ! initialize exner_old if the model domain is active
+    IF (p_patch(jg)%ldom_active) CALL init_exner_old(jg, nnow(jg))
   ENDDO
 
 
@@ -403,7 +406,6 @@ MODULE mo_nh_stepping
 #endif
 
   END IF ! not is_restart_run()
-
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -624,20 +626,6 @@ MODULE mo_nh_stepping
     IF (msg_level >= 5 .AND. MOD(jstep-jstep_shift,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
       CALL print_maxwinds(p_patch(1), p_nh_state(1)%prog(nnow(1))%vn, p_nh_state(1)%prog(nnow(1))%w)
     ENDIF
-
-    ! Store first old exner pressure
-    ! (to prepare some kind of divergence damping, or to account for
-    ! physically based 'implicit weights' in forward backward time stepping)
-!$OMP PARALLEL PRIVATE(jg)
-    DO jg = 1, n_dom
-      IF (linit_dyn(jg)) THEN
-!$OMP WORKSHARE
-        p_nh_state(jg)%diag%exner_old(:,:,:) = p_nh_state(jg)%prog(nnow(jg))%exner(:,:,:)
-!$OMP END WORKSHARE
-      ENDIF
-    ENDDO
-!$OMP END PARALLEL
-
 
     !--------------------------------------------------------------------------
     ! Set output flags
@@ -943,7 +931,7 @@ MODULE mo_nh_stepping
     ! they should be written to the save time level, so that the relaxation routine
     ! automatically does the right thing
 
-    IF (jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1)) .AND. linit_dyn(jg)) THEN
+    IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
 
       n_save = nsav2(jg)
       n_now = nnow(jg)
@@ -1165,7 +1153,7 @@ MODULE mo_nh_stepping
           CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-timeshift%dt_shift, dt_loc, lclean_mflx)
         ENDIF
 
-        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1))) THEN
+        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
           ! apply boundary nudging if feedback is turned off and in limited-area mode
           l_bdy_nudge = .TRUE. 
         ELSE
@@ -1472,7 +1460,7 @@ MODULE mo_nh_stepping
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1)) .AND. lstep_adv(jg)) THEN
+      IF (jg == 1 .AND. l_limited_area .AND. lstep_adv(jg)) THEN
 
          IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
 
@@ -1659,6 +1647,8 @@ MODULE mo_nh_stepping
             CALL hydro_adjust_downward(p_patch(jgc), p_nh_state(jgc)%metrics,                     &
               p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
               p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
+
+            CALL init_exner_old(jgc, nnow(jgc))
 
             ! Activate cold-start mode in TERRA-init routine irrespective of what has been used for the global domain
             init_mode_soil = 1
@@ -2074,6 +2064,22 @@ MODULE mo_nh_stepping
 
 
   END SUBROUTINE update_spinup_damping
+
+
+  !-------------------------------------------------------------------------
+  !> Auxiliary routine to encapsulate initialization of exner_old variable
+  !!
+  SUBROUTINE init_exner_old(jg, nnow)
+
+    INTEGER, INTENT(IN) :: jg   ! domain ID
+    INTEGER, INTENT(IN) :: nnow ! time step indicator
+
+
+!$OMP PARALLEL WORKSHARE
+    p_nh_state(jg)%diag%exner_old(:,:,:) = p_nh_state(jg)%prog(nnow)%exner(:,:,:)
+!$OMP END PARALLEL WORKSHARE
+
+  END SUBROUTINE 
 
   !-------------------------------------------------------------------------
   !>
