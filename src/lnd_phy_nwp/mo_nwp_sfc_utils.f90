@@ -21,6 +21,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_math_constants,      ONLY: dbl_eps
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
@@ -1652,6 +1653,14 @@ CONTAINS
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
+      ENDDO
+    ENDIF
+
+    ! For the single-layer scheme, t_soiltop represents the weighted average between the snow-covered
+    ! part and the snow-free part in the case of melting snow concurrent with above-freezing soil temperatures
+    IF (.NOT. lmulti_snow) THEN
+      DO ic = istart, iend
+        IF (t_soiltop(ic) > tmelt .AND. t_snow(ic) >= tmelt - dbl_eps) t_g(ic) = t_soiltop(ic)
       ENDDO
     ENDIF
 
