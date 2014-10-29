@@ -291,7 +291,7 @@ MODULE mo_nh_stepping
       &                  p_nh_state(jg)%diag, itlev = 2)
 
     ! initialize exner_old if the model domain is active
-    IF (p_patch(jg)%ldom_active) CALL init_exner_old(jg, nnow(jg))
+    IF (p_patch(jg)%ldom_active .AND. .NOT. is_restart_run()) CALL init_exner_old(jg, nnow(jg))
   ENDDO
 
 
