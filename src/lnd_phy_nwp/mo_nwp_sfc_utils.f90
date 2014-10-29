@@ -1886,11 +1886,13 @@ CONTAINS
 
           ! re-set dynamic fractions of water and sea-ice
           !
-          ! new sea area fraction is 1
-          frac_t_water(jc)= 1._wp
           ! since sea-ice melted away, the sea-ice fraction is re-set to 0
           fr_seaice(jc)  = 0._wp
-          frac_t_ice(jc) = 0._wp
+          !
+          ! resetting of frac_t_water and frac_t_ice is not possible without 
+          ! tile approach, since both point to the same array location (frac_t:,:,1). 
+          ! frac_t=1 is required without tile approach
+
         ENDIF
 
       ENDDO  ! ic
