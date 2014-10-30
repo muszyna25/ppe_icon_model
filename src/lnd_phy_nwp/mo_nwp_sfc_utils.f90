@@ -792,7 +792,7 @@ CONTAINS
         ! Re-initialize all non-lake points
         !
         DO jc = i_startidx, i_endidx
-          IF (ext_data%atm%frac_t(jc,jb,isub_lake) < frlake_thrhld) THEN   ! non-lake point
+          IF (.NOT. lake_mask(jc)) THEN   ! non-lake point
             ! now
             p_prog_wtr_now%h_ice    (jc,jb) = 0._wp
             p_prog_wtr_now%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
@@ -813,8 +813,7 @@ CONTAINS
           zfrice_thrhld = frsi_min
         ENDIF
         DO jc = i_startidx, i_endidx
-          IF ((ext_data%atm%frac_t(jc,jb,isub_lake) < frlake_thrhld)   .AND.  &
-            & (p_lnd_diag%fr_seaice(jc,jb)          < zfrice_thrhld) ) THEN
+          IF ( .NOT. lake_mask(jc) .AND. (p_lnd_diag%fr_seaice(jc,jb) < zfrice_thrhld) ) THEN
             ! now
             p_prog_wtr_now%h_ice    (jc,jb) = 0._wp
             p_prog_wtr_now%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
@@ -1803,9 +1802,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Reinert (2012-08-31)
   !!
-  SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,  &
-    &                              idx_lst_spi, spi_count, frac_t_ice,        &
-    &                              frac_t_water, fr_seaice, t_g_t_new, qv_s_t )
+  SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
+    &                              idx_lst_spi, spi_count, frac_t_ice,          &
+    &                              frac_t_water, fr_seaice, hice_old, tice_old, &
+    &                              t_g_t_new, qv_s_t )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea-ice depth at new time level  [m]
@@ -1826,6 +1826,12 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< sea-ice fraction
       &  fr_seaice(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< sea-ice depth at old time level  [m]
+      &  hice_old(:)                   !< dim: (nproma)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< sea-ice temperature at old time level  [K]
+      &  tice_old(:)                   !< dim: (nproma)
 
     REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (new)  [K]
       &  t_g_t_new(:)
@@ -1883,15 +1889,17 @@ CONTAINS
           ! Initialize surface saturation specific humidity for new water tile
           qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
 
-
-          ! re-set dynamic fractions of water and sea-ice
-          !
           ! since sea-ice melted away, the sea-ice fraction is re-set to 0
           fr_seaice(jc)  = 0._wp
           !
           ! resetting of frac_t_water and frac_t_ice is not possible without 
           ! tile approach, since both point to the same array location (frac_t:,:,1). 
           ! frac_t=1 is required without tile approach
+
+          ! reset sea-ice temperature and depth at old time level in order to prevent
+          ! other schemes from using them incorrectly
+          tice_old     = tmelt
+          hice_old(jc) = 0._wp
 
         ENDIF
 
@@ -1930,10 +1938,6 @@ CONTAINS
           fr_seaice(jc)  = 0._wp
           frac_t_ice(jc) = 0._wp
 
-!DR Debug output: will be removed lateron
-!!$        write(0,*) "ice->water: frac_t_water(jc), frac_t_ice(jc): ", &
-!!$          & frac_t_water(jc), frac_t_ice(jc), jc
-!DR END DEBUG
         ENDIF
 
       ENDDO  ! ic

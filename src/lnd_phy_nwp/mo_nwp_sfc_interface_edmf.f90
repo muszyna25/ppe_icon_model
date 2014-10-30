@@ -1230,6 +1230,8 @@ endif
         &   frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
         &   frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
         &   fr_seaice     = fr_seaice(:),                            &!inout
+        &   hice_old      = h_ice_ex(:),                             &!inout
+        &   tice_old      = t_ice_ex(:),                             &!inout
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
         &   qv_s_t        = qv_s_ex(:,isub_water)                    )!inout
 
