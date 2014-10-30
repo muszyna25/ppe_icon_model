@@ -1634,7 +1634,7 @@ CONTAINS
         IF (check_uuid_gracefully) THEN
           CALL message(routine, TRIM(message_text))
         ELSE
-          CALL message(routine, TRIM(message_text))
+          CALL finish(routine, TRIM(message_text))
         END IF
       ENDIF      
 
