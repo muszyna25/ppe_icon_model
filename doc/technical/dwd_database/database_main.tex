@@ -26,6 +26,7 @@
 %\usepackage{setspace}
 \usepackage{multirow}
 \usepackage{tabularx}
+\usepackage{supertabular}
 \usepackage{booktabs}    % to give tables a more professional look
 \usepackage{rotating}    % rotate column labels
 \usepackage{xcolor}
@@ -39,6 +40,7 @@
 \usepackage[strict]{changepage} % for adjustwidth environment
 \usepackage{framed}
 \usepackage{array}
+\usepackage[titletoc]{appendix}
 
 % \usepackage{setspace}
 % \usepackage{pdftricks}   %--- for drawing arrows, frames, etc in Latex
@@ -176,7 +178,8 @@
              ./input,
              ./grid_geometry,
              ./GRIB2_output_tables,
-             ./icon_in_sky}
+             ./icon_in_sky,
+             ./appendix}
 
 
 
@@ -261,8 +264,9 @@
 \include{./icon_in_sky}
 % ----------------------------------------------------------------%
 
-\appendix
-% \include{./text/appendix}  %--- Einbinden der Appendix
+\begin{appendices}
+\include{./appendix}  %--- Einbinden der Appendix
+\end{appendices}
 
 % \listoffigures                    %--- Erstellung des Figurenverzeichnisses
 
