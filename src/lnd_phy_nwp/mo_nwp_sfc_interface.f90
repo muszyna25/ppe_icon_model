@@ -1378,9 +1378,13 @@ CONTAINS
         IF ( h_ice_new (ic) > 0._wp ) THEN
           p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_ice(t_scf_lk_new(ic)),&
             &                                   p_diag%pres_sfc(jc,jb) )
+          ! keep fr_seaice synchronized with h_ice
+          p_lnd_diag%fr_seaice(jc,jb) = 1._wp
         ELSE
           p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_water(t_scf_lk_new(ic)),&
             &                                   p_diag%pres_sfc(jc,jb) )
+          ! keep fr_seaice synchronized with h_ice
+          p_lnd_diag%fr_seaice(jc,jb) = 0._wp
         ENDIF
 
       ENDDO  ! ic

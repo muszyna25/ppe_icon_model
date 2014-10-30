@@ -619,6 +619,10 @@ CONTAINS
           p_prog_wtr_new%t_b1_lk  (jc,jb) = t_b1_lk_now  (ic)
           p_prog_wtr_new%h_b1_lk  (jc,jb) = h_b1_lk_now  (ic)
 
+          ! keep fr_seaice synchronized with h_ice
+          ! i.e. set fr_seaice=1 for frozen lakes
+          p_lnd_diag%fr_seaice(jc,jb) = MERGE(1.0_wp, 0.0_wp, &
+            &                           p_prog_wtr_now%h_ice(jc,jb)>0._wp)
         ENDDO  ! ic
 
         ! Re-Initialize lake-specific fields
