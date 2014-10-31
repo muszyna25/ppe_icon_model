@@ -6,8 +6,6 @@
 \usepackage{amsmath}
 \usepackage{fancyhdr}
 \usepackage{geometry}
-\usepackage{amsthm}        %--- Theorem-Package
-
 \usepackage{pgfplots,pgfplotstable}
 \usepackage{colortbl}
 \usepackage[notoday,nofancy]{svninfo}
@@ -23,7 +21,6 @@
 \usepackage{caption}
 \usepackage{subcaption}  %--- simplifies putting pictures side by side
 \usepackage{longtable}
-%\usepackage{setspace}
 \usepackage{multirow}
 \usepackage{tabularx}
 \usepackage{supertabular}
@@ -42,6 +39,7 @@
 \usepackage{array}
 \usepackage[titletoc]{appendix}
 
+% \usepackage{amsthm}      %--- Theorem-Package
 % \usepackage{setspace}
 % \usepackage{pdftricks}   %--- for drawing arrows, frames, etc in Latex
 % \usepackage{pstricks}    %--- for drawing arrows, frames etc in Latex
@@ -53,10 +51,17 @@
 % left-aligned fixed-width table column
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
+
 % define some colors
-\definecolor{darkred}{rgb}{0.5,0,0}
-\definecolor{darkblue}{rgb}{0,0,0.5}
-%\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{darkred}{rgb}{0.5,0.,0.}
+\definecolor{darkblue}{rgb}{0.,0.,0.6}
+\definecolor{darkgreen}{rgb}{0.,0.5,0.}
+
+% textcolors
+\newcommand{\tred}{\textcolor{red}}
+\newcommand{\tblu}{\textcolor{blue}}
+
+
 
 % customize hyperref
 \hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred}
@@ -90,18 +95,6 @@
 
 
 
-
-
-
-% ---------- Definition des Styles von Theoremen ----------%
-\theoremstyle{plain}
-\newtheorem*{thrm}{Theorem}  %--- define new theorem-style
-
-
-
-
-
-
 % ---------------bold caption for figures-------------------------%
 \makeatletter
 \long\def\@makecaption#1#2{%
@@ -119,6 +112,9 @@
   \fi}
 \makeatother
 % ----------------------------------------------------------------%
+
+% sign function
+\newcommand{\sgn}{\operatorname{sgn}}
 
 \newcommand{\markRed}{\tikz \fill[red!60] (0,0) rectangle (0.08,0.8em);}
 \newcommand{\markBlue}{\tikz \fill[blue!80] (0,0) rectangle (0.08,0.8em);}
@@ -148,7 +144,6 @@
 
 % environment derived from framed.sty: see leftbar environment definition
 \definecolor{formalshade}{rgb}{0.95,0.95,1}
-\definecolor{darkblue}{rgb}{0.,0.,0.6}
 
 \newenvironment{note}{%
   \def\FrameCommand{%
@@ -207,7 +202,6 @@
   \markright{\thesection.\ #1}
 }
 
-
 % --- Erhoehung des vertikalen Abstandes zwischen den Zeilen eines Arrays
 \renewcommand{\arraystretch}{1.5}
 
@@ -238,12 +232,6 @@
   \markboth{#1}{}
 }
 
-% sign function
-\newcommand{\sgn}{\operatorname{sgn}}
-
-% color
-\newcommand{\tred}{\textcolor{red}}
-\newcommand{\tblu}{\textcolor{blue}}
 
 % shifting table captions...
 \newcommand{\rb}[1]{\raisebox{4.0ex}[0pt]{#1}}
