@@ -65,7 +65,7 @@ PRIVATE
             IMPORT t_scatterPattern, dp, wp
             CLASS(t_scatterPattern), INTENT(INOUT) :: me
             REAL(dp), INTENT(INOUT) :: globalArray(:)
-            REAL(wp), INTENT(OUT) :: localArray(:,:)
+            REAL(wp), INTENT(INOUT) :: localArray(:,:)
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_dp
         !---------------------------------------------------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ PRIVATE
             IMPORT t_scatterPattern, sp, wp
             CLASS(t_scatterPattern), INTENT(INOUT) :: me
             REAL(sp), INTENT(INOUT) :: globalArray(:)
-            REAL(wp), INTENT(OUT) :: localArray(:,:)
+            REAL(wp), INTENT(INOUT) :: localArray(:,:)
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_sp
     END INTERFACE

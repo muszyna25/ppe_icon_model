@@ -103,7 +103,7 @@ CONTAINS
         IMPLICIT NONE
         CLASS(t_scatterPatternScatterV), INTENT(INOUT) :: me
         REAL(dp), INTENT(INOUT) :: globalArray(:)
-        REAL(wp), INTENT(OUT) :: localArray(:,:)
+        REAL(wp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_dp"
@@ -161,7 +161,7 @@ CONTAINS
         IMPLICIT NONE
         CLASS(t_scatterPatternScatterV), INTENT(INOUT) :: me
         REAL(sp), INTENT(INOUT) :: globalArray(:)
-        REAL(wp), INTENT(OUT) :: localArray(:,:)
+        REAL(wp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_sp"

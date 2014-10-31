@@ -84,7 +84,7 @@ CONTAINS
     SUBROUTINE distributeDataScatter_dp(me, globalArray, localArray, ladd_value)
         CLASS(t_scatterPatternScatter), INTENT(INOUT) :: me
         REAL(dp), INTENT(INOUT) :: globalArray(:)
-        REAL(wp), INTENT(OUT) :: localArray(:,:)
+        REAL(wp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_dp"
@@ -131,7 +131,7 @@ CONTAINS
     SUBROUTINE distributeDataScatter_sp(me, globalArray, localArray, ladd_value)
         CLASS(t_scatterPatternScatter), INTENT(INOUT) :: me
         REAL(sp), INTENT(INOUT) :: globalArray(:)
-        REAL(wp), INTENT(OUT) :: localArray(:,:)
+        REAL(wp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_sp"
