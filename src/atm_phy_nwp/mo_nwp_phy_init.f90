@@ -595,13 +595,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     IF (linit_mode) THEN ! Initial condition for CCN and IN fields
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,zfull) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jk1,jc,i_startidx,i_endidx,zfull) ICON_OMP_GUIDED_SCHEDULE
        DO jb = i_startblk, i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                &                i_startidx, i_endidx, rl_start, rl_end)
           DO jk=1,nlev
              DO jc=i_startidx,i_endidx
-                zfull = 0.5_wp*(vct_a(jk)+vct_a(jk+1))
+                jk1 = jk + nshift
+                zfull = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
                 IF(zfull > z0_nccn) THEN
                    p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0*exp((z0_nccn-zfull)/z1e_nccn)
                 ELSE

@@ -117,10 +117,10 @@ MODULE mo_solve_nonhydro
     REAL(wp),                  INTENT(IN)    :: dtime
 
     ! Local variables
-    INTEGER  :: jb, jk, jc, je
+    INTEGER  :: jb, jk, jc, je, jks
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, ishift
-    INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift
+    INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift, nshift_total
     INTEGER  :: ic, ie, ilc0, ibc0, ikp1, ikp2
 
     REAL(wp) :: z_theta_v_fl_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
@@ -234,8 +234,10 @@ MODULE mo_solve_nonhydro
 
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  
       l_vert_nested = .TRUE.
+      nshift_total  = p_patch%nshift_total
     ELSE
       l_vert_nested = .FALSE.
+      nshift_total  = 0
     ENDIF
     IF (lvert_nest .AND. p_patch%n_childdom > 0 .AND.              &
       (p_patch%nshift_child > 0 .OR. p_patch%nshift_total > 0)) THEN
@@ -281,13 +283,17 @@ MODULE mo_solve_nonhydro
     !
     ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
     ! with height to a value of 0.004 (= the namelist default) at 40 km
-    IF (divdamp_order == 24) THEN
-      enh_divdamp_fac(1:nlev) = MAX( 0._wp, -0.25_wp*divdamp_fac_o2 + MAX(divdamp_fac, &
-        MIN(0.004_wp,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp)) )
-    ELSE
-      enh_divdamp_fac(1:nlev) = MAX(divdamp_fac, &
-        MIN(0.004_wp,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
-    ENDIF
+    DO jk = 1, nlev
+      jks = jk + nshift_total
+      zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
+      IF (divdamp_order == 24) THEN
+        enh_divdamp_fac(jk) = MAX( 0._wp, -0.25_wp*divdamp_fac_o2 + MAX(divdamp_fac, &
+        MIN(0.004_wp,0.004_wp*(zf-20000._wp)/20000._wp)) )
+      ELSE
+        enh_divdamp_fac(jk) = MAX(divdamp_fac,MIN(0.004_wp,0.004_wp*(zf-20000._wp)/20000._wp))
+      ENDIF
+    ENDDO
+
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Settings for using vertical component of divergence for divdamp_type=3/32
@@ -297,7 +303,8 @@ MODULE mo_solve_nonhydro
       z1_div3d = 12500._wp            ! and 2D divergence damping in the stratosphere
       z2_div3d = 17500._wp
       DO jk = 1, nlev
-        zf = 0.5_wp*(vct_a(jk)+vct_a(jk+1))
+        jks = jk + nshift_total
+        zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
         IF (zf >= z2_div3d) THEN
           scal_div3d(jk) = 0._wp
         ELSE IF (zf >= z1_div3d) THEN

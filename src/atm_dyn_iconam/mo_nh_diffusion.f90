@@ -89,7 +89,7 @@ MODULE mo_nh_diffusion
     REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, je, ic, ishift
+    INTEGER :: jk, jb, jc, je, ic, ishift, nshift, jk1
     INTEGER :: nlev, nlevp1              !< number of full and half levels
 
     ! start index levels and diffusion coefficient for boundary diffusion
@@ -138,6 +138,8 @@ MODULE mo_nh_diffusion
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
+
+    nshift = p_patch%nshift_total
 
     ! Normalized diffusion coefficient for boundary diffusion
     IF (lhdiff_rcf) THEN
@@ -216,7 +218,9 @@ MODULE mo_nh_diffusion
     diff_multfac_n2w(:) = 0._wp
     IF (nrdmax(jg) > 1) THEN ! seems to be redundant, but the NEC issues invalid operations otherwise
       DO jk = 2, nrdmax(jg)
-        diff_multfac_n2w(jk) = 1._wp/12._wp*((vct_a(jk)-vct_a(nrdmax(jg)+1))/(vct_a(2)-vct_a(nrdmax(jg)+1)))**4
+        jk1 = jk + nshift
+        diff_multfac_n2w(jk) = 1._wp/12._wp*((vct_a(jk1)-vct_a(nshift+nrdmax(jg)+1))/ &
+                               (vct_a(2)-vct_a(nshift+nrdmax(jg)+1)))**4
       ENDDO
     ENDIF
 
@@ -228,11 +232,14 @@ MODULE mo_nh_diffusion
       ! enhanced factor for Smagorinsky diffusion above the stratopause in order to
       ! properly damp breaking gravity waves
       !
-      ! linear increase starting at 25 km, reaching a value of 0.1 at 75 km
-      enh_smag_fac(1:nlev) = MIN(0.1_wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-25000._wp)/500000._wp))
-      ! ... combined with quadratic increase starting at 50 km, reaching a value of 1 at 90 km
-      enh_smag_fac(1:nlev) = MIN(1._wp,MAX(enh_smag_fac(1:nlev),                                &
-                             MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2) )
+      DO jk = 1, nlev
+        jk1 = jk + nshift
+        ! linear increase starting at 25 km, reaching a value of 0.1 at 75 km
+        enh_smag_fac(jk) = MIN(0.1_wp,MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-25000._wp)/500000._wp))
+        ! ... combined with quadratic increase starting at 50 km, reaching a value of 1 at 90 km
+        enh_smag_fac(jk) = MIN(1._wp,MAX(enh_smag_fac(jk),                                       &
+                           MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-50000._wp)/40000._wp)**2) )
+      ENDDO
 
       ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
       IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN

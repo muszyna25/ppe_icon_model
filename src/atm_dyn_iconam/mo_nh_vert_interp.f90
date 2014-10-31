@@ -34,7 +34,7 @@ MODULE mo_nh_vert_interp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv, dtdz_standardatm
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_run_config,          ONLY: iforcing
+  USE mo_run_config,          ONLY: iforcing, num_lev
   USE mo_io_config,           ONLY: itype_pres_msl
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED, MODE_ICONVREMAP
@@ -1623,7 +1623,7 @@ CONTAINS
 
           tsfc_mod(jc) = wfacpbl1(jc,jb) *tempv_in(jc,kpbl1(jc,jb),jb  ) + &
                   (1._wp-wfacpbl1(jc,jb))*tempv_in(jc,kpbl1(jc,jb)+1,jb) - &
-                  dtdz_standardatm*(zagl_ifsextrap-0.5_wp*vct_a(nlevs_in))
+                  dtdz_standardatm*(zagl_ifsextrap-0.5_wp*vct_a(num_lev(1)))
 
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
           tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
@@ -2070,7 +2070,7 @@ CONTAINS
 
           tsfc_mod(jc) = wfacpbl1(jc,jb) *tempv_ml(jc,kpbl1(jc,jb),jb  ) + &
                   (1._wp-wfacpbl1(jc,jb))*tempv_ml(jc,kpbl1(jc,jb)+1,jb) - &
-                  dtdz_standardatm*(zagl_ifsextrap-0.5_wp*vct_a(nlevs_ml))
+                  dtdz_standardatm*(zagl_ifsextrap-0.5_wp*vct_a(num_lev(1)))
 
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
           tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_ml(jc,nlevs_ml,jb)
@@ -2612,7 +2612,7 @@ CONTAINS
               temp_mod(jc,jk1) = temp_in(jc,jk1,jb)
             ELSE ! extrapolate downward from 150 m AGL with 6.5 K/km
               temp_mod(jc,jk1) = temp1(jc) - dtdz_standardatm*(zagl_ifsextrap -       &
-                0.5_wp*vct_a(nlevs_in) - (z3d_in(jc,jk1,jb) - z3d_in(jc,nlevs_in,jb)) )
+                0.5_wp*vct_a(num_lev(1)) - (z3d_in(jc,jk1,jb) - z3d_in(jc,nlevs_in,jb)) )
             ENDIF
           ENDDO
         ENDDO
