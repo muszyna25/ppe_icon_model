@@ -56,6 +56,7 @@ MODULE mo_nonhydrostatic_config
                                         ! (derived variable; used if lhdiff_rcf = true and divdamp_order = 2 or 24)
     INTEGER :: divdamp_order            ! Order of divergence damping
     INTEGER :: divdamp_type             ! Type of divergence damping (2D or 3D divergence)
+    INTEGER :: kstart_dd3d(max_dom)     ! start level for 3D divergence damping terms (NOT a namelist variable)
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
     REAL(wp):: htop_moist_proc          ! Top height (in m) of the part of the model domain
                                         ! where processes related to moist physics are computed

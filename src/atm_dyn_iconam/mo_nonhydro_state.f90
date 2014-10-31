@@ -2505,6 +2505,13 @@ MODULE mo_nonhydro_state
         CALL finish('mo_nonhydro_state:construct_nh_metrics', &
                     'allocation for enhfac_diffu failed')
       ENDIF
+
+      ! Scaling factor for 3D divergence damping terms
+      ALLOCATE(p_metrics%scalfac_dd3d(nlev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
+                    'allocation for scalfac_dd3d failed')
+      ENDIF
     !----------------------------------------------------------------------------
 
     ! Explicit weight in vertical wind solver

@@ -30,7 +30,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
-                                     veladv_offctr, divdamp_fac_o2
+                                     veladv_offctr, divdamp_fac_o2, kstart_dd3d
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -117,7 +117,7 @@ MODULE mo_solve_nonhydro
     REAL(wp),                  INTENT(IN)    :: dtime
 
     ! Local variables
-    INTEGER  :: jb, jk, jc, je, jks
+    INTEGER  :: jb, jk, jc, je, jks, jg
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, ishift
     INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift, nshift_total
@@ -128,10 +128,11 @@ MODULE mo_solve_nonhydro
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_mass_fl_div   (nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_theta_v_fl_div(nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
-                z_dwdz_dd       (nproma,p_patch%nlev,  p_patch%nblks_c), &
                 z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_theta_v_v     (nproma,p_patch%nlev  ,p_patch%nblks_v), & ! used for iadv_rhotheta=1 only
                 z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)    ! used for iadv_rhotheta=1 only
+
+    REAL(wp) :: z_dwdz_dd       (nproma,kstart_dd3d(p_patch%id):p_patch%nlev,p_patch%nblks_c)
 
 #ifndef __LOOP_EXCHANGE
     REAL(vp) :: z_distv_bary  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
@@ -190,11 +191,10 @@ MODULE mo_solve_nonhydro
 
 
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,     &
-               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf,                  &
-               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2, &
-               z1_div3d, z2_div3d, zf
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf, zf,              &
+               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2
 
-    REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac, scal_div3d
+    REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos
@@ -231,6 +231,8 @@ MODULE mo_solve_nonhydro
     !-------------------------------------------------------------------
     
     IF (ltimer) CALL timer_start(timer_solve_nh)
+
+    jg = p_patch%id
 
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  
       l_vert_nested = .TRUE.
@@ -295,25 +297,6 @@ MODULE mo_solve_nonhydro
     ENDDO
 
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
-
-    ! Settings for using vertical component of divergence for divdamp_type=3/32
-    IF (divdamp_type == 3) THEN ! Use 3D divergence everywhere
-      scal_div3d(:) = 1._wp
-    ELSE IF (divdamp_type == 32) THEN ! Apply blending between 3D divergence damping in the troposphere
-      z1_div3d = 12500._wp            ! and 2D divergence damping in the stratosphere
-      z2_div3d = 17500._wp
-      DO jk = 1, nlev
-        jks = jk + nshift_total
-        zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
-        IF (zf >= z2_div3d) THEN
-          scal_div3d(jk) = 0._wp
-        ELSE IF (zf >= z1_div3d) THEN
-          scal_div3d(jk) = (z2_div3d-zf)/(z2_div3d-z1_div3d)
-        ELSE
-          scal_div3d(jk) = 1._wp
-        ENDIF
-      ENDDO
-    ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
     dt_shift = dtime*REAL(2*iadv_rcf-1,wp)/2._wp
@@ -405,7 +388,7 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%cells%end_block(rl_end)
 
     ! initialize nest boundary points of z_rth_pr with zero
-    IF (istep == 1 .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
+    IF (istep == 1 .AND. (jg > 1 .OR. l_limited_area)) THEN
 !$OMP WORKSHARE
       z_rth_pr(:,:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
@@ -466,7 +449,7 @@ MODULE mo_solve_nonhydro
               p_nh%metrics%wgtfacq_c(jc,3,jb)*z_exner_ex_pr(jc,nlev-2,jb)
           ENDDO
 
-          DO jk = nlev, MAX(2,nflatlev(p_patch%id)), -1
+          DO jk = nlev, MAX(2,nflatlev(jg)), -1
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ! Exner pressure on remaining half levels for metric correction term
@@ -481,7 +464,7 @@ MODULE mo_solve_nonhydro
             ENDDO
           ENDDO
 
-          IF (nflatlev(p_patch%id) == 1) THEN
+          IF (nflatlev(jg) == 1) THEN
             ! Perturbation Exner pressure on top half level
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -629,7 +612,7 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         IF (igradp_method <= 3) THEN
-          DO jk = nflat_gradp(p_patch%id), nlev
+          DO jk = nflat_gradp(jg), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
@@ -746,7 +729,7 @@ MODULE mo_solve_nonhydro
         i_endblk   = p_patch%edges%end_block  (rl_end)
 
         ! initialize also nest boundary points with zero
-        IF (p_patch%id > 1 .OR. l_limited_area) THEN
+        IF (jg > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
           z_rho_e    (:,:,1:i_startblk) = 0._wp
           z_theta_v_e(:,:,1:i_startblk) = 0._wp
@@ -898,14 +881,16 @@ MODULE mo_solve_nonhydro
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
-          DO jk = 1, nlev
-            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) + scal_div3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)* &
-             ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+          DO jk = kstart_dd3d(jg), nlev
+            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +                                             &
+              p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
+              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #else
-        DO jk = 1, nlev
+        DO jk = kstart_dd3d(jg), nlev
           DO je = i_startidx, i_endidx
-            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) + scal_div3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)* &
-             ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +                                             &
+              p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
+              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #endif
           ENDDO
         ENDDO
@@ -940,9 +925,9 @@ MODULE mo_solve_nonhydro
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
-          DO jk = 1, nflatlev(p_patch%id)-1
+          DO jk = 1, nflatlev(jg)-1
 #else
-        DO jk = 1, nflatlev(p_patch%id)-1
+        DO jk = 1, nflatlev(jg)-1
           DO je = i_startidx, i_endidx
 #endif
             ! horizontal gradient of Exner pressure where coordinate surfaces are flat
@@ -956,9 +941,9 @@ MODULE mo_solve_nonhydro
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
-            DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
+            DO jk = nflatlev(jg), nflat_gradp(jg)
 #else
-          DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
+          DO jk = nflatlev(jg), nflat_gradp(jg)
             DO je = i_startidx, i_endidx
 #endif
               ! horizontal gradient of Exner pressure, including metric correction
@@ -975,9 +960,9 @@ MODULE mo_solve_nonhydro
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
-            DO jk = nflat_gradp(p_patch%id)+1, nlev
+            DO jk = nflat_gradp(jg)+1, nlev
 #else
-          DO jk = nflat_gradp(p_patch%id)+1, nlev
+          DO jk = nflat_gradp(jg)+1, nlev
             DO je = i_startidx, i_endidx
 #endif
               ! horizontal gradient of Exner pressure, Taylor-expansion-based reconstruction
@@ -998,9 +983,9 @@ MODULE mo_solve_nonhydro
         ELSE IF (igradp_method == 4 .OR. igradp_method == 5) THEN
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
-            DO jk = nflatlev(p_patch%id), nlev
+            DO jk = nflatlev(jg), nlev
 #else
-          DO jk = nflatlev(p_patch%id), nlev
+          DO jk = nflatlev(jg), nlev
             DO je = i_startidx, i_endidx
 #endif
               ! horizontal gradient of Exner pressure, cubic/quadratic interpolation
@@ -1179,7 +1164,7 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDIF
         IF (divdamp_order == 4 .OR. (divdamp_order == 24 .AND. divdamp_fac_o2 <= 4._wp*divdamp_fac) ) THEN
-          IF (l_limited_area .OR. p_patch%id > 1) THEN 
+          IF (l_limited_area .OR. jg > 1) THEN 
             ! fourth-order divergence damping with reduced damping coefficient along nest boundary
             ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
             ! damping along nest boundaries is beneficial because this reduces the interference
@@ -1216,7 +1201,7 @@ MODULE mo_solve_nonhydro
       ! Classic Rayleigh damping mechanism for vn (requires reference state !!)
       !
       IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
-        DO jk = 1, nrdmax(p_patch%id)
+        DO jk = 1, nrdmax(jg)
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
             p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)       &
@@ -1245,7 +1230,7 @@ MODULE mo_solve_nonhydro
 
 
     ! Boundary update of horizontal velocity
-    IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
+    IF (istep == 1 .AND. (l_limited_area .OR. jg > 1)) THEN
       rl_start = 1
       rl_end   = grf_bdywidth_e
 
@@ -1271,7 +1256,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Preparations for nest boundary interpolation of mass fluxes from parent domain
-    IF (p_patch%id > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1 .AND. jstep == 0 .AND. istep == 1) THEN
+    IF (jg > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1 .AND. jstep == 0 .AND. istep == 1) THEN
 !$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
         je = p_nh%metrics%bdy_mflx_e_idx(ic)
@@ -1467,7 +1452,7 @@ MODULE mo_solve_nonhydro
 
       IF (istep == 1 .OR. itime_scheme >= 5) THEN
         ! Compute contravariant correction for vertical velocity at full levels
-        DO jk = nflatlev(p_patch%id), nlev
+        DO jk = nflatlev(jg), nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
             z_w_concorr_me(je,jk,jb) =                                          &
@@ -1530,7 +1515,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 
     ! Apply mass fluxes across lateral nest boundary interpolated from parent domain
-    IF (p_patch%id > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
+    IF (jg > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
 !$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
         je = p_nh%metrics%bdy_mflx_e_idx(ic)
@@ -1586,9 +1571,9 @@ MODULE mo_solve_nonhydro
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
-          DO jk = nflatlev(p_patch%id), nlev
+          DO jk = nflatlev(jg), nlev
 #else
-        DO jk = nflatlev(p_patch%id), nlev
+        DO jk = nflatlev(jg), nlev
           DO jc = i_startidx, i_endidx
 #endif
 
@@ -1601,7 +1586,7 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         ! ... and to interface levels
-        DO jk = nflatlev(p_patch%id)+1, nlev
+        DO jk = nflatlev(jg)+1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh%diag%w_concorr_c(jc,jk,jb) =                                &
@@ -1628,7 +1613,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%edges%start_block(rl_start)
       i_endblk   = p_patch%edges%end_block(rl_end)
 
-      IF (p_patch%id > 1 .OR. l_limited_area) THEN
+      IF (jg > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
         z_theta_v_fl_e(:,:,p_patch%edges%start_block(5):i_startblk) = 0._wp
 !$OMP END WORKSHARE
@@ -1922,7 +1907,7 @@ MODULE mo_solve_nonhydro
       ! Rayleigh damping mechanism (Klemp,Dudhia,Hassiotis: MWR136,pp.3987-4004)
       !
       IF ( rayleigh_type == RAYLEIGH_KLEMP ) THEN
-        DO jk = 2, nrdmax(p_patch%id)
+        DO jk = 2, nrdmax(jg)
           z_raylfac = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1933,7 +1918,7 @@ MODULE mo_solve_nonhydro
       ! Classic Rayleigh damping mechanism for w (requires reference state !!)
       !
       ELSE IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
-        DO jk = 2, nrdmax(p_patch%id)
+        DO jk = 2, nrdmax(jg)
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnew)%w(jc,jk,jb)       &
@@ -2023,7 +2008,7 @@ MODULE mo_solve_nonhydro
 
       ! compute dw/dz for divergence damping term
       IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
-        DO jk = 1, nlev
+        DO jk = kstart_dd3d(jg), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
@@ -2047,7 +2032,7 @@ MODULE mo_solve_nonhydro
       IF (istep == 2) THEN
         ! store dynamical part of exner time increment in exner_dyn_incr
         ! the conversion into a temperature tendency is done in the NWP interface
-        DO jk = kstart_moist(p_patch%id), nlev
+        DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
@@ -2079,7 +2064,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 
     ! Boundary update in case of nesting
-    IF (l_limited_area .OR. p_patch%id > 1) THEN
+    IF (l_limited_area .OR. jg > 1) THEN
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -2154,7 +2139,7 @@ MODULE mo_solve_nonhydro
 
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
-          DO jk = 1, nlev
+          DO jk = kstart_dd3d(jg), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
@@ -2236,7 +2221,7 @@ MODULE mo_solve_nonhydro
 #ifndef __SX__
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 #endif
-    IF (l_limited_area .OR. p_patch%id > 1) THEN
+    IF (l_limited_area .OR. jg > 1) THEN
 
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points 

@@ -35,7 +35,7 @@ MODULE mo_vertical_grid
   USE mo_nonhydrostatic_config, ONLY: rayleigh_type, rayleigh_coeff, damp_height, &
     &                                 igradp_method, vwind_offctr,                &
     &                                 exner_expol, l_zdiffu_t, thslp_zdiffu,      &
-    &                                 thhgtd_zdiffu
+    &                                 thhgtd_zdiffu, kstart_dd3d, divdamp_type
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
@@ -107,7 +107,7 @@ MODULE mo_vertical_grid
     INTEGER :: ica(max_dom)
 
     REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,    &
-      &         z1, z2, z3, z_help(nproma),                          &
+      &         z1, z2, z3, zf, z1_div3d, z2_div3d, z_help(nproma),  &
       &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
       &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
@@ -404,6 +404,28 @@ MODULE mo_vertical_grid
             p_nh(jg)%metrics%rayleigh_w(jk),p_nh(jg)%metrics%enhfac_diffu(jk)
           CALL message('mo_vertical_grid',message_text)
         ENDDO
+      ENDIF
+
+      ! Scaling factor for 3D divergence damping terms, and start level from which they are > 0
+      kstart_dd3d(jg) = 1
+      p_nh(jg)%metrics%scalfac_dd3d(:) = 1._wp
+      IF (divdamp_type == 32) THEN  ! 3D divergence damping transitioning into 2D divergence damping
+        z1_div3d = 12500._wp   ! set transisition zone from 3D div damping to 2D div damping
+        z2_div3d = 17500._wp   ! between 12.5 km and 17.5 km
+        kstart_dd3d(jg) = 0
+        DO jk = 1, nlev
+          jk1 = jk + p_patch(jg)%nshift_total
+          zf = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
+          IF (zf >= z2_div3d) THEN
+            p_nh(jg)%metrics%scalfac_dd3d(jk) = 0._wp
+            kstart_dd3d(jg) = jk
+          ELSE IF (zf >= z1_div3d) THEN
+            p_nh(jg)%metrics%scalfac_dd3d(jk) = (z2_div3d-zf)/(z2_div3d-z1_div3d)
+          ELSE
+            p_nh(jg)%metrics%scalfac_dd3d(jk) = 1._wp
+          ENDIF
+        ENDDO
+        kstart_dd3d(jg) = kstart_dd3d(jg) + 1
       ENDIF
 
 
