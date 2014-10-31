@@ -33,12 +33,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 # 
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -63,19 +63,19 @@ init_rel_suff='20m.nc'  # 20m thickness
 grid_ext="etopo40_planet"
 #=============================================================================
 # SETUP FOR mpiom-like INPUT
-external_interpolation_type="mpiom"
-init_oce_suff='L20.nc'
-init_rel_suff='surf.nc'
+external_interpolation_type="conservative"
+#init_oce_suff='L20.nc'
+#init_rel_suff='surf.nc'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
 # provide an ocean horizontal grid file
 #grid_ext="etopo40_planet_newgeom"
-#use_gridfile_for_grabbing_externale_data='true'
+use_gridfile_for_grabbing_externale_data='false'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
-grid_ext="etopo40_planet_newgeom_noinland"
-use_gridfile_for_grabbing_externale_data='true'
-grid_ext="etopo40_planet_newgeom_noinland"
+#grid_ext="etopo40_planet_newgeom_noinland"
+#use_gridfile_for_grabbing_externale_data='true'
+#grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #=============================================================================
@@ -97,7 +97,7 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2001-01-12T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -166,7 +166,7 @@ cat > ${ocean_namelist} << EOF
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   filename_format  = "<output_filename>_<datetime2>"
 ! ml_varlist       =  'salt_00'
-  ml_varlist       =  'group:ice_diag','salt_00','concSum','group:oce_default','s','t'
+  ml_varlist       =  'group:ice_diag'
 /
 &dbg_index_nml
   idbg_mxmn=5                     ! initialize MIN/MAX  debug output
@@ -228,6 +228,7 @@ cat > ${ocean_namelist} << EOF
 &sea_ice_nml
   i_ice_therm   = 1              !  0: not allowed, 1=zero-layer, 2=Winton
   i_ice_dyn     = 0              !  1/0=switch on/off AWI ice dynamics
+  i_Qio_type    = 3
 /
 &ocean_forcing_nml
   iforc_oce                   = ${iforc}       ! ocean forcing
@@ -254,7 +255,7 @@ cat > ${ocean_namelist} << EOF
   initial_temperature_bottom = 30.0
 /
 &ocean_diagnostics_nml
-   diagnostics_level            = 0
+   diagnostics_level            = 2
 ! vertex list for R2B04 only
    gibraltar(1:10)              = 2371,2374
    denmark_strait(1:10)         = 2436,2471
@@ -269,5 +270,13 @@ cat > ${ocean_namelist} << EOF
 EOF
 #-----------------------------------------------------------------------------
 # add required standard input files
-. ${thisdir}/add_required_ocean_files
+[[ ! -d "${ICON_BASE_PATH}/experiments/${EXPNAME}" ]] && mkdir -p "${ICON_BASE_PATH}/experiments/${EXPNAME}"
+python2 add_required_ocean_files.py \
+  -d ~/local/data/grids \
+  -e "${ICON_BASE_PATH}/experiments/${EXPNAME}" \
+  -g iconR2B02-ocean_etopo40_planet.nc \
+  -i ts_phc_annual-iconR2B02-L20_20-700m.nc \
+  -f omip_icon_R2B02_forcing-daily.nc \
+  -r ts_surf_annual-iconR2B02-20m.nc
+# -n
 #-----------------------------------------------------------------------------
