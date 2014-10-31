@@ -436,13 +436,13 @@ case "$ac_sitename" in
                       load_modules="gcc/4.7.2" "pgi/14.7" "${load_modules}"
                       ;;
                     intel)
-                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-intel13
-                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel13
+                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-intel14
+                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel14
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                       HIOPT_FLAGS = -O3 -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
                       STD_FLAGS   = -O2 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
-                      load_modules="gcc/4.7.2" "intel/13.2.0" "${load_modules}"
+                      load_modules="gcc/4.7.2" "intel/14.0.2" "${load_modules}"
                       ;;
                     nag)
                       NETCDFROOT  = $software_tree/netcdf-4.1.3-static-nag53
@@ -508,12 +508,12 @@ case "$ac_sitename" in
                          load_modules= "gcc/4.7.2" "pgi/14.7" "${load_modules}"
                          ;;
                       intel)
-                         NETCDFROOT  = $SOFTWARE_TREE/netcdf-4.1.3-static-intel13
-                         MPIROOT     = $SOFTWARE_TREE/mpilib/openmpi-1.6.5-static-intel13
+                         NETCDFROOT  = $SOFTWARE_TREE/netcdf-4.1.3-static-intel14
+                         MPIROOT     = $SOFTWARE_TREE/mpilib/openmpi-1.6.5-static-intel14
                          MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                          # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                          HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                         load_modules="gcc/4.7.2" "intel/13.2.0" "${load_modules}"
+                         load_modules="gcc/4.7.2" "intel/14.0.2" "${load_modules}"
                          ;;
                   esac
                   ;;
