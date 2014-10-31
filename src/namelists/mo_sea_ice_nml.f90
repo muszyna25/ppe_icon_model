@@ -159,10 +159,10 @@ CONTAINS
 
 
     IF (i_Qio_type < 1 .OR. i_Qio_type > 3) THEN
-      CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 1,2 or 3.')
     END IF
 
-    IF (i_ice_dyn == 0 .AND. i_Qio_type /= 1) THEN
+    IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN
       CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
       i_Qio_type = 1
     ENDIF
