@@ -276,14 +276,14 @@ MODULE mo_sea_ice_types
 
     INTEGER ::  kice           ! Number of ice-thickness classes
 
+    REAL(wp), POINTER ::  zHeatOceI(:,:,:) ! Oceanic head flux [W/m^2]
+
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
 
     TYPE(t_sea_ice_acc)     :: acc
     TYPE(t_sea_ice_budgets) :: budgets
 
   END TYPE t_sea_ice
-
-
 
   ! global type variables
   TYPE(t_sea_ice),PUBLIC, SAVE, TARGET :: v_sea_ice

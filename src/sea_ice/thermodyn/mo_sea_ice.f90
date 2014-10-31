@@ -353,6 +353,11 @@ CONTAINS
       CALL init_fem_wgts(p_patch_3D)
     ENDIF
 
+    CALL add_var(ocean_default_list, 'zHeatOceI', p_ice%zHeatOceI,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('zHeatOceI', 'W/m^2', 'Oceanic Heat flux', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
     ! add accumulated fields
     CALL add_var(ocean_default_list, 'hi_acc', p_ice%acc%hi ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &

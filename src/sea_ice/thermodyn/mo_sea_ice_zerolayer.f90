@@ -241,7 +241,6 @@ CONTAINS
 
    !!Local variables
     REAL(wp), DIMENSION (nproma,ice%kice, p_patch%alloc_cell_blocks) ::         &
-      & zHeatOceI,   & ! Oceanic heat flux                                  [W/m^2]
       & Tfw,         & ! Ocean freezing temperature [C]
       & Q_surplus   ! energy surplus during ice growth
     
@@ -252,10 +251,10 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
     
-    all_cells        => p_patch%cells%all
-    Tfw(:,:,:)       = 0.0_wp
-    zHeatOceI(:,:,:) = 0.0_wp
-    Q_surplus(:,:,:) = 0.0_wp
+    all_cells            => p_patch%cells%all
+    Tfw(:,:,:)           =  0.0_wp
+    ice%zHeatOceI(:,:,:) =  0.0_wp
+    Q_surplus(:,:,:)     =  0.0_wp
 
     
     ! Save ice thickness at previous time step for calculation of heat and salt
@@ -274,7 +273,7 @@ CONTAINS
     
     IF (i_ice_therm /= 3 ) THEN
       ! Heat flux from ocean into ice
-      CALL oce_ice_heatflx (p_patch, p_os,ice,Tfw,zHeatOceI)
+      CALL oce_ice_heatflx (p_patch, p_os,ice,Tfw,ice%zHeatOceI)
 !!$    ELSE IF ( i_ice_therm == 3) THEN
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF
@@ -287,7 +286,7 @@ CONTAINS
           IF (ice%hi(jc,k,jb) > 0._wp) THEN
 
             ! Add oceanic heat flux to energy available at the bottom of the ice.
-            ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + zHeatOceI(jc,k,jb)
+            ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + ice%zHeatOceI(jc,k,jb)
             ! 1. Snow fall
             ice%hs(jc,k,jb) = ice%hs(jc,k,jb) + rpreci(jc,jb)*dtime*rho_ref/rhos
       
@@ -312,7 +311,7 @@ CONTAINS
             
             ! Fixed 27. March
             ! heat to remove from water
-            ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - zHeatOceI(jc,k,jb)
+            ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - ice%zHeatOceI(jc,k,jb)
 
             draft           = ( rhoi*ice%hi(jc,k,jb) + rhos*ice%hs(jc,k,jb) )/rho_ref
             below_water     = draft - ice%hi(jc,k,jb)
