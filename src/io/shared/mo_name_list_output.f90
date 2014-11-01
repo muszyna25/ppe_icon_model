@@ -737,7 +737,7 @@ CONTAINS
         ! handle the case that a few levels have been selected out of
         ! the total number of levels:
         IF (ASSOCIATED(of%level_selection)) THEN
-          nlevs = MIN(of%level_selection%n_selected, info%used_dimensions(2))
+          nlevs = 0
           ! Sometimes the user mixes level-selected variables with
           ! other fields on other z-axes (e.g. soil fields) in the
           ! output namelist. We try to catch this "wrong" user input
@@ -745,13 +745,20 @@ CONTAINS
           ! variable does not have on (or more) of the requested
           ! levels, then we completely ignore the level selection for
           ! this variable.
-          CHECK_LOOP : DO jk=1,nlevs
+          !
+          ! (... but note that we accept (nlevs+1) for an nlevs variable.)
+          CHECK_LOOP : DO jk=1,MIN(of%level_selection%n_selected, info%used_dimensions(2))
             IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
-              & (of%level_selection%global_idx(jk) > info%used_dimensions(2))) THEN
+              & (of%level_selection%global_idx(jk) > (info%used_dimensions(2)+1))) THEN
               var_ignore_level_selection = .TRUE.
               IF (my_process_is_stdio()) &
                 &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
               EXIT CHECK_LOOP
+            ELSE
+              IF ((of%level_selection%global_idx(jk) >= 1) .AND.  &
+                & (of%level_selection%global_idx(jk) <= info%used_dimensions(2))) THEN
+                nlevs = nlevs + 1
+              END IF
             END IF
           END DO CHECK_LOOP
         ELSE
@@ -1284,7 +1291,19 @@ CONTAINS
         ! handle the case that a few levels have been selected out of
         ! the total number of levels:
         IF (ASSOCIATED(of%level_selection)) THEN
-          nlevs = MIN(of%level_selection%n_selected, info%used_dimensions(2))
+          ! count the no. of selected levels for this variable:
+          nlevs = 0
+          CHECK_LOOP : DO jk=1,MIN(of%level_selection%n_selected, info%used_dimensions(2))
+            IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
+              & (of%level_selection%global_idx(jk) > (info%used_dimensions(2)+1))) THEN
+              EXIT CHECK_LOOP
+            ELSE
+              IF ((of%level_selection%global_idx(jk) >= 1) .AND.  &
+                & (of%level_selection%global_idx(jk) <= info%used_dimensions(2))) THEN
+                nlevs = nlevs + 1
+              END IF
+            END IF
+          END DO CHECK_LOOP
         ELSE
           nlevs = info%used_dimensions(2)
         END IF

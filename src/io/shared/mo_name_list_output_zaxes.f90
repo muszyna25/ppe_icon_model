@@ -523,12 +523,18 @@ CONTAINS
     IF (.NOT. select_levs) THEN
       nlev = SIZE(levels)
     ELSE
-      nlev = of%level_selection%n_selected
+      ! count the number of feasible levels that have been selected:
+      nlev = 0
+      DO i=1,of%level_selection%n_selected
+        IF (of%level_selection%global_idx(i) <= SIZE(levels)) THEN
+          nlev = nlev + 1
+        END IF
+      END DO
     END IF
     ALLOCATE(axis_levels(nlev),STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     IF (.NOT. select_levs) THEN
-      axis_levels(:) = levels(:)
+      axis_levels(1:nlev) = levels(1:nlev)
     ELSE
       axis_levels(1:nlev) = levels(of%level_selection%global_idx(1:nlev))
     END IF
@@ -624,7 +630,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_nlev_value            !< number to substitute for "N"/"nlev"
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = '::create_level_selection_str'
-    INTEGER :: int_list(0:(nlevs+1)) ! note: 0-lower bound required
+    INTEGER :: int_list(0:nlevs) ! note: 0-lower bound required
     INTEGER :: ierrstat, nlev_value
 
     IF (TRIM(selection_str) == "") RETURN ! do nothing
@@ -782,8 +788,8 @@ CONTAINS
       SELECT CASE(p_of%ilev_type)
       CASE (level_type_ml) 
         ! note: "ml" comprises both full and half levels
-        CALL create_level_selection(p_of%name_list%m_levels,            &
-          &                         num_lev(p_of%log_patch_id)+1, p_of, &
+        CALL create_level_selection(p_of%name_list%m_levels,              &
+          &                         num_lev(p_of%log_patch_id)+1, p_of,   &
           &                         opt_nlev_value = num_lev(p_of%log_patch_id))
       CASE (level_type_pl) 
         CALL create_level_selection(p_of%name_list%p_levels, &

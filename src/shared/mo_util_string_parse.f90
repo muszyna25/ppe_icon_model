@@ -24,15 +24,12 @@ MODULE mo_util_string_parse
   PRIVATE
 
   INTERFACE
-    SUBROUTINE private_do_parse_intlist(parse_line, nvalues, out_values, ierr) BIND(C,NAME='do_parse_intlist') 
-#if defined(__SX__) || defined (__SUNPRO_F95) 
-      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
-      CHARACTER(kind=C_CHAR,len=*), INTENT(IN) :: parse_line
-#else
+    SUBROUTINE private_do_parse_intlist(parse_line, nvalues, nlev_val, out_values, ierr) &
+      &  BIND(C,NAME='do_parse_intlist') 
       IMPORT :: C_INT, C_CHAR
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(IN) :: parse_line
-#endif
       INTEGER(C_INT), VALUE, INTENT(IN)    :: nvalues
+      INTEGER(C_INT), VALUE, INTENT(IN)    :: nlev_val
       INTEGER(C_INT), INTENT(INOUT) :: out_values(nvalues)
       INTEGER(C_INT), INTENT(INOUT) :: ierr
     END SUBROUTINE private_do_parse_intlist
@@ -69,8 +66,8 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: nlev_value      !< number to substitute for "N"/"nlev"
     INTEGER,          INTENT(INOUT) :: out_values(0:)
     INTEGER,          INTENT(INOUT) :: ierr
-
-    CALL private_do_parse_intlist(TRIM(parse_line)//C_NULL_CHAR, nlev_value, out_values, ierr)
+    CALL private_do_parse_intlist(TRIM(parse_line)//C_NULL_CHAR, SIZE(out_values), &
+      &                           nlev_value, out_values, ierr)
   END SUBROUTINE util_do_parse_intlist
 
 END MODULE mo_util_string_parse
