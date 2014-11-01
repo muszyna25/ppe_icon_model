@@ -3772,7 +3772,7 @@ CONTAINS
           ! tmsl_mod unmodified for method == PRES_MSL_METHOD_IFS_CORR
         ENDIF
 
-        vtgrad = (tsfc_mod(jc) - tmsl_mod(jc))/MAX(1.e-4_wp,z3d_in(jc,nlevp1,jb))
+        vtgrad = (tsfc_mod(jc) - tmsl_mod(jc))/SIGN(MAX(1.e-4_wp,ABS(z3d_in(jc,nlevp1,jb))),z3d_in(jc,nlevp1,jb))
 
         IF (ABS(vtgrad) > dtdz_thresh) THEN
           pmsl_out(jc,jb) = pres_sfc_in(jc,jb)*EXP(-grav/(rd*vtgrad)* &
