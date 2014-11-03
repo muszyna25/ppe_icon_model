@@ -143,11 +143,13 @@ MODULE mo_sgs_turbulence
     visc_smag_iv(:,:,:) = 0._wp
     visc_smag_c(:,:,:)  = 0._wp
     visc_smag_ie(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
     IF(p_test_run)THEN
+!$OMP PARALLEL WORKSHARE
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
-    END IF
 !$OMP END PARALLEL WORKSHARE
+    END IF
 
     !Convert temperature to potential temperature: all routines within 
     !use theta. 
