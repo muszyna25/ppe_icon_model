@@ -2001,8 +2001,8 @@ CONTAINS
               xt = MIN(xt,real(ttmax-1))
               xs = MIN(xs,real(ssmax-1))          
               tt = INT(xt)
-              ss = INT(xs)
-                
+              ss = MAX(1,INT(xs))
+              
               ! bi-linear interpolation in look-up tables
               infrac(1) = (tt+1-xt)*(ss+1-xs) * afrac_dust(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_dust(tt+1,ss  ) &
                    &    + (tt+1-xt)*(xs-ss)   * afrac_dust(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_dust(tt+1,ss+1)

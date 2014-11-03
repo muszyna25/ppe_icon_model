@@ -278,7 +278,8 @@ MODULE mo_sync_latbc
     ENDIF
 
     ! Compute tendencies for nest boundary update
-    CALL compute_boundary_tendencies(p_patch, p_nh_state)
+    IF(ltime_incr) &
+      CALL compute_boundary_tendencies(p_patch, p_nh_state)
 
   END SUBROUTINE read_latbc_data
   !-------------------------------------------------------------------------
@@ -551,7 +552,7 @@ MODULE mo_sync_latbc
       ENDIF
       
       !
-      ! Check if surface pressure (VN) is provided as input
+      ! Check if normal wind (VN) is provided as input
       !
       IF (nf_inq_varid(latbc_ncid, 'VN', varid) == nf_noerr) THEN
         lread_vn = .TRUE.

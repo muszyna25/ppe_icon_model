@@ -458,16 +458,16 @@ SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
 
 !     Output data
 
-  REAL(KIND=wp), INTENT(OUT)   :: tcm (ie) ! transfer coefficient for momentum  
-  REAL(KIND=wp), INTENT(OUT)   :: tch (ie) ! transfer coefficient for heat/moisture 
+  REAL(KIND=wp), INTENT(INOUT)   :: tcm (ie) ! transfer coefficient for momentum  
+  REAL(KIND=wp), INTENT(INOUT)   :: tch (ie) ! transfer coefficient for heat/moisture 
   REAL(KIND=wp), INTENT(INOUT) :: gz0 (ie) ! roughness length * g (m2/s2)
 ! REAL(KIND=wp), INTENT(INOUT) :: gz0s(ie) ! roughness length snow * g (m2/s2)
 
-  REAL(KIND=wp), INTENT(OUT)   :: shfl_s(ie) ! sensible   heat flux at surface (W/m2)
-  REAL(KIND=wp), INTENT(OUT)   :: lhfl_s(ie) ! latent     heat flux at surface (W/m2)
-  REAL(KIND=wp), INTENT(OUT)   :: qhfl_s(ie) ! moisture   flux at surface (kg/m2/s)
-  REAL(KIND=wp), INTENT(OUT)   :: umfl_s(ie) ! u-momentum flux at the surface (N/m2)
-  REAL(KIND=wp), INTENT(OUT)   :: vmfl_s(ie) ! v-momentum flux at the surface (N/m2)
+  REAL(KIND=wp), INTENT(INOUT)   :: shfl_s(ie) ! sensible   heat flux at surface (W/m2)
+  REAL(KIND=wp), INTENT(INOUT)   :: lhfl_s(ie) ! latent     heat flux at surface (W/m2)
+  REAL(KIND=wp), INTENT(INOUT)   :: qhfl_s(ie) ! moisture   flux at surface (kg/m2/s)
+  REAL(KIND=wp), INTENT(INOUT)   :: umfl_s(ie) ! u-momentum flux at the surface (N/m2)
+  REAL(KIND=wp), INTENT(INOUT)   :: vmfl_s(ie) ! v-momentum flux at the surface (N/m2)
  
 !     Local arrays and variables
 
@@ -724,16 +724,16 @@ SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
 !
 !=======================================================================
 !
-  REAL(KIND=wp), INTENT(OUT) :: du_turb (ie,ke) ! tendency of u (m/s2)
-  REAL(KIND=wp), INTENT(OUT) :: dv_turb (ie,ke) ! tendency of v (m/s2)
-  REAL(KIND=wp), INTENT(OUT) :: dt_turb (ie,ke) ! tendency of T (K/s)
-  REAL(KIND=wp), INTENT(OUT) :: dqv_turb(ie,ke) ! tendency of qv (1/s)
-  REAL(KIND=wp), INTENT(OUT) :: dqc_turb(ie,ke) ! tendency of qc (1/s)
-! REAL(KIND=wp), INTENT(OUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
-! REAL(KIND=wp), INTENT(OUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
-! REAL(KIND=wp), INTENT(OUT) :: qhfl_s  (ie)    ! moisture      flux at the surface (kg/m2/s)
-! REAL(KIND=wp), INTENT(OUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
-! REAL(KIND=wp), INTENT(OUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
+  REAL(KIND=wp), INTENT(INOUT) :: du_turb (ie,ke) ! tendency of u (m/s2)
+  REAL(KIND=wp), INTENT(INOUT) :: dv_turb (ie,ke) ! tendency of v (m/s2)
+  REAL(KIND=wp), INTENT(INOUT) :: dt_turb (ie,ke) ! tendency of T (K/s)
+  REAL(KIND=wp), INTENT(INOUT) :: dqv_turb(ie,ke) ! tendency of qv (1/s)
+  REAL(KIND=wp), INTENT(INOUT) :: dqc_turb(ie,ke) ! tendency of qc (1/s)
+! REAL(KIND=wp), INTENT(INOUT) :: shfl_s  (ie)    ! sensible heat flux at the surface (W/m2)
+! REAL(KIND=wp), INTENT(INOUT) :: lhfl_s  (ie)    ! latent   heat flux at the surface (W/m2)
+! REAL(KIND=wp), INTENT(INOUT) :: qhfl_s  (ie)    ! moisture      flux at the surface (kg/m2/s)
+! REAL(KIND=wp), INTENT(INOUT) :: umfl_s  (ie)    ! u-momentum    flux at the surface (N/m2)
+! REAL(KIND=wp), INTENT(INOUT) :: vmfl_s  (ie)    ! v-momentum    flux at the surface (N/m2)
 !
 !=======================================================================
 !
@@ -1160,7 +1160,7 @@ SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
 !=======================================================================
 !     Output:
 !
-  REAL(KIND=wp), INTENT(OUT) :: &
+  REAL(KIND=wp), INTENT(INOUT) :: &
                t_2m (ie),  & ! temperature at 2 m above ground
                qv_2m(ie),  & ! specific humidity at 2 m above ground
                td_2m(ie),  & ! dew point temperature at 2 m above ground

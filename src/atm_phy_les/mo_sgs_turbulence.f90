@@ -138,9 +138,16 @@ MODULE mo_sgs_turbulence
              )
 
     !Initialize
+
+!$OMP PARALLEL WORKSHARE
+    visc_smag_iv(:,:,:) = 0._wp
+    visc_smag_c(:,:,:)  = 0._wp
+    visc_smag_ie(:,:,:) = 0._wp
+
     IF(p_test_run)THEN
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
     END IF
+!$OMP END PARALLEL WORKSHARE
 
     !Convert temperature to potential temperature: all routines within 
     !use theta. 
@@ -1630,14 +1637,19 @@ MODULE mo_sgs_turbulence
     ieblk => p_patch%cells%edge_blk
 
     diff_smag_ic => prm_diag%tkvh
-
+ 
     !multiply by exner to convert from theta tend to temp tend
     !assuming that exner perturbation are small compared to temp
 
     !1) First set exner local vars to 1 for other scalars
     !   Soon get different routines for different scalars  
+
+!$OMP PARALLEL WORKSHARE
     exner_me(:,:,:) = 1._wp
     exner_ic(:,:,:) = 1._wp
+    a(:,:)          = 0._wp
+    c(:,:)          = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
     !2) Calculate exner at edge for horizontal diffusion
      IF(TRIM(scalar_name)=='theta') &
@@ -1777,7 +1789,7 @@ MODULE mo_sgs_turbulence
     ENDDO
 !$OMP END DO
 
-        ! now compute the divergence of the quantity above
+    ! now compute the divergence of the quantity above
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
@@ -1902,7 +1914,7 @@ MODULE mo_sgs_turbulence
            
               b(jc,jk)   =  inv_dt - a(jc,jk) - c(jc,jk)
 
-              rhs(jc,jk) =   var(jc,jk,jb) * inv_dt
+              rhs(jc,jk) =  var(jc,jk,jb) * inv_dt
            END DO
          END DO
 
