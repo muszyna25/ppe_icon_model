@@ -96,7 +96,7 @@ MODULE mo_oce_ab_timestepping_mimetic
   
   ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
   ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
-  LOGICAL, PUBLIC,PARAMETER :: l_staggered_timestep = .FALSE.
+  !LOGICAL, PUBLIC,PARAMETER :: l_staggered_timestep = .FALSE.
   
   
   ! these are allocated once for efficiency and used only by the lhs for the solver
@@ -181,13 +181,13 @@ CONTAINS
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_prog(nold(1))%vn)
     
     IF (is_initial_timestep(timestep) ) THEN
-      IF (l_staggered_timestep ) &
-        & CALL calc_scalar_product_veloc_3D( patch_3d, &
-                      & ocean_state%p_prog(nold(1))%vn,&
-                      & ocean_state%p_diag,            &
-                      & op_coeffs)
-
-    ENDIF
+!       IF (l_staggered_timestep ) &
+!         & CALL calc_scalar_product_veloc_3D( patch_3d, &
+!                       & ocean_state%p_prog(nold(1))%vn,&
+!                       & ocean_state%p_diag,            &
+!                       & op_coeffs)
+! 
+     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -878,20 +878,20 @@ CONTAINS
     !-----------------------------------------------------------------------
     IF(.NOT.l_rigid_lid)THEN
 
-      IF(l_staggered_timestep)THEN
-
-          DO je = start_edge_index, end_edge_index
-            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-
-              ocean_state%p_diag%vn_pred(je,jk,blockNo) = ocean_state%p_prog(nold(1))%vn(je,jk,blockNo)    &
-                & + dtime*(ocean_state%p_aux%g_nimd(je,jk,blockNo)     &
-                & -ocean_state%p_diag%press_grad(je,jk,blockNo)        &
-                & - z_gradh_e(je))
-
-            END DO
-          END DO
-
-      ELSE   ! IF(.NOT.l_staggered_timestep)THEN
+!      IF(l_staggered_timestep)THEN
+!
+!           DO je = start_edge_index, end_edge_index
+!             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+! 
+!               ocean_state%p_diag%vn_pred(je,jk,blockNo) = ocean_state%p_prog(nold(1))%vn(je,jk,blockNo)    &
+!                 & + dtime*(ocean_state%p_aux%g_nimd(je,jk,blockNo)     &
+!                 & -ocean_state%p_diag%press_grad(je,jk,blockNo)        &
+!                 & - z_gradh_e(je))
+! 
+!             END DO
+!           END DO
+!
+!      ELSE   ! IF(.NOT.l_staggered_timestep)THEN
 
         DO je = start_edge_index, end_edge_index
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -903,24 +903,24 @@ CONTAINS
           END DO
         END DO
 
-      ENDIF!Staggered
+!      ENDIF!Staggered
 
 
     ELSE ! IF(l_rigid_lid)THEN
 
-      IF(l_staggered_timestep)THEN
-
-        DO je = start_edge_index, end_edge_index
-          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-
-              ocean_state%p_diag%vn_pred(je,jk,blockNo) = ocean_state%p_prog(nold(1))%vn(je,jk,blockNo)  &
-                & + dtime*(ocean_state%p_aux%g_nimd(je,jk,blockNo) &
-                & - ocean_state%p_diag%press_grad(je,jk,blockNo))
-
-          END DO
-        END DO
-
-      ELSE ! IF(.NOT.l_staggered_timestep)THEN
+!       IF(l_staggered_timestep)THEN
+! 
+!         DO je = start_edge_index, end_edge_index
+!           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+! 
+!               ocean_state%p_diag%vn_pred(je,jk,blockNo) = ocean_state%p_prog(nold(1))%vn(je,jk,blockNo)  &
+!                 & + dtime*(ocean_state%p_aux%g_nimd(je,jk,blockNo) &
+!                 & - ocean_state%p_diag%press_grad(je,jk,blockNo))
+! 
+!           END DO
+!         END DO
+! 
+!       ELSE ! IF(.NOT.l_staggered_timestep)THEN
 
         DO je = start_edge_index, end_edge_index
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -931,7 +931,7 @@ CONTAINS
         END DO
       END DO
 
-      ENDIF!Staggered
+!      ENDIF!Staggered
 
     ENDIF!Rigid lid
 
@@ -1038,17 +1038,17 @@ CONTAINS
     INTEGER :: je, jk
     !-----------------------------------------------------------------------
 
-    IF(l_staggered_timestep)THEN
-      DO je = start_edge_index, end_edge_index
-        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-          ocean_state%p_aux%g_n(je, jk, blockNo) =&!-ocean_state%p_diag%press_grad(:,jk,:)      &
-            & - ocean_state%p_diag%veloc_adv_horz(je, jk, blockNo)  &
-            & - ocean_state%p_diag%veloc_adv_vert(je, jk, blockNo)  &
-            & + ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
-            & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo)
-        END DO
-      END DO
-    ELSE ! IF(.NOT.l_staggered_timestep)THEN
+!     IF(l_staggered_timestep)THEN
+!       DO je = start_edge_index, end_edge_index
+!         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+!           ocean_state%p_aux%g_n(je, jk, blockNo) =&!-ocean_state%p_diag%press_grad(:,jk,:)      &
+!             & - ocean_state%p_diag%veloc_adv_horz(je, jk, blockNo)  &
+!             & - ocean_state%p_diag%veloc_adv_vert(je, jk, blockNo)  &
+!             & + ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  &
+!             & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo)
+!         END DO
+!       END DO
+!     ELSE ! IF(.NOT.l_staggered_timestep)THEN
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           ocean_state%p_aux%g_n(je, jk, blockNo) = &
@@ -1059,7 +1059,7 @@ CONTAINS
             & + ocean_state%p_diag%laplacian_vert(je, jk, blockNo)
         END DO
       END DO
-    ENDIF
+!    ENDIF
 
     IF(is_first_timestep)THEN
       ocean_state%p_aux%g_nimd(1:nproma,1:n_zlev, blockNo) = &
@@ -1113,21 +1113,21 @@ CONTAINS
 !     CALL dbg_print('bef.dual-flip-fl: LaPlaHorz',ocean_state%p_diag%laplacian_horz,str_module,idt_src)
 !     !---------------------------------------------------------------------
 
-    IF(l_staggered_timestep)THEN
-
-      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-        DO jk = 1, n_zlev
-
-          ocean_state%p_aux%g_n(start_edge_index:end_edge_index, jk, blockNo) = &
-            & - z_e(start_edge_index:end_edge_index,jk,blockNo)  &
-            & - ocean_state%p_diag%veloc_adv_vert(start_edge_index:end_edge_index,jk,blockNo)  &
-            & + ocean_state%p_diag%laplacian_horz(start_edge_index:end_edge_index,jk,blockNo)  &
-            & + ocean_state%p_diag%laplacian_vert(start_edge_index:end_edge_index,jk,blockNo)
-        END DO
-      END DO
-
-    ELSEIF(.NOT.l_staggered_timestep)THEN
+!     IF(l_staggered_timestep)THEN
+! 
+!       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+!         DO jk = 1, n_zlev
+! 
+!           ocean_state%p_aux%g_n(start_edge_index:end_edge_index, jk, blockNo) = &
+!             & - z_e(start_edge_index:end_edge_index,jk,blockNo)  &
+!             & - ocean_state%p_diag%veloc_adv_vert(start_edge_index:end_edge_index,jk,blockNo)  &
+!             & + ocean_state%p_diag%laplacian_horz(start_edge_index:end_edge_index,jk,blockNo)  &
+!             & + ocean_state%p_diag%laplacian_vert(start_edge_index:end_edge_index,jk,blockNo)
+!         END DO
+!       END DO
+! 
+!     ELSEIF(.NOT.l_staggered_timestep)THEN
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
         DO jk = 1, n_zlev
@@ -1139,7 +1139,7 @@ CONTAINS
             & + ocean_state%p_diag%laplacian_vert(start_edge_index:end_edge_index, jk, blockNo)
         END DO
       END DO
-    ENDIF
+!    ENDIF
 
     IF(is_first_timestep)THEN
       ocean_state%p_aux%g_nimd(1:nproma,1:n_zlev,1:patch_3d%p_patch_2D(1)%nblks_e) = &
@@ -1760,23 +1760,23 @@ CONTAINS
     !---------------------------------------------------------------------
     
     ! Update of scalar product quantities
-    IF(l_staggered_timestep)THEN
-      !CALL height_related_quantities(patch_3d, ocean_state, p_ext_data)
-      CALL calculate_thickness(patch_3d, ocean_state, p_ext_data, op_coeffs, solverCoeff_sp)
-      !   CALL calc_scalar_product_veloc_3D( patch,                &
-      !                                    & ocean_state%p_prog(nnew(1))%vn,&
-      !                                    & ocean_state%p_prog(nnew(1))%vn,&
-      !                                    & ocean_state%p_diag,            &
-      !                                    & op_coeffs)
-      
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=4  ! output print level (1-5, fix)
-      CALL dbg_print('NorVel: Staggered, kin'    ,ocean_state%p_diag%kin        ,str_module,idt_src, &
-        in_subset = owned_cells)
-      CALL dbg_print('NorVel: Staggered, ptp_vn' ,ocean_state%p_diag%ptp_vn     ,str_module,idt_src)
-      !---------------------------------------------------------------------
-    ENDIF
-    !CALL message (TRIM(routine), 'end')
+!     IF(l_staggered_timestep)THEN
+!       !CALL height_related_quantities(patch_3d, ocean_state, p_ext_data)
+!       CALL calculate_thickness(patch_3d, ocean_state, p_ext_data, op_coeffs, solverCoeff_sp)
+!       !   CALL calc_scalar_product_veloc_3D( patch,                &
+!       !                                    & ocean_state%p_prog(nnew(1))%vn,&
+!       !                                    & ocean_state%p_prog(nnew(1))%vn,&
+!       !                                    & ocean_state%p_diag,            &
+!       !                                    & op_coeffs)
+!       
+!       !---------DEBUG DIAGNOSTICS-------------------------------------------
+!       idt_src=4  ! output print level (1-5, fix)
+!       CALL dbg_print('NorVel: Staggered, kin'    ,ocean_state%p_diag%kin        ,str_module,idt_src, &
+!         in_subset = owned_cells)
+!       CALL dbg_print('NorVel: Staggered, ptp_vn' ,ocean_state%p_diag%ptp_vn     ,str_module,idt_src)
+!       !---------------------------------------------------------------------
+!     ENDIF
+!     !CALL message (TRIM(routine), 'end')
     
   END SUBROUTINE calc_normal_velocity_ab_mimetic
   !-------------------------------------------------------------------------
@@ -2014,17 +2014,8 @@ CONTAINS
     inv_flip_flop_e(:,:,:)   = 0.0_wp
     zimpl_prime_coeff = (1.0_wp-zimpl_coeff)
     
-    rhstemp(:,:)          = 0.0_wp
-    
     DO jk=1, n_zlev
-      rhstemp(:,:) = rhs_e(:,jk,:)&
-        & -zimpl_coeff*lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), patch_2D, patch_3d, op_coeffs,jk,zimpl_coeff, h_e)
-      
-      IF (MAXVAL (ABS (rhstemp (:,:))) <= tolerance) THEN
-        inv_flip_flop_e(:,jk,:) = lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), patch_2D, patch_3d, op_coeffs,jk,zimpl_coeff, h_e)
-        PRINT*, "Inv_flipflop gmres_oce_e2e solved by initial guess!",&
-          & jk,MAXVAL(rhstemp(:,:)), MINVAL(rhstemp(:,:)),MAXVAL(rhs_e(:,jk,:)), MINVAL(rhs_e(:,jk,:))
-      ELSE
+   
         inv_flip_flop_e(:,jk,:)= 0.0_wp!rhs_e(:,jk,:)
         !write(*,*)'RHS', maxvaL(rhs_e(:,jk,:)),minvaL(rhs_e(:,jk,:))
         
@@ -2064,7 +2055,7 @@ CONTAINS
               & ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
           ENDIF
         ENDIF
-      END IF
+      !END IF
     END DO
     
   END FUNCTION inverse_primal_flip_flop

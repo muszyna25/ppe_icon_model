@@ -135,6 +135,7 @@ CONTAINS
     
       ! the bathymetry initialization is called  after read_external_data and before seting up the sea-land mask
       !CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
+      IF(iswm_oce==1)CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
       CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
       CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
 
@@ -2272,8 +2273,11 @@ stop
     all_cells => patch_2d%cells%ALL
     cell_center => patch_2d%cells%center
 
-    perturbation_lat = basin_center_lat! + 0.1_wp*basin_height_deg!             !45.5_wp
-    perturbation_lon =  0.0_wp!0.1_wp*basin_width_deg                           !4.5_wp
+
+    perturbation_lat= pi / 6._wp*rad2deg
+    perturbation_lon=-pi_2*rad2deg
+    !perturbation_lat = basin_center_lat! + 0.1_wp*basin_height_deg!             !45.5_wp
+    !perturbation_lon =  0.0_wp!0.1_wp*basin_width_deg                           !4.5_wp
     !max_perturbation  = 20.0_wp            !20.1_wp
     perturbation_width  =  7.0_wp*pi/64.0_wp !10.0_wp!5.0_wp!1.5_wp
 
@@ -2696,7 +2700,7 @@ stop
 
       ENDDO
     ENDDO
-
+ 
   END SUBROUTINE depth_mountain_orography_Williamson_test5
   !-----------------------------------------------------------------------------------
 

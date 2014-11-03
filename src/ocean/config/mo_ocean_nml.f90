@@ -261,7 +261,7 @@ MODULE mo_ocean_nml
                                                  !           false=bathy deeper mid of cell
   LOGICAL  :: l_edge_based          = .TRUE.     ! mimetic discretization based on edges (true) or cells (false)
   LOGICAL  :: l_partial_cells       = .FALSE.    ! partial bottom cells=true: local varying bottom depth
-  LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
+  !LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1=apply sea ice model using sea_ice_nml
@@ -325,7 +325,7 @@ MODULE mo_ocean_nml
     &                 l_max_bottom                 , &
     &                 l_partial_cells              , &
     &                 l_skip_tracer                , &
-    &                 l_staggered_timestep         , &
+  !  &                 l_staggered_timestep         , &
     &                 lviscous                     , &
     &                 n_zlev                       , &
     &                 select_solver                , &

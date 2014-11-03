@@ -54,6 +54,7 @@ MODULE mo_oce_tracer
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
   USE mo_oce_GM_Redi,               ONLY: calc_ocean_physics, prepare_ocean_physics
   USE mo_oce_math_operators,        ONLY: div_oce_3d, verticalDiv_scalar_midlevel
+  USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
   IMPLICIT NONE
 
   PRIVATE
@@ -366,24 +367,24 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('DivAdvFlx',div_adv_flux_horz,str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('DivDiffFlx',div_adv_flux_horz,str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('DivDiffFlx',div_diff_flux_horz,str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
       !level=1
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
         DO jc = start_cell_index, end_cell_index
-          DO level = 1, MIN(p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+          DO level = 1, 1!MIN(p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
 
-            delta_z =  p_patch_3d%p_patch_1d(1)%del_zlev_m(1)
-
+            !delta_z =  p_patch_3d%p_patch_1d(1)%del_zlev_m(1)
+            delta_z = p_os%p_prog(nnew(1))%h(jc,jb) !- p_ext_data%oce%bathymetry_c(jc,jb)
             new_ocean_tracer%concentration(jc,level,jb)= old_ocean_tracer%concentration(jc,level,jb) - &
-              & (delta_t/delta_z) * (div_adv_flux_horz(jc,level,jb)-div_adv_flux_horz(jc,level,jb))
-
+              & (delta_t/delta_z) * (div_adv_flux_horz(jc,level,jb)-div_diff_flux_horz(jc,level,jb))
+!write(123,*)'data',new_ocean_tracer%concentration(jc,level,jb), old_ocean_tracer%concentration(jc,level,jb),&
+!&delta_z,div_adv_flux_horz(jc,level,jb),div_diff_flux_horz(jc,level,jb),p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           END DO
         END DO
       END DO
-
 
     !The 3D-case: first vertical fluxes than preliminary tracer value and
     !finally implicit vertical diffusion
@@ -1102,7 +1103,12 @@ CONTAINS
         & p_os%p_diag%w(1:nproma, 1:n_zlev+1, jb)
     ENDDO
 !ICON_OMP_END_DO
-
+    !In case of shallow water we have to to this here, for 3D fluid its done within vertical velocity calculation
+    IF(iswm_oce==1)THEN
+     CALL map_edges2edges_viacell_3d_const_z( patch_3d, p_os%p_diag%vn_time_weighted, p_op_coeff, &
+        & p_os%p_diag%mass_flx_e)
+    ENDIF    
+ 
     ! p_diag%w is compouted in_domain cells
     ! CALL sync_patch_array(SYNC_C, patch_2d,p_os%p_diag%w_time_weighted )
 
