@@ -251,7 +251,7 @@ CONTAINS
            = 'divide_cells_by_location_par::find_pivot'
       TYPE(t_divide_cells_agg) :: agg
       INTEGER :: i, ierror
-      INTEGER, PARAMETER :: max_pivot_le = 128
+      INTEGER, PARAMETER :: max_pivot_le = 1024
       ! candidates for median
       INTEGER :: pivot_le(max_pivot_le, 2)
       INTEGER :: npivot_le, ncells2divide
@@ -297,7 +297,6 @@ CONTAINS
       min_lon = min_lon*(COS(avglat))**scalexp
       max_lon = max_lon*(COS(avglat))**scalexp
 
-      npivot_le = MAX(MIN(max_pivot_le, ncells2divide), 3)
       IF (max_lat - min_lat >= max_lon - min_lon) THEN
         pivot%div_method = dm_lat
         pivot_guess_min = agg%min_lat
@@ -310,6 +309,8 @@ CONTAINS
         pivot_guess_max = agg%max_lon
       END IF
       find_pivot_le: DO WHILE (.TRUE.)
+        npivot_le = MAX(INT(MIN(INT(max_pivot_le, i8), &
+             INT(pivot_guess_max, i8) - INT(pivot_guess_min, i8) + 1_i8)), 3)
         DO i = 1, npivot_le/2
           pivot_le(i, 1) = pivot_guess_min &
                + INT(INT(i - 1, i8) &
