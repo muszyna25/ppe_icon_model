@@ -1241,98 +1241,6 @@ CONTAINS
 
   END SUBROUTINE divide_cells_by_location
 
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Special quicksort implementation for sorting a 2D array by one selected row.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  !!
-  RECURSIVE SUBROUTINE sort_array_by_row(x,y,row)
-
-    !
-
-    INTEGER, INTENT(in) :: row ! number of row for sorting
-
-    REAL(wp), INTENT(inout) :: x(:,:) ! array to be sorted
-    REAL(wp), INTENT(inout) :: y(:,:) ! workspace
-
-    REAL(wp) :: p
-    INTEGER :: n, ipiv, ix, iy, i
-    !-----------------------------------------------------------------------
-
-    n = SIZE(x,2)
-
-    IF(n<=1) RETURN
-
-    ipiv = (n+1)/2
-    p = x(row,ipiv)
-    ix = 0
-    iy = 1
-
-#ifdef __SX__
-    IF (n >= 12) THEN ! Use vectorized version
-      DO i=1,n
-        IF(i==ipiv) CYCLE
-        IF(x(row,i) < p) THEN
-          ix = ix+1
-          y(1:4,ix) = x(1:4,i)
-        ENDIF
-      ENDDO
-
-      y(1:4,ix+1) = x(1:4,ipiv) ! Store pivot
-
-      DO i=1,n
-        IF(i==ipiv) CYCLE
-        IF(x(row,i) >= p) THEN
-          iy = iy+1
-          y(1:4,ix+iy) = x(1:4,i)
-        ENDIF
-      ENDDO
-!CDIR COLLAPSE
-      x(:,:) = y(:,:)
-    ELSE  ! use non-vectorized version
-      y(1:4,1) = x(1:4,ipiv) ! Store pivot
-
-      DO i=1,n
-        IF(i==ipiv) CYCLE
-        IF(x(row,i) < p) THEN
-          ix = ix+1
-          x(1:4,ix) = x(1:4,i)
-        ELSE
-          iy = iy+1
-          y(1:4,iy) = x(1:4,i)
-        ENDIF
-      ENDDO
-
-      x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
-    ENDIF
-#else
-    y(1:4,1) = x(1:4,ipiv) ! Store pivot
-
-    DO i=1,n
-      IF(i==ipiv) CYCLE
-      IF(x(row,i) < p) THEN
-        ix = ix+1
-        x(1:4,ix) = x(1:4,i)
-      ELSE
-        iy = iy+1
-        y(1:4,iy) = x(1:4,i)
-      ENDIF
-    ENDDO
-
-    x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
-#endif
-
-    ipiv = ix+1 ! New pivot location
-
-    IF(ipiv>2)   CALL sort_array_by_row(x(:,:ipiv-1),y(:,:ipiv-1),row)
-    IF(ipiv<n-1) CALL sort_array_by_row(x(:,ipiv+1:),y(:,ipiv+1:),row)
-
-  END SUBROUTINE sort_array_by_row
-
   !-------------------------------------------------------------------------
   !> generates the information required to get the local index for a given
   !  global index. The decomp_info%glb_index array needs to be set in order
@@ -1399,6 +1307,8 @@ CONTAINS
   END FUNCTION binary_search
 
   !-------------------------------------------------------------------------
+  ! quicksort implementations to sort an array of type(t_cell_info)
+  ! according to the lat, lon and cell_number fields
 
   ! returns the local index for a given global index
   ! in case the global index is not available locally -1 is returned
