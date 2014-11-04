@@ -5917,12 +5917,7 @@ if [ "x$use_messy" = xyes ] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
-
-ac_srcdirs=""
-for dir in $my_srcdirs ; do
-    ac_srcdirs="${ac_srcdirs} $dir"
-done
-
+ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
   CC=mpcc_r
