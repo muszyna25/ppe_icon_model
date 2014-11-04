@@ -25,7 +25,9 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-
+#if defined __xlC__
+@PROCESS SPILL(988)
+#endif
 MODULE mo_nwp_turbtrans_interface
 
   USE mo_kind,                 ONLY: wp

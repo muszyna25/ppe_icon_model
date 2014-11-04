@@ -19,7 +19,9 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-
+#if defined __xlC__
+@PROCESS SPILL(1024)
+#endif
 MODULE mo_nwp_rrtm_interface
 
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm

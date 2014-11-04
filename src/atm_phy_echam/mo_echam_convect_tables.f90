@@ -5,7 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#ifdef __xlC__
+#if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 #endif
 #if !(defined __xlC__ && defined _ARCH_PWR6)

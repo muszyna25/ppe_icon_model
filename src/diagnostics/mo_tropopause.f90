@@ -15,7 +15,7 @@
 #if defined (__SX__) || defined (ES)
 #define VECTOR 1
 #endif
-#ifdef __xlC__
+#if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 #endif
 MODULE mo_tropopause

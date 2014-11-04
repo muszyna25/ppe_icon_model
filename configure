@@ -5977,6 +5977,7 @@ fi
 
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :
   eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
+   eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
 else
   if test x"$use_flags_group" != xstd; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5

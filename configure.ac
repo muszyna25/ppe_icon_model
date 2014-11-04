@@ -779,7 +779,8 @@ fi
 dnl the following prepends VARIANT_FLAGS to FFLAGS
 dnl when given --with-flags=variant argument to configure
 AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset],
-  [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
+  [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
+   eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
   [AS_IF([test x"$use_flags_group" != xstd],
      [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
 

@@ -6,7 +6,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-#ifdef __xlC__
+#if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 #endif
 MODULE mo_srtm
@@ -833,7 +833,7 @@ CONTAINS
   END SUBROUTINE srtm_setcoef
   !-----------------------------------------------------------------------
 
-#ifdef RS6K
+#if defined RS6K && !defined NOXLFPROCESS
   @PROCESS HOT NOSTRICT
 #endif
   SUBROUTINE srtm_spcvrt                                               &

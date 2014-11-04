@@ -11,9 +11,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-#ifdef __xlC__
-@process hot
-@process nostrict
+#if defined __xlC__ && !defined NOXLFPROCESS
+@PROCESS HOT
+@PROCESS NOSTRICT
 #endif
 
 MODULE mo_lrtm_rtrnmr

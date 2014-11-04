@@ -13,7 +13,9 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-
+#if defined __xlC__
+@PROCESS SPILL(564)
+#endif
 MODULE mo_nwp_sfc_utils
 
   USE mo_kind,                ONLY: wp

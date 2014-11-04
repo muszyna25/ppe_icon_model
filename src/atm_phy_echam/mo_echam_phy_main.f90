@@ -16,7 +16,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-#ifdef __xlC__
+#if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 @PROCESS SPILLSIZE(5000)
 #endif
