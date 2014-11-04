@@ -64,7 +64,7 @@ MODULE mo_setup_subdivision
                              deallocate_pre_patch
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, &
     & divide_geometric_medial, divide_cells_by_location, &
-    & sort_array_by_row, &
+    & t_cell_info, sort_cell_info_by_cell_number, &
     & read_ascii_decomposition
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, testbed_process
@@ -2421,7 +2421,7 @@ CONTAINS
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom)
-    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
+    TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
     REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
 
@@ -2530,16 +2530,17 @@ CONTAINS
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
     ! cell_desc(4,:)   will be set with the owner
 
-    ALLOCATE(cell_desc(4,wrk_p_patch_pre%n_patch_cells_g))
+    ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g))
 
     nc = 0
     nn = 0
 
     IF(divide_for_radiation) THEN
 
-      cell_desc(1:2,:) = 1.d99 ! for finding min lat/lon
-
       DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+        cell_desc(j)%lat = 1.d99 ! for finding min lat/lon
+        cell_desc(j)%lon = 1.d99 ! for finding min lat/lon
+
 
         IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
 
@@ -2555,45 +2556,45 @@ CONTAINS
         cclon = wrk_p_patch_pre%cells%center(j)%lon
 
         IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
-          cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon
+          cell_desc(nc)%lat = cclat
+          cell_desc(nc)%lon = cclon
         ELSE IF (cclat>=0._wp .AND. cclon>=0.2_wp*pi .AND. cclon<=0.6_wp*pi) THEN
-          cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon - 0.4_wp*pi
+          cell_desc(nc)%lat = cclat
+          cell_desc(nc)%lon = cclon - 0.4_wp*pi
         ELSE IF (cclat>=0._wp .AND. cclon>=0.6_wp*pi) THEN
-          cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon - 0.8_wp*pi
+          cell_desc(nc)%lat = cclat
+          cell_desc(nc)%lon = cclon - 0.8_wp*pi
         ELSE IF (cclat>=0._wp .AND. cclon<=-0.6_wp*pi) THEN
-          cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon + 0.8_wp*pi
+          cell_desc(nc)%lat = cclat
+          cell_desc(nc)%lon = cclon + 0.8_wp*pi
         ELSE IF (cclat>=0._wp .AND. cclon>=-0.6_wp*pi .AND. cclon<=-0.2_wp*pi) THEN
-          cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon + 0.4_wp*pi
+          cell_desc(nc)%lat = cclat
+          cell_desc(nc)%lon = cclon + 0.4_wp*pi
         ELSE IF (cclat<0._wp .AND. (cclon<=-0.8_wp*pi .OR. cclon>=0.8_wp*pi)) THEN
-          cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon + pi
+          cell_desc(nc)%lat = -cclat
+          cell_desc(nc)%lon = cclon + pi
         ELSE IF (cclat<0._wp .AND. cclon>=-0.8_wp*pi .AND. cclon<=-0.4_wp*pi) THEN
-          cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon + 0.6_wp*pi
+          cell_desc(nc)%lat = -cclat
+          cell_desc(nc)%lon = cclon + 0.6_wp*pi
         ELSE IF (cclat<0._wp .AND. cclon>=-0.4_wp*pi .AND. cclon<=0.0_wp*pi) THEN
-          cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon + 0.2_wp*pi
+          cell_desc(nc)%lat = -cclat
+          cell_desc(nc)%lon = cclon + 0.2_wp*pi
         ELSE IF (cclat<0._wp .AND. cclon>=0.0_wp*pi .AND. cclon<=0.4_wp*pi) THEN
-          cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon - 0.2_wp*pi
+          cell_desc(nc)%lat = -cclat
+          cell_desc(nc)%lon = cclon - 0.2_wp*pi
         ELSE IF (cclat<0._wp .AND. cclon>=0.4_wp*pi .AND. cclon<=0.8_wp*pi) THEN
-          cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon - 0.6_wp*pi
+          cell_desc(nc)%lat = -cclat
+          cell_desc(nc)%lon = cclon - 0.6_wp*pi
         ENDIF
 
-        IF (cell_desc(2,nc)>pi) THEN
-          cell_desc(2,nc) = cell_desc(2,nc) - 2._wp*pi
-        ELSE IF (cell_desc(2,nc)<-pi) THEN
-          cell_desc(2,nc) = cell_desc(2,nc) + 2._wp*pi
+        IF (cell_desc(nc)%lon > pi) THEN
+          cell_desc(nc)%lon = cell_desc(nc)%lon - 2._wp*pi
+        ELSE IF (cell_desc(nc)%lon < -pi) THEN
+          cell_desc(nc)%lon = cell_desc(nc)%lon + 2._wp*pi
         ENDIF
 
-        cell_desc(3,nc) = REAL(nc,wp)
-        cell_desc(4,nc) = 0.0_wp
+        cell_desc(nc)%cell_number = nc
+        cell_desc(nc)%owner = 0
 
       ENDDO
 
@@ -2608,10 +2609,10 @@ CONTAINS
 
         nc = nc+1 ! Cell counter
 
-        cell_desc(1,nc) = wrk_p_patch_pre%cells%center(j)%lat
-        cell_desc(2,nc) = wrk_p_patch_pre%cells%center(j)%lon
-        cell_desc(3,nc) = REAL(nc,wp)
-        cell_desc(4,nc) = 0.0_wp
+        cell_desc(nc)%lat = wrk_p_patch_pre%cells%center(j)%lat
+        cell_desc(nc)%lon = wrk_p_patch_pre%cells%center(j)%lon
+        cell_desc(nc)%cell_number = nc
+        cell_desc(nc)%owner = 0
 
       ENDDO
 
@@ -2637,35 +2638,35 @@ CONTAINS
               .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) >= 1 .AND. &
                wrk_p_patch_pre%cells%refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
             nn = nn+1
-            cell_desc(3,npt-nn) = REAL(j,wp)
+            cell_desc(npt-nn)%cell_number = j
             CYCLE
           ELSE
             nc = nc+1 ! Cell counter
           ENDIF
 
-          cell_desc(1,nc) = wrk_p_patch_pre%cells%center(j)%lat
-          cell_desc(2,nc) = wrk_p_patch_pre%cells%center(j)%lon
+          cell_desc(nc)%lat = wrk_p_patch_pre%cells%center(j)%lat
+          cell_desc(nc)%lon = wrk_p_patch_pre%cells%center(j)%lon
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area
           ! Thus we use the minimum lat/lon as subdivision criterion.
 
-          IF (cell_desc(1,nc) >= 0._wp) THEN
+          IF (cell_desc(nc)%lat >= 0._wp) THEN
             DO i = 1, 3
               jv = wrk_p_patch_pre%cells%vertex(j,i)
-              cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jv)%lat)
-              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jv)%lon)
+              cell_desc(nc)%lat = MAX(cell_desc(nc)%lat, wrk_p_patch_pre%verts%vertex(jv)%lat)
+              cell_desc(nc)%lon = MAX(cell_desc(nc)%lon, wrk_p_patch_pre%verts%vertex(jv)%lon)
             ENDDO
           ELSE
             DO i = 1, 3
               jv = wrk_p_patch_pre%cells%vertex(j,i)
-              cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jv)%lat)
-              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jv)%lon)
+              cell_desc(nc)%lat = MIN(cell_desc(nc)%lat, wrk_p_patch_pre%verts%vertex(jv)%lat)
+              cell_desc(nc)%lon = MAX(cell_desc(nc)%lon, wrk_p_patch_pre%verts%vertex(jv)%lon)
             ENDDO
           ENDIF
 
-          cell_desc(3,nc) = REAL(nc,wp)
-          cell_desc(4,nc) = 0.0_wp
+          cell_desc(nc)%cell_number = nc
+          cell_desc(nc)%owner = 0
 
         ENDDO
 
@@ -2681,19 +2682,15 @@ CONTAINS
       nce = ncell_offset(j)
       nc  = ncell_offset(j) - ncell_offset(j-1)
 
-      ALLOCATE(workspace(4,nc))
-
-      CALL divide_cells_by_location(nc, cell_desc(:,ncs:nce), workspace, 0, proc_count(j)-1)
+      CALL divide_cells_by_location(nc, cell_desc(ncs:nce), 0, proc_count(j)-1)
 
       ! After divide_cells_by_location the cells are sorted by owner,
       ! order them by original cell numbers again
 
-      CALL sort_array_by_row(cell_desc(:,ncs:nce), workspace, 3)
-
-      DEALLOCATE(workspace)
+      CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nce-ncs+1)
 
       ! Apply shift of processor IDs
-      IF (j > 1) cell_desc(4,ncs:nce) = cell_desc(4,ncs:nce) + proc_offset(j)
+      IF (j > 1) cell_desc(ncs:nce)%owner = cell_desc(ncs:nce)%owner + proc_offset(j)
 
     ENDDO
 
@@ -2710,7 +2707,7 @@ CONTAINS
               .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
                wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
             nc = nc+1
-            owner(j) = NINT(cell_desc(4,nc))
+            owner(j) = cell_desc(nc)%owner
           ENDIF
         ENDIF
       ENDDO
@@ -2721,7 +2718,7 @@ CONTAINS
       nc = 0
       DO WHILE (nc < nn) ! Iterations are needed because outer nest boundary row contains indirect neighbors
         DO i = 1, nn
-          j = NINT(cell_desc(3,npt-i))
+          j = cell_desc(npt-i)%cell_number
           IF (owner(j) >= 0) CYCLE
           DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
             jn = wrk_p_patch_pre%cells%neighbor(j,ii)

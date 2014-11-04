@@ -37,7 +37,7 @@ MODULE mo_decomposition_tools
 
   PUBLIC :: cluster_subdomains
   PUBLIC :: divide_cells_by_location
-  PUBLIC :: sort_array_by_row
+  PUBLIC :: t_cell_info, sort_cell_info_by_cell_number
   PUBLIC :: reorder_lonlat_subdomains, reorder_latlon_subdomains
   PUBLIC :: pair_opposite_subdomains
   PUBLIC :: decompose_round_robin
@@ -81,6 +81,12 @@ MODULE mo_decomposition_tools
     INTEGER, POINTER :: domain_id(:,:) ! DIM(no_of_decompositions, no_of_cells)
 
   END TYPE t_decomposition_structure
+
+  TYPE t_cell_info
+    REAL(wp) :: lat, lon ! latitude/longitude coordinate
+    INTEGER :: cell_number ! cell number (for back-sorting at the end)
+    INTEGER :: owner ! will be set to the owner
+  END TYPE t_cell_info
   !------------------------------
 
   TYPE t_glb2loc_index_lookup
@@ -294,65 +300,56 @@ CONTAINS
     ! (-1 for cells not in subset)
 
     INTEGER :: cell, i, j_v, no_of_cells
-    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
+    TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
+    REAL(wp) :: lat, lon
 
     !-----------------------------------------------------------------------
     no_of_cells = decomposition_struct%no_of_cells
 
-    ! Fill the cell_desc array, it must contain:
-    ! cell_desc(1,:)   lat
-    ! cell_desc(2,:)   lon
-    ! cell_desc(3,:)   cell number (for back-sorting at the end)
-    ! cell_desc(4,:)   will be set with the owner
-
-    ALLOCATE(cell_desc(4,no_of_cells))
+     ! Fill the cell_desc array
+    ALLOCATE(cell_desc(no_of_cells))
 
 
     ! domain decomposition for triangular cells with optional splitting into physical domains
     DO cell = 1, no_of_cells
 
-      cell_desc(1,cell) = decomposition_struct%cell_geo_center(cell)%lat
-      cell_desc(2,cell) = decomposition_struct%cell_geo_center(cell)%lon
+      lat = decomposition_struct%cell_geo_center(cell)%lat
+      lon = decomposition_struct%cell_geo_center(cell)%lon
 
       ! Using the center of the cells for geometric subdivision leads
       ! to "toothed" edges of the subdivision area
       ! Thus we use the minimum lat/lon as subdision criterion.
-      IF (cell_desc(1,cell) >= 0._wp) THEN
+      IF (lat >= 0._wp) THEN
         DO i = 1, 3
           j_v = decomposition_struct%cells_vertex(i, cell)
-          cell_desc(1,cell) = MAX(cell_desc(1,cell), &
-            & decomposition_struct%vertex_geo_coord(j_v)%lat)
-          cell_desc(2,cell) = MAX(cell_desc(2,cell), &
-            & decomposition_struct%vertex_geo_coord(j_v)%lon)
+          lat = MAX(lat, decomposition_struct%vertex_geo_coord(j_v)%lat)
+          lon = MAX(lon, decomposition_struct%vertex_geo_coord(j_v)%lon)
         ENDDO
       ELSE
         DO i = 1, 3
           j_v = decomposition_struct%cells_vertex(i, cell)
-          cell_desc(1,cell) = MIN(cell_desc(1,cell), &
-            & decomposition_struct%vertex_geo_coord(j_v)%lat)
-          cell_desc(2,cell) = MAX(cell_desc(2,cell), &
-            & decomposition_struct%vertex_geo_coord(j_v)%lon)
+          lat = MIN(lat, decomposition_struct%vertex_geo_coord(j_v)%lat)
+          lon = MAX(lon, decomposition_struct%vertex_geo_coord(j_v)%lon)
         ENDDO
       ENDIF
 
-      cell_desc(3,cell) = REAL(cell,wp)
-      cell_desc(4,cell) = 0.0_wp
+      cell_desc(cell)%lat = lat
+      cell_desc(cell)%lon = lon
+      cell_desc(cell)%cell_number = cell
+      cell_desc(cell)%owner = 0
 
     ENDDO
 
 
-    ALLOCATE(workspace(4,no_of_cells))
-
     CALL divide_cells_by_location(no_of_cells, &
-      & cell_desc(:,:), workspace, 0, decomposition_size-1)
-
-    DEALLOCATE(workspace)
+      & cell_desc(:), 0, decomposition_size-1)
 
     ! Set owner list,
-    ! note that the  cell_desc(3,i) holds the actual cell number
+    ! note that cell_desc(i)%cell_number holds the cell number, i.e. the
+    ! original array index before shuffling due to decomposition
     DO i = 1, no_of_cells
-      cell = NINT(cell_desc(3,i))
-      decomposition_struct%domain_id(out_decomposition_id, cell) = NINT(cell_desc(4,i))
+      cell = cell_desc(i)%cell_number
+      decomposition_struct%domain_id(out_decomposition_id, cell) = cell_desc(i)%owner
     ENDDO
     decomposition_struct%no_of_domains(out_decomposition_id) = decomposition_size
 
@@ -1163,51 +1160,56 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  RECURSIVE SUBROUTINE divide_cells_by_location(n_cells,cell_desc,work,cpu_a,cpu_b)
+  RECURSIVE SUBROUTINE divide_cells_by_location(n_cells,cell_desc,cpu_a,cpu_b)
 
     INTEGER, INTENT(in) :: n_cells, cpu_a, cpu_b
 
-    REAL(wp), INTENT(inout) :: cell_desc(4,n_cells),work(4,n_cells)
-    ! cell_desc(1,:)   lat
-    ! cell_desc(2,:)   lon
-    ! cell_desc(3,:)   cell number (for back-sorting at the end)
-    ! cell_desc(4,:)   will be set with the owner
-    !
-    ! work contains workspace for sort_array_by_row to avoid local allocation there
+    TYPE(t_cell_info), INTENT(inout) :: cell_desc(n_cells)
 
-    INTEGER cpu_m, n_cells_m
-    REAL(wp) :: xmax(2), xmin(2), avglat, scalexp
+    INTEGER :: cpu_m, n_cells_m, i
+    REAL(wp) :: max_lat, max_lon, min_lat, min_lon, avglat, scalexp
     !-----------------------------------------------------------------------
 
     ! If there is only 1 CPU for distribution, we are done
 
     IF(cpu_a==cpu_b) THEN
-      cell_desc(4,:) = REAL(cpu_a,wp)
+      cell_desc(:)%owner = cpu_a
       RETURN
     ENDIF
 
     ! Get geometric extensions and total number of points of all patches
-
-    xmin(1) = MINVAL(cell_desc(1,:))
-    xmin(2) = MINVAL(cell_desc(2,:))
-    xmax(1) = MAXVAL(cell_desc(1,:))
-    xmax(2) = MAXVAL(cell_desc(2,:))
+    min_lat = HUGE(min_lat)
+    max_lat = -HUGE(max_lat)
+    min_lon = HUGE(min_lon)
+    max_lon = -HUGE(max_lon)
+    avglat = 0.0_wp
+    DO i = 1, n_cells
+      min_lat = MIN(min_lat, cell_desc(i)%lat)
+      max_lat = MAX(max_lat, cell_desc(i)%lat)
+      min_lon = MIN(min_lon, cell_desc(i)%lon)
+      max_lon = MAX(max_lon, cell_desc(i)%lon)
+      ! avglat = avglat + cell_desc(i)%lat
+    END DO
+    ! min_lat = MINVAL(cell_desc(:)%lat)
+    ! min_lon = MINVAL(cell_desc(:)%lon)
+    ! max_lat = MAXVAL(cell_desc(:)%lat)
+    ! max_lon = MAXVAL(cell_desc(:)%lon)
 
     ! average latitude in patch
-    avglat  = SUM(cell_desc(1,:))/REAL(n_cells,wp)
-
+    ! avglat  = avglat/REAL(n_cells,wp)
+    avglat = SUM(cell_desc(:)%lat)/REAL(n_cells,wp)
     ! account somehow for convergence of meridians - this formula is just empiric
-    scalexp = 1._wp - MAX(0._wp,ABS(xmax(1))-1._wp,ABS(xmin(1))-1._wp)
-    xmin(2) = xmin(2)*(COS(avglat))**scalexp
-    xmax(2) = xmax(2)*(COS(avglat))**scalexp
+    scalexp = 1._wp - MAX(0._wp,ABS(max_lat)-1._wp,ABS(min_lat)-1._wp)
+    min_lon = min_lon*(COS(avglat))**scalexp
+    max_lon = max_lon*(COS(avglat))**scalexp
 
     ! Get dimension with biggest distance from min to max
     ! and sort cells in this dimension
 
-    IF(xmax(1)-xmin(1) >= xmax(2)-xmin(2)) THEN
-      CALL sort_array_by_row(cell_desc, work, 1)
+    IF(max_lat-min_lat >= max_lon-min_lon) THEN
+      CALL sort_cell_info_by_lat(cell_desc, n_cells)
     ELSE
-      CALL sort_array_by_row(cell_desc, work, 2)
+      CALL sort_cell_info_by_lon(cell_desc, n_cells)
     ENDIF
 
     ! CPU number where to split CPU set
@@ -1225,17 +1227,17 @@ CONTAINS
     ! If there are only two CPUs, we are done
 
     IF(cpu_b == cpu_a+1) THEN
-      cell_desc(4,1:n_cells_m)         = REAL(cpu_a,wp)
-      cell_desc(4,n_cells_m+1:n_cells) = REAL(cpu_b,wp)
+      cell_desc(1:n_cells_m)%owner = cpu_a
+      cell_desc(n_cells_m+1:n_cells)%owner = cpu_b
       RETURN
     ENDIF
 
     ! Further divide both halves recursively
 
-    CALL divide_cells_by_location(n_cells_m,cell_desc(:,1:n_cells_m),work(:,1:n_cells_m),&
+    CALL divide_cells_by_location(n_cells_m,cell_desc(1:n_cells_m),&
       cpu_a,cpu_m)
-    CALL divide_cells_by_location(n_cells-n_cells_m,cell_desc(:,n_cells_m+1:n_cells),&
-      work(:,n_cells_m+1:n_cells),cpu_m+1,cpu_b)
+    CALL divide_cells_by_location(n_cells-n_cells_m,cell_desc(n_cells_m+1:n_cells),&
+      cpu_m+1,cpu_b)
 
   END SUBROUTINE divide_cells_by_location
 
@@ -1595,6 +1597,376 @@ CONTAINS
       CALL finish  ('deallocate_glb2loc_index_lookup', 'deallocate failed')
 
   END SUBROUTINE deallocate_glb2loc_index_lookup
+
+  !-------------------------------------------------------------------------
+
+  FUNCTION med3_cell_info_lat(a, i, j, k) RESULT(median)
+    TYPE(t_cell_info), INTENT(in) :: a(0:)
+    INTEGER, INTENT(in) :: i, j, k
+    INTEGER :: median
+    IF (a(i)%lat < a(j)%lat) THEN
+      IF (a(j)%lat < a(k)%lat) THEN
+        median = j
+      ELSE
+        IF (a(i)%lat < a(k)%lat) THEN
+          median = k
+        ELSE
+          median = i
+        END IF
+      END IF
+    ELSE
+      IF (a(j)%lat > a(k)%lat) THEN
+        median = j
+      ELSE
+        IF (a(i)%lat < a(k)%lat) THEN
+          median = i
+        ELSE
+          median = k
+        END IF
+      END IF
+    END IF
+  END FUNCTION med3_cell_info_lat
+
+  SUBROUTINE cell_info_vec_swap(a, b, n)
+    INTEGER, INTENT(in) :: n
+    TYPE(t_cell_info), INTENT(inout) :: a(1:n), b(1:n)
+    TYPE(t_cell_info) :: t
+    INTEGER :: i
+    DO i = 1, n
+      t = a(i)
+      a(i) = b(i)
+      b(i) = t
+    END DO
+  END SUBROUTINE cell_info_vec_swap
+
+#define SWAP(i,j) temp = a(i) ; a(i) = a(j); a(j) = temp
+
+  RECURSIVE SUBROUTINE sort_cell_info_by_lat(a, n)
+    INTEGER, INTENT(in) :: n
+    TYPE(t_cell_info), INTENT(inout) :: a(0:n - 1)
+    TYPE(t_cell_info) :: temp
+
+    LOGICAL :: swap_cnt
+
+    INTEGER :: d, pa, pb, pc, pd, pl, pm, pn, pdiff
+
+    IF (n < 7) THEN
+      DO pm = 1, n - 1
+        pl = pm
+        DO WHILE (pl > 0)
+          IF (a(pl - 1)%lat <= a(pl)%lat) EXIT
+          SWAP(pl, pl - 1)
+          pl = pl - 1
+        END DO
+      END DO
+      RETURN
+    END IF
+    pm = n / 2
+    IF (n > 7) THEN
+      pl = 0
+      pn = n - 1
+      IF (n > 40) THEN
+        d = n / 8
+        pl = med3_cell_info_lat(a, pl, pl + d, pl + 2 * d)
+        pm = med3_cell_info_lat(a, pm - d, pm, pm + d)
+        pn = med3_cell_info_lat(a, pn - 2 * d, pn - d, pn)
+      END IF
+      pm = med3_cell_info_lat(a, pl, pm, pn)
+    END IF
+    SWAP(0, pm)
+    pb = 1
+    pa = pb
+    pd = n - 1
+    pc = pd
+    swap_cnt = .FALSE.
+    DO WHILE (.TRUE.)
+      DO WHILE (pb <= pc)
+        IF (a(pb)%lat > a(0)%lat) EXIT
+        IF (a(pb)%lat == a(0)%lat) THEN
+          swap_cnt = .TRUE.
+          SWAP(pa, pb)
+          pa = pa + 1
+        END IF
+        pb = pb + 1
+      END DO
+      DO WHILE (pb <= pc)
+        IF (a(pc)%lat < a(0)%lat) EXIT
+        IF (a(pc)%lat == a(0)%lat) THEN
+          swap_cnt = .TRUE.
+          SWAP(pc, pd)
+          pd = pd - 1
+        END IF
+        pc = pc - 1
+      END DO
+      IF (pb > pc) EXIT
+      SWAP(pb, pc)
+      swap_cnt = .TRUE.
+      pb = pb + 1
+      pc = pc - 1
+    END DO
+    IF (.NOT. swap_cnt) THEN  ! Switch to insertion sort
+      DO pm = 1, n - 1
+        pl = pm
+        DO WHILE(pl > 0)
+          IF (a(pl - 1)%lat <= a(pl)%lat) EXIT
+          SWAP(pl, pl - 1)
+          pl = pl - 1
+        END DO
+      END DO
+      RETURN
+    END IF
+    pn =  n
+    pdiff = MIN(pa, pb - pa)
+    IF (pdiff > 0) &
+         CALL cell_info_vec_swap(a(0:pdiff - 1), a(pb - pdiff:pb-1), pdiff)
+    pdiff = MIN(pd - pc, pn - pd - 1)
+    if (pdiff > 0) &
+         CALL cell_info_vec_swap(a(pb:pb + pdiff - 1), a(pn - pdiff:pn - 1), &
+         pdiff)
+    pdiff = pb - pa
+    IF (pdiff > 1) &
+         CALL sort_cell_info_by_lat(a, pdiff)
+    pdiff = pd - pc
+    ! hope the compiler can tail-recurse and save stack space
+    IF (pdiff > 1) &
+         CALL sort_cell_info_by_lat(a(pn - pdiff:), pdiff)
+  END SUBROUTINE sort_cell_info_by_lat
+
+  RECURSIVE SUBROUTINE sort_cell_info_by_lon(a, n)
+    INTEGER, INTENT(in) :: n
+    TYPE(t_cell_info), INTENT(inout) :: a(0:n - 1)
+    TYPE(t_cell_info) :: temp
+
+    LOGICAL :: swap_cnt
+
+    INTEGER :: d, pa, pb, pc, pd, pl, pm, pn, pdiff
+
+    IF (n < 7) THEN
+      DO pm = 1, n - 1
+        pl = pm
+        DO WHILE (pl > 0)
+          IF (a(pl - 1)%lon <= a(pl)%lon) EXIT
+          SWAP(pl, pl - 1)
+          pl = pl - 1
+        END DO
+      END DO
+      RETURN
+    END IF
+    pm = n / 2
+    IF (n > 7) THEN
+      pl = 0
+      pn = n - 1
+      IF (n > 40) THEN
+        d = n / 8
+        pl = med3_cell_info_lon(a, pl, pl + d, pl + 2 * d)
+        pm = med3_cell_info_lon(a, pm - d, pm, pm + d)
+        pn = med3_cell_info_lon(a, pn - 2 * d, pn - d, pn)
+      END IF
+      pm = med3_cell_info_lon(a, pl, pm, pn)
+    END IF
+    SWAP(0, pm)
+    pb = 1
+    pa = pb
+    pd = n - 1
+    pc = pd
+    swap_cnt = .FALSE.
+    DO WHILE (.TRUE.)
+      DO WHILE (pb <= pc)
+        IF (a(pb)%lon > a(0)%lon) EXIT
+        IF (a(pb)%lon == a(0)%lon) THEN
+          swap_cnt = .TRUE.
+          SWAP(pa, pb)
+          pa = pa + 1
+        END IF
+        pb = pb + 1
+      END DO
+      DO WHILE (pb <= pc)
+        IF (a(pc)%lon < a(0)%lon) EXIT
+        IF (a(pc)%lon == a(0)%lon) THEN
+          swap_cnt = .TRUE.
+          SWAP(pc, pd)
+          pd = pd - 1
+        END IF
+        pc = pc - 1
+      END DO
+      IF (pb > pc) EXIT
+      SWAP(pb, pc)
+      swap_cnt = .TRUE.
+      pb = pb + 1
+      pc = pc - 1
+    END DO
+    IF (.NOT. swap_cnt) THEN  ! Switch to insertion sort
+      DO pm = 1, n - 1
+        pl = pm
+        DO WHILE(pl > 0)
+          IF (a(pl - 1)%lon <= a(pl)%lon) EXIT
+          SWAP(pl, pl - 1)
+          pl = pl - 1
+        END DO
+      END DO
+      RETURN
+    END IF
+    pn =  n
+    pdiff = MIN(pa, pb - pa)
+    IF (pdiff > 0) &
+         CALL cell_info_vec_swap(a(0:pdiff - 1), a(pb - pdiff:pb-1), pdiff)
+    pdiff = MIN(pd - pc, pn - pd - 1)
+    if (pdiff > 0) &
+         CALL cell_info_vec_swap(a(pb:pb + pdiff - 1), a(pn - pdiff:pn - 1), &
+         pdiff)
+    pdiff = pb - pa
+    IF (pdiff > 1) &
+         CALL sort_cell_info_by_lon(a, pdiff)
+    pdiff = pd - pc
+    ! hope the compiler can tail-recurse and save stack space
+    IF (pdiff > 1) &
+         CALL sort_cell_info_by_lon(a(pn - pdiff:), pdiff)
+  END SUBROUTINE sort_cell_info_by_lon
+
+  FUNCTION med3_cell_info_lon(a, i, j, k) RESULT(median)
+    TYPE(t_cell_info), INTENT(in) :: a(0:)
+    INTEGER, INTENT(in) :: i, j, k
+    INTEGER :: median
+    IF (a(i)%lon < a(j)%lon) THEN
+      IF (a(j)%lon < a(k)%lon) THEN
+        median = j
+      ELSE
+        IF (a(i)%lon < a(k)%lon) THEN
+          median = k
+        ELSE
+          median = i
+        END IF
+      END IF
+    ELSE
+      IF (a(j)%lon > a(k)%lon) THEN
+        median = j
+      ELSE
+        IF (a(i)%lon < a(k)%lon) THEN
+          median = i
+        ELSE
+          median = k
+        END IF
+      END IF
+    END IF
+  END FUNCTION med3_cell_info_lon
+
+  RECURSIVE SUBROUTINE sort_cell_info_by_cell_number(a, n)
+    INTEGER, INTENT(in) :: n
+    TYPE(t_cell_info), INTENT(inout) :: a(0:n - 1)
+    TYPE(t_cell_info) :: temp
+
+    LOGICAL :: swap_cnt
+
+    INTEGER :: d, pa, pb, pc, pd, pl, pm, pn, pdiff
+
+    IF (n < 7) THEN
+      DO pm = 1, n - 1
+        pl = pm
+        DO WHILE (pl > 0)
+          IF (a(pl - 1)%cell_number <= a(pl)%cell_number) EXIT
+          SWAP(pl, pl - 1)
+          pl = pl - 1
+        END DO
+      END DO
+      RETURN
+    END IF
+    pm = n / 2
+    IF (n > 7) THEN
+      pl = 0
+      pn = n - 1
+      IF (n > 40) THEN
+        d = n / 8
+        pl = med3_cell_info_cell_number(a, pl, pl + d, pl + 2 * d)
+        pm = med3_cell_info_cell_number(a, pm - d, pm, pm + d)
+        pn = med3_cell_info_cell_number(a, pn - 2 * d, pn - d, pn)
+      END IF
+      pm = med3_cell_info_cell_number(a, pl, pm, pn)
+    END IF
+    SWAP(0, pm)
+    pb = 1
+    pa = pb
+    pd = n - 1
+    pc = pd
+    swap_cnt = .FALSE.
+    DO WHILE (.TRUE.)
+      DO WHILE (pb <= pc)
+        IF (a(pb)%cell_number > a(0)%cell_number) EXIT
+        IF (a(pb)%cell_number == a(0)%cell_number) THEN
+          swap_cnt = .TRUE.
+          SWAP(pa, pb)
+          pa = pa + 1
+        END IF
+        pb = pb + 1
+      END DO
+      DO WHILE (pb <= pc)
+        IF (a(pc)%cell_number < a(0)%cell_number) EXIT
+        IF (a(pc)%cell_number == a(0)%cell_number) THEN
+          swap_cnt = .TRUE.
+          SWAP(pc, pd)
+          pd = pd - 1
+        END IF
+        pc = pc - 1
+      END DO
+      IF (pb > pc) EXIT
+      SWAP(pb, pc)
+      swap_cnt = .TRUE.
+      pb = pb + 1
+      pc = pc - 1
+    END DO
+    IF (.NOT. swap_cnt) THEN  ! Switch to insertion sort
+      DO pm = 1, n - 1
+        pl = pm
+        DO WHILE(pl > 0)
+          IF (a(pl - 1)%cell_number <= a(pl)%cell_number) EXIT
+          SWAP(pl, pl - 1)
+          pl = pl - 1
+        END DO
+      END DO
+      RETURN
+    END IF
+    pn =  n
+    pdiff = MIN(pa, pb - pa)
+    IF (pdiff > 0) &
+         CALL cell_info_vec_swap(a(0:pdiff - 1), a(pb - pdiff:pb-1), pdiff)
+    pdiff = MIN(pd - pc, pn - pd - 1)
+    IF (pdiff > 0) &
+         CALL cell_info_vec_swap(a(pb:pb + pdiff - 1), a(pn - pdiff:pn - 1), &
+         pdiff)
+    pdiff = pb - pa
+    IF (pdiff > 1) &
+         CALL sort_cell_info_by_cell_number(a, pdiff)
+    pdiff = pd - pc
+    ! hope the compiler can tail-recurse and save stack space
+    IF (pdiff > 1) &
+         CALL sort_cell_info_by_cell_number(a(pn - pdiff:), pdiff)
+  END SUBROUTINE sort_cell_info_by_cell_number
+
+  FUNCTION med3_cell_info_cell_number(a, i, j, k) RESULT(median)
+    TYPE(t_cell_info), INTENT(in) :: a(0:)
+    INTEGER, INTENT(in) :: i, j, k
+    INTEGER :: median
+    IF (a(i)%cell_number < a(j)%cell_number) THEN
+      IF (a(j)%cell_number < a(k)%cell_number) THEN
+        median = j
+      ELSE
+        IF (a(i)%cell_number < a(k)%cell_number) THEN
+          median = k
+        ELSE
+          median = i
+        END IF
+      END IF
+    ELSE
+      IF (a(j)%cell_number > a(k)%cell_number) THEN
+        median = j
+      ELSE
+        IF (a(i)%cell_number < a(k)%cell_number) THEN
+          median = i
+        ELSE
+          median = k
+        END IF
+      END IF
+    END IF
+  END FUNCTION med3_cell_info_cell_number
 
 END MODULE mo_decomposition_tools
 
