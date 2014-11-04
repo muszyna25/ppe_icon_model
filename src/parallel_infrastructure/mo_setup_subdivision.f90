@@ -2417,7 +2417,7 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, ii, j, jn, nc, nn, npt, jd, idp, ncs, nce, jm(1)
+    INTEGER :: i, ii, j, jn, nc, n_onb_points, npt, jd, idp, ncs, nce, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom)
@@ -2536,7 +2536,7 @@ CONTAINS
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
          subset_flag(1:wrk_p_patch_pre%n_patch_cells_g), &
          lsplit_merged_domains, lparent_level, locean, &
-         id_physdom, ncell_offset, nn)
+         id_physdom, ncell_offset, n_onb_points)
 
     DO j = 1, num_physdom
 
@@ -2576,11 +2576,11 @@ CONTAINS
     ENDDO
 
     ! Add outer nest boundary points that have been disregarded so far
-    IF (nn > 0) THEN
+    IF (n_onb_points > 0) THEN
       nc = 0
       npt = wrk_p_patch_pre%n_patch_cells_g+1
-      DO WHILE (nc < nn) ! Iterations are needed because outer nest boundary row contains indirect neighbors
-        DO i = 1, nn
+      DO WHILE (nc < n_onb_points) ! Iterations are needed because outer nest boundary row contains indirect neighbors
+        DO i = 1, n_onb_points
           j = cell_desc(npt-i)%cell_number
           IF (owner(j) >= 0) CYCLE
           DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
@@ -2604,7 +2604,7 @@ CONTAINS
   SUBROUTINE build_cell_info(range_start, range_end, cell_desc, &
        wrk_p_patch_pre, divide_for_radiation, num_physdom, subset_flag, &
        lsplit_merged_domains, lparent_level, locean, &
-       id_physdom, ncell_offset, nn)
+       id_physdom, ncell_offset, n_onb_points)
     INTEGER, INTENT(in) :: range_start, range_end
     TYPE(t_cell_info), INTENT(out) :: cell_desc(range_start:range_end)
     TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
@@ -2614,14 +2614,14 @@ CONTAINS
     ! also ends on range_end, but we want implicit shape argument
     INTEGER, INTENT(in) :: subset_flag(range_start:range_end)
     INTEGER, INTENT(inout) :: ncell_offset(0:max_phys_dom)
-    INTEGER, INTENT(out) :: nn
+    INTEGER, INTENT(out) :: n_onb_points
     INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
 
     INTEGER :: i, j, nc, jd, idp, jv
     REAL(wp) :: cclat, cclon
 
     nc = 0
-    nn = 0
+    n_onb_points = 0
 
     IF(divide_for_radiation) THEN
 
@@ -2717,8 +2717,8 @@ CONTAINS
           IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) == -1   .OR.     &
               .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) >= 1 .AND. &
                wrk_p_patch_pre%cells%refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
-            cell_desc(range_end-nn)%cell_number = j
-            nn = nn + 1
+            cell_desc(range_end-n_onb_points)%cell_number = j
+            n_onb_points = n_onb_points + 1
             CYCLE
           ENDIF
 
