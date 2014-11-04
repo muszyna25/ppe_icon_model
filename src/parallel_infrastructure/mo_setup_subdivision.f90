@@ -2416,7 +2416,7 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, ii, j, jn, nc, n_onb_points, npt, jd, idp, ncs, nce, jm(1)
+    INTEGER :: j, nc, n_onb_points, ncs, nce, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom)
@@ -2555,46 +2555,9 @@ CONTAINS
 
     ENDDO
 
-    ! Set owner list (of complete patch)
-
-    nc = 0 ! Counts cells in subset
-
-    DO jd = 1, num_physdom
-      idp = id_physdom(jd)
-
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-        IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) /= -1   .OR.     &
-              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
-               wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
-            nc = nc+1
-            owner(j) = cell_desc(nc)%owner
-          ENDIF
-        ENDIF
-      ENDDO
-    ENDDO
-
-    ! Add outer nest boundary points that have been disregarded so far
-    IF (n_onb_points > 0) THEN
-      nc = 0
-      npt = wrk_p_patch_pre%n_patch_cells_g+1
-      DO WHILE (nc < n_onb_points) ! Iterations are needed because outer nest boundary row contains indirect neighbors
-        DO i = 1, n_onb_points
-          j = cell_desc(npt-i)%cell_number
-          IF (owner(j) >= 0) CYCLE
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
-            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
-            IF (jn > 0) THEN
-              IF (owner(jn) >= 0) THEN
-                owner(j) = owner(jn)
-                nc = nc + 1
-                EXIT
-              ENDIF
-            ENDIF
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDIF
+    CALL set_owners(owner, wrk_p_patch_pre, cell_desc, subset_flag, &
+         id_physdom, num_physdom, n_onb_points, lsplit_merged_domains, &
+         lparent_level, locean)
 
     DEALLOCATE(cell_desc)
 
@@ -2759,6 +2722,61 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE build_cell_info
+
+  ! Set owner list (of complete patch)
+  SUBROUTINE set_owners(owner, wrk_p_patch_pre, cell_desc, subset_flag, &
+       id_physdom, num_physdom, n_onb_points, lsplit_merged_domains, &
+       lparent_level, locean)
+    INTEGER, INTENT(out) :: owner(:) !< receives the owner PE for every cell
+    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_cell_info), INTENT(in) :: cell_desc(:)
+    INTEGER, INTENT(in) :: subset_flag(:) !< if > 0 a cell belongs to the subset
+    INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
+    INTEGER, INTENT(in) :: num_physdom, n_onb_points
+    LOGICAL, INTENT(in) :: lsplit_merged_domains, lparent_level, locean
+
+    INTEGER :: i, ii, idp, j, jd, jn, nc, npt
+
+    nc = 0 ! Counts cells in subset
+
+    DO jd = 1, num_physdom
+      idp = id_physdom(jd)
+
+      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+        IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
+          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) /= -1 .OR.     &
+              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
+               wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
+            nc = nc+1
+            owner(j) = cell_desc(nc)%owner
+          ENDIF
+        ENDIF
+      ENDDO
+    ENDDO
+
+    ! Add outer nest boundary points that have been disregarded so far
+    IF (n_onb_points > 0) THEN
+      nc = 0
+      npt = wrk_p_patch_pre%n_patch_cells_g+1
+      DO WHILE (nc < n_onb_points) ! Iterations are needed because outer nest boundary row contains indirect neighbors
+        DO i = 1, n_onb_points
+          j = cell_desc(npt-i)%cell_number
+          IF (owner(j) >= 0) CYCLE
+          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
+            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+            IF (jn > 0) THEN
+              IF (owner(jn) >= 0) THEN
+                owner(j) = owner(jn)
+                nc = nc + 1
+                EXIT
+              ENDIF
+            ENDIF
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDIF
+
+  END SUBROUTINE set_owners
 
 
 
