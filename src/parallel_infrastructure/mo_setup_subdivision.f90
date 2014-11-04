@@ -2428,10 +2428,10 @@ CONTAINS
                ncell_counts_p(1:max_phys_dom), &
                ncell_counts_p_sum(1:max_phys_dom)
     TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:), cell_desc_p(:)
-    INTEGER, ALLOCATABLE :: owner_p(:)
+    INTEGER, ALLOCATABLE :: owner_p(:), new_owner(:), owner_gather(:,:)
     REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
-    INTEGER :: my_cell_start, my_cell_end
+    INTEGER :: my_cell_start, my_cell_end, current_end, last_end
     INTEGER :: ierror
     CHARACTER(*), PARAMETER :: routine = 'divide_subset_geometric'
 
@@ -2628,8 +2628,22 @@ CONTAINS
          owner_p, wrk_p_patch_pre, cell_desc_p, ncell_offset_p, &
          num_physdom, n_onb_points_p)
 
-    DO i = my_cell_start, my_cell_end
-      IF (owner_p(i) /= owner(i)) THEN
+    ALLOCATE(new_owner(SIZE(owner)), owner_gather(0:p_n_work-1, 2))
+    last_end = 0
+    DO i = 0, p_n_work - 1
+      current_end = (wrk_p_patch_pre%n_patch_cells_g * (i + 1)) / p_n_work
+      owner_gather(i, 1) = current_end - last_end
+      owner_gather(i, 2) = last_end
+      last_end = current_end
+    END DO
+    IF (SIZE(owner_p) /= owner_gather(p_pe_work, 1)) &
+         CALL finish(routine, 'size mismatch')
+    CALL mpi_allgatherv(owner_p, SIZE(owner_p), p_int, &
+         new_owner, owner_gather(:, 1), owner_gather(:, 2), p_int, &
+         p_comm_work, ierror)
+
+    DO i = 1, SIZE(owner)
+      IF (new_owner(i) /= owner(i)) THEN
         WRITE (0, "(i0,4(a,i0))") p_pe_work, ': owner mismatch &
              &owner_p(', i, ') = ', owner_p(i), ', owner(', i, &
              ') = ', owner(i)
