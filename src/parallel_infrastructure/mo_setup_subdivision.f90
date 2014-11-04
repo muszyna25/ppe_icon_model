@@ -2615,7 +2615,8 @@ CONTAINS
       ALLOCATE(owner_gather(0:p_n_work-1, 2))
       last_end = 0
       DO i = 0, p_n_work - 1
-        current_end = (wrk_p_patch_pre%n_patch_cells_g * (i + 1)) / p_n_work
+        current_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
+             &             * INT(i + 1, i8)) / INT(p_n_work, i8))
         owner_gather(i, 1) = current_end - last_end
         owner_gather(i, 2) = last_end
         last_end = current_end
