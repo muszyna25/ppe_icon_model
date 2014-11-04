@@ -45,7 +45,7 @@ MODULE mo_setup_subdivision
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
-       mpi_in_place, mpi_max, mpi_success, mpi_sum, mpi_lor, p_bool
+       mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
 #endif
   USE mo_mpi,                ONLY: p_comm_work, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel
@@ -2421,14 +2421,12 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, j, nc, nc_p, ncs, ncs_p, nce, nce_p, n_onb_points, n_onb_points_p, jm(1)
-    INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
+    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
+    INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
-               ncell_offset(0:max_phys_dom), ncell_offset_p(0:max_phys_dom), &
-               ncell_counts_p(1:max_phys_dom), &
-               ncell_counts_p_sum(1:max_phys_dom)
-    TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:), cell_desc_p(:)
-    INTEGER, ALLOCATABLE :: owner_p(:), new_owner(:), owner_gather(:,:)
+               ncell_offset(0:max_phys_dom), ncell_offset_g(0:max_phys_dom)
+    TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
+    INTEGER, ALLOCATABLE :: owner_gather(:,:)
     REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
     INTEGER :: my_cell_start, my_cell_end, current_end, last_end
@@ -2456,6 +2454,23 @@ CONTAINS
 
     lsplit_merged_domains = .FALSE.
 
+    IF (p_n_work > 1) THEN
+      my_cell_start = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
+           &               * INT(p_pe_work, i8)) &
+           &              / INT(p_n_work, i8) + 1)
+      my_cell_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
+           &             * INT(p_pe_work + 1, i8)) &
+           &            / INT(p_n_work, i8))
+#ifndef NOMPI
+      CALL init_divide_cells_by_location_mpi
+#else
+      CALL finish("number of processors > 1 but MPI unavailable!")
+#endif
+    ELSE
+      my_cell_start = 1
+      my_cell_end = wrk_p_patch_pre%n_patch_cells_g
+    END IF
+
     ! Check if domain merging has been applied; for large PE numbers, calculating the DD
     ! for each physical domain separately tends to yield a more balanced distribution
     ! of the halo points
@@ -2466,7 +2481,6 @@ CONTAINS
       id_physdom(:)    = 0
       proc_count(:)    = 0
       ncell_offset(:)  = 0
-      ncell_offset_p(:) = 0
       proc_offset(:)   = 0
       corr_ratio(:)    = 1._wp
 
@@ -2540,122 +2554,76 @@ CONTAINS
     ! cell_desc(2,:)   lon
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
     ! cell_desc(4,:)   will be set with the owner
+    ALLOCATE(cell_desc(my_cell_start:my_cell_end))
 
-    ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g))
-#ifndef NOMPI
-    my_cell_start = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-         &               * INT(p_pe_work, i8)) &
-         &              / INT(p_n_work, i8) + 1)
-    my_cell_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-         &             * INT(p_pe_work + 1, i8)) &
-         &            / INT(p_n_work, i8))
-    ALLOCATE(cell_desc_p(my_cell_start:my_cell_end), &
-         owner_p(my_cell_start:my_cell_end))
-    owner_p(my_cell_start:my_cell_end) = owner(my_cell_start:my_cell_end)
-#endif
-
-    CALL build_cell_info(1, wrk_p_patch_pre%n_patch_cells_g, cell_desc, &
-         wrk_p_patch_pre, divide_for_radiation, num_physdom, &
-         subset_flag(1:wrk_p_patch_pre%n_patch_cells_g), &
-         lsplit_merged_domains, lparent_level, locean, &
-         id_physdom, ncell_offset, n_onb_points)
-
-#ifndef NOMPI
-    CALL build_cell_info(my_cell_start, my_cell_end, cell_desc_p, &
+    CALL build_cell_info(my_cell_start, my_cell_end, cell_desc, &
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
          subset_flag(my_cell_start:my_cell_end), &
          lsplit_merged_domains, lparent_level, locean, &
-         id_physdom, ncell_offset_p, n_onb_points_p)
-
-    CALL init_divide_cells_by_location_mpi
+         id_physdom, ncell_offset, n_onb_points)
+    IF (p_n_work > 1) THEN
+#ifndef NOMPI
+      CALL mpi_allreduce(ncell_offset, ncell_offset_g, SIZE(ncell_offset), &
+           p_int, mpi_sum, p_comm_work, ierror)
+      IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
 #endif
+    END IF
+
 
     DO j = 1, num_physdom
 
-      ncs = ncell_offset(j-1)+1
-      nce = ncell_offset(j)
+      ncs = ncell_offset(j-1) + my_cell_start
+      nce = ncell_offset(j) + my_cell_start - 1
       nc  = ncell_offset(j) - ncell_offset(j-1)
 
-      ncs_p = ncell_offset_p(j-1) + my_cell_start
-      nce_p = ncell_offset_p(j) + my_cell_start - 1
-      nc_p = ncell_offset_p(j) - ncell_offset_p(j-1)
-      ncell_counts_p(j) = nc_p
-
-
-      CALL divide_cells_by_location(nc, cell_desc(ncs:nce), 0, proc_count(j)-1)
-
+      IF (p_n_work > 1) THEN
 #ifndef NOMPI
-      CALL divide_cells_by_location_mpi(nc, nc_p, cell_desc_p(ncs_p:nce_p), &
-           proc_count(j), p_comm_work)
+        nc_g = ncell_offset_g(j) - ncell_offset_g(j-1)
+        CALL divide_cells_by_location_mpi(nc_g, nc, cell_desc(ncs:nce), &
+             proc_count(j), p_comm_work)
 #endif
-
-      ! After divide_cells_by_location the cells are sorted by owner,
-      ! order them by original cell numbers again
-
-      CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nc)
-
-      ! CALL sort_cell_info_by_cell_number(cell_desc_p(ncs_p:nce_p), nc_p)
+      ELSE
+        CALL divide_cells_by_location(nc, cell_desc(ncs:nce), &
+             0, proc_count(j)-1)
+        ! After divide_cells_by_location the cells are sorted by owner,
+        ! order them by original cell numbers again
+        CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nc)
+      END IF
 
       ! Apply shift of processor IDs
       IF (j > 1) THEN
         cell_desc(ncs:nce)%owner = cell_desc(ncs:nce)%owner + proc_offset(j)
-        cell_desc_p(ncs_p:nce_p)%owner = cell_desc_p(ncs_p:nce_p)%owner &
-             + proc_offset(j)
       END IF
 
     ENDDO
 
+    IF (p_n_work > 1) THEN
 #ifndef NOMPI
-    CALL mpi_allreduce(ncell_counts_p, ncell_counts_p_sum, num_physdom, &
-         p_int, mpi_sum, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-
-    IF (ANY(ncell_counts_p_sum(1:num_physdom) &
-         /= ncell_offset(1:num_physdom) - ncell_offset(0:num_physdom - 1))) THEN
-      if (p_pe_work == 0) &
-           WRITE (0, *) ncell_counts_p_sum(1:num_physdom), &
-           ncell_offset(1:num_physdom) - ncell_offset(0:num_physdom - 1)
-      CALL finish(routine, 'error in cell counts')
+      CALL set_owners_mpi(1, wrk_p_patch_pre%n_patch_cells_g, &
+           my_cell_start, my_cell_end, &
+           owner(my_cell_start:my_cell_end), wrk_p_patch_pre, &
+           cell_desc, ncell_offset, num_physdom, n_onb_points)
+      ALLOCATE(owner_gather(0:p_n_work-1, 2))
+      last_end = 0
+      DO i = 0, p_n_work - 1
+        current_end = (wrk_p_patch_pre%n_patch_cells_g * (i + 1)) / p_n_work
+        owner_gather(i, 1) = current_end - last_end
+        owner_gather(i, 2) = last_end
+        last_end = current_end
+      END DO
+      CALL mpi_allgatherv(mpi_in_place, owner_gather(p_pe_work, 1), p_int, &
+           owner, owner_gather(:, 1), owner_gather(:, 2), p_int, &
+           p_comm_work, ierror)
+      IF (ierror /= mpi_success) CALL finish(routine, 'error in allgatherv')
+      DEALLOCATE(owner_gather)
+#endif
+    ELSE
+      CALL set_owners(1, wrk_p_patch_pre%n_patch_cells_g, &
+           owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
+           num_physdom, n_onb_points)
     END IF
-#endif
-
-    CALL set_owners(1, wrk_p_patch_pre%n_patch_cells_g, &
-         owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
-         num_physdom, n_onb_points)
-#ifndef NOMPI
-    CALL set_owners_mpi(1, wrk_p_patch_pre%n_patch_cells_g, &
-         my_cell_start, my_cell_end, &
-         owner_p, wrk_p_patch_pre, cell_desc_p, ncell_offset_p, &
-         num_physdom, n_onb_points_p)
-
-    ALLOCATE(new_owner(SIZE(owner)), owner_gather(0:p_n_work-1, 2))
-    last_end = 0
-    DO i = 0, p_n_work - 1
-      current_end = (wrk_p_patch_pre%n_patch_cells_g * (i + 1)) / p_n_work
-      owner_gather(i, 1) = current_end - last_end
-      owner_gather(i, 2) = last_end
-      last_end = current_end
-    END DO
-    IF (SIZE(owner_p) /= owner_gather(p_pe_work, 1)) &
-         CALL finish(routine, 'size mismatch')
-    CALL mpi_allgatherv(owner_p, SIZE(owner_p), p_int, &
-         new_owner, owner_gather(:, 1), owner_gather(:, 2), p_int, &
-         p_comm_work, ierror)
-
-    DO i = 1, SIZE(owner)
-      IF (new_owner(i) /= owner(i)) THEN
-        WRITE (0, "(i0,4(a,i0))") p_pe_work, ': owner mismatch &
-             &owner_p(', i, ') = ', owner_p(i), ', owner(', i, &
-             ') = ', owner(i)
-      END IF
-    END DO
-#endif
 
     DEALLOCATE(cell_desc)
-#ifndef NOMPI
-    DEALLOCATE(cell_desc_p)
-#endif
-
   END SUBROUTINE divide_subset_geometric
 
   SUBROUTINE build_cell_info(range_start, range_end, cell_desc, &
