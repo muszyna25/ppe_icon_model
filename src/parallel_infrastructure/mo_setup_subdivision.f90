@@ -2484,14 +2484,23 @@ CONTAINS
       proc_offset(:)   = 0
       corr_ratio(:)    = 1._wp
 
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+      DO j = my_cell_start, my_cell_end
         IF (subset_flag(j) > 0) THEN
           count_physdom(subset_flag(j)) = count_physdom(subset_flag(j)) + 1
           count_total = count_total + 1
         ENDIF
       ENDDO
+      IF (p_n_work > 1) THEN
+#ifndef NOMPI
+        count_physdom(0) = count_total
+        CALL mpi_allreduce(mpi_in_place, count_physdom, SIZE(count_physdom), &
+             p_int, mpi_sum, p_comm_work, ierror)
+        IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+        count_total = count_physdom(0)
+#endif
+      END IF
 
-      IF (MAXVAL(count_physdom) < count_total) THEN
+      IF (MAXVAL(count_physdom(1:)) < count_total) THEN
         lsplit_merged_domains = .TRUE.
         DO j = 1, max_phys_dom
           IF (count_physdom(j) > 0) THEN
