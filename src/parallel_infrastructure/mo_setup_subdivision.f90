@@ -2792,8 +2792,9 @@ CONTAINS
 
     INTEGER :: i, ii, j, jd, jj, jn, &
          first_unassigned_onb, last_unassigned_onb, &
-         ncs, nce
+         ncs, nce, num_set_on_this_pass
     TYPE(t_cell_info) :: temp
+    INTEGER, ALLOCATABLE :: set_on_this_pass(:)
 
     DO jd = 1, num_physdom
       ncs = ncell_offset(jd-1)+1
@@ -2809,26 +2810,34 @@ CONTAINS
       last_unassigned_onb = range_end
       ! Iterations are needed because outer nest boundary row contains
       ! indirect neighbors
+      ALLOCATE(set_on_this_pass(n_onb_points))
       DO WHILE (first_unassigned_onb <= last_unassigned_onb)
+        num_set_on_this_pass = 0
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
           DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
             jn = wrk_p_patch_pre%cells%neighbor(j,ii)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
-                ! move found cells to beginning of onb area
+                ! move found cells to end of onb area
                 temp = cell_desc(i)
                 DO jj = i, last_unassigned_onb - 1
                   cell_desc(jj) = cell_desc(jj + 1)
                 END DO
                 cell_desc(last_unassigned_onb) = temp
-                owner(j) = owner(jn)
+                owner(j) = -owner(jn) - 1
+                num_set_on_this_pass = num_set_on_this_pass + 1
+                set_on_this_pass(num_set_on_this_pass) = j
                 last_unassigned_onb = last_unassigned_onb - 1
                 EXIT
               ENDIF
             ENDIF
           ENDDO
         ENDDO
+        DO i = 1, num_set_on_this_pass
+          j = set_on_this_pass(i)
+          owner(j) = -owner(j) - 1
+        END DO
       ENDDO
     ENDIF
 
