@@ -81,8 +81,6 @@ MODULE mo_setup_subdivision
   !subroutines
   PUBLIC :: decompose_domain
 
-  ! Private flag if patch should be divided for radiation calculation
-  LOGICAL :: divide_for_radiation = .FALSE.
 
   TYPE nb_flag_list_elem
     INTEGER, ALLOCATABLE :: idx(:)
@@ -262,10 +260,6 @@ CONTAINS
         wrk_p_parent_patch_pre => p_patch_pre(jgp)
       ENDIF
 
-      ! Set division method, divide_for_radiation is only used for patch 0
-
-      divide_for_radiation = (jg == 0)
-
       ! Here comes the actual domain decomposition:
       ! Every cells gets assigned an owner.
 
@@ -275,9 +269,11 @@ CONTAINS
       END IF
 
       IF (my_process_is_mpi_parallel()) THEN
+        ! Set division method, divide_for_radiation is only used for patch 0
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
              p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_pre, &
-             radiation_owner)
+             radiation_owner, &
+             divide_for_radiation = (jg == 0))
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
       END IF
@@ -431,8 +427,8 @@ CONTAINS
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
   SUBROUTINE divide_patch_cells(wrk_p_patch_pre, patch_no, n_proc, proc0, &
-    &                           cell_owner, wrk_p_parent_patch_pre, &
-    &                           radiation_owner)
+       &                        cell_owner, wrk_p_parent_patch_pre, &
+       &                        radiation_owner, divide_for_radiation)
 
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
@@ -442,6 +438,8 @@ CONTAINS
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     INTEGER, POINTER :: radiation_owner(:)
+    ! Private flag if patch should be divided for radiation calculation
+    LOGICAL, INTENT(in) :: divide_for_radiation
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
@@ -602,7 +600,7 @@ CONTAINS
 
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-            &                          tmp, .TRUE.)
+               tmp, .TRUE., divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_pre, tmp)
@@ -632,7 +630,7 @@ CONTAINS
 
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
-            &                          cell_owner, .FALSE.)
+               cell_owner, .FALSE., divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, cell_owner)
@@ -2407,7 +2405,7 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !!
   SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_p_patch_pre, &
-                                     owner, lparent_level)
+                                     owner, lparent_level, divide_for_radiation)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
@@ -2416,6 +2414,8 @@ CONTAINS
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
                               ! the parent grid level (true) or for the target grid level (false)
+    ! Private flag if patch should be divided for radiation calculation
+    LOGICAL, INTENT(in) :: divide_for_radiation
 
     INTEGER :: i, ii, j, jn, nc, nn, npt, jd, idp, ncs, &
       &        nce, jm(1), jv
