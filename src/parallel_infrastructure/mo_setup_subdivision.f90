@@ -44,7 +44,8 @@ MODULE mo_setup_subdivision
     &                              set_inner_glb_index, set_outer_glb_index
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, mpi_success, mpi_sum
+  USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
+       mpi_in_place, mpi_max, mpi_success, mpi_sum, mpi_lor, p_bool
 #endif
   USE mo_mpi,                ONLY: p_comm_work, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel
@@ -2420,13 +2421,14 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: j, nc, nc_p, ncs, ncs_p, nce, nce_p, n_onb_points, n_onb_points_p, jm(1)
+    INTEGER :: i, j, nc, nc_p, ncs, ncs_p, nce, nce_p, n_onb_points, n_onb_points_p, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom), ncell_offset_p(0:max_phys_dom), &
                ncell_counts_p(1:max_phys_dom), &
                ncell_counts_p_sum(1:max_phys_dom)
     TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:), cell_desc_p(:)
+    INTEGER, ALLOCATABLE :: owner_p(:)
     REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
     INTEGER :: my_cell_start, my_cell_end
@@ -2539,14 +2541,18 @@ CONTAINS
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
     ! cell_desc(4,:)   will be set with the owner
 
+    ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g))
+#ifndef NOMPI
     my_cell_start = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
          &               * INT(p_pe_work, i8)) &
          &              / INT(p_n_work, i8) + 1)
     my_cell_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
          &             * INT(p_pe_work + 1, i8)) &
          &            / INT(p_n_work, i8))
-    ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g), &
-         cell_desc_p(my_cell_start:my_cell_end))
+    ALLOCATE(cell_desc_p(my_cell_start:my_cell_end), &
+         owner_p(my_cell_start:my_cell_end))
+    owner_p(my_cell_start:my_cell_end) = owner(my_cell_start:my_cell_end)
+#endif
 
     CALL build_cell_info(1, wrk_p_patch_pre%n_patch_cells_g, cell_desc, &
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
@@ -2554,13 +2560,13 @@ CONTAINS
          lsplit_merged_domains, lparent_level, locean, &
          id_physdom, ncell_offset, n_onb_points)
 
+#ifndef NOMPI
     CALL build_cell_info(my_cell_start, my_cell_end, cell_desc_p, &
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
          subset_flag(my_cell_start:my_cell_end), &
          lsplit_merged_domains, lparent_level, locean, &
          id_physdom, ncell_offset_p, n_onb_points_p)
 
-#ifndef NOMPI
     CALL init_divide_cells_by_location_mpi
 #endif
 
@@ -2578,8 +2584,10 @@ CONTAINS
 
       CALL divide_cells_by_location(nc, cell_desc(ncs:nce), 0, proc_count(j)-1)
 
+#ifndef NOMPI
       CALL divide_cells_by_location_mpi(nc, nc_p, cell_desc_p(ncs_p:nce_p), &
            proc_count(j), p_comm_work)
+#endif
 
       ! After divide_cells_by_location the cells are sorted by owner,
       ! order them by original cell numbers again
@@ -2597,6 +2605,7 @@ CONTAINS
 
     ENDDO
 
+#ifndef NOMPI
     CALL mpi_allreduce(ncell_counts_p, ncell_counts_p_sum, num_physdom, &
          p_int, mpi_sum, p_comm_work, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
@@ -2608,12 +2617,30 @@ CONTAINS
            ncell_offset(1:num_physdom) - ncell_offset(0:num_physdom - 1)
       CALL finish(routine, 'error in cell counts')
     END IF
+#endif
 
     CALL set_owners(1, wrk_p_patch_pre%n_patch_cells_g, &
          owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
          num_physdom, n_onb_points)
+#ifndef NOMPI
+    CALL set_owners_mpi(1, wrk_p_patch_pre%n_patch_cells_g, &
+         my_cell_start, my_cell_end, &
+         owner_p, wrk_p_patch_pre, cell_desc_p, ncell_offset_p, &
+         num_physdom, n_onb_points_p)
 
-    DEALLOCATE(cell_desc, cell_desc_p)
+    DO i = my_cell_start, my_cell_end
+      IF (owner_p(i) /= owner(i)) THEN
+        WRITE (0, "(i0,4(a,i0))") p_pe_work, ': owner mismatch &
+             &owner_p(', i, ') = ', owner_p(i), ', owner(', i, &
+             ') = ', owner(i)
+      END IF
+    END DO
+#endif
+
+    DEALLOCATE(cell_desc)
+#ifndef NOMPI
+    DEALLOCATE(cell_desc_p)
+#endif
 
   END SUBROUTINE divide_subset_geometric
 
@@ -2843,6 +2870,102 @@ CONTAINS
 
   END SUBROUTINE set_owners
 
+#ifndef NOMPI
+  ! Set owner list (of complete patch)
+  SUBROUTINE set_owners_mpi(global_range_start, global_range_end, &
+       range_start, range_end, &
+       owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
+       num_physdom, n_onb_points)
+    USE mpi
+    USE ppm_extents
+    USE ppm_distributed_array
+    INTEGER, INTENT(in) :: global_range_start, global_range_end, &
+         range_start, range_end
+     !> receives the owner PE for every cell
+    INTEGER, INTENT(out) :: owner(range_start:range_end)
+    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
+    !> if > 0 a cell belongs to the subset
+    INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
+    INTEGER, INTENT(in) :: num_physdom, n_onb_points
+
+    INTEGER :: i, ii, j, jd, jj, jn, &
+         first_unassigned_onb, last_unassigned_onb, &
+         ncs, nce, owner_value, owner_idx(1), ierror
+    TYPE(t_cell_info) :: temp
+    TYPE(dist_mult_array) :: owners_ga
+    TYPE(global_array_desc) :: owners_ga_desc(1)
+    TYPE(extent) :: local_owners_desc(1, 1)
+    INTEGER, POINTER :: owners_ga_local(:)
+    LOGICAL :: owner_missing, any_onb_points
+    CHARACTER(14), PARAMETER :: routine = 'set_owners_mpi'
+
+    DO jd = 1, num_physdom
+      ncs = ncell_offset(jd-1) + range_start
+      nce = ncell_offset(jd) + range_start - 1
+      DO j = ncs, nce
+        owner(cell_desc(j)%cell_number) = cell_desc(j)%owner
+      END DO
+    END DO
+
+    ! Add outer nest boundary points that have been disregarded so far
+    any_onb_points = n_onb_points > 0
+    CALL mpi_allreduce(mpi_in_place, any_onb_points, 1, p_bool, &
+         mpi_lor, p_comm_work, ierror)
+    IF (any_onb_points) THEN
+      local_owners_desc(1, 1) = extent(range_start, range_end - range_start + 1)
+      owners_ga_desc(1)%a_rank = 1
+      owners_ga_desc(1)%rect(1) = extent(global_range_start, &
+           global_range_end - global_range_start + 1)
+      owners_ga_desc(1)%element_dt = p_int
+      owners_ga = dist_mult_array_new(owners_ga_desc, local_owners_desc, &
+           p_comm_work)
+      CALL dist_mult_array_local_ptr(owners_ga, 1, owners_ga_local)
+
+      first_unassigned_onb = range_end - n_onb_points + 1
+      last_unassigned_onb = range_end
+      ! Iterations are needed because outer nest boundary row contains
+      ! indirect neighbors
+      owner_missing = first_unassigned_onb <= last_unassigned_onb
+      CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
+           mpi_lor, p_comm_work, ierror)
+      DO WHILE (owner_missing)
+        IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+        owners_ga_local(:) = owner(:)
+        CALL dist_mult_array_expose(owners_ga)
+
+        DO i = last_unassigned_onb, first_unassigned_onb, -1
+          j = cell_desc(i)%cell_number
+          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
+            ! todo: use local patch information here
+            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+            IF (jn > 0) THEN
+              owner_idx(1) = jn
+              CALL dist_mult_array_get(owners_ga, 1, owner_idx, owner_value)
+              IF (owner_value >= 0) THEN
+                ! move found cells to end of onb area
+                temp = cell_desc(i)
+                DO jj = i, last_unassigned_onb - 1
+                  cell_desc(jj) = cell_desc(jj + 1)
+                END DO
+                cell_desc(last_unassigned_onb) = temp
+                owner(j) = owner_value
+                last_unassigned_onb = last_unassigned_onb - 1
+                EXIT
+              ENDIF
+            ENDIF
+          ENDDO
+        ENDDO
+        CALL dist_mult_array_unexpose(owners_ga)
+        owner_missing = first_unassigned_onb <= last_unassigned_onb
+        CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
+             mpi_lor, p_comm_work, ierror)
+      ENDDO
+      CALL dist_mult_array_delete(owners_ga)
+    ENDIF
+
+  END SUBROUTINE set_owners_mpi
+#endif
 
 
 #ifdef HAVE_METIS
