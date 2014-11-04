@@ -255,6 +255,7 @@ MODULE mo_mpi
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
+  PUBLIC :: p_int_i4_byte, p_int_i8_byte
 
   PUBLIC ::get_mpi_time,ellapsed_mpi_time
 
@@ -1206,7 +1207,7 @@ CONTAINS
     END IF
     CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
     if (my_color == MPI_UNDEFINED)  p_comm_work_io = MPI_COMM_NULL
-    
+
     ! Set p_comm_io, the communicator spanning the I/O PEs
     IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
        my_color = 1
