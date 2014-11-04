@@ -147,6 +147,16 @@ MODULE mo_decomposition_tools
     MODULE PROCEDURE get_valid_local_index_next
   END INTERFACE
 
+  PUBLIC :: OPERATOR(==), OPERATOR(/=)
+
+  INTERFACE OPERATOR(==)
+    MODULE PROCEDURE t_cell_info_eq
+  END INTERFACE OPERATOR(==)
+
+  INTERFACE OPERATOR(/=)
+    MODULE PROCEDURE t_cell_info_ne
+  END INTERFACE OPERATOR(/=)
+
   !------------------------------
 
 CONTAINS
@@ -1911,6 +1921,22 @@ CONTAINS
       END IF
     END IF
   END FUNCTION med3_cell_info_cell_number
+
+  FUNCTION t_cell_info_eq(a, b) RESULT(p)
+    LOGICAL :: p
+    TYPE(t_cell_info), INTENT(in) :: a, b
+    p = a%lat == b%lat .AND. a%lon == b%lon &
+         .AND. a%cell_number == b%cell_number &
+         .AND. a%owner == b%owner
+  END FUNCTION t_cell_info_eq
+
+  FUNCTION t_cell_info_ne(a, b) RESULT(p)
+    LOGICAL :: p
+    TYPE(t_cell_info), INTENT(in) :: a, b
+    p = a%lat /= b%lat .OR. a%lon /= b%lon &
+         .OR. a%cell_number /= b%cell_number &
+         .OR. a%owner /= b%owner
+  END FUNCTION t_cell_info_ne
 
 END MODULE mo_decomposition_tools
 
