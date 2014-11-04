@@ -22,7 +22,7 @@
 !-------------------------------------------------------------------------------------
 MODULE mo_decomposition_tools
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: i8, wp
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_math_utilities
@@ -83,9 +83,10 @@ MODULE mo_decomposition_tools
   END TYPE t_decomposition_structure
 
   TYPE t_cell_info
-    REAL(wp) :: lat, lon ! latitude/longitude coordinate
-    INTEGER :: cell_number ! cell number (for back-sorting at the end)
-    INTEGER :: owner ! will be set to the owner
+    INTEGER :: lat !< latitude coordinate, scaled to integer value range
+    INTEGER :: lon !< longitude coordinate, scaled to integer value range
+    INTEGER :: cell_number !< cell number (for back-sorting at the end)
+    INTEGER :: owner !< will be set to the owner
   END TYPE t_cell_info
   !------------------------------
 
@@ -333,8 +334,8 @@ CONTAINS
         ENDDO
       ENDIF
 
-      cell_desc(cell)%lat = lat
-      cell_desc(cell)%lon = lon
+      cell_desc(cell)%lat = fxp_lat(lat)
+      cell_desc(cell)%lon = fxp_lon(lon)
       cell_desc(cell)%cell_number = cell
       cell_desc(cell)%owner = 0
 
@@ -1167,37 +1168,44 @@ CONTAINS
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(n_cells)
 
     INTEGER :: cpu_m, n_cells_m, i
+    INTEGER(i8) :: lat_sum
+    INTEGER :: max_lat_i, max_lon_i, min_lat_i, min_lon_i
     REAL(wp) :: max_lat, max_lon, min_lat, min_lon, avglat, scalexp
     !-----------------------------------------------------------------------
 
     ! If there is only 1 CPU for distribution, we are done
 
-    IF(cpu_a==cpu_b) THEN
+    IF(cpu_a==cpu_b .OR. n_cells == 0) THEN
       cell_desc(:)%owner = cpu_a
       RETURN
     ENDIF
 
     ! Get geometric extensions and total number of points of all patches
-    min_lat = HUGE(min_lat)
-    max_lat = -HUGE(max_lat)
-    min_lon = HUGE(min_lon)
-    max_lon = -HUGE(max_lon)
-    avglat = 0.0_wp
+    min_lat_i = HUGE(min_lat_i)
+    max_lat_i = -HUGE(max_lat_i)
+    min_lon_i = HUGE(min_lon_i)
+    max_lon_i = -HUGE(max_lon_i)
+    lat_sum = 0_i8
     DO i = 1, n_cells
-      min_lat = MIN(min_lat, cell_desc(i)%lat)
-      max_lat = MAX(max_lat, cell_desc(i)%lat)
-      min_lon = MIN(min_lon, cell_desc(i)%lon)
-      max_lon = MAX(max_lon, cell_desc(i)%lon)
-      ! avglat = avglat + cell_desc(i)%lat
+      min_lat_i = MIN(min_lat_i, cell_desc(i)%lat)
+      max_lat_i = MAX(max_lat_i, cell_desc(i)%lat)
+      min_lon_i = MIN(min_lon_i, cell_desc(i)%lon)
+      max_lon_i = MAX(max_lon_i, cell_desc(i)%lon)
+      lat_sum = lat_sum + INT(cell_desc(i)%lat, i8)
     END DO
-    ! min_lat = MINVAL(cell_desc(:)%lat)
-    ! min_lon = MINVAL(cell_desc(:)%lon)
-    ! max_lat = MAXVAL(cell_desc(:)%lat)
-    ! max_lon = MAXVAL(cell_desc(:)%lon)
+    ! min_lat_i = MINVAL(cell_desc(:)%lat)
+    ! min_lon_i = MINVAL(cell_desc(:)%lon)
+    ! max_lat_i = MAXVAL(cell_desc(:)%lat)
+    ! max_lon_i = MAXVAL(cell_desc(:)%lon)
+
+    min_lon = flp_lon(min_lon_i)
+    min_lat = flp_lat(min_lat_i)
+    max_lon = flp_lon(max_lon_i)
+    max_lat = flp_lat(max_lat_i)
 
     ! average latitude in patch
-    ! avglat  = avglat/REAL(n_cells,wp)
-    avglat = SUM(cell_desc(:)%lat)/REAL(n_cells,wp)
+    avglat  = flp_lat(INT(lat_sum/INT(n_cells,i8)))
+
     ! account somehow for convergence of meridians - this formula is just empiric
     scalexp = 1._wp - MAX(0._wp,ABS(max_lat)-1._wp,ABS(min_lat)-1._wp)
     min_lon = min_lon*(COS(avglat))**scalexp
