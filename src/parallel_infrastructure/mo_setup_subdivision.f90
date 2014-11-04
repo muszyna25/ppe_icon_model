@@ -34,8 +34,7 @@ MODULE mo_setup_subdivision
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
   USE mo_math_constants,     ONLY: pi
-  USE mo_exception,          ONLY: finish, message,    &
-    &                              get_filename_noext
+  USE mo_exception,          ONLY: finish, message, get_filename_noext
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
