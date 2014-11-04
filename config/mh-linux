@@ -169,9 +169,9 @@ case "$fortran_compiler" in
         # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = ifort
-        DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -g
+        DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
         STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-        FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
+        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
         OMPFLAG     = -openmp
@@ -419,7 +419,8 @@ case "$ac_sitename" in
                       # temporarily removed -check uninit since it fails
                       # for lapack/dpftri.f with -march=core-avx2 and
                       # intel 14.0.3
-                      DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -g -traceback -O0
+                      CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
+                      DEBUG_FLAGS = -debug-parameters -debug -g -O0
                       STD_FLAGS   = -O2 -march=native -fltconsistency
                       HIOPT_FLAGS = -O3 -mkl -no-prec-div -static -reentrancy threaded -xHost -vec-report1
                       FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
