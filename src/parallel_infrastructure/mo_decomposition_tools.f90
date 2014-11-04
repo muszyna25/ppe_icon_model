@@ -515,7 +515,7 @@ CONTAINS
 
     ! gets the first round-robin domain id for each domain
     return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
-      & check_subdomain_partition, cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
+      & cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
 
     write(0,*) "input max_subdomain_size=", max_subdomain_size, &
       &  "no_of_domains=", no_of_domains, " new subdomain_partition:", check_subdomain_partition
@@ -594,9 +594,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
-    & subdomain_partition, cells_per_domain, cells_group_size, max_subdomain_size, opposite_subdomain_id)
+    & cells_per_domain, cells_group_size, max_subdomain_size, opposite_subdomain_id)
 
-    INTEGER , INTENT(in) :: no_of_domains,  max_subdomain_size, subdomain_partition
+    INTEGER , INTENT(in) :: no_of_domains,  max_subdomain_size
     INTEGER, POINTER :: next_new_domain(:), remain_domain_space(:), &
       & cells_per_domain(:), cells_group_size(:)
     INTEGER, POINTER, OPTIONAL :: opposite_subdomain_id(:)
