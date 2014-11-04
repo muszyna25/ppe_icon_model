@@ -75,7 +75,8 @@
 #ifdef __xlC__
 @PROCESS HOT
 @PROCESS XLF90(NOSIGNEDZERO)
-#else
+#endif
+#if !(defined __xlC__ && defined _ARCH_PWR6)
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #define SWDIV_NOCHK(a,b) ((a)/(b))
 #endif

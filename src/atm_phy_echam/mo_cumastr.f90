@@ -9,7 +9,7 @@ MODULE mo_cumastr
 #ifdef __xlC__
 @PROCESS HOT
 #endif
-#ifndef __xlC__
+#if !(defined __xlC__ && defined _ARCH_PWR6)
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #define SWDIV_NOCHK(a,b) ((a)/(b))
 #endif

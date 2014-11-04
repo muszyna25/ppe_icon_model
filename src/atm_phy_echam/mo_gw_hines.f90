@@ -1,6 +1,7 @@
 #ifdef __xlC__
 @PROCESS HOT
-#else
+#endif
+#if !(defined __xlC__ && defined _ARCH_PWR6)
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
 !>

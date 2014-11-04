@@ -6,7 +6,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 MODULE mo_cuadjust
-#ifndef __xlC__
+#if !(defined __xlC__ && defined _ARCH_PWR6)
 #define SWDIV_NOCHK(a,b) (a)/(b)
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
