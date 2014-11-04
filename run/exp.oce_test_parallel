@@ -38,7 +38,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -99,7 +99,7 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-01T06:00:00Z"
+  end_date="2001-12-01T06:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -148,7 +148,7 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 3600         ! model timestep in seconds
- output      = 'nml'        ! namelist controlled output scheme
+ output      = 'none'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output = 3
 /

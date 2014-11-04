@@ -17,7 +17,7 @@
 !! headers of the routines.
 !!
 !----------------------------
-#include "omp_definitions.inc"
+!#include "omp_definitions.inc"
 !----------------------------
 MODULE mo_sea_ice_shared_sr
   
