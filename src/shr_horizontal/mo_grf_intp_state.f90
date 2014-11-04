@@ -474,10 +474,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
       &       p_p%edges%child_id(je,jb) == icid
   ENDDO
   owner(1:p_p%n_patch_edges) = &
-    UNPACK(dist_dir_get_owners(p_lp%edges%decomp_info%owner_dist_dir, &
-      &                        PACK(p_p%edges%decomp_info%glb_index(:), &
-      &                             mask(1:p_p%n_patch_edges))), &
-      &    mask(1:p_p%n_patch_edges), -1)
+       dist_dir_get_owners(p_lp%edges%decomp_info%owner_dist_dir, &
+       &                   p_p%edges%decomp_info%glb_index(:), &
+       &                   mask(1:p_p%n_patch_edges))
   CALL setup_comm_pattern(p_p%n_patch_edges, owner(1:p_p%n_patch_edges), &
     &                     p_p%edges%decomp_info%glb_index, &
     &                     p_lp%edges%decomp_info%glb2loc_index, &
@@ -491,10 +490,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
       &       p_p%cells%child_id(jc,jb) == icid
   ENDDO
   owner(1:p_p%n_patch_cells) = &
-    UNPACK(dist_dir_get_owners(p_lp%cells%decomp_info%owner_dist_dir, &
-      &                        PACK(p_p%cells%decomp_info%glb_index(:), &
-      &                             mask(1:p_p%n_patch_cells))), &
-      &    mask(1:p_p%n_patch_cells), -1)
+       dist_dir_get_owners(p_lp%cells%decomp_info%owner_dist_dir, &
+       &                   p_p%cells%decomp_info%glb_index(:), &
+       &                   mask(1:p_p%n_patch_cells))
   CALL setup_comm_pattern(p_p%n_patch_cells, owner(1:p_p%n_patch_cells), &
     &                     p_p%cells%decomp_info%glb_index, &
     &                     p_lp%cells%decomp_info%glb2loc_index, &
@@ -1325,8 +1323,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     p_pat => p_patch_all(icid)%comm_pat_interpol_scal_grf
     DO ip = 1, 4
       DO i = 1, p_pat(ip)%n_send
-        ib = p_pat(ip)%send_src_blk(i) 
-        ic = p_pat(ip)%send_src_idx(i) 
+        ib = p_pat(ip)%send_src_blk(i)
+        ic = p_pat(ip)%send_src_idx(i)
         p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
         p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
@@ -1335,8 +1333,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     p_pat => p_patch_all(icid)%comm_pat_interpol_scal_ubc
     DO ip = 1, 4
       DO i = 1, p_pat(ip)%n_send
-        ib = p_pat(ip)%send_src_blk(i) 
-        ic = p_pat(ip)%send_src_idx(i) 
+        ib = p_pat(ip)%send_src_blk(i)
+        ic = p_pat(ip)%send_src_idx(i)
         p_pat(ip)%send_src_idx(i) = inv_ind_c(ic,ib)
         p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
@@ -1345,8 +1343,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     p_pat => p_patch_all(icid)%comm_pat_interpol_vec_grf
     DO ip = 1, 4
       DO i = 1, p_pat(ip)%n_send
-        ib = p_pat(ip)%send_src_blk(i) 
-        ie = p_pat(ip)%send_src_idx(i) 
+        ib = p_pat(ip)%send_src_blk(i)
+        ie = p_pat(ip)%send_src_idx(i)
         p_pat(ip)%send_src_idx(i) = inv_ind_e_lbc(ie,ib)
         p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
@@ -1355,8 +1353,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     p_pat => p_patch_all(icid)%comm_pat_interpol_vec_ubc
     DO ip = 1, 4
       DO i = 1, p_pat(ip)%n_send
-        ib = p_pat(ip)%send_src_blk(i) 
-        ie = p_pat(ip)%send_src_idx(i) 
+        ib = p_pat(ip)%send_src_blk(i)
+        ie = p_pat(ip)%send_src_idx(i)
         p_pat(ip)%send_src_idx(i) = inv_ind_e_ubc(ie,ib)
         p_pat(ip)%send_src_blk(i) = 1 ! not needed here
       ENDDO
@@ -1368,7 +1366,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
 
 
    ! Index lists for grid points on which tendency fields for lateral boundary interpolation
-   ! need to be computed at parent level (including neighbor plus halo points for 
+   ! need to be computed at parent level (including neighbor plus halo points for
    ! gradient computation / interpolation stencil)
 
    ! cell points
@@ -1557,7 +1555,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
          IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_fbk_start_c + 1 .AND.                &
              p_patch%cells%child_id(jc,jb) == icid) p_grf%mask_ovlp_ch(jc,jb,jcd) = .TRUE.
 
-       ENDDO 
+       ENDDO
      ENDDO
 
      ! mask for edges
@@ -1574,7 +1572,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
          IF (p_patch%edges%refin_ctrl(je,jb) <= grf_fbk_start_e .AND.                   &
              p_patch%edges%child_id(je,jb) == icid) p_grf%mask_ovlp_e(je,jb,jcd) = .TRUE.
 
-       ENDDO 
+       ENDDO
      ENDDO
 
      ! mask for vertices; note that a workaround is needed for determining the overlap with
@@ -1598,11 +1596,11 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
          IF (p_patch%verts%refin_ctrl(jv,jb) <= grf_fbk_start_c .AND.                   &
              p_patch%cells%child_id(ic,ib) == icid) p_grf%mask_ovlp_v(jv,jb,jcd) = .TRUE.
 
-       ENDDO 
+       ENDDO
      ENDDO
 
    ENDDO ! loop over child domains
- 
+
   ENDDO ! domain ID
 
   ! When everything works, the 'old' index and coefficient lists can be deallocated here;

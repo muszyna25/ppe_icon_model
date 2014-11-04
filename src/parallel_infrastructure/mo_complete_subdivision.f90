@@ -23,7 +23,7 @@ MODULE mo_complete_subdivision
 
   USE mo_model_domain,       ONLY: t_patch, p_patch, p_patch_local_parent, &
     &                              p_phys_patch
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_valid_local_index, t_glb2loc_index_lookup
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum, p_comm_work_test
 #ifndef NOMPI
@@ -31,7 +31,7 @@ MODULE mo_complete_subdivision
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work, my_process_is_mpi_parallel
+    & my_process_is_mpi_workroot, p_pe_work, p_n_work
 
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
@@ -531,7 +531,7 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: owner(:)
     LOGICAL, ALLOCATABLE :: mask(:)
-    INTEGER :: j, je, icid, jb, jl
+    INTEGER :: j, je, icid, jb, jl, max_size
 
     ! Please note:
     ! For creating communication patterns for different amount of data to be transferred
@@ -551,27 +551,25 @@ CONTAINS
 
     ! ... cells
 
-    ALLOCATE(owner(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
-      &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)), &
-      &      mask(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
-      &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)))
+    max_size = MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
+      &            p_pglb%n_patch_cells, p_pglb%n_patch_edges)
+    ALLOCATE(owner(max_size), mask(max_size))
 
     je = idx_1d(p_ploc%cells%end_idx(min_rlcell_int,i_chidx), &
       &         p_ploc%cells%end_blk(min_rlcell_int,i_chidx))
 
-    mask(1:p_ploc%n_patch_cells) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
       mask(j) = p_ploc%cells%child_id(jl,jb)   == icid .AND. &
         &       p_ploc%cells%refin_ctrl(jl,jb) <= grf_bdyintp_start_c
     ENDDO
+    mask(je+1:p_ploc%n_patch_cells) = .FALSE.
 
     owner(1:p_ploc%n_patch_cells) = &
-      UNPACK(dist_dir_get_owners(p_pglb%cells%decomp_info%owner_dist_dir, &
-        &                        PACK(p_ploc%cells%decomp_info%glb_index(:), &
-        &                             mask(1:p_ploc%n_patch_cells))), &
-        &    mask(1:p_ploc%n_patch_cells), -1)
+         dist_dir_get_owners(p_pglb%cells%decomp_info%owner_dist_dir, &
+         p_ploc%cells%decomp_info%glb_index(:), &
+         mask(1:p_ploc%n_patch_cells))
 
     CALL setup_comm_pattern(p_ploc%n_patch_cells, owner(1:p_ploc%n_patch_cells), &
       p_ploc%cells%decomp_info%glb_index, &
@@ -582,19 +580,18 @@ CONTAINS
     je = idx_1d(p_ploc%edges%end_idx(min_rledge_int,i_chidx), &
       &         p_ploc%edges%end_blk(min_rledge_int,i_chidx))
 
-    mask(1:p_ploc%n_patch_edges) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
       mask(j) = p_ploc%edges%child_id(jl,jb) == icid .AND. &
         &       p_ploc%edges%refin_ctrl(jl,jb) <= grf_bdyintp_start_e
     ENDDO
+    mask(je+1:p_ploc%n_patch_edges) = .FALSE.
 
     owner(1:p_ploc%n_patch_edges) = &
-      UNPACK(dist_dir_get_owners(p_pglb%edges%decomp_info%owner_dist_dir, &
-        &                        PACK(p_ploc%edges%decomp_info%glb_index(:), &
-        &                             mask(1:p_ploc%n_patch_edges))), &
-        &    mask(1:p_ploc%n_patch_edges), -1)
+         dist_dir_get_owners(p_pglb%edges%decomp_info%owner_dist_dir, &
+         p_ploc%edges%decomp_info%glb_index(:), &
+         mask(1:p_ploc%n_patch_edges))
 
     CALL setup_comm_pattern(p_ploc%n_patch_edges, owner(1:p_ploc%n_patch_edges), &
       p_ploc%edges%decomp_info%glb_index,  &
@@ -617,7 +614,6 @@ CONTAINS
         &         p_pglb%cells%end_blk(min_rlcell_int,p_pglb%n_childdom))
     ENDIF
 
-    mask(1:p_pglb%n_patch_cells) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
@@ -625,12 +621,12 @@ CONTAINS
         &       p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
         &       p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int
     ENDDO
+    mask(je+1:p_pglb%n_patch_cells) = .FALSE.
 
     owner(1:p_pglb%n_patch_cells) = &
-      UNPACK(dist_dir_get_owners(p_ploc%cells%decomp_info%owner_dist_dir, &
-        &                        PACK(p_pglb%cells%decomp_info%glb_index(:), &
-        &                             mask(1:p_pglb%n_patch_cells))), &
-        &    mask(1:p_pglb%n_patch_cells), -1)
+         dist_dir_get_owners(p_ploc%cells%decomp_info%owner_dist_dir, &
+         p_pglb%cells%decomp_info%glb_index(:), &
+         mask(1:p_pglb%n_patch_cells))
 
     CALL setup_comm_pattern(p_pglb%n_patch_cells, owner(1:p_pglb%n_patch_cells), &
       p_pglb%cells%decomp_info%glb_index, &
@@ -646,7 +642,6 @@ CONTAINS
         &         p_pglb%edges%end_blk(min_rledge_int,i_chidx))
     ENDIF
 
-    mask(1:p_pglb%n_patch_edges) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
@@ -654,12 +649,12 @@ CONTAINS
         &       p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
         &       p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int
     ENDDO
+    mask(je+1:p_pglb%n_patch_edges) = .FALSE.
 
     owner(1:p_pglb%n_patch_edges) = &
-      UNPACK(dist_dir_get_owners(p_ploc%edges%decomp_info%owner_dist_dir, &
-        &                        PACK(p_pglb%edges%decomp_info%glb_index(:), &
-        &                             mask(1:p_pglb%n_patch_edges))), &
-        &    mask(1:p_pglb%n_patch_edges), -1)
+         dist_dir_get_owners(p_ploc%edges%decomp_info%owner_dist_dir, &
+         p_pglb%edges%decomp_info%glb_index(:), &
+         mask(1:p_pglb%n_patch_edges))
 
     CALL setup_comm_pattern(p_pglb%n_patch_edges, &
       owner(1:p_pglb%n_patch_edges), &
@@ -667,8 +662,7 @@ CONTAINS
       p_ploc%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
 
     DEALLOCATE(owner, mask)
-
-   END SUBROUTINE set_glb_loc_comm
+  END SUBROUTINE set_glb_loc_comm
 
   !-------------------------------------------------------------------------
   !>
@@ -724,9 +718,8 @@ CONTAINS
     ENDDO
 
     owner(:) = &
-      UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-        &                        PACK(glb_index(:), glb_index(:) /= -1)), &
-        &    glb_index(:) /= -1, -1)
+      dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+      &                   glb_index(:), glb_index(:) /= -1)
 
     ! Set up communication pattern
 
@@ -778,9 +771,8 @@ CONTAINS
       ENDDO
 
       owner(:) = &
-        UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
-          &    glb_index(:) /= -1, -1)
+           dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+           &                   glb_index(:), glb_index(:) /= -1)
 
       ! Set up communication pattern
 
@@ -906,9 +898,8 @@ CONTAINS
       ENDDO
 
       owner(:) = &
-        UNPACK(dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
-          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
-          &    glb_index(:) /= -1, -1)
+           dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
+           &                   glb_index(:), glb_index(:) /= -1)
 
       ! Set up communication pattern
 
@@ -1048,9 +1039,8 @@ CONTAINS
       ENDDO
 
       owner(:) = &
-        UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
-          &    glb_index(:) /= -1, -1)
+           dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+           &                   glb_index(:), glb_index(:) /= -1)
 
       ! Set up communication pattern
 
@@ -1175,9 +1165,8 @@ CONTAINS
       ENDDO
 
       owner(:) = &
-        UNPACK(dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
-          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
-          &    glb_index(:) /= -1, -1)
+           dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
+           &                   glb_index(:), glb_index(:) /= -1)
 
       ! Set up communication pattern
 
@@ -1324,7 +1313,7 @@ CONTAINS
     ENDDO
 
     ! MoHa: remark:
-    ! We cannot pass p_phys_patch(:)%n_patch_cells and 
+    ! We cannot pass p_phys_patch(:)%n_patch_cells and
     ! p_phys_patch(:)%comm_pat_gather_c directly to setup_phys_patches_cve
     ! because some compiler(intel and pgi) have problems with this type
     ! of array argument... Therefore, the temporary arrays n_patch_*(:) and
