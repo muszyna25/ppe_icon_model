@@ -1167,7 +1167,7 @@ CONTAINS
 
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(n_cells)
 
-    INTEGER :: cpu_m, n_cells_m, i
+    INTEGER :: cpu_m, n_cells_m, i, j
     INTEGER(i8) :: lat_sum
     INTEGER :: max_lat_i, max_lon_i, min_lat_i, min_lon_i
     REAL(wp) :: max_lat, max_lon, min_lat, min_lon, avglat, scalexp
@@ -1230,7 +1230,33 @@ CONTAINS
     ! Note that DOUBLE arithmetic is used since the integer size
     ! may be exceeded in this calculation!
 
-    n_cells_m = INT(DBLE(n_cells)*DBLE(cpu_m-cpu_a+1)/DBLE(cpu_b-cpu_a+1))
+    n_cells_m = INT(DBLE(n_cells)*DBLE((cpu_b-cpu_a+1)/2)/DBLE(cpu_b-cpu_a+1))
+
+    ! find cells with same lat/lon coordinate to left and right ...
+    i = n_cells_m
+    j = n_cells_m
+    IF (max_lat-min_lat >= max_lon-min_lon) THEN
+      DO WHILE (i > 1)
+        IF (cell_desc(i - 1)%lat /= cell_desc(n_cells_m)%lat) EXIT
+        i = i - 1
+      END DO
+      DO WHILE (j < n_cells)
+        IF (cell_desc(j + 1)%lat /= cell_desc(n_cells_m)%lat) EXIT
+        j = j + 1
+      END DO
+    ELSE
+      DO WHILE (i > 1)
+        IF (cell_desc(i - 1)%lon /= cell_desc(n_cells_m)%lon) EXIT
+        i = i - 1
+      END DO
+      DO WHILE (j < n_cells)
+        IF (cell_desc(j + 1)%lon /= cell_desc(n_cells_m)%lon) EXIT
+        j = j + 1
+      END DO
+    END IF
+    ! ... and sort those by cell number to make assignment to partition
+    ! repeatable in parallel version
+    CALL sort_cell_info_by_cell_number(cell_desc(i:j), j - i + 1)
 
     ! If there are only two CPUs, we are done
 
