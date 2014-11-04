@@ -80,6 +80,8 @@ LDFLAGS        = @LDFLAGS@
 SRCDIRS        = @SRCDIRS@
 OBJDIRS        = @OBJDIRS@
 
+ECHO_N = @ECHO_N@
+
 .PHONY: doc
 
 all:
@@ -162,3 +164,15 @@ index:
 
 checkstyle:
 	scripts/code_processing/process_src -v
+
+
+check:
+	@. config/set-up.info ; \
+	mpi_total_procs=4 ; \
+	for testprog in $(exec_prefix)/bin/test_* ; do \
+	echo $(ECHO_N) "$$testprog: " | sed -e 's/^.*\///'; \
+	case "$$testprog" in  *_mp|*_mpi) \
+	eval $$use_mpi_startrun \"\$$testprog\" && echo "SUCCESS" \
+	|| echo "ERROR" ;; \
+	*) "$$testprog" && echo "SUCCESS" || echo "ERROR" ;; \
+	esac ; done
