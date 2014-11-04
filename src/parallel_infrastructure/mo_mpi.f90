@@ -242,7 +242,8 @@ MODULE mo_mpi
 #else
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
-            MPI_UNDEFINED, mpi_max, mpi_in_place
+            MPI_UNDEFINED, mpi_max, mpi_in_place, mpi_op_null, &
+            mpi_datatype_null, mpi_sum, mpi_lor
 #endif
 #endif
 
