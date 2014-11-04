@@ -77,8 +77,8 @@ add_link_file $ext_data_path/extpar_${gridname}.nc  extpar_${gridname}.nc
 #INITIAL DATA
 init_data_path=$LAMDATA/INIT_germany
 init_date=2013040900
-add_link_file $init_data_path/1250/init_NEW_${gridname}_${init_date}.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $init_data_path/1250/init_NEW_${gridname}_${init_date}.nc dwdFG_R2B11_DOM01.nc
+add_link_file $init_data_path/1250/init_${gridname}_${init_date}.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/1250/init_${gridname}_${init_date}.nc dwdFG_R2B11_DOM01.nc
 #
 #-----------------------------------------------------------------------------
 #
