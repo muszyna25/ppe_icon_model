@@ -1466,7 +1466,6 @@ src/coupler/psmile_char2buf.f90 -text
 src/coupler/psmile_f2c.h -text
 src/coupler/psmile_init_datatypes.f90 -text
 src/coupler/psmile_redirstdout.c -text
-src/deprecated/control_model.f90 -text
 src/diagnostics/mo_err_norm.f90 -text
 src/diagnostics/mo_tropopause.f90 -text
 src/drivers/icon.f90 -text
