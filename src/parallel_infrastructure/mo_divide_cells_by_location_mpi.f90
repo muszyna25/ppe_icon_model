@@ -2,7 +2,7 @@ MODULE mo_divide_cells_by_location_mpi
 #ifndef NOMPI
   USE mo_kind, ONLY: i8, wp
   USE mo_mpi, ONLY: mpi_op_null, mpi_datatype_null, mpi_success, abort_mpi, &
-       mpi_in_place, p_int, p_int_i8, mpi_address_kind, mpi_sum
+       mpi_in_place, p_int, p_int_i8, mpi_address_kind, mpi_sum, mpi_2integer
   USE mo_math_utilities, ONLY: flp_lon, flp_lat
   USE mo_decomposition_tools, ONLY: t_cell_info
   USE mo_io_units, ONLY: nerr
@@ -10,7 +10,8 @@ MODULE mo_divide_cells_by_location_mpi
   IMPLICIT NONE
   PRIVATE
 
-  INTEGER :: divide_cells_reduce_op = mpi_op_null
+  INTEGER :: divide_cells_reduce_op = mpi_op_null, &
+       cell_num_bounds_reduce_op = mpi_op_null
   INTEGER :: divide_cells_reduce_dt = mpi_datatype_null
   TYPE t_divide_cells_agg
     SEQUENCE
@@ -43,6 +44,18 @@ CONTAINS
     END DO
   END SUBROUTINE divide_cells_agg
 
+  SUBROUTINE cell_num_bounds_agg(a, b, n, dt)
+    INTEGER, INTENT(in) :: n, dt
+    INTEGER, INTENT(in) :: a(2, n)
+    INTEGER, INTENT(inout) :: b(2, n)
+
+    INTEGER :: i
+    DO i = 1, n
+      b(1, i) = MIN(b(1, i), a(1, i))
+      b(2, i) = MAX(b(2, i), a(2, i))
+    END DO
+  END SUBROUTINE cell_num_bounds_agg
+
   SUBROUTINE create_dc_op_and_dt
     CHARACTER(len=*), PARAMETER :: method_name = 'create_dc_op'
     INTEGER, PARAMETER :: nblk = 2
@@ -52,6 +65,14 @@ CONTAINS
     TYPE(t_divide_cells_agg) :: dummy
     INTEGER :: i, ierror
     CALL mpi_op_create(divide_cells_agg, .TRUE., divide_cells_reduce_op, &
+         ierror)
+    IF (ierror /= mpi_success) THEN
+      WRITE (nerr,'(a,a)') method_name, ' mpi_create_op failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+      CALL abort_mpi
+    END IF
+
+    CALL mpi_op_create(cell_num_bounds_agg, .TRUE., cell_num_bounds_reduce_op, &
          ierror)
     IF (ierror /= mpi_success) THEN
       WRITE (nerr,'(a,a)') method_name, ' mpi_create_op failed.'
@@ -113,8 +134,24 @@ CONTAINS
       TYPE(t_pivot) :: pivot
     END TYPE stack
     TYPE(t_pivot) :: divider
-    INTEGER :: nsubpart, i
+    INTEGER :: nsubpart, i, ierror
     TYPE(stack) :: part_size_stack(0:BIT_SIZE(1))
+    INTEGER :: cell_num_bounds(2)
+
+    cell_num_bounds(1) = HUGE(cell_num_bounds(1))
+    cell_num_bounds(2) = -HUGE(cell_num_bounds(2))
+    ! establish minimal/maximal cell numbers to bound later interval nesting
+    DO i = 1, SIZE(cell_desc)
+      cell_num_bounds(1) = MIN(cell_num_bounds(1), cell_desc(i)%cell_number)
+      cell_num_bounds(2) = MAX(cell_num_bounds(2), cell_desc(i)%cell_number)
+    END DO
+    CALL mpi_allreduce(mpi_in_place, cell_num_bounds, 1, mpi_2integer, &
+         cell_num_bounds_reduce_op, comm, ierror)
+    IF (ierror /= mpi_success) THEN
+      WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+      CALL abort_mpi
+    END IF
 
     ! set owner to 0 to reflect intermediate assignment to root set
     ! at first the corresponding path will be temporarily stored in %owner
@@ -318,9 +355,9 @@ CONTAINS
           END IF
           pivot%lat_or_lon = pivot_le(1, 1)
           pivot%div_method = pivot%div_method + 1
-          pivot_guess_min = -HUGE(0)
-          pivot_guess_med = 0
-          pivot_guess_max = HUGE(0)
+          pivot_guess_min = cell_num_bounds(1)
+          pivot_guess_max = cell_num_bounds(2)
+          pivot_guess_med = (cell_num_bounds(1) + cell_num_bounds(2)) / 2
         ELSE
           ! pivot_le(i, 2) > target_part_size
           pivot_guess_min = pivot_le(i - 1, 1)
@@ -339,9 +376,9 @@ CONTAINS
             END IF
             pivot%lat_or_lon = pivot_guess_max
             pivot%div_method = pivot%div_method + 1
-            pivot_guess_min = -HUGE(0)
-            pivot_guess_med = 0
-            pivot_guess_max = HUGE(0)
+            pivot_guess_min = cell_num_bounds(1)
+            pivot_guess_max = cell_num_bounds(2)
+            pivot_guess_med = (cell_num_bounds(1) + cell_num_bounds(2)) / 2
           END IF
         END IF
       END DO find_pivot_le

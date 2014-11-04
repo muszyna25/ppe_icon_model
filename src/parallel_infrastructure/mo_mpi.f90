@@ -246,7 +246,7 @@ MODULE mo_mpi
             mpi_datatype_null, mpi_sum, mpi_lor
 #endif
 #endif
-
+  PUBLIC :: mpi_2integer
   PUBLIC :: MPI_ANY_SOURCE
 
   ! real data type matching real type of MPI implementation
