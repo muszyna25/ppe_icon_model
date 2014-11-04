@@ -2609,9 +2609,9 @@ CONTAINS
       CALL finish(routine, 'error in cell counts')
     END IF
 
-    CALL set_owners(owner, wrk_p_patch_pre, cell_desc, subset_flag, &
-         id_physdom, num_physdom, n_onb_points, lsplit_merged_domains, &
-         lparent_level, locean)
+    CALL set_owners(1, wrk_p_patch_pre%n_patch_cells_g, &
+         owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
+         num_physdom, n_onb_points)
 
     DEALLOCATE(cell_desc, cell_desc_p)
 
@@ -2778,50 +2778,52 @@ CONTAINS
   END SUBROUTINE build_cell_info
 
   ! Set owner list (of complete patch)
-  SUBROUTINE set_owners(owner, wrk_p_patch_pre, cell_desc, subset_flag, &
-       id_physdom, num_physdom, n_onb_points, lsplit_merged_domains, &
-       lparent_level, locean)
-    INTEGER, INTENT(out) :: owner(:) !< receives the owner PE for every cell
+  SUBROUTINE set_owners(range_start, range_end, &
+       owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
+       num_physdom, n_onb_points)
+    INTEGER, INTENT(in) :: range_start, range_end
+     !> receives the owner PE for every cell
+    INTEGER, INTENT(out) :: owner(range_start:range_end)
     TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
-    TYPE(t_cell_info), INTENT(in) :: cell_desc(:)
-    INTEGER, INTENT(in) :: subset_flag(:) !< if > 0 a cell belongs to the subset
-    INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
+    TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
+    !> if > 0 a cell belongs to the subset
+    INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
     INTEGER, INTENT(in) :: num_physdom, n_onb_points
-    LOGICAL, INTENT(in) :: lsplit_merged_domains, lparent_level, locean
 
-    INTEGER :: i, ii, idp, j, jd, jn, nc, npt
-
-    nc = 0 ! Counts cells in subset
+    INTEGER :: i, ii, j, jd, jj, jn, &
+         first_unassigned_onb, last_unassigned_onb, &
+         ncs, nce
+    TYPE(t_cell_info) :: temp
 
     DO jd = 1, num_physdom
-      idp = id_physdom(jd)
-
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-        IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) /= -1 .OR.     &
-              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
-               wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
-            nc = nc+1
-            owner(j) = cell_desc(nc)%owner
-          ENDIF
-        ENDIF
-      ENDDO
+      ncs = ncell_offset(jd-1)+1
+      nce = ncell_offset(jd)
+      DO j = ncs, nce
+        owner(cell_desc(j)%cell_number) = cell_desc(j)%owner
+      END DO
     ENDDO
 
     ! Add outer nest boundary points that have been disregarded so far
     IF (n_onb_points > 0) THEN
-      nc = 0
-      npt = wrk_p_patch_pre%n_patch_cells_g+1
-      DO WHILE (nc < n_onb_points) ! Iterations are needed because outer nest boundary row contains indirect neighbors
-        DO i = 1, n_onb_points
-          j = cell_desc(npt-i)%cell_number
-          IF (owner(j) >= 0) CYCLE
+      first_unassigned_onb = range_end - n_onb_points + 1
+      last_unassigned_onb = range_end
+      ! Iterations are needed because outer nest boundary row contains
+      ! indirect neighbors
+      DO WHILE (first_unassigned_onb <= last_unassigned_onb)
+        DO i = last_unassigned_onb, first_unassigned_onb, -1
+          j = cell_desc(i)%cell_number
           DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
             jn = wrk_p_patch_pre%cells%neighbor(j,ii)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
+                ! move found cells to beginning of onb area
+                temp = cell_desc(i)
+                DO jj = i, last_unassigned_onb - 1
+                  cell_desc(jj) = cell_desc(jj + 1)
+                END DO
+                cell_desc(last_unassigned_onb) = temp
                 owner(j) = owner(jn)
-                nc = nc + 1
+                last_unassigned_onb = last_unassigned_onb - 1
                 EXIT
               ENDIF
             ENDIF
