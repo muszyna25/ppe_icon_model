@@ -2417,13 +2417,12 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, ii, j, jn, nc, nn, npt, jd, idp, ncs, &
-      &        nce, jm(1), jv
+    INTEGER :: i, ii, j, jn, nc, nn, npt, jd, idp, ncs, nce, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom)
     TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
-    REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom)
+    REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
 
     !-----------------------------------------------------------------------
@@ -2533,19 +2532,103 @@ CONTAINS
 
     ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g))
 
+    CALL build_cell_info(1, wrk_p_patch_pre%n_patch_cells_g, cell_desc, &
+         wrk_p_patch_pre, divide_for_radiation, num_physdom, &
+         subset_flag(1:wrk_p_patch_pre%n_patch_cells_g), &
+         lsplit_merged_domains, lparent_level, locean, &
+         id_physdom, ncell_offset, nn)
+
+    DO j = 1, num_physdom
+
+      ncs = ncell_offset(j-1)+1
+      nce = ncell_offset(j)
+      nc  = ncell_offset(j) - ncell_offset(j-1)
+
+      CALL divide_cells_by_location(nc, cell_desc(ncs:nce), 0, proc_count(j)-1)
+
+      ! After divide_cells_by_location the cells are sorted by owner,
+      ! order them by original cell numbers again
+
+      CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nce-ncs+1)
+
+      ! Apply shift of processor IDs
+      IF (j > 1) cell_desc(ncs:nce)%owner = cell_desc(ncs:nce)%owner + proc_offset(j)
+
+    ENDDO
+
+    ! Set owner list (of complete patch)
+
+    nc = 0 ! Counts cells in subset
+
+    DO jd = 1, num_physdom
+      idp = id_physdom(jd)
+
+      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+        IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
+          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) /= -1   .OR.     &
+              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
+               wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
+            nc = nc+1
+            owner(j) = cell_desc(nc)%owner
+          ENDIF
+        ENDIF
+      ENDDO
+    ENDDO
+
+    ! Add outer nest boundary points that have been disregarded so far
+    IF (nn > 0) THEN
+      nc = 0
+      npt = wrk_p_patch_pre%n_patch_cells_g+1
+      DO WHILE (nc < nn) ! Iterations are needed because outer nest boundary row contains indirect neighbors
+        DO i = 1, nn
+          j = cell_desc(npt-i)%cell_number
+          IF (owner(j) >= 0) CYCLE
+          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
+            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+            IF (jn > 0) THEN
+              IF (owner(jn) >= 0) THEN
+                owner(j) = owner(jn)
+                nc = nc + 1
+                EXIT
+              ENDIF
+            ENDIF
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDIF
+
+    DEALLOCATE(cell_desc)
+
+  END SUBROUTINE divide_subset_geometric
+
+  SUBROUTINE build_cell_info(range_start, range_end, cell_desc, &
+       wrk_p_patch_pre, divide_for_radiation, num_physdom, subset_flag, &
+       lsplit_merged_domains, lparent_level, locean, &
+       id_physdom, ncell_offset, nn)
+    INTEGER, INTENT(in) :: range_start, range_end
+    TYPE(t_cell_info), INTENT(out) :: cell_desc(range_start:range_end)
+    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    LOGICAL, INTENT(in) :: divide_for_radiation, lsplit_merged_domains, &
+         lparent_level, locean
+    INTEGER, INTENT(in) :: num_physdom
+    ! also ends on range_end, but we want implicit shape argument
+    INTEGER, INTENT(in) :: subset_flag(range_start:range_end)
+    INTEGER, INTENT(inout) :: ncell_offset(0:max_phys_dom)
+    INTEGER, INTENT(out) :: nn
+    INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
+
+    INTEGER :: i, j, nc, jd, idp, jv
+    REAL(wp) :: cclat, cclon
+
     nc = 0
     nn = 0
 
     IF(divide_for_radiation) THEN
 
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+      DO j = range_start, range_end
         cell_desc(j)%lat = HUGE(cell_desc(j)%lat)! for finding min lat/lon
         cell_desc(j)%lon = HUGE(cell_desc(j)%lon) ! for finding min lat/lon
-
-
         IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
-
-        nc = nc+1 ! Cell counter
 
         ! Patch division for radiation calculations:
         ! To minimize load imbalance, every patch contains 10 areas
@@ -2588,10 +2671,12 @@ CONTAINS
           cclon = cclon + 2._wp*pi
         ENDIF
 
-        cell_desc(nc)%lat = fxp_lat(cclat)
-        cell_desc(nc)%lon = fxp_lon(cclon)
-        cell_desc(nc)%cell_number = nc
-        cell_desc(nc)%owner = 0
+        cell_desc(range_start + nc)%lat = fxp_lat(cclat)
+        cell_desc(range_start + nc)%lon = fxp_lon(cclon)
+        cell_desc(range_start + nc)%cell_number = j
+        cell_desc(range_start + nc)%owner = 0
+
+        nc = nc+1 ! Cell counter
 
       ENDDO
 
@@ -2600,16 +2685,16 @@ CONTAINS
 
     ELSE IF (wrk_p_patch_pre%cell_type == 6) THEN
 
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+      DO j = range_start, range_end
 
         IF (subset_flag(j) <= 0) CYCLE
 
-        nc = nc+1 ! Cell counter
+        cell_desc(range_start + nc)%lat = fxp_lat(wrk_p_patch_pre%cells%center(j)%lat)
+        cell_desc(range_start + nc)%lon = fxp_lon(wrk_p_patch_pre%cells%center(j)%lon)
+        cell_desc(range_start + nc)%cell_number = j
+        cell_desc(range_start + nc)%owner = 0
 
-        cell_desc(nc)%lat = fxp_lat(wrk_p_patch_pre%cells%center(j)%lat)
-        cell_desc(nc)%lon = fxp_lon(wrk_p_patch_pre%cells%center(j)%lon)
-        cell_desc(nc)%cell_number = nc
-        cell_desc(nc)%owner = 0
+        nc = nc + 1 ! Cell counter
 
       ENDDO
 
@@ -2617,14 +2702,12 @@ CONTAINS
 
     ELSE ! domain decomposition for triangular cells with optional splitting into physical domains
 
-      npt = wrk_p_patch_pre%n_patch_cells_g+1
-
       DO jd = 1, num_physdom
 
         idp = id_physdom(jd)
 
 !CDIR NODEP
-        DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+        DO j = range_start, range_end
 
           ! Skip cell if it is not in subset or does not belong to current physical domain
           IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
@@ -2634,11 +2717,9 @@ CONTAINS
           IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) == -1   .OR.     &
               .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) >= 1 .AND. &
                wrk_p_patch_pre%cells%refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
-            nn = nn+1
-            cell_desc(npt-nn)%cell_number = j
+            cell_desc(range_end-nn)%cell_number = j
+            nn = nn + 1
             CYCLE
-          ELSE
-            nc = nc+1 ! Cell counter
           ENDIF
 
           cclat = wrk_p_patch_pre%cells%center(j)%lat
@@ -2662,10 +2743,12 @@ CONTAINS
             ENDDO
           ENDIF
 
-          cell_desc(nc)%lat = fxp_lat(cclat)
-          cell_desc(nc)%lon = fxp_lon(cclon)
-          cell_desc(nc)%cell_number = nc
-          cell_desc(nc)%owner = 0
+          cell_desc(range_start + nc)%lat = fxp_lat(cclat)
+          cell_desc(range_start + nc)%lon = fxp_lon(cclon)
+          cell_desc(range_start + nc)%cell_number = j
+          cell_desc(range_start + nc)%owner = 0
+
+          nc = nc+1 ! Cell counter
 
         ENDDO
 
@@ -2673,69 +2756,11 @@ CONTAINS
 
       ENDDO
 
+
     ENDIF
 
-    DO j = 1, num_physdom
+  END SUBROUTINE build_cell_info
 
-      ncs = ncell_offset(j-1)+1
-      nce = ncell_offset(j)
-      nc  = ncell_offset(j) - ncell_offset(j-1)
-
-      CALL divide_cells_by_location(nc, cell_desc(ncs:nce), 0, proc_count(j)-1)
-
-      ! After divide_cells_by_location the cells are sorted by owner,
-      ! order them by original cell numbers again
-
-      CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nce-ncs+1)
-
-      ! Apply shift of processor IDs
-      IF (j > 1) cell_desc(ncs:nce)%owner = cell_desc(ncs:nce)%owner + proc_offset(j)
-
-    ENDDO
-
-    ! Set owner list (of complete patch)
-
-    nc = 0 ! Counts cells in subset
-
-    DO jd = 1, num_physdom
-      idp = id_physdom(jd)
-
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-        IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) /= -1   .OR.     &
-              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
-               wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
-            nc = nc+1
-            owner(j) = cell_desc(nc)%owner
-          ENDIF
-        ENDIF
-      ENDDO
-    ENDDO
-
-    ! Add outer nest boundary points that have been disregarded so far
-    IF (nn > 0) THEN
-      nc = 0
-      DO WHILE (nc < nn) ! Iterations are needed because outer nest boundary row contains indirect neighbors
-        DO i = 1, nn
-          j = cell_desc(npt-i)%cell_number
-          IF (owner(j) >= 0) CYCLE
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
-            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
-            IF (jn > 0) THEN
-              IF (owner(jn) >= 0) THEN
-                owner(j) = owner(jn)
-                nc = nc + 1
-                EXIT
-              ENDIF
-            ENDIF
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDIF
-
-    DEALLOCATE(cell_desc)
-
-  END SUBROUTINE divide_subset_geometric
 
 
 #ifdef HAVE_METIS
