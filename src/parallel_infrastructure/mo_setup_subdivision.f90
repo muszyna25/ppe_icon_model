@@ -29,7 +29,7 @@ MODULE mo_setup_subdivision
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
@@ -44,7 +44,7 @@ MODULE mo_setup_subdivision
     &                              set_inner_glb_index, set_outer_glb_index
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_COMM_NULL
+  USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, mpi_success, mpi_sum
 #endif
   USE mo_mpi,                ONLY: p_comm_work, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel
@@ -68,6 +68,10 @@ MODULE mo_setup_subdivision
   USE mo_math_utilities,      ONLY: geographical_to_cartesian, fxp_lat, fxp_lon
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
                                     testbed_process
+#ifndef NOMPI
+  USE mo_divide_cells_by_location_mpi, ONLY: divide_cells_by_location_mpi, &
+       init_divide_cells_by_location_mpi
+#endif
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
   USE mo_dist_dir,            ONLY: dist_dir_setup
@@ -2416,13 +2420,18 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: j, nc, n_onb_points, ncs, nce, jm(1)
+    INTEGER :: j, nc, nc_p, ncs, ncs_p, nce, nce_p, n_onb_points, n_onb_points_p, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
-               ncell_offset(0:max_phys_dom)
-    TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
+               ncell_offset(0:max_phys_dom), ncell_offset_p(0:max_phys_dom), &
+               ncell_counts_p(1:max_phys_dom), &
+               ncell_counts_p_sum(1:max_phys_dom)
+    TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:), cell_desc_p(:)
     REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
+    INTEGER :: my_cell_start, my_cell_end
+    INTEGER :: ierror
+    CHARACTER(*), PARAMETER :: routine = 'divide_subset_geometric'
 
     !-----------------------------------------------------------------------
 
@@ -2455,6 +2464,7 @@ CONTAINS
       id_physdom(:)    = 0
       proc_count(:)    = 0
       ncell_offset(:)  = 0
+      ncell_offset_p(:) = 0
       proc_offset(:)   = 0
       corr_ratio(:)    = 1._wp
 
@@ -2529,7 +2539,14 @@ CONTAINS
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
     ! cell_desc(4,:)   will be set with the owner
 
-    ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g))
+    my_cell_start = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
+         &               * INT(p_pe_work, i8)) &
+         &              / INT(p_n_work, i8) + 1)
+    my_cell_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
+         &             * INT(p_pe_work + 1, i8)) &
+         &            / INT(p_n_work, i8))
+    ALLOCATE(cell_desc(wrk_p_patch_pre%n_patch_cells_g), &
+         cell_desc_p(my_cell_start:my_cell_end))
 
     CALL build_cell_info(1, wrk_p_patch_pre%n_patch_cells_g, cell_desc, &
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
@@ -2537,29 +2554,66 @@ CONTAINS
          lsplit_merged_domains, lparent_level, locean, &
          id_physdom, ncell_offset, n_onb_points)
 
+    CALL build_cell_info(my_cell_start, my_cell_end, cell_desc_p, &
+         wrk_p_patch_pre, divide_for_radiation, num_physdom, &
+         subset_flag(my_cell_start:my_cell_end), &
+         lsplit_merged_domains, lparent_level, locean, &
+         id_physdom, ncell_offset_p, n_onb_points_p)
+
+#ifndef NOMPI
+    CALL init_divide_cells_by_location_mpi
+#endif
+
     DO j = 1, num_physdom
 
       ncs = ncell_offset(j-1)+1
       nce = ncell_offset(j)
       nc  = ncell_offset(j) - ncell_offset(j-1)
 
+      ncs_p = ncell_offset_p(j-1) + my_cell_start
+      nce_p = ncell_offset_p(j) + my_cell_start - 1
+      nc_p = ncell_offset_p(j) - ncell_offset_p(j-1)
+      ncell_counts_p(j) = nc_p
+
+
       CALL divide_cells_by_location(nc, cell_desc(ncs:nce), 0, proc_count(j)-1)
+
+      CALL divide_cells_by_location_mpi(nc, nc_p, cell_desc_p(ncs_p:nce_p), &
+           proc_count(j), p_comm_work)
 
       ! After divide_cells_by_location the cells are sorted by owner,
       ! order them by original cell numbers again
 
-      CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nce-ncs+1)
+      CALL sort_cell_info_by_cell_number(cell_desc(ncs:nce), nc)
+
+      ! CALL sort_cell_info_by_cell_number(cell_desc_p(ncs_p:nce_p), nc_p)
 
       ! Apply shift of processor IDs
-      IF (j > 1) cell_desc(ncs:nce)%owner = cell_desc(ncs:nce)%owner + proc_offset(j)
+      IF (j > 1) THEN
+        cell_desc(ncs:nce)%owner = cell_desc(ncs:nce)%owner + proc_offset(j)
+        cell_desc_p(ncs_p:nce_p)%owner = cell_desc_p(ncs_p:nce_p)%owner &
+             + proc_offset(j)
+      END IF
 
     ENDDO
+
+    CALL mpi_allreduce(ncell_counts_p, ncell_counts_p_sum, num_physdom, &
+         p_int, mpi_sum, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+
+    IF (ANY(ncell_counts_p_sum(1:num_physdom) &
+         /= ncell_offset(1:num_physdom) - ncell_offset(0:num_physdom - 1))) THEN
+      if (p_pe_work == 0) &
+           WRITE (0, *) ncell_counts_p_sum(1:num_physdom), &
+           ncell_offset(1:num_physdom) - ncell_offset(0:num_physdom - 1)
+      CALL finish(routine, 'error in cell counts')
+    END IF
 
     CALL set_owners(owner, wrk_p_patch_pre, cell_desc, subset_flag, &
          id_physdom, num_physdom, n_onb_points, lsplit_merged_domains, &
          lparent_level, locean)
 
-    DEALLOCATE(cell_desc)
+    DEALLOCATE(cell_desc, cell_desc_p)
 
   END SUBROUTINE divide_subset_geometric
 
