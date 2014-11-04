@@ -38,6 +38,7 @@ struct t_parsedata {
   char buffer[MAX_BUF_LEN + 1];   /* token string buffer          */
   int  value;                     /* integer value storage        */
   int  maxval;                    /* maximum value for integers   */
+  int  nlev_val;                  /* value to replace for "nlev"  */
   int *out_values;                /* pointer to result list       */
   int  vidx, oidx;                /* value and operand stack size */
   int  vstack[MAX_STACK];         /* value stack                  */
@@ -50,11 +51,11 @@ struct t_parsedata {
  * --------------------------------------------------------------------- */
 
 
-#line 147 "util_string_parse.rl"
+#line 148 "util_string_parse.rl"
 
 
 
-#line 58 "util_string_parse.c"
+#line 59 "util_string_parse.c"
 static const char _parse_intlist_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1, 
 	3, 1, 4, 1, 5, 1, 6, 1, 
@@ -412,7 +413,7 @@ static const int parse_intlist_error = 0;
 static const int parse_intlist_en_main = 79;
 
 
-#line 150 "util_string_parse.rl"
+#line 151 "util_string_parse.rl"
 
 
 /* --------------------------------------------------------------------- *
@@ -420,11 +421,13 @@ static const int parse_intlist_en_main = 79;
  * We scan for patterns like "1,2, 10-22;2" 
  *
  * @param[in]  parse_line     string containing integer numbers
- * @param[in]  noutvalues     maximum integer allowed
+ * @param[in]  nvalues        maximum integer allowed
+ * @param[out] nlev_val       value to replace for "nlev".
  * @param[out] out_values     out_values[i] = 1 if "i" was in parse_line
  * @param[out] ierr           error code != 0 if parser failed
  * --------------------------------------------------------------------- */
-void do_parse_intlist(const char *in_parse_line, const int nvalues, int *out_values, int* ierr) 
+void do_parse_intlist(const char *in_parse_line, const int nvalues, const int nlev_val, 
+                      int *out_values, int* ierr) 
 {
   int i;
   char* parse_line =  strdup(in_parse_line);
@@ -432,13 +435,14 @@ void do_parse_intlist(const char *in_parse_line, const int nvalues, int *out_val
   char *pe = parse_line + strlen(parse_line), *eof = pe ;  /* pointer to input end.  */
 
   struct t_parsedata parsedata = {
-    .maxval = nvalues, .out_values = out_values,
-    .vidx   = 0,       .oidx       = 0};                 /* input scanner state    */
+    .maxval   = nvalues, .out_values = out_values,
+    .nlev_val = nlev_val,
+    .vidx     = 0,       .oidx       = 0};                 /* input scanner state    */
   struct t_parsedata *data = &parsedata;
   for (i=0; i<nvalues; ++i)  out_values[i] = 0;
   
   
-#line 442 "util_string_parse.c"
+#line 446 "util_string_parse.c"
 	{
 	 data->cs = parse_intlist_start;
 	 data->ts = 0;
@@ -446,9 +450,9 @@ void do_parse_intlist(const char *in_parse_line, const int nvalues, int *out_val
 	 data->act = 0;
 	}
 
-#line 176 "util_string_parse.rl"
+#line 180 "util_string_parse.rl"
   
-#line 452 "util_string_parse.c"
+#line 456 "util_string_parse.c"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -469,7 +473,7 @@ _resume:
 #line 1 "NONE"
 	{ data->ts = p;}
 	break;
-#line 473 "util_string_parse.c"
+#line 477 "util_string_parse.c"
 		}
 	}
 
@@ -536,17 +540,17 @@ _eof_trans:
 		switch ( *_acts++ )
 		{
 	case 0:
-#line 55 "util_string_parse.rl"
+#line 56 "util_string_parse.rl"
 	{ if ((data->buflen < MAX_BUF_LEN) && ((*p)!='\n')) {
 	  data->buffer[data->buflen++] = (*p); }
  }
 	break;
 	case 1:
-#line 59 "util_string_parse.rl"
+#line 60 "util_string_parse.rl"
 	{ data->buflen = 0; }
 	break;
 	case 2:
-#line 61 "util_string_parse.rl"
+#line 62 "util_string_parse.rl"
 	{ 
     /* buffer string with "\0" character appended. */
     if (data->buflen < MAX_BUF_LEN) data->buffer[data->buflen++] = 0; 
@@ -554,7 +558,7 @@ _eof_trans:
  }
 	break;
 	case 3:
-#line 67 "util_string_parse.rl"
+#line 68 "util_string_parse.rl"
 	{ 
    if (data->oidx != 0) {
      int
@@ -576,11 +580,11 @@ _eof_trans:
  }
 	break;
 	case 4:
-#line 86 "util_string_parse.rl"
-	{ data->vstack[data->vidx++] = data->maxval; }
+#line 87 "util_string_parse.rl"
+	{ data->vstack[data->vidx++] = data->nlev_val; }
 	break;
 	case 5:
-#line 88 "util_string_parse.rl"
+#line 89 "util_string_parse.rl"
 	{ 
    switch ((*p)) {
    case '+':
@@ -599,7 +603,7 @@ _eof_trans:
 	{ data->te = p+1;}
 	break;
 	case 9:
-#line 101 "util_string_parse.rl"
+#line 102 "util_string_parse.rl"
 	{ data->te = p;p--;{ 
    int value = data->vstack[--data->vidx];
    if (value > data->maxval) {data->cs = parse_intlist_error;}
@@ -607,7 +611,7 @@ _eof_trans:
  }}
 	break;
 	case 10:
-#line 107 "util_string_parse.rl"
+#line 108 "util_string_parse.rl"
 	{ data->te = p;p--;{ 
    int i,
      range_end   = data->vstack[--data->vidx],
@@ -619,11 +623,11 @@ _eof_trans:
  }}
 	break;
 	case 11:
-#line 144 "util_string_parse.rl"
+#line 145 "util_string_parse.rl"
 	{ data->te = p;p--;}
 	break;
 	case 12:
-#line 101 "util_string_parse.rl"
+#line 102 "util_string_parse.rl"
 	{{p = (( data->te))-1;}{ 
    int value = data->vstack[--data->vidx];
    if (value > data->maxval) {data->cs = parse_intlist_error;}
@@ -631,7 +635,7 @@ _eof_trans:
  }}
 	break;
 	case 13:
-#line 107 "util_string_parse.rl"
+#line 108 "util_string_parse.rl"
 	{{p = (( data->te))-1;}{ 
    int i,
      range_end   = data->vstack[--data->vidx],
@@ -642,7 +646,7 @@ _eof_trans:
    for (i=range_start; i<=range_end; ++i)  data->out_values[i] = 1;
  }}
 	break;
-#line 646 "util_string_parse.c"
+#line 650 "util_string_parse.c"
 		}
 	}
 
@@ -655,7 +659,7 @@ _again:
 #line 1 "NONE"
 	{ data->ts = 0;}
 	break;
-#line 659 "util_string_parse.c"
+#line 663 "util_string_parse.c"
 		}
 	}
 
@@ -675,7 +679,7 @@ _again:
 	_out: {}
 	}
 
-#line 178 "util_string_parse.rl"
+#line 182 "util_string_parse.rl"
   (*ierr) = ( data->cs == parse_intlist_error );
   free(parse_line);
 }

@@ -36,6 +36,7 @@ struct t_parsedata {
   char buffer[MAX_BUF_LEN + 1];   /* token string buffer          */
   int  value;                     /* integer value storage        */
   int  maxval;                    /* maximum value for integers   */
+  int  nlev_val;                  /* value to replace for "nlev"  */
   int *out_values;                /* pointer to result list       */
   int  vidx, oidx;                /* value and operand stack size */
   int  vstack[MAX_STACK];         /* value stack                  */
@@ -83,7 +84,7 @@ struct t_parsedata {
      data->vstack[data->vidx++] = numA;
    }
  }
- action store_nlev { data->vstack[data->vidx++] = data->maxval; }
+ action store_nlev { data->vstack[data->vidx++] = data->nlev_val; }
  # push an operator onto stack
  action store_op { 
    switch (fc) {
@@ -154,11 +155,13 @@ struct t_parsedata {
  * We scan for patterns like "1,2, 10-22;2" 
  *
  * @param[in]  parse_line     string containing integer numbers
- * @param[in]  noutvalues     maximum integer allowed
+ * @param[in]  nvalues        maximum integer allowed
+ * @param[out] nlev_val       value to replace for "nlev".
  * @param[out] out_values     out_values[i] = 1 if "i" was in parse_line
  * @param[out] ierr           error code != 0 if parser failed
  * --------------------------------------------------------------------- */
-void do_parse_intlist(const char *in_parse_line, const int nvalues, int *out_values, int* ierr) 
+void do_parse_intlist(const char *in_parse_line, const int nvalues, const int nlev_val, 
+                      int *out_values, int* ierr) 
 {
   int i;
   char* parse_line =  strdup(in_parse_line);
@@ -166,8 +169,9 @@ void do_parse_intlist(const char *in_parse_line, const int nvalues, int *out_val
   char *pe = parse_line + strlen(parse_line), *eof = pe ;  /* pointer to input end.  */
 
   struct t_parsedata parsedata = {
-    .maxval = nvalues, .out_values = out_values,
-    .vidx   = 0,       .oidx       = 0};                 /* input scanner state    */
+    .maxval   = nvalues, .out_values = out_values,
+    .nlev_val = nlev_val,
+    .vidx     = 0,       .oidx       = 0};                 /* input scanner state    */
   struct t_parsedata *data = &parsedata;
   for (i=0; i<nvalues; ++i)  out_values[i] = 0;
   
