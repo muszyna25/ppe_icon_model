@@ -36,6 +36,8 @@ MODULE mo_decomposition_tools
   PUBLIC :: t_glb2loc_index_lookup
 
   PUBLIC :: cluster_subdomains
+  PUBLIC :: divide_cells_by_location
+  PUBLIC :: sort_array_by_row
   PUBLIC :: reorder_lonlat_subdomains, reorder_latlon_subdomains
   PUBLIC :: pair_opposite_subdomains
   PUBLIC :: decompose_round_robin
@@ -1161,11 +1163,11 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  RECURSIVE SUBROUTINE divide_cells_by_location(no_of_cells,cell_desc,work,cpu_a,cpu_b)
+  RECURSIVE SUBROUTINE divide_cells_by_location(n_cells,cell_desc,work,cpu_a,cpu_b)
 
-    INTEGER, INTENT(in) :: no_of_cells, cpu_a, cpu_b
+    INTEGER, INTENT(in) :: n_cells, cpu_a, cpu_b
 
-    REAL(wp), INTENT(inout) :: cell_desc(4,no_of_cells),work(4,no_of_cells)
+    REAL(wp), INTENT(inout) :: cell_desc(4,n_cells),work(4,n_cells)
     ! cell_desc(1,:)   lat
     ! cell_desc(2,:)   lon
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
@@ -1192,7 +1194,7 @@ CONTAINS
     xmax(2) = MAXVAL(cell_desc(2,:))
 
     ! average latitude in patch
-    avglat  = SUM(cell_desc(1,:))/REAL(no_of_cells,wp)
+    avglat  = SUM(cell_desc(1,:))/REAL(n_cells,wp)
 
     ! account somehow for convergence of meridians - this formula is just empiric
     scalexp = 1._wp - MAX(0._wp,ABS(xmax(1))-1._wp,ABS(xmin(1))-1._wp)
@@ -1218,13 +1220,13 @@ CONTAINS
     ! Note that DOUBLE arithmetic is used since the integer size
     ! may be exceeded in this calculation!
 
-    n_cells_m = INT(DBLE(no_of_cells)*DBLE(cpu_m-cpu_a+1)/DBLE(cpu_b-cpu_a+1))
+    n_cells_m = INT(DBLE(n_cells)*DBLE(cpu_m-cpu_a+1)/DBLE(cpu_b-cpu_a+1))
 
     ! If there are only two CPUs, we are done
 
     IF(cpu_b == cpu_a+1) THEN
       cell_desc(4,1:n_cells_m)         = REAL(cpu_a,wp)
-      cell_desc(4,n_cells_m+1:no_of_cells) = REAL(cpu_b,wp)
+      cell_desc(4,n_cells_m+1:n_cells) = REAL(cpu_b,wp)
       RETURN
     ENDIF
 
@@ -1232,11 +1234,10 @@ CONTAINS
 
     CALL divide_cells_by_location(n_cells_m,cell_desc(:,1:n_cells_m),work(:,1:n_cells_m),&
       cpu_a,cpu_m)
-    CALL divide_cells_by_location(no_of_cells-n_cells_m,cell_desc(:,n_cells_m+1:no_of_cells),&
-      work(:,n_cells_m+1:no_of_cells),cpu_m+1,cpu_b)
+    CALL divide_cells_by_location(n_cells-n_cells_m,cell_desc(:,n_cells_m+1:n_cells),&
+      work(:,n_cells_m+1:n_cells),cpu_m+1,cpu_b)
 
   END SUBROUTINE divide_cells_by_location
-  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------

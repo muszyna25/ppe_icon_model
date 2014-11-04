@@ -62,7 +62,9 @@ MODULE mo_setup_subdivision
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_pre_patch
-  USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
+  USE mo_decomposition_tools, ONLY: t_decomposition_structure, &
+    & divide_geometric_medial, divide_cells_by_location, &
+    & sort_array_by_row, &
     & read_ascii_decomposition
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, testbed_process
@@ -2412,7 +2414,7 @@ CONTAINS
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
-                              ! the parent grid level (true) or for the target grid level (false) 
+                              ! the parent grid level (true) or for the target grid level (false)
 
     INTEGER :: i, ii, j, jn, nc, nn, npt, jd, idp, ncs, &
       &        nce, jm(1), jv
@@ -2738,180 +2740,6 @@ CONTAINS
     DEALLOCATE(cell_desc)
 
   END SUBROUTINE divide_subset_geometric
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Actually divides geometrically by location on cpu_a .. cpu_b
-  !!
-  !! @par Revision Histo_gry
-  !! Initial version by Rainer Johanni, Nov 2009
-  !!
-  RECURSIVE SUBROUTINE divide_cells_by_location(n_cells,cell_desc,work,cpu_a,cpu_b)
-
-    INTEGER, INTENT(in) :: n_cells, cpu_a, cpu_b
-
-    REAL(wp), INTENT(inout) :: cell_desc(4,n_cells),work(4,n_cells)
-    ! cell_desc(1,:)   lat
-    ! cell_desc(2,:)   lon
-    ! cell_desc(3,:)   cell number (for back-sorting at the end)
-    ! cell_desc(4,:)   will be set with the owner
-    !
-    ! work contains workspace for sort_array_by_row to avoid local allocation there
-
-    INTEGER cpu_m, n_cells_m
-    REAL(wp) :: xmax(2), xmin(2), avglat, scalexp
-    !-----------------------------------------------------------------------
-
-    ! If there is only 1 CPU for distribution, we are done
-
-    IF(cpu_a==cpu_b) THEN
-      cell_desc(4,:) = REAL(cpu_a,wp)
-      RETURN
-    ENDIF
-
-    ! Get geometric extensions and total number of points of all patches
-
-    xmin(1) = MINVAL(cell_desc(1,:))
-    xmin(2) = MINVAL(cell_desc(2,:))
-    xmax(1) = MAXVAL(cell_desc(1,:))
-    xmax(2) = MAXVAL(cell_desc(2,:))
-
-    ! average latitude in patch
-    avglat  = SUM(cell_desc(1,:))/REAL(n_cells,wp)
-
-    ! account somehow for convergence of meridians - this formula is just empiric
-    scalexp = 1._wp - MAX(0._wp,ABS(xmax(1))-1._wp,ABS(xmin(1))-1._wp)
-    xmin(2) = xmin(2)*(COS(avglat))**scalexp
-    xmax(2) = xmax(2)*(COS(avglat))**scalexp
-
-    ! Get dimension with biggest distance from min to max
-    ! and sort cells in this dimension
-
-    IF(xmax(1)-xmin(1) >= xmax(2)-xmin(2)) THEN
-      CALL sort_array_by_row(cell_desc, work, 1)
-    ELSE
-      CALL sort_array_by_row(cell_desc, work, 2)
-    ENDIF
-
-    ! CPU number where to split CPU set
-
-    cpu_m = (cpu_a+cpu_b-1)/2
-
-    ! If the number of CPUs is not even, we have to split the set
-    ! of cells accordingly into to differntly sized halfes
-    ! in order to end with an equal number of points on every CPU.
-    ! Note that DOUBLE arithmetic is used since the integer size
-    ! may be exceeded in this calculation!
-
-    n_cells_m = INT(DBLE(n_cells)*DBLE(cpu_m-cpu_a+1)/DBLE(cpu_b-cpu_a+1))
-
-    ! If there are only two CPUs, we are done
-
-    IF(cpu_b == cpu_a+1) THEN
-      cell_desc(4,1:n_cells_m)         = REAL(cpu_a,wp)
-      cell_desc(4,n_cells_m+1:n_cells) = REAL(cpu_b,wp)
-      RETURN
-    ENDIF
-
-    ! Further divide both halves recursively
-
-    CALL divide_cells_by_location(n_cells_m,cell_desc(:,1:n_cells_m),work(:,1:n_cells_m),&
-      cpu_a,cpu_m)
-    CALL divide_cells_by_location(n_cells-n_cells_m,cell_desc(:,n_cells_m+1:n_cells),&
-      work(:,n_cells_m+1:n_cells),cpu_m+1,cpu_b)
-
-  END SUBROUTINE divide_cells_by_location
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Special quicksort implementation for sorting a 2D array by one selected row.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  !!
-  RECURSIVE SUBROUTINE sort_array_by_row(x,y,row)
-
-    !
-
-    INTEGER, INTENT(in) :: row ! number of row for sorting
-
-    REAL(wp), INTENT(inout) :: x(:,:) ! array to be sorted
-    REAL(wp), INTENT(inout) :: y(:,:) ! workspace
-
-    REAL(wp) :: p
-    INTEGER :: n, ipiv, ix, iy, i
-    !-----------------------------------------------------------------------
-
-    n = SIZE(x,2)
-
-    IF(n<=1) RETURN
-
-    ipiv = (n+1)/2
-    p = x(row,ipiv)
-    ix = 0
-    iy = 1
-
-#ifdef __SX__
-    IF (n >= 12) THEN ! Use vectorized version
-      DO i=1,n
-        IF(i==ipiv) CYCLE
-        IF(x(row,i) < p) THEN
-          ix = ix+1
-          y(1:4,ix) = x(1:4,i)
-        ENDIF
-      ENDDO
-
-      y(1:4,ix+1) = x(1:4,ipiv) ! Store pivot
-
-      DO i=1,n
-        IF(i==ipiv) CYCLE
-        IF(x(row,i) >= p) THEN
-          iy = iy+1
-          y(1:4,ix+iy) = x(1:4,i)
-        ENDIF
-      ENDDO
-!CDIR COLLAPSE
-      x(:,:) = y(:,:)
-    ELSE  ! use non-vectorized version
-      y(1:4,1) = x(1:4,ipiv) ! Store pivot
-
-      DO i=1,n
-        IF(i==ipiv) CYCLE
-        IF(x(row,i) < p) THEN
-          ix = ix+1
-          x(1:4,ix) = x(1:4,i)
-        ELSE
-          iy = iy+1
-          y(1:4,iy) = x(1:4,i)
-        ENDIF
-      ENDDO
-
-      x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
-    ENDIF
-#else
-    y(1:4,1) = x(1:4,ipiv) ! Store pivot
-
-    DO i=1,n
-      IF(i==ipiv) CYCLE
-      IF(x(row,i) < p) THEN
-        ix = ix+1
-        x(1:4,ix) = x(1:4,i)
-      ELSE
-        iy = iy+1
-        y(1:4,iy) = x(1:4,i)
-      ENDIF
-    ENDDO
-
-    x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
-#endif
-
-    ipiv = ix+1 ! New pivot location
-
-    IF(ipiv>2)   CALL sort_array_by_row(x(:,:ipiv-1),y(:,:ipiv-1),row)
-    IF(ipiv<n-1) CALL sort_array_by_row(x(:,ipiv+1:),y(:,ipiv+1:),row)
-
-  END SUBROUTINE sort_array_by_row
 
 
 #ifdef HAVE_METIS
