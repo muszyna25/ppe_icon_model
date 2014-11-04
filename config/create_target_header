@@ -519,6 +519,97 @@ set_run_target_thunder()
 EOF
 }
 
+set_run_target_bullx()
+{
+
+  set_default use_nproma 8
+  set_default use_nodes 1
+  # use_OMP_SCHEDULE="static,1"
+  use_OMP_SCHEDULE="static,4"
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 6
+      set_default use_openmp_threads 4
+    else
+      set_default use_mpi_procs_pernode 24
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 24
+#      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  case x$use_queue in
+    "xdevelop" )
+      queue="compute"
+      ;;
+  esac
+
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="srun --cpu_bind=verbose,cores --distribution=block:cyclic"
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+  # create header
+  start_header
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    queue=${queue:="compute"}
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+ else
+    queue=${queue:="compute"}
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=24"
+  fi
+  
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  # ------------------------------------
+ 
+  cat >> $output_script << EOF
+# the following line is only needed for srun to work with Intel MPI
+# but should be commented when using BullX MPI
+export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
+# =====================================
+# btc batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
+#SBATCH --partition=$queue
+# #SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#$SBATCH_ntasks_per_node
+#SBATCH --threads-per-core=2
+#SBATCH --exclusive
+# #$s_cpu_time
+# #SBATCH --time=30
+#========================================
+EOF
+}
+
 
 
 #=============================================================================
