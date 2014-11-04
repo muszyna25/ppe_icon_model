@@ -189,6 +189,16 @@ MODULE mo_math_utilities
     INTEGER , ALLOCATABLE :: sorted_index(:)
   END TYPE t_value_set
 
+  REAL(wp), PARAMETER :: fcirc = 2.0_wp * pi
+  REAL(wp), PARAMETER :: hcirc = fcirc * 0.5_wp, qcirc = fcirc * 0.25_wp
+  ! constants for fixpoint<->float conversion of latitude/longitude angles
+  REAL(wp), PARAMETER :: lat_spread = 0.25_wp * REAL(HUGE(1), wp)/qcirc, &
+       lat_contract = 4.0_wp * qcirc/REAL(HUGE(1), wp), &
+       lon_spread = 0.25_wp * REAL(HUGE(1), wp)/hcirc, &
+       lon_contract = 4.0_wp * hcirc/REAL(HUGE(1), wp)
+
+  PUBLIC :: normalized_lat, fxp_lat, flp_lat
+  PUBLIC :: normalized_lon, fxp_lon, flp_lon
 
 !-----------------------------------------------------------------------
 ! Basic geometry functions definitions
@@ -2311,6 +2321,53 @@ CONTAINS
     END DO
   END SUBROUTINE set_zlev
 
+  !> normalize latitude to range [-pi/2,pi/2]
+  ELEMENTAL FUNCTION normalized_lat(lat) RESULT(normalized)
+    REAL(wp), INTENT(in) :: lat
+    REAL(wp) :: normalized
+    REAL(wp) :: norm_hcirc, qcirc_div, offset, sign_mult
+    offset = SIGN(qcirc, lat)
+    qcirc_div = AINT((lat + offset)/qcirc)
+    norm_hcirc = MOD(lat + offset, hcirc) - offset
+    sign_mult = -2.0_wp * ABS(MOD(AINT(qcirc_div*.5_wp), 2.0_wp)) + 1.0_wp
+    normalized = sign_mult * norm_hcirc
+  END FUNCTION normalized_lat
+
+  !> convert latitude to normalized fixed-point integer
+  ELEMENTAL FUNCTION fxp_lat(lat)
+    REAL(wp), INTENT(in) :: lat
+    INTEGER :: fxp_lat
+    fxp_lat = NINT(lat_spread * normalized_lat(lat))
+  END FUNCTION fxp_lat
+
+  !> convert fixed-point latitude to floating-point value in range [-pi/2,pi/2]
+  ELEMENTAL FUNCTION flp_lat(lat)
+    INTEGER, INTENT(in) :: lat
+    REAL(wp) :: flp_lat
+    flp_lat = lat_contract * REAL(lat, wp)
+  END FUNCTION flp_lat
+
+  !> normalize latitude to range [-pi,pi]
+  ELEMENTAL FUNCTION normalized_lon(lon) RESULT(normalized)
+    REAL(wp), INTENT(in) :: lon
+    REAL(wp) :: normalized,offset
+    offset = SIGN(hcirc, lon)
+    normalized = MOD(lon + offset, fcirc) - offset
+  END FUNCTION normalized_lon
+
+  !> convert longitude to normalized fixed-point integer
+  ELEMENTAL FUNCTION fxp_lon(lon)
+    REAL(wp), INTENT(in) :: lon
+    INTEGER :: fxp_lon
+    fxp_lon = NINT(lon_spread * normalized_lon(lon))
+  END FUNCTION fxp_lon
+
+  !> convert fixed-point longitude to floating-point value in range [-pi,pi]
+  ELEMENTAL FUNCTION flp_lon(lon)
+    INTEGER, INTENT(in) :: lon
+    REAL(wp) :: flp_lon
+    flp_lon = lon_contract * REAL(lon, wp)
+  END FUNCTION flp_lon
 
   !-------------------------------------------------------------------------
   !> Merges a list of REAL(wp) numbers into another list, yielding the
@@ -2467,4 +2524,3 @@ CONTAINS
   END SUBROUTINE deallocate_set
 
 END MODULE mo_math_utilities
-
