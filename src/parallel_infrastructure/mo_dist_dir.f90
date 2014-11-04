@@ -28,6 +28,11 @@ MODULE mo_dist_dir
   PUBLIC :: dist_dir_get_owners
   PUBLIC :: t_dist_dir
 
+  INTERFACE dist_dir_get_owners
+    MODULE PROCEDURE dist_dir_get_owners_all
+    MODULE PROCEDURE dist_dir_get_owners_subset
+  END INTERFACE dist_dir_get_owners
+
 CONTAINS
 
   !> Function for setting up a distributed directory
@@ -92,11 +97,11 @@ CONTAINS
   !> @remark this routine is collective for all processes that belong to
   !>         dist_dir
   !> @remark all provided global indices need to be valid
-  FUNCTION dist_dir_get_owners(dist_dir, indices)
+  FUNCTION dist_dir_get_owners_all(dist_dir, indices) RESULT(owners)
 
     TYPE(t_dist_dir), INTENT(IN) :: dist_dir
     INTEGER, INTENT(IN) :: indices(:)
-    INTEGER :: dist_dir_get_owners(SIZE(indices))
+    INTEGER :: owners(SIZE(indices))
 
     INTEGER :: num_indices_per_process
     INTEGER :: num_send_indices_per_process(dist_dir%comm_size)
@@ -143,13 +148,58 @@ CONTAINS
 
     DO i = SIZE(indices(:)), 1, -1
       n = 2 + (indices(i)-1) / num_indices_per_process
-      dist_dir_get_owners(i) = recv_buffer(recv_displ(n))
+      owners(i) = recv_buffer(recv_displ(n))
       recv_displ(n) = recv_displ(n) - 1
     END DO
 
     DEALLOCATE(send_buffer, recv_buffer)
 
-  END FUNCTION dist_dir_get_owners
+  END FUNCTION dist_dir_get_owners_all
+
+  !> gets for each provided global index of indices where mask is also true
+  !! the rank of the process it belongs to, -1 otherwise
+  !!
+  !! @param[in] dist_dir distributed directory
+  !! @param[in] indices  indices for which the owner are to be retrieved
+  !! @param[in] mask only fetch owner(i) where mask(i) is .TRUE.
+  !> @return returns the owners of the provided indices
+  !! @remark this routine is collective for all processes that belong to
+  !!         dist_dir
+  !! @remark all provided global indices need to be valid
+  FUNCTION dist_dir_get_owners_subset(dist_dir, indices, mask) &
+       RESULT(owners)
+    TYPE(t_dist_dir), INTENT(IN) :: dist_dir
+    LOGICAL, INTENT(in) :: mask(:)
+    INTEGER :: owners(1:SIZE(mask))
+    INTEGER, INTENT(in) :: indices(:)
+
+    INTEGER, ALLOCATABLE :: temp(:)
+#ifdef __xlc__
+    INTEGER :: i, j
+#endif
+    INTEGER :: m, n
+
+
+    m = COUNT(mask)
+    n = SIZE(mask)
+
+    IF (SIZE(indices) /= n .OR. n /= SIZE(owners) .OR. m > n) &
+         CALL finish("get_owner_subset_from_dist_dir", "invalid arguments")
+
+    ALLOCATE(temp(m+1))
+    owners(1:m) = PACK(indices(:), mask(:))
+    temp(1:m) = dist_dir_get_owners(dist_dir, owners(1:m))
+    ! xlf generates a BPT trap in the unpack code when compiled with -qcheck
+#ifndef __xlc__
+    owners(1:n) = UNPACK(temp(1:m), mask(1:n), -1)
+#else
+    j = 1
+    DO i = 1, n
+      owners(i) = MERGE(temp(j), -1, mask(i))
+      j = j + MERGE(1, 0, mask(i))
+    END DO
+#endif
+  END FUNCTION dist_dir_get_owners_subset
 
   SUBROUTINE distribute_indices(indices, recv_buffer, &
     &                           num_send_indices_per_process, &
