@@ -1526,10 +1526,9 @@ CONTAINS
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
     !
-    REAL(wp), ALLOCATABLE :: r2d(:,:) ! field gathered on I/O processor
-    REAL(wp), ALLOCATABLE :: r1d(:) ! field gathered on I/O processor
+    REAL(wp), ALLOCATABLE :: r_out_wp(:) ! field gathered on I/O processor
     !
-    INTEGER :: nindex, private_n
+    INTEGER :: nindex, private_n, lev
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     !
     INTEGER :: time_level
@@ -1607,44 +1606,42 @@ CONTAINS
         CALL finish('out_stream','unknown grid type')
       END SELECT
 
-      SELECT CASE (info%ndims)
-      CASE (1)
-        CALL finish('write_restart_var_list','1d arrays not handled yet.')
-      CASE (2)
-        ALLOCATE(r1d(MERGE(private_n, 0, my_process_is_mpi_workroot())))
-        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r1d, &
-          &                gather_pattern)
-      CASE (3)
-        ALLOCATE(r2d(MERGE(private_n, 0, my_process_is_mpi_workroot()), &
-          &          info%used_dimensions(2)))
-        CALL exchange_data(element%field%r_ptr(:,:,:,nindex,1), r2d, &
-          &                gather_pattern)
-      CASE (4)
-        CALL finish('write_restart_var_list','4d arrays not handled yet.')
-      CASE (5)
-        CALL finish('write_restart_var_list','5d arrays not handled yet.')
-      CASE DEFAULT
-        CALL finish('write_restart_var_list','dimension not set.')
-      END SELECT
-      !
-      ! write data
-      !
-      IF (my_process_is_mpi_workroot()) THEN
-        write (0,*)' ... write ',info%name
+      ALLOCATE(r_out_wp(MERGE(private_n, 0, my_process_is_mpi_workroot())))
 
-        IF (info%ndims == 2) THEN
+      IF (info%ndims == 1) THEN
+        CALL finish('write_restart_var_list', '1d arrays not handled yet.')
+      ELSE IF (info%ndims == 2) THEN
+        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r_out_wp, &
+          &                gather_pattern)
+        !
+        ! write data
+        !
+        IF (my_process_is_mpi_workroot()) THEN
+          write (0,*)' ... write ',info%name
           CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
-            &                 r1d(:), 0)
-        ELSE IF (info%ndims == 3) THEN
-          CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
-            &                 r2d(:,:), 0)
+            &                 r_out_wp(:), 0)
         END IF
+      ELSE IF (info%ndims == 3) THEN
+        IF (my_process_is_mpi_workroot()) &
+          write (0,*)' ... write ',info%name
+        DO lev = 1, info%used_dimensions(2)
+          CALL exchange_data(element%field%r_ptr(:,lev,:,nindex,1), r_out_wp, &
+            &                gather_pattern)
+          IF (my_process_is_mpi_workroot()) &
+            CALL streamWriteVarSlice(this_list%p%cdiFileID_restart, &
+              &                      info%cdiVarID, lev-1, r_out_wp(:), 0)
+        END DO
+      ELSE IF (info%ndims > 3) THEN
+        CALL finish('write_restart_var_list', &
+          & 'arrays with more then three dimensions not handled yet.')
+      ELSE
+        CALL finish('write_restart_var_list','dimension not set.')
       END IF
+
       !
       ! deallocate temporary global arrays
       !
-      IF (ALLOCATED(r1d)) DEALLOCATE(r1d)
-      IF (ALLOCATED(r2d)) DEALLOCATE(r2d)
+      DEALLOCATE(r_out_wp)
       !
     END DO for_all_list_elements
     !
