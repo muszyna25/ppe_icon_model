@@ -60,7 +60,7 @@ MODULE ppm_distributed_array
   PRIVATE
   !INCLUDE 'ftype_size.inc'
   INTEGER, PARAMETER :: max_rank = 7
-  INTEGER, PARAMETER :: extent_mp = mpi_2integer
+  INTEGER, PARAMETER :: extent_mp = MPI_2INTEGER
   INTEGER, PARAMETER :: ppm_address_kind = mpi_address_kind
   INTEGER(ppm_address_kind), PARAMETER :: ppm_maximum_alignment = 64
 

@@ -245,8 +245,8 @@ MODULE mo_mpi
             MPI_UNDEFINED, mpi_max, mpi_in_place, mpi_op_null, &
             mpi_datatype_null, mpi_sum, mpi_lor
 #endif
+  PUBLIC :: MPI_2INTEGER
 #endif
-  PUBLIC :: mpi_2integer
   PUBLIC :: MPI_ANY_SOURCE
 
   ! real data type matching real type of MPI implementation

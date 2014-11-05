@@ -2,7 +2,7 @@ MODULE mo_divide_cells_by_location_mpi
 #ifndef NOMPI
   USE mo_kind, ONLY: i8, wp
   USE mo_mpi, ONLY: mpi_op_null, mpi_datatype_null, mpi_success, abort_mpi, &
-       mpi_in_place, p_int, p_int_i8, mpi_address_kind, mpi_sum, mpi_2integer
+       mpi_in_place, p_int, p_int_i8, mpi_address_kind, mpi_sum, MPI_2INTEGER
   USE mo_math_utilities, ONLY: flp_lon, flp_lat
   USE mo_decomposition_tools, ONLY: t_cell_info
   USE mo_io_units, ONLY: nerr
@@ -145,7 +145,7 @@ CONTAINS
       cell_num_bounds(1) = MIN(cell_num_bounds(1), cell_desc(i)%cell_number)
       cell_num_bounds(2) = MAX(cell_num_bounds(2), cell_desc(i)%cell_number)
     END DO
-    CALL mpi_allreduce(mpi_in_place, cell_num_bounds, 1, mpi_2integer, &
+    CALL mpi_allreduce(mpi_in_place, cell_num_bounds, 1, MPI_2INTEGER, &
          cell_num_bounds_reduce_op, comm, ierror)
     IF (ierror /= mpi_success) THEN
       WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
