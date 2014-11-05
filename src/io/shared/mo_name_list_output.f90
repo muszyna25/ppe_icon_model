@@ -550,17 +550,17 @@ CONTAINS
                                                
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
-      &                                            idata_type, lev_idx
+      &                                            idata_type, lev_idx, lev
     INTEGER(i8)                                 :: ioff
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
     REAL(wp),          ALLOCATABLE              :: r_ptr(:,:,:)
     INTEGER,           ALLOCATABLE              :: i_ptr(:,:,:)
-    REAL(wp),          ALLOCATABLE              :: r_out_recv(:,:)
-    REAL(wp),              POINTER              :: r_out_wp(:,:)
-    INTEGER,           ALLOCATABLE              :: r_out_int(:,:)
-    REAL(sp),          ALLOCATABLE, TARGET      :: r_out_sp(:,:)
-    REAL(dp),          ALLOCATABLE, TARGET      :: r_out_dp(:,:)
+    REAL(wp),          ALLOCATABLE              :: r_out_recv(:)
+    REAL(wp),              POINTER              :: r_out_wp(:)
+    INTEGER,           ALLOCATABLE              :: r_out_int(:)
+    REAL(sp),          ALLOCATABLE, TARGET      :: r_out_sp(:)
+    REAL(dp),          ALLOCATABLE, TARGET      :: r_out_dp(:)
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
     LOGICAL                                     :: l_error
     LOGICAL                                     :: have_GRIB
@@ -789,135 +789,146 @@ CONTAINS
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
-        ! -------------------
-        ! No asynchronous I/O
-        ! -------------------
-        !
-        ! gather the array on stdio PE and write it out there
-
         n_points = p_ri%n_glb
 
         IF (idata_type == iREAL) THEN
-
-          ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot()), nlevs))
+          ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
           r_out_wp => r_out_dp
-          r_out_wp(:,:) = 0._wp
-
-          DO jk = 1, nlevs
-            lev_idx = jk
-            ! handle the case that a few levels have been selected out of
-            ! the total number of levels:
-            IF (      ASSOCIATED(of%level_selection)   .AND. &
-              & (.NOT. var_ignore_level_selection)     .AND. &
-              & (info%ndims > 2)) THEN
-              lev_idx = of%level_selection%global_idx(lev_idx)
-            END IF
-            CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:,jk), p_pat)
-          END DO 
-
         ELSE IF (idata_type == iINTEGER) THEN
-
-          ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot()), nlevs))
-          r_out_int(:,:) = 0
-
-          DO jk = 1, nlevs
-            lev_idx = jk
-            ! handle the case that a few levels have been selected out of
-            ! the total number of levels:
-            IF (      ASSOCIATED(of%level_selection)   .AND. &
-              & (.NOT. var_ignore_level_selection)     .AND. &
-              & (info%ndims > 2)) THEN
-              lev_idx = of%level_selection%global_idx(lev_idx)
-            END IF
-            CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:,jk), p_pat)
-          END DO 
-
+          ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
         END IF
 
         have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+
         IF(my_process_is_mpi_workroot()) THEN
 
           IF (use_dp_mpi2io .OR. have_GRIB) THEN
-            IF (.NOT. ALLOCATED(r_out_dp)) ALLOCATE(r_out_dp(n_points, nlevs))
-            IF (idata_type == iINTEGER)    r_out_dp(:,:) = REAL(r_out_int(:,:), dp)
+            IF (.NOT. ALLOCATED(r_out_dp)) ALLOCATE(r_out_dp(n_points))
           ELSE
-            ALLOCATE(r_out_sp(n_points, nlevs))
-            IF (idata_type == iREAL) THEN
-              r_out_sp(:,:) = REAL(r_out_wp(:,:), sp)
-            ELSE IF (idata_type == iINTEGER) THEN
-              r_out_sp(:,:) = REAL(r_out_int(:,:), sp)
-            END IF
+            ALLOCATE(r_out_sp(n_points))
           END IF
 
-          ! ------------------
-          ! case of a test run
-          ! ------------------
+          IF (my_process_is_mpi_test()) THEN
+
+            IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
+
+          ELSE
+
+            ! Set some GRIB2 keys that may have changed during simulation.
+            ! Note that (for synchronous output mode) we provide the
+            ! pointer "info_ptr" to the variable's info data object and
+            ! not the modified copy "info".
+            IF  (of%output_type == FILETYPE_GRB2) THEN
+              CALL set_timedependent_GRIB2_keys( &
+                & of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
+                & of%out_event%output_event%event_data%sim_start,        &
+                & get_current_date(of%out_event))
+            END IF
+          END IF ! my_process_is_mpi_test()
+        END IF ! my_process_is_mpi_workroot()
+
+
+        ! For all levels (this needs to be done level-wise in order to reduce 
+        !                 memory consumption)
+        DO lev = 1, nlevs
+          ! -------------------
+          ! No asynchronous I/O
+          ! -------------------
           !
-          ! compare results on worker PEs and test PE
-          IF (p_test_run  .AND.  use_dp_mpi2io) THEN
-            ! Currently we don't do the check for REAL*4, we would need
-            ! p_send/p_recv for this type
-            IF(.NOT. my_process_is_mpi_test()) THEN
-              ! Send to test PE
-              CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
-            ELSE
-              ! Receive result from parallel worker PEs
-              ALLOCATE(r_out_recv(n_points,nlevs))
-              CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
-              ! check for correctness
-              l_error = .FALSE.
-              DO jk = 1, nlevs
+          ! gather the array on stdio PE and write it out there
+
+          IF (idata_type == iREAL) THEN
+
+            r_out_wp(:) = 0._wp
+
+            lev_idx = lev
+            ! handle the case that a few levels have been selected out of
+            ! the total number of levels:
+            IF (      ASSOCIATED(of%level_selection)   .AND. &
+              & (.NOT. var_ignore_level_selection)     .AND. &
+              & (info%ndims > 2)) THEN
+              lev_idx = of%level_selection%global_idx(lev_idx)
+            END IF
+            CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
+          
+          ELSE IF (idata_type == iINTEGER) THEN
+
+            r_out_int(:) = 0
+
+            lev_idx = lev
+            ! handle the case that a few levels have been selected out of
+            ! the total number of levels:
+            IF (      ASSOCIATED(of%level_selection)   .AND. &
+              & (.NOT. var_ignore_level_selection)     .AND. &
+              & (info%ndims > 2)) THEN
+              lev_idx = of%level_selection%global_idx(lev_idx)
+            END IF
+            CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
+
+          END IF
+
+          IF(my_process_is_mpi_workroot()) THEN
+
+            IF ((.NOT. (use_dp_mpi2io .OR. have_GRIB)) .AND. &
+              & (idata_type == iREAL)) r_out_sp(:) = REAL(r_out_wp(:), sp)
+            IF (idata_type == iINTEGER) r_out_sp(:) = REAL(r_out_int(:), sp)
+          
+            ! ------------------
+            ! case of a test run
+            ! ------------------
+            !
+            ! compare results on worker PEs and test PE
+            IF (p_test_run  .AND.  use_dp_mpi2io) THEN
+              ! Currently we don't do the check for REAL*4, we would need
+              ! p_send/p_recv for this type
+              IF(.NOT. my_process_is_mpi_test()) THEN
+                ! Send to test PE
+                CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
+              ELSE
+                ! Receive result from parallel worker PEs
+                CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
+                ! check for correctness
+                l_error = .FALSE.
                 DO i = 1, n_points
-                  IF (r_out_recv(i,jk) /= r_out_dp(i,jk)) THEN
+                  IF (r_out_recv(i) /= r_out_dp(i)) THEN
                     ! do detailed print-out only for "large" errors:
-                    IF (ABS(r_out_recv(i,jk) - r_out_dp(i,jk)) > SYNC_ERROR_PRINT_TOL) THEN
+                    IF (ABS(r_out_recv(i) - r_out_dp(i)) > SYNC_ERROR_PRINT_TOL) THEN
                       WRITE (0,*) 'Sync error test PE/worker PEs for ', TRIM(info%name)
                       WRITE (0,*) "global pos (", idx_no(i), ",", blk_no(i),")"
-                      WRITE (0,*) "level", jk, "/", nlevs
-                      WRITE (0,*) "vals: ", r_out_recv(i,jk), r_out_dp(i,jk)
+                      WRITE (0,*) "level", lev, "/", nlevs
+                      WRITE (0,*) "vals: ", r_out_recv(i), r_out_dp(i)
                       l_error = .TRUE.
                     END IF
                   END IF
                 ENDDO
-              END DO
-              if (l_error)   CALL finish(routine,"Sync error!")
-              DEALLOCATE(r_out_recv)
+                if (l_error)   CALL finish(routine,"Sync error!")
+              ENDIF
             ENDIF
+          
           ENDIF
 
-        ENDIF
+          ! ----------
+          ! write data
+          ! ----------
+          
+          IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
+              IF (use_dp_mpi2io .OR. have_GRIB) THEN
+                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), 0)
+              ELSE
+                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), 0)
+              ENDIF
+          ENDIF
+          
+        END DO ! lev = 1, nlevs
 
-        ! Set some GRIB2 keys that may have changed during simulation.
-        ! Note that (for synchronous output mode) we provide the
-        ! pointer "info_ptr" to the variable's info data object and
-        ! not the modified copy "info".
-        IF  (( of%output_type == FILETYPE_GRB2 ) .AND.  &
-          &  ( my_process_is_mpi_workroot() )    .AND.  &
-          &  ( .NOT. my_process_is_mpi_test() )) THEN
-          CALL set_timedependent_GRIB2_keys(of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
-            &                               of%out_event%output_event%event_data%sim_start,        &
-            &                               get_current_date(of%out_event))
-        END IF
-
-        ! ----------
-        ! write data
-        ! ----------
-
-        IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-          LevelLoop: DO jk = 1, nlevs
-            IF (use_dp_mpi2io .OR. have_GRIB) THEN
-              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, jk-1, r_out_dp(:,jk), 0)
-            ELSE
-              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, r_out_sp(:,jk), 0)
-            ENDIF
-          END DO LevelLoop
-          IF (lkeep_in_sync) CALL streamSync(of%cdiFileID)
-        ENDIF
+        IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
+          & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
 
         ! clean up
         IF (ALLOCATED(r_out_int)) DEALLOCATE(r_out_int)
         IF (ALLOCATED(r_out_sp))  DEALLOCATE(r_out_sp)
         IF (ALLOCATED(r_out_dp))  DEALLOCATE(r_out_dp)
+        IF (ALLOCATED(r_out_recv)) DEALLOCATE(r_out_recv)
 
       ELSE
 
@@ -940,23 +951,27 @@ CONTAINS
           IF (use_dp_mpi2io) THEN
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+                  & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+                  & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
           ELSE
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                  & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                  & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
           END IF
