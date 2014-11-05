@@ -359,7 +359,6 @@ CONTAINS
       ! -------------------------------------------------
 
       ! Notify user
-#ifndef __SX__
       IF (output_file(i)%io_proc_id == p_pe) THEN
         WRITE(text,'(a,a,a,a,a,i0)') &
           & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
@@ -367,7 +366,7 @@ CONTAINS
           & ' by PE ', p_pe
         CALL message(routine, text,all_print=.TRUE.)
       END IF
-#endif
+
       IF (output_file(i)%io_proc_id == p_pe) THEN
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
@@ -742,7 +741,7 @@ CONTAINS
           ! other fields on other z-axes (e.g. soil fields) in the
           ! output namelist. We try to catch this "wrong" user input
           ! here and handle it in the following way: if the current
-          ! variable does not have on (or more) of the requested
+          ! variable does not have one (or more) of the requested
           ! levels, then we completely ignore the level selection for
           ! this variable.
           !
@@ -753,6 +752,7 @@ CONTAINS
               var_ignore_level_selection = .TRUE.
               IF (my_process_is_stdio()) &
                 &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
+              nlevs = info%used_dimensions(2)
               EXIT CHECK_LOOP
             ELSE
               IF ((of%level_selection%global_idx(jk) >= 1) .AND.  &
@@ -1220,11 +1220,6 @@ CONTAINS
     REAL(dp)                       :: t_get, t_write, t_copy, t_0, mb_get, mb_wr
 
   !------------------------------------------------------------------------------------------------
-#if defined (__SX__) && !defined (NOMPI)
-! It may be necessary that var1 is in global memory on NEC
-! (Note: this is only allowed when we compile with MPI.)
-!CDIR GM_ARRAY(var1)
-#endif
 
     CALL date_and_time(TIME=ctime)
     WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
@@ -1311,6 +1306,7 @@ CONTAINS
           CHECK_LOOP : DO jk=1,MIN(of%level_selection%n_selected, info%used_dimensions(2))
             IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
               & (of%level_selection%global_idx(jk) > (info%used_dimensions(2)+1))) THEN
+              nlevs = info%used_dimensions(2)
               EXIT CHECK_LOOP
             ELSE
               IF ((of%level_selection%global_idx(jk) >= 1) .AND.  &
@@ -1492,7 +1488,6 @@ CONTAINS
     ENDIF
     mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
     ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
-#ifndef __SX__
     IF (msg_level >= 12) THEN
       WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
            & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
@@ -1500,7 +1495,6 @@ CONTAINS
            & ' MB/s], times copy: ',t_copy,' s'
    !   CALL message('',message_text)
     ENDIF
-#endif
 
     DEALLOCATE(bufr_metainfo, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
