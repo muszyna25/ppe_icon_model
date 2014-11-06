@@ -17,7 +17,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_sc.h> 
+%include <init_sc.h>
 
 # -------------------------------------------------
 
@@ -39,14 +39,24 @@ lcatdata=1
 lcpdata=1
 ldeldata=1
 
-if [[ `echo %YMD% | cut -c 7-8` -le "12" ]] ; then
-  ldeldata=0           # do some test plots on the 12th of the month, but no delete
-fi                     # (see also testday.sms)
+# delete data only on the very last day of the month
+EOFM=`python %ECBASEDIR%/gen/date_calc.py -a endofmonth -d %YMD%%INIHOUR%`
+if [[ "${EOFM}" -eq "1" ]] ; then
+  ldeldata=1
+else
+  ldeldata=0
+fi
+
 ####
 #lgetdata=1
 #lsplitdata=1
 #ldeldata=0
 ####
+
+
+#----------------------------------------------------------------------------#
+# 1. Split raw model data (PL, ML and HL) in one file per variable           #
+#----------------------------------------------------------------------------#
 
 
 #-----------------------------------------------------------------------------
@@ -85,7 +95,7 @@ for levtype1 in PL HL ML ; do
 
 
 #-----------------------------------------------------------------------------
-# GRIB: rename and copy to ecgate
+# get full GRIB model data files from ECFS if not available
 
     outfile=${basename}_DOM01_${levtype1}_0001.grb
     if [[ $lgetdata = 1 ]] ; then
@@ -95,16 +105,24 @@ for levtype1 in PL HL ML ; do
 
 
 #-----------------------------------------------------------------------------
-# fix and copy data to ecgate for metview processing
+# split full model data files in one file per variable
 
     if [[ $lsplitdata = 1 ]] ; then
+
       mkdir -p grb_data
+
       if [[ ${levtype1} = 'HL' ]] ; then
         grib_copy  ${basename}_DOM01_HL_0001.grb  \
           grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
       else
         grib_copy  ${basename}_DOM01_${levtype1}_0001.grb  \
           grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+      fi
+
+# HCC, MCC, LCC:
+      if [[ ${levtype1} = 'ML' ]] ; then
+        grib_copy grb_data/${basename}_DOM01_0001_unknown_pl.grb \
+           grb_data/${basename}_DOM01_0001_cc.[topLevel]_sfc.grb
       fi
 
 # fixes
@@ -116,13 +134,19 @@ for levtype1 in PL HL ML ; do
         done
       done
       
+# fix table from 5 to 4 to work with metview (ML type need to be present in GRIB file!!)
+      for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
+        cdo -P 2 copy ${ml_file}      ${ml_file}_temp
+        mv            ${ml_file}_temp ${ml_file}
+      done
+
       smsmeter splitdata ${dd}
 
     fi
 
 
 #-----------------------------------------------------------------------------
-# delete data
+# delete full model data files
 
     if [[ $ldeldata = 1 ]] ; then
       outfile2=${outdir}/${basename}_DOM01_${levtype1}_0001.grb
@@ -146,8 +170,13 @@ for levtype1 in PL HL ML ; do
 done                           # end levtype
 
 
+#----------------------------------------------------------------------------#
+# 2. Split variable files in STEP 0, 24 and 240                              #
+#----------------------------------------------------------------------------#
+
+
 #-----------------------------------------------------------------------------
-# cat dates together
+# cat dates together and time-average to make _0, _24 and _240 files
 
 mondir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${YYYYMM}
 mkdir -p $mondir
@@ -165,47 +194,72 @@ if [[ $lcatdata = 1 ]] ; then
  #varlist=`echo $varlist | sed "s/t_zl//"`
   varlist=`echo $varlist | sed "s/h_ml//"`
   echo $varlist
+  nvar=1
+
+  DD=`echo %YMD% | cut -c 7-8`   #e.g. 30 (last day)
+  DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
+  DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
+
+# loop over list of variables still to be processed --------------------------
 
   for var in $varlist ; do
-    \rm -rf  ${mondir}/tmp_dir
+   #\rm -rf  ${mondir}/tmp_dir
     mkdir -p ${mondir}/tmp_dir
     ymdh=${date01}
+
+    rm -f ${mondir}/tmp_dir/${basenameMM}_DOM01_0001_${var}_0.grb
+    rm -f ${mondir}/tmp_dir/${basenameMM}_DOM01_0001_${var}_24.grb   
+    rm -f ${mondir}/tmp_dir/${basenameMM}_DOM01_0001_${var}_240.grb
+
     while (( ${ymdh} <= ${date31} )) ; do
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
-      if [[ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ]] ; then
-        continue 2
+
+# split variable files in STEPs if variable file available -------------------
+
+      if [[ -f         grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb  &&        \
+        ! -f  ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_24.grb ]] ; then
+        grib_copy      grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb            \
+                                ${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
+        if [[ $ldeldata = 1 ]] ; then
+          \rm -rf      grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
+        fi
+        cp -f ${base}_${ymdh}_DOM01_0001_${var}_0.grb   \
+              ${base}_${ymdh}_DOM01_0001_${var}_24.grb  \
+              ${base}_${ymdh}_DOM01_0001_${var}_240.grb ${mondir}/tmp_dir
+        rm -f ${base}_${ymdh}_DOM01_0001_${var}_*.grb
       fi 
-      grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
-        ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
-      if [[ $ldeldata = 1 ]] ; then
-        \rm -rf  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
-      fi
+
+      cd ${mondir}/tmp_dir
+      cat ${base}_${ymdh}_DOM01_0001_${var}_0.grb   >> ${basenameMM}_DOM01_0001_${var}_0.grb
+      cat ${base}_${ymdh}_DOM01_0001_${var}_24.grb  >> ${basenameMM}_DOM01_0001_${var}_24.grb   
+      cat ${base}_${ymdh}_DOM01_0001_${var}_240.grb >> ${basenameMM}_DOM01_0001_${var}_240.grb  || true #10day
+
       ymdh=`expr ${ymdh} + 100`  # 100=+1day+00hours
     done                         # end days
-    cd ${mondir}/tmp_dir/
 
 # all times:
-
 #   cat ${base}*_DOM01_0001_${var}_0.grb \
 #       ${base}*_DOM01_0001_${var}_24.grb \
 #       ${base}*_DOM01_0001_${var}_240.grb \
 #     > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_240.grb
 
-# time mean: (works only from day 11 onwards because of 10 day forecast verification)
 
-    DD=`echo %YMD% | cut -c 7-8`   #e.g. 30 (last day)
-    DDm1=`expr ${DD} - 1`          #e.g. 29 (days of 24h  verification available)
-    DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
-    cat ${base}*_DOM01_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
-    cat ${base}*_DOM01_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
-    cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb  || true #10day
+#----------------------------------------------------------------------------#
+# 3. Mean over DATEs of 0, 24 and 240 STEP files                             #
+#----------------------------------------------------------------------------#
+
+
+# time mean 0h, 24h, 240h ----------------------------------------------------
+# (works only from day 11 onwards because of 10 day forecast verification)
+
+    cd ${mondir}/tmp_dir
 
     cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
     cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
-    cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb    || true #10day
-    cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb  || true #10day
+    cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   || true #10day
+    cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb || true #10day
 
     grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
@@ -238,14 +292,21 @@ if [[ $lcatdata = 1 ]] ; then
         ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
 
     cd ..
-    \rm -rf ${mondir}/tmp_dir
+   #\rm -rf ${mondir}/tmp_dir
+    smsmeter catvariables ${nvar}
+    nvar=`expr ${nvar} + 1`      # variable counter for sms meter
   done                           # end var
   smsevent catdata
 fi
 
 
+#----------------------------------------------------------------------------#
+# 4. Move files to ecgate and clean-up                                       #
+#----------------------------------------------------------------------------#
+
+
 #-----------------------------------------------------------------------------
-# move data to ecgate
+# move monthly mean data files for each variable and forecast range to ecgate and ECFS
 
 if [[ $lcpdata = 1 ]] ; then
   gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}
@@ -259,7 +320,7 @@ fi
 
 
 #-----------------------------------------------------------------------------
-# delete data
+# delete monthly mean processed data files
 
 if [[ $ldeldata = 1 ]] ; then
   cd $mondir
