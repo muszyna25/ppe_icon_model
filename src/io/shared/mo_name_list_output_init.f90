@@ -1140,6 +1140,7 @@ CONTAINS
             IF(sim_step_info%dtime*sim_step_info%iadv_rcf.LT.1._wp)THEN
               CALL get_duration_string_real(REAL(sim_step_info%dtime*sim_step_info%iadv_rcf), &
                      &                      lower_bound_str)
+              idummy = 0
             ELSE  
               CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
                 &                      lower_bound_str, idummy)
