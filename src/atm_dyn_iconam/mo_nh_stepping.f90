@@ -305,7 +305,7 @@ MODULE mo_nh_stepping
   IF (iforcing == inwp) THEN
     DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-      CALL init_nwp_phy( dtime                     ,&
+      CALL init_nwp_phy(                            &
            & p_patch(jg)                           ,&
            & p_nh_state(jg)%metrics                ,&
            & p_nh_state(jg)%prog(nnow(jg))         ,&
@@ -1653,7 +1653,7 @@ MODULE mo_nh_stepping
             ! Activate cold-start mode in TERRA-init routine irrespective of what has been used for the global domain
             init_mode_soil = 1
 
-            CALL init_nwp_phy( dtime                    ,&
+            CALL init_nwp_phy(                           &
               & p_patch(jgc)                            ,&
               & p_nh_state(jgc)%metrics                 ,&
               & p_nh_state(jgc)%prog(nnow(jgc))         ,&

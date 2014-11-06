@@ -128,8 +128,8 @@ MODULE mo_nwp_phy_init
 
 CONTAINS
 
-SUBROUTINE init_nwp_phy ( pdtime,                           &
-                       &  p_patch, p_metrics,               &
+
+SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
                        &  p_prog_now,  p_diag,              &
                        &  prm_diag,prm_nwp_tend,            &
                        &  p_prog_lnd_now, p_prog_lnd_new,   &
@@ -152,7 +152,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   INTEGER             :: jk, jk1
   REAL(wp)            :: rsltn   ! horizontal resolution
-  REAL(wp)            :: pdtime
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres
@@ -1157,6 +1156,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
 !$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm) ICON_OMP_DEFAULT_SCHEDULE
@@ -1195,7 +1195,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &  lturatm=.FALSE., ltursrf=.TRUE., iini=1, &
         &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
         &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
-        &  dt_var=pdtime, dt_tke=pdtime, &
+        &  dt_var=atm_phy_nwp_config(jg)%dt_fastphy, &
+        &  dt_tke=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  nprv=1, ntur=1, ntim=1, &
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
@@ -1229,7 +1230,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         &  lturatm=.TRUE., ltursrf=.FALSE., iini=1, &
         &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
         &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
-        &  dt_var=pdtime, dt_tke=pdtime, &
+        &  dt_var=atm_phy_nwp_config(jg)%dt_fastphy, &
+        &  dt_tke=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  nprv=1, ntur=1, ntim=1, &
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
