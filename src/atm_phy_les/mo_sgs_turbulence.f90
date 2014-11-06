@@ -191,7 +191,7 @@ MODULE mo_sgs_turbulence
 
     !Vertical velocity is updated here
     CALL diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
-                               prm_diag%tkvm, dt)
+                               prm_diag%tkvm, prm_nwp_tend%ddt_w_turb, dt)
 
     CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, p_nh_diag,  &
                         prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
@@ -1206,15 +1206,16 @@ MODULE mo_sgs_turbulence
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
   SUBROUTINE diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, &
-                                   p_patch, p_int, visc_smag_ic, dt)
+                                   p_patch, p_int, visc_smag_ic, ddt_w, dt)
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog    !< single nh prognostic state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
     TYPE(t_patch), TARGET, INTENT(in)    :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
-    REAL(wp),          INTENT(in)        :: dt
     REAL(wp),          INTENT(in)        :: visc_smag_ic(:,:,:)
+    REAL(wp),   TARGET, INTENT(inout)    :: ddt_w(:,:,:) !< w tendency
+    REAL(wp),          INTENT(in)        :: dt
 
     REAL(wp) :: flux_up_c, flux_dn_c, dvn1, dvn2, dvt1, dvt2, flux_up_v, flux_dn_v
     REAL(wp) :: vt_e(nproma,p_patch%nlev,p_patch%nblks_e), inv_dt
@@ -1223,7 +1224,7 @@ MODULE mo_sgs_turbulence
 
     !interface level variables but only nlev quantities are needed 
     REAL(wp) :: hor_tend(nproma,p_patch%nlev,p_patch%nblks_e)
-    REAL(wp) :: tot_tend(nproma,p_patch%nlev,p_patch%nblks_c)
+    REAL(wp), POINTER :: tot_tend(:,:,:)
     REAL(wp) :: inv_rho_ic(nproma,p_patch%nlev,p_patch%nblks_c)!not necessary to allocate for nlev+1
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
@@ -1253,11 +1254,12 @@ MODULE mo_sgs_turbulence
     ieidx => p_patch%cells%edge_idx
     ieblk => p_patch%cells%edge_blk
 
+    tot_tend => ddt_w
+
     !Some initializations
     a = 0._wp; c = 0._wp
 
     IF(p_test_run)THEN
-      tot_tend(:,:,:) = 0._wp
       hor_tend(:,:,:) = 0._wp
     END IF
 

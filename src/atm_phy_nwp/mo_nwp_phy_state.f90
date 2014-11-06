@@ -2542,6 +2542,21 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     !------------------------------
+    ! Vertical Wind tendencies
+    !------------------------------
+
+    IF ( atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
+     ! &      phy_tend%ddt_w_turb(nproma,nlev+1,nblks)
+      cf_desc    = t_cf_var('ddt_w_turb', 'm s-2', &
+           &                            'turbulence tendency of vertical wind', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( phy_tend_list, 'ddt_w_turb', phy_tend%ddt_w_turb,          &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,    &
+                  & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
+                  & initval_r=0._wp)
+    END IF
+
+    !------------------------------
     ! Moist tracer tendencies
     !------------------------------
 

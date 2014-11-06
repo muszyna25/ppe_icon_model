@@ -371,6 +371,7 @@ MODULE mo_nwp_phy_types
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_u_pconv     (:,:,:)  ,& !! ZonalW-tendency from convective prec
       ddt_v_turb      (:,:,:)  ,& !! MeridW-tendency from turbulence
+      ddt_w_turb      (:,:,:)  ,& !! VertW-tendency from turbulence
       ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag
       ddt_v_sso       (:,:,:)  ,& !! MeridW-tendency from sso drag
       ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
