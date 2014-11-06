@@ -19,8 +19,8 @@
 #==========================================================================
 
 #metview=metview4_old
-metview=metview4_new
-#metview=metview4_dev
+#metview=metview4_new
+metview=metview4_dev
 
 module swap grib_api grib_api/1.12.3
 

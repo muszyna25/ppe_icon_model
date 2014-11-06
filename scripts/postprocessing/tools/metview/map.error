@@ -1,9 +1,10 @@
 # Metview Macro: ICON errors
 # 
-# run as: metview4 -b map.error dei2_005 T ml diff 20110101 00 20110102 00 1 R2B05
+# run as: metview4 -b map.error dei2_005 dei2_004 T ml diff 20120101 00 20120102 00 1 R2B06
 #
 # export PLOTDIR=metplots
-# export DATAFILE=grb_data/dei2_005_
+# export DATADIR=grb_data
+# export DATAREF=../../184/201201/grb_data 
 # export YYYYMM=201201
 # export LMONTH=0
 # export TAILFILE=.grb
@@ -21,15 +22,16 @@ if mode = 'batch' or mode = 'execute' then
   print()
   print("map.error parameters: ", args)
   expnum  = args[1]      # experiment ID (e.g. 22)
-  varname = args[2]      # variable name (e.g. T)
-  levtype = args[3]      # level type (e.g. sfc, pl, zl, ml, lnd, L90)
-  stat    = args[4]      # statistic (snap, ctr or diff) 
-  inidate = args[5]      # 
-  initime = args[6]      # 
-  verdate = args[7]      # 
-  vertime = args[8]      #
-  ndays   = args[9]      # mean of multiple forecasts separated by one day
-  exphres = args[10]     # horizontal resolution (e.g. R2B04)
+  expref  = args[2]      # experiment ID of reference experiment
+  varname = args[3]      # variable name (e.g. T)
+  levtype = args[4]      # level type (e.g. sfc, pl, zl, ml, lnd, L90)
+  stat    = args[5]      # statistic (snap, ctr or diff) 
+  inidate = args[6]      # 
+  initime = args[7]      # 
+  verdate = args[8]      # 
+  vertime = args[9]      #
+  ndays   = args[10]     # mean of multiple forecasts separated by one day
+  exphres = args[11]     # horizontal resolution (e.g. R2B04)
   if initime < 10 then
      initime = "0"&initime
   end if
@@ -40,7 +42,7 @@ else
   expnum  = 37
   varname = 'TCC'        # T U V QV QC QI CC Q1 Q2 Q3;  T_SO W_SO
   levtype = 'sfc'                    
-  stat    = 'ctr' 
+  stat    = 'diff'
   inidate = '20110101'
   initime = '00'
   verdate = '20110102'
@@ -54,7 +56,8 @@ end if
 
 user     = getenv("USER")
 plotdir  = getenv("PLOTDIR")
-datafile = getenv("DATAFILE")
+datadir  = getenv("DATADIR")
+dataref  = getenv("DATAREF")
 tailfile = getenv("TAILFILE")
 lmonth   = getenv("LMONTH")
 yyyymm   = getenv("YYYYMM")
@@ -114,15 +117,19 @@ case stat of
   'diff':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&'-ifs.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
     title   = vartitle&'    '&expnum&'     EXP-ANA    '&inidate&initime&' to '&verdate&vertime&nd_txt2
-  end
+    end
+  'diff_ref':
+    plotfile= plotdir&'/map.'&expres&'.'&expnum&'-'&expref&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    title   = vartitle&'    '&expnum&'   -   '&expref&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
+    end
   'snap':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&    '.'&varplot&'.'&verdate&vertime&nd_txt1
     title   = vartitle&'    '&expnum&'    '&verdate&vertime&nd_txt2
-  end
+    end
   'ctr':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1
     title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
-  end
+    end
 end case
 
 
@@ -179,8 +186,14 @@ case varname of
  'QS'      :  varfile = 'snmr'        end    # prog
  'CC'      :  varfile = '0.6.22'      end
  'QTVAR'   :  varfile = '192.201.39'  end
- 'ttendsw' :  varfile = '192.162.100' end
- 'ttendlw' :  varfile = '192.162.101' end
+ 'ttendsw' :  varfile = '0.4.192'     end
+ 'ttendlw' :  varfile = '0.5.192'     end
+ 'ttendcds':  varfile = '0.0.192'     end 
+ 'qtendcds':  varfile = '0.1.197'     end 
+ 'utendcds':  varfile = '0.2.192'     end 
+ 'vtendcds':  varfile = '0.2.193'     end 
+ 'utends'  :  varfile = '0.2.194'     end 
+ 'vtends'  :  varfile = '0.2.195'     end 
  'T_G'     :  varfile = 't'           end
  'T_2M'    :  varfile = '2t'          end
  'U_10M'   :  varfile = '10u'         end
@@ -230,17 +243,18 @@ for nd=1 to ndays do
 # source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
 
   mntxt = parse(tailfile, "_")
-  
 
   if lmonth = 0 then
-    source_ini_icon = datafile&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
-    source_ver_icon = datafile&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
+    source_ini_icon = datadir&'/'&expnum&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
+    source_ref_icon = dataref&'/'&expref&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
+    source_ver_icon = datadir&'/'&expnum&'_'&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
     nfc = ndays
   else
-    source_ini_icon = datafile&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
-    source_ver_icon = datafile&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
+    source_ini_icon = datadir&'/'&expnum&'_'&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
+    source_ref_icon = dataref&'/'&expref&'_'&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
+    source_ver_icon = datadir&'/'&expnum&'_'&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
     source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
     source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
     nfc = parse(mntxt[3], "-")
@@ -265,6 +279,18 @@ for nd=1 to ndays do
   		time     : initime,
                 step     : step
   	       )
+    if stat = 'diff_ref' then
+      temp_ref = read(
+                SOURCE   : source_ref_icon,
+                grid     : grid,
+#               param    : varname,
+#               levtype  : levtype,
+  		date     : inidate,
+  		time     : initime,
+                step     : step
+  	       )
+    end if
+
 # fluxes: take last 24h diff
     if varname = 'ACCSOB_S'  or varname = 'ACCTHB_S'  or varname = 'ACCSOB_T' or varname = 'ACCTHB_T' or 
        varname = 'ACCLHFL_S' or varname = 'ACCSHFL_S' or varname = 'TOT_PREC' or varname = 'RAIN_CON' or 
@@ -277,6 +303,16 @@ for nd=1 to ndays do
                 step     : step-24
   	       )
       temp = temp - temp_24h
+      if stat = 'diff_ref' then
+        temp_24h_ref = read(
+                SOURCE   : source_ref_icon,
+                grid     : grid,
+  	       #date     : inidate,         #attention: date maybe 1 day off in monthly means?
+  		time     : initime,
+                step     : step-24
+  	       )
+        temp_ref = temp_ref - temp_24h_ref
+      end if
     end if
     scale = 1.0
     case varname of
@@ -298,12 +334,21 @@ for nd=1 to ndays do
     else
       var_exp = var_exp & temp
     end if
+    if stat = 'diff_ref' then
+      temp_ref = temp_ref * scale
+      if nd=1 then
+        nlev    = count(temp_ref)
+        var_ref = temp_ref
+      else
+        var_ref = var_ref & temp_ref
+      end if
+    end if
   end if
 
 
 #--- read IFS data
 	
-  if stat <> 'snap' then
+  if stat = 'ctr' or stat = 'diff' then
     case levtype2 of
       'pl':
         param = varname
@@ -315,7 +360,7 @@ for nd=1 to ndays do
         end case
         temp = read(  
                 SOURCE   : source_pl_ifs,
-                grid     : grid,  
+                grid     : grid,
                 param    : param,
                 date     : verdate,
   		time     : vertime
@@ -377,7 +422,7 @@ for nd=1 to ndays do
       otherwise:
         temp = read(  
   		SOURCE   : source_ver_icon, 
-                grid     : grid,  
+                grid     : grid,
 #               param    : varname,
 #               levtype  : levtype,
    		date     : verdate,
@@ -406,11 +451,13 @@ end for
 #--- processing
 
 case stat of
-  'diff':var_data = var_exp-var_ana
+  'diff':     var_data = var_exp-var_ana
   end
-  'snap':var_data = var_exp
+  'diff_ref': var_data = var_exp-var_ref
   end
-  'ctr': var_data = var_ana
+  'snap':     var_data = var_exp
+  end
+  'ctr':      var_data = var_ana
   end
 end case
 
@@ -455,11 +502,13 @@ for k=k1 to k2 by k3 do
   # mean of rms of each forecast
   rms_days = integrate(rms_data[k])
 
-  if stat = 'diff' then 
+  if stat = 'diff' or stat = 'diff_ref' then 
     statistic = statistic&'   RMS:  '&rms          # &'   MEANofRMS:  '&rms_days
-    append (plotdir&"/scores_"&expnum&".txt", 
-      varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
-      '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
+    if stat = 'diff' then
+      append (plotdir&"/scores_"&expnum&".txt", 
+        varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
+        '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
+    end if
   end if
   statistic = statistic & '   Mem:  '&nfc
 
@@ -576,7 +625,7 @@ for k=k1 to k2 by k3 do
   end if  
   display_window = build_layout()
 
-  if stat = 'diff' then
+  if stat = 'diff' or stat = 'diff_ref' then
     plot ( display_window[1], text, var_data[k], cont, legend ) 
   else
     plot ( display_window[1], text, var_data[k], all,  legend )
