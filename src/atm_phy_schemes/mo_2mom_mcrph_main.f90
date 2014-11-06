@@ -185,11 +185,7 @@ MODULE mo_2mom_mcrph_main
   ! .. raindrops have an Atlas-type terminal fall velocity relation
   !    and a mu-D-relation which is used in sedimentation and evaporation
   !    (see Seifert 2008, J. Atmos. Sci.)
-  ! This could be EXTENDS particle_nonsphere
-  TYPE particle_rain
-    REAL(wp)      :: alfa   !..1st parameter in Atlas-type fall speed
-    REAL(wp)      :: beta   !..2nd parameter in Atlas-type fall speed
-    REAL(wp)      :: gama   !..3rd parameter in Atlas-type fall speed
+  TYPE, EXTENDS(particle_nonsphere) :: particle_rain
     REAL(wp)      :: cmu0   !..Parameters for mu-D-relation of rain
     REAL(wp)      :: cmu1   !     max of left branch
     REAL(wp)      :: cmu2   !     max of right branch

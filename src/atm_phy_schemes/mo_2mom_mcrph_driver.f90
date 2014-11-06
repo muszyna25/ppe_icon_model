@@ -189,6 +189,12 @@ CONTAINS
 
     LOGICAL, PARAMETER :: explicit_solver = .true.  ! explicit or semi-implicit solver
 
+    ! These structures include the pointers to the model arrays (which are automatic arrays
+    ! of this driver subroutine). These structures live only for one time step and are 
+    ! different for the OpenMP threads. In contrast, the types like rain_coeffs, ice_coeffs,
+    ! etc. that are declared in mo_2mom_mcrph_main live for the whole runtime and may include 
+    ! coefficients that are calculated once during initialization (and there is only one per 
+    ! mpi thread).
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
 
@@ -425,7 +431,7 @@ CONTAINS
 
       integer :: i,k
 
-      logical, parameter :: lmicro_impl = .false.  ! microphysics within semi-implicit sedimentation loop?
+      logical, parameter :: lmicro_impl = .true.  ! microphysics within semi-implicit sedimentation loop?
 
       convice = z_heat_cap_r * als
       convliq = z_heat_cap_r * (alv-als)
