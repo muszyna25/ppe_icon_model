@@ -63,17 +63,11 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       clouds_twomoment,                 &
      &                       sedi_vel_rain, sedi_vel_sphere,   &
      &                       sedi_icon_rain,sedi_icon_sphere,  &
-     &                       dt_twomoment => dt,               &
-     &                       w_p, T_p, p_p,                    &
-     &                       ptr_rho => rho_p, ptr_qv => qv,            &
-     &                       rrho_04, rrho_c, rho_vel, rho_vel_c, rho0, &
-     &                       q_cloud, q_ice, q_rain, q_snow, q_graupel, &
-     &                       n_cloud, n_ice, n_rain, n_snow, n_graupel, &
-     &                       n_cn, n_inpot, n_inact,                    &
-     &                       cloud, rain, ice, snow, graupel, hail,     &
+     &                       atmosphere, particle,             &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
+     &                       dt_twomoment => dt,               &
+     &                       rho_vel, rho_vel_c, rho0,         &
      &                       ccn_coeffs, in_coeffs,                     &
-     &                       n_hail, q_hail,                            &
      &                       ltabdminwgg,                               &
      &                       init_2mom_scheme,                          &
      &                       qnc_const, q_crit, lprogin => use_prog_in
@@ -196,6 +190,9 @@ CONTAINS
 
     LOGICAL, PARAMETER :: explicit_solver = .true.  ! explicit or semi-implicit solver
 
+    TYPE(atmosphere)         :: atmo
+    TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
+
 #ifdef TWOMOM  
 
     ! inverse of vertical layer thickness
@@ -279,6 +276,9 @@ CONTAINS
        END DO
     END DO
 
+    ! .. set the particle types, but no calculations
+    CALL init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail)
+
     ! .. convert to densities and set pointerns to two-moment module
     !    (pointers are used to avoid passing everything explicitly by argument and
     !     to avoid local allocates within the OpenMP-loop, and keep everything on stack)
@@ -294,11 +294,15 @@ CONTAINS
        q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
        ! .. this subroutine calculates all the microphysical sources and sinks
-       CALL clouds_twomoment (isize,ke)
+       if (PRESENT(ninpot)) THEN
+          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
+       ELSE
+          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail)
+       ENDIF
 
        IF (lprogccn) THEN
-          !WHERE(qc > 0.0_wp)  n_cloud = 5000e6_wp
-          WHERE(qc == 0.0_wp) n_cloud = 0.0_wp
+          !WHERE(qc > 0.0_wp)  cloud%n = 5000e6_wp
+          WHERE(qc == 0.0_wp) cloud%n = 0.0_wp
        END IF
 
        ! .. latent heat term for temperature equation
@@ -431,7 +435,7 @@ CONTAINS
          q_vap_old(:,:) = qv(:,:)
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
-         CALL clouds_twomoment (isize,ke)
+!         CALL clouds_twomoment(isize,ke,atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
 
          ! .. this subroutine calculates all the microphysical sources and sinks
          DO kk=kts,kte
@@ -692,7 +696,7 @@ CONTAINS
 
            kstart = k  
            kend   = k         
-           CALL clouds_twomoment (isize,ke)
+!           CALL clouds_twomoment(isize,ke,atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
          
            ! .. latent heat term for temperature equation
            DO ii = its, ite
@@ -773,65 +777,66 @@ CONTAINS
      END DO
      
      ! set pointers
-     w_p => w
-     t_p => tk
-     p_p => pres
-     ptr_qv => qv
-     ptr_rho => rho
+     atmo%w   => w
+     atmo%T   => tk
+     atmo%p   => pres
+     atmo%qv  => qv
+     atmo%rho => rho
      
-     rrho_04 => rhocorr
-     rrho_c  => rhocld
+     cloud%rho_v   => rhocld
+     rain%rho_v    => rhocorr
+     ice%rho_v     => rhocorr
+     graupel%rho_v => rhocorr
+     snow%rho_v    => rhocorr
+     hail%rho_v    => rhocorr
 
-     q_cloud   => qc
+     cloud%q   => qc
      if (lprogccn) then
-        n_cloud => qnc
-        n_cn    => nccn
-        n_inpot => ninpot
-        n_inact => ninact
+        cloud%n => qnc
      else
-        n_cloud => qnc_dummy
+        cloud%n => qnc_dummy
      end if
-     q_rain    => qr
-     n_rain    => qnr
-     q_ice     => qi
-     n_ice     => qni
-     q_snow    => qs
-     n_snow    => qns
-     q_graupel => qg
-     n_graupel => qng
-     q_hail    => qh
-     n_hail    => qnh
+     rain%q    => qr
+     rain%n    => qnr
+     ice%q     => qi
+     ice%n     => qni
+     snow%q    => qs
+     snow%n    => qns
+     graupel%q => qg
+     graupel%n => qng
+     hail%q    => qh
+     hail%n    => qnh
      
    END SUBROUTINE prepare_twomoment
 
    SUBROUTINE post_twomoment()
 
      ! nullify pointers
-     w_p => null()
-     t_p => null()
-     p_p => null()
-     ptr_qv  => null()
-     ptr_rho => null()
+     atmo%w   => null()
+     atmo%T   => null()
+     atmo%p   => null()
+     atmo%qv  => null()
+     atmo%rho => null()
      
-     rrho_04 => null()
-     rrho_c  => null()
+     cloud%rho_v   => null()
+     rain%rho_v    => null()
+     ice%rho_v     => null()
+     graupel%rho_v => null()
+     snow%rho_v    => null()
+     hail%rho_v    => null()
      
-     q_cloud   => null()
-     n_cloud   => null()
-     q_rain    => null()
-     n_rain    => null()
-     q_ice     => null()
-     n_ice     => null()
-     q_snow    => null()
-     n_snow    => null()
-     q_graupel => null()
-     n_graupel => null()
-     q_hail    => null()
-     n_hail    => null()
-
-     n_cn      => null()
-     n_inpot   => null()
-     n_inact   => null()
+     cloud%q   => null()
+     cloud%n   => null()
+     rain%q    => null()
+     rain%n    => null()
+     ice%q     => null()
+     ice%n     => null()
+     snow%q    => null()
+     snow%n    => null()
+     graupel%q => null()
+     graupel%n => null()
+     hail%q    => null()
+     hail%n    => null()
 
      ! ... Transformation of variables back to ICON standard variables
      DO kk = kts, kte
@@ -877,7 +882,7 @@ CONTAINS
      cmax = 0.0_wp
 
      prec_r  = 0._wp
-     CALL sedi_icon_rain (qr,qnr,prec_r,qc,rhocorr,rdz,dt,its,ite,kts,kte,cmax)
+     CALL sedi_icon_rain (rain,qr,qnr,prec_r,qc,rhocorr,rdz,dt,its,ite,kts,kte,cmax)
       
       IF (cloud_type.ge.1000) THEN
          prec_i(:) = 0._wp
@@ -937,41 +942,41 @@ CONTAINS
          END IF
       END IF
       IF (msg_level>dbg_level) CALL message(TRIM(routine), " test for negative values")
-      IF (MINVAL(q_cloud) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, q_cloud < 0')
+      IF (MINVAL(cloud%q) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%q < 0')
       ENDIF
-      IF (MINVAL(q_rain) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, q_rain < 0')
+      IF (MINVAL(rain%q) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%q < 0')
       ENDIF
-      IF (MINVAL(q_ice) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, q_ice < 0,')
+      IF (MINVAL(ice%q) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, ice%q < 0,')
       ENDIF
-      IF (MINVAL(q_snow) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, q_snow < 0')
+      IF (MINVAL(snow%q) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, snow%q < 0')
       ENDIF
-      IF (MINVAL(q_graupel) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, q_graupel < 0')
+      IF (MINVAL(graupel%q) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, graupel%q < 0')
       ENDIF
-      IF (MINVAL(q_hail) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, q_hail < 0')
+      IF (MINVAL(hail%q) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%q < 0')
       ENDIF
-!      IF (MINVAL(n_cloud) < meps) THEN
-!         CALL finish(TRIM(routine),'Error in two_moment_mcrph, n_cloud < 0')
+!      IF (MINVAL(cloud%n) < meps) THEN
+!         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%n < 0')
 !      ENDIF
-      IF (MINVAL(n_rain) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, n_rain < 0')
+      IF (MINVAL(rain%n) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%n < 0')
       ENDIF
-      IF (MINVAL(n_ice) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, n_ice < 0')
+      IF (MINVAL(ice%n) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, ice%n < 0')
       ENDIF
-      IF (MINVAL(n_snow) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, n_snow < 0')
+      IF (MINVAL(snow%n) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, snow%n < 0')
       ENDIF
-      IF (MINVAL(n_graupel) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, n_graupel < 0')
+      IF (MINVAL(graupel%n) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, graupel%n < 0')
       ENDIF
-      IF (MINVAL(n_hail) < meps) THEN
-         CALL finish(TRIM(routine),'Error in two_moment_mcrph, n_hail < 0')
+      IF (MINVAL(hail%n) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%n < 0')
       ENDIF
     END subroutine check_clouds
     
@@ -989,7 +994,8 @@ CONTAINS
          & N_cn0,z0_nccn,z1e_nccn,    &
          & N_in0,z0_nin,z1e_nin         
 
-    INTEGER :: unitnr
+    TYPE(particle) :: cloud, rain, ice, snow, graupel, hail 
+    INTEGER        :: unitnr
 
 #ifdef TWOMOM
 
@@ -1001,6 +1007,9 @@ CONTAINS
     CALL init_dmin_wg_gr_ltab_equi('dmin_wetgrowth_lookup.dat', unitnr, 61, ltabdminwgg)
 
     IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
+
+    ! .. set the particle types, and calculate some coefficients
+    CALL init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail,1)
 
     IF (.not.PRESENT(N_cn0)) THEN
        ! ... constant cloud droplet number (gscp=4)
@@ -1080,7 +1089,6 @@ CONTAINS
        WRITE(message_text,'(A,D10.3)') "    z1e  = ",ccn_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
     END IF
 
-
     IF (present(N_in0)) THEN
 
        in_coeffs%N0  = 200.0e6_wp ! this is currently just a scaling factor for the PDA scheme
@@ -1096,8 +1104,6 @@ CONTAINS
        WRITE(message_text,'(A,D10.3)') "    z0   = ",in_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
        WRITE(message_text,'(A,D10.3)') "    z1e  = ",in_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
     END IF
-
-    CALL init_2mom_scheme(cloud_type)
 
 #endif
 
