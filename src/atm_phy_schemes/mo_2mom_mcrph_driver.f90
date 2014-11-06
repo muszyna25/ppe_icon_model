@@ -57,7 +57,6 @@ USE mo_physical_constants,   ONLY: &
 
 USE mo_exception,      ONLY: finish, message, message_text
 
-#ifdef TWOMOM   
 USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       istart,iend,kstart,kend,          &
      &                       clouds_twomoment,                 &
@@ -71,7 +70,7 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       ltabdminwgg,                               &
      &                       init_2mom_scheme,                          &
      &                       qnc_const, q_crit, lprogin => use_prog_in
-#endif
+
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
      &                       init_dmin_wetgrowth,        &
@@ -192,8 +191,6 @@ CONTAINS
 
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
-
-#ifdef TWOMOM  
 
     ! inverse of vertical layer thickness
     rdz = 1._wp / dz
@@ -327,8 +324,12 @@ CONTAINS
     ELSE
 
        ! .. semi-implicit solver includes microphysics and sedimentation       
-       CALL clouds_twomoment_implicit ()
-
+       if (PRESENT(ninpot)) THEN
+          CALL message(TRIM(routine)," ERROR: gscp=5 not implemented for implicit solver")
+          CALL finish(TRIM(routine),'Error in two_moment_mcrph')
+       ELSE
+          CALL clouds_twomoment_implicit ()
+       END IF
     END IF
 
     ! .. check for negative values
@@ -435,7 +436,7 @@ CONTAINS
          q_vap_old(:,:) = qv(:,:)
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
-!         CALL clouds_twomoment(isize,ke,atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
+         CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
 
          ! .. this subroutine calculates all the microphysical sources and sinks
          DO kk=kts,kte
@@ -696,7 +697,7 @@ CONTAINS
 
            kstart = k  
            kend   = k         
-!           CALL clouds_twomoment(isize,ke,atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
+           CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail)
          
            ! .. latent heat term for temperature equation
            DO ii = its, ite
@@ -980,8 +981,6 @@ CONTAINS
       ENDIF
     END subroutine check_clouds
     
-#endif
-
   END SUBROUTINE two_moment_mcrph
 
 !===========================================================================================
@@ -996,8 +995,6 @@ CONTAINS
 
     TYPE(particle) :: cloud, rain, ice, snow, graupel, hail 
     INTEGER        :: unitnr
-
-#ifdef TWOMOM
 
     IF (msg_level>5) CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme")
 
@@ -1104,8 +1101,6 @@ CONTAINS
        WRITE(message_text,'(A,D10.3)') "    z0   = ",in_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
        WRITE(message_text,'(A,D10.3)') "    z1e  = ",in_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
     END IF
-
-#endif
 
   END SUBROUTINE two_moment_mcrph_init
 
