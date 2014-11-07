@@ -1391,8 +1391,7 @@ CONTAINS
 
     TYPE(particle)   :: cloud, rain
     INTEGER          :: i,k
-    INTEGER  :: i,k
-    REAL(wp) :: q_c, x_c, nu_c, n_c, k_a, x_s, au
+    REAL(wp)         :: q_c, x_c, nu_c, n_c, k_a, x_s, au
 
     nu_c = 9.59
     x_s  = cloud%x_max                  
