@@ -370,25 +370,15 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
 
-!!$    CALL print_maxmin_si(Q_surplus(:,1,:),ice,p_patch,'Q_surplus')
-!!$    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'ice%hi')
-!!$    CALL print_cells(Q_surplus(:,1,:),'Q_surplus')
-!!$    CALL print_cells(ice%hi(:,1,:),'ice%hi')
-!!$    CALL print_cells(ice%Qtop(:,1,:),'ice%Qtop')
-!!$    CALL print_cells(ice%Qbot(:,1,:),'ice%Qbot')
-!!$    CALL print_cells(ice%hi(:,1,:)-ice%hiold(:,1,:),'new ice')
-!!$    CALL print_cells(zHeatOceI(:,1,:),'zHeatOceI')
-
 !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('SNOW TO ICE: ice%snow_to_ice',ice%snow_to_ice,str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero: ice%hi'     ,ice%hi     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero: ice%hs'     ,ice%hs     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('GrowZero: Q_surplus'  ,Q_surplus  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero: ice%Qtop'   ,ice%Qtop   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero: ice%Qbot'   ,ice%Qbot   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero: ice%Tsurf'  ,ice%Tsurf  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('SNOW TO ICE: ice%snow_to_ice', ice%snow_to_ice, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%hi'            , ice%hi         , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%hs'            , ice%hs         , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Q_surplus'         , Q_surplus      , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%Qtop'          , ice%Qtop       , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%Qbot'          , ice%Qbot       , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%Tsurf'         , ice%Tsurf      , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%zHeatOceI'     , ice%zHeatOceI  , str_module, 4, in_subset=p_patch%cells%owned)
 !---------------------------------------------------------------------
  
   END SUBROUTINE ice_growth_zerolayer
