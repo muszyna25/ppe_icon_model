@@ -284,6 +284,7 @@ MODULE mo_nh_stepping
     ENDIF
   ENDIF
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
+  ! airmass_new required by initial physics call (init_slowphysics) 
   DO jg=1, n_dom
     CALL compute_airmass(p_patch(jg),                  &
       &                  p_nh_state(jg)%metrics,       &
