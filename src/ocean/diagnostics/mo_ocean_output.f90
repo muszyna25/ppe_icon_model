@@ -120,7 +120,7 @@ CONTAINS
 
     !------------------------------------------------------------------
         IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
-          IF (diagnostics_level == 1 ) THEN
+          IF (diagnostics_level > 0 ) THEN
             CALL calc_slow_oce_diagnostics( patch_3d       , &
               &                             ocean_state(jg), &
               &                             p_sfc_flx      , &

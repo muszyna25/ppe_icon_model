@@ -70,7 +70,7 @@ MODULE mo_ocean_nml
   ! ----------------------------------------------------------------------------
   ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
-  INTEGER            :: diagnostics_level      = 0
+  INTEGER            :: diagnostics_level      = 1
 
   ! switch for ocean stream function (not yet activated):
   !                   ! 0: no output
