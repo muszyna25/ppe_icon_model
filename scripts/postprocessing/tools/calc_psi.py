@@ -45,8 +45,8 @@ if not os.path.isfile(inputfile):
 options = {'VAR'     : 'u_vint_acc',
            'REMAP'   : True,
            'PLOT'    : 'psi.png',
-           'CMAP'    : 'jet',
-           'LEVELS'  : [-500,-200,-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150,200,500],
+           'CMAP'    : 'BrBG',
+           'LEVELS'  : [-250,-150,-100,-75,-50,-40,-30,-20,-15,-10,-5,0,5,10,15,20,30,40,50,75,100,150,250],
            'AREA'    : 'global',
            'SHOWMAP' : True,
            'TITLE'   : '',
@@ -99,10 +99,12 @@ if 'global' != area and True == remapInput:
     x_min,x_max = math.floor(x_min), math.ceil(x_max)
     y_min,y_max = math.floor(y_min), math.ceil(y_max)
 
-# remapcon to regular 1deg grid
+# remapnn  to regular 1deg grid - violated divergence-free velocity at ocean boundaries are visible
+# remapcon to regular 1deg grid - smoothing on boundary problems
 # replace missing value with zero for later summation
 if remapInput:
     ifile = cdo.setmisstoc(0.0,input = '-remapcon,r360x180 '+inputfile,options='-P 8')
+#   ifile = cdo.setmisstoc(0.0,input = '-remapnn,r360x180 '+inputfile,options='-P 8')
     if 'global' != area:
         ifile = cdo.sellonlatbox(x_min,x_max,y_min,y_max,input = ifile)
 else:
@@ -157,16 +159,20 @@ psi  = -psi * dist * 1.0e-6
 # WRITE PSI {{{ ==========================================================================
 if options['WRITEPSI']:
   # create a copy of the input data and rename the variable
-  psiFileName = cdo.chname('psi,%s'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
+  psiFileName = cdo.chname('%s,psi'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
+
   try:
     from netCDF4 import Dataset
   except:
     print("Could not load netCDF4 module!")
 
-  psiFile = Dataset(psiFileName,'r+')
-  psiFileVar = psiFile.variables[varName][:]
-  psiFileVar = psi
-  psiFile.history = psiFile.history + ' changed by calc_psi.py'
+  psiFile                  = Dataset(psiFileName,'r+')
+  psiFileVar               = psiFile.variables['psi']
+  psiFileVar.standard_name = "barotropic stream function"
+  psiFileVar.long_name     = "psi"
+  psiFileVar.units         = "Sv"
+  psiFileVar[1,:,:]        = psi[:,:]
+  psiFile.history          = psiFile.history + ' changed by calc_psi.py'
   psiFile.close()
 # }}} ===================================================================================
 # PLOTTING {{{ ==========================================================================

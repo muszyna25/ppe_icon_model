@@ -321,6 +321,37 @@ def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
 def mtime(filename):
   return os.stat(filename).st_mtime
 
+""" split filename into dirname, basenameWithoutExtension, extension """
+def splitFileName(filename):
+  dirname                     = os.path.dirname(filename)
+  filenameWithoutExt, extname = os.path.splitext(os.path.basename(filename))
+
+  return [dirname,filenameWithoutExt,extname]
+
+""" wrapper for single command line execution """
+def call(command):
+  proc = subprocess.Popen(command,
+      shell  = True,
+      stderr = subprocess.PIPE,
+      stdout = subprocess.PIPE)
+  retvals = proc.communicate()
+  print(retvals)
+
+""" execute list of system command in parallel """
+def executeInParallel(commandList,procs):
+
+  if not commandList:
+    return
+
+  pool = multiprocessing.Pool(procs)
+  results = []
+
+  for command in commandList:
+    pool.apply_async(call,[command])
+
+  pool.close()
+  pool.join()
+
 """ create images form 1d txt output """
 def plotOnlineDiagnostics(diagnosticFiles,options):
   plots                       = []
@@ -583,85 +614,97 @@ def plotXSection(plotConfig,options):
 #  print('CMD: %s has failed!')
 
 def plotHorizontal(plotConfig,options,hasNewFiles):
+  plots = []
   for varname in plotConfig['varNames']:
+    _dirname, _filename, _extname = splitFileName(plotConfig['iFile'])
     if ( varname in plotConfig['availableVars'] ):
       # surface plot
-      oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-atSurface_'+'_'.join([options['EXP'],options['TAG'],plotConfig['tag']])])
-      if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-        cmd = [options['ICONPLOT'],
-               '-iFile=%s'%(plotConfig['iFile']),
-               '-varName=%s'%(varname),
-               '-oType='+options['OFORMAT'],plotConfig['sizeOpt'],
-               '-rStrg="-"',
-               '-maskName=wet_c',
-               '-withLineLabels',
-               '-tStrg="%s"'%(plotConfig['title']),
-               '-oFile=%s'%(oFile)]
+      oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-atSurface_'+'_'.join([_filename,plotConfig['tag']])])
+      cmd = [options['ICONPLOT'],
+             '-iFile=%s'%(plotConfig['iFile']),
+             '-varName=%s'%(varname),
+             '-oType='+options['OFORMAT'],plotConfig['sizeOpt'],
+             '-rStrg="-"',
+             '-maskName=wet_c',
+             '-withLineLabels',
+             '-tStrg="%s"'%(plotConfig['title']),
+             '-oFile=%s'%(oFile)]
 
-        if ( 'box' == options['GRID'] ):
-          cmd.append('-limitMap')
-          cmd.append('+mapLine')
-        elif ('chanel' == options['GRID']):
-          cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
-        else:
-          cmd.append('')
+      if ( 'box' == options['GRID'] ):
+        cmd.append('-limitMap')
+        cmd.append('+mapLine')
+      elif ('chanel' == options['GRID']):
+        cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
+      else:
+        cmd.append('')
 
-        if ('maskFile' in plotConfig):
-            cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
+      if ('maskFile' in plotConfig):
+          cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
 
-        if ('mapType' in plotConfig):
-            cmd.append('-mapType=%s'%(plotConfig['mapType']))
+      if ('mapType' in plotConfig):
+          cmd.append('-mapType=%s'%(plotConfig['mapType']))
 
-        if ('colormap' in plotConfig):
-            cmd.append('-colormap=%s'%(plotConfig['colormap']))
+      if ('colormap' in plotConfig):
+          cmd.append('-colormap=%s'%(plotConfig['colormap']))
 
-        if ('opts' in plotConfig):
-            cmd.append(plotConfig['opts'])
+      if ('opts' in plotConfig):
+          cmd.append(plotConfig['opts'])
 
-        dbg(' '.join(cmd))
-        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+      if ('limits' in plotConfig):
+          limits = plotConfig['limits'][varname]
+          cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
 
-      # plot for roughly 100m depth
+      cmd = ' '.join(cmd)
+      dbg(cmd)
+      plots.append(cmd)
+
+      # plot for roughly 30m,100m and 200m depth
       #   skip sea surface height
       if ( 1 == len(cdo.showlevel(input = "-selname,%s -seltimestep,1 %s"%(varname,plotConfig['iFile'])))):
         continue
 
-      oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-at100m_'+'_'.join([options['EXP'],options['TAG'],plotConfig['tag']])])
-      if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-        title = '%s: last year mean '%(options['EXP'])
-        cmd = [options['ICONPLOT'],
-               '-iFile=%s'%(plotConfig['iFile']),
-               '-varName=%s'%(varname),
-               '-oType='+options['OFORMAT'],plotConfig['sizeOpt'],
-               '-rStrg="-"',
-               '-maskName=wet_c',
-               '-withLineLabels',
-               '-tStrg="%s"'%(plotConfig['title']),
-               '-oFile=%s'%(oFile)]
+      oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-at100m_'+'_'.join([_filename,plotConfig['tag']])])
+      title = '%s: last year mean '%(options['EXP'])
+      cmd = [options['ICONPLOT'],
+             '-iFile=%s'%(plotConfig['iFile']),
+             '-varName=%s'%(varname),
+             '-oType='+options['OFORMAT'],plotConfig['sizeOpt'],
+             '-rStrg="-"',
+             '-maskName=wet_c',
+             '-withLineLabels',
+             '-tStrg="%s"'%(plotConfig['title']),
+             '-oFile=%s'%(oFile)]
 
-        if ( 'box' == options['GRID'] ):
-          cmd.append('-limitMap')
-          cmd.append('+mapLine')
-          cmd.append('-levIndex=5')
-        elif ('global' == options['GRID']):
-          cmd.append('-levIndex=8')
-        else:
-          cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
+      if ( 'box' == options['GRID'] ):
+        cmd.append('-limitMap')
+        cmd.append('+mapLine')
+        cmd.append('-levIndex=5')
+      elif ('global' == options['GRID']):
+        cmd.append('-levIndex=8')
+      else:
+        cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
 
-        if ('maskFile' in plotConfig):
-            cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
+      if ('maskFile' in plotConfig):
+          cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
 
-        if ('mapType' in plotConfig):
-            cmd.append('-mapType=%s'%(plotConfig['mapType']))
+      if ('mapType' in plotConfig):
+          cmd.append('-mapType=%s'%(plotConfig['mapType']))
 
-        if ('colormap' in plotConfig):
-            cmd.append('-colormap=%s'%(plotConfig['colormap']))
+      if ('colormap' in plotConfig):
+          cmd.append('-colormap=%s'%(plotConfig['colormap']))
 
-        if ('opts' in plotConfig):
-            cmd.append(plotConfig['opts'])
+      if ('opts' in plotConfig):
+          cmd.append(plotConfig['opts'])
 
-        dbg(' '.join(cmd))
-        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+      if ('limits' in plotConfig):
+          limits = plotConfig['limits'][varname]
+          cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
+
+      cmd = ' '.join(cmd)
+      dbg(cmd)
+      plots.append(cmd)
+
+  executeInParallel(plots,options['PROCS'])
   return
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
@@ -729,7 +772,15 @@ LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
 
 #------------------------------------------------------------------------------
 # BASIC PLOTSETUP FOR MAIN VARIABLES
-PlotConfigDefault =  {
+PlotConfig =  {
+  't_acc'      : {'maxVar' : '30.0',   'minVar' : '-2.0' , 'mode': '-numLevs=32'},
+  's_acc'      : {'maxVar' : '38.0',   'minVar' : '28.0' , 'mode': '-numLevs=20'},
+  'rhopot_acc' : {'maxVar' : '40.0',   'minVar' : '20.0' , 'mode': '-numLevs=20'},
+  'u_acc'      : {'maxVar' : '1.0',    'minVar' : '-1.0' , 'mode': '-selMode=halflog'},
+  'v_acc'      : {'maxVar' : '1.0',    'minVar' : '-1.0' , 'mode': '-selMode=halflog'},
+  'h_acc'      : {'maxVar' : '2.0',    'minVar' : '-2.0' , 'mode': '-selMode=halflog'},
+  }
+PlotConfigBias =  {
   't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
   's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
   'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
@@ -996,6 +1047,7 @@ if 'plotHorz' in options['ACTIONS']:
     'sizeOpt'       : '-xsize=1200 -ysize=800',
     'title'         : '%s: last year mean '%(options['EXP']),
     'tag'           : 'lastYearMean',
+    'limits'        : PlotConfig,
   }
   plotHorizontal(horizontalConfig,options,hasNewFiles)
   # B) last 30-year mean
@@ -1006,6 +1058,7 @@ if 'plotHorz' in options['ACTIONS']:
     'sizeOpt'       : '-xsize=1200 -ysize=800',
     'title'         : '%s: last 30-year-mean '%(options['EXP']),
     'tag'           : 'last30YearMean',
+    'limits'        : PlotConfig,
   }
   plotHorizontal(horizontalConfig,options,hasNewFiles)
 # }}} ----------------------------------------------------------------------------------
@@ -1021,7 +1074,7 @@ else:
 # }}} ----------------------------------------------------------------------------------
 # ATLANTIC X-Section: t,s,rhopot  {{{ ================================
 # for global grid only
-XSectionPlotConfig = PlotConfigDefault
+XSectionPlotConfig = PlotConfigBias
 XSectionPlotConfig['s_acc']['minVar'] = '-1.0'
 XSectionPlotConfig['s_acc']['maxVar'] = '1.0'
 XSectionPlotConfig['t_acc']['minVar'] = '-5.0'
@@ -1232,7 +1285,7 @@ if ('plotIce' in options['ACTIONS']):
 # T S RHOPOT BIAS PLOT {{{
 if 'plotTSR' in options['ACTIONS']:
   # global mean bias over depth and time
-  t_s_rho_PlotSetup = PlotConfigDefault
+  t_s_rho_PlotSetup = PlotConfigBias
   for varname in t_s_rho_PlotSetup.keys():
     oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_inDepth_overTime'+'_'.join([options['EXP'],options['TAG']])])
     #if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
