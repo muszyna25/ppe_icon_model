@@ -348,9 +348,43 @@ CONTAINS
     SELECT CASE (iforc_oce)
 
     CASE (Analytical_Forcing)        !  11
-      ! #slo# 2014-04-30 this is still necessary for oce_test_numeric etc.
-      CONTINUE  ! not yet - provide fluxes for call of sea ice model, see above
-      !settings in init_ocean_forcing() - windstress and relazation ONLY
+      !========================================================================
+      ! CALL SEA ICE ONLY {{{
+      IF (i_sea_ice >= 1) THEN
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        CALL dbg_print('FlxFil: hi before slow'    ,p_ice%hi       ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Conc. before slow' ,p_ice%conc     ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: ConcSum. bef slow' ,p_ice%concSum  ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: T1 before slow'    ,p_ice%t1       ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: T2 before slow'    ,p_ice%t2       ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: TSurf before slow' ,p_ice%tsurf    ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Qtop  before slow' ,p_ice%Qtop     ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Qbot  before slow' ,p_ice%Qbot     ,str_module,4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: i-alb before slow' ,atmos_fluxes%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
+        !---------------------------------------------------------------------
+
+        CALL ice_slow(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
+
+        ! provide total salinity forcing flux
+        !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+        !IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
+        IF ( forcing_enable_freshwater) THEN
+
+          atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:) &
+            &                          + atmos_fluxes%FrshFlux_TotalIce(:,:) &
+            &                          + atmos_fluxes%FrshFlux_TotalOcean(:,:)
+
+        ENDIF
+
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        CALL dbg_print('FlxFil: hi after slow'     ,p_ice%hi       ,str_module, 4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Conc. after slow'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: ConcSum after slow',p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: T1 after slow'     ,p_ice%t1       ,str_module, 4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: T2 after slow'     ,p_ice%t2       ,str_module, 4, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: TSurf before slow' ,p_ice%tsurf    ,str_module, 4, in_subset=p_patch%cells%owned)
+      ENDIF
+      ! }}}
 
     CASE (OMIP_FluxFromFile)         !  12
 
