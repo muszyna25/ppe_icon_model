@@ -44,7 +44,9 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
-    &                               i_Qio_type
+    &                               i_Qio_type , &
+    &                               init_analytic_conc_param, init_analytic_conc_type, init_analytic_hi_param, &
+    &                               init_analytic_hi_type, init_analytic_hs_param, init_analytic_hs_type
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_oce_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
@@ -1177,17 +1179,9 @@ CONTAINS
 !      ENDIF
     ELSE
       !  analytic init via nml parameter
-      WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp .and. v_base%lsm_c(:,1,:) <= sea_boundary )
-        ice%hi(:,1,:)    = 1.0_wp
-        ice%hi(:,1,:)    = 0.3_wp
-        ice%hs(:,1,:)    = 0.1_wp
-        ice%conc(:,1,:)  = 0.5_wp
-      ENDWHERE
-      !saltBudget INIT {{{
-      ! ice%hi(:,1,:) = 0.0_wp
-      ! ice%hs(:,1,:) = 0.0_wp
-      ! ice%conc(:,1,:) = 0.0_wp
-      ! }}}
+      ice%hi(:,1,:)    = init_analytic_hi_param
+      ice%hs(:,1,:)    = init_analytic_hs_param
+      ice%conc(:,1,:)  = init_analytic_conc_param
     ENDIF
 
     WHERE(ice% hi(:,:,:) > 0.0_wp)
@@ -1196,7 +1190,7 @@ CONTAINS
       ice% T2    (:,:,:) = Tfw(:,:,:)
       Tinterface (:,:,:) = (Tfw(:,:,:) * (ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:)) &
         &                + ice%Tsurf(:,:,:)) / (1.0_wp+ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))
-      ice% conc  (:,:,:) = 1.0_wp/REAL(ice%kice,wp)
+      ice% conc  (:,:,:) = ice%conc(:,:,:)/REAL(ice%kice,wp)
       ice% T1    (:,:,:) = Tfw(:,:,:) + 2._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       ice% T2    (:,:,:) = Tfw(:,:,:) + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
@@ -1216,6 +1210,7 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('IceInit: hi       ' ,ice%hi       ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: hs       ' ,ice%hs       ,str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceInit: conc     ' ,ice%conc     ,str_module, idt_src, in_subset=p_patch%cells%owned)
     idt_src=4  ! output print level (1-5, fix)        
     CALL dbg_print('IceInit: Tfw      ' ,Tfw          ,str_module, idt_src, in_subset=p_patch%cells%owned)
