@@ -32,7 +32,7 @@ PROGRAM icon
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
-    &                               testbed_process,  atmo_process, ocean_process
+    &                               testbed_process, atmo_process, ocean_process
   USE mo_time_config,         ONLY: restart_experiment
   USE mo_util_signal
   USE mo_util_vcs,            ONLY: util_repository_url,                                &
