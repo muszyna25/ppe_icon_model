@@ -66,7 +66,7 @@ cat > ${atmo_namelist} << EOF
  ltransport       = .FALSE.     ! transport 
  ntracer          = 0           ! number of tracers
  iforcing         = 0           ! 0: none, 1: HS, 2: 2: ECHAM, 3: NWP
- output           = 'nml'
+ output           = 'nml','totint'
  msg_level        = 10          ! detailed report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
 /
