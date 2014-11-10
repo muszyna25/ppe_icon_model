@@ -293,10 +293,16 @@ CONTAINS
 
     DO jg = 1, max_dom
 
-      IF ( ALL((/0,1,2,3,4,5,9/) /= inwp_gscp(jg)) ) THEN
+      IF ( ALL((/0,1,2,3,4,5,6,9/) /= inwp_gscp(jg)) ) THEN
         CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5 or 9.')
       END IF
-
+      
+#ifndef __ICON_ART
+    IF (inwp_gscp(jg) == 6) THEN
+      CALL finish( TRIM(routine),'inwp_gscp == 6, but ICON was compiled without -D__ICON_ART')
+    ENDIF
+#endif
+      
       IF (inwp_surface(jg) == 0 .AND. itype_z0 > 1) THEN
         CALL message(TRIM(routine), 'Warning: itype_z0 is reset to 1 because surface scheme is turned off')
         itype_z0 = 1

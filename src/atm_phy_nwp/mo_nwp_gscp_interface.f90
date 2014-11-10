@@ -17,6 +17,10 @@
 !!                  with prognostic cloud droplet number and some aerosol,
 !!                  CCN and IN tracers
 !!
+!! inwp_gscp == 6 : two-moment bulk microphysics by Seifert and Beheng (2006)
+!!                  incorporating prognostic aerosol as CCN and IN from the
+!!                  ART extension
+!!
 !! inwp_gscp == 9 : a simple Kessler-type warm rain scheme
 !!
 !! @author Kristina Froehlich, DWD, Offenbach (2010-01-25)
@@ -62,6 +66,8 @@ MODULE mo_nwp_gscp_interface
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph, &
        &                             set_qnr,set_qni,set_qns,set_qng
+  USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom, &
+       &                             art_clouds_interface_twomom_prepare
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
@@ -125,7 +131,8 @@ CONTAINS
     jg = p_patch%id
 
     ! logical for SB two-moment scheme
-    ltwomoment = ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 )
+    ltwomoment = ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. &
+               &   atm_phy_nwp_config(jg)%inwp_gscp==6)
 
     ! boundary conditions for number densities
     IF (jg > 1) THEN
@@ -139,7 +146,7 @@ CONTAINS
     END IF
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-    CASE(4,5)
+    CASE(4,5,6)
 
        ! Update lateral boundaries of nested domains
        IF ( (l_limited_area.AND.jg==1) .OR. l_nest_other_micro) THEN
@@ -189,7 +196,10 @@ CONTAINS
     IF (msg_level>10 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
-
+    
+    IF (atm_phy_nwp_config(jg)%inwp_gscp == 6) THEN
+      CALL art_clouds_interface_twomom_prepare(p_patch,p_prog_rcf%tracer(:,:,:,:))
+    ENDIF
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -385,6 +395,34 @@ CONTAINS
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.     )
     
+        CASE(6)  ! two-moment scheme with prognostic cloud droplet number
+                 ! and chemical composition taken from the ART extension
+
+          CALL art_clouds_interface_twomom(                      &
+                       isize  = nproma,                          &!in: array size
+                       ke     = nlev,                            &!in: end level/array size
+                       jg     = jg,                              &!in: domain index
+                       jb     = jb,                              &!in: block index
+                       is     = i_startidx,                      &!in: start index
+                       ie     = i_endidx,                        &!in: end index
+                       ks     = kstart_moist(jg),                &!in: start level
+                       dt     = tcall_gscp_jg ,                  &!in: time step
+                       dz     = p_metrics%ddqz_z_full(:,:,jb),   &!in: vertical layer thickness
+                       rho    = p_prog%rho(:,:,jb  )       ,     &!in:  density
+                       pres   = p_diag%pres(:,:,jb  )      ,     &!in:  pressure
+                       tke    = p_prog_rcf%tke(:,:,jb),          &!in:  turbulent kinetik energy
+                       p_trac = p_prog_rcf%tracer (:,:,jb,:),    &!inout: all tracers
+                       tk     = p_diag%temp(:,:,jb),             &!inout: temp 
+                       w      = p_prog%w(:,:,jb),                &!inout: w
+                       prec_r = prm_diag%rain_gsp_rate (:,jb),   &!inout precp rate rain
+                       prec_i = prm_diag%ice_gsp_rate (:,jb),    &!inout precp rate ice
+                       prec_s = prm_diag%snow_gsp_rate (:,jb),   &!inout precp rate snow
+                       prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
+                       prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
+                       tkvh   = prm_diag%tkvh(:,:,jb),           &!in: turbulent diffusion coefficients for heat     (m/s2 )
+                       msg_level = msg_level,                    &
+                       l_cv=.TRUE.     )
+    
         CASE(9)  ! Kessler scheme (warm rain scheme)
 
           CALL kessler (                                     &
@@ -421,7 +459,7 @@ CONTAINS
       
         IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
           SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-          CASE(4,5)
+          CASE(4,5,6)
 
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx

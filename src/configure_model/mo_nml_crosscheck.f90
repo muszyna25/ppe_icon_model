@@ -661,7 +661,24 @@ CONTAINS
         iqt       = 17    !! start index of other tracers not related at all to moisture
        
         ntracer = 16
-
+        
+      CASE(6)
+      
+        iqg  = 6
+        iqh  = 7
+        iqni = 8        
+        iqnr = 9        
+        iqns = 10        
+        iqng = 11        
+        iqnh = 12
+        iqnc = 13
+        
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 7     !! end index of water species mixing ratios
+        iqt       = 14    !! start index of other tracers not related at all to moisture
+        
+        ntracer = 13
+        
       END SELECT ! microphysics schemes
 
 

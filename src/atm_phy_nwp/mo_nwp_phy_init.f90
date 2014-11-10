@@ -68,6 +68,7 @@ MODULE mo_nwp_phy_init
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
     &                               set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng
+  USE mo_art_clouds_interface,ONLY: art_clouds_interface_twomom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
 
@@ -626,6 +627,30 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     END IF 
+  CASE (6) ! two-moment scheme with prognostic cloud droplet number
+           ! and chemical composition taken from the ART extension
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: ART two-moment')
+
+    IF (jg == 1) CALL art_clouds_interface_twomom_init(msg_level=msg_level)
+
+    IF (linit_mode) THEN ! Initial condition for number densities
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+       DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+               &                i_startidx, i_endidx, rl_start, rl_end)
+          DO jk=1,nlev
+             DO jc=i_startidx,i_endidx
+                p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
+                p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
+                p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
+                p_prog_now%tracer(jc,jk,jb,iqng) = set_qng(p_prog_now%tracer(jc,jk,jb,iqg))
+             END DO
+          END DO
+       END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    END IF
   END SELECT
 
   ! Compute lookup tables for aerosol-microphysics coupling

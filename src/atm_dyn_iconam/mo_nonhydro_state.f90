@@ -751,7 +751,8 @@ MODULE mo_nonhydro_state
         !two moment scheme: be carefull to follow the order in which tracers (iqg,iqh,..)
         !are listed in mo_nml_crosscheck.f90
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
-             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
 
             !graupel (iqg=6)
             CALL add_ref( p_prog_list, 'tracer',                                     &
@@ -893,8 +894,9 @@ MODULE mo_nonhydro_state
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-        END IF ! inwp_gscp==4 .or. inwp_gscp==5 
-        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
+        END IF ! inwp_gscp==4 .or. inwp_gscp==5 .or. inwp_gscp==6
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
             ! cloud droplet concentration (iqnc=13)
             ! QNC  pdis=0 pcat=6 pnum=28 #DWD: Number of cloud droplets per unit mass of air. paramId=502315
             CALL add_ref( p_prog_list, 'tracer',                                     &
@@ -915,6 +917,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+
+        END IF ! inwp_gscp==5 .or. inwp_gscp==6
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN
             ! concentration of cloud condensation nuclei
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(vname_prefix)//'nccn'//suffix, p_prog%tracer_ptr(inccn)%p_3d, &
@@ -2015,7 +2020,7 @@ MODULE mo_nonhydro_state
        ENDIF  ! iqm_max >= 5
 
 
-      IF ( ANY((/2,4,5/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+      IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         !
         ! Q6 vertical integral: tqg(nproma,nblks_c)
         cf_desc    = t_cf_var('tqg', 'kg m-2', 'total_column_integrated_graupel',  &
@@ -2027,9 +2032,9 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
 
-        ! Note that hail is only taken into account by schemes 4 and 5
+        ! Note that hail is only taken into account by schemes 4, 5 and 6
         !
-        IF ( ANY((/4,5/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+        IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
           ! Q7 vertical integral: tqh(nproma,nblks_c)
           cf_desc    = t_cf_var('tqh', 'kg m-2', 'total_column_integrated_hail',     &
             &          DATATYPE_FLT32)
