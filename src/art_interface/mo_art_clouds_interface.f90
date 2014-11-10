@@ -11,7 +11,7 @@
 !! @author Daniel Rieger, KIT
 !!
 !! @par Revision History
-!! Initial revision by Daniel Rieger, KIT (2014-??-??)
+!! Initial revision by Daniel Rieger, KIT (2014-11-10)
 !!
 !! @par Copyright and License
 !!
@@ -55,7 +55,7 @@ SUBROUTINE art_clouds_interface_twomom(isize, ke, jg, jb, is, ie, ks, dt, &
                                      & prec_g, prec_h, tkvh, msg_level, l_cv)
   !! Interface for ART: Aerosol-Cloud-Interactions
   !! @par Revision History
-  !! Initial revision by Daniel Rieger, KIT (2014-??-??)
+  !! Initial revision by Daniel Rieger, KIT (2014-11-10)
   ! Setup variables (Grid, timestep, looping)
   INTEGER,            INTENT (in) :: &
     &  isize, ke,                    & !< grid sizes
@@ -113,7 +113,7 @@ END SUBROUTINE art_clouds_interface_twomom
 SUBROUTINE art_clouds_interface_twomom_init(msg_level)
   !! Interface for ART: Aerosol-Cloud-Interactions Initialization
   !! @par Revision History
-  !! Initial revision by Daniel Rieger, KIT (2014-??-??)
+  !! Initial revision by Daniel Rieger, KIT (2014-11-10)
   INTEGER, INTENT(IN) :: &
     &  msg_level           !< message level
 
@@ -134,7 +134,7 @@ END SUBROUTINE art_clouds_interface_twomom_init
 SUBROUTINE art_clouds_interface_twomom_prepare(p_patch,p_trac)
   !! Interface for ART: Aerosol-Cloud-Interactions Preparation (Call of modpar)
   !! @par Revision History
-  !! Initial revision by Daniel Rieger, KIT (2014-??-??)
+  !! Initial revision by Daniel Rieger, KIT (2014-11-10)
   TYPE(t_patch), TARGET, INTENT(IN) :: &
     &  p_patch                           !< patch on which computation is performed
   REAL(wp), INTENT(inout), TARGET   :: &
