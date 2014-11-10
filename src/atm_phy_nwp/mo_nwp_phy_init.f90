@@ -178,7 +178,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
   LOGICAL :: lland, lglac
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
-  LOGICAL :: linit_mode
+  LOGICAL :: linit_mode, lturb_init
 
   INTEGER :: jb,ic,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -206,9 +206,17 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
      routine = 'mo_nwp_phy_init:init_nwp_phy'
 
+  ! Local control variable for extended turbulence initializations
+  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+    lturb_init = .TRUE.
+  ELSE
+    lturb_init = .FALSE.
+  ENDIF
+
   ! This is needed for correct flow control when a nested domain is initialized after restarting
   IF (PRESENT(lnest_start)) THEN
     linit_mode = lnest_start
+    lturb_init = .TRUE.
   ELSE
     linit_mode = .NOT. is_restart_run()
   ENDIF
@@ -1053,9 +1061,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   IF ( ANY( (/icosmo,igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
 
 
-    ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
-    ! GME surface (MODE_COMBINED, MODE_COSMODE)
-    IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+    ! gz0 is initialized if we do not start from an own first guess
+    IF (lturb_init) THEN
  
       IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init roughness length')
 
@@ -1165,12 +1172,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
       
-      IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+      IF (lturb_init) THEN
 
         ltkeinp_loc = .FALSE.  ! initialize TKE field
         lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
 
-      ELSE  ! init_mode=MODE_DWDANA, MODE_DWDANA_INC, MODE_IAU
+      ELSE
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !

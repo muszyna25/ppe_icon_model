@@ -175,6 +175,7 @@ MODULE mo_initicon
       ! Generate lists of fields that must be read from FG/ANA files
       !
       DO jg = 1, n_dom
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         CALL create_input_groups(p_patch(jg),                        &
           &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
           &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
@@ -266,6 +267,7 @@ MODULE mo_initicon
       !
       IF (llake) THEN
         DO jg = 1, n_dom
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           i_rlstart  = 1
           i_rlend    = min_rlcell
           i_nchdom   =  MAX(1,p_patch(jg)%n_childdom)

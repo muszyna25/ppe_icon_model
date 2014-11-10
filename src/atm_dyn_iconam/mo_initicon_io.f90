@@ -130,6 +130,7 @@ MODULE mo_initicon_io
       !
       DO jg=1,n_dom
 
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         jlev = p_patch(jg)%level
         ! generate file name
         dwdfg_file(jg) = generate_filename(dwdfg_filename, model_base_dir, nroot, jlev, jg)
@@ -179,6 +180,7 @@ MODULE mo_initicon_io
       IF (lread_ana) THEN
         DO jg=1,n_dom
 
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           jlev = p_patch(jg)%level
           ! generate file name
           dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, nroot, jlev, jg)
