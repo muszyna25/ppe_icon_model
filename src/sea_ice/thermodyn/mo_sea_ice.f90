@@ -835,6 +835,8 @@ CONTAINS
     atmos_fluxes%SWnet  (:,:,:) = 0.0_wp
     atmos_fluxes%LWin   (:,:)   = 0.0_wp
     atmos_fluxes%counter        = 0
+    atmos_fluxes%stress_xw(:,:) = 0.0_wp
+    atmos_fluxes%stress_yw(:,:) = 0.0_wp
     ! Initialise the albedos sensibly
     atmos_fluxes%albvisdir (:,:,:) = albi
     atmos_fluxes%albvisdif (:,:,:) = albi
@@ -1168,17 +1170,12 @@ CONTAINS
     ! Stupid initialisation trick for Levitus initialisation
     IF (use_IceInitialization_fromTemperature) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp .and. v_base%lsm_c(:,1,:) <= sea_boundary )
-        ice%hi(:,1,:)   = 2.0_wp
-        ice%hs(:,1,:)   = 0.3_wp
-        ice%conc(:,1,:) = 0.95_wp
+        ice%hi(:,1,:)   = init_analytic_hi_param
+        ice%hs(:,1,:)   = init_analytic_hs_param
+        ice%conc(:,1,:) = init_analytic_conc_param
       ENDWHERE
-!      IF ( no_tracer < 2 ) THEN
-!        WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
-!          &     .and. v_base%lsm_c(:,:,:) <= sea_boundary )   &
-!          &             p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
-!      ENDIF
+    ! or constant initialization for ice, snow and concentration
     ELSE
-      !  analytic init via nml parameter
       ice%hi(:,1,:)    = init_analytic_hi_param
       ice%hs(:,1,:)    = init_analytic_hs_param
       ice%conc(:,1,:)  = init_analytic_conc_param
