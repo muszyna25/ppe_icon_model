@@ -34,7 +34,7 @@ B=2   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -97,7 +97,7 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2001-01-01T12:00:00Z"
+  end_date="2001-01-01T23:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -215,12 +215,12 @@ cat > ${ocean_namelist} << EOF
 /
 &sea_ice_nml
   i_ice_therm                           = 1              !  1 = zero-layer, 2 = Winton
-  i_ice_dyn                             = 1              !  1 = switch on AWI ice dynamics
+  i_ice_dyn                             = 0              !  1 = switch on AWI ice dynamics
   i_Qio_type                            = 3
   use_IceInitialization_fromTemperature = .false.
   init_analytic_hi_param                = 3.0
   init_analytic_hs_param                = 0.2
-  init_analytic_conc_param              = 0.75
+  init_analytic_conc_param              = 0.9
 /
 &ocean_forcing_nml
   iforc_oce                 = ${iforc}       ! ocean forcing
@@ -234,8 +234,8 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_initialConditions_nml
   initial_temperature_type   = 200
-  initial_temperature_top    = 4.0
-  initial_temperature_bottom = 4.0
+  initial_temperature_top    = 2.0
+  initial_temperature_bottom = 2.0
   initial_salinity_type      = 200
   initial_salinity_top       = 35.0
   initial_salinity_bottom    = 35.0
