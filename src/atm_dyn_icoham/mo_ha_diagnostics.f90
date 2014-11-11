@@ -78,7 +78,7 @@ MODULE mo_ha_diagnostics
     INTEGER :: ist
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: thisroutine = "init_total_integrals"
     
-    IF (output_mode%l_none) RETURN
+    IF (.NOT.output_mode%l_totint) RETURN
 
     IF (.NOT.lshallow_water) THEN
       !---------------------------------------------------------
@@ -222,7 +222,7 @@ MODULE mo_ha_diagnostics
   REAL (wp) :: z_rel_err_tracer_s1(ntracer)  ! relative error of total tracer
   REAL (wp) :: z_total_moist
 
-  IF (output_mode%l_none) RETURN
+  IF (.NOT.output_mode%l_totint) RETURN
   !================================================
   ! Hydrostatic model
   !================================================
