@@ -178,10 +178,10 @@ CONTAINS
       CALL finish(TRIM(routine), 'i_Qio_type must be either 1,2 or 3.')
     END IF
 
-  ! IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN
-  !   CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
-  !   i_Qio_type = 1
-  ! ENDIF
+    IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN
+      CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
+      i_Qio_type = 1
+    ENDIF
 
     IF (hmin > hnull) THEN
       CALL message(TRIM(routine), 'hmin cannot be larger than hnull')
