@@ -47,7 +47,6 @@ MODULE mo_sea_ice_zerolayer
   PRIVATE
 
   CHARACTER(len=12)           :: str_module    = 'SeaIceZeroLy'  ! Output of module for 1 line debug
-  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: set_ice_temp_zerolayer
   PUBLIC :: ice_growth_zerolayer
@@ -378,7 +377,6 @@ CONTAINS
     CALL dbg_print('GrowZero: ice%Qtop'          , ice%Qtop       , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero: ice%Qbot'          , ice%Qbot       , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero: ice%Tsurf'         , ice%Tsurf      , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero: ice%zHeatOceI'     , ice%zHeatOceI  , str_module, 4, in_subset=p_patch%cells%owned)
 !---------------------------------------------------------------------
  
   END SUBROUTINE ice_growth_zerolayer
