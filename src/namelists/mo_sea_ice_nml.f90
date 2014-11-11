@@ -62,9 +62,9 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
 
   ! some analytic initialization parameters
-  REAL(wp),PUBLIC :: init_analytic_conc_param = 0.5
+  REAL(wp),PUBLIC :: init_analytic_conc_param = 0.95
   INTEGER ,PUBLIC :: init_analytic_conc_type
-  REAL(wp),PUBLIC :: init_analytic_hi_param   = 1.0
+  REAL(wp),PUBLIC :: init_analytic_hi_param   = 2.0
   INTEGER ,PUBLIC :: init_analytic_hi_type
   REAL(wp),PUBLIC :: init_analytic_hs_param   = 0.3
   INTEGER ,PUBLIC :: init_analytic_hs_type
