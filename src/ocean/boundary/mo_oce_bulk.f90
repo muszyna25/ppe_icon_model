@@ -193,6 +193,7 @@ CONTAINS
 
     ENDIF
 
+    ! first CASE: read in fluxes (analytic, input file, coupling) ! {{{
     SELECT CASE (iforc_oce)
 
     CASE (No_Forcing)                !  10
@@ -242,11 +243,12 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
+    ! }}}
 
     !-----------------------------------------------------------------------
     !  (2) provide atmosphereic feedback suitable for the surface model (incl. sea ice):
     !    analytic, apply bulk formula (OMIP), coupling rel. adjustments
-    !-----------------------------------------------------------------------
+    !----------------------------------------------------------------------- {{{
     ! #slo# 2014-05-02:  Comments on status
     !   - a clearly defined interface to the call of ice_fast and ice_slow is missing
     !   - different heat/freshwater/windstress fluxes are provided on p_as, atmos_fluxes, p_sfc_flx
@@ -341,6 +343,7 @@ CONTAINS
       ! END IF  !  sea ice
 
     END SELECT
+    ! }}}
 
     !-----------------------------------------------------------------------
     !  (3) call surface model: sea ice
@@ -557,7 +560,7 @@ CONTAINS
   !---------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  !  define the ocean top boundary conditions
+  !  define the ocean top boundary conditions {{{
   !  (4) set resulting forcing fluxes for ocean using interface variables from sea ice/coupling/analytical:
   !    p_sfc_flx%HeatFlux_Total(:,:)       = p_ice_interface%heatOceI(:,:) + p_ice_interface%heatOceW(:,:) 
   !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
@@ -614,6 +617,7 @@ CONTAINS
  !p_sfc_flx%topBoundCond_Salt_vdiff   (:,:), & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
  !p_sfc_flx%data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [K]
  !p_sfc_flx%data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
+  ! }}}
 
 
     !
