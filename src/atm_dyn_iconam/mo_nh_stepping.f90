@@ -1262,8 +1262,10 @@ MODULE mo_nh_stepping
                 &      ext_data(jg),                             &!in
                 &      p_patch(jg),                              &!in
                 &      dtadv_loc,                                &!in
+                &      p_nh_state(jg),                           &!in
+                &      prm_diag(jg),                             &!in
+                &      p_lnd_state(jg)%diag_lnd,                 &!in
                 &      p_nh_state(jg)%prog(n_new)%rho,           &!in 
-                &      p_nh_state(jg)%diag,                      &!in
                 &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
             ENDIF   
 

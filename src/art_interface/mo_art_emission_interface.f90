@@ -16,6 +16,9 @@
 !! - Modification for dealing with the ART-routine emission_volc.
 !! Rewritten by Daniel Rieger, KIT (2013-09-30)
 !! - Usage of the generalized ART infrastructure
+!! Modification by Daniel Rieger, KIT (2014-11-12)
+!! - First adaptions for unified use of parameterizations within
+!!   ICON-ART and COSMO-ART. Changes performed for: Mineral dust, Sea salt
 !!
 !! @par Copyright and License
 !!
@@ -29,9 +32,15 @@ MODULE mo_art_emission_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_model_domain,                  ONLY: t_patch
+  USE mo_impl_constants,                ONLY: min_rlcell_int,dzsoil
+  USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
+  USE mo_loopindices,                   ONLY: get_indices_c
+  USE mo_parallel_config,               ONLY: nproma
   USE mo_exception,                     ONLY: finish
-  USE mo_nonhydro_types,                ONLY: t_nh_diag
+  USE mo_nonhydro_types,                ONLY: t_nh_state
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
+  USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart,                         &
                                           &   iCS137,iI131,iTE132,          &
                                           &   iZR95,iXE133,iI131g,          &
@@ -41,15 +50,18 @@ MODULE mo_art_emission_interface
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc
+                                          &   t_fields_volc,t_fields_1mom
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_diagnostics_interface,     ONLY: art_diagnostics_interface
   USE mo_art_config,                    ONLY: art_config
+  USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
   USE mo_art_emission_volc,             ONLY: art_organize_emission_volc
   USE mo_art_radioactive,               ONLY: art_emiss_radioact
-  USE mo_art_emission_seas,             ONLY: art_emission_seas
+  USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson, &
+                                          &   art_seas_emiss_monahan, &
+                                          &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_chemtracer,                ONLY: art_emiss_chemtracer
@@ -65,98 +77,180 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer_now)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,p_trac)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
-  TYPE(t_external_data), INTENT(IN) ::  &
-    &  ext_data                            !< atmosphere external data
-  TYPE(t_patch), TARGET, INTENT(IN) ::  & 
-    &  p_patch                             !< patch on which computation is performed
-  REAL(wp), INTENT(IN)              ::  &
-    &  p_dtime                             !< time step
-  REAL(wp), INTENT(INOUT)           ::  &
-    &  p_rho(:,:,:)                        !< density of air [kg/m3]
-  TYPE(t_nh_diag), INTENT(IN)       ::  &
-    &  p_diag                              !< list of diagnostic fields
-  REAL(wp), INTENT(INOUT)           ::  &
-    &  p_tracer_now(:,:,:,:)               !< tracer mixing ratios [kg/kg]
+  TYPE(t_external_data), INTENT(in) ::  &
+    &  ext_data                !< atmosphere external data
+  TYPE(t_patch), TARGET, INTENT(in) ::  & 
+    &  p_patch                 !< patch on which computation is performed
+  REAL(wp), INTENT(in)    :: &
+    &  dtime                   !< time step
+  TYPE(t_nh_state),INTENT(in)       :: &
+    &  p_nh_state              !< State variables (prognostic, diagnostic, metrics)
+  TYPE(t_nwp_phy_diag), INTENT(in)  :: &
+    &  prm_diag                !< list of diagnostic fields (physics)
+  TYPE(t_lnd_diag), INTENT(in)      :: &
+    &  p_diag_lnd              !< list of diagnostic fields (land)
+  REAL(wp), INTENT(inout) :: &
+    &  rho(:,:,:)              !< density of air [kg/m3]
+  REAL(wp), INTENT(inout) :: &
+    &  p_trac(:,:,:,:)         !< tracer mixing ratios [kg kg-1]
   ! Local variables
-  INTEGER  ::  jg                          !< patch id
+  INTEGER                 :: & 
+    &  jg, jb, ijsp,         & !< patch id, counter for block loop, conuter for jsp loop
+    &  i_startblk, i_endblk, & !< Start and end of block loop
+    &  istart, iend,         & !< Start and end of nproma loop
+    &  i_rlstart, i_rlend,   & !< 
+    &  i_nchdom,             & !< 
+    &  nlev                    !< Number of levels (equals index of lowest full level)
+  REAL(wp),ALLOCATABLE    :: &
+    &  emiss_rate(:),        & !< Emission rates [UNIT kg-1 s-1] or [UNIT m-3 s-1], UNIT might be mug, kg or just a number
+    &  dz(:)                   !< Height of lowest layer
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode     !< pointer to current aerosol mode
+  
+  
+  
+  ! --- Get the loop indizes
+  i_nchdom   = MAX(1,p_patch%n_childdom)
+  jg         = p_patch%id
+  nlev       = p_patch%nlev
+  i_rlstart  = grf_bdywidth_c+1
+  i_rlend    = min_rlcell_int
+  i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+  i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-  jg  = p_patch%id
-     
+
   IF (lart) THEN
-
+  
+    ALLOCATE(emiss_rate(nproma),dz(nproma))
+  
     CALL art_air_properties(p_patch,p_art_data(jg))
        
-    select case(art_config(jg)%iart_dust)
-      case(0)
-        ! Nothing to do, no dust emissions
-      case(1)
-        call art_prepare_emission_dust(p_patch,p_rho,p_tracer_now)
-      case(2)
-        call art_prepare_emission_dust_simple(p_patch,p_rho,p_tracer_now)
-      case default
-        call finish('mo_art_emission_interface:art_emission_interface', &
-             &      'ART: Unknown dust emissions configuration')
-    end select
-       
     IF (art_config(jg)%lart_aerosol) THEN
- 
+    
       ! Call the ART diagnostics
-      CALL art_diagnostics_interface(p_patch, p_tracer_now)
-       
+      CALL art_diagnostics_interface(p_patch, p_trac)
+!DEVSTART new emission interface structure for unified use of emission routines in ICON/COSMO
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+        
+        ! ----------------------------------
+        ! --- Preparations for emission routines
+        ! ----------------------------------
+        select case(art_config(jg)%iart_dust)
+          case(0)
+            ! Nothing to do, no dust emissions
+          case(1)
+            CALL art_prepare_emission_dust(p_nh_state%diag%u(:,nlev,jb),p_nh_state%diag%v(:,nlev,jb), &
+              &          rho(:,nlev,jb),prm_diag%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),                   &
+              &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,p_art_data(jg)%soil_prop)
+          case(2)
+            ! not available yet
+!            call art_prepare_emission_dust_simple(...)
+          case default
+            CALL finish('mo_art_emission_interface:art_emission_interface', &
+                 &      'ART: Unknown dust emissions configuration')
+        end select
+        
+        ! ----------------------------------
+        ! --- Call the emission routines
+        ! ----------------------------------
+        
+        this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+      
+        DO WHILE(ASSOCIATED(this_mode))
+          emiss_rate(:) = 0._wp
+          dz (:) = ABS(p_nh_state%metrics%z_ifc(:,nlev,jb) - p_nh_state%metrics%z_ifc(:,nlev+1,jb))
+          ! Check how many moments the mode has
+          select type (fields=>this_mode%fields)
+            type is (t_fields_2mom)
+              ! Now the according emission routine has to be found
+              select case(TRIM(fields%info%name))
+                case ('seasa')
+                  CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb),prm_diag%v_10m(:,jb),dz(:),p_diag_lnd%t_s(:,jb),&
+                    &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),   &
+                    &             istart,iend,emiss_rate(:))
+                case ('seasb')
+                  CALL art_seas_emiss_monahan(prm_diag%u_10m(:,jb),prm_diag%v_10m(:,jb),dz(:),                        &
+                    &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),   &
+                    &             istart,iend,emiss_rate(:))
+                case ('seasc')
+                  CALL art_seas_emiss_smith(prm_diag%u_10m(:,jb),prm_diag%v_10m(:,jb),dz(:),                          &
+                    &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),   &
+                    &             istart,iend,emiss_rate(:))
+                case ('dusta')
+                  CALL art_emission_dust(dz(:),ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),      &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),                      &
+                    &             jb,istart,iend,'dusta',p_art_data(jg)%soil_prop,emiss_rate(:))
+                case ('dustb')
+                  CALL art_emission_dust(dz(:),ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),      &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),                      &
+                    &             jb,istart,iend,'dustb',p_art_data(jg)%soil_prop,emiss_rate(:))
+                case ('dustc')
+                  CALL art_emission_dust(dz(:),ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),      &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),                      &
+                    &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:))
+              end select
+              
+              ! ----------------------------------
+              ! --- Do the update
+              ! ----------------------------------
+              
+              ! Update mass mixing ratios
+              DO ijsp = 1, fields%info%njsp
+                CALL art_integrate_explicit(p_trac(:,nlev,jb,fields%info%jsp(ijsp)),  emiss_rate(:), dtime,          &
+                  &                         istart,iend, opt_rho = rho(:,nlev,jb))
+              ENDDO
+              ! Update mass-specific number
+              CALL art_integrate_explicit(p_trac(:,nlev,jb,fields%info%i_number_conc), emiss_rate(:), dtime,         &
+                &                         istart,iend, opt_rho = rho(:,nlev,jb),                                     &
+                &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
+                
+            class is (t_fields_1mom)
+              ! ...
+            class default
+              call finish('mo_art_emission_interface:art_emission_interface', &
+                   &      'ART: Unknown mode field type')
+          end select
+          this_mode => this_mode%next_mode
+        ENDDO !while(associated)
+      ENDDO !jb
+    
+      DEALLOCATE(emiss_rate,dz)
+! DEV END -> Leave radioact,volc and chemtracer alone so far
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
      
       DO WHILE(ASSOCIATED(this_mode))
         ! Select type of mode
         select type (fields=>this_mode%fields)
           type is (t_fields_2mom)
-            ! Before emissions, the modal parameters have to be calculated
-            call fields%modal_param(p_art_data(jg),p_patch,p_tracer_now)
-            ! Now the according emission routine has to be found
-            select case(TRIM(fields%info%name))
-              case ('seasa')
-                call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-              case ('seasb')
-                call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-              case ('seasc')
-                call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-              case ('dusta')
-                call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-              case ('dustb')
-                call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-              case ('dustc')
-                call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-              case default
-                call finish('mo_art_emission_interface:art_emission_interface', &
-                     &      'No according emission routine to mode'//TRIM(fields%info%name))
-            end select
+            ! Nothing to do here
           class is (t_fields_radio)
             select case(TRIM(fields%info%name))
               case ('CS137')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iCS137),373)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iCS137),373)
               case ('I131')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131),340)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iI131),340)
               case ('TE132')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iTE132),325)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iTE132),325)
               case ('ZR95')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iZR95),184)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iZR95),184)
               case ('XE133')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iXE133),355)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iXE133),355)
               case ('I131g')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131g),870)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iI131g),870)
               case ('I131o')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131o),880)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iI131o),880)
               case ('BA140')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iBA140),384)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iBA140),384)
               case ('RU103')
-                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iRU103),220)
+                call art_emiss_radioact(p_patch,dtime,rho,p_trac(:,:,:,iRU103),220)
               ! And Default...
               case default
                 call finish('mo_art_emission_interface:art_emission_interface', &
@@ -176,7 +270,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer
       ! ----------------------------------
     
       IF (art_config(jg)%iart_volcano == 1) THEN
-        CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
+        CALL art_organize_emission_volc(p_patch,dtime,rho,p_trac) 
       ENDIF
     ENDIF !lart_aerosol
     
@@ -187,7 +281,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer
     IF (art_config(jg)%lart_chem) THEN
     
       IF (art_config(jg)%iart_chem_mechanism == 0) THEN
-        CALL art_emiss_chemtracer(ext_data,p_patch,p_dtime,p_diag,p_tracer_now)
+        CALL art_emiss_chemtracer(ext_data,p_patch,dtime,p_nh_state%diag,p_trac)
       ENDIF
       
     ENDIF
