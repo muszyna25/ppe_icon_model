@@ -216,9 +216,9 @@ cat > ${ocean_namelist} << EOF
 &sea_ice_nml
   i_ice_therm                           = 1              !  1 = zero-layer, 2 = Winton
   i_ice_dyn                             = 0              !  1 = switch on AWI ice dynamics
-  i_Qio_type                            = 3
+  i_Qio_type                            = 1
   use_IceInitialization_fromTemperature = .false.
-  init_analytic_hi_param                = 3.0
+  init_analytic_hi_param                = 5.0
   init_analytic_hs_param                = 0.2
   init_analytic_conc_param              = 0.9
 /
