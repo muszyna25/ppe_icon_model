@@ -662,11 +662,12 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
         cmd.append(plotConfig['opts'])
 
       if ('limits' in plotConfig):
-        limits = plotConfig['limits'][varname]
-        if 'plotLevs' in limits:
-          cmd.append('-plotLevs=%s '%(limits['plotLevs']))
-        else:
-          cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
+        if varname in plotConfig['limits']:
+          limits = plotConfig['limits'][varname]
+          if 'plotLevs' in limits:
+            cmd.append('-plotLevs=%s '%(limits['plotLevs']))
+          else:
+            cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
 
       cmd = ' '.join(cmd)
       dbg(cmd)
@@ -720,6 +721,9 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
       cmd = ' '.join(cmd)
       dbg(cmd)
       plots.append(cmd)
+
+    else:
+      print("Could not find variable: %s in %s"%(varname,plotConfig['iFile']))
 
   executeInParallel(plots,options['PROCS'])
   return
@@ -1070,6 +1074,16 @@ if 'plotHorz' in options['ACTIONS']:
   # B) last 30-year mean
   horizontalConfig = {
     'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
+    'iFile'         : LOG['last30YearsMean'],
+    'availableVars' : cdo.showname(input = LOG['last30YearsMean'])[0].split(' '),
+    'sizeOpt'       : '-xsize=1200 -ysize=800',
+    'title'         : '%s: last 30-year-mean '%(options['EXP']),
+    'tag'           : 'last30YearMean',
+    'limits'        : PlotConfig,
+  }
+  plotHorizontal(horizontalConfig,options,hasNewFiles)
+  horizontalConfig = {
+    'varNames'      : ['HeatFlux_Total_acc','FrshFlux_VolumeTotal_acc', 'FrshFlux_Precipitation_acc', 'FrshFlux_Evaporation_acc','FrshFlux_Runoff_acc','HeatFlux_ShortWave_acc', 'HeatFlux_LongWave_acc','HeatFlux_Sensible_acc', 'HeatFlux_Latent_acc'],
     'iFile'         : LOG['last30YearsMean'],
     'availableVars' : cdo.showname(input = LOG['last30YearsMean'])[0].split(' '),
     'sizeOpt'       : '-xsize=1200 -ysize=800',
