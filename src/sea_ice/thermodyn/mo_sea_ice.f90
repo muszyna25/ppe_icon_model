@@ -1818,11 +1818,13 @@ CONTAINS
     !REAL(wp),POINTER :: sao_top(:,:)
     REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks)  :: tmp
     !-------------------------------------------------------------------------------
-    CALL dbg_print('UpperOcTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: hs', ice%hs,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: hi', ice%hi,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: conc', ice%conc,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: h', p_os%p_prog(nold(1))%h,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: zUnderIce', ice%zUnderIce,                  str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: hs',   ice%hs,                              str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: hi',   ice%hi,                              str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: conc', ice%conc,                            str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: h',    p_os%p_prog(nold(1))%h,              str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: sst',  p_os%p_prog(nold(1))%tracer(:,1,:,1),str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: sss',  p_os%p_prog(nold(1))%tracer(:,1,:,2),str_module, 4, in_subset=p_patch%cells%owned)
 
     !TODOram: openmp
     subset => p_patch%cells%all
@@ -1895,6 +1897,9 @@ CONTAINS
           ! Flux required to cool the ocean to the freezing point
            heatOceW(cell,block)   = ( Tfw(cell,block) - p_os%p_prog(nold(1))%tracer(cell,1,block,1) )     &
              &     *ice%zUnderIce(cell,block)*(1.0_wp-ice%concSum(cell,block))*clw*rho_ref/dtime
+         ! #slo# 2014-11: bugfix: value of newice was kept from last timestep!
+         ELSE
+           ice%newice(cell,block) = 0.0_wp
          ENDIF
 
         ! Diagnosis: collect the 4 parts of heat fluxes into the atmos_fluxes cariables - no flux under ice:
@@ -1976,6 +1981,7 @@ CONTAINS
     CALL dbg_print('UpperOceTS: draft    ', draft        ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: draftave ', draftave     ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: SST      ', sst          ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: FwBcIce  ', atmos_fluxes%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
