@@ -1081,13 +1081,14 @@ if 'plotHorz' in options['ACTIONS']:
 # }}} ----------------------------------------------------------------------------------
 # THROUGH FLOWS / ONLINE DIAGNOSTICS {{{
 # for global grid only
-if ( 'global' == options['GRID'] ):
-  diagnosticFiles = sorted(glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"])),key=mtime)
-  if options['JOBISRUNNING']:
-    diagnosticFiles.pop()
-  diagnosticTable = plotOnlineDiagnostics(diagnosticFiles,options)
-else:
-  diagnosticTable = ''
+if ('plotTf' in options['ACTIONS']):
+  if ( 'global' == options['GRID'] ):
+    diagnosticFiles = sorted(glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"])),key=mtime)
+    if options['JOBISRUNNING']:
+      diagnosticFiles.pop()
+    diagnosticTable = plotOnlineDiagnostics(diagnosticFiles,options)
+  else:
+    diagnosticTable = ''
 # }}} ----------------------------------------------------------------------------------
 # ATLANTIC X-Section: t,s,rhopot  {{{ ================================
 # for global grid only
