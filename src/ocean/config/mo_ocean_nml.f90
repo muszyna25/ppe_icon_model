@@ -583,7 +583,8 @@ MODULE mo_ocean_nml
     & InitialState_InputFileName , &
     & smooth_initial_height_weights, &
     & smooth_initial_salinity_weights, &
-    & smooth_initial_temperature_weights
+    & smooth_initial_temperature_weights, &
+    & initial_temperature_scale_depth
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
