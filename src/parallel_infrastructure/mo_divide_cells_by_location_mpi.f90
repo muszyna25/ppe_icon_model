@@ -251,7 +251,8 @@ CONTAINS
            = 'divide_cells_by_location_par::find_pivot'
       TYPE(t_divide_cells_agg) :: agg
       INTEGER :: i, ierror
-      INTEGER, PARAMETER :: max_pivot_le = 1024
+      INTEGER(i8) :: nom1, denom1, nom2, denom2
+      INTEGER, PARAMETER :: max_pivot_le = 64
       ! candidates for median
       INTEGER :: pivot_le(max_pivot_le, 2)
       INTEGER :: npivot_le, ncells2divide
@@ -308,26 +309,32 @@ CONTAINS
         pivot_guess_med = INT(agg%lon_sum / INT(ncells2divide, i8))
         pivot_guess_max = agg%max_lon
       END IF
+
+      npivot_le = MAX(MIN(max_pivot_le, ncells2divide), 3)
+
       find_pivot_le: DO WHILE (.TRUE.)
-        npivot_le = MAX(INT(MIN(INT(max_pivot_le, i8), &
-             INT(pivot_guess_max, i8) - INT(pivot_guess_min, i8) + 1_i8)), 3)
-        DO i = 1, npivot_le/2
-          pivot_le(i, 1) = pivot_guess_min &
-               + INT(INT(i - 1, i8) &
-               &     * INT(pivot_guess_med - pivot_guess_min, i8) &
-               &     / INT(npivot_le/2, i8))
-          pivot_le(i, 2) = count_le(pivot, pivot_le(i, 1), pivot%div_method)
-        END DO
         pivot_le(npivot_le/2 + 1, 1) = pivot_guess_med
-        pivot_le(npivot_le/2 + 1, 2) = &
-             count_le(pivot, pivot_guess_med, pivot%div_method)
-        DO i = npivot_le/2 + 2, npivot_le
-          pivot_le(i, 1) = pivot_guess_med &
-               + INT(INT(i - npivot_le/2 - 1, i8) &
-               &     * INT(pivot_guess_max - pivot_guess_med, i8) &
-               &     / INT(npivot_le - npivot_le/2 - 1, i8))
-          pivot_le(i, 2) = count_le(pivot, pivot_le(i, 1), pivot%div_method)
+        pivot_le(npivot_le/2 + 1, 2) = count_le(pivot, pivot_guess_med, pivot%div_method, path)
+
+        nom1   = INT(pivot_guess_med - pivot_guess_min, i8)
+        denom1 = INT(npivot_le/2, i8)
+        nom2   = INT(pivot_guess_max - pivot_guess_med, i8)
+        denom2 = INT(npivot_le - npivot_le/2 - 1, i8)
+!$OMP PARALLEL
+!$OMP DO
+        DO i = 1, npivot_le/2
+          pivot_le(i, 1) = pivot_guess_min + INT(INT(i - 1, i8) * nom1 / denom1)
+          pivot_le(i, 2) = count_le(pivot, pivot_le(i, 1), pivot%div_method, path)
         END DO
+!$OMP END DO
+!$OMP DO
+        DO i = npivot_le/2 + 2, npivot_le
+          pivot_le(i, 1) = pivot_guess_med + INT(INT(i - npivot_le/2 - 1, i8) * nom2 / denom2)
+          pivot_le(i, 2) = count_le(pivot, pivot_le(i, 1), pivot%div_method, path)
+        END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
         CALL mpi_allreduce(mpi_in_place, pivot_le(1:npivot_le, 2), &
              npivot_le, p_int, mpi_sum, comm, ierror)
         IF (ierror /= mpi_success) THEN
@@ -385,25 +392,25 @@ CONTAINS
       END DO find_pivot_le
     END FUNCTION find_pivot
 
-    ELEMENTAL FUNCTION count_le(pivot, pivot_val, method)
+    ELEMENTAL FUNCTION count_le(pivot, pivot_val, method, ipath)
       TYPE(t_pivot), INTENT(in) :: pivot
-      INTEGER, INTENT(in) :: pivot_val, method
+      INTEGER, INTENT(in) :: pivot_val, method, ipath
       INTEGER :: count_le
       SELECT CASE (pivot%div_method)
       CASE (dm_lat)
-        count_le = COUNT(cell_desc%owner == path &
+        count_le = COUNT(cell_desc%owner == ipath &
              &           .AND. cell_desc%lat .LE. pivot_val)
       CASE (dm_lon)
-        count_le = COUNT(cell_desc%owner == path &
+        count_le = COUNT(cell_desc%owner == ipath &
              &           .AND. cell_desc%lon .LE. pivot_val)
       CASE (dm_lat_num)
-        count_le = COUNT(cell_desc%owner == path &
+        count_le = COUNT(cell_desc%owner == ipath &
              &           .AND. (cell_desc%lat < pivot%lat_or_lon &
              &                  .OR. (cell_desc%lat == pivot%lat_or_lon &
              &                        .AND. cell_desc%cell_number &
              &                              .LE. pivot_val)))
       CASE (dm_lon_num)
-        count_le = COUNT(cell_desc%owner == path &
+        count_le = COUNT(cell_desc%owner == ipath &
              &           .AND. (cell_desc%lon < pivot%lat_or_lon &
              &                  .OR. (cell_desc%lon == pivot%lat_or_lon &
              &                        .AND. cell_desc%cell_number &
