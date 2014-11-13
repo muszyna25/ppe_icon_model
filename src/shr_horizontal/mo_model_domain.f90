@@ -878,9 +878,7 @@ MODULE mo_model_domain
     ! Useful only for regular patches (defined but unused on local parents)
     CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c
     CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e
-!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v    ! Currently there is no need for this, so we avoid the overhead of
-                                                              ! creating it. Add creation to
-                                                              ! mo_complete_subdivision::set_comm_pat_scatter if you need this.
+    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v
 
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.
