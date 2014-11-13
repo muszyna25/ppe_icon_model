@@ -209,8 +209,8 @@ CONTAINS
     ! --------------------------------------------------------------------------------------
 
     ! REFERENCE
-    CALL define_vertical_axis(of, ZA_reference, ZAXIS_REFERENCE,                         &
-      &                           levels           = (/ ( REAL(k,dp),   k=1,nlev ) /),   &
+    CALL define_vertical_axis(of, ZA_reference, ZAXIS_REFERENCE, nlev,                   &
+      &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
       &                           opt_uuid         = vgrid_buffer(of%phys_patch_id)%uuid )
@@ -218,7 +218,7 @@ CONTAINS
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
 
     ! REFERENCE HALF
-    CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE,                &
+    CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE, nlevp1,        &
       &                           levels   = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),     &
       &                           opt_number = get_numberOfVgridUsed(ivctype),       &
       &                           opt_uuid   = vgrid_buffer(of%phys_patch_id)%uuid )
@@ -226,7 +226,7 @@ CONTAINS
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
 
     ! REFERENCE (special version for HHL)
-    CALL define_vertical_axis(of, ZA_reference_half_hhl, ZAXIS_REFERENCE,                &
+    CALL define_vertical_axis(of, ZA_reference_half_hhl, ZAXIS_REFERENCE, nlevp1,        &
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_set_ubounds_value = 0._dp,                         &
@@ -242,8 +242,8 @@ CONTAINS
 
     ! HYBRID_LAYER
     !
-    CALL define_vertical_axis(of, ZA_hybrid, ZAXIS_HYBRID,                     &
-      &                           levels = (/ ( REAL(k,dp),   k=1,nlev ) /),   &
+    CALL define_vertical_axis(of, ZA_hybrid, ZAXIS_HYBRID, nlev,               &
+      &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds  = .TRUE.)
     CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
 
@@ -253,15 +253,15 @@ CONTAINS
     ! removed from the CDI (in principle its use should be simply
     ! replaced by ZAXIS_HALF, as long as lbounds and ubounds are set
     ! correctly).
-    CALL define_vertical_axis(of, ZA_hybrid_half, ZAXIS_HYBRID_HALF,           &
+    CALL define_vertical_axis(of, ZA_hybrid_half, ZAXIS_HYBRID_HALF, nlevp1,   &
       &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /))
     CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
     ! HYBRID (special version for HHL)
     !
-    CALL define_vertical_axis(of, ZA_hybrid_half_hhl, ZAXIS_HYBRID_HALF,       &
-      &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
-      &                           opt_set_bounds = .TRUE.,                     &
+    CALL define_vertical_axis(of, ZA_hybrid_half_hhl, ZAXIS_HYBRID_HALF, nlevp1, &
+      &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),   &
+      &                           opt_set_bounds = .TRUE.,                       &
       &                           opt_set_ubounds_value  = 0._dp)
     CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half_hhl), 2*nlevp1, vct(1:2*nlevp1))
 
@@ -351,6 +351,7 @@ CONTAINS
     !
     levels => nh_pzlev_config(of%log_patch_id)%plevels
     CALL define_vertical_axis(of, ZA_pressure, ZAXIS_PRESSURE,      &
+      &                       SIZE(levels%values),                  &
       &                       levels = levels%values,               &
       &                       opt_set_vct_as_levels = .TRUE.)
 #endif
@@ -374,6 +375,7 @@ CONTAINS
     !
     levels => nh_pzlev_config(of%log_patch_id)%zlevels
     CALL define_vertical_axis(of, ZA_altitude, ZAXIS_ALTITUDE,      &
+      &                       SIZE(levels%values),                  &
       &                       levels = levels%values,               &
       &                       opt_set_vct_as_levels = .TRUE.)
 #endif
@@ -397,6 +399,7 @@ CONTAINS
     !
     levels => nh_pzlev_config(of%log_patch_id)%ilevels
     CALL define_vertical_axis(of, ZA_isentropic, ZAXIS_ISENTROPIC,  &
+      &                       SIZE(levels%values),                  &
       &                       levels = levels%values,               &
       &                       opt_set_vct_as_levels = .TRUE.)
 #endif
@@ -497,13 +500,14 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Utility function: defines z-axis with given levels, lower and upper bounds.
   !
-  SUBROUTINE define_vertical_axis(of, za_type, cdi_type, levels,               &
+  SUBROUTINE define_vertical_axis(of, za_type, cdi_type, in_nlevs, levels,     &
     &                             opt_set_bounds, opt_set_ubounds_value,       &
     &                             opt_number, opt_uuid, opt_set_vct_as_levels)
     TYPE(t_output_file),     INTENT(INOUT) :: of             !< output file meta-data
     INTEGER,                 INTENT(IN)    :: za_type        !< ICON-internal axis ID (see mo_cdi_constants)
     INTEGER,                 INTENT(IN)    :: cdi_type       !< CDI-internal axis name 
-    REAL(dp),                INTENT(IN)    :: levels(:)   !< axis levels
+    INTEGER,                 INTENT(IN)    :: in_nlevs       !< no. of levels (if no selection)
+    REAL(dp),                INTENT(IN)    :: levels(:)      !< axis levels
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_bounds        !< Flag. Set lower/upper bounds if .TRUE.
     REAL(dp),                INTENT(IN), OPTIONAL :: opt_set_ubounds_value !< Explicit value for ubounds
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_number            !< numberOfVGridUsed
@@ -512,6 +516,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":define_vertical_axis"
     REAL(dp), ALLOCATABLE :: axis_levels(:), ubounds(:)     !< level list, upper bounds
+
     INTEGER :: nlev                                         !< no. of axis levels
     LOGICAL :: set_bounds, select_levs
     INTEGER :: ierrstat, i, isrc_lev
@@ -521,7 +526,7 @@ CONTAINS
     ! parameter "levels(:)":
     select_levs = ASSOCIATED(of%level_selection)
     IF (.NOT. select_levs) THEN
-      nlev = SIZE(levels)
+      nlev = in_nlevs
     ELSE
       ! count the number of feasible levels that have been selected:
       nlev = 0
@@ -556,7 +561,7 @@ CONTAINS
       ELSE
         ubounds(:) = 0._dp
         IF (.NOT. select_levs) THEN
-          ubounds(1:(nlev-1)) = axis_levels(2:nlev)
+          ubounds(1:nlev) = axis_levels(2:(nlev+1))
         ELSE
           DO i=1,nlev
             isrc_lev = of%level_selection%global_idx(i)+1
