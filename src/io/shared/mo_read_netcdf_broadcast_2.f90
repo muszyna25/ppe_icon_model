@@ -33,7 +33,7 @@
 
 MODULE mo_read_netcdf_broadcast_2
 
-  USE mo_kind
+  USE mo_kind,               ONLY: sp, dp, wp
   USE mo_scatter,            ONLY: broadcast_array
   USE mo_exception,          ONLY: message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success
@@ -41,8 +41,7 @@ MODULE mo_read_netcdf_broadcast_2
   USE mo_io_units,           ONLY: filename_max
 
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
-  USE mo_read_netcdf_distributed, ONLY: var_data_1d_int, &
-    &                                   var_data_2d_wp, var_data_2d_int, &
+  USE mo_read_netcdf_distributed, ONLY: var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int
   USE mo_communication,      ONLY: t_scatterPattern
   !-------------------------------------------------------------------------
@@ -490,7 +489,7 @@ CONTAINS
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
     INTEGER :: return_status, i
-    INTEGER, POINTER :: tmp_array(:)
+    INTEGER, ALLOCATABLE :: tmp_array(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_INT_2D_multivar'
@@ -509,14 +508,12 @@ CONTAINS
 
     ENDIF
 
-    ALLOCATE( tmp_array(n_g), stat=return_status )
-    IF (return_status /= success) THEN
-      CALL finish (method_name, 'ALLOCATE( tmp_array )')
-    ENDIF
+    ALLOCATE(tmp_array(MERGE(n_g, 0, my_process_is_mpi_workroot())), &
+      &      stat=return_status )
+    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
 
-    IF( my_process_is_mpi_workroot()) THEN
+    IF( my_process_is_mpi_workroot()) &
       CALL nf(nf_get_var_int(file_id, varid, tmp_array(:)), variable_name)
-    ENDIF
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
@@ -533,8 +530,6 @@ CONTAINS
 
       CALL scatter_patterns(i)%p%distribute(tmp_array, res(i)%data, .FALSE.)
     END DO
-
-    DEALLOCATE(tmp_array)
 
   END FUNCTION netcdf_read_INT_2D_multivar
   !-------------------------------------------------------------------------
@@ -589,17 +584,18 @@ CONTAINS
 
     TYPE(var_data_2d_wp)                    :: res(n_vars)
 
-    INTEGER :: varid, var_type, var_dims
+    INTEGER :: varid, var_type(1), var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
     INTEGER :: return_status, i
-    REAL(wp), POINTER :: tmp_array(:)
+    REAL(sp), ALLOCATABLE :: tmp_array_sp(:)
+    REAL(dp), ALLOCATABLE :: tmp_array_dp(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_multivar'
 
     IF( my_process_is_mpi_workroot()  ) THEN
-      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type(1), var_dims, &
         &                 var_size, var_dim_name)
 
       ! check if the dims look ok
@@ -607,18 +603,25 @@ CONTAINS
         write(0,*) "var_dims = ", var_dims, " var_size=", var_size, " n_g=", n_g
         CALL finish(method_name, "Dimensions mismatch")
       ENDIF
-
     ENDIF
 
-    ALLOCATE( tmp_array(n_g), stat=return_status )
-    IF (return_status /= success) THEN
-      CALL finish (method_name, 'ALLOCATE( tmp_array )')
-    ENDIF
+    CALL broadcast_array(var_type)
 
     IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(file_id, varid, tmp_array(:)), &
-        &                       variable_name)
+      SELECT CASE(var_type(1))
+        CASE(NF_DOUBLE)
+          ALLOCATE(tmp_array_dp(n_g), stat=return_status )
+          CALL nf(nf_get_var_double(file_id, varid, tmp_array_dp), variable_name)
+        CASE(NF_FLOAT, NF_INT)
+          ALLOCATE(tmp_array_sp(n_g), stat=return_status )
+          CALL nf(nf_get_var_real(file_id, varid, tmp_array_sp), variable_name)
+        CASE default
+          CALL finish(method_name, "incompatible var_type")
+      END SELECT
+    ELSE
+      ALLOCATE(tmp_array_dp(0), tmp_array_sp(0), stat=return_status)
     ENDIF
+    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
 
     DO i = 1, n_vars
       IF (PRESENT(fill_arrays)) THEN
@@ -633,10 +636,12 @@ CONTAINS
         res(i)%data(:,:) = 0.0_wp
       ENDIF
 
-      CALL scatter_patterns(i)%p%distribute(tmp_array, res(i)%data, .FALSE.)
+      IF (var_type(1) == NF_DOUBLE) THEN
+        CALL scatter_patterns(i)%p%distribute(tmp_array_dp, res(i)%data, .FALSE.)
+      ELSE
+        CALL scatter_patterns(i)%p%distribute(tmp_array_sp, res(i)%data, .FALSE.)
+      END IF
     END DO
-
-    DEALLOCATE(tmp_array)
 
   END FUNCTION netcdf_read_REAL_2D_multivar
   !-------------------------------------------------------------------------
@@ -730,7 +735,7 @@ CONTAINS
 
     TYPE(var_data_3d_wp)          :: res(n_vars)
 
-    INTEGER :: varid, var_type, var_dims
+    INTEGER :: varid, var_type(1), var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
@@ -738,14 +743,15 @@ CONTAINS
     INTEGER :: start_read_index(2), count_read_index(2)
 
     INTEGER :: return_status, i, t
-    REAL(wp), POINTER :: tmp_array(:)
+    REAL(sp), ALLOCATABLE :: tmp_array_sp(:)
+    REAL(dp), ALLOCATABLE :: tmp_array_dp(:)
     REAL(wp), POINTER :: tmp_res(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_multivar'
 
     IF( my_process_is_mpi_workroot()  ) THEN
-      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type(1), var_dims,&
         &                 var_size, var_dim_name)
 
       ! check if we have indeed 3 dimensions
@@ -762,6 +768,8 @@ CONTAINS
       ENDIF
 
     ENDIF
+
+    CALL broadcast_array(var_type)
 
     ! we need to sync the var_size...
     CALL broadcast_array(var_size(1:2))
@@ -783,9 +791,6 @@ CONTAINS
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
 
-    ALLOCATE( tmp_array(n_g), stat=return_status )
-    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
-
     DO i = 1, n_vars
       !-----------------------
       IF (PRESENT(fill_arrays)) THEN
@@ -803,23 +808,45 @@ CONTAINS
       ENDIF
     END DO
 
+    IF( my_process_is_mpi_workroot()) THEN
+      SELECT CASE(var_type(1))
+        CASE(NF_DOUBLE)
+          ALLOCATE(tmp_array_dp(n_g), stat=return_status )
+        CASE(NF_FLOAT, NF_INT)
+          ALLOCATE(tmp_array_sp(n_g), stat=return_status )
+        CASE default
+          CALL finish(method_name, "incompatible var_type")
+      END SELECT
+    ELSE
+      ALLOCATE(tmp_array_dp(0), tmp_array_sp(0), stat=return_status)
+    ENDIF
+    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
+
     DO t = 1, time_steps
       IF( my_process_is_mpi_workroot()) THEN
 
         start_read_index = (/ 1, start_time+t-1 /)
         count_read_index = (/ n_g, 1/)
-        CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
-          &                        count_read_index, tmp_array(:)), &
-          &                        variable_name)
+        IF (var_type(1) == NF_DOUBLE) THEN
+          CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+            &                        count_read_index, tmp_array_dp(:)), &
+            &                        variable_name)
+        ELSE
+          CALL nf(nf_get_vara_real(file_id, varid, start_read_index, &
+            &                      count_read_index, tmp_array_sp(:)), &
+            &                      variable_name)
+        END IF
       ENDIF
 
       DO i = 1, n_vars
         tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
-        CALL scatter_patterns(i)%p%distribute(tmp_array, tmp_res, .FALSE.)
+        IF (var_type(1) == NF_DOUBLE) THEN
+          CALL scatter_patterns(i)%p%distribute(tmp_array_dp, tmp_res, .FALSE.)
+        ELSE
+          CALL scatter_patterns(i)%p%distribute(tmp_array_sp, tmp_res, .FALSE.)
+        END IF
       END DO
     END DO
-
-    DEALLOCATE(tmp_array)
 
   END FUNCTION netcdf_read_REAL_2D_extdim_multivar
   !-------------------------------------------------------------------------
@@ -891,11 +918,10 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
     INTEGER :: file_time_steps, time_steps, start_time, end_time
-    INTEGER :: start_allocated_step, end_allocated_step
     INTEGER :: start_read_index(2), count_read_index(2)
 
     INTEGER :: return_status, i, t
-    INTEGER, POINTER :: tmp_array(:)
+    INTEGER, ALLOCATABLE :: tmp_array(:)
     INTEGER, POINTER :: tmp_res(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
@@ -940,7 +966,8 @@ CONTAINS
     IF (time_steps < 1) &
       & CALL finish(method_name, "ext dim size < 1")
 
-    ALLOCATE( tmp_array(n_g), stat=return_status )
+    ALLOCATE(tmp_array(MERGE(n_g, 0, my_process_is_mpi_workroot())), &
+      &      stat=return_status )
     IF (return_status /= success) THEN
       CALL finish (method_name, 'ALLOCATE( tmp_array )')
     ENDIF
@@ -975,8 +1002,6 @@ CONTAINS
       END DO
     END DO
 
-    DEALLOCATE(tmp_array)
-
   END FUNCTION netcdf_read_INT_2D_extdim_multivar
   !-------------------------------------------------------------------------
 
@@ -998,14 +1023,15 @@ CONTAINS
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsdim_name
 
-    INTEGER :: varid, var_type, var_dims
+    INTEGER :: varid, var_type(1), var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
     INTEGER :: file_vertical_levels
 
     INTEGER :: return_status, i
-    REAL(wp), POINTER :: tmp_array(:)
+    REAL(sp), ALLOCATABLE :: tmp_array_sp(:)
+    REAL(dp), ALLOCATABLE :: tmp_array_dp(:)
     REAL(wp), POINTER :: res_level(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
@@ -1014,7 +1040,7 @@ CONTAINS
     NULLIFY(res)
 
     IF( my_process_is_mpi_workroot() ) THEN
-      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type(1), var_dims, &
         &                 var_size, var_dim_name)
 
       ! check if we have indeed 2 dimensions
@@ -1032,6 +1058,8 @@ CONTAINS
 
     ENDIF
 
+    CALL broadcast_array(var_type)
+
     ! we need to sync the var_size...
     CALL broadcast_array(var_size(1:2))
     file_vertical_levels = var_size(2)
@@ -1048,10 +1076,20 @@ CONTAINS
       ENDIF
       res(:,:,:) = 0.0_wp
     ENDIF
-    ALLOCATE( tmp_array(n_g), stat=return_status )
-    IF (return_status /= success) THEN
-      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+
+    IF( my_process_is_mpi_workroot()) THEN
+      SELECT CASE(var_type(1))
+        CASE(NF_DOUBLE)
+          ALLOCATE(tmp_array_dp(n_g), stat=return_status )
+        CASE(NF_FLOAT, NF_INT)
+          ALLOCATE(tmp_array_sp(n_g), stat=return_status )
+        CASE default
+          CALL finish(method_name, "incompatible var_type")
+      END SELECT
+    ELSE
+      ALLOCATE(tmp_array_dp(0), tmp_array_sp(0), stat=return_status)
     ENDIF
+    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
 
     IF (file_vertical_levels /= SIZE(res,2)) &
       CALL finish(method_name, 'file_vertical_levels /= SIZE(fill_array,2)')
@@ -1059,15 +1097,22 @@ CONTAINS
 
     DO i = 1, file_vertical_levels
       IF( my_process_is_mpi_workroot()) THEN
-        CALL nf(nf_get_vara_double(file_id, varid, (/1,i/), (/n_g,1/), &
-          &                        tmp_array(:)), variable_name)
+        IF (var_type(1) == NF_DOUBLE) THEN
+          CALL nf(nf_get_vara_double(file_id, varid, (/1,i/), (/n_g,1/), &
+            &                        tmp_array_dp(:)), variable_name)
+        ELSE
+          CALL nf(nf_get_vara_real(file_id, varid, (/1,i/), (/n_g,1/), &
+            &                      tmp_array_sp(:)), variable_name)
+        END IF
       ENDIF
 
       res_level => res(:,i,:)
-      CALL scatter_pattern%distribute(tmp_array, res_level, .FALSE.)
+      IF (var_type(1) == NF_DOUBLE) THEN
+        CALL scatter_pattern%distribute(tmp_array_dp, res_level, .FALSE.)
+      ELSE
+        CALL scatter_pattern%distribute(tmp_array_sp, res_level, .FALSE.)
+      END IF
     END DO
-
-    DEALLOCATE(tmp_array)
 
   END FUNCTION netcdf_read_REAL_3D
   !-------------------------------------------------------------------------
@@ -1128,7 +1173,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL    :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsdim_name
 
-    INTEGER :: varid, var_type, var_dims
+    INTEGER :: varid, var_type(1), var_dims
     INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
 
@@ -1137,14 +1182,15 @@ CONTAINS
     INTEGER :: start_read_index(3), count_read_index(3)
 
     INTEGER :: return_status, i, tt
-    REAL(wp), POINTER :: tmp_array(:)
+    REAL(sp), ALLOCATABLE :: tmp_array_sp(:)
+    REAL(dp), ALLOCATABLE :: tmp_array_dp(:)
     REAL(wp), POINTER  :: res_level(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_extdim'
 
     IF( my_process_is_mpi_workroot()  ) THEN
-      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type(1), var_dims, &
         &                 var_size, var_dim_name)
 
       ! check if we have indeed 3 dimensions
@@ -1161,6 +1207,8 @@ CONTAINS
       ENDIF
 
     ENDIF
+
+    CALL broadcast_array(var_type)
 
     ! we need to sync the var_size...
     CALL broadcast_array(var_size(1:3))
@@ -1183,10 +1231,19 @@ CONTAINS
     IF (time_steps < 1) &
       & CALL finish(method_name, "extdim size < 1")
 
-    ALLOCATE( tmp_array(n_g), stat=return_status )
-    IF (return_status /= success) THEN
-      CALL finish (method_name, 'ALLOCATE( tmp_array )')
+    IF( my_process_is_mpi_workroot()) THEN
+      SELECT CASE(var_type(1))
+        CASE(NF_DOUBLE)
+          ALLOCATE(tmp_array_dp(n_g), stat=return_status )
+        CASE(NF_FLOAT, NF_INT)
+          ALLOCATE(tmp_array_sp(n_g), stat=return_status )
+        CASE default
+          CALL finish(method_name, "incompatible var_type")
+      END SELECT
+    ELSE
+      ALLOCATE(tmp_array_dp(0), tmp_array_sp(0), stat=return_status)
     ENDIF
+    IF (return_status /= success) CALL finish(method_name,'ALLOCATE(tmp_array)')
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array(:,:,:,1:time_steps)
@@ -1212,17 +1269,25 @@ CONTAINS
         IF( my_process_is_mpi_workroot()) THEN
           start_read_index = (/ 1, i, tt + start_time - 1 /)
           count_read_index      = (/ n_g, 1, 1 /)
-          CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
-            &                        count_read_index, tmp_array(:)),  &
-            &     variable_name)
+          IF (var_type(1) == NF_DOUBLE) THEN
+            CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+              &                        count_read_index, tmp_array_dp(:)),  &
+              &     variable_name)
+          ELSE
+            CALL nf(nf_get_vara_real(file_id, varid, start_read_index, &
+              &                      count_read_index, tmp_array_sp(:)),  &
+              &     variable_name)
+          END IF
         ENDIF
         
         res_level => res(:,i,:,LBOUND(res, 4)+tt-1)
-        CALL scatter_pattern%distribute(tmp_array, res_level, .FALSE.)
+        IF (var_type(1) == NF_DOUBLE) THEN
+          CALL scatter_pattern%distribute(tmp_array_dp, res_level, .FALSE.)
+        ELSE
+          CALL scatter_pattern%distribute(tmp_array_sp, res_level, .FALSE.)
+        END IF
       END DO
     END DO
-
-    DEALLOCATE(tmp_array)
 
   END FUNCTION netcdf_read_REAL_3D_extdim
   !-------------------------------------------------------------------------
