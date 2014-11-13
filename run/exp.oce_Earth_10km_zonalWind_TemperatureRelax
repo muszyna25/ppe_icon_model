@@ -74,26 +74,22 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
- ! dzlev_m(1:40)      =   18.0,   16.0,   16.0,   16.0,   16.0,   16.0,   16.0,   16.0,   20.0,   25.0,
- !                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
- !                      100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
- !                      220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
- n_zlev             =   46
- dzlev_m(1:46)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+! 40 unevenly spaced levels used by MPIOM/GR30
+ n_zlev             =   40
+ dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  550.0,
-                       600.0,  650.0,  700.0,  750.0,  800.0,  1000.0
+                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .FALSE.              ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.              ! partial bottom cells=true: local varying bottom depth
   i_bc_veloc_bot     = 1                 !  0/1=bottom friction off/on
   ! i_bc_veloc_top     = 3 !                !  forced by the difference of wind-ocean velocity, smoothed
   select_solver      = 2                 !  1=gmres_oce_old; 2=ocean_restart_gmres
-  solver_tolerance   = 1.0E-15           !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_tolerance   = 1.0E-13           !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 28     !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50    !  outer (restart solver) loop with syncing (default: 100)
   use_continuity_correction = .true.
-  fast_performance_level = 12
+  fast_performance_level = 200
 /
 &ocean_tracer_transport_nml
   no_tracer             = 2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
@@ -136,12 +132,12 @@ cat > ${ocean_namelist} << EOF
   initial_salinity_top       = 34.8
   initial_salinity_bottom    = 35.2
   initial_temperature_type   = 212
-  initial_temperature_top    = 18.0 
+  initial_temperature_top    = 28.0 
   initial_temperature_bottom = 4.0
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
-  lkeep_in_sync = .FALSE.          ! sync after each timestep
+  lkeep_in_sync = .true.          ! sync after each timestep
   ! use_set_event_to_simstep = .false. 
 /
 EOF
