@@ -17,7 +17,7 @@ MODULE mo_ocean_testbed_read
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio, &
-    &                               p_n_work, p_pe_work
+    &                               p_n_work, p_pe_work, p_comm_work
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
     & activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
@@ -32,7 +32,7 @@ MODULE mo_ocean_testbed_read
 !   USE mo_test_netcdf_read,    ONLY: netcdf_write_oncells_3D_time
   USE mo_read_interface
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read, delete_distrib_read
-  USE mo_communication,       ONLY: idx_no, blk_no
+  USE mo_communication,       ONLY: idx_no, blk_no, makeScatterPattern
   USE mo_util_file,           ONLY: util_unlink
 
 !-------------------------------------------------------------------------
@@ -185,6 +185,23 @@ CONTAINS
       CALL setup_distrib_read(p_n_work * 2 * nproma, &
         &                     dummy_patch%verts%decomp_info, &
         &                     dummy_patch%verts%dist_io_data)
+
+      dummy_patch%n_patch_cells = 2*nproma
+      dummy_patch%n_patch_edges = 2*nproma
+      dummy_patch%n_patch_verts = 2*nproma
+
+      dummy_patch%comm_pat_scatter_c => &
+        makeScatterPattern(dummy_patch%n_patch_cells, &
+        &                  dummy_patch%cells%decomp_info%glb_index, &
+        &                  p_comm_work)
+      dummy_patch%comm_pat_scatter_e => &
+        makeScatterPattern(dummy_patch%n_patch_edges, &
+        &                  dummy_patch%edges%decomp_info%glb_index, &
+        &                  p_comm_work)
+      dummy_patch%comm_pat_scatter_v => &
+        makeScatterPattern(dummy_patch%n_patch_verts, &
+        &                  dummy_patch%verts%decomp_info%glb_index, &
+        &                  p_comm_work)
 
       IF (p_pe_work == 0) &
         CALL generate_test_file("testfile.nc", nlev=10, ntime=5)
@@ -1253,6 +1270,10 @@ CONTAINS
       DEALLOCATE(dummy_patch%cells%decomp_info%glb_index, &
         &        dummy_patch%edges%decomp_info%glb_index, &
         &        dummy_patch%verts%decomp_info%glb_index)
+
+      CALL dummy_patch%comm_pat_scatter_c%destruct()
+      CALL dummy_patch%comm_pat_scatter_e%destruct()
+      CALL dummy_patch%comm_pat_scatter_v%destruct()
     END SUBROUTINE read_interface_test
 
     SUBROUTINE generate_test_file(filename, nlev, ntime)

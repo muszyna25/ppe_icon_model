@@ -44,7 +44,8 @@ MODULE mo_read_interface
     &                                   read_0D_real => netcdf_read_0D_real, &
     &                                   netcdf_read_1D, netcdf_read_3D, &
     &                                   netcdf_read_1D_extdim_time, &
-    &                                   netcdf_read_1D_extdim_extdim_time
+    &                                   netcdf_read_1D_extdim_extdim_time, &
+    &                                   t_p_scatterPattern
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
     &                                   var_data_1d_int, &
@@ -56,6 +57,7 @@ MODULE mo_read_interface
   USE mo_parallel_config, ONLY: nproma
   USE mo_io_units, ONLY: filename_max
   USE mo_model_domain, ONLY: t_patch
+  USE mo_communication, ONLY: t_scatterPattern
 
 
   !-------------------------------------------------------------------------
@@ -98,12 +100,14 @@ MODULE mo_read_interface
   INTEGER, PARAMETER :: onEdges = 3
 
   TYPE t_read_info
+
     ! data required for read_netcdf_distribute_method
     TYPE(t_distrib_read_data), POINTER :: dist_read_info
 
     ! data required for read_netcdf_broadcast_method
-    INTEGER :: n_g
-    INTEGER, POINTER :: glb_index(:)
+    INTEGER :: n_l !< number of local points
+    INTEGER :: n_g !< number of global points
+    CLASS(t_scatterPattern), POINTER :: scatter_pattern
   END TYPE
 
   TYPE p_t_patch
@@ -330,7 +334,7 @@ CONTAINS
     TYPE(var_data_2d_int), OPTIONAL        :: return_pointer(:)
 
     TYPE(var_data_2d_int)                  :: tmp_return(n_var)
-    TYPE(var_data_1d_int)                  :: glb_index_(n_var)
+    TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
     TYPE(var_data_2d_int), ALLOCATABLE     :: var_data_2d(:)
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
@@ -351,11 +355,12 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
-        glb_index_(i)%data => stream_id%read_info(location, i)%glb_index
+        scatter_patterns(i)%p => &
+          stream_id%read_info(location, i)%scatter_pattern
       END DO
       n_g = stream_id%read_info(location, 1)%n_g
       tmp_return = netcdf_read_2D_int(stream_id%file_id, variable_name, n_var, &
-          &                           fill_array, n_g, glb_index_)
+          &                           fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
     
@@ -369,7 +374,7 @@ CONTAINS
       ELSE
         DO i = 1, n_var
           ALLOCATE(var_data_2d(i)%data(nproma, &
-            (SIZE(stream_id%read_info(location, i)%glb_index) - 1)/nproma + 1))
+            (stream_id%read_info(location, i)%n_l - 1)/nproma + 1))
           var_data_2d(i)%data(:,:) = 0
         END DO
       ENDIF
@@ -412,17 +417,17 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      tmp_pointer => netcdf_read_2D_int(stream_id%file_id, variable_name, &
-        &                               fill_array, &
-        &                               stream_id%read_info(location, 1)%n_g, &
-        &                               stream_id%read_info(location, 1)%glb_index)
+      tmp_pointer => &
+        netcdf_read_2D_int(stream_id%file_id, variable_name, fill_array, &
+        stream_id%read_info(location, 1)%n_g, &
+        stream_id%read_info(location, 1)%scatter_pattern)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
+          (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1))
         tmp_pointer(:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
@@ -449,7 +454,7 @@ CONTAINS
     TYPE(var_data_2d_wp), OPTIONAL    :: return_pointer(:)
 
     TYPE(var_data_2d_wp)              :: tmp_return(n_var)
-    TYPE(var_data_1d_int)             :: glb_index_(n_var)
+    TYPE(t_p_scatterPattern)          :: scatter_patterns(n_var)
     INTEGER                           :: n_g, i
     TYPE(var_data_2d_wp), ALLOCATABLE :: var_data_2d(:)
     CHARACTER(LEN=*), PARAMETER       :: method_name = &
@@ -469,11 +474,12 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
-        glb_index_(i)%data => stream_id%read_info(location, i)%glb_index
+        scatter_patterns(i)%p => &
+          stream_id%read_info(location, i)%scatter_pattern
       END DO
       n_g = stream_id%read_info(location, 1)%n_g
       tmp_return = netcdf_read_2D(stream_id%file_id, variable_name, n_var, &
-            &                     fill_array, n_g, glb_index_)
+            &                     fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
     
@@ -487,7 +493,7 @@ CONTAINS
       ELSE
         DO i = 1, n_var
           ALLOCATE(var_data_2d(i)%data(nproma, &
-            (SIZE(stream_id%read_info(location, i)%glb_index) - 1)/nproma + 1))
+            (stream_id%read_info(location, i)%n_l - 1)/nproma + 1))
           var_data_2d(i)%data(:,:) = 0.0_wp
         END DO
       ENDIF
@@ -530,17 +536,17 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      tmp_pointer => netcdf_read_2D(stream_id%file_id, variable_name, &
-        &                           fill_array, &
-        &                           stream_id%read_info(location, 1)%n_g, &
-        &                           stream_id%read_info(location, 1)%glb_index)
+      tmp_pointer => &
+        netcdf_read_2D(stream_id%file_id, variable_name, fill_array, &
+        stream_id%read_info(location, 1)%n_g, &
+        stream_id%read_info(location, 1)%scatter_pattern)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
         tmp_pointer => fill_array
       ELSE
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
+          (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1))
         tmp_pointer(:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
@@ -778,7 +784,7 @@ CONTAINS
       tmp_pointer => &
          & netcdf_read_2D_extdim(stream_id%file_id, variable_name, fill_array, &
          & stream_id%read_info(location, 1)%n_g, &
-         & stream_id%read_info(location, 1)%glb_index, start_extdim, &
+         & stream_id%read_info(location, 1)%scatter_pattern, start_extdim, &
          & end_extdim, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -792,8 +798,7 @@ CONTAINS
             &                       var_dimlen)
         END IF
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-          var_dimlen(2)))
+          (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
@@ -829,7 +834,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
     TYPE(var_data_3d_wp)                   :: tmp_return(n_var)
-    TYPE(var_data_1d_int)                  :: glb_index_(n_var)
+    TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
     TYPE(var_data_3d_wp), ALLOCATABLE      :: var_data_3d(:)
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
@@ -875,12 +880,13 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
-        glb_index_(i)%data => stream_id%read_info(location, i)%glb_index
+        scatter_patterns(i)%p => &
+          stream_id%read_info(location, i)%scatter_pattern
       END DO
       n_g = stream_id%read_info(location, 1)%n_g
       tmp_return = netcdf_read_2D_extdim( &
         stream_id%file_id, variable_name, n_var, fill_array, n_g, &
-        glb_index_, start_extdim, end_extdim, extdim_name )
+        scatter_patterns, start_extdim, end_extdim, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
 
@@ -902,8 +908,7 @@ CONTAINS
       ELSE
         DO i = 1, n_var
           ALLOCATE(var_data_3d(i)%data(nproma, &
-            (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-            var_dimlen(2)))
+            (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
           var_data_3d(i)%data(:,:,:) = 0.0_wp
         END DO
       ENDIF
@@ -985,7 +990,7 @@ CONTAINS
       tmp_pointer => &
          & netcdf_read_2D_extdim_int(stream_id%file_id, variable_name, &
          & fill_array, stream_id%read_info(location, 1)%n_g, &
-         & stream_id%read_info(location, 1)%glb_index, start_extdim, &
+         & stream_id%read_info(location, 1)%scatter_pattern, start_extdim, &
          & end_extdim, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -999,8 +1004,7 @@ CONTAINS
             &                       var_dimlen)
         END IF
         ALLOCATE(tmp_pointer(nproma, &
-          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-          var_dimlen(2)))
+          (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
@@ -1036,7 +1040,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
     TYPE(var_data_3d_int)                  :: tmp_return(n_var)
-    TYPE(var_data_1d_int)                  :: glb_index_(n_var)
+    TYPE(t_p_scatterPattern)               :: scatter_patterns(n_var)
     INTEGER                                :: n_g, i
     TYPE(var_data_3d_int), ALLOCATABLE     :: var_data_3d(:)
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
@@ -1082,12 +1086,13 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
-        glb_index_(i)%data => stream_id%read_info(location, i)%glb_index
+        scatter_patterns(i)%p => &
+          stream_id%read_info(location, i)%scatter_pattern
       END DO
       n_g = stream_id%read_info(location, 1)%n_g
       tmp_return = netcdf_read_2D_extdim_int( &
         stream_id%file_id, variable_name, n_var, fill_array, n_g, &
-        glb_index_, start_extdim, end_extdim, extdim_name )
+        scatter_patterns, start_extdim, end_extdim, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
 
@@ -1109,8 +1114,7 @@ CONTAINS
       ELSE
         DO i = 1, n_var
           ALLOCATE(var_data_3d(i)%data(nproma, &
-            (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-            var_dimlen(2)))
+            (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(2)))
           var_data_3d(i)%data(:,:,:) = 0
         END DO
       ENDIF
@@ -1175,7 +1179,7 @@ CONTAINS
       tmp_pointer => &
          & netcdf_read_3D(stream_id%file_id, variable_name, &
          & fill_array, stream_id%read_info(location, 1)%n_g, &
-         & stream_id%read_info(location, 1)%glb_index, levelsDimName)
+         & stream_id%read_info(location, 1)%scatter_pattern, levelsDimName)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
       IF (PRESENT(fill_array)) THEN
@@ -1184,7 +1188,7 @@ CONTAINS
         CALL distrib_inq_var_dims(stream_id%file_id, variable_name, var_ndims, &
           &                       var_dimlen)
         ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
-          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1))
+          (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1))
         tmp_pointer(:,:,:) = 0.0_wp
       ENDIF
 
@@ -1386,7 +1390,7 @@ CONTAINS
       tmp_pointer => &
          & netcdf_read_3D_extdim(stream_id%file_id, variable_name, &
          & fill_array, stream_id%read_info(location, 1)%n_g, &
-         & stream_id%read_info(location, 1)%glb_index, &
+         & stream_id%read_info(location, 1)%scatter_pattern, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -1397,8 +1401,7 @@ CONTAINS
           &                       var_dimlen)
         IF (PRESENT(start_extdim)) var_dimlen(3) = end_extdim - start_extdim + 1
         ALLOCATE(tmp_pointer(nproma, var_dimlen(2), &
-          (SIZE(stream_id%read_info(location, 1)%glb_index) - 1)/nproma + 1, &
-          var_dimlen(3)))
+          (stream_id%read_info(location, 1)%n_l - 1)/nproma + 1, var_dimlen(3)))
         tmp_pointer(:,:,:,:) = 0.0_wp
       ENDIF
 
@@ -1447,14 +1450,7 @@ CONTAINS
 
     ALLOCATE(openInputFile_dist_multivar%read_info(3, n_var))
 
-    openInputFile_dist_multivar%read_info(onCells, 1)%n_g = &
-      patches(1)%p%n_patch_cells_g
-    openInputFile_dist_multivar%read_info(onEdges, 1)%n_g = &
-      patches(1)%p%n_patch_edges_g
-    openInputFile_dist_multivar%read_info(onVertices, 1)%n_g = &
-      patches(1)%p%n_patch_verts_g
-
-    DO i = 2, n_var
+    DO i = 1, n_var
 
       IF ((patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
           (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
@@ -1467,6 +1463,13 @@ CONTAINS
         patches(i)%p%n_patch_edges_g
       openInputFile_dist_multivar%read_info(onVertices, i)%n_g = &
         patches(i)%p%n_patch_verts_g
+
+      openInputFile_dist_multivar%read_info(onCells, i)%n_l = &
+        patches(i)%p%n_patch_cells
+      openInputFile_dist_multivar%read_info(onEdges, i)%n_l = &
+        patches(i)%p%n_patch_edges
+      openInputFile_dist_multivar%read_info(onVertices, i)%n_l = &
+        patches(i)%p%n_patch_verts
     END DO
 
     SELECT CASE(openInputFile_dist_multivar%input_method)
@@ -1475,15 +1478,14 @@ CONTAINS
       openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(onCells, i)%glb_index => &
-          patches(i)%p%cells%decomp_info%glb_index
+        openInputFile_dist_multivar%read_info(onCells, i)%scatter_pattern => &
+          patches(i)%p%comm_pat_scatter_c
         NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(onEdges, i)%glb_index => &
-          patches(i)%p%edges%decomp_info%glb_index
+        openInputFile_dist_multivar%read_info(onEdges, i)%scatter_pattern => &
+          patches(i)%p%comm_pat_scatter_e
         NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info)
-
-        openInputFile_dist_multivar%read_info(onVertices, i)%glb_index => &
-          patches(i)%p%verts%decomp_info%glb_index
+        openInputFile_dist_multivar%read_info(onVertices, i)%scatter_pattern => &
+          patches(i)%p%comm_pat_scatter_v
         NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info)
       END DO
 
@@ -1494,17 +1496,13 @@ CONTAINS
       DO i = 1, n_var
         openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info => &
           patches(i)%p%cells%dist_io_data
-        openInputFile_dist_multivar%read_info(onCells, i)%glb_index => &
-          patches(i)%p%cells%decomp_info%glb_index
+        NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%scatter_pattern)
         openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
-        openInputFile_dist_multivar%read_info(onVertices, i)%glb_index => &
-          patches(i)%p%verts%decomp_info%glb_index
-
+        NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%scatter_pattern)
         openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info => &
           patches(i)%p%edges%dist_io_data
-        openInputFile_dist_multivar%read_info(onEdges, i)%glb_index => &
-          patches(i)%p%edges%decomp_info%glb_index
+        NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%scatter_pattern)
       END DO
 
     CASE default
