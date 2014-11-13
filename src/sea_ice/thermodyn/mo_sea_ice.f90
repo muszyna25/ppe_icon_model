@@ -319,7 +319,7 @@ CONTAINS
 
     CALL add_var(ocean_restart_list, 'newice', p_ice%newice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('newice', 'm', 'new ice groth in open water', DATATYPE_FLT32),&
+      &          t_cf_var('newice', 'm', 'new ice growth in open water', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"),&
       &          lrestart_cont=.TRUE.)
@@ -1365,7 +1365,7 @@ CONTAINS
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
-    CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hi before growth' ,ice%hi ,str_module,4, in_subset=p_patch%cells%owned)
     ! #achim
     IF      ( i_ice_therm == 2 ) THEN
       CALL ice_growth_winton    (p_patch, p_os, ice, atmos_fluxes%rpreci)!, atmos_fluxes%lat)
