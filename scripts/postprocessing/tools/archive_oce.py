@@ -748,6 +748,7 @@ dbg(LOG)
 LOG['options']  = options
 plotCommands    = []
 cdo             = Cdo()
+cdo.cdfMod = 'netcdf4'
 cdo.debug       = options['DEBUG']
 cdo.forceOutput = options['FORCE']
 # }}}
@@ -791,7 +792,7 @@ LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
 # BASIC PLOTSETUP FOR MAIN VARIABLES
 PlotConfig =  {
   't_acc'      : {'plotLevs' : '-2,-1,-0,1,2,5,10,15,20,25,30'},
-  's_acc'      : {'plotLevs' : '20,25,28,30,32,34,36,38,40'},
+  's_acc'      : {'plotLevs' : '20,25,28,30,32,33,34,34.5,35,35.5,36,36.5,37,38,40'},
   'rhopot_acc' : {'plotLevs' : '20,25,28,30,32,34,36,38,40'},
   'u_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
   'v_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
