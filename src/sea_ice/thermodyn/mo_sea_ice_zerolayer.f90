@@ -18,7 +18,7 @@
 !! headers of the routines.
 !!
 !----------------------------
-!#include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 MODULE mo_sea_ice_zerolayer
 
@@ -277,7 +277,7 @@ CONTAINS
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc, draft, below_water) SCHEDULE(dynamic)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO k=1,ice%kice

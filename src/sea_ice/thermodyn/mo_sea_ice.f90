@@ -18,7 +18,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !----------------------------
-!#include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 MODULE mo_sea_ice
   !-------------------------------------------------------------------------
