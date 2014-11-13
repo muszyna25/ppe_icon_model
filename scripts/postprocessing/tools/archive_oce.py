@@ -53,7 +53,7 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce',#finalDoc',
+              'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotTSR',#plotPsi',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,plotHorz',#finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
