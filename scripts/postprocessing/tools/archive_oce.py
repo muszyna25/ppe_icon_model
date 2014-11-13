@@ -53,7 +53,7 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR',#plotPsi',#finalDoc',
+              'ACTIONS'     : 'archive,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotTSR',#plotPsi',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,plotHorz',#finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
@@ -61,7 +61,14 @@ def parseOptions():
 
   optsGiven = sys.argv[1:]
   for optVal in optsGiven:
-      key,value    = optVal.split('=')
+    if ( 0 <= optVal.find('=') ):
+      if (optVal.find('=') == optVal.rfind('=')):
+        key,value = optVal.split('=')
+      else:
+        firstSeperatorIndex = optVal.find('=')
+        key   = optVal[:(optVal.find('='))]
+        value = optVal[firstSeperatorIndex+1:]
+
       if key in ['FORCE','DEBUG','JOBISRUNNING','DRYRUN']:
         value = value.lower() in ['true','1']
       if 'PROCS' == key:
@@ -70,6 +77,10 @@ def parseOptions():
         value = value.split(',')
 
       options[key] = value
+    else:
+      print("Cannot parse options '%s'!"%(optVal))
+      sys.exit(1)
+
   return options
 # }}} ----------------------------------------------------------------------------------
 # HELPER METHODS {{{ =========================================================== 
@@ -449,26 +460,26 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
 
     # complete timeseries
     ofile = "%s/TS_%s_%s_%s.png"%(options['PLOTDIR'],column,options['EXP'],options['TAG'])
-    if ( not os.path.exists(ofile) or options['FORCE']):
-      if column in passages:
-        unit = "Sv"
-      else:
-        unit = ""
+    #if ( not os.path.exists(ofile) or options['FORCE']):
+    if column in passages:
+      unit = "Sv"
+    else:
+      unit = ""
 
-      pylab.title("%s , %s : %s TF - all %s years | last 10year mean: %s %s"%(options['EXP'],
-                                                                              options['TAG'],
-                                                                              column.upper(),
-                                                                              len(LOG['years']),
-                                                                              str(last10YearMean),
-                                                                              unit),
-                  fontsize=8)
-      pylab.grid()
-      if column in ice_fields:
-        pylab.plot_date(last10YearsDates, last10YearsValues, linestyle='-',marker=',',linewidth=1.0)  
-      else:
-        pylab.plot_date(dates, values, linestyle='-',marker=',',linewidth=1.0)  
-      pylab.savefig(ofile)
-      pylab.clf() 
+    pylab.title("%s , %s : %s TF - all %s years | last 10year mean: %s %s"%(options['EXP'],
+                                                                            options['TAG'],
+                                                                            column.upper(),
+                                                                            len(LOG['years']),
+                                                                            str(last10YearMean),
+                                                                            unit),
+                fontsize=8)
+    pylab.grid()
+    if column in ice_fields:
+      pylab.plot_date(last10YearsDates, last10YearsValues, linestyle='-',marker=',',linewidth=1.0)  
+    else:
+      pylab.plot_date(dates, values, linestyle='-',marker=',',linewidth=1.0)  
+    pylab.savefig(ofile)
+    pylab.clf() 
     plots.append(ofile)
 #   # first 10 years
 #   ofile = "%s/%s_first10Years_%s_%s.png"%(options['ARCHDIR'],column,options['EXP'],options['TAG'])
@@ -639,19 +650,22 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
         cmd.append('')
 
       if ('maskFile' in plotConfig):
-          cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
+        cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
 
       if ('mapType' in plotConfig):
-          cmd.append('-mapType=%s'%(plotConfig['mapType']))
+        cmd.append('-mapType=%s'%(plotConfig['mapType']))
 
       if ('colormap' in plotConfig):
-          cmd.append('-colormap=%s'%(plotConfig['colormap']))
+        cmd.append('-colormap=%s'%(plotConfig['colormap']))
 
       if ('opts' in plotConfig):
-          cmd.append(plotConfig['opts'])
+        cmd.append(plotConfig['opts'])
 
       if ('limits' in plotConfig):
-          limits = plotConfig['limits'][varname]
+        limits = plotConfig['limits'][varname]
+        if 'plotLevs' in limits:
+          cmd.append('-plotLevs=%s '%(limits['plotLevs']))
+        else:
           cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
 
       cmd = ' '.join(cmd)
@@ -685,19 +699,22 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
         cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
 
       if ('maskFile' in plotConfig):
-          cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
+        cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
 
       if ('mapType' in plotConfig):
-          cmd.append('-mapType=%s'%(plotConfig['mapType']))
+        cmd.append('-mapType=%s'%(plotConfig['mapType']))
 
       if ('colormap' in plotConfig):
-          cmd.append('-colormap=%s'%(plotConfig['colormap']))
+        cmd.append('-colormap=%s'%(plotConfig['colormap']))
 
       if ('opts' in plotConfig):
-          cmd.append(plotConfig['opts'])
+        cmd.append(plotConfig['opts'])
 
       if ('limits' in plotConfig):
-          limits = plotConfig['limits'][varname]
+        limits = plotConfig['limits'][varname]
+        if 'plotLevs' in limits:
+          cmd.append('-plotLevs=%s '%(limits['plotLevs']))
+        else:
           cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
 
       cmd = ' '.join(cmd)
@@ -773,12 +790,12 @@ LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
 #------------------------------------------------------------------------------
 # BASIC PLOTSETUP FOR MAIN VARIABLES
 PlotConfig =  {
-  't_acc'      : {'maxVar' : '30.0',   'minVar' : '-2.0' , 'mode': '-numLevs=32'},
-  's_acc'      : {'maxVar' : '38.0',   'minVar' : '28.0' , 'mode': '-numLevs=20'},
-  'rhopot_acc' : {'maxVar' : '40.0',   'minVar' : '20.0' , 'mode': '-numLevs=20'},
-  'u_acc'      : {'maxVar' : '1.0',    'minVar' : '-1.0' , 'mode': '-selMode=halflog'},
-  'v_acc'      : {'maxVar' : '1.0',    'minVar' : '-1.0' , 'mode': '-selMode=halflog'},
-  'h_acc'      : {'maxVar' : '2.0',    'minVar' : '-2.0' , 'mode': '-selMode=halflog'},
+  't_acc'      : {'plotLevs' : '-2,-1,-0,1,2,5,10,15,20,25,30'},
+  's_acc'      : {'plotLevs' : '20,25,28,30,32,34,36,38,40'},
+  'rhopot_acc' : {'plotLevs' : '20,25,28,30,32,34,36,38,40'},
+  'u_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
+  'v_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
+  'h_acc'      : {'plotLevs': '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
   }
 PlotConfigBias =  {
   't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
@@ -1021,12 +1038,11 @@ if 'procTSR' in options['ACTIONS']:
 if 'plotPsi' in options['ACTIONS']:
   plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
   title    = "Bar. Streamfunction for %s\n (file: %s)"%(options['EXP'],psiGlobalFile)
-  if not os.path.exists(plotFile) or True:
-    cmd = '%s %s %s'%(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA=%s TITLE='%s' PLOT=%s"%(options['GRID'],title,plotFile))
-    dbg(cmd)
-    plotCommands.append(cmd)
-    if subprocess.check_call(cmd,shell=True,env=os.environ):
-      print("ERROR: CALCPSI failed")
+  cmd = '%s %s %s'%(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA=%s TITLE='%s' PLOT=%s"%(options['GRID'],title,plotFile))
+  dbg(cmd)
+  plotCommands.append(cmd)
+  if subprocess.check_call(cmd,shell=True,env=os.environ):
+    print("ERROR: CALCPSI failed")
   # plot special areas
   for area, selection in psiSelectionConfig.iteritems():
     title = "Selected Stream function for %s (%s)"%(area,options['EXP'])
@@ -1093,24 +1109,23 @@ if 'plotX' in options['ACTIONS']:
         iFile4XSection  = cdo.subc(1000.0,
                                    input = '-selname,%s %s'%(varname,iFile4XSection),
                                    output = os.path.splitext(iFile4XSection)[0]+'_%s_subc1000.nc'%(varname))
-      if ( not os.path.exists(oFile+'.png') or options['FORCE']):
-        title = '%s: last 30 year mean '%(options['EXP'])
-        cmd = [options['ICONPLOT'],
-               '-iFile=%s'%(iFile4XSection),
-               '-secMode=circle -secLC=-45,-70 -secRC=30,80',
-               '-varName=%s'%(varname),
-               '-oType='+options['OFORMAT'],
-               '-resolution=r360x180',
-               '-selPoints=150',
-               '-rStrg="-"',
-               '-makeYLinear',
-               '-withLineLabels',
-               '-tStrg="%s"'%(title),
-               '-oFile=%s'%(oFile)]
-        cmd = ' '.join(cmd)
-        dbg(cmd)
-        plotCommands.append(cmd)
-        subprocess.check_call(cmd,shell=True,env=os.environ)
+      title = '%s: last 30 year mean '%(options['EXP'])
+      cmd = [options['ICONPLOT'],
+             '-iFile=%s'%(iFile4XSection),
+             '-secMode=circle -secLC=-45,-70 -secRC=30,80',
+             '-varName=%s'%(varname),
+             '-oType='+options['OFORMAT'],
+             '-resolution=r360x180',
+             '-selPoints=150',
+             '-rStrg="-"',
+             '-makeYLinear',
+             '-withLineLabels',
+             '-tStrg="%s"'%(title),
+             '-oFile=%s'%(oFile)]
+      cmd = ' '.join(cmd)
+      dbg(cmd)
+      plotCommands.append(cmd)
+      subprocess.check_call(cmd,shell=True,env=os.environ)
   
       # plot bias to initialization
       oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
@@ -1118,28 +1133,27 @@ if 'plotX' in options['ACTIONS']:
       # mask by devision
       iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                                output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
-      if ( not os.path.exists(oFile+'.png') or options['FORCE']):
-        title = '%s: last 30 year mean bias to init '%(options['EXP'])
-        cmd = [options['ICONPLOT'],
-               '-iFile=%s'%(iFile4XSection),
-               '-secMode=circle -secLC=-45,-70 -secRC=30,80',
-               '-varName=%s'%(varname),
-               '-oType='+options['OFORMAT'],
-               '-resolution=r360x180',
-               '-selPoints=150',
-               '-rStrg="-"',
-               '-makeYLinear',
-               '-minVar=%s'%(XSectionPlotConfig[varname]['minVar']),
-               '-maxVar=%s'%(XSectionPlotConfig[varname]['maxVar']),
-               '-numLevs=%s'%(XSectionPlotConfig[varname]['numLevs']),
-               '-colormap=BlueWhiteOrangeRed',  # put white in the middle
-               '-withLineLabels',
-               '-tStrg="%s"'%(title),
-               '-oFile=%s'%(oFile)]
-        cmd = ' '.join(cmd)
-        dbg(cmd)
-        plotCommands.append(cmd)
-        subprocess.check_call(cmd,shell=True,env=os.environ)
+      title = '%s: last 30 year mean bias to init '%(options['EXP'])
+      cmd = [options['ICONPLOT'],
+             '-iFile=%s'%(iFile4XSection),
+             '-secMode=circle -secLC=-45,-70 -secRC=30,80',
+             '-varName=%s'%(varname),
+             '-oType='+options['OFORMAT'],
+             '-resolution=r360x180',
+             '-selPoints=150',
+             '-rStrg="-"',
+             '-makeYLinear',
+             '-minVar=%s'%(XSectionPlotConfig[varname]['minVar']),
+             '-maxVar=%s'%(XSectionPlotConfig[varname]['maxVar']),
+             '-numLevs=%s'%(XSectionPlotConfig[varname]['numLevs']),
+             '-colormap=BlueWhiteOrangeRed',  # put white in the middle
+             '-withLineLabels',
+             '-tStrg="%s"'%(title),
+             '-oFile=%s'%(oFile)]
+      cmd = ' '.join(cmd)
+      dbg(cmd)
+      plotCommands.append(cmd)
+      subprocess.check_call(cmd,shell=True,env=os.environ)
 
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
@@ -1288,7 +1302,6 @@ if 'plotTSR' in options['ACTIONS']:
   t_s_rho_PlotSetup = PlotConfigBias
   for varname in t_s_rho_PlotSetup.keys():
     oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_inDepth_overTime'+'_'.join([options['EXP'],options['TAG']])])
-    #if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
     title = '%s: %s bias to init '%(options['EXP'],varname)
     cmd = [options['ICONPLOT'],
            '-iFile=%s'%(t_s_rho_Output_1D),
