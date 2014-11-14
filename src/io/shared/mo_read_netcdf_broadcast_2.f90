@@ -746,6 +746,7 @@ CONTAINS
     REAL(sp), ALLOCATABLE :: tmp_array_sp(:)
     REAL(dp), ALLOCATABLE :: tmp_array_dp(:)
     REAL(wp), POINTER :: tmp_res(:,:)
+    CLASS(t_scatterPattern), POINTER :: scatter_pattern_
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_extdim_multivar'
@@ -838,12 +839,16 @@ CONTAINS
         END IF
       ENDIF
 
+
       DO i = 1, n_vars
         tmp_res => res(i)%data(:,:,LBOUND(res(i)%data, 3)+t-1)
+        ! this is needed by PGI, it causes an internal compiler error if
+        ! scatter_patterns(i)%p is used directly
+        scatter_pattern_ => scatter_patterns(i)%p
         IF (var_type(1) == NF_DOUBLE) THEN
-          CALL scatter_patterns(i)%p%distribute(tmp_array_dp, tmp_res, .FALSE.)
+          CALL scatter_pattern_%distribute(tmp_array_dp, tmp_res, .FALSE.)
         ELSE
-          CALL scatter_patterns(i)%p%distribute(tmp_array_sp, tmp_res, .FALSE.)
+          CALL scatter_pattern_%distribute(tmp_array_sp, tmp_res, .FALSE.)
         END IF
       END DO
     END DO
