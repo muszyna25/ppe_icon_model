@@ -15,7 +15,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham, ihs_ocean
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_control,       ONLY: is_restart_run
@@ -424,10 +424,7 @@ CONTAINS
         END IF
       END DO
 
-
-      IF (iequations/=ihs_ocean) THEN ! atm
-        CALL create_mipz_level_selections(output_file)
-      END IF
+      CALL create_mipz_level_selections(output_file)
     END IF
 
     ! Determine if temporally averaged vertically integrated moisture quantities need to be computed
