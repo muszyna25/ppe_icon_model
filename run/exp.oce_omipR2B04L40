@@ -175,7 +175,7 @@ cat > ${ocean_namelist} << EOF
   para_surfRelax_Salt             =   3.0     ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
   forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
-  seaice_limit                    =   0.4     ! maximum of 8m (0.4*dz) for both, ice and snow
+  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
 /                                    
 &ocean_initialConditions_nml
   use_file_initialConditions = $use_file_initialConditions  ! read ocean initialization file, see above
