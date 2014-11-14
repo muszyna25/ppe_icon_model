@@ -526,7 +526,8 @@ CONTAINS
 
 !      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
 
-      CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+      CALL art_washout_interface(pt_prog, pt_diag ,             & !>in
+                 &          dt_phy_jg(itfastphy),               & !>in
                  &          pt_patch,                           & !>in
                  &          prm_diag,                           & !>in
                  &          pt_prog%rho,                        & !>in               

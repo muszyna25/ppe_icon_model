@@ -198,10 +198,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                     &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:))
               end select
               
-              ! ----------------------------------
-              ! --- Do the update
-              ! ----------------------------------
-              
               ! Update mass mixing ratios
               DO ijsp = 1, fields%info%njsp
                 CALL art_integrate_explicit(p_trac(:,nlev,jb,fields%info%jsp(ijsp)),  emiss_rate(:), dtime,          &
