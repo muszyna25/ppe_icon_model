@@ -565,7 +565,7 @@ CONTAINS
         ELSE
           DO i=1,nlev
             isrc_lev = of%level_selection%global_idx(i)+1
-            IF (isrc_lev < SIZE(levels)) THEN
+            IF (isrc_lev <= SIZE(levels)) THEN
               ubounds(i) = levels(isrc_lev)  
             END IF
           END DO
