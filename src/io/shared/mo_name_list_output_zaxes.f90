@@ -561,7 +561,7 @@ CONTAINS
       ELSE
         ubounds(:) = 0._dp
         IF (.NOT. select_levs) THEN
-          ubounds(1:nlev) = axis_levels(2:(nlev+1))
+          ubounds(1:nlev) = levels(2:(nlev+1))
         ELSE
           DO i=1,nlev
             isrc_lev = of%level_selection%global_idx(i)+1
