@@ -597,6 +597,8 @@ CONTAINS
     SELECT CASE(type_surfRelax_Temp)
     CASE(3)
       atmos_fluxes%data_surfRelax_Temp(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
+      
+      
 
     CASE(4)
       ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions
@@ -638,8 +640,9 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     IF (type_surfRelax_Temp > 0) THEN
       idt_src=0  ! output print level - 0: print in any case
-      z_c(:,1,:) = atmos_fluxes%data_surfRelax_Temp(:,:)
-      CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+      ! z_c(:,1,:) = atmos_fluxes%data_surfRelax_Temp(:,:)
+      CALL dbg_print('init relaxation - T'       ,atmos_fluxes%data_surfRelax_Temp(:,:), &
+        & str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     END IF
     IF (type_surfRelax_Salt > 0) THEN
       IF (no_tracer > 1) THEN

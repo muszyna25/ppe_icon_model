@@ -1164,12 +1164,12 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      z_c(:,:) = atmos_fluxes%data_surfRelax_Temp(:,:)
-      CALL dbg_print('UpdRlx: T-relax: T*'       ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdRlx: T-relax: T*'       ,atmos_fluxes%data_surfRelax_Temp(:,:), &
+        & str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:) = atmos_fluxes%data_surfRelax_Temp(:,:)-t_top(:,:)
       CALL dbg_print('UpdRlx: T-relax: T*-T'     ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = atmos_fluxes%topBoundCond_Temp_vdiff(:,:)
-      CALL dbg_print('UpdRlx: T-relax: T [K*m/s]',z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdRlx: T-relax: T [K*m/s]',atmos_fluxes%topBoundCond_Temp_vdiff(:,:), &
+        & str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
       ! Heat flux diagnosed for all ocean only relaxation cases
