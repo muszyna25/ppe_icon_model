@@ -72,7 +72,7 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 3           ! number of tracers
  iforcing         = 2           ! 0: none, 1: HS, 2: 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 10          ! detailed report during integration 
+ msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
 /
 &extpar_nml
@@ -351,10 +351,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
- pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
- p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
-                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg','pfull','dpres_mc'
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
@@ -369,8 +366,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
- pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+ pl_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg'
  p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
                     15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
@@ -461,22 +457,12 @@ if [[ "$output_phy" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'hur',
-                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
+ ml_varlist       = 'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
                     'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf'  ,
                     'tend_temp_gwh', 'tend_temp_sso',
                     'tend_u' , 'tend_u_cnv' , 'tend_u_vdf' , 'tend_u_gwh' , 'tend_u_sso' ,
                     'tend_v' , 'tend_v_cnv' , 'tend_v_vdf' , 'tend_v_gwh' , 'tend_v_sso' ,
                     'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
- pl_varlist       = 'hur',
-                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
-                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf'  ,
-                    'tend_temp_gwh', 'tend_temp_sso',
-                    'tend_u' , 'tend_u_cnv' , 'tend_u_vdf' , 'tend_u_gwh' , 'tend_u_sso' ,
-                    'tend_v' , 'tend_v_cnv' , 'tend_v_vdf' , 'tend_v_gwh' , 'tend_v_sso' ,
-                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
- p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
-                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d_rmb"
@@ -491,15 +477,7 @@ if [[ "$output_phy" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'hur',
-                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
-                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf'  ,
-                    'tend_temp_gwh', 'tend_temp_sso',
-                    'tend_u' , 'tend_u_cnv' , 'tend_u_vdf' , 'tend_u_gwh' , 'tend_u_sso' ,
-                    'tend_v' , 'tend_v_cnv' , 'tend_v_vdf' , 'tend_v_gwh' , 'tend_v_sso' ,
-                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
- pl_varlist       = 'hur',
-                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
+ pl_varlist       = 'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
                     'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf'  ,
                     'tend_temp_gwh', 'tend_temp_sso',
                     'tend_u' , 'tend_u_cnv' , 'tend_u_vdf' , 'tend_u_gwh' , 'tend_u_sso' ,
@@ -544,9 +522,6 @@ if [[ "$output_aer" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
-                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
-                    'prm_aer_aod_9731'
  pl_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
                     'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
                     'prm_aer_aod_9731'
