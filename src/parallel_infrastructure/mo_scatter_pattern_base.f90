@@ -189,7 +189,7 @@ CONTAINS
         curEndTime = p_mpi_wtime()
         me%distributionTime = me%distributionTime + curEndTime
         me%distributedData = me%distributedData + bytes
-        IF(msg_level >= 15 .and. my_process_is_stdio()) THEN
+        IF(msg_level >= 20 .and. my_process_is_stdio()) THEN
             WRITE(0,*) routine, ": Distributed ", bytes, " bytes in ", curEndTime - me%curStartTime, " seconds (", &
                 &      REAL(bytes, dp)/(1048576.0_dp*(curEndTime - me%curStartTime)), " MiB/s)"
         END IF
