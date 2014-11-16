@@ -104,7 +104,7 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 5            ! number of tracers
  iforcing         = 2            ! ICOHAM+ECHAM physics         --> echam_phy_nml
  output           = 'nml'
- msg_level        = 10           ! detailed report during integration 
+ msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
 /
 &ha_testcase_nml
