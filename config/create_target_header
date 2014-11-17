@@ -213,7 +213,7 @@ set_run_target_blizzard()
   if [[ "$use_mpi" == "yes"  ]] ; then
     use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
   else
-    use_resources="$use_resources ConsumableMemory(4000mb)"
+    use_resources="$use_resources ConsumableMemory(5000mb)"
   fi
 
   # create header
