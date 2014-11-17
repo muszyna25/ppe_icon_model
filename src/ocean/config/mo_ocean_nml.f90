@@ -583,7 +583,8 @@ MODULE mo_ocean_nml
     & InitialState_InputFileName , &
     & smooth_initial_height_weights, &
     & smooth_initial_salinity_weights, &
-    & smooth_initial_temperature_weights
+    & smooth_initial_temperature_weights, &
+    & initial_temperature_scale_depth
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
@@ -902,10 +903,10 @@ MODULE mo_ocean_nml
 !       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
 !     ENDIF
 
-     IF (forcing_enable_freshwater) THEN
-       limit_elevation = .TRUE.
-       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
-     END IF
+    !IF (forcing_enable_freshwater) THEN
+    !  !limit_elevation = .TRUE.
+    !  CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
+    !END IF
 
      IF (forcing_set_runoff_to_zero) THEN
        CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
