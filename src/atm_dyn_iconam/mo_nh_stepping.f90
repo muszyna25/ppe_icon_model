@@ -1347,12 +1347,12 @@ MODULE mo_nh_stepping
               &                      .FALSE.,                           &! in
               &                      t_elapsed_phy,                     &! inout
               &                      lcall_phy )                         ! out
-          END IF
 
-          IF (msg_level >= 13) THEN
-            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
-            CALL message(TRIM(routine), TRIM(message_text))
+            IF (msg_level >= 13) THEN
+              WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
+                &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
+              CALL message(TRIM(routine), TRIM(message_text))
+            END IF
           END IF
 
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN     
