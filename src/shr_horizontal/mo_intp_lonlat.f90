@@ -1202,12 +1202,13 @@
     !  the triangular grid.
     !
     RECURSIVE SUBROUTINE flag_ll_points(rotated_pts, s_lon, e_lon, s_lat, e_lat, &
-      &                                 pts_flags, recursion_depth, max_recursion, gnat)
+      &                                 pts_flags, recursion_depth, max_recursion, gnat, min_radius)
       REAL(wp), INTENT(IN)    :: rotated_pts(:,:,:)  ! dim (lon,lat,1:2)
       INTEGER,  INTENT(IN)    :: s_lon, e_lon, s_lat, e_lat
       INTEGER,  INTENT(INOUT) :: pts_flags(:,:)
       INTEGER,  INTENT(IN)    :: recursion_depth, max_recursion
       TYPE(t_gnat_tree), INTENT(IN) :: gnat
+      REAL(wp), INTENT(IN)    :: min_radius
       ! local variables
       INTEGER  :: m_lon, m_lat, c_lon(4), c_lat(4), v_lon(4,4), v_lat(4,4), &
         &         s_lon2(4), s_lat2(4), e_lon2(4), e_lat2(4), icirc, ivert, &
@@ -1260,7 +1261,7 @@
           radius(icirc) = MAX(radius(icirc), dist_p(p1(icirc,1:2), p2))
         END DO
       END DO
-      radius(1:4) = 1.25_gk * radius(1:4) ! safety margin
+      radius(1:4) = MAX(min_radius, 1.25_gk * radius(1:4)) ! safety margin
       ! test, if there exists a triangle center inside the circles:
       DO icirc=1,4
         is_pt_inside(icirc) = .FALSE.
@@ -1280,7 +1281,7 @@
           ! if patch of triangular grid does intersect circle:
           ! recursion and further subdivision:
           CALL flag_ll_points(rotated_pts, s_lon2(icirc), e_lon2(icirc), s_lat2(icirc), e_lat2(icirc), &
-            &                 pts_flags, (recursion_depth+1), max_recursion, gnat)          
+            &                 pts_flags, (recursion_depth+1), max_recursion, gnat, min_radius)          
         END IF
       END DO
     END SUBROUTINE flag_ll_points
@@ -1413,7 +1414,7 @@
       ! --------------------------------------------------------------
 
       pts_flags(:,:) = INVALID_NODE
-      CALL flag_ll_points(rotated_pts, 1,grid%lon_dim, 1,grid%lat_dim, pts_flags, 1,5, gnat)
+      CALL flag_ll_points(rotated_pts, 1,grid%lon_dim, 1,grid%lat_dim, pts_flags, 1,5, gnat, max_dist)
 
       !-- if we have a global, unrotated grid: skip all points of the
       !   first and last latitude row (except one):

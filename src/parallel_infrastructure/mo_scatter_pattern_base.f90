@@ -37,6 +37,7 @@ PUBLIC :: t_scatterPattern, constructScatterPattern, destructScatterPattern, del
     CONTAINS
         PROCEDURE(interface_distribute_dp), DEFERRED :: distribute_dp   !< distribute double precision data
         PROCEDURE(interface_distribute_sp), DEFERRED :: distribute_sp   !< distribute single precision data
+        PROCEDURE(interface_distribute_int), DEFERRED :: distribute_int   !< distribute single precision data
 
 
         PROCEDURE :: construct => constructScatterPattern   !< constructor
@@ -49,7 +50,7 @@ PUBLIC :: t_scatterPattern, constructScatterPattern, destructScatterPattern, del
 
         PROCEDURE :: destruct => destructScatterPattern !< destructor
 
-        GENERIC :: distribute => distribute_dp, distribute_sp
+        GENERIC :: distribute => distribute_dp, distribute_sp, distribute_int
     END TYPE
 
 PRIVATE
@@ -78,6 +79,16 @@ PRIVATE
             REAL(wp), INTENT(INOUT) :: localArray(:,:)
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_sp
+        !---------------------------------------------------------------------------------------------------------------------------
+        !> do the data distribution for a integer
+        !---------------------------------------------------------------------------------------------------------------------------
+        SUBROUTINE interface_distribute_int(me, globalArray, localArray, ladd_value)
+            IMPORT t_scatterPattern
+            CLASS(t_scatterPattern), INTENT(INOUT) :: me
+            INTEGER, INTENT(INOUT) :: globalArray(:)
+            INTEGER, INTENT(INOUT) :: localArray(:,:)
+            LOGICAL, INTENT(IN) :: ladd_value
+        END SUBROUTINE interface_distribute_int
     END INTERFACE
 
 CONTAINS
@@ -178,7 +189,7 @@ CONTAINS
         curEndTime = p_mpi_wtime()
         me%distributionTime = me%distributionTime + curEndTime
         me%distributedData = me%distributedData + bytes
-        IF(msg_level >= 15 .and. my_process_is_stdio()) THEN
+        IF(msg_level >= 20 .and. my_process_is_stdio()) THEN
             WRITE(0,*) routine, ": Distributed ", bytes, " bytes in ", curEndTime - me%curStartTime, " seconds (", &
                 &      REAL(bytes, dp)/(1048576.0_dp*(curEndTime - me%curStartTime)), " MiB/s)"
         END IF

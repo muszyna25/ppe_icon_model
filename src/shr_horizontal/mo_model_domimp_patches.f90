@@ -100,7 +100,7 @@ MODULE mo_model_domimp_patches
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
-  USE mo_parallel_config,    ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_model_domimp_setup, ONLY: init_quad_twoadjcells, init_coriolis, &
     & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
@@ -113,7 +113,8 @@ MODULE mo_model_domimp_patches
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
-  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
+  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, t_scatterPattern, &
+    &                              makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
 
@@ -125,7 +126,8 @@ MODULE mo_model_domimp_patches
   USE mo_math_constants,     ONLY: pi
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
-  USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel
+  USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
+    &                              p_comm_work_test, p_comm_work
   USE mo_complete_subdivision, ONLY: complete_parallel_setup
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
@@ -479,6 +481,13 @@ CONTAINS
       END IF
     ENDDO
 
+    ! initialise scatter patterns (required for io used in read_remaining_patch)
+    DO jg = n_dom_start, n_dom
+      CALL set_comm_pat_scatter(patch(jg))
+      IF (jg > n_dom_start) &
+        CALL set_comm_pat_scatter(p_patch_local_parent(jg))
+    ENDDO
+
     ! Fill the subsets information
     DO jg = n_dom_start, n_dom
       CALL fill_grid_subsets(patch(jg))
@@ -589,6 +598,34 @@ CONTAINS
 
       ENDDO
     ENDIF
+
+  CONTAINS
+
+    !-------------------------------------------------------------------------------------------------
+    !> Sets the gather communication patterns of a patch
+
+    SUBROUTINE set_comm_pat_scatter(p)
+      TYPE(t_patch), INTENT(INOUT):: p
+
+      INTEGER :: communicator
+
+      IF(p_test_run) THEN
+          communicator = p_comm_work_test
+      ELSE
+          communicator = p_comm_work
+      ENDIF
+
+      p%comm_pat_scatter_c => &
+        makeScatterPattern(p%n_patch_cells, p%cells%decomp_info%glb_index, &
+        &                  communicator)
+      p%comm_pat_scatter_e => &
+        makeScatterPattern(p%n_patch_edges, p%edges%decomp_info%glb_index, &
+        &                  communicator)
+      p%comm_pat_scatter_v => &
+        makeScatterPattern(p%n_patch_verts, p%verts%decomp_info%glb_index, &
+        &                  communicator)
+
+    END SUBROUTINE set_comm_pat_scatter
 
   END SUBROUTINE complete_patches
 

@@ -566,6 +566,7 @@ MODULE mo_mpi
   INTERFACE p_scatter
      MODULE PROCEDURE p_scatter_real_1d1d
      MODULE PROCEDURE p_scatter_single_1d1d
+     MODULE PROCEDURE p_scatter_int_1d1d
   END INTERFACE
 
   INTERFACE p_gather
@@ -7267,6 +7268,33 @@ CONTAINS
      recvbuf = sendbuf
 #endif
    END SUBROUTINE p_scatter_single_1d1d
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Scatter
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE p_scatter_int_1d1d(sendbuf, recvbuf, p_src, comm)
+    INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
+    INTEGER,           INTENT(in) :: p_src
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_int_1d1d")
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_Scatter(sendbuf, SIZE(recvbuf), p_int, &
+    &                recvbuf, SIZE(recvbuf), p_int, &
+    &                p_src, p_comm, p_error)
+    IF(p_error /= MPI_SUCCESS) CALL finish(routine, 'Error in MPI_Scatter operation!')
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_scatter_int_1d1d
 
   SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
     REAL(dp),          INTENT(inout) :: sendbuf, recvbuf(:)

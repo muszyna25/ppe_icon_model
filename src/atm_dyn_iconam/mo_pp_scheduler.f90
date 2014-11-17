@@ -1339,7 +1339,6 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
                 &           ldims=shape3d, lrestart=.FALSE.,             &
-                &           isteptype=info%isteptype,                    &
                 &           loutput=.TRUE., new_element=new_element,     &
                 &           post_op=info%post_op)
 
