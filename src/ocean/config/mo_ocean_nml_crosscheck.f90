@@ -149,10 +149,13 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE check_thicknesses
 
-    ! ensure, that all used thicknesses are non-zero
-    IF (MINVAL(dzlev_m(1:n_zlev)) <= 0.0_wp) THEN
-      CALL finish("check_thicknesses","Found zero or negative thicknesses")
-    END IF
+    ! ensure, that all used thicknesses are non-zero in case of non-shallow-water.
+    !For shallow-water this test makes no sense since dzlev==0 
+    IF(iswm_oce==0)THEN
+      IF (MINVAL(dzlev_m(1:n_zlev)) <= 0.0_wp) THEN
+        CALL finish("check_thicknesses","Found zero or negative thicknesses")
+      END IF
+    ENDIF  
   END SUBROUTINE check_thicknesses
 
 !<Optimize:inUse>

@@ -34,7 +34,7 @@ B=2   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -97,7 +97,7 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2001-01-01T23:00:00Z"
+  end_date="2001-01-10T23:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -160,7 +160,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_default','group:ice_default','condep','mld'
 /
 &dbg_index_nml
-  idbg_mxmn=4                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output

@@ -92,6 +92,7 @@ CONTAINS
         & cells)
     END DO
     CALL add_fields(ocean_state%p_acc%u_vint        , ocean_state%p_diag%u_vint        , cells)
+    CALL add_fields(ocean_state%p_acc%v_vint        , ocean_state%p_diag%v_vint        , cells)
     CALL add_fields(ocean_state%p_acc%w             , ocean_state%p_diag%w             , cells,levels=max_zlev+1)
     CALL add_fields(ocean_state%p_acc%div_mass_flx_c, ocean_state%p_diag%div_mass_flx_c, cells)
     CALL add_fields(ocean_state%p_acc%rho           , ocean_state%p_diag%rho           , cells)
@@ -162,6 +163,7 @@ CONTAINS
     p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
     p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
+    p_acc%v_vint                    = p_acc%v_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
@@ -212,6 +214,7 @@ CONTAINS
     p_acc%v                         = 0.0_wp
     p_acc%rhopot                    = 0.0_wp
     p_acc%u_vint                    = 0.0_wp
+    p_acc%v_vint                    = 0.0_wp
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
     p_acc%rho                       = 0.0_wp

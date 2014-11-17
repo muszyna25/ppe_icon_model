@@ -1291,7 +1291,7 @@ CONTAINS
 !ICON_OMP_END_DO
 
     ENDIF
-    
+    IF ( iswm_oce /= 1 ) THEN  !  3D case      
 !ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc, level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
@@ -1326,7 +1326,7 @@ CONTAINS
       END DO
     END DO
 !ICON_OMP_END_DO
-
+    ENDIF
     !----------------------------------------------------------------------------------------
     IF ( iswm_oce == 1 ) THEN  !  SWM
 !ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1339,13 +1339,19 @@ CONTAINS
             
             ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo)&
               & - p_ext_data%oce%bathymetry_c(jc,blockNo)
-            !        &  - ice_hi(jc,1,blockNo)
+            !        &  - ice_hi(jc,1,blockNo) 
+            cell_thickness(jc,1,blockNo)=ocean_state%p_diag%thick_c(jc,blockNo)
           ELSE
             ocean_state%p_diag%thick_c(jc,blockNo) = 0.0_wp
           ENDIF
         END DO
       END DO!write(*,*)'bathymetry',maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c)
 !ICON_OMP_END_DO
+      write(*,*)'bathymetry cell',&
+      &maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c),&
+      &maxval(ocean_state%p_diag%thick_c),minval(ocean_state%p_diag%thick_c),&
+      &maxval(ocean_state%p_prog(nold(1))%h),minval(ocean_state%p_prog(nold(1))%h)
+      
       
       !Step 2: calculate edge-located variables for 2D and 3D case from respective cell variables
       !For SWE : thick_e = thickness of fluid column at edges
@@ -1365,6 +1371,7 @@ CONTAINS
           z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,blockNo,2)
           
           IF(patch_3D%lsm_e(je,1,blockNo) <= sea_boundary)THEN
+         
             ocean_state%p_diag%thick_e(je,blockNo) = ( z_dist_e_c1*ocean_state%p_diag%thick_c(il_c1,ib_c1)&
               & +   z_dist_e_c2*ocean_state%p_diag%thick_c(il_c2,ib_c2) )&
               & /(z_dist_e_c1+z_dist_e_c2)
@@ -1372,12 +1379,17 @@ CONTAINS
             ocean_state%p_diag%h_e(je,blockNo) = ( z_dist_e_c1*ocean_state%p_prog(nold(1))%h(il_c1,ib_c1)&
               & +   z_dist_e_c2*ocean_state%p_prog(nold(1))%h(il_c2,ib_c2) )&
               & /(z_dist_e_c1+z_dist_e_c2)
+              
+            patch_3d%p_patch_1d(1)%prism_thick_e(je,1,blockNo)=ocean_state%p_diag%thick_e(je,blockNo)
           ELSE
             ocean_state%p_diag%h_e(je,blockNo) = 0.0_wp
           ENDIF
         END DO
       END DO
 !ICON_OMP_END_DO
+      write(*,*)'bathymetry edge',&
+      &maxval(ocean_state%p_diag%thick_e),minval(ocean_state%p_diag%thick_e),&
+      &maxval(ocean_state%p_diag%h_e),minval(ocean_state%p_diag%h_e)      
 
 !ICON_OMP_MASTER
       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%thick_e)
@@ -1392,13 +1404,14 @@ CONTAINS
         DO je = edge_StartIndex, edge_EndIndex
           IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
             
-            edge_thickness(je,1,blockNo)&
-              & = patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) + ocean_state%p_diag%h_e(je,blockNo)
+            edge_thickness(je,1,blockNo) = ocean_state%p_diag%thick_e(je,blockNo)
+            !patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) + ocean_state%p_diag%h_e(je,blockNo)
             
             inv_edge_thickness(je,1,blockNo)= 1.0_wp / edge_thickness(je,1,blockNo)
             
-            inv_edgefaces_middle_distance(je,2,blockNo) = 2.0_wp / &
-              & (edge_thickness(je,1,blockNo) + edge_thickness(je,2,blockNo))
+            !Not possible for SWE
+            !inv_edgefaces_middle_distance(je,2,blockNo) = 2.0_wp / &
+            !  & (edge_thickness(je,1,blockNo) + edge_thickness(je,2,blockNo))
             
           ENDIF
         END DO
@@ -1422,8 +1435,8 @@ CONTAINS
           il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
           ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
           
-          z_dist_e_c1 = 0.5_wp!z_dist_e_c1=p_patch%edges%edge_cell_length(je,blockNo,1)
-          z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,blockNo,2)
+          !z_dist_e_c1 = 0.5_wp!z_dist_e_c1=p_patch%edges%edge_cell_length(je,blockNo,1)
+          !z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,blockNo,2)
           
           IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
             
