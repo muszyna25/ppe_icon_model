@@ -225,13 +225,13 @@
          ALLOCATE(latbc_data(tlev)%atm_in%vn(nproma, nlev_in, opt_p_patch%nblks_e))
 
          ! topography and metrics are time independent
-         !$OMP PARALLEL
-         !$OMP WORKSHARE
+!$OMP PARALLEL
+!$OMP WORKSHARE
          latbc_data(tlev)%topography_c(:,:) = opt_ext_data%atm%topography_c(:,:)
          latbc_data(tlev)%z_ifc(:,:,:) = opt_p_nh_state%metrics%z_ifc(:,:,:)
          latbc_data(tlev)%z_mc (:,:,:) = opt_p_nh_state%metrics%z_mc (:,:,:)
-         !$OMP END WORKSHARE
-         !$OMP END PARALLEL
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
 
       END DO
 
@@ -449,8 +449,7 @@
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
-         RETURN
-         !CALL finish(TRIM(routine), message_text)
+         CALL finish(TRIM(routine), message_text)
       ENDIF
       !
       ! open file
@@ -562,9 +561,9 @@
       !
       ! copying tha variable values from prefetch buffer to the respective allocated variable
 
-      !$OMP PARALLEL PRIVATE(jm,jv,jc)
+!$OMP PARALLEL PRIVATE(jm,jv,jc)
       jm = get_field_index('temp')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -573,12 +572,12 @@
             latbc_data(tlev)%atm%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO  !NOWAIT
 
       jm = get_field_index('u')
       jv = get_field_index('v')
       !   WRITE(0,*)'pref_latbc_cdi_data name ', latbc_buffer%mapped_name(jm), ' jm ', jm
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -589,10 +588,10 @@
             !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       jv = get_field_index('w')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -600,12 +599,12 @@
             latbc_data(tlev)%atm%w(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       ! Read parameter Pressure
       jv = get_field_index('pres')
       !      WRITE(0,*)'pref_latbc_cdi_data jv ', latbc_buffer%mapped_name(jv), ' jv ', jv
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -613,11 +612,11 @@
             latbc_data(tlev)%atm%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       ! Read parameter qv
       jv = get_field_index('qv')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -625,10 +624,10 @@
             latbc_data(tlev)%atm%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       jc = get_field_index('qc')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -636,11 +635,11 @@
             latbc_data(tlev)%atm%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       ! Read parameter qi
       jm = get_field_index('qi')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -648,11 +647,11 @@
             latbc_data(tlev)%atm%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       ! Read parameter qr
       jm = get_field_index('qr')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -660,12 +659,12 @@
             latbc_data(tlev)%atm%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       ! Read parameter qs
       jv = get_field_index('qs')
       !    WRITE(0,*)'pref_latbc_cdi_data jv ', latbc_buffer%mapped_name(jv), ' jv ', jv
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -673,8 +672,8 @@
             latbc_data(tlev)%atm%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
-      !$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 
       ! boundary exchange for a 2-D and 3-D array to fill HALO region.
       ! This addition by M.Pondkule, DWD (11/06/2014)
@@ -752,8 +751,7 @@
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
-         RETURN
-         !CALL finish(TRIM(routine), message_text)
+         CALL finish(TRIM(routine), message_text)
       ENDIF
 
       ! opening and reading file
@@ -864,9 +862,9 @@
       p_ri => patch_data%cells
 
       ! copying tha variable values from prefetch buffer to the respective allocated variable
-      !$OMP PARALLEL PRIVATE(jm,jv,jc)
+!$OMP PARALLEL PRIVATE(jm,jv,jc)
       jm = get_field_index('T')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -874,13 +872,13 @@
             latbc_data(tlev)%atm_in%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
 
       ! Read horizontal component of velocity (U and V)
       IF (latbc_buffer%lread_vn) THEN
          jm = get_field_index('VN')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, patch_data%edges%n_own !p_patch%n_patch_cells
                jb = patch_data%edges%own_blk(j) ! Block index in distributed patch
@@ -888,12 +886,12 @@
                latbc_data(tlev)%atm_in%vn(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ELSE
          jm = get_field_index('U')
          jv = get_field_index('V')
          !   WRITE(0,*)'pref_latbc_cdi_data name ', latbc_buffer%mapped_name(jm), ' jm ', jm
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -904,14 +902,14 @@
                !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ENDIF
 
       ! Read vertical component of velocity (W)
       IF (init_mode /= MODE_COSMODE) THEN
          lconvert_omega2w = .TRUE.
          jv = get_field_index('W')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -919,11 +917,11 @@
                latbc_data(tlev)%atm_in%omega(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ELSE
          lconvert_omega2w = .FALSE.
          jv = get_field_index('W')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -931,13 +929,13 @@
                latbc_data(tlev)%atm_in%w_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ENDIF
 
       IF (init_mode == MODE_COSMODE) THEN
          ! Read parameter HHL
          jm = get_field_index('HHL')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -945,11 +943,11 @@
                latbc_data(tlev)%atm_in%z3d_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
 
          ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
          !
-         !$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
          DO jk = 1, nlev_in    !!!!!!!!need to reset nlev_in to a new value from stored n_lev values
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -963,12 +961,12 @@
                     &   REAL(latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb), wp)) * 0.5_wp
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ENDIF
 
       ! Read parameter QV, QC and QI
       jv = get_field_index('QV')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -976,10 +974,10 @@
             latbc_data(tlev)%atm_in%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       jc = get_field_index('QC')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -987,10 +985,10 @@
             latbc_data(tlev)%atm_in%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       jm = get_field_index('QI')
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -998,12 +996,12 @@
             latbc_data(tlev)%atm_in%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       IF (latbc_buffer%lread_qr) THEN
          ! Read parameter QR
          jm = get_field_index('QR')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -1011,17 +1009,17 @@
                latbc_data(tlev)%atm_in%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ELSE
-         !$OMP WORKSHARE
+!$OMP WORKSHARE
          latbc_data(tlev)%atm_in%qr(:,:,:)=0._wp
-         !$OMP END WORKSHARE
+!$OMP END WORKSHARE
       ENDIF
 
       IF (latbc_buffer%lread_qs) THEN
          ! Read parameter QS
          jv = get_field_index('QS')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -1029,29 +1027,27 @@
                latbc_data(tlev)%atm_in%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ELSE
-         !$OMP WORKSHARE
+!$OMP WORKSHARE
          latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
-         !$OMP END WORKSHARE
+!$OMP END WORKSHARE
       ENDIF
 
       ! Read parameter surface pressure (LNPS)
       jm = get_field_index(latbc_buffer%psvar)
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-      !$OMP END DO
+!$OMP DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+       DO j = 1, p_ri%n_own !p_patch%n_patch_cells
+          jb = p_ri%own_blk(j) ! Block index in distributed patch
+          jl = p_ri%own_idx(j) ! Line  index in distributed patch
+          latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), wp)
+       ENDDO
+!$OMP END DO
 
       IF (init_mode == MODE_COSMODE) THEN
          ! Read parameter Pressure
          jv = get_field_index('P')
-         !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -1059,21 +1055,19 @@
                latbc_data(tlev)%atm_in%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
-         !$OMP END DO
+!$OMP END DO
       ENDIF
 
       ! Read parameter  surface Geopotential (GEOSP)
       jm = get_field_index(latbc_buffer%geop_ml_var)
-      !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-      !$OMP END DO
-      !$OMP END PARALLEL
+!$OMP DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+       DO j = 1, p_ri%n_own !p_patch%n_patch_cells
+          jb = p_ri%own_blk(j) ! Block index in distributed patch
+          jl = p_ri%own_idx(j) ! Line  index in distributed patch
+          latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), wp)
+       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
       ! boundary exchange for a 2-D and 3-D array, must be removed when the routines
       ! of vertical interpolation no longer will run starting from HALO region.
@@ -1200,13 +1194,13 @@
       ! Inverse value of boundary update frequency
       rdt = 1._wp/latbc_config%dtime_latbc
 
-      !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
       ! a) Boundary tendency of horizontal velocity
       i_startblk = p_patch%edges%start_blk(1,1)
       i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
 
-      !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1220,13 +1214,13 @@
             ENDDO
          ENDDO
       ENDDO
-      !$OMP END DO
+!$OMP END DO
 
       ! b) Boundary tendencies of variables at cell centers
       i_startblk = p_patch%cells%start_blk(1,1)
       i_endblk   = p_patch%cells%end_blk(grf_bdywidth_c,1)
 
-      !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1284,8 +1278,8 @@
          ENDIF
 
       ENDDO
-      !$OMP END DO
-      !$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 #endif
     END SUBROUTINE compute_boundary_tendencies
 
