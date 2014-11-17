@@ -31,8 +31,7 @@ PROGRAM icon
   USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,                                &
-    &                               get_my_namelist_filename, get_my_process_type,      &
-    &                               testbed_process,  atmo_process, ocean_process
+    &                               get_my_namelist_filename, get_my_process_type
   USE mo_time_config,         ONLY: restart_experiment
   USE mo_util_signal
   USE mo_util_vcs,            ONLY: util_repository_url,                                &
@@ -41,14 +40,17 @@ PROGRAM icon
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
+  USE mo_master_control,      ONLY: ocean_process
 #endif
 
 #ifndef __NO_ICON_TESTBED__
   USE mo_icon_testbed,        ONLY: icon_testbed
+  USE mo_master_control,      ONLY: testbed_process
 #endif
 
 #ifndef __NO_ICON_ATMO__
   USE mo_atmo_model,          ONLY: atmo_model
+  USE mo_master_control,      ONLY: atmo_process
 #endif
 
   IMPLICIT NONE

@@ -62,19 +62,35 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
 
   ! some analytic initialization parameters
-  REAL(wp),PUBLIC :: init_analytic_conc_param
+  REAL(wp),PUBLIC :: init_analytic_conc_param = 0.95
   INTEGER ,PUBLIC :: init_analytic_conc_type
-  REAL(wp),PUBLIC :: init_analytic_hi_param
+  REAL(wp),PUBLIC :: init_analytic_hi_param   = 2.0
   INTEGER ,PUBLIC :: init_analytic_hi_type
-  REAL(wp),PUBLIC :: init_analytic_hs_param
+  REAL(wp),PUBLIC :: init_analytic_hs_param   = 0.3
   INTEGER ,PUBLIC :: init_analytic_hs_type
 
-  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .false.
+  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
 
   INTEGER         :: iunit
 
-  NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
-    &           i_Qio_type, hci_layer, leadclose_1, use_IceInitialization_fromTemperature
+  NAMELIST /sea_ice_nml/ &
+    &  kice, &
+    &  i_ice_therm, &
+    &  i_ice_albedo, &
+    &  i_ice_dyn, &
+    &  hnull, & 
+    &  hmin, &
+    &  ramp_wind, &
+    &  i_Qio_type, &
+    &  hci_layer, &
+    &  leadclose_1, &
+    &  use_IceInitialization_fromTemperature, &
+    &  init_analytic_conc_param , &
+    &  init_analytic_conc_type, &
+    &  init_analytic_hi_param, &
+    &  init_analytic_hi_type, &
+    &  init_analytic_hs_param, &
+    &  init_analytic_hs_type
 
 CONTAINS
   !>
@@ -158,11 +174,11 @@ CONTAINS
     ENDIF
 
 
-    IF (i_Qio_type < 1 .OR. i_Qio_type > 2) THEN
-      CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
+    IF (i_Qio_type < 1 .OR. i_Qio_type > 3) THEN
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 1,2 or 3.')
     END IF
 
-    IF (i_ice_dyn == 0 .AND. i_Qio_type /= 1) THEN
+    IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN
       CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
       i_Qio_type = 1
     ENDIF

@@ -12,7 +12,7 @@ start_date="2001-01-01T00:00:00Z"
 # model timing
 (( years_checkpoint  = 25 ))    # write restart file interval [days]
 (( years_restart     = 25 ))    # stop model for restart [days]
-(( days_data         = 30 ))    # ocean model output interval hours [hours] - for test runs
+(( days_data         = 1 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -31,7 +31,7 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 use_file_initialConditions=".true."
 external_interpolation_type="mpiom"
 use_gridfile_for_grabbing_externale_data='true'
-init_relax=1
+init_relax=0
 #init_rel_suff='20m.nc'  # 20m thickness
 init_oce_suff='L40.nc'
 init_rel_suff='surf.nc'
@@ -44,14 +44,12 @@ LOC="POOL"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
-# write namelist parameters
-# -------------------------
 cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
- nproma         = $nproma
- p_test_run     = .false.
- l_fast_sum     = .true.
+ nproma         = ${nproma}
+ p_test_run     = .false.     
+ l_fast_sum     = .true.          ! false: results are reproducable, gmres_oce_old is used; true: production run
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -69,6 +67,9 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
+ test_mode            = 4
+ test_param           = 5
+
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
@@ -82,13 +83,14 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+! ml_varlist       =  'salt_00'
+  ml_varlist       =  'group:ice_diag'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=4                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
-  idbg_elev=5                     ! initialize end level for debug output
+  idbg_elev=2                     ! initialize end level for debug output
   dbg_lat_in=   30.0              ! latitude location of one cell debug output
   dbg_lon_in=  -30.0              ! longitude location of one cell debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
@@ -157,8 +159,9 @@ cat > ${ocean_namelist} << EOF
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
-  i_ice_therm                     =   1       ! 0: not allowed, 1=zero-layer, 2=Winton
-  i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_therm   = 1              !  0: not allowed, 1=zero-layer, 2=Winton
+  i_ice_dyn     = 0              !  1/0=switch on/off AWI ice dynamics
+  i_Qio_type    = 1
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! ocean forcing
@@ -166,21 +169,25 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_v_type       =   1
   forcing_fluxes_type             =   1
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
-  init_oce_relax                  =   1       ! read ocean surface relaxation file, see above
+  init_oce_relax                  =   0       ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
-  para_surfRelax_Temp             =   1.0     ! strength of 2-dim relaxation for temperature (months)
+  para_surfRelax_Temp             =   0.0     ! strength of 2-dim relaxation for temperature (months)
                                               ! this value is divided by number of seconds per month (=30*24*3600)
-  type_surfRelax_Salt             =   1       ! 2-dim relaxation of salinity - see temperature relaxation for type values
+  type_surfRelax_Salt             =   0       ! 2-dim relaxation of salinity - see temperature relaxation for type values
   para_surfRelax_Salt             =   3.0     ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
   forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
   seaice_limit                    =   0.4     ! maximum of 8m (0.4*dz) for both, ice and snow
-  limit_elevation                 = .TRUE.
+  limit_elevation                 = .FALSE.
 /                                    
 &ocean_initialConditions_nml
-  use_file_initialConditions = $use_file_initialConditions  ! read ocean initialization file, see above
-! itestcase_oce                   =  50        ! 50=zonally homogen temperature for APE SST (Williamson)
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  !initial_salinity_type      = 402
+  !initial_temperature_type   = 202
+  !initial_temperature_top    = 30.0 
+  !initial_temperature_bottom = 30.0
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1
@@ -199,14 +206,17 @@ cat > ${ocean_namelist} << EOF
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
-  lkeep_in_sync = .true.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------
-
-
-
+# add required standard input files
+#[[ ! -d "${ICON_BASE_PATH}/experiments/${EXPNAME}" ]] && mkdir -p "${ICON_BASE_PATH}/experiments/${EXPNAME}"
+#python add_required_ocean_files.py \
+#  -d /pool/data/ICON/ocean_data/ \
+#  -e "${ICON_BASE_PATH}/experiments/${EXPNAME}" \
+#  -g ocean_grid/iconR2B02-ocean_etopo40_planet.nc \
+#  -i ocean_init/ts_phc_annual-iconR2B02-L20_20-700m.nc \
+#  -f ocean_forcing/omip_icon_R2B02_forcing-daily.nc \
+#  -r ocean_init/ts_surf_annual-iconR2B02-20m.nc -n
 #-----------------------------------------------------------------------------
-# add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
-#-----------------------------------------------------------------------------

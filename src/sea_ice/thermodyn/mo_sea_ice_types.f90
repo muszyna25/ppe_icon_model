@@ -221,10 +221,10 @@ MODULE mo_sea_ice_types
   TYPE t_sea_ice_budgets
   ! accumulated fields of the sea-ice state
     REAL(wp), POINTER :: &
-      & salt_00         (:,:)       ,   & 
+      & salt_00         (:,:)       ,   &
       & salt_01         (:,:)       ,   &
       & salt_02         (:,:)       ,   &
-      & salt_03         (:,:)           
+      & salt_03         (:,:)
   END TYPE t_sea_ice_budgets
   TYPE t_sea_ice_acc
   ! accumulated fields of the sea-ice state
@@ -271,9 +271,12 @@ MODULE mo_sea_ice_types
       & vn_e(:,:)       ,      & ! Edge normal velocity (diagnostic)             [m/s]
       & concSum(:,:)    ,      & ! Total ice concentration within a grid cell
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
+      & totalsnowfall(:,:),    & ! Total snow fall on ice-covered part of cell   [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
 
     INTEGER ::  kice           ! Number of ice-thickness classes
+
+    REAL(wp), POINTER ::  zHeatOceI(:,:,:) ! Oceanic head flux [W/m^2]
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
 
@@ -281,8 +284,6 @@ MODULE mo_sea_ice_types
     TYPE(t_sea_ice_budgets) :: budgets
 
   END TYPE t_sea_ice
-
-
 
   ! global type variables
   TYPE(t_sea_ice),PUBLIC, SAVE, TARGET :: v_sea_ice

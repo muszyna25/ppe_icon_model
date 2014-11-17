@@ -907,7 +907,7 @@ end
 ;---------------------------------------------------------------
 ; Create a default NCL resource
 undef("setDefaultResource")
-function setDefaultResource(verticallabelbar,withLines,withLineLabels,fillmode,maptype)
+function setDefaultResource(verticallabelbar,withLines,withLineLabels,fillmode,maptype,makeYLinear)
 begin
   resource                          = True
   resource@gsnMaximize              = False
@@ -960,11 +960,14 @@ begin
   resource@mpGreatCircleLinesOn = True
   resource@stMinArrowSpacingF   = 0.001
 
+  ; linearize y axis if desired ===============================================
+  resource@gsnYAxisIrregular2Linear = makeYLinear
+
   return resource
 end
 ;---------------------------------------------------------------
 undef("setDefaultSectionResource")
-function setDefaultSectionResource(points,secpoints,seclc,secrc,withLines,withLineLabels)
+function setDefaultSectionResource(points,secpoints,seclc,secrc,withLines,withLineLabels,makeYLinear)
 begin
   resource                              = True;           plot mods desired
   resource@gsnFrame                     = False;                don't turn page yet
@@ -1007,6 +1010,10 @@ begin
 
 ; lines/labels inside the plot ================================================
   setLineAndLineLabels(resource,withLines,withLineLabels)
+
+  ; linearize y axis if desired ===============================================
+  resource@gsnYAxisIrregular2Linear = makeYLinear
+
   return resource
 end
 ;---------------------------------------------------------------

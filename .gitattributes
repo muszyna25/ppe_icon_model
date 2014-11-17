@@ -702,6 +702,7 @@ run/README -text
 run/add_required_atmo_hydrostatic_files -text
 run/add_required_atmo_non-hydrostatic_files -text
 run/add_required_ocean_files -text
+run/add_required_ocean_files.py -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/check.atm_amip -text
@@ -714,6 +715,7 @@ run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell_02 -text
 run/checksuite.ocean_internal/exp.oce_omipR2B04L40 -text
 run/checksuite.ocean_internal/exp.oce_omip_160-40km_R-refined-NAtlantic -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_40levels_cell -text
+run/checksuite.ocean_internal/exp.oce_omip_160km_cell_ptest -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_edge -text
 run/checksuite.ocean_internal/exp.oce_tracer_bubble -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
@@ -749,6 +751,7 @@ run/exp.hat_jww_ptest -text
 run/exp.hat_jww_rescale -text
 run/exp.hat_rce_120km -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
+run/exp.ice_melting -text
 run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_grid -text
 run/exp.icon-testbed_jitter -text
@@ -790,6 +793,8 @@ run/exp.oce_Earth_10km_zonalWind_TemperatureRelax -text
 run/exp.oce_atlbox79km -text
 run/exp.oce_default -text
 run/exp.oce_mpiom_new_noland -text
+run/exp.oce_mpiom_testOceanSurface -text
+run/exp.oce_omipR2B04L40 -text
 run/exp.oce_omip_ref -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text

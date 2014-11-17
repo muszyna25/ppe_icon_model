@@ -169,6 +169,7 @@ CONTAINS
           p_diag%kin(cell_index,level,blockNo) = 0.5_wp * p_diag%kin(cell_index,level,blockNo) / &
             & patch_2d%cells%area(cell_index,blockNo)
 #endif
+
 ! the above is not actually used since kin is recalculated in the following
           p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
             & DOT_PRODUCT(p_diag%p_vn(cell_index,level,blockNo)%x, p_diag%p_vn(cell_index,level,blockNo)%x)

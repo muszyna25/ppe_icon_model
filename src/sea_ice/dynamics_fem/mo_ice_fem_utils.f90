@@ -14,7 +14,7 @@
 !!
 !!
 !----------------------------
-#include "omp_definitions.inc"
+!#include "omp_definitions.inc"
 !----------------------------
 
 MODULE mo_ice_fem_utils

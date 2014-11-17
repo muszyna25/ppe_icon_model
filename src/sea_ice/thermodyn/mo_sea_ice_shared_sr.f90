@@ -121,6 +121,26 @@ CONTAINS
       ENDDO
     END DO
 !ICON_OMP_END_PARALLEL_DO
+
+    CASE (3)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+      DO jb = 1,p_patch%nblks_c
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c,i_endidx_c
+          DO k=1,ice%kice
+            IF (ice%hi(jc,k,jb) > 0._wp) THEN
+              ! ALL energy of warm water over the whole grid area is used for melting ice - divide by concentration
+              ! SLO/EO 2014-04-11 - this is wrong, must be accompanied by correction elsewhere,
+              !                     since open part of water is still losing heat
+              !                   - old formulation (without concentration, below) is reactivated
+              zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
+                &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/(dtime*ice%conc(jc,k,jb))
+            ENDIF
+          ENDDO
+        ENDDO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
     
     CASE DEFAULT
       CALL finish(TRIM(routine), 'Invalid i_Qio_type')

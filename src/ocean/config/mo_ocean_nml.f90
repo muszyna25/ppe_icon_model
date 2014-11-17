@@ -70,7 +70,7 @@ MODULE mo_ocean_nml
   ! ----------------------------------------------------------------------------
   ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
-  INTEGER            :: diagnostics_level      = 0
+  INTEGER            :: diagnostics_level      = 1
 
   ! switch for ocean stream function (not yet activated):
   !                   ! 0: no output
@@ -458,7 +458,7 @@ MODULE mo_ocean_nml
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
-  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_enable_freshwater            = .TRUE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: use_new_forcing                      = .FALSE.
   ! _type variables range
@@ -903,10 +903,10 @@ MODULE mo_ocean_nml
 !       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
 !     ENDIF
 
-     IF (forcing_enable_freshwater) THEN
-       limit_elevation = .TRUE.
-       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
-     END IF
+    !IF (forcing_enable_freshwater) THEN
+    !  !limit_elevation = .TRUE.
+    !  CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
+    !END IF
 
      IF (forcing_set_runoff_to_zero) THEN
        CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
