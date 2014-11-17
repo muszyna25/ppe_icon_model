@@ -21,7 +21,7 @@
 MODULE mo_grid_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish, warning
+  USE mo_exception,          ONLY: finish, warning, message
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
@@ -76,6 +76,7 @@ CONTAINS
     INTEGER :: total_subset_edges
     INTEGER :: my_mpi_work_communicator
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_tools:get_oriented_edges_from_global_vertices"
+    CHARACTER(len=256) :: message_text = ''
 
     edge_subset%size               = 0
     edge_subset%recommended_stride = 0
@@ -85,8 +86,11 @@ CONTAINS
     ! NULLIFY(edge_subset%block)
     ! NULLIFY(edge_subset%idx)
     NULLIFY(orientation)
-    edge_subset%name=""
-    IF (PRESENT(subset_name)) edge_subset%name=subset_name
+    edge_subset%name="dummy"
+    IF (PRESENT(subset_name)) THEN
+      edge_subset%name=subset_name
+      CALL message ("get_oriented_edges:"//TRIM(edge_subset%name),"start")
+    ENDIF
 
     IF (PRESENT(patch_3D)) THEN
       edge_subset%patch_3D => patch_3D
@@ -184,9 +188,9 @@ CONTAINS
     CALL work_mpi_barrier()
     my_mpi_work_communicator = get_my_mpi_work_communicator()
     total_subset_edges = p_sum(edge_subset%size, comm=my_mpi_work_communicator)
-    IF (my_process_is_stdio()) THEN
-       write(0,*) TRIM(edge_subset%name), " Subset total entities=", total_subset_edges, " in vertices=", max_allocation_size
-    ENDIF
+    WRITE(message_text,'(a,i2,a,i2)')"Subset total entities=", total_subset_edges, " in vertices=", max_allocation_size
+
+    CALL message ("get_oriented_edges:"//TRIM(edge_subset%name),message_text)
     
     CALL work_mpi_barrier()
     
