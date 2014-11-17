@@ -1525,12 +1525,13 @@ CONTAINS
       END DO
     END DO
 ! extra variable for land points:
-    jsfc=3
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
+    IF (idx_lnd <= ksfc_type) THEN
+      DO jls = 1,is(idx_lnd)
+        ! set index
+        js=loidx(jls,idx_lnd)
+        pbhn_sfc(js,idx_lnd) = ckap / SQRT(pchn_sfc(js,idx_lnd))
       END DO
+    END IF
 
   END SUBROUTINE sfc_exchange_coeff_amip
   !-------------
