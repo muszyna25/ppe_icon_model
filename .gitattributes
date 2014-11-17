@@ -794,7 +794,6 @@ run/exp.oce_atlbox79km -text
 run/exp.oce_default -text
 run/exp.oce_mpiom_new_noland -text
 run/exp.oce_mpiom_testOceanSurface -text
-run/exp.oce_omipR2B04L40 -text
 run/exp.oce_omip_ref -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
