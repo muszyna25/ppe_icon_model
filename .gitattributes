@@ -717,6 +717,7 @@ run/checksuite.ocean_internal/exp.oce_omip_160-40km_R-refined-NAtlantic -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_40levels_cell -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_cell_ptest -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_edge -text
+run/checksuite.ocean_internal/exp.oce_omip_testSurface -text
 run/checksuite.ocean_internal/exp.oce_tracer_bubble -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
@@ -793,7 +794,6 @@ run/exp.oce_Earth_10km_zonalWind_TemperatureRelax -text
 run/exp.oce_atlbox79km -text
 run/exp.oce_default -text
 run/exp.oce_mpiom_new_noland -text
-run/exp.oce_mpiom_testOceanSurface -text
 run/exp.oce_omip_ref -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
