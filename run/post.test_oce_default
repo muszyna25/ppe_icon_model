@@ -55,3 +55,4 @@ check_error $? "oce_numeric: $nclCaller"
 
 exit
 
+# vim:ft=sh
