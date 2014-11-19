@@ -48,6 +48,7 @@ MODULE mo_ocean_statistics
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
+  USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
@@ -72,10 +73,11 @@ CONTAINS
     
   !---------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE update_ocean_statistics(ocean_state,p_sfc_flx,cells,edges,verts,max_zlev)
+  SUBROUTINE update_ocean_statistics(ocean_state,p_sfc_flx,cells,edges,verts,max_zlev,p_phys_param)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     TYPE(t_sfc_flx),           INTENT(inout) :: p_sfc_flx
-    TYPE(t_subset_range),      INTENT(in)    :: cells,edges,verts
+    TYPE(t_ho_params),OPTIONAL,INTENT(IN)    :: p_phys_param
+    TYPE(t_subset_range),      INTENT(IN)    :: cells,edges,verts
     INTEGER, INTENT(in)                      :: max_zlev
     
     INTEGER :: jtrc,i
@@ -87,9 +89,7 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%v     , ocean_state%p_diag%v         , cells)
     CALL add_fields(ocean_state%p_acc%rhopot, ocean_state%p_diag%rhopot    , cells)
     DO jtrc=1,no_tracer
-      CALL add_fields(ocean_state%p_acc%tracer(:,:,:,jtrc),           &
-        & ocean_state%p_prog(nnew(1))%tracer(:,:,:,jtrc), &
-        & cells)
+      CALL add_fields(ocean_state%p_acc%tracer(:,:,:,jtrc),ocean_state%p_prog(nnew(1))%tracer(:,:,:,jtrc),cells)
     END DO
     CALL add_fields(ocean_state%p_acc%u_vint        , ocean_state%p_diag%u_vint        , cells)
     CALL add_fields(ocean_state%p_acc%v_vint        , ocean_state%p_diag%v_vint        , cells)
@@ -99,6 +99,16 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
+    IF (PRESENT(p_phys_param)) THEN
+      ! physics
+      DO jtrc=1,no_tracer
+        CALL add_fields(ocean_state%p_acc%tracer(:,:,:,jtrc),ocean_state%p_prog(nnew(1))%tracer(:,:,:,jtrc),cells)
+        CALL add_fields(ocean_state%p_acc%k_tracer_h(:,:,:,jtrc),p_phys_param%k_tracer_h(:,:,:,jtrc),edges)
+        CALL add_fields(ocean_state%p_acc%a_tracer_v(:,:,:,jtrc),p_phys_param%a_tracer_v(:,:,:,jtrc),cells)
+      END DO
+      CALL add_fields(ocean_state%p_acc%k_veloc_h(:,:,:),p_phys_param%k_veloc_h(:,:,:),edges)
+      CALL add_fields(ocean_state%p_acc%a_veloc_v(:,:,:),p_phys_param%a_veloc_v(:,:,:),edges)
+    END IF
     
     ! update forcing accumulated values
     CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc   , p_sfc_flx%topBoundCond_windStress_u   , cells)
@@ -170,6 +180,10 @@ CONTAINS
     p_acc%mass_flx_e                = p_acc%mass_flx_e               /REAL(nsteps_since_last_output,wp)
     p_acc%vort                      = p_acc%vort                     /REAL(nsteps_since_last_output,wp)
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
+    p_acc%k_tracer_h                = p_acc%k_tracer_h               /REAL(nsteps_since_last_output)
+    p_acc%a_tracer_v                = p_acc%a_tracer_v               /REAL(nsteps_since_last_output)
+    p_acc%k_veloc_h                 = p_acc%k_veloc_h                /REAL(nsteps_since_last_output)
+    p_acc%a_veloc_v                 = p_acc%a_veloc_v                /REAL(nsteps_since_last_output)
     p_sfc_flx%topBoundCond_windStress_u_acc = p_sfc_flx%topBoundCond_windStress_u_acc/REAL(nsteps_since_last_output,wp)
     p_sfc_flx%topBoundCond_windStress_v_acc = p_sfc_flx%topBoundCond_windStress_v_acc/REAL(nsteps_since_last_output,wp)
     p_sfc_flx%HeatFlux_ShortWave_acc        = p_sfc_flx%HeatFlux_ShortWave           /REAL(nsteps_since_last_output,wp)
@@ -221,6 +235,10 @@ CONTAINS
     p_acc%mass_flx_e                = 0.0_wp
     p_acc%vort                      = 0.0_wp
     p_acc%kin                       = 0.0_wp
+    p_acc%k_tracer_h                = 0.0_wp
+    p_acc%a_tracer_v                = 0.0_wp
+    p_acc%k_veloc_h                 = 0.0_wp
+    p_acc%a_veloc_v                 = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_u_acc = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_v_acc = 0.0_wp
     IF (no_tracer>0) THEN

@@ -297,11 +297,11 @@ CONTAINS
 
       ! update accumulated vars
       CALL update_ocean_statistics(ocean_state(1),&
-        & p_sfc_flx,           &
+        & p_sfc_flx, &
         & patch_2d%cells%owned,&
         & patch_2d%edges%owned,&
         & patch_2d%verts%owned,&
-        & n_zlev)
+        & n_zlev,p_phys_param=p_phys_param)
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
@@ -373,11 +373,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice)
+  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice,p_phys_param)
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_sfc_flx) , INTENT(INOUT)             :: p_sfc_flx
-    TYPE (t_sea_ice),         INTENT(INOUT)     :: p_ice
+    TYPE(t_sea_ice),          INTENT(INOUT)     :: p_ice
+    TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
 
     TYPE(t_patch), POINTER :: patch_2d
 
@@ -404,12 +405,13 @@ CONTAINS
       & ocean_state%p_prog(nold(1))%tracer, &
       & ocean_state%p_diag%rho )
 
-    CALL update_ocean_statistics(ocean_state,                              &
-      & p_sfc_flx,                            &
+    CALL update_ocean_statistics( &
+      & ocean_state,            &
+      & p_sfc_flx,              &
       & patch_2d%cells%owned,   &
       & patch_2d%edges%owned,   &
       & patch_2d%verts%owned,   &
-      & n_zlev)
+      & n_zlev,p_phys_param=p_phys_param)
     IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2d%cells%owned)
 
     CALL write_name_list_output(jstep=0)

@@ -384,7 +384,24 @@ MODULE mo_ocean_types
       & temp_insitu(:,:,:)      ,&
       & tracer(:,:,:,:)
     TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
-  END TYPE
+
+    ! physics
+    ! diffusion coefficients for horizontal/vertical velocity, 
+    !  temp. and salinity, dim=(nproma,n_zlev,nblks_ec)/(nproma,n_zlev+1,nblks_e)
+    REAL(wp),POINTER ::      &
+      & k_tracer_h(:,:,:,:), & ! coefficient of horizontal tracer diffusion
+      & a_tracer_v(:,:,:,:), & ! coefficient of vertical tracer diffusion
+      & k_veloc_h(:,:,:),    & ! coefficient of horizontal velocity diffusion
+      & a_veloc_v(:,:,:)       ! coefficient of vertical velocity diffusion
+    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_horz_physics_ptr(:)
+    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_vert_physics_ptr(:)
+    
+    REAL(wp),POINTER ::              &
+      & k_tracer_isoneutral(:,:,:),  & ! coefficient of isoneutral tracer diffusion diffusion at cells
+      & k_tracer_dianeutral(:,:,:),  & ! coefficient of dianeutral tracer diffusion
+      & k_tracer_GM_kappa(:,:,:)       ! coefficient of Gent-McWilliams mesoscale eddyparametrizations
+
+  END TYPE t_hydro_ocean_acc
   
   INTEGER, PARAMETER :: max_tracers = 2
   TYPE t_oce_config
