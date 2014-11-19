@@ -238,7 +238,7 @@ suite $USER
                 event svn_export
                 event tarfile
                 event clear_directory
-                meter revision 0 20000 20000
+                meter revision 0 30000 30000
 
             task init_build
                 trigger (init_svn == complete)
