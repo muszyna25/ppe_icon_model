@@ -84,7 +84,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_oce_patch_setup
+MODULE mo_ocean_patch_setup
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, warning, message
@@ -501,4 +501,4 @@ CONTAINS
   !-------------------------------------------------------------------------
     
     
-END MODULE mo_oce_patch_setup
+END MODULE mo_ocean_patch_setup

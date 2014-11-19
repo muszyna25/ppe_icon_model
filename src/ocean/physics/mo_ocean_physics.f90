@@ -23,7 +23,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_physics
+MODULE mo_ocean_physics
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
@@ -56,8 +56,8 @@ MODULE mo_oce_physics
   USE mo_impl_constants,      ONLY: success, max_char_length, min_dolic, sea
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_pointer_3d_wp, t_operator_coeff
-  USE mo_oce_state,           ONLY: oce_config
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_pointer_3d_wp, t_operator_coeff
+  USE mo_ocean_state,           ONLY: oce_config
   USE mo_physical_constants,  ONLY: grav, rho_ref, sitodbar,sal_ref
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
@@ -78,8 +78,8 @@ MODULE mo_oce_physics
     & datatype_pack16, datatype_flt32, filetype_nc2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_patch_array, global_max
-  USE  mo_oce_thermodyn,      ONLY: calculate_density_onColumn
-  USE mo_oce_math_operators,  ONLY: div_oce_3d
+  USE  mo_ocean_thermodyn,      ONLY: calculate_density_onColumn
+  USE mo_ocean_math_operators,  ONLY: div_oce_3d
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_upd_phys, &
     & timer_extra10, timer_extra11
   USE mo_statistics,          ONLY: global_minmaxmean
@@ -88,7 +88,7 @@ MODULE mo_oce_physics
   
   PRIVATE
  
-  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_physics'
+  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_physics'
   CHARACTER(LEN=12)           :: str_module    = 'ocePhysics  '  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
@@ -289,7 +289,7 @@ CONTAINS
         p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
           & *(points_in_munk_layer*z_largest_edge_length)**3
       CASE DEFAULT
-         CALL finish ('mo_oce_physics:init_ho_params',  &
+         CALL finish ('mo_ocean_physics:init_ho_params',  &
           & 'option not supported')
       
       END SELECT
@@ -310,7 +310,7 @@ CONTAINS
         p_phys_param%a_tracer_v_back(2) = k_sal_v
       ELSE
         
-        CALL finish ('mo_oce_physics:init_ho_params',  &
+        CALL finish ('mo_ocean_physics:init_ho_params',  &
           & 'number of tracers exceeds number of background values')
       ENDIF
       p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
@@ -1685,4 +1685,4 @@ CONTAINS
 
 
 
-END MODULE mo_oce_physics
+END MODULE mo_ocean_physics

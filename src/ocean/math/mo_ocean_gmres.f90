@@ -41,7 +41,7 @@ MODULE mo_ocean_gmres
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
     & timer_gmres_p_sum, activate_sync_timers
-  USE mo_oce_types,           ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
+  USE mo_ocean_types,           ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array
   !  & sync_e, sync_c, sync_v, sync_patch_array
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -513,7 +513,7 @@ CONTAINS
       FUNCTION lhs(x,old_h, p_patch_3d, sovlerCoeff) result(ax)
         USE mo_kind, ONLY: sp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
-        USE mo_oce_types, ONLY: t_solverCoeff_singlePrecision
+        USE mo_ocean_types, ONLY: t_solverCoeff_singlePrecision
         REAL(sp),    INTENT(inout) :: x(:,:)  ! inout for sync
         REAL(sp), INTENT(in) :: old_h(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D

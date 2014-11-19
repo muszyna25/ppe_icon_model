@@ -31,7 +31,7 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   
-  USE mo_oce_types
+  USE mo_ocean_types
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   
   !-------------------------------------------------------------

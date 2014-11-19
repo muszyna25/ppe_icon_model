@@ -25,14 +25,14 @@
 !!
 !!
 !----------------------------
-MODULE mo_oce_state
+MODULE mo_ocean_state
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: success, max_char_length
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, use_tracer_x_height, cfl_write,&
     &                               GMRedi_configuration,Cartesian_Mixing
-  USE mo_oce_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer ,    &
     &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
@@ -126,7 +126,7 @@ CONTAINS
     
     INTEGER :: i_status, jp, prlength ! local prognostic array length
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:construct_hydro_ocean_state'
+      & routine = 'mo_ocean_state:construct_hydro_ocean_state'
     
     CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
     
@@ -171,7 +171,7 @@ CONTAINS
     INTEGER :: jg, prlength, ist
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:destruct_hydro_ocean_state'
+      & routine = 'mo_ocean_state:destruct_hydro_ocean_state'
     
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start to destruct hydro ocean state ')
@@ -222,7 +222,7 @@ CONTAINS
     INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:construct_hydro_ocean_base'
+      & routine = 'mo_ocean_state:construct_hydro_ocean_base'
     
     !-------------------------------------------------------------------------
     
@@ -329,7 +329,7 @@ CONTAINS
     INTEGER :: ist
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:destruct_hydro_ocean_base'
+      & routine = 'mo_ocean_state:destruct_hydro_ocean_base'
     
     CALL message(TRIM(routine),' start to destruct hydrostatic ocean basic state')
     
@@ -479,7 +479,7 @@ CONTAINS
       & oce_tracer_longnames(max_oce_tracer)
     INTEGER :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:construct_hydro_ocean_diag'
+      & routine = 'mo_ocean_state:construct_hydro_ocean_diag'
     
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
@@ -886,7 +886,7 @@ CONTAINS
     INTEGER :: ist
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:destruct_hydro_ocean_diag'
+      & routine = 'mo_ocean_state:destruct_hydro_ocean_diag'
     
     DEALLOCATE(ocean_state_diag%p_vn, stat=ist)
     IF (ist/=success) THEN
@@ -922,7 +922,7 @@ CONTAINS
     INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:construct_hydro_ocean_aux'
+      & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
     
@@ -1257,7 +1257,7 @@ CONTAINS
     INTEGER :: ist
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:destruct_hydro_ocean_aux'
+      & routine = 'mo_ocean_state:destruct_hydro_ocean_aux'
     
     DEALLOCATE(ocean_state_aux%bc_top_veloc_cc, stat=ist)
     IF (ist/=success) THEN
@@ -1310,7 +1310,7 @@ CONTAINS
     INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_state:construct_patch_3D'
+      & routine = 'mo_ocean_state:construct_patch_3D'
     
     !-------------------------------------------------------------------------
     
@@ -1609,4 +1609,4 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   
-END MODULE mo_oce_state
+END MODULE mo_ocean_state

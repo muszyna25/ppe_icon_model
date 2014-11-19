@@ -22,7 +22,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_oce_forcing
+MODULE mo_ocean_forcing
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max
@@ -50,8 +50,8 @@ MODULE mo_oce_forcing
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
   USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec, t_cartesian_coordinates
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes
-  USE mo_oce_state,           ONLY: set_oce_tracer_info
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state
+  USE mo_ocean_state,           ONLY: set_oce_tracer_info
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -1160,4 +1160,4 @@ CONTAINS
 
   END SUBROUTINE nf
   !-------------------------------------------------------------------------
-END MODULE mo_oce_forcing
+END MODULE mo_ocean_forcing

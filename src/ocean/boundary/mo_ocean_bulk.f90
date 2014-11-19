@@ -23,7 +23,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_oce_bulk
+MODULE mo_ocean_bulk
 !-------------------------------------------------------------------------
 !
 !    ProTeX FORTRAN source: Style 2
@@ -62,7 +62,7 @@ USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_dbg_nml,             ONLY: idbg_mxmn
-USE mo_oce_types,           ONLY: t_hydro_ocean_state
+USE mo_ocean_types,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos
@@ -125,7 +125,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_surface_flux'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_surface_flux'
     INTEGER               :: jc, jb, trac_no
     INTEGER               :: i_startidx_c, i_endidx_c
     REAL(wp)              :: dsec, z_smax
@@ -820,7 +820,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_flux_fromFile'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_fromFile'
     INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
     INTEGER  :: iniyear, curyear, offset
     INTEGER  :: no_set
@@ -864,7 +864,7 @@ CONTAINS
 
     ! iforc_type: read time varying OMIP or NCEP flux forcing from file:
          ! 1: read wind stress (records 1, 2) and temperature (record 3)
-         ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
+         ! 2: read full OMIP dataset for bulk formula in mo_ocean_bulk (12 records)
          ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
          ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
          ! 5: read full NCEP datasets; read monthly mean data of consecutive years
@@ -1530,7 +1530,7 @@ CONTAINS
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_flux_from_atm_flx'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_from_atm_flx'
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------  
@@ -1655,7 +1655,7 @@ CONTAINS
     REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
     INTEGER  :: z_dolic
     REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_flux_analytical'
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_analytical'
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: p_patch
@@ -1777,7 +1777,7 @@ CONTAINS
   !! Balance sea level to zero over global ocean
   !!
   !! Balance sea level to zero over global ocean
-  !! This routine uses parts of mo_oce_diagnostics
+  !! This routine uses parts of mo_ocean_diagnostics
   !!
   !! @par Revision History
   !! Initial revision by Stephan Lorenz, MPI (2013-04)
@@ -1839,7 +1839,7 @@ CONTAINS
     INTEGER,       INTENT(IN)            :: no_set          !  no of set in file to be read
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_oce_bulk:read_forc_data_oce'
+      routine = 'mo_ocean_bulk:read_forc_data_oce'
 
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
@@ -2122,11 +2122,11 @@ CONTAINS
     INTEGER, INTENT(in) :: status
 
     IF (status /= nf_noerr) THEN
-      CALL finish('mo_oce_bulk netCDF error', nf_strerror(status))
+      CALL finish('mo_ocean_bulk netCDF error', nf_strerror(status))
     ENDIF
 
   END SUBROUTINE nf
 
 
-END MODULE mo_oce_bulk
+END MODULE mo_ocean_bulk
 

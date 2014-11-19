@@ -32,11 +32,11 @@ MODULE mo_scalar_product
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: sea_boundary, sea, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
-  USE mo_oce_types,          ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
+  USE mo_ocean_types,          ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
-  USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
+  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
   USE mo_util_dbg_prnt,       ONLY: dbg_print

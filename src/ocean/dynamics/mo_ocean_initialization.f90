@@ -65,7 +65,7 @@ MODULE mo_ocean_initialization
   USE mo_cdi_constants
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
-  USE mo_oce_types, ONLY: t_hydro_ocean_state, &
+  USE mo_ocean_types, ONLY: t_hydro_ocean_state, &
     & t_hydro_ocean_base, &
     & t_hydro_ocean_prog, &
     & t_hydro_ocean_diag, &
@@ -77,12 +77,12 @@ MODULE mo_ocean_initialization
     & t_ocean_region_volumes, &
     & t_ocean_region_areas, &
     & t_ocean_basins
-  USE mo_oce_state, ONLY:  ocean_restart_list, &
+  USE mo_ocean_state, ONLY:  ocean_restart_list, &
     & ocean_default_list, &
     & v_base, &
     & oce_config
   
-  USE mo_oce_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
+  USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
   
   IMPLICIT NONE
   PRIVATE

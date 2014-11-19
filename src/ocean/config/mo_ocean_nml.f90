@@ -411,7 +411,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion ! coeffcient for the velocity. See usage in
-                                                 ! mo_oce_physics.f90, update_ho_params, variable z_av0
+                                                 ! mo_ocean_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
   INTEGER, PARAMETER  :: physics_parameters_ICON_PPoptimized_type    = 1
@@ -891,7 +891,7 @@ MODULE mo_ocean_nml
 !      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
 !        IF(no_tracer == 1) THEN
 !          CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
-!          CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_oce_state')
+!          CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_ocean_state')
 !          CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
 !        ENDIF
 !        CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
@@ -941,10 +941,10 @@ MODULE mo_ocean_nml
      ! 3-char string with marked processes to be printed out for debug purposes
      str_proc_tst =  (/  & 
        &  'all', &  ! initiate print messages in all routines
-       &  'abm', &  ! main timestepping routines       in mo_oce_ab_timestepping (mimetic/rbf)
-       &  'vel', &  ! velocity advection and diffusion in mo_oce_veloc_advection
-       &  'dif', &  ! diffusion                        in mo_oce_diffusion
-       &  'trc', &  ! tracer advection and diffusion   in mo_oce_tracer_transport
+       &  'abm', &  ! main timestepping routines       in mo_ocean_ab_timestepping (mimetic/rbf)
+       &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
+       &  'dif', &  ! diffusion                        in mo_ocean_diffusion
+       &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
        &  '   ', &  ! ...
        &  '   ', &
        &  '   ', &

@@ -17,17 +17,17 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_oce_ab_timestepping
+MODULE mo_ocean_ab_timestepping
   USE mo_ocean_nml,                      ONLY: discretization_scheme
   USE mo_dynamics_config,                ONLY: nold, nnew
   USE mo_sea_ice_types,                  ONLY: t_sfc_flx
   USE mo_model_domain,                   ONLY: t_patch_3D !, t_patch
   USE mo_ext_data_types,                 ONLY: t_external_data
-  USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
+  USE mo_ocean_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
     &                                          calc_normal_velocity_ab_mimetic, &
     &                                          calc_vert_velocity_mim_bottomup
-  USE mo_oce_physics,                    ONLY: t_ho_params
-  USE mo_oce_types,                      ONLY: t_hydro_ocean_state, t_operator_coeff, t_solverCoeff_singlePrecision
+  USE mo_ocean_physics,                    ONLY: t_ho_params
+  USE mo_ocean_types,                      ONLY: t_hydro_ocean_state, t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_exception,                      ONLY: finish!, message_text
   
 IMPLICIT NONE
@@ -147,4 +147,4 @@ CONTAINS
     nold(jg)  = nnew(jg)
     nnew(jg)  = n_temp
   END SUBROUTINE update_time_indices
-END MODULE mo_oce_ab_timestepping
+END MODULE mo_ocean_ab_timestepping

@@ -41,9 +41,9 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_operator_coeff, &
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_operator_coeff, &
     & t_verticalAdvection_ppm_coefficients, t_solverCoeff_singlePrecision
-  USE mo_oce_physics,         ONLY: t_ho_params
+  USE mo_ocean_physics,         ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime

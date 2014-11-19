@@ -17,7 +17,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_diagnostics
+MODULE mo_ocean_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices, check_global_indexes
@@ -50,7 +50,7 @@ MODULE mo_oce_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref, rhos, rhoi,sice
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
-  USE mo_oce_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
+  USE mo_ocean_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
     &                              t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
@@ -235,7 +235,7 @@ CONTAINS
     !local variable
     INTEGER :: i,ist
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
+      & routine = ('mo_ocean_diagnostics:construct_oce_diagnostics')
     !-----------------------------------------------------------------------
     CHARACTER(LEN=linecharacters) :: headerline
     INTEGER  :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
@@ -533,7 +533,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length)  :: message_text
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
+      & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
     !-----------------------------------------------------------------------
     DO i=0,nsteps
       DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
@@ -925,7 +925,7 @@ CONTAINS
     TYPE(t_grid_edges), POINTER ::  edges
     TYPE(t_patch_vert),POINTER :: patch_vertical
     
-    CHARACTER(LEN=*), PARAMETER :: method_name='mo_oce_diagnostics:section_flux'
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_ocean_diagnostics:section_flux'
     
     edges          => in_oce_section%subset%patch%edges
     patch_vertical => in_oce_section%subset%patch_3d%p_patch_1d(1)
@@ -1004,7 +1004,7 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: dom_cells
     
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
     
     !-----------------------------------------------------------------------
     
@@ -1194,7 +1194,7 @@ CONTAINS
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
     
-    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
+    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi')
     
     !-----------------------------------------------------------------------
     
@@ -1361,7 +1361,7 @@ CONTAINS
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_edges, all_cells
     
-    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi_vn')
+    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi_vn')
     
     !-----------------------------------------------------------------------
     
@@ -1592,4 +1592,4 @@ CONTAINS
     END DO !block
   END FUNCTION calc_salt_content
 
-END MODULE mo_oce_diagnostics
+END MODULE mo_ocean_diagnostics

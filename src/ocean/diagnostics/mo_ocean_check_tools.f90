@@ -19,7 +19,7 @@
 !! headers of the routines.
 !!
 !!
-MODULE mo_oce_check_tools
+MODULE mo_ocean_check_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
@@ -33,7 +33,7 @@ MODULE mo_oce_check_tools
   USE mo_util_dbg_prnt,      ONLY: dbg_print, c_i, c_b
   USE mo_grid_config,        ONLY: n_dom
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
-  USE mo_oce_types,          ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,          ONLY: t_hydro_ocean_state
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_math_constants,     ONLY: pi
@@ -69,7 +69,7 @@ CONTAINS
     CHARACTER(LEN=90) :: form4ar
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_oce_check_tools:init_oce_index'
+      & routine = 'mo_ocean_check_tools:init_oce_index'
 
     !CALL message(TRIM(routine), 'Start' )
 
@@ -278,7 +278,7 @@ CONTAINS
     INTEGER :: edge_levels, cell1_levels, cell2_levels
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     TYPE(t_patch), POINTER        :: patch_2d
-    CHARACTER(len=*), PARAMETER :: method_name='mo_oce_check_tools:ocean_check_level_sea_land_mask'
+    CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_check_tools:ocean_check_level_sea_land_mask'
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2D(1)
     all_cells => patch_2d%cells%all
@@ -433,4 +433,4 @@ CONTAINS
   !------------------------------------------------------------------------------------
 
 
-END MODULE mo_oce_check_tools
+END MODULE mo_ocean_check_tools

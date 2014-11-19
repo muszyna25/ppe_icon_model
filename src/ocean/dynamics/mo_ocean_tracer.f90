@@ -17,7 +17,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_tracer
+MODULE mo_ocean_tracer
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
@@ -37,23 +37,23 @@ MODULE mo_oce_tracer
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
-  USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
-  USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
-  USE mo_oce_physics
+  USE mo_ocean_boundcond,             ONLY: top_bound_cond_tracer
+  USE mo_ocean_physics
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
-  USE mo_oce_diffusion,             ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
-  USE mo_oce_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
-  USE mo_oce_tracer_transport_vert, ONLY: advect_flux_vertical
+  USE mo_ocean_diffusion,             ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
+  USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
+  USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_e, sync_patch_array
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert, timer_extra30
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
-  USE mo_oce_GM_Redi,               ONLY: calc_ocean_physics, prepare_ocean_physics
-  USE mo_oce_math_operators,        ONLY: div_oce_3d, verticalDiv_scalar_midlevel
+  USE mo_ocean_GM_Redi,               ONLY: calc_ocean_physics, prepare_ocean_physics
+  USE mo_ocean_math_operators,        ONLY: div_oce_3d, verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
   IMPLICIT NONE
 
@@ -1201,6 +1201,6 @@ CONTAINS
   END FUNCTION tracer_content
   !-------------------------------------------------------------------------
 
-END MODULE mo_oce_tracer
+END MODULE mo_ocean_tracer
 
 

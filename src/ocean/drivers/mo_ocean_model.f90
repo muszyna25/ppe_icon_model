@@ -55,9 +55,9 @@ MODULE mo_ocean_model
   USE mo_complete_subdivision,ONLY: setup_phys_patches
 
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, &
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, &
     & t_operator_coeff, t_solverCoeff_singlePrecision
-  USE mo_oce_state,           ONLY:  v_base, &
+  USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
     & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list
@@ -65,10 +65,10 @@ MODULE mo_ocean_model
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
     & init_patch_3d, construct_ocean_var_lists
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
-  USE mo_oce_check_tools,     ONLY: init_oce_index
+  USE mo_ocean_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
+  USE mo_ocean_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
     & destruct_ho_params
 
   USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
@@ -82,21 +82,21 @@ MODULE mo_ocean_model
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
     & destruct_atmos_for_ocean, destruct_atmos_fluxes, destruct_sea_ice
 
-  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
+  USE mo_ocean_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, success
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_io_restart,          ONLY: read_restart_header, read_restart_files
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
-  USE mo_oce_patch_setup,     ONLY: complete_ocean_patch
+  USE mo_ocean_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mtime,                  ONLY: setcalendar, proleptic_gregorian
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
-  USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
+  USE mo_ocean_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,           ONLY: write_initial_state

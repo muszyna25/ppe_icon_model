@@ -39,26 +39,26 @@ MODULE mo_hydro_ocean_run
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
     & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
     & timer_scalar_prod_veloc, timer_extra21, timer_extra22
-  USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
+  USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
     & update_time_indices
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state, &
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, &
     & t_operator_coeff, t_solvercoeff_singleprecision
-  USE mo_oce_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
+  USE mo_ocean_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_oce_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: create_restart_file
-  USE mo_oce_bulk,               ONLY: update_surface_flux
+  USE mo_ocean_bulk,               ONLY: update_surface_flux
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_oce_physics,            ONLY: t_ho_params, update_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_potential_density, &
+  USE mo_ocean_physics,            ONLY: t_ho_params, update_ho_params
+  USE mo_ocean_thermodyn,          ONLY: calc_potential_density, &
     & calculate_density! , ocean_correct_ThermoExpansion
   USE mo_name_list_output,       ONLY: write_name_list_output
-  USE mo_oce_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi, calc_psi_vn
-  USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
+  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi, calc_psi_vn
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config
   USE mo_master_control,         ONLY: is_restart_run

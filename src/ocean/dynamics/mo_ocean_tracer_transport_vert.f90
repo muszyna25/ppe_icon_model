@@ -15,7 +15,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_tracer_transport_vert
+MODULE mo_ocean_tracer_transport_vert
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
   !USE mo_math_utilities,            ONLY: t_cartesian_coordinates
@@ -29,12 +29,12 @@ MODULE mo_oce_tracer_transport_vert
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
     & timer_adpo_vert  !, timer_dif_vert,
-  USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_verticalAdvection_ppm_coefficients, &
+  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_verticalAdvection_ppm_coefficients, &
     & t_operator_coeff
   USE mo_model_domain,              ONLY: t_patch,t_patch_3d, t_patch_vert
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_util_dbg_prnt,             ONLY: dbg_print
-  USE mo_oce_physics
+  USE mo_ocean_physics
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_patch_array
 
@@ -1908,7 +1908,7 @@ CONTAINS
       & +  ABS( p_vn )*( p_psi2 - p_psi1 ) )
   END FUNCTION laxfr_upflux_v
   
-END MODULE mo_oce_tracer_transport_vert
+END MODULE mo_ocean_tracer_transport_vert
   !------------------------------------------------------------------------
 
 

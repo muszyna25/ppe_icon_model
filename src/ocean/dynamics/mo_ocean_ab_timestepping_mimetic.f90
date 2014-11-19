@@ -20,7 +20,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_ab_timestepping_mimetic
+MODULE mo_ocean_ab_timestepping_mimetic
 
   USE mo_kind,                      ONLY: wp, sp
   USE mo_parallel_config,           ONLY: nproma, l_fast_sum
@@ -50,31 +50,31 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_physical_constants,        ONLY: grav,rho_inv
   USE mo_ocean_initialization,      ONLY: is_initial_timestep
-  USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
+  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,            ONLY: t_external_data
   USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e, &
     & ocean_restart_gmres_singlePrecesicion
   USE mo_exception,                 ONLY: message, finish, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
-  USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
-  USE mo_oce_thermodyn,             ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
-  USE mo_oce_physics,               ONLY: t_ho_params
+  USE mo_ocean_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
+  USE mo_ocean_thermodyn,             ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
+  USE mo_ocean_physics,               ONLY: t_ho_params
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
     & map_edges2edges_viacell_3d_const_z,   &
     & map_edges2edges_viacell_2D_constZ_sp
-  USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
+  USE mo_ocean_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
     & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, calculate_thickness, &
     & div_oce_2d_sp, grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
     & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp
-  USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
+  USE mo_ocean_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
-  USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
+  USE mo_ocean_diffusion,             ONLY: velocity_diffusion,&
     & velocity_diffusion_vertical_implicit,                  &
     & velocity_diffusion_vertical_implicit_onBlock
-  USE mo_oce_types,                 ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
+  USE mo_ocean_types,                 ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
   USE mo_parallel_config,           ONLY: p_test_run
@@ -160,7 +160,7 @@ CONTAINS
     REAL(sp) :: h_old_sp(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(sp) :: rhs_sfc_eq_sp(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 
-    CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
+    CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
     patch_2D     => patch_3d%p_patch_2d(1)
     all_cells    => patch_2D%cells%ALL
@@ -544,7 +544,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
     TYPE(t_patch), POINTER :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
-    !  &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
+    !  &       routine = ('mo_ocean_ab_timestepping_mimetic:calculate_explicit_term_ab')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
@@ -650,7 +650,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! STEP 3: compute harmonic or biharmoic laplacian diffusion of velocity.
     !         This term is discretized explicitly. Order and form of the laplacian
-    !         are determined in mo_oce_diffusion according to namelist settings
+    !         are determined in mo_ocean_diffusion according to namelist settings
     !---------------------------------------------------------------------
     
     CALL timer_start(timer_extra3)
@@ -920,7 +920,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain
     INTEGER :: start_edge_index, end_edge_index, dolic_e
     !CHARACTER(len=max_char_length), PARAMETER :: &
-    !  &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
+    !  &       routine = ('mo_ocean_ab_timestepping_mimetic:calculate_explicit_term_ab')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
 
@@ -1027,7 +1027,7 @@ CONTAINS
     INTEGER :: start_edge_index, end_edge_index, dolic_e
     TYPE(t_patch), POINTER :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
-    !  &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
+    !  &       routine = ('mo_ocean_ab_timestepping_mimetic:calculate_explicit_term_ab')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
 
@@ -1107,7 +1107,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     !REAL(wp) :: thick
     !CHARACTER(len=max_char_length), PARAMETER :: &
-    !       & routine = ('mo_oce_ab_timestepping_mimetic:fill_rhs4surface_eq_ab')
+    !       & routine = ('mo_ocean_ab_timestepping_mimetic:fill_rhs4surface_eq_ab')
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
@@ -1298,14 +1298,14 @@ CONTAINS
 !      & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
       & stat = return_status)
     IF (return_status > 0) &
-      & CALL finish("mo_oce_ab_timestepping_mimetic:init_ho_lhs_fields", "Allocation failed")
+      & CALL finish("mo_ocean_ab_timestepping_mimetic:init_ho_lhs_fields", "Allocation failed")
 
     ALLOCATE(lhs_result_sp(nproma,patch%alloc_cell_blocks), &
       & lhs_z_grad_h_sp(nproma,patch%nblks_e),     &
       & lhs_z_e_sp     (nproma,patch%nblks_e),     &
       & stat = return_status)
     IF (return_status > 0) &
-      & CALL finish("mo_oce_ab_timestepping_mimetic:init_ho_lhs_fields", "sp Allocation failed")
+      & CALL finish("mo_ocean_ab_timestepping_mimetic:init_ho_lhs_fields", "sp Allocation failed")
     
     ! these are arrays used by the lhs routine
     lhs_result(:,:)   = 0.0_wp
@@ -1567,7 +1567,7 @@ CONTAINS
     REAL(wp) :: z_grad_h_block(nproma)
     TYPE(t_subset_range), POINTER :: edges_in_domain, owned_cells, owned_edges
     CHARACTER(LEN=*), PARAMETER ::     &
-      & method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
+      & method_name='mo_ocean_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
     TYPE(t_patch), POINTER :: patch
     !----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
@@ -1717,7 +1717,7 @@ CONTAINS
     ! TYPE(t_hydro_ocean_diag), POINTER   :: ocean_state%p_diag
     REAL(wp),  POINTER  :: vertical_velocity(:,:,:)
 
-    CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:alc_vert_velocity_mim_bottomup'
+    CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:alc_vert_velocity_mim_bottomup'
     
     !-----------------------------------------------------------------------
     patch_2D         => patch_3d%p_patch_2d(1)
@@ -1867,14 +1867,14 @@ CONTAINS
       !   criterion is 1mm/year * dtime = 3.17e-11 m/s * dtime
       z_abort = dhdtw_abort*dtime
       IF (MAXVAL(ABS(z_c(:,:))) > z_abort) THEN
-        CALL message('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
+        CALL message('mo_ocean_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
           & 'MISMATCH IN SURFACE EQUATION:')
-        CALL message('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
+        CALL message('mo_ocean_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', &
           & 'Elevation change does not match vertical velocity')
         WRITE(message_text,'(2(a,e20.12))') ' (h_new-h_old)/dtime - w = ', MAXVAL(ABS(z_c(:,:))), &
           & ' z_abort=', z_abort
-        CALL message ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', message_text)
-        CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
+        CALL message ('mo_ocean_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup', message_text)
+        CALL finish(TRIM('mo_ocean_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
           & 'MISMATCH in surface equation')
       ENDIF
     ENDIF ! (debug_check_level > 8)
@@ -2112,4 +2112,4 @@ CONTAINS
   END SUBROUTINE jacobi_precon
   !-------------------------------------------------------------------------
 
-END MODULE mo_oce_ab_timestepping_mimetic
+END MODULE mo_ocean_ab_timestepping_mimetic

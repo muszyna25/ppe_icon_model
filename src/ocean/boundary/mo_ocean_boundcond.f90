@@ -22,7 +22,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_boundcond
+MODULE mo_ocean_boundcond
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
@@ -35,12 +35,12 @@ MODULE mo_oce_boundcond
   USE mo_exception,          ONLY: message, finish
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_oce_types,          ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,          ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_oce_physics,        ONLY: t_ho_params
-!   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
+  USE mo_ocean_physics,        ONLY: t_ho_params
+!   USE mo_ocean_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
@@ -98,7 +98,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells   
     TYPE(t_patch), POINTER        :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
-    !& routine = ('mo_oce_boundcond:top_bound_cond_veloc')
+    !& routine = ('mo_ocean_boundcond:top_bound_cond_veloc')
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
     all_cells => patch_2D%cells%all
@@ -291,7 +291,7 @@ CONTAINS
     REAL(wp) :: z_norm
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
+      & routine = ('mo_ocean_boundcond:bot_bound_cond_veloc')
     TYPE(t_patch), POINTER        :: patch_2D
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
@@ -546,7 +546,7 @@ CONTAINS
 ! !     REAL(wp) :: grad_h_u(1:nproma,1,1:patch_2D%alloc_cell_blocks)
 ! !     REAL(wp) :: grad_h_v(1:nproma,1,1:patch_2D%alloc_cell_blocks)
 ! !     ! CHARACTER(len=max_char_length), PARAMETER :: &
-! !     !          & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
+! !     !          & routine = ('mo_ocean_boundcond:bot_bound_cond_veloc')
 ! !     !-----------------------------------------------------------------------
 ! !     rl_start = 1
 ! !     rl_end = min_rlcell
@@ -674,7 +674,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     
     ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_oce_boundcond:top_bound_cond_tracer')
+    !        & routine = ('mo_ocean_boundcond:top_bound_cond_tracer')
     !-----------------------------------------------------------------------
     all_cells => patch_2D%cells%all
     
@@ -743,4 +743,4 @@ CONTAINS
   END SUBROUTINE bot_bound_cond_tracer
   !-------------------------------------------------------------------------
   
-END MODULE mo_oce_boundcond
+END MODULE mo_ocean_boundcond

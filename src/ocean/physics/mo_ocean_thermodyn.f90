@@ -25,7 +25,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_thermodyn
+MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells
@@ -43,7 +43,7 @@ MODULE mo_oce_thermodyn
   PRIVATE
   
  
-  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
+  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_thermodyn'
 ! CHARACTER(len=12)           :: str_module    = 'oce_thermody'  ! Output of module for 1 line debug
   
   ! PUBLIC :: ocean_correct_ThermoExpansion
@@ -52,7 +52,7 @@ MODULE mo_oce_thermodyn
   PUBLIC :: calculate_density_onColumn
   PUBLIC :: calc_internal_press_grad
   !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
-  !only used in "calc_internal_press", whilethe function version is used in mo_oce_physics
+  !only used in "calc_internal_press", whilethe function version is used in mo_ocean_physics
   !(sbr "update_ho_params") to calculate the local Richardson number.
   !PUBLIC :: density_linear_function
   !PUBLIC :: density_jmdwfg06_function
@@ -243,7 +243,7 @@ CONTAINS
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
     IF(l_partial_cells)THEN
-      CALL finish('mo_oce_thermodyn: This pressure calculation does NOT work with partial cells!','!!')
+      CALL finish('mo_ocean_thermodyn: This pressure calculation does NOT work with partial cells!','!!')
     ENDIF
     
     !CALL message (TRIM(routine), 'start')
@@ -1319,5 +1319,5 @@ CONTAINS
   !------------------------------------------------------------------------------
   
     
-END MODULE mo_oce_thermodyn
+END MODULE mo_ocean_thermodyn
 

@@ -17,7 +17,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_diffusion
+MODULE mo_ocean_diffusion
   
   USE mo_kind,                ONLY: wp
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec !, gc2cc
@@ -26,11 +26,11 @@ MODULE mo_oce_diffusion
   USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
-  USE mo_oce_physics,         ONLY: t_ho_params
+  USE mo_ocean_physics,         ONLY: t_ho_params
   USE mo_scalar_product,      ONLY: map_cell2edges_3d
-  USE mo_oce_math_operators,  ONLY: div_oce_3d, rot_vertex_ocean_3d,&
+  USE mo_ocean_math_operators,  ONLY: div_oce_3d, rot_vertex_ocean_3d,&
     & map_edges2vert_3d
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -86,7 +86,7 @@ CONTAINS
     !REAL(wp) :: z_lapl(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     !INTEGER  :: level
     ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_oce_diffusion:velocity_diffusion_horz')
+    !        & routine = ('mo_ocean_diffusion:velocity_diffusion_horz')
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
@@ -306,7 +306,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_edges, edges_in_domain, edges_gradIsCalculable
     TYPE(t_patch), POINTER :: patch_2D
     ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_oce_diffusion:velocity_diffusion_horz')
+    !        & routine = ('mo_ocean_diffusion:velocity_diffusion_horz')
     !-------------------------------------------------------------------------------
     patch_2D         => patch_3D%p_patch_2d(1)
     all_cells       => patch_2D%cells%ALL
@@ -874,7 +874,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: patch_2D
     ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_oce_diffusion:tracer_diffusion_vert')
+    !        & routine = ('mo_ocean_diffusion:tracer_diffusion_vert')
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2d(1)
     all_cells => patch_2D%cells%ALL
@@ -1326,4 +1326,4 @@ CONTAINS
 !   !------------------------------------------------------------------------
 
   
-END MODULE mo_oce_diffusion
+END MODULE mo_ocean_diffusion

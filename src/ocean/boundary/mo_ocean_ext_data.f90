@@ -218,7 +218,7 @@ CONTAINS
     shape2d_e = (/ nproma, nblks_e /)
 
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, forcing_timescale data sets
-    ! for type of forcing see mo_oce_bulk
+    ! for type of forcing see mo_ocean_bulk
     idim_omip = 0
     use_windstress_only = (&
       & (forcing_windstress_u_type == 1 .OR. forcing_windstress_u_type == 5) .AND. &

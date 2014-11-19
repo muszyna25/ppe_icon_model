@@ -39,17 +39,17 @@ MODULE mo_ocean_statistics
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
-  USE mo_oce_state,              ONLY: ocean_restart_list
+  USE mo_ocean_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_oce_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
   USE mo_mpi,                    ONLY: my_process_is_stdio

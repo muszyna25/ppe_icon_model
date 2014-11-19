@@ -13,7 +13,7 @@
 !! headers of the routines.
 !!
 !!
-MODULE mo_oce_types
+MODULE mo_ocean_types
 
   USE mo_kind,                ONLY: wp, sp
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -591,5 +591,5 @@ MODULE mo_oce_types
   END TYPE t_hydro_ocean_state
 
   
-END MODULE mo_oce_types
+END MODULE mo_ocean_types
 

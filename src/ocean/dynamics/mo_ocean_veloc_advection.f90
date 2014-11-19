@@ -21,7 +21,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_veloc_advection
+MODULE mo_ocean_veloc_advection
   !-------------------------------------------------------------------------
   !
   USE mo_kind,                ONLY: wp
@@ -31,8 +31,8 @@ MODULE mo_oce_veloc_advection
   USE mo_impl_constants,      ONLY: boundary, min_dolic
   USE mo_ocean_nml,           ONLY: n_zlev!, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_types,           ONLY: t_hydro_ocean_diag
-  USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, &
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_diag
+  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, &
     &                               rot_vertex_ocean_3d,         &
     &                               verticalDeriv_vec_midlevel_on_block,&
     &                               verticalDeriv_scalar_midlevel_on_block
@@ -1663,4 +1663,4 @@ CONTAINS
   ! ! END FUNCTION laplacian4vortex_flux
   !-------------------------------------------------------------------------
 
-END MODULE mo_oce_veloc_advection
+END MODULE mo_ocean_veloc_advection

@@ -17,7 +17,7 @@
 !----------------------------
 ! #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_oce_GM_Redi
+MODULE mo_ocean_GM_Redi
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
@@ -40,11 +40,11 @@ MODULE mo_oce_GM_Redi
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
-  USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
-  USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
-  USE mo_oce_physics
+  USE mo_ocean_boundcond,             ONLY: top_bound_cond_tracer
+  USE mo_ocean_physics
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_e, sync_patch_array
@@ -52,7 +52,7 @@ MODULE mo_oce_GM_Redi
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
  
-  USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_midlevel_on_block
+  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_midlevel_on_block
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_scalar_center2prismtop, map_scalar_prismtop2center
   IMPLICIT NONE
@@ -157,7 +157,7 @@ CONTAINS
                                                  & ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index),&
                                                  & tracer_index)
     CASE DEFAULT
-    CALL finish(TRIM('mo_oce_GM_Redi'), 'This GMRedi_configuration is not supported')
+    CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
     
     END SELECT
 
@@ -1881,6 +1881,6 @@ CONTAINS
 
 
 
-END MODULE mo_oce_GM_Redi
+END MODULE mo_ocean_GM_Redi
 
 

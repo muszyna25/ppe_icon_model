@@ -32,20 +32,20 @@ MODULE mo_ocean_testbed_modules
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total
-  USE mo_oce_ab_timestepping,    ONLY: &
+  USE mo_ocean_ab_timestepping,    ONLY: &
 !    solve_free_surface_eq_ab, &
 !   & calc_vert_velocity,       &
     & update_time_indices
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_oce_tracer,             ONLY: advect_tracer_ab
-  USE mo_oce_bulk,               ONLY: update_surface_flux
+  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_bulk,               ONLY: update_surface_flux
   USE mo_sea_ice,                ONLY: salt_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
-  USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_GM_Redi,            ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func,&
+  USE mo_ocean_physics,            ONLY: t_ho_params
+  USE mo_ocean_GM_Redi,            ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func,&
   &                                    prepare_ocean_physics,calc_ocean_physics
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics
@@ -55,11 +55,11 @@ MODULE mo_ocean_testbed_modules
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
-  USE mo_oce_math_operators,        ONLY: div_oce_3d, verticalDiv_scalar_midlevel 
+  USE mo_ocean_math_operators,        ONLY: div_oce_3d, verticalDiv_scalar_midlevel 
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range 
-  USE mo_oce_diffusion,             ONLY: tracer_diffusion_vertical_implicit,tracer_diffusion_horz
+  USE mo_ocean_diffusion,             ONLY: tracer_diffusion_vertical_implicit,tracer_diffusion_horz
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_oce_tracer_transport_horz, ONLY: diffuse_horz
+  USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
 !   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
 
   IMPLICIT NONE
