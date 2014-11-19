@@ -47,8 +47,8 @@ MODULE mo_sea_ice
     &                               i_Qio_type , &
     &                               init_analytic_conc_param, init_analytic_conc_type, init_analytic_hi_param, &
     &                               init_analytic_hi_type, init_analytic_hs_param, init_analytic_hs_type
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state
-  USE mo_oce_state,           ONLY: v_base, &
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
+  USE mo_ocean_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
   USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_metadata,        ONLY: groups
@@ -2171,7 +2171,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_bulk_flux_ice'
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:calc_bulk_flux_ice'
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
@@ -2387,7 +2387,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_bulk_flux_oce
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:calc_bulk_flux_oce
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
