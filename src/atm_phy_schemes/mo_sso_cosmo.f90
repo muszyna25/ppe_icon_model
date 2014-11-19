@@ -351,7 +351,7 @@ SUBROUTINE sso (                                                       &
            ie     , ke     , ke1    ,  istart  , iend   ,              &
            ppf    , pph    , pfif   , pt       , pu , pv  , pfis     , &
            psso_stdh, psso_gamma, psso_theta, psso_sigma,              &
-           pdt    ,                                                    &
+           pdt    , mkenvh,                                            &
            ldebug ,                                                    &
            pdu_sso, pdv_sso, pdt_sso, pustr_sso, pvstr_sso, pvdis_sso  )
 
@@ -453,9 +453,9 @@ SUBROUTINE sso (                                                       &
 !     -----------------------------
 
 !     Indicators of significant levels for the operation of the scheme
+      INTEGER, INTENT(OUT) ::  mkenvh (ie) ! level index denoting top of envelope layer
       INTEGER  mcrit  (ie)
       INTEGER  mkcrith(ie)
-      INTEGER  mkenvh (ie)
       INTEGER  mknu   (ie)
       INTEGER  mknu2  (ie)
 

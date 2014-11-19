@@ -1392,8 +1392,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
   ! COSMO SSO scheme
   !
-  IF ( (atm_phy_nwp_config(jg)%inwp_sso == 1)  .AND. (jg == 1) ) THEN
-    CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
+  IF ( atm_phy_nwp_config(jg)%inwp_sso == 1 ) THEN
+    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
+    prm_diag%ktop_envel(:,:) = nlev
   ENDIF
 
   !  WW diagnostics
