@@ -1103,7 +1103,7 @@ CONTAINS
        is_at_full_level(n) = .FALSE.
      CASE('swf') 
        longname = 'net shortwave flux'
-       unit     = ''
+       unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
