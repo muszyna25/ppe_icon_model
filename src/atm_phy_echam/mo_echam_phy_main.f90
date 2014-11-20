@@ -7,6 +7,7 @@
 !! @par Revision History
 !!  Original version from ECHAM6 (revision 2028)
 !!  Modified for ICOHAM by Hui Wan and Marco Giorgetta (2010)
+!!  Modified for ICONAM by Marco Giorgetta (2014)
 !!
 !! @par Copyright and License
 !!
@@ -48,7 +49,7 @@ MODULE mo_echam_phy_main
     &                               timer_cucall, timer_vdiff
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_sfc_indices,         ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover

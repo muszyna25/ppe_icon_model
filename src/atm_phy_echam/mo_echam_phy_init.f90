@@ -1,6 +1,5 @@
 !>
-!! @brief Contains subroutines for initializing the ECHAM physics
-!! package in ICOHAM.
+!! @brief Contains subroutines for initializing the ECHAM physics package.
 !!
 !! @author Hui Wan, MPI-M
 !!
@@ -70,8 +69,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
-                                   & init_sfc_indices
+  USE mo_sfc_indices,          ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
 
   ! subgrid scale orography
   USE mo_ssodrag,              ONLY: sugwd
@@ -150,7 +148,7 @@ CONTAINS
         tsi      = tsi_radt
       CASE (1)
         ! in this case, transient solar irradiation is used and has to be implemented inside
-        ! the time loop (mo_interface_icoham_echam)
+        ! the time loop (mo_echam_phy_bcs)
         CONTINUE
       CASE (2)
         ssi_radt(:) = ssi_preind(:)
@@ -188,7 +186,7 @@ CONTAINS
 
     ! For surface processes:
     ! nsfc_type, iwtr, etc. are set in this subroutine.
-    ! See mo_icoham_sfc_indicies.f90 for further details.
+    ! See mo_sfc_indices.f90 for further details.
 
     CALL init_sfc_indices( ctest_name )
 
