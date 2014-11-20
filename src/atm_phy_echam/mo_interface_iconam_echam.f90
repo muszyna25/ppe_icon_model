@@ -162,7 +162,6 @@ CONTAINS
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
-    LOGICAL  :: any_uv_tend
     LOGICAL  :: ltrig_rad
     REAL(wp) :: time_radtran
 
@@ -442,96 +441,64 @@ CONTAINS
     !     normal wind vn.
     !
     !
-    any_uv_tend = echam_phy_config%lconv     .OR. &
-      &           echam_phy_config%lvdiff    .OR. &
-      &           echam_phy_config%lgw_hines .OR. &
-      &           echam_phy_config%lssodrag
-
-    IF (any_uv_tend) THEN
-
-      ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
-        &      zdvdt(nproma,nlev,patch%nblks_c), &
-        &      stat=return_status)
-      IF (return_status > 0) THEN
-        CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
-      END IF
-      zdudt(:,:,:) = 0.0_wp
-      zdvdt(:,:,:) = 0.0_wp
+    ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
+      &      zdvdt(nproma,nlev,patch%nblks_c), &
+      &      stat=return_status)
+    IF (return_status > 0) THEN
+      CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
+    END IF
+    zdudt(:,:,:) = 0.0_wp
+    zdvdt(:,:,:) = 0.0_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
-        zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
-        zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
-      END DO
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+      zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
+      zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ! Now derive the physics-induced normal wind tendency, and add it to the
-      ! total tendency.
-      CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
+    ! Now derive the physics-induced normal wind tendency, and add it to the
+    ! total tendency.
+    CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
 
-      jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
-      jbe   = patch%nblks_e
+    jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
+    jbe   = patch%nblks_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,jes,jee,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,jbe
-        CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
+    DO jb = jbs,jbe
+      CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
+!!$      CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
-        DO jk = 1,nlev
-          DO je = jes,jee
+      DO jk = 1,nlev
+        DO je = jes,jee
 
-            jcn  =   patch%edges%cell_idx(je,jb,1)
-            jbn  =   patch%edges%cell_blk(je,jb,1)
-            zvn1 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v1 &
-              &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v2
+          jcn  =   patch%edges%cell_idx(je,jb,1)
+          jbn  =   patch%edges%cell_blk(je,jb,1)
+          zvn1 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v1 &
+            &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v2
 
-            jcn  =   patch%edges%cell_idx(je,jb,2)
-            jbn  =   patch%edges%cell_blk(je,jb,2)
-            zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
-              &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
+          jcn  =   patch%edges%cell_idx(je,jb,2)
+          jbn  =   patch%edges%cell_blk(je,jb,2)
+          zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
+            &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
 
-            pt_diag%ddt_vn_phy(je,jk,jb) =   pt_int_state%c_lin_e(je,1,jb)*zvn1 &
-              &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
+          pt_diag%ddt_vn_phy(je,jk,jb) =   pt_int_state%c_lin_e(je,1,jb)*zvn1 &
+            &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
 
-          END DO ! je
-        END DO ! jk
+        END DO ! je
+      END DO ! jk
 
-      END DO ! jb
+    END DO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      DEALLOCATE(zdudt, zdvdt)
-
-    ELSE
-
-      jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
-      jbe   = patch%nblks_e
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,jes,jee) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,jbe
-        CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
-
-        DO jk = 1,nlev
-          DO je = jes,jee
-
-            pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
-
-          END DO ! je
-        END DO ! jk
-
-      END DO ! jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    END IF ! any_uv_tend
+    DEALLOCATE(zdudt, zdvdt)
     !
     !=====================================================================================
 
