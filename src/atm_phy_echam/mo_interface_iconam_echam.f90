@@ -222,13 +222,13 @@ CONTAINS
             !
             ! water vapor
             pt_prog_new_rcf%tracer(jc,jk,jb,iqv) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqv)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqv) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqv) * dtadv_loc
             ! cloud water
             pt_prog_new_rcf%tracer(jc,jk,jb,iqc) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqc)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqc) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqc) * dtadv_loc
             ! cloud ice
             pt_prog_new_rcf%tracer(jc,jk,jb,iqi) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqi)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqi) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqi) * dtadv_loc
             !
           END DO
         END DO
@@ -325,7 +325,7 @@ CONTAINS
             &                                      * (pt_prog_new%w(jc,jk,jb)+pt_prog_new%w(jc,jk+1,jb)) &
             &                                      * pt_prog_new%rho(jc,jk,jb) * grav
           !
-          ! Initialize the ECHAM phyiscs tendencies 
+          ! Initialize the tendencies passed to the ECHAM physics 
           prm_tend(jg)%          u(jc,jk,jb)     = 0.0_wp
           prm_tend(jg)%          v(jc,jk,jb)     = 0.0_wp
           !
@@ -595,15 +595,15 @@ CONTAINS
             !
             ! Update with the total phyiscs tendencies
             !
-            pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp(jc,jk,jb)             &
-              &                                    + prm_tend(jg)%temp(jc,jk,jb) * dtadv_loc
+            pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp    (jc,jk,jb)             &
+              &                                    + prm_tend(jg)%temp_phy(jc,jk,jb) * dtadv_loc
             !
             pt_prog_new_rcf%tracer(jc,jk,jb,iqv) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqv)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqv) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqv) * dtadv_loc
             pt_prog_new_rcf%tracer(jc,jk,jb,iqc) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqc)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqc) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqc) * dtadv_loc
             pt_prog_new_rcf%tracer(jc,jk,jb,iqi) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqi)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqi) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqi) * dtadv_loc
             !
             ! Compute new scalar prognostic variables theta_v and exner from temp and tracer
             !
@@ -645,7 +645,7 @@ CONTAINS
       ! - The full physics forcing is passed to the dynamical core
       !   - pt_diag%ddt_vn_phy is ready
       !   - pt_diag%ddt_exner_phy needs to be computed from the new state
-      !     and the tendencies prm_tend(jg)%temp and prm_tend(jg)%q
+      !     and the tendencies prm_tend(jg)%temp_phy and prm_tend(jg)%q_phy
 
       ! Loop over cells
 !$OMP PARALLEL
@@ -663,14 +663,14 @@ CONTAINS
             ! The temperature forcing needs to be converted to an exner forcing, 
             ! which depends on the forcings in temperature and water tracers.
             z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-            z_ddt_qsum = prm_tend(jg)%q(jc,jk,jb,iqc)         + prm_tend(jg)%q(jc,jk,jb,iqi) 
+            z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi) 
             !
             pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
               &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
-              &  * (  prm_tend(jg)%temp(jc,jk,jb)                                           &
+              &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
               &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
               &     + pt_diag%temp(jc,jk,jb)                                                &
-              &     * (        vtmpc1*prm_tend(jg)%q(jc,jk,jb,iqv)         - z_ddt_qsum ) )
+              &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
             !
             ! Reset dynamical exner increment to zero
             ! (it is accumulated over one advective time step in solve_nh)
