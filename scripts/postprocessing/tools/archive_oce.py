@@ -4,6 +4,7 @@ from cdo import *
 import matplotlib
 matplotlib.use('Agg')
 import pylab,numpy,dateutil.parser
+import re
 
 
 # ==============================================================================
@@ -1224,12 +1225,15 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
 # MOC PLOT {{{
 if 'plotMoc' in options['ACTIONS']:
   mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
+  mocDateInfo= re.search('(\d{4}-\d{2}-\d{2})T',mocFiles[-1]).group(1)
+
   mocPlotSetup = {
     'TITLE' : 'ICON: %s : %s %s'%(options['EXP'],mocFiles[-1],'[last 10y mean]'),
     'IFILE' : mocMeanFile,
-    'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s'%(options['EXP'])]),
+    'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s_%s'%(options['EXP'],mocDateInfo)]),
     'OTYPE' : 'png',
   }
+  dbg(mocPlotSetup)
   for k,v in mocPlotSetup.iteritems():
     os.environ[k] = v
   plotCommands.append(mocPlotCmd)
