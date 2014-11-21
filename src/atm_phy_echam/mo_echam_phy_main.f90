@@ -100,11 +100,11 @@ CONTAINS
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
-    REAL(wp) :: zbetaa (nbdim,nlev)       !< qt distribution minimum in beta
-    REAL(wp) :: zbetab (nbdim,nlev)       !< qt distribution maximum in beta
-    REAL(wp) :: zbetass(nbdim,nlev)
+!!$    REAL(wp) :: zbetaa (nbdim,nlev)       !< qt distribution minimum in beta
+!!$    REAL(wp) :: zbetab (nbdim,nlev)       !< qt distribution maximum in beta
+!!$    REAL(wp) :: zbetass(nbdim,nlev)
 
-    REAL(wp) :: zhmixtau   (nbdim,nlev)   !< timescale of mixing for horizontal eddies
+!!$    REAL(wp) :: zhmixtau   (nbdim,nlev)   !< timescale of mixing for horizontal eddies
     REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
     REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
                                           !< due to turbulence. Computed in "vdiff",
@@ -244,10 +244,10 @@ CONTAINS
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
-        ! 3.1 Timescale of mixing for horizontal eddies
-        !
-        zhmixtau(jc,jk) = ctauk*ABS( field%vor(jc,jk,jb) )
-        zhmixtau(jc,jk) = MIN( ctaus,MAX(ctaul,zhmixtau(jc,jk)) )
+!!$        ! 3.1 Timescale of mixing for horizontal eddies
+!!$        !
+!!$        zhmixtau(jc,jk) = ctauk*ABS( field%vor(jc,jk,jb) )
+!!$        zhmixtau(jc,jk) = MIN( ctaus,MAX(ctaul,zhmixtau(jc,jk)) )
         !
         ! 3.2 Thickness of model layer in pressure coordinate; mass of air
         !
@@ -338,21 +338,16 @@ CONTAINS
 
       CALL cover( jce, nbdim, jks,          &! in
         &         nlev, nlevp1,             &! in
-        &         phy_config%icover,        &! in
         &         itype,  zfrw, zfri,       &! in
         &         field% presi_old(:,:,jb), &! in
         &         field% presm_old(:,:,jb), &! in
         &         field%  geom(:,:,jb),     &! in
         &         field%  temp(:,:,jb),     &! in    tm1
         &         field%     q(:,:,jb,iqv), &! in    qm1
-        &         field%     q(:,:,jb,iqc), &! in    xlm1
         &         field%     q(:,:,jb,iqi), &! in    xim1
-        &         field%  aclc(:,:,jb),     &! inout
-        &         field%  xvar(:,:,jb),     &! inout (for "vdiff"+"cloud")
-        &         field% xskew (:,:,jb),    &! inout (for "cloud")
+        &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
         &         invb,                     &! out   (for "cloud")
-        &         field% rintop(:,  jb),    &! out   (for output)
-        &         zbetaa, zbetab, zbetass )  ! out   (for "cloud")
+        &         field% rintop(:,  jb)    ) ! out   (for output)
 
       IF (ltimer) CALL timer_stop(timer_cover)
     ENDIF ! lcond
@@ -1387,7 +1382,7 @@ CONTAINS
           &         tend% q(:,:,jb,iqv),      &! inout.  qte
           &         tend% q(:,:,jb,iqc),      &! inout. xlte
           &         tend% q(:,:,jb,iqi),      &! inout. xite
-          &        field% aclc  (:,:,jb),     &! out
+          &        field% aclc  (:,:,jb),     &! inout
           &        field% aclcov(:,  jb),     &! out
           &        field%  qvi  (:,  jb),     &! out
           &        field% xlvi  (:,  jb),     &! out
