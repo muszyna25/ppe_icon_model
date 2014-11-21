@@ -780,7 +780,6 @@ CONTAINS
     IF (phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff)
 
-      IF (phy_config%ljsbach) THEN
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
                      & jce, nbdim, nlev, nlevm1, nlevp1,&! in
@@ -836,59 +835,7 @@ CONTAINS
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                      & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
-      ELSE
-      CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
-                     & vdiff_config%lsfc_heat_flux,     &! in
-                     & jce, nbdim, nlev, nlevm1, nlevp1,&! in
-                     & ntrac, nsfc_type,                &! in
-                     & iwtr, iice, ilnd,                &! in, indices of different surface types
-                     & psteplen,                        &! in, time step (2*dt if leapfrog)
-                     & field%coriol(:,jb),              &! in, Coriolis parameter
-                     & zfrc(:,:),                       &! in, area fraction of each sfc type
-                     & field% tsfc_tile(:,jb,:),        &! in, surface temperature
-                     & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
-                     & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                     & field% presi_old(:,nlevp1,jb),   &! in, sfc pressure
-                     & field%    u(:,:,jb),             &! in, um1
-                     & field%    v(:,:,jb),             &! in, vm1
-                     & field% temp(:,:,jb),             &! in, tm1
-                     & field%    q(:,:,jb,iqv),         &! in, qm1
-                     & field%    q(:,:,jb,iqc),         &! in, xlm1
-                     & field%    q(:,:,jb,iqi),         &! in, xim1
-                     & field%   qx(:,:,jb),             &! in, xlm1 + xim1
-                     & field%    q(:,:,jb,iqt:),        &! in, xtm1
-                     & field% presi_old(:,:,jb),        &! in, aphm1
-                     & field% presm_old(:,:,jb),        &! in, apm1
-                     & zdelp(:,:),                      &! in, layer thickness [Pa]
-                     & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
-                     & field%   tv(:,:,jb),             &! in, virtual temperaturea
-                     & field% aclc(:,:,jb),             &! in, cloud fraction
-                     & zxt_emis,                        &! in, zxtems
-                     & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
-                     & field%   xvar(:,:,jb),           &! in
-                     & field% z0m_tile(:,jb,:),         &! in
-                     & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
-                     & field%  ustar(:,  jb),           &! inout
-                     & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
-                     & ihpbl(:),                        &! out, for "vdiff_up"
-                     & field%    ghpbl(:,jb),           &! out, for output
-                     & field%      ri (:,:,jb),         &! out, for output
-                     & field%  mixlen (:,:,jb),         &! out, for output
-                     & field% cfm     (:,:,jb),         &! out, for output
-                     & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
-                     & field% cfh     (:,:,jb),         &! out, for output
-                     & field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
-                     & field% cfv     (:,:,jb),         &! out, for output
-                     & field% cftke   (:,:,jb),         &! out, for output
-                     & field% cfthv   (:,:,jb),         &! out, for output
-                     & zaa, zaa_btm, zbb, zbb_btm,      &! out, for "vdiff_up"
-                     & zfactor_sfc(:),                  &! out, for "vdiff_up"
-                     & zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
-                     & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
-                     & zqshear(:,:),                    &! out, for "vdiff_up"
-                     & zthvvar(:,:),                    &! out, for "vdiff_up"
-                     & ztkevn (:,:)                     )! out, for "vdiff_up"
-      ENDIF ! ljsbach
+
       IF (ltimer) CALL timer_stop(timer_vdiff)
 
     ! 5.4 Surface processes that provide time-dependent lower boundary

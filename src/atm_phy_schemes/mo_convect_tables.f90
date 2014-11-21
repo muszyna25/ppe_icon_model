@@ -60,7 +60,6 @@ MODULE mo_convect_tables
   ! subroutines public
 
   PUBLIC :: compute_qsat
-  PUBLIC :: compute_qsat_amip
   PUBLIC :: init_convect_tables ! initialize LUTs
   PUBLIC :: lookuperror         ! error handling routine
   PUBLIC :: prepare_ua_index_spline
@@ -1159,37 +1158,7 @@ CONTAINS
   !! Compute saturation specific humidity
   !! from the given temperature and pressure.
   !!
-  SUBROUTINE compute_qsat( kproma, kbdim, ppsfc, ptsfc, pqs )
-
-    INTEGER, INTENT(IN)  :: kbdim, kproma
-    REAL(wp),INTENT(IN)  :: ppsfc (kbdim)   !< surface pressure
-    REAL(wp),INTENT(IN)  :: ptsfc (kbdim)   !< SST
-    REAL(wp),INTENT(OUT) :: pqs   (kbdim)   !< saturation specific humidity
-
-    INTEGER  :: itemp  !< temperature*1000
-    INTEGER  :: jc     !< column index
-    REAL(wp) :: zes    !< (saturation vapour pressure)*Rd/Rv/ps
-
-    !-----
-    lookupoverflow = .FALSE.
-
-    DO jc = 1,kproma
-      itemp   = NINT(ptsfc(jc)*1000._wp)
-      IF (itemp<jptlucu1 .OR. itemp>jptlucu2) lookupoverflow = .TRUE.
-      itemp   = MAX(MIN(itemp,jptlucu2),jptlucu1)
-      zes     = tlucua(itemp)/ppsfc(jc)
-      pqs(jc) = zes/(1._wp-vtmpc1*zes)
-    ENDDO
-
-    IF (lookupoverflow) CALL lookuperror ('compute_qsat')
-
-  END SUBROUTINE compute_qsat
-  !-------------
-  !>
-  !! Compute saturation specific humidity
-  !! from the given temperature and pressure.
-  !!
-  SUBROUTINE compute_qsat_amip( kbdim, is, loidx, ppsfc, ptsfc, pqs )
+  SUBROUTINE compute_qsat( kbdim, is, loidx, ppsfc, ptsfc, pqs )
 
     INTEGER, INTENT(IN)  :: kbdim, is
     INTEGER ,INTENT(IN)  :: loidx(kbdim)!<
@@ -1217,7 +1186,7 @@ CONTAINS
 !
     IF (lookupoverflow) CALL lookuperror ('compute_qsat_amip')
 
-  END SUBROUTINE compute_qsat_amip
+  END SUBROUTINE compute_qsat
   !-------------
 
 
