@@ -710,6 +710,8 @@ run/checksuite.coupled/exp.couple_atmo-ocean-prod -text
 run/checksuite.coupled/exp.coupled_r2b3 -text
 run/checksuite.icon-dev/check.atm_amip -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.ocean_internal/buildbot/exp.oce_SmallBoxACC_0080km_cell_ptest -text
+run/checksuite.ocean_internal/buildbot/exp.oce_omip_160km_cell_ptest -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
@@ -718,7 +720,7 @@ run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
 run/checksuite.ocean_internal/omip/exp.oce_omipR2B04L40 -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160-40km_R-refined-NAtlantic -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160km_40levels_cell -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_160km_cell_ptest -text
+run/checksuite.ocean_internal/omip/exp.oce_omip_160km_cell_long-ptest -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160km_edge -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_testSurface -text
 run/checksuite.ocean_internal/other/exp.check_restart -text
