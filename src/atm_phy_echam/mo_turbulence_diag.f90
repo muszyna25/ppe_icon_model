@@ -1,3 +1,8 @@
+#ifdef __xlC__
+@PROCESS HOT
+#else
+#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
+#endif
 !>
 !! @brief Subroutines for computing turbulent exchange coefficients.
 !!
@@ -20,22 +25,18 @@ MODULE mo_turbulence_diag
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
-  USE mo_convect_tables,    ONLY: tlucua, jptlucu1, jptlucu2,               &
-    &                             lookuperror, lookupoverflow,              &
+  USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
+  USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
+    &                             da1, custf, cwstf, cfreec, tpfac1,        &
+    &                             epshr=>eps_shear, epcor=>eps_corio,       &
+    &                             tkemin=>tke_min, cons2, cons25, cons5
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref
 #ifdef __ICON__
 !  USE mo_exception,         ONLY: message, message_text, finish
-  USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
-    &                             da1, custf, cwstf, cfreec,                &
-    &                             epshr=>eps_shear, epcor=>eps_corio,       &
-    &                             tkemin=>tke_min, cons2, cons25, cons5
+  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
 #else
-  USE mo_physc2,            ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
-    &                             da1, custf, cwstf, cfreec,                &
-    &                             epshr, epcor, tkemin, cons2, cons25, cons5
   USE mo_time_control,      ONLY: lstart
 #endif
 
@@ -63,6 +64,9 @@ CONTAINS
   !! Separated from vdiff.f90 of ECHAM6 and re-organized by Hui Wan (2010-09).
   !!
   SUBROUTINE atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
+#ifndef __ICON__
+                               & lstart,                                  &! in
+#endif
                                & pstep_len, pcoriol,                      &! in
                                & pum1, pvm1, ptm1, ptvm1, pgeom1,         &! in
                                & pqm1, pxm1,                              &! in
@@ -81,17 +85,22 @@ CONTAINS
                                & pri, pmixlen                             )
     ! Arguments
 
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1
+    INTEGER, INTENT(IN) :: kproma, kbdim
+    INTEGER, INTENT(IN) :: klev, klevm1, klevp1
+#ifndef __ICON__
+    LOGICAL, INTENT(IN) :: lstart
+#endif
     REAL(wp),INTENT(IN) :: pstep_len
     REAL(wp),INTENT(IN) :: pcoriol(kbdim)   !< Coriolis parameter: 2*omega*sin(lat)
-    REAL(wp),INTENT(IN) :: pum1(kbdim,klev),   pvm1(kbdim,klev)
-    REAL(wp),INTENT(IN) :: ptm1(kbdim,klev),   ptvm1(kbdim,klev)
-    REAL(wp),INTENT(IN) :: pgeom1(kbdim,klev), pqm1(kbdim,klev)
     REAL(wp),INTENT(IN) :: pxm1(kbdim,klev)
-    REAL(wp),INTENT(IN) :: papm1(kbdim,klev),  paphm1(kbdim,klevp1)
+    REAL(wp),INTENT(IN) :: ptvm1(kbdim,klev)
+    REAL(wp),INTENT(IN) :: pqm1(kbdim,klev),   pum1(kbdim,klev),  pvm1(kbdim,klev)
+    REAL(wp),INTENT(IN) :: ptm1(kbdim,klev)
     REAL(wp),INTENT(IN) :: paclc(kbdim,klev)
-
+    REAL(wp),INTENT(IN) :: papm1(kbdim,klev),  paphm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pthvvar(kbdim,klev)
+    REAL(wp),INTENT(IN) :: pgeom1(kbdim,klev)
+!    REAL(wp),INTENT(IN) :: pustarm(kbdim)
 
 #ifdef __ICON__
     REAL(wp),INTENT(IN) :: pustarm(kbdim)
@@ -102,68 +111,72 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: ptkem0 (kbdim,klev)
 #endif
 
-    REAL(wp),INTENT(INOUT) :: pcptgz(kbdim,klev)   !< dry static energy    out
-    INTEGER, INTENT(INOUT) :: ihpbl(kbdim)         !< grid level index of PBL top    out
-    REAL(wp),INTENT(INOUT) :: pghabl(kbdim)        !< geopotential of PBL top    out
-
-    REAL(wp),INTENT(INOUT) :: pqshear (kbdim,klevm1) !< vertical gradient of qv    out
-    REAL(wp),INTENT(INOUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at intermediate step    out
-    REAL(wp),INTENT(INOUT) :: ptkevn  (kbdim,klevm1) !< TKE at intermediate time step    out
-
-    REAL(wp),INTENT(INOUT) :: pcfm    (kbdim,klevm1) !< exchange coeff. for u, v    out
-    REAL(wp),INTENT(INOUT) :: pcfh    (kbdim,klevm1) !< exchange coeff. for cptgz and tracers    out
-    REAL(wp),INTENT(INOUT) :: pcfv    (kbdim,klevm1) !< exchange coeff. for variance of qx    out
-    REAL(wp),INTENT(INOUT) :: pcftke  (kbdim,klevm1) !< exchange coeff. for TKE    out
-    REAL(wp),INTENT(INOUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for variance of theta_v    out
-    REAL(wp),INTENT(INOUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coefficients    out
-    REAL(wp),INTENT(INOUT) :: prhoh   (kbdim,klevm1) !< air density at half levels    out
+    INTEGER, INTENT(OUT) :: ihpbl   (kbdim)        !< grid level index of PBL top
+    REAL(wp),INTENT(OUT) :: pghabl  (kbdim)        !< geopotential of PBL top
+    REAL(wp),INTENT(OUT) :: ptkevn  (kbdim,klevm1) !< TKE at intermediate time step
+    REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klevm1) !< exchange coeff. for TKE
+    REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for variance of theta_v
+    REAL(wp),INTENT(OUT) :: pqshear (kbdim,klevm1) !< vertical gradient of qv
+    REAL(wp),INTENT(OUT) :: pcfm    (kbdim,klevm1) !< exchange coeff. for u, v
+    REAL(wp),INTENT(OUT) :: pcfh    (kbdim,klevm1) !< exchange coeff. for cptgz and tracers
+    REAL(wp),INTENT(OUT) :: pcfv    (kbdim,klevm1) !< exchange coeff. for variance of qx
+    REAL(wp),INTENT(OUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at intermediate step
+    REAL(wp),INTENT(OUT) :: pcptgz  (kbdim,klev)   !< dry static energy
+    REAL(wp),INTENT(OUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coefficients
+    REAL(wp),INTENT(OUT) :: prhoh   (kbdim,klevm1) !< air density at half levels
 
     ! _b denotes the values at the bottom level (the klev-th full level)
-    REAL(wp),INTENT(INOUT) :: ptheta_b (kbdim)  !< potential temperature    out
-    REAL(wp),INTENT(INOUT) :: pthetav_b(kbdim)  !< virtual potential temperature    out
-    REAL(wp),INTENT(INOUT) :: pthetal_b(kbdim)  !< liquid (and ice?) potential temperature    out
-    REAL(wp),INTENT(INOUT) :: pqsat_b  (kbdim)  !< specific humidity at saturation    out
-    REAL(wp),INTENT(INOUT) :: plh_b    (kbdim)  !< latent heat    out
+    REAL(wp),INTENT(OUT) :: ptheta_b (kbdim)  !< potential temperature
+    REAL(wp),INTENT(OUT) :: pthetav_b(kbdim)  !< virtual potential temperature
+    REAL(wp),INTENT(OUT) :: pthetal_b(kbdim)  !< liquid (and ice?) potential temperature
+    REAL(wp),INTENT(OUT) :: pqsat_b  (kbdim)  !< specific humidity at saturation
+    REAL(wp),INTENT(OUT) :: plh_b    (kbdim)  !< latent heat
 
     ! Just for output
-    REAL(wp),INTENT(INOUT) :: pri     (kbdim,klevm1) !< moist Richardson number at half levels    out
-    REAL(wp),INTENT(INOUT) :: pmixlen (kbdim,klevm1) !< mixing length    out
+    REAL(wp),INTENT(OUT) :: pri     (kbdim,klevm1) !< moist Richardson number at half levels
+    REAL(wp),INTENT(OUT) :: pmixlen (kbdim,klevm1) !< mixing length
 
     ! Local variables
     ! - Variables defined at full levels
 
+    REAL(wp) :: zlh    (kbdim,klev)  !< latent heat at full levels
     REAL(wp) :: ztheta (kbdim,klev)  !< potential temperature
     REAL(wp) :: zthetav(kbdim,klev)  !< virtual potential temperature
     REAL(wp) :: zthetal(kbdim,klev)  !< liquid (and ice?) potential temperature
     REAL(wp) :: zqsat  (kbdim,klev)  !< specific humidity at saturation
-    REAL(wp) :: zlh    (kbdim,klev)  !< latent heat at full levels
 
     ! - Variables defined at half levels
 
-    REAL(wp) :: zlhh (kbdim,klevm1)   !< latent heat at half levels
-    REAL(wp) :: zdgh (kbdim,klevm1)   !< geopotential difference between two full levels
+    REAL(wp) :: zlhh  (kbdim,klevm1) !< latent heat at half levels
+    REAL(wp) :: zdgh  (kbdim,klevm1) !< geopotential difference between two full levels
 
-    REAL(wp) :: zqsatm  (kbdim,klevm1)
-    REAL(wp) :: ztmitte (kbdim,klevm1)
-    REAL(wp) :: zqmit   (kbdim,klevm1)
-    REAL(wp) :: zthetavh(kbdim,klevm1)
-    REAL(wp) :: zthetah (kbdim,klevm1)
-    REAL(wp) :: zccover (kbdim,klevm1)
-    REAL(wp) :: zqxmit  (kbdim,klevm1)
+    REAL(wp) :: zccover (kbdim,klevm1), zqxmit  (kbdim,klevm1)       &
+               ,zqmit   (kbdim,klevm1), zqsatm  (kbdim,klevm1)       &
+               ,zthetah (kbdim,klevm1), zthetavh(kbdim,klevm1)       &
+               ,ztmitte (kbdim,klevm1)
 
     ! - 1D variables and scalars
 
-    REAL(wp) :: zhdyn (kbdim)
-    INTEGER  :: ihpblc(kbdim), ihpbld(kbdim)
-    REAL(wp) :: zrvrd, zrdrv, zonethird
-    REAL(wp) :: zusus1, zes, zsdep1, zsdep2, zcor, zcons23
-    REAL(wp) :: zrdp, zds, zdz, zri, zqtmit, zfux, zfox
-    REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
-    REAL(wp) :: zdus1, zdus2, zteldif, zthvirdif, zdqtot, zqddif
-    REAL(wp) :: zbuoy, zdusq, zdvsq, zshear, zhexp, zlam, ztvm
-    REAL(wp) :: z2geomf, zz2geo, zmix, zalh2, zucf, zsh, zsm, zzb, zdisl
-    REAL(wp) :: zktest, ztkesq, zthvprod, zthvdiss
+    INTEGER  :: ihpblc(kbdim),          ihpbld(kbdim),          idx(kbdim)
     INTEGER  :: jk, jl, it
+    REAL(wp) :: za(kbdim),              zhdyn(kbdim)                          &
+               ,zpapm1i(kbdim),         zua(kbdim)
+    REAL(wp) :: z2geomf, zalf, zalh2, zbet, zbuoy
+    REAL(wp) :: zcons18, zcons23
+    REAL(wp) :: zcor, zdisl, zdusq, zdvsq
+    REAL(wp) :: zdqtot, zds, zdus1, zdus2, zdz
+    REAL(wp) :: zes, zfox, zfux, zhexp
+    REAL(wp) :: zktest, zlam
+    REAL(wp) :: zmix, zmult1, zmult2, zmult3, zmult4
+    REAL(wp) :: zmult5, zqddif, zqtmit, zrdp
+    REAL(wp) :: zrdrv, zri, zrvrd, zsdep1
+    REAL(wp) :: zsdep2, zsh, zshear, zsm
+    REAL(wp) :: zteldif, ztkesq
+    REAL(wp) :: zthvprod, zthvdiss, zthvirdif
+    REAL(wp) :: zucf, zusus1
+    REAL(wp) :: zz2geo, zzb, ztvm
+
+    REAL(wp) :: zonethird
 
     !-------------------------------------
     ! 1. Some constants
@@ -171,6 +184,7 @@ CONTAINS
     zrvrd     = rv/rd
     zrdrv     = rd/rv
     zonethird = 1._wp/3._wp
+    zcons18   = tpfac1*pstep_len*grav**2
 
     !-------------------------------------
     ! 2. NEW THERMODYNAMIC VARIABLES
@@ -178,13 +192,19 @@ CONTAINS
     lookupoverflow = .FALSE.
 
     DO 212 jk=1,klev
+      CALL prepare_ua_index_spline('vdiff (1)',kproma,ptm1(1,jk),idx(1),za(1))
+      CALL lookup_ua_spline(kproma,idx(1),za(1),zua(1))
+ 
+      zpapm1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
+      ztheta(1:kproma,jk) = (p0ref*zpapm1i(1:kproma))**rd_o_cpd
+
       DO 211 jl=1,kproma
 
         ! Virtual dry static energy, potential temperature, virtual potential
         ! temperature
 
         pcptgz (jl,jk) = pgeom1(jl,jk)+ptm1(jl,jk)*(cpd+(cpv-cpd)*pqm1(jl,jk))
-        ztheta (jl,jk) = ptm1(jl,jk)*(p0ref/papm1(jl,jk))**rd_o_cpd
+        ztheta (jl,jk) = ptm1(jl,jk)*ztheta(jl,jk)
         zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
 
         ! Latent heat, liquid (and ice) potential temperature
@@ -193,15 +213,11 @@ CONTAINS
         zusus1         = zlh(jl,jk)/cpd*ztheta(jl,jk)/ptm1(jl,jk)*pxm1(jl,jk)
         zthetal(jl,jk) = ztheta(jl,jk)-zusus1
 
-        it = NINT(ptm1(jl,jk)*1000._wp)
-        IF (it<jptlucu1 .OR. it>jptlucu2) lookupoverflow = .TRUE.
-        it = MAX(MIN(it,jptlucu2),jptlucu1)
-        zes=tlucua(it)/papm1(jl,jk)          ! (sat. vapour pressure)*Rd/Rv/ps
+        zes=zua(jl)*zpapm1i(jl)              ! (sat. vapour pressure)*Rd/Rv/ps
         zes=MIN(zes,0.5_wp)
         zqsat(jl,jk)=zes/(1._wp-vtmpc1*zes)  ! specific humidity at saturation
 211   END DO
 212 END DO
-    IF (lookupoverflow) CALL lookuperror ('vdiff (1)   ')
 
     ! Copy bottom-level values to dummy arguments
 
