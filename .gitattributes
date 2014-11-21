@@ -730,9 +730,6 @@ run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-ocean-prod -text
 run/exp.coupled_r2b3 -text
 run/exp.ice_melting -text
-run/exp.icon-testbed_communication -text
-run/exp.icon-testbed_grid -text
-run/exp.icon-testbed_read-netcdf -text
 run/exp.oce_AquaAtlanticBox_0079km -text
 run/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/exp.oce_AquaAtlanticBox_0079km_cell_WindTempForcing -text
