@@ -92,7 +92,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  i_nchdom,             & !< 
     &  nlev                    !< Number of levels (equals index of lowest full level)
   REAL(wp),ALLOCATABLE    :: &
-    &  washout_rate(:,:)       !< Washout rates [UNIT kg-1 s-1] or [UNIT m-3 s-1], UNIT might be mug, kg or just a number
+    &  wash_rate_m0(:,:),    & !< Washout rates [UNIT kg-1 s-1] or [UNIT m-3 s-1], UNIT must be a number
+    &  wash_rate_m3(:,:)       !< Washout rates [UNIT kg-1 s-1] or [UNIT m-3 s-1], UNIT might be mug, kg
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
     !-----------------------------------------------------------------------
@@ -109,7 +110,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   
   IF(lart) THEN 
     IF (art_config(jg)%lart_aerosol) THEN
-      ALLOCATE(washout_rate(nproma,nlev))
+      ALLOCATE(wash_rate_m0(nproma,nlev))
+      ALLOCATE(wash_rate_m3(nproma,nlev))
       CALL art_air_properties(p_patch,p_art_data(jg))
       
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
@@ -134,25 +136,25 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, p_trac(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
                    &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
-                   &                .TRUE., washout_rate(:,:), rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb),  &
-                   &                qnr=p_trac(:,:,jb,iqnr))
+                   &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
+                   &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb), qnr=p_trac(:,:,jb,iqnr))
               ELSE
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb), pt_diag%pres(:,:,jb),                         &
                    &                p_trac(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, p_trac(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
                    &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
-                   &                .TRUE., washout_rate(:,:), rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb))
+                   &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
+                   &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb))
               ENDIF
-!              ! Update mass mixing ratios
-!              DO ijsp = 1, fields%info%njsp
-!                CALL art_integrate_explicit(p_trac(:,:,jb,fields%info%jsp(ijsp)),  washout_rate(:,:), dtime,          &
-!                  &                         istart,iend, nlev, opt_rho = rho(:,:,jb),                                 &
-!                  &                         opt_fac = (1._wp/(fields%info%mode_fac * fields%info%factnum)))
-!              ENDDO
-!              ! Update mass-specific number
-!              CALL art_integrate_explicit(p_trac(:,:,jb,fields%info%i_number_conc), washout_rate(:,:), dtime,         &
-!                &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
+              ! Update mass mixing ratios
+              DO ijsp = 1, fields%info%njsp
+                CALL art_integrate_explicit(p_trac(:,:,jb,fields%info%jsp(ijsp)),  wash_rate_m3(:,:), dtime,          &
+                  &                         istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
+              ENDDO
+              ! Update mass-specific number
+              CALL art_integrate_explicit(p_trac(:,:,jb,fields%info%i_number_conc), wash_rate_m0(:,:), dtime,         &
+                &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
             ENDDO
               
           class is (t_fields_volc)
@@ -176,7 +178,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
       ! ----------------------------------
     
       CALL art_clip_lt(p_trac,0.0_wp)
-      DEALLOCATE(washout_rate)
+      DEALLOCATE(wash_rate_m0)
+      DEALLOCATE(wash_rate_m3)
     ENDIF
   ENDIF
 #endif
