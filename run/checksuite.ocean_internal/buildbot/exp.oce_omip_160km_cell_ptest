@@ -15,9 +15,7 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
-output_interval="P${days_data}D"                   # ocean model output interval in days
-(( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
-(( dt_checkpoint  = years_checkpoint  * year ))
+output_interval="P01D"                   # ocean model output interval in days
 (( dt_restart     = years_restart * year ))
 steps_per_file=610   # output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -35,7 +33,8 @@ R=2   # nroot
 B=4   # number of bisections applied
 grid_ext="etopo40_planet_newgeom_noinland"
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/Ocean_160km_noinland_conservative"
+LOC='POOL'
+#grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/Ocean_160km_noinland_conservative"
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 #
