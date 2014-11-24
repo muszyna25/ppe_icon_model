@@ -1,0 +1,46 @@
+require 'pp'
+
+@oceanTechnicalTests = %w[exp.oce_test_parallel.run exp.oce_test_numeric.run exp.ice_melting.run exp.oce_tracer_bubble.run exp.oce_omip_testSurface.run]
+@oceanLongTests      = %w[exp.omipR2B05L40.run exp.oce_SmallBoxACC_0010km_cell.run]
+
+# collect OCEAN test automatically from its checksuite
+@oceanTests = {}
+Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item| 
+  filename = File.basename(item)
+  if not File.directory?(item) and 'exp.' == filename[0,4] then
+    @oceanTests[filename] = item
+  end
+}
+
+# define symlink rule
+@oceanTests.each {|template,source|
+  file template => source do 
+    FileUtils.ln_s(source, template, :force => true, :verbose => true)
+  end
+}
+
+# define rule for create .run files from existing template (exp/post)
+(Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'} + @oceanTests.keys ).each {|template|
+  runScriptName = "#{template}.run"
+  file runScriptName => template do
+    sh "cd ..; ./make_runscripts #{template.sub(/^exp./,'')}"
+  end
+}
+
+desc "Show all known ocean tests"
+task :showOcean do
+  LINELENGTH = 80
+  @oceanTests.each {|k,v|
+    puts [k.ljust(50,' '),v].join(':')
+  }
+end
+
+desc "Ocean level 1 tests: Anything, that has to be done for going into icon-ocean-dev"
+task :oceanDevLong => ['exp.oce_omip_ref.run','exp.oce_AquaAtlanticBox_0079km.run','exp.oce_SmallBoxACC_0080km_cell.run'] do |t|
+  pp t.prerequisites
+end
+
+desc "Run Smaller technical tests on the ocean model"
+task :oceanDevShort => @oceanTechnicalTests do |t|
+  pp t.prerequisites
+end
