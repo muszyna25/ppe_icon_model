@@ -758,28 +758,41 @@ CONTAINS
               &                                 + p_sfc_flx%FrshFlux_VolumeIce(jc,jb) &
               &                                 + p_sfc_flx%FrshFlux_TotalOcean(jc,jb) &
               &                                 + p_sfc_flx%FrshFlux_Relax(jc,jb)
+            IF ( 1 == i_sea_ice) THEN             
+              !! First, calculate salinity change caused by melting of snow and
+              !! melt or growth of ice: S_new * zUnderIce = S_old * zUnderIceOld
+              s_top(jc,jb) = s_top(jc,jb) * &
+               &             (p_ice%zUnderIce(jc,jb) - p_sfc_flx%FrshFlux_TotalIce(jc,jb)*dtime)/p_ice%zUnderIce(jc,jb)
               
-            !! First, calculate salinity change caused by melting of snow and
-            !! melt or growth of ice: S_new * zUnderIce = S_old * zUnderIceOld
-            s_top(jc,jb) = s_top(jc,jb) * &
-             &             (p_ice%zUnderIce(jc,jb) - p_sfc_flx%FrshFlux_TotalIce(jc,jb)*dtime)/p_ice%zUnderIce(jc,jb)
-            
-            !! Next, calculate salinity change caused by rain and runoff by
-            !! adding their freshwater to zUnderIce
-            zUnderIceOld           =  p_ice%zUnderIce(jc,jb)
-            p_ice%zUnderIce(jc,jb) = p_ice%zUnderIce(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) * dtime
-            s_top(jc,jb)           = s_top(jc,jb) * zUnderIceOld / p_ice%zUnderIce(jc,jb)
-           
+              !! Next, calculate salinity change caused by rain and runoff by
+              !! adding their freshwater to zUnderIce
+              zUnderIceOld           = p_ice%zUnderIce(jc,jb)
+              p_ice%zUnderIce(jc,jb) = p_ice%zUnderIce(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) * dtime
+              s_top(jc,jb)           = s_top(jc,jb) * zUnderIceOld / p_ice%zUnderIce(jc,jb)
+  !           s_top = MERGE( &
+  !             & top_salinity_change(s_top(jc,jb),                         &
+  !             &                     p_ice%zUnderIce(jc,jb),               &
+  !             &                     p_sfc_flx%FrshFlux_TotalIce(jc,jb),   &
+  !             &                     p_sfc_flx%FrshFlux_VolumeTotal(jc,jb),&
+  !             &                     dtime),                          &
+  !             &                     s_top,                           &
+  !             &                     1 == i_sea_ice)
+            END IF
             !! Finally, let sea-level rise from rain and snow fall on ice
-            p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + &
-                              &p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) *dtime + &
-                              &p_ice%totalsnowfall(jc,jb)
+            p_os%p_prog(nold(1))%h(jc,jb) = &
+              & MERGE(p_os%p_prog(nold(1))%h(jc,jb) +                &
+              &       p_sfc_flx%frshflux_volumetotal(jc,jb) *dtime + &
+              &       p_ice%totalsnowfall(jc,jb),                    &
+              &       p_os%p_prog(nold(1))%h(jc,jb) +                &
+              &       p_sfc_flx%frshflux_volumetotal(jc,jb) *dtime,  &
+              &       1 == i_sea_ice)
           ENDIF
         END DO
         
       END DO
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('UpdSfc: zUnderIce After ',p_ice%zUnderIce,str_module, 2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: sTop After ',s_top,str_module, 2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: VolumeFlux ',p_sfc_flx%FrshFlux_VolumeTotal  ,str_module, 2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
@@ -799,6 +812,23 @@ CONTAINS
     END IF
 
   END SUBROUTINE update_surface_flux
+
+   REAL(wp) FUNCTION top_salinity_change(s_top, zUnderIce, FrshFlux_TotalIce, FrshFlux_VolumeTotal, dtime) RESULT(new_salinity)
+   REAL(wp), INTENT(IN)    :: s_top, FrshFlux_TotalIce, FrshFlux_VolumeTotal, dtime
+   REAL(wp), INTENT(INOUT) :: zUnderIce
+
+   REAL(wp)               :: zUnderIceOld
+
+   !! First, calculate salinity change caused by melting of snow and
+   !! melt or growth of ice: S_new * zUnderIce = S_old * zUnderIceOld
+   new_salinity = s_top * (zUnderIce - FrshFlux_TotalIce*dtime)/zUnderIce
+
+   !! Next, calculate salinity change caused by rain and runoff by
+   !! adding their freshwater to zUnderIce
+   zUnderIceOld = zUnderIce
+   zUnderIce    = zUnderIce + FrshFlux_VolumeTotal * dtime
+   new_salinity = new_salinity * zUnderIceOld / zUnderIce
+  END FUNCTION top_salinity_change
 
   !-------------------------------------------------------------------------
   !
