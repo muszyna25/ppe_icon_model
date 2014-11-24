@@ -63,21 +63,25 @@ CONTAINS
   !! @par Revision History
   !! Developed by Helmut Frank, DWD (2013-03-13)
   !!
-  ELEMENTAL FUNCTION nwp_dyn_gust( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
+  ELEMENTAL FUNCTION nwp_dyn_gust( u_10m, v_10m, tcm, u1, v1, u_env, v_env) RESULT( vgust_dyn)
 
     REAL(wp), INTENT(IN) :: u_10m, &    ! zonal wind component at 10 m above ground [m/s]
       &                     v_10m, &    ! meridional wind component at 10 m above ground [m/s]
       &                     tcm  , &    ! transfer coefficient for momentum at surface
       &                     u1   , &    ! zonal wind at lowest model layer above ground [m/s]
-      &                     v1          ! meridional wind at lowest model layer above ground [m/s]
+      &                     v1   , &    ! meridional wind at lowest model layer above ground [m/s]
+      &                     u_env, &    ! zonal wind at top of SSO envelope layer [m/s]
+      &                     v_env       ! meridional wind at top of SSO envelope layer [m/s]
+
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(wp) :: ff10m, ustar
+    REAL(wp) :: ff10m, ustar, utop_ssoenv
     REAL(wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
+    utop_ssoenv = SQRT( u_env**2 + v_env**2)
     ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
-    vgust_dyn = ff10m + gust_factor*ustar
+    vgust_dyn = MAX(utop_ssoenv, ff10m + gust_factor*ustar)
 
   END FUNCTION nwp_dyn_gust
 

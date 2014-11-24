@@ -685,6 +685,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & hor_interp=create_hor_interp_metadata(                       &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
+    ! &      diag%ktop_envel(nproma,nblks_c)
+    cf_desc    = t_cf_var('ktop_envel', '', 'level index of upper boundary of SSO envelope layer', &
+      &                   DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'ktop_envel', diag%ktop_envel,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.  )
 
     ! &      diag%clc(nproma,nlev,nblks_c)
     cf_desc      = t_cf_var('clc', '',  'cloud cover', DATATYPE_FLT32)

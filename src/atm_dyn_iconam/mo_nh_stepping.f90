@@ -303,7 +303,8 @@ MODULE mo_nh_stepping
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF
 
-  IF (iforcing == inwp) THEN
+  SELECT CASE (iforcing)
+  CASE (inwp)
     DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       CALL init_nwp_phy(                            &
@@ -351,7 +352,11 @@ MODULE mo_nh_stepping
       CALL fill_nestlatbc_phys
 
     ENDIF
-  ENDIF  ! iforcing == inwp
+  CASE (iecham)
+    IF (.NOT.is_restart_run()) THEN
+      CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
+    END IF
+  END SELECT ! iforcing
 
   !------------------------------------------------------------------
   !  get and write out some of the initial values
@@ -1347,12 +1352,12 @@ MODULE mo_nh_stepping
               &                      .FALSE.,                           &! in
               &                      t_elapsed_phy,                     &! inout
               &                      lcall_phy )                         ! out
-          END IF
 
-          IF (msg_level >= 13) THEN
-            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
-            CALL message(TRIM(routine), TRIM(message_text))
+            IF (msg_level >= 13) THEN
+              WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
+                &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
+              CALL message(TRIM(routine), TRIM(message_text))
+            END IF
           END IF
 
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN     
@@ -1747,10 +1752,12 @@ MODULE mo_nh_stepping
     ! Set local variable for rcf-time levels
     n_now_rcf = nnow_rcf(jg)
 
-    CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
-      &                      .TRUE.,                         &! in
-      &                      t_elapsed_phy,                  &! inout
-      &                      lcall_phy )                      ! out
+    IF (iforcing == inwp) THEN
+      CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
+        &                      .TRUE.,                         &! in
+        &                      t_elapsed_phy,                  &! inout
+        &                      lcall_phy )                      ! out
+    END IF
 
     IF (msg_level >= 7) THEN
       WRITE(message_text,'(a,i2)') 'initial call of (slow) physics, domain ', jg

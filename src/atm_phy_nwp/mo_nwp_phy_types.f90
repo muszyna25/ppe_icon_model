@@ -330,6 +330,7 @@ MODULE mo_nwp_phy_types
                               !< of the standard atmosphere 850hPa level above ground
       &  k950    (:,:),     & !< level index that corresponds to the height 
                               !< of the standard atmosphere 950hPa level above ground
+      &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 
     REAL(wp), POINTER :: tropics_mask(:,:) !< mask field that is 1 in the tropics and 0 in the extratropics
