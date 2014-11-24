@@ -26,11 +26,7 @@ MODULE mo_vdiff_downward_sweep
                                  & matrix_setup_elim, rhs_setup, rhs_elim
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_physical_constants, ONLY: grav, rd
-#ifdef __ICON__
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
-#else
-  USE mo_physc2,             ONLY: tpfac1, tpfac2, itop
-#endif
 
   IMPLICIT NONE
   PRIVATE

@@ -19,13 +19,11 @@ MODULE mo_vdiff_solver
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: grav, rgrav, cpd, cpv
+  USE mo_echam_vdiff_params,ONLY: clam, da1, tke_min, cons2, cons25, &
+    &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #ifdef __ICON__
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
-  USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
-    &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
-  USE mo_physc2,            ONLY: clam, da1, tkemin, cons2, cons25, &
-    &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_time_control,      ONLY: lstart
   USE mo_semi_impl,         ONLY: eps
 #endif
@@ -892,7 +890,7 @@ CONTAINS
     DO jk = itop,klev
       DO jl = 1,kproma
         pthvvar(jl,jk) = bb(jl,jk,ithv) + tpfac3*pzthvvar(jl,jk)
-        pthvvar(jl,jk) = MAX(tkemin,pthvvar(jl,jk))
+        pthvvar(jl,jk) = MAX(tke_min,pthvvar(jl,jk))
       END DO
     END DO
 
@@ -1063,9 +1061,9 @@ CONTAINS
           zz2geo=cons2*z2geomf
           zmix=zz2geo/(1._wp+zcons23*z2geomf)
           IF(jk.EQ.1) THEN
-             ztkesq=SQRT(MAX(tkemin,ptkem1(jl,1)))
+             ztkesq=SQRT(MAX(tke_min,ptkem1(jl,1)))
           ELSE
-             ztkesq=SQRT(MAX(tkemin,0.5_wp*(ptkem1(jl,jk-1)  &
+             ztkesq=SQRT(MAX(tke_min,0.5_wp*(ptkem1(jl,jk-1)  &
                                            +ptkem1(jl,jk))))
           END IF
           pvmixtau(jl,jk) = ztkesq/(zmix*da1)

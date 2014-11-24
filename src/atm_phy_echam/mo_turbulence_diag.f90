@@ -29,12 +29,11 @@ MODULE mo_turbulence_diag
     &                             compute_qsat
   USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
     &                             da1, custf, cwstf, cfreec, tpfac1,        &
-    &                             epshr=>eps_shear, epcor=>eps_corio,       &
-    &                             tkemin=>tke_min, cons2, cons25, cons5
+    &                             eps_shear, eps_corio, tke_min,            &
+    &                             cons2, cons25, cons5
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref
 #ifdef __ICON__
-!  USE mo_exception,         ONLY: message, message_text, finish
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
 #else
   USE mo_time_control,      ONLY: lstart
@@ -62,6 +61,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Separated from vdiff.f90 of ECHAM6 and re-organized by Hui Wan (2010-09).
+  !!  updated to echam-6.3.01 by Monika Esch (2014-11)
   !!
   SUBROUTINE atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
 #ifndef __ICON__
@@ -100,13 +100,11 @@ CONTAINS
     REAL(wp),INTENT(IN) :: papm1(kbdim,klev),  paphm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pthvvar(kbdim,klev)
     REAL(wp),INTENT(IN) :: pgeom1(kbdim,klev)
-!    REAL(wp),INTENT(IN) :: pustarm(kbdim)
+    REAL(wp),INTENT(IN) :: pustarm(kbdim)
 
 #ifdef __ICON__
-    REAL(wp),INTENT(IN) :: pustarm(kbdim)
     REAL(wp),INTENT(IN) :: ptkem1 (kbdim,klev)
 #else
-    REAL(wp),INTENT(INOUT) :: pustarm(kbdim)
     REAL(wp),INTENT(INOUT) :: ptkem1 (kbdim,klev)
     REAL(wp),INTENT(INOUT) :: ptkem0 (kbdim,klev)
 #endif
@@ -189,7 +187,6 @@ CONTAINS
     !-------------------------------------
     ! 2. NEW THERMODYNAMIC VARIABLES
     !-------------------------------------
-    lookupoverflow = .FALSE.
 
     DO 212 jk=1,klev
       CALL prepare_ua_index_spline('vdiff (1)',kproma,ptm1(1,jk),idx(1),za(1))
@@ -209,7 +206,7 @@ CONTAINS
 
         ! Latent heat, liquid (and ice) potential temperature
 
-        zlh(jl,jk)     = MERGE(alv,als,ptm1(jl,jk).GE.tmelt)  ! latent heat
+        zlh(jl,jk)     = FSEL(ptm1(jl,jk)-tmelt,alv,als) ! latent heat
         zusus1         = zlh(jl,jk)/cpd*ztheta(jl,jk)/ptm1(jl,jk)*pxm1(jl,jk)
         zthetal(jl,jk) = ztheta(jl,jk)-zusus1
 
@@ -261,16 +258,11 @@ CONTAINS
     ! the current time step. Here, ustarm comes from the call to
     ! mo_surface at the previous timestep.
     ! But this should have only a minor effect on ihpbl and ghabl.
+    ! ICON: Initial value of ustar has been set in subroutine "init_phy_memory".
+    ! ECHAM: Initial value of ustar has been set in subroutine "physc".
 
-#ifdef __ICON__
-    ! Initial value of ustar has been set in subroutine "init_phy_memory".
-#else
-    IF (lstart) THEN
-      pustarm(1:kproma) = 1._wp
-    END IF
-#endif
     DO jl = 1,kproma
-      zcor=MAX(ABS(pcoriol(jl)),epcor)
+      zcor=MAX(ABS(pcoriol(jl)),eps_corio)
       zhdyn(jl)=MIN(pgeom1(jl,1)/grav,chneu*pustarm(jl)/zcor)
       ihpblc(jl)=klev
       ihpbld(jl)=klev
@@ -299,34 +291,33 @@ CONTAINS
         ! gradient of specific humidity, wind shear, buoyancy, Ri-number
         ! according to Brinkop and Roeckner (1995, Tellus A)
 
-        zqtmit=zqxmit(jl,jk)+zqmit(jl,jk)       ! qt
-        zfux=zlhh(jl,jk)/(cpd*ztmitte(jl,jk))   ! L/(cpd*T)
-        zfox=zlhh(jl,jk)/(rd*ztmitte(jl,jk))    ! L/(Rd*T)
-        zmult1=1._wp+vtmpc1*zqtmit              ! (1+0.61*qt) = A in clear sky
+        zqtmit=zqxmit(jl,jk)+zqmit(jl,jk)                               ! qt
+        zfux=zlhh(jl,jk)/(cpd*ztmitte(jl,jk))                           ! L/(cpd*T)
+        zfox=zlhh(jl,jk)/(rd*ztmitte(jl,jk))                            ! L/(Rd*T)
+        zmult1=1._wp+vtmpc1*zqtmit                                      ! (1+0.61*qt) = A in clear sky
         zmult2=zfux*zmult1-zrvrd
-        zmult3=zrdrv*zfox*zqsatm(jl,jk)             &
-               /(1._wp+zrdrv*zfux*zfox*zqsatm(jl,jk))
-        zmult5=zmult1-zmult2*zmult3             ! A in cloud
-        zmult4=zfux*zmult5-1._wp                ! D in cloud
+        zmult3=zrdrv*zfox*zqsatm(jl,jk)/(1._wp+zrdrv*zfux*zfox*zqsatm(jl,jk))
+        zmult5=zmult1-zmult2*zmult3                                     ! A in cloud
+        zmult4=zfux*zmult5-1._wp                                        ! D in cloud
         zdus1=zccover(jl,jk)*zmult5+(1._wp-zccover(jl,jk))*zmult1       ! A avg
         zdus2=zccover(jl,jk)*zmult4+(1._wp-zccover(jl,jk))*vtmpc1       ! D avg
         zteldif  =(zthetal(jl,jk)-zthetal(jl,jk+1))/zdgh(jl,jk)*grav    ! d theta_l
         zthvirdif=(zthetav(jl,jk)-zthetav(jl,jk+1))/zdgh(jl,jk)*grav    ! d theta_v
         zdqtot=(pqm1(jl,jk)+pxm1(jl,jk))-(pqm1(jl,jk+1)+pxm1(jl,jk+1))  ! d qt
         zqddif=zdqtot/zdgh(jl,jk)*grav                                  ! (d qt)/(d z)
-        zbuoy  = (zteldif*zdus1+zthetah(jl,jk)*zdus2*zqddif)  &
+        zbuoy  = (zteldif*zdus1+zthetah(jl,jk)*zdus2*zqddif)            &
                 *grav/zthetavh(jl,jk)
         zdusq  = (pum1(jl,jk)-pum1(jl,jk+1))**2
         zdvsq  = (pvm1(jl,jk)-pvm1(jl,jk+1))**2
         zshear = (zdusq+zdvsq)*(grav/zdgh(jl,jk))**2
-        zri    = zbuoy/MAX(zshear,epshr)
+        zri    = zbuoy/MAX(zshear,eps_shear)
 
         pqshear(jl,jk) = zqddif   ! store for variance production
         pri(jl,jk) = zri          ! save for output
 
-        ! ASYMPTOTIC MIXING LENGTH FOR MOMENTUM AND
-        ! HEAT (ZLAM) ABOVE THE PBL AS A FUNCTION OF HEIGHT
-        ! ACCORDING TO HOLTSLAG AND BOVILLE (1992), J. CLIMATE.
+       ! Asymptotic mixing length for momentum and
+       ! heat (zlam) above the PBL as a function of height
+       ! according to Holtslag and Boville (1992), J. CLIMATE.
 
         zhexp=EXP(1._wp-pgeom1(jl,jk)/pgeom1(jl,ihpbl(jl)))
         zlam=1._wp+(clam-1._wp)*zhexp
@@ -336,7 +327,7 @@ CONTAINS
            zcons23=cons2/zlam    ! (1/lambda)*(0.5/grav)
         END IF
 
-        ! MIXING LENGTH (BLACKADAR)
+        ! Mixing length (Blackadar)
 
         z2geomf = pgeom1(jl,jk)+pgeom1(jl,jk+1)  ! half-level value of gz
         zz2geo  = cons2*z2geomf                  ! z*(Karman constant)
@@ -344,7 +335,7 @@ CONTAINS
 
         pmixlen(jl,jk) = zmix   ! save for output
 
-        ! STABILITY FUNCTIONS (LOUIS, 1979)
+        ! Stability functions (Louis, 1979)
 
         IF(zri.LT.0._wp) THEN  ! unstable condition
            zalh2=zmix*zmix
@@ -369,9 +360,9 @@ CONTAINS
         zdisl=da1*zmix/pstep_len
         zktest=1._wp+(zzb*pstep_len+SQRT(ptkem1(jl,jk))*2._wp)/zdisl
         IF (zktest.LE.1._wp) THEN
-           ptkevn(jl,jk)=tkemin
+           ptkevn(jl,jk)=tke_min
         ELSE
-           ptkevn(jl,jk)=MAX(tkemin,(zdisl*(SQRT(zktest)-1._wp))**2)
+           ptkevn(jl,jk)=MAX(tke_min,(zdisl*(SQRT(zktest)-1._wp))**2)
         END IF
 
 #ifdef __ICON__
@@ -388,7 +379,7 @@ CONTAINS
 
         ! Square root of TKE at the old time step
 
-        ztkesq = SQRT(MAX(tkemin,ptkem1(jl,jk)))
+        ztkesq = SQRT(MAX(tke_min,ptkem1(jl,jk)))
 
         ! Virtual potential temperautre variance at intermediate step,
         ! obtained by solving a prognostic equation the variance, the right-hand side
@@ -398,7 +389,7 @@ CONTAINS
         zthvprod = 2._wp*zsh*ztkesq*zthvirdif**2       ! production rate
         zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*zmix)    ! dissipation rate
         pzthvvar(jl,jk) = pthvvar(jl,jk)+(zthvprod-zthvdiss)*pstep_len
-        pzthvvar(jl,jk) = MAX(tkemin,pzthvvar(jl,jk))
+        pzthvvar(jl,jk) = MAX(tke_min,pzthvvar(jl,jk))
 
         ! Exchange coefficients for
         ! - momentum  (variable pcfm),
@@ -409,9 +400,6 @@ CONTAINS
         pcfm(jl,jk) = zsm*ztkesq
         pcfh(jl,jk) = zsh*ztkesq
         pcfv(jl,jk) = zsh*ztkesq*0.5_wp
-
-
-
 
         ! Exchange coefficients for
         ! - TKE (variable pfctke),
@@ -432,15 +420,9 @@ CONTAINS
 361   END DO
 372 END DO
 
-
-
-
   END SUBROUTINE atm_exchange_coeff
   !-------------
   !>
-  !!
-! TODO: ME this subroutine is taken from echam-dev-mbeicon, revision 3033,
-!          modified for ICON
   !!
   SUBROUTINE sfc_exchange_coeff( kproma, kbdim, ksfc_type,          &! in
                                & idx_wtr, idx_ice, idx_lnd,              &! in
@@ -932,7 +914,7 @@ CONTAINS
         ptkevn_sfc(js) = ptkevn_sfc(js) + ztkev*pfrc(js,jsfc)
       END DO
     END DO
-    ptkevn_sfc(1:kproma) = MAX( tkemin,ptkevn_sfc(1:kproma) )
+    ptkevn_sfc(1:kproma) = MAX( tke_min,ptkevn_sfc(1:kproma) )
 
     !----------------------------------------------------------------
     ! Surface value and exchange coefficient of theta_v variance
