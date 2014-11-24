@@ -44,6 +44,14 @@ arrive at
 The tuning parameter $\alpha$ has been estimated to $\alpha=3$. Note that for computing $u_{\ast}$, the mean wind speed at the lowest model level is used rather 
 than $U_{10}$.
 
+If an SSO parameterization is used, the wind speed directly above the top of the envelope layer computed in the SSO
+scheme is taken into account as well. Let $k_\mathrm{env}$ denote the level index the top of the envelope layer has at a given
+grid point. If $k_\mathrm{env} < nlev$, the turbulent gust is enhanced by taking
+\begin{align}
+ U_{10\,\mathrm{gust, turb}} = \mathrm{MAX}( U_{10\,\mathrm{gust, turb}}, U(k_\mathrm{env} -1)) \,.
+\end{align}
+In practice, this exclusively affects mountainous regions where the SSO standard deviation has a significant magnitude.
+
 Equation \eqref{eq_turb_gust} asesses the gustiness in the boundary layer, however it does not take into account gusts due to strong convective events. Therefore, a 
 convective contribution is added to the turbulent wind gusts in the presence of deep convection. The parameterization follows \cite{Bechthold:2009} where the convective gusts 
 are simply estimated as proportional to the low level wind shear:
