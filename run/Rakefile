@@ -29,7 +29,6 @@ Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item|
 
 desc "Show all known ocean tests"
 task :showOcean do
-  LINELENGTH = 80
   @oceanTests.each {|k,v|
     puts [k.ljust(50,' '),v].join(':')
   }
