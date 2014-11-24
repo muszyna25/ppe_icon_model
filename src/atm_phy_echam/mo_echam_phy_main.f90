@@ -100,10 +100,6 @@ CONTAINS
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
-!!$    REAL(wp) :: zbetaa (nbdim,nlev)       !< qt distribution minimum in beta
-!!$    REAL(wp) :: zbetab (nbdim,nlev)       !< qt distribution maximum in beta
-!!$    REAL(wp) :: zbetass(nbdim,nlev)
-
 !!$    REAL(wp) :: zhmixtau   (nbdim,nlev)   !< timescale of mixing for horizontal eddies
     REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
     REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
@@ -154,6 +150,7 @@ CONTAINS
     REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
     REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
+    
     ! Temporary arrays used by VDIFF
 
     REAL(wp) :: zfactor_sfc(nbdim)
@@ -189,6 +186,7 @@ CONTAINS
 
     REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon
 
+    
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
@@ -395,7 +393,7 @@ CONTAINS
        ! perpetual equinox,
        ! no diurnal cycle,
        ! the product tsi*cos(zenith angle) should equal 340 W/m2
-         ztsi = tsi ! no rescale becuase tsi has been adjusted in echam_phy_init with ssi_rce
+         ztsi = tsi ! no rescale because tsi has been adjusted in echam_phy_init with ssi_rce
        END SELECT
 
 
@@ -524,23 +522,10 @@ CONTAINS
                              & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
                              & o3_clim     = field% o3(:,:,jb)        )! OUT
 
-!              IF (jb == 1) THEN
-!                DO jk = 1,nlev_o3
-!                WRITE(0,*)'plev=',jk,'o3plev=', atm_td%o3(jce,1,jb,selmon)
-!                ENDDO
-!                DO jk = 1,nlev
-!                WRITE(0,*)'nlev=',jk,'o3intp=', field%o3(jce,1,jb)
-!                ENDDO
-!              ENDIF
             CASE(io3_amip)
               CALL o3_timeint(kproma=jce,               kbdim=nbdim,                 &
                               nlev_pres=nplev_o3,                                    &
                               ext_o3=o3_plev(:,:,jb,:), o3_time_int=zo3_timint       )
-!!$              IF (jb == 1) THEN
-!!$                 DO jk=1,nplev_o3
-!!$                    WRITE(0,*) 'plev=',jk,'o3_plev=',o3_plev(jce,jk,jb,1),'o3_time_int=',zo3_timint(jce,jk)
-!!$                 END DO
-!!$              END IF
               CALL o3_pl2ml(kproma=jce,                 kbdim=nbdim,          &
                           & nlev_pres=nplev_o3,         klev=nlev,            &
                           & pfoz=plev_full_o3,          phoz=plev_half_o3,    &
@@ -548,49 +533,7 @@ CONTAINS
                           & pph=field%presi_new(:,:,jb),                      &
                           & o3_time_int=zo3_timint,                           &
                           & o3_clim=field%o3(:,:,jb)                          )
-!!$              IF (jb == 1) THEN
-!!$                 DO jk=1,nlev
-!!$                    WRITE(0,*) 'lev=',jk,'o3_clim=',field%o3(jce,jk,jb)
-!!$                 END DO
-!!$              END IF
             END SELECT
-
-
-!!$        ! debug fields "radin"
-!!$        !
-!!$        DO jc = jcs,jce
-!!$          !
-!!$          IF (field% lfland(jc,jb)) THEN
-!!$            rlfland(jc) = 1._wp
-!!$          ELSE
-!!$            rlfland(jc) = 0._wp
-!!$          END IF
-!!$          !
-!!$          IF (field% lfglac(jc,jb)) THEN
-!!$            rlfglac(jc) = 1._wp
-!!$          ELSE
-!!$            rlfglac(jc) = 0._wp
-!!$          END IF
-!!$          !
-!!$        END DO
-!!$        !
-!!$        field% debug_2d_1(:,jb) = field% albvisdir(:,jb)
-!!$        field% debug_2d_2(:,jb) = field% albnirdir(:,jb)
-!!$        field% debug_2d_3(:,jb) = field% albvisdif(:,jb)
-!!$        field% debug_2d_4(:,jb) = field% albnirdif(:,jb)
-!!$        field% debug_2d_5(:,jb) = REAL(itype(:),wp)
-!!$        field% debug_2d_6(:,jb) = field% tsfc(:,jb)
-!!$        field% debug_2d_7(:,jb) = rlfland(:)
-!!$        field% debug_2d_8(:,jb) = rlfglac(:)
-!!$        !
-!!$        field% debug_3d_1(:,1:nlev,jb) = field% presi_old(:,1:nlev,jb)
-!!$        field% debug_3d_2(:,1:nlev,jb) = field% presm_old(:,1:nlev,jb)
-!!$        field% debug_3d_3(:,1:nlev,jb) = field% temp     (:,1:nlev,jb)
-!!$        field% debug_3d_4(:,1:nlev,jb) = field% q        (:,1:nlev,jb,iqv)
-!!$        field% debug_3d_5(:,1:nlev,jb) = field% q        (:,1:nlev,jb,iqc)
-!!$        field% debug_3d_6(:,1:nlev,jb) = field% q        (:,1:nlev,jb,iqi)
-!!$        field% debug_3d_7(:,1:nlev,jb) = field% acdnc    (:,1:nlev,jb)
-!!$        field% debug_3d_8(:,1:nlev,jb) = field% aclc     (:,1:nlev,jb)
 
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -669,24 +612,8 @@ CONTAINS
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 
-!!$        ! debug fields "radout"
-!!$        !
-!!$        field% debug_2d_1(:,jb) = field% aclcov(:,jb)
-!!$        field% debug_2d_2(:,jb) = field% nirsfc(:,jb)
-!!$        field% debug_2d_3(:,jb) = field% nirdffsfc(:,jb)
-!!$        field% debug_2d_4(:,jb) = field% vissfc(:,jb)
-!!$        field% debug_2d_5(:,jb) = field% visdffsfc(:,jb)
-!!$        field% debug_2d_6(:,jb) = field% parsfc(:,jb)
-!!$        field% debug_2d_7(:,jb) = field% pardffsfc(:,jb)
-!!$        !
-!!$        field% debug_3d_1(:,1:nlev,jb) = field% emterclr(:,1:nlev,jb)
-!!$        field% debug_3d_2(:,1:nlev,jb) = field% trsolclr(:,1:nlev,jb)
-!!$        field% debug_3d_3(:,1:nlev,jb) = field% emterall(:,1:nlev,jb)
-!!$        field% debug_3d_4(:,1:nlev,jb) = field% trsolall(:,1:nlev,jb)
-!!$
-
          END IF ! ltrig_rad
-!!$
+
       ! 4.2 RADIATIVE HEATING
       !----------------------
 
