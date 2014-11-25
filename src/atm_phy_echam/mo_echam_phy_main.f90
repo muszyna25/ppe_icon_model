@@ -648,7 +648,6 @@ CONTAINS
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = ztemperature_eff(:)            ,&! in    surface temperature           [K]
         & ptsfctrad  = ztemperature_rad(:)            ,&! in    sfc temp. used in "radiation" [K]
-        & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !
@@ -660,8 +659,7 @@ CONTAINS
         & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
         & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
-        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
-        & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
+        & pflxtoalw  = field%lwflxtoa           (:,jb) )! out   longwave toa net flux      [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 

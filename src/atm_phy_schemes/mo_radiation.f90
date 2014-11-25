@@ -1520,7 +1520,6 @@ CONTAINS
     &                 ptsfc         ,  &
     &                 ptsfc_t       ,  & ! optional: tile-specific ground temperature
     &                 ptsfctrad     ,  &
-    &                 ptemp_klev    ,  & ! optional ! must be present if dflxlw_dt is present
     &                 pqc           ,  & ! optional ! must be present if opt_nh_corr=.true.
     &                 pqi           ,  & ! optional ! must be present if opt_nh_corr=.true.
     &                 ppres_ifc     ,  & ! optional ! must be present if opt_nh_corr=.true.
@@ -1556,8 +1555,7 @@ CONTAINS
     &                 swflx_up_toa  ,  &
     &                 swflx_up_sfc  ,  &
     &                 swflx_par_sfc ,  &
-    &                 swflx_dn_sfc_diff,&
-    &                 dflxlw_dT        )
+    &                 swflx_dn_sfc_diff)
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
@@ -1575,9 +1573,6 @@ CONTAINS
       &     ptrmsw     (kbdim,klevp1), & ! shortwave transmissivity at trad         []
       &     pflxlw     (kbdim,klevp1)    ! longwave net flux at trad                [W/m2]
 
-    REAL(wp), INTENT(in), OPTIONAL  ::         &
-      &     ptemp_klev  (kbdim)        ! lowest atm temperature at trad           [K]
-                                       ! must be present together with dflxlw_dt
     REAL(wp), INTENT(in), OPTIONAL  ::         &
       &     pqc       (kbdim,klev),  & ! specific cloud water               [kg/kg]
       &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
@@ -1622,10 +1617,6 @@ CONTAINS
       &     swflx_up_sfc(kbdim), &     ! shortwave upward flux at the surface [W/m2]
       &     swflx_par_sfc(kbdim), &    ! photosynthetically active downward flux at the surface [W/m2]
       &     swflx_dn_sfc_diff(kbdim)   ! shortwave diffuse downward radiative flux at the surface [W/m2]
-
-    REAL(wp), INTENT(out), OPTIONAL :: &
-      &   dflxlw_dT (kbdim)            ! temperature tendency of 
-                                       ! longwave surface net flux [W/m2/K]
 
     ! Local arrays
     REAL(wp) ::                    &
@@ -1837,12 +1828,6 @@ CONTAINS
 
     ENDIF
     
-    !KF for sea-ice model: temperature tendency of longwave flux at surface
-    IF(PRESENT (dflxlw_dT)) &
-      &    dflxlw_dT(jcs:jce)= 4._wp * pemiss(jcs:jce) * stbo             &
-      &                      * (ptemp_klev(jcs:jce) - ptsfc (jcs:jce))**3 &
-      &                      * (ptemp_klev(jcs:jce) - 1._wp)
-
     !
     !
     !     4.2  Fluxes and heating rates except for lowest layer
