@@ -36,7 +36,7 @@ MODULE mo_nh_stepping
     &                                    ih_clch, ih_clcm, kstart_moist
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,                ONLY: l_outputtime, l_diagtime, is_checkpoint_time
+  USE mo_io_config,                ONLY: is_checkpoint_time
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
@@ -641,10 +641,6 @@ MODULE mo_nh_stepping
       &              ((jstep==(nsteps+jstep0)) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
       &                  istime4name_list_output(jstep))))
-    ! "l_outputtime", "l_diagtime": global flags used by other subroutines
-    l_outputtime   = l_nml_output
-    l_diagtime     = (.NOT. output_mode%l_none) .AND. jstep >= 0 .AND. &
-      & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
 
     ! Computation of diagnostic quantities may also be necessary for
     ! meteogram sampling:
