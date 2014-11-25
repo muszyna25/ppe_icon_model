@@ -277,7 +277,8 @@ CONTAINS
       CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
         &                        pt_patch,              & !< patch
         &                        pt_int_state,          & !< interpolation state
-        &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
+        &                        pt_diag%u, pt_diag%v,  & !<  reconstr. u,v wind
+        &                        opt_rlend=min_rlcell_int )
 
       IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
 
