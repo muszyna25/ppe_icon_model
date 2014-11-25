@@ -82,7 +82,6 @@ CONTAINS
                   t_s_new          , & ! temperature of the ground surface             (  K  )
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   h_snow           , & ! snow depth                                   (m H2O)
-                  h_snow_incr      , & ! snow depth increment                         (m H2O)
                   rho_snow_now     , & ! snow density                                  (kg/m**3)
                   rho_snow_mult_now, & ! snow density                                  (kg/m**3)
                   t_so_now         , & ! soil temperature (main level)                 (  K  )
@@ -135,8 +134,6 @@ CONTAINS
                   rho_snow_now         ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   h_snow               ! snow depth                                   (m H2O)
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  h_snow_incr          ! snow depth increment                          (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
                   rho_snow_mult_now    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_soil+1), INTENT(INOUT) :: &
@@ -231,6 +228,7 @@ CONTAINS
     zw_snow_old(ie)      ,& !
     zrho_snow_old(ie)    ,&
     h_snow_fg(ie)        ,&
+    h_snow_incr(ie)      ,&
     zhh_snow (ie,ke_snow),& ! depth of the half level snow layers
     zhm_snow (ie,ke_snow),& ! depth of snow main levels
     sum_weight(ie)      , &
@@ -603,17 +601,24 @@ CONTAINS
         h_snow_incr(i) = h_snow(i) - h_snow_fg(i)
       ENDDO
     ELSE IF ( init_mode == 3 ) THEN  ! snow depth increment is provided from snow analysis
-      DO i = istarts, iends
-        h_snow_fg(i) = h_snow(i)
-        ! Self-consistency fix needed because of possible GRIB truncation errors
-        IF (lmulti_snow .AND. h_snow_fg(i) > zepsi) THEN
-          dzh_snow_now(i,2:ke_snow) = MAX(dzh_snow_now(i,1),dzh_snow_now(i,2:ke_snow))
-          h_snow_fg(i) = SUM(dzh_snow_now(i,1:ke_snow))
-        ELSE IF (lmulti_snow) THEN
-          dzh_snow_now(i,:) = 0._ireals
-        ENDIF
-        h_snow(i)    = h_snow_fg(i) + h_snow_incr(i) ! h_snow now carries the updated snow depth
-      ENDDO
+      IF (lmulti_snow) THEN
+        DO i = istarts, iends
+          ! Self-consistency fix needed because of possible GRIB truncation errors
+          IF (dzh_snow_now(i,1) > zepsi) THEN
+            dzh_snow_now(i,2:ke_snow) = MAX(dzh_snow_now(i,1),dzh_snow_now(i,2:ke_snow))
+            h_snow_fg(i) = SUM(dzh_snow_now(i,1:ke_snow))
+          ELSE
+            dzh_snow_now(i,:) = 0._ireals
+            h_snow_fg(i)      = 0._ireals
+          ENDIF
+          h_snow_incr(i) = h_snow(i) - h_snow_fg(i)
+        ENDDO
+      ELSE
+        DO i = istarts, iends
+          h_snow_fg(i) = h_snow(i)
+          h_snow_incr(i) = 0._ireals
+        ENDDO
+      ENDIF
     ENDIF
 
     ! Provisional fix to get rid of isolated extremely cold points in parallel routine (2014-10-16)
