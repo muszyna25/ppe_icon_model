@@ -220,7 +220,7 @@ CONTAINS
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
 
-    IF ( phy_config%lamip ) THEN
+    IF ( phy_config%ljsbach ) THEN
       IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
       IF (iice.LE.nsfc_type) field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
     ENDIF
