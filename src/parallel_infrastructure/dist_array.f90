@@ -1025,7 +1025,8 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, mp_i4_extent)
+    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
+         INT(mp_i4_extent, mpi_address_kind))
     CALL dist_mult_array_get_cache_val_i4(dm_array, sub_array, &
          cache_idx, coord, v)
   END SUBROUTINE dist_mult_array_get_i4
@@ -1387,7 +1388,8 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, mp_i8_extent)
+    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
+         INT(mp_i8_extent, mpi_address_kind))
     CALL dist_mult_array_get_cache_val_i8(dm_array, sub_array, &
          cache_idx, coord, v)
   END SUBROUTINE dist_mult_array_get_i8
@@ -1749,7 +1751,8 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, mp_l_extent)
+    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
+         INT(mp_l_extent, mpi_address_kind))
     CALL dist_mult_array_get_cache_val_l(dm_array, sub_array, &
          cache_idx, coord, v)
   END SUBROUTINE dist_mult_array_get_l
@@ -2111,7 +2114,8 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, mp_sp_extent)
+    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
+         INT(mp_sp_extent, mpi_address_kind))
     CALL dist_mult_array_get_cache_val_sp(dm_array, sub_array, &
          cache_idx, coord, v)
   END SUBROUTINE dist_mult_array_get_sp
@@ -2473,7 +2477,8 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, mp_dp_extent)
+    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
+         INT(mp_dp_extent, mpi_address_kind))
     CALL dist_mult_array_get_cache_val_dp(dm_array, sub_array, &
          cache_idx, coord, v)
   END SUBROUTINE dist_mult_array_get_dp
