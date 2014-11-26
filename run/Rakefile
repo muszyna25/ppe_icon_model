@@ -1,3 +1,4 @@
+require 'rake/clean'
 require 'net/ssh'
 require 'logger'
 # BASIC FOMATING SETUP {{{ ====================================================
@@ -26,6 +27,7 @@ LINEWIDTH = 80
     filename = File.basename(item)
     if not File.directory?(item) and ('exp.' == filename[0,4] or 'check.' == filename[0,6]) then
       @testCases[component][filename] = item
+      CLEAN.include(filename)
     end
   }
 }
@@ -36,6 +38,8 @@ LINEWIDTH = 80
 #   templates from ckecksuites
 @testCases.each_value {|v| @allTests << v.keys}
 @allTests.flatten!
+
+CLEAN.include('*.run')
 # }}}
 # RUNSCTIP GENERATION {{{ =====================================================
 # define symlink rule for checksuite items
@@ -291,11 +295,12 @@ task :help do
   puts "F1!"
   sh "rake -T"
 end
+desc "Run almost all targets"
 task :selfCheck do
   dbg(Rake::Task.tasks)
   Rake::Task.tasks.each {|t| 
     puts t.name
-    t.invoke unless 'check' == t.name
+    t.invoke unless %w[check clean clobber].include?(t.name)
   }
 end
 # }}}
