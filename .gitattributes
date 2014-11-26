@@ -1225,6 +1225,7 @@ src/atm_dyn_icoham/mo_hierarchy_management.f90 -text
 src/atm_dyn_icoham/mo_hierarchy_management_intp.f90 -text
 src/atm_dyn_icoham/mo_icoham_dyn_memory.f90 -text
 src/atm_dyn_icoham/mo_icoham_dyn_types.f90 -text
+src/atm_dyn_icoham/mo_nonlinear_adv.f90 -text
 src/atm_dyn_icoham/mo_si_correction.f90 -text
 src/atm_dyn_iconam/mo_ifs_coord.f90 -text
 src/atm_dyn_iconam/mo_initicon.f90 -text
@@ -1751,7 +1752,6 @@ src/shr_horizontal/mo_math_laplace.f90 -text
 src/shr_horizontal/mo_model_domain.f90 -text
 src/shr_horizontal/mo_model_domimp_patches.f90 -text
 src/shr_horizontal/mo_model_domimp_setup.f90 -text
-src/shr_horizontal/mo_nonlinear_adv.f90 -text
 src/shr_horizontal/mo_rbf_errana.f90 -text
 src/shr_horizontal/mo_reorder_patches.f90 -text
 src/shr_horizontal/mo_smooth_topo.f90 -text
