@@ -37,9 +37,9 @@
   !!
   !!
   !----------------------------
-  include "omp_definitions.inc"
+#include "omp_definitions.inc"
   !----------------------------
-  
+
   MODULE mo_async_latbc_utils
 
 #ifndef NOMPI
@@ -263,7 +263,7 @@
       TYPE(datetime), pointer :: mtime_current
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
-      INTEGER       :: i, add_delta, end_delta, finish_delta 
+      INTEGER       :: i, add_delta, end_delta, finish_delta
       REAL          :: tdiff
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
@@ -294,16 +294,16 @@
 
       mtime_read  => newDatetime(TRIM(sim_start))
 
-      ! time interval delta_dtime_secs in seconds   
+      ! time interval delta_dtime_secs in seconds
       delta_dtime_secs = 86400 *INT(delta_dtime%day)    &
            &                  + 3600  *INT(delta_dtime%hour)   &
            &                  + 60    *INT(delta_dtime%minute) &
-           &                  +        INT(delta_dtime%second) 
+           &                  +        INT(delta_dtime%second)
 
-      ! a check so that prefetch processor checks whether to 
+      ! a check so that prefetch processor checks whether to
       ! read the boundary data from a file
-      IF(nsteps /= 0) THEN      
-         mtime_end => newDatetime(TRIM(sim_start)) 
+      IF(nsteps /= 0) THEN
+         mtime_end => newDatetime(TRIM(sim_start))
 
          end_date = nsteps * dtime
 
@@ -314,7 +314,7 @@
          ENDDO
 
       ELSE
-         mtime_finish => newDatetime(TRIM(sim_end)) 
+         mtime_finish => newDatetime(TRIM(sim_end))
          delta_tend => newTimedelta(latbc_config%dt_latbc)
 
          CALL getTimeDeltaFromDateTime (mtime_read, mtime_finish, delta_tend)
@@ -325,13 +325,13 @@
               &                  +        INT(delta_tend%second)
 
          end_delta = FLOOR(finish_delta/delta_dtime_secs) * delta_dtime_secs
-         ! check if the difference is less than zero than 
-         ! point mtime_end to time sim_end 
+         ! check if the difference is less than zero than
+         ! point mtime_end to time sim_end
          IF((finish_delta - end_delta) < 1e-15) THEN
-            mtime_end => newDatetime(TRIM(sim_end)) 
+            mtime_end => newDatetime(TRIM(sim_end))
          ELSE
             ! deallocating mtime and deltatime
-            mtime_end => newDatetime(TRIM(sim_end)) 
+            mtime_end => newDatetime(TRIM(sim_end))
             mtime_end = mtime_end + delta_dtime
          ENDIF
          CALL deallocateDatetime(mtime_finish)
@@ -339,22 +339,22 @@
       ENDIF
 
       ! if there is lrestart flag than prefetch processor needs to start reading
-      ! the data from the new date time of restart file. Below the time at which 
-      ! restart file starts is calculated and added to mtime_read which is the 
+      ! the data from the new date time of restart file. Below the time at which
+      ! restart file starts is calculated and added to mtime_read which is the
       ! time step for reading the boundary data
-      IF(lrestart) THEN 
-         mtime_current => newDatetime(TRIM(sim_cur_read))  
+      IF(lrestart) THEN
+         mtime_current => newDatetime(TRIM(sim_cur_read))
          delta_tstep => newTimedelta(latbc_config%dt_latbc)
          CALL getTimeDeltaFromDateTime (mtime_read, mtime_current, delta_tstep)
 
-         ! time interval delta_tstep_secs in seconds  
+         ! time interval delta_tstep_secs in seconds
          delta_tstep_secs = 86400 *INT(delta_tstep%day)    &
               &                  + 3600  *INT(delta_tstep%hour)   &
               &                  + 60    *INT(delta_tstep%minute) &
               &                  +        INT(delta_tstep%second)
 
-         add_delta = FLOOR(delta_tstep_secs / delta_dtime_secs) 
-         ! no of times delta_dtime needs to be added to get the current time to 
+         add_delta = FLOOR(delta_tstep_secs / delta_dtime_secs)
+         ! no of times delta_dtime needs to be added to get the current time to
          ! read the boundary data file
          DO i = 1, add_delta
             mtime_read = mtime_read + delta_dtime
