@@ -137,10 +137,7 @@ cat > ${atmo_namelist} << EOF
  lssodrag         = .TRUE.
  lmlo             = .FALSE.
  lice             = .TRUE.
- lmeltpond        = .FALSE.
- llandsurf        = .FALSE.
  ljsbach          = .TRUE.
- lhd              = .FALSE.
  lebudget         = .TRUE.
  lamip            = .TRUE.
 /
