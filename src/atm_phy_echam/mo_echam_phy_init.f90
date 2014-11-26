@@ -331,6 +331,7 @@ CONTAINS
 ! TODO: ME preliminary setting for ice
         prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsurfw(:,:)
         prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsurfw(:,:)
+        prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsurfw(:,:)
 ! TODO: ME preliminary setting for ice
         prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
