@@ -3,7 +3,7 @@ require 'pp'
 LINEWIDTH = 80
 # }}}
 # OCEAN TEST COLLECTION {{{ ===================================================
-@oceanTestSuites = {
+@testSuites = {
   :oceanTechnical         => %w[exp.oce_test_parallel],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
@@ -12,27 +12,39 @@ LINEWIDTH = 80
   :oceanStable            => %w[oceanLong],
 }
 
-# collect OCEAN test automatically from its checksuite
-@oceanTests = {}
-Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item| 
-  filename = File.basename(item)
-  if not File.directory?(item) and 'exp.' == filename[0,4] then
-    @oceanTests[filename] = item
-  end
+# collect ALL test automatically from its checksuite
+@testCases = {}
+{
+  :ocean          => {:subDirPattern => 'ocean_internal/**/*'},
+  :coupled        => {:subDirPattern => 'coupled/*'},
+  :iconStableMpim => {:subDirPattern => 'icon-stable.mpim/**/*'},
+  :iconDev        => {:subDirPattern => 'icon-dev/check.atm*'},
+}.each {|component,componentExperiments|
+  @testCases[component] = {}
+  Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
+    filename = File.basename(item)
+    if not File.directory?(item) and ('exp.' == filename[0,4] or 'check.' == filename[0,6]) then
+      @testCases[component][filename] = item
+    end
+  }
 }
 
-# collect ALL TESTS
-@allTests = (Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'} + @oceanTests.keys )
+# collect ALL TOPLEVEL TESTS
+@allTests = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'}
+@testCases.each_value {|v| @allTests << v.keys}
+@allTests.flatten.sort!
 # }}}
 # RUNSCTIP GENERATION {{{ =====================================================
 # define symlink rule
-@oceanTests.each {|template,source|
-  file template => source do 
-    FileUtils.ln_s(source, template, :force => true, :verbose => true)
-  end
+@testCases.each {|component, componentsTests|
+  componentsTests.each {|template,source|
+    file template => source do 
+      FileUtils.ln_s(source, template, :force => true, :verbose => true)
+    end
+  }
 }
 # define rule for create .run files from existing template (exp/post)
-(Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'} + @oceanTests.keys ).each {|template|
+@allTests.each {|template|
   runScriptName = "#{template}.run"
   file runScriptName => template do
     sh "cd ..; ./make_runscripts #{template.sub(/^exp./,'')}"
@@ -42,10 +54,12 @@ Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item|
 # LIST TESTS {{{ ==============================================================
 desc "Show all known ocean tests"
 task :showOcean do
-  puts "OCEAN TESTSUITS ".ljust(LINEWIDTH,'=')
-  @oceanTestSuites.each {|name,experimentList|
-    puts name.to_s
-    experimentList.each {|experiment| puts "\t"+experiment }
+  puts "ALL TESTSUITS ".ljust(LINEWIDTH,'=')
+  @testSuites.each {|name,experimentList|
+    if /^ocean/.match(name.to_s) then
+      puts name.to_s
+      experimentList.each {|experiment| puts "\t"+experiment }
+    end
   }
   puts "ALL OCEAN TESTS".ljust(LINEWIDTH,'=')
   @oceanTests.each {|k,v|
@@ -54,15 +68,26 @@ task :showOcean do
   puts '='*LINEWIDTH
 end
 
-desc "Show all available tests"
-task :showAll do
+desc "Show all available tests cases"
+task :showTests do
   puts "ALL TESTS".ljust(LINEWIDTH,'=')
   @allTests.each {|k,v|
     puts [k.ljust(50,' '),v].join(':')
   }
   puts '='*LINEWIDTH
 end
+desc "Show all available test suites"
+task :showSuites do
+  puts "ALL SUITES".ljust(LINEWIDTH,'=')
+  @testSuites.each {|name,experimentList|
+    puts name.to_s
+    experimentList.each {|experiment| puts "\t"+experiment }
+  }
+  puts '='*LINEWIDTH
+end
 # }}}
+def getExperimentsFromTestSuite(suite)
+end
 desc "Run named test or testsuite or TEST='a,b,..'"
 task :run, :name do |t,args|
   testsGiven = args.name.nil? ? (ENV.has_key?('TEST') ? ENV['TEST'].split(',') : nil ) : args.name
