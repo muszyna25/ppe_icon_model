@@ -10,7 +10,7 @@ dnl  - added support for IBM AIX
 
 dnl
 
-AC_INIT(icon,1.2.1,luis.kornblueh@zmaw.de,icon-1.2.1)
+AC_INIT(icon,1.2.1,luis.kornblueh@mpimet.mpg.de,icon-1.2.1)
 AC_PREREQ(2.59)
 
 dnl ######################################################################
@@ -307,8 +307,12 @@ if test -n "$ZLIBROOT" ; then
   if test -r "$ZLIBROOT/lib/libz.a" ; then
      ZLIB_LIB='-L$(ZLIBROOT)/lib -lz'
   else
-     echo "cannot read $ZLIBROOT/lib/libz.a"  
-     exit 1    
+    if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
+       ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
+    else 
+       echo "cannot read $ZLIBROOT/lib/libz.a"  
+       exit 1    
+    fi
   fi
   if test -d "$ZLIBROOT/include" ; then
      ZLIB_INCLUDE='-I$(ZLIBROOT)/include'
@@ -402,12 +406,13 @@ AC_ARG_WITH([netcdf],
                             [Required I/O package])],
                             [],
                             with_netcdf=yes)
+
 AS_CASE([$with_netcdf],
         [no],[AC_MSG_CHECKING([for netcdf library])
               AC_MSG_RESULT([suppressed])],
-        [yes],[AC_CHECK_FILE($NETCDFROOT/include/netcdf.inc,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
+        [yes],[AC_CHECK_FILE($NETCDFROOT/include/netcdf.h,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
         [*],[NETCDFROOT=$with_netcdf
-             AC_CHECK_FILE($NETCDFROOT/include/netcdf.inc,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
+             AC_CHECK_FILE($NETCDFROOT/include/netcdf.h,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
         )
 
 if test -n "$NETCDFROOT" ; then
@@ -430,11 +435,24 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
 
-  if test -r "$NETCDFROOT/include/netcdf.inc" ; then
-     NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
+  if test -z "$NETCDFFROOT" ; then
+     if test -r "$NETCDFROOT/include/netcdf.inc" ; then
+         NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
+     else
+         echo "cannot read $NETCDFROOT/include/netcdf.inc"
+         exit 1
+     fi
   else
-     echo "cannot read $NETCDFROOT/include/netcdf.inc"
-     exit 1
+     if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
+       NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
+       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
+         NETCDF_LIB="-Lmake$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
+       else
+         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
+         exit 1
+       fi
+     fi
+      
   fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
