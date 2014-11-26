@@ -51,6 +51,8 @@ PROGRAM icon
   USE mo_atmo_model,          ONLY: atmo_model
 #endif
 
+  USE mo_cdi_constants          ! We need all  
+
   IMPLICIT NONE
 
   INTEGER                     :: master_control_status, my_process_component, nlen
@@ -59,6 +61,7 @@ PROGRAM icon
   CHARACTER(len=256)          :: repository = ''
   CHARACTER(len=256)          :: branch = ''
   CHARACTER(len=256)          :: revision = ''
+  integer                     :: grb_major_version, grb_minor_version, grb_revision_version
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
@@ -147,6 +150,14 @@ PROGRAM icon
     CALL message('',message_text)
     WRITE(message_text,'(a,a)') 'Revision  : ', TRIM(revision)
     CALL message('',message_text)
+
+    ! ask CDI for the GRIB version in use
+    CALL gribapiLibraryVersion(grb_major_version, grb_minor_version, grb_revision_version)
+    IF (grb_major_version > 0) THEN
+      WRITE(message_text,'(a,i0,a,i0,a,i0)') 'GRIB-API  : ', grb_major_version, ".", grb_minor_version, ".",&
+        &                                    grb_revision_version
+      CALL message('',message_text)
+    END IF
     CALL message('','')
 
   END IF
