@@ -1,7 +1,10 @@
 require 'pp'
 
-@oceanTechnicalTests = %w[exp.oce_test_parallel.run exp.oce_test_numeric.run exp.ice_melting.run exp.oce_tracer_bubble.run exp.oce_omip_testSurface.run]
-@oceanLongTests      = %w[exp.omipR2B05L40.run exp.oce_SmallBoxACC_0010km_cell.run]
+@oceanTestSuites = {
+  :oceanTechnical         => %w[exp.oce_test_parallel.run],
+  :oceanBasicConservation => %w[exp.oce_test_numeric.run exp.oce_tracer_bubble.run exp.oce_omip_testSurface.run],
+  :oceanLong              => %w[exp.omipR2B05L40.run exp.oce_SmallBoxACC_0010km_cell.run],
+}
 
 # collect OCEAN test automatically from its checksuite
 @oceanTests = {}
@@ -29,9 +32,18 @@ Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item|
 
 desc "Show all known ocean tests"
 task :showOcean do
+  LINEWIDTH = 80
+ 
+  puts "OCEAN TESTSUITS ".ljust(LINEWIDTH,'=')
+  @oceanTestSuites.each {|name,experimentList|
+    puts name.to_s
+    experimentList.each {|experiment| puts "\t"+experiment }
+  }
+  puts "ALL OCEAN TESTS".ljust(LINEWIDTH,'=')
   @oceanTests.each {|k,v|
     puts [k.ljust(50,' '),v].join(':')
   }
+  puts '='*LINEWIDTH
 end
 
 desc "Ocean level 1 tests: Anything, that has to be done for going into icon-ocean-dev"
