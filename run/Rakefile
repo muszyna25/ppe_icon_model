@@ -1,17 +1,19 @@
+require 'net/ssh'
+require 'logger'
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
 # }}}
-# OCEAN TEST COLLECTION {{{ ===================================================
+# TEST COLLECTION {{{ =========================================================
 @testSuites = {
   :oceanTechnical         => %w[exp.oce_test_parallel],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
-  :oceanLong              => %w[exp.omipR2B05L40 exp.oce_SmallBoxACC_0080km_cell],
+  :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
 }
 
-# collect ALL test automatically from its checksuite
+# collect ALL test automatically from checksuites
 @testCases = {}
 {
   :ocean          => {:subDirPattern => 'ocean_internal/**/*'},
@@ -28,13 +30,15 @@ LINEWIDTH = 80
   }
 }
 
-# collect ALL TOPLEVEL TESTS
-@allTests = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'}
+# collect ALL TESTS
+#   available top level tests
+@allTests = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
+#   templates from ckecksuites
 @testCases.each_value {|v| @allTests << v.keys}
-@allTests.flatten.sort!
+@allTests.flatten!
 # }}}
 # RUNSCTIP GENERATION {{{ =====================================================
-# define symlink rule
+# define symlink rule for checksuite items
 @testCases.each {|component, componentsTests|
   componentsTests.each {|template,source|
     file template => source do 
@@ -42,7 +46,7 @@ LINEWIDTH = 80
     end
   }
 }
-# define rule for create .run files from existing template (exp/post)
+# define rule for create .run files
 @allTests.each {|template|
   runScriptName = "#{template}.run"
   file runScriptName => template do
@@ -61,7 +65,7 @@ task :showOcean do
     end
   }
   puts "ALL OCEAN TESTS".ljust(LINEWIDTH,'=')
-  @oceanTests.each {|k,v|
+  @testCases[:ocean].each {|k,v|
     puts [k.ljust(50,' '),v].join(':')
   }
   puts '='*LINEWIDTH
@@ -85,6 +89,7 @@ task :showSuites do
   puts '='*LINEWIDTH
 end
 # }}}
+# HELPER METHODS {{{ ==========================================================
 def dbg(item)
   if ENV.has_key?('DEBUG')
     require 'pp'
@@ -104,10 +109,150 @@ def getExperimentsFromTestSuite(suite)
   }
   experimentList
 end
+# }}}
+# HOST CONFIG: start, stop, check jobs {{{ ====================================
+# may require local port forwarding 
+RemoteQStat = {
+  :blizzard => {host: 'passat.dkrz.de', user: 'm300064',             command: '/usr/bin/llq'},
+  :thunder  => {host: 'localhost',      user: 'm300064',port: 50022, command: '/usr/bin/squeue'},
+  :wizard   => {host: 'wizard.dkrz.de', user: 'm300064',             command: '/usr/bin/squeue'},
+}
+STATE_COLUMNS_WIDTH = 12
+NAME_COLUMN_WIDTH   = 65
+DATE_COLUMN_WIDTH   = 20
+#@log                = Logger.new("#{ENV['HOME']}/rllq.log")
+#==============================================================================
+def getAdditionalInfo(ssh,logfile,tag)
+  info =[]
+# info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").split(' ')[-4,-1]
+  info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1")
+
+  if info.nil? then
+    return ''
+  end
+
+  info_  = info_.split(' ') unless info_.nil?
+  info_  = info_.values_at(-3,-2,-1).map(&:to_f).map {|v| "%E"%v}.join(' ') unless info_.nil?
+  
+  info << "#{tag}: #{info_}"
+  info.join(' - ')
+end
+def checkAll
+  RemoteQStat.each {|hpc,setup|
+      host, user, command, port = setup[:host], setup[:user], setup[:command], setup[:port]
+
+      log = ''
+      log << "# #{hpc} ".ljust(80,'=') << "\n"
+
+      Net::SSH.start(host,user,port: port) do |ssh|
+        case hpc.to_s
+        when /thunder|wizard/ then
+          ssh.exec!('source /etc/profile; source /client/etc/profile.zmaw')
+          columns = [:state,:name,:id,:nodes,:time]
+          results = {}
+          status = ssh.exec!(command + ' -u $USER -o "%T %j %i %D %M"')
+          next if status.nil?
+          status.chomp.split("\n").each_with_index {|line,lineIndex|
+            next if 0 == lineIndex
+            state,name,id,nodes,time = line.split
+            if 'RUNNING' == state then
+              scontrol = ssh.exec!("/usr/bin/scontrol show job #{id}").split("\n")
+              workdir = scontrol.grep(/WorkDir/).first.split('=').last.chomp
+              script  = scontrol.grep(/Command/).first.split('=').last.chomp
+              logfile = workdir + '/' + ssh.exec!("grep 'error=' #{script}").chomp.split('=').last.sub(/%j/,id)
+              lastDate = ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
+              info = @options.has_key?("tag") ? getAdditionalInfo(ssh,logfile,@options["tag"]) : ''
+              if 'default' == @info then
+                myLog = [
+                  state.ljust(STATE_COLUMNS_WIDTH,' '),
+                  name.ljust(NAME_COLUMN_WIDTH,' '),
+                  id,
+                  nodes,
+                  lastDate.nil? ? '' : lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                  info,
+                ].join(' | ') << "\n"
+              else
+                myLog = [
+                  state.ljust(STATE_COLUMNS_WIDTH,' '),
+                  name.ljust(NAME_COLUMN_WIDTH,' '),
+                  id,
+                  nodes,
+                  lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                  info,script,logfile,
+                ].join(' | ') << "\n"
+              end
+              log << myLog 
+              # [
+              #   state.ljust(STATE_COLUMNS_WIDTH,' '),
+              #   name.ljust(NAME_COLUMN_WIDTH,' '),
+              #   id,
+              #   nodes,
+              #   lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+              #   info,
+              # ].join(' | ') << "\n"
+            else
+              log << [state.ljust(STATE_COLUMNS_WIDTH,' '),name.ljust(NAME_COLUMN_WIDTH,' '),id,nodes].join(' | ') << "\n"
+            end
+          }
+        when /blizzard/ then
+          ssh.exec!('source ~/.profile;')
+          myJobs = ssh.exec!("#{command} -u $USER | grep $USER")
+          next if myJobs.nil?
+          myJobs =  myJobs.split("\n").map {|l| l.split(' ').first }
+          myJobs.each {|job|
+            jobList = ssh.exec!("#{command} #{job} -l").chomp.split("\n")
+            name    = jobList.grep(/Job Name/).first.split(':').last.strip
+            status  = jobList.grep(/Status/).first.split(':').last.strip.upcase
+            script  = (not jobList.grep(/Executable/).empty?) ? jobList.grep(/Executable/).first.split(':').last : jobList.grep(/Cmd/).first.split(':').last
+            id      = jobList.grep(/Job Step Id/).first.split(':').last.strip
+
+            logfile     = [
+              jobList.grep(/Initial Working Dir:/).first.split(':').last,
+              jobList.grep(/Err:/).first.split(':').last.strip.chomp
+            ].join('/')
+            if 'RUNNING' == status then
+              lastDate = ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last.to_s
+              #puts name
+              #pp ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
+              info = @options.has_key?("tag") ? getAdditionalInfo(ssh,logfile,@options["tag"]) : ''
+            else
+              lastDate = ''
+            end
+            if 'default' == @info then
+              log << [
+                status.ljust(STATE_COLUMNS_WIDTH,' '),
+                name.ljust(NAME_COLUMN_WIDTH,' '),
+                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                info,
+              ].join(' | ') << "\n"
+            else
+              log << [
+                status.ljust(STATE_COLUMNS_WIDTH,' '),
+                name.ljust(NAME_COLUMN_WIDTH,' '),
+                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                id,info,script,logfile,
+              ].join(' | ') << "\n"
+            end
+          }
+        end
+      end
+      puts log
+      #lock.synchronize {
+      #  File.open(@logfile,"a") {|logfile| logfile << log }
+      #}
+      #@log.info(log)
+    }
+end
+# }}}
+# RUNNING|CHECKING TESTS {{{ ===========================================================
 desc "Run named test or testsuite or TESTS='a,b,..'"
 task :run, :name do |t,args|
   testsGiven = args.name.nil? ? (ENV.has_key?('TESTS') ? ENV['TESTS'].split(',') : nil ) : [args.name]
   
+  if testsGiven.nil? then
+    warn "Nothing to test!"
+    exit 0
+  end
   puts "try to run #{testsGiven.join(' ')} ..."
 
   # if testsuites are given, transform them into lists of experiments
@@ -116,20 +261,42 @@ task :run, :name do |t,args|
     if @testSuites.keys.include?(test.to_sym) then
       experimentList << getExperimentsFromTestSuite(test.to_sym)
     else
-      experimentList << test
+      experimentList << test if @allTests.include?(test)
     end
   }
   experimentList.flatten!; dbg(experimentList)
 
+  if experimentList.empty? then
+    warn "Could not find any experiments to test!"
+    exit 1
+  end
+
   experimentList.each {|experiment|
-    sh "echo start #{experiment}"
+    Rake::Task[experiment.to_sym].invoke
+    Rake::Task["#{experiment}.run".to_sym].invoke
+    puts "start ./#{experiment}.run"
   }
 end
+desc "Run all tests for agiven component: ocean coupled"
+task :runAllOf,:component do 
+end
+desc "Check all your running jobs"
+task :check do
+  checkAll
+end
+# }}}
 # HELP {{{ ====================================================================
 desc "Show detailed help"
 task :help do
   puts "F1!"
   sh "rake -T"
+end
+task :selfCheck do
+  dbg(Rake::Task.tasks)
+  Rake::Task.tasks.each {|t| 
+    puts t.name
+    t.invoke unless 'check' == t.name
+  }
 end
 # }}}
 # vim:fdm=marker
