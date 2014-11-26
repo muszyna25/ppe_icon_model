@@ -1,9 +1,15 @@
 require 'pp'
-
+# BASIC FOMATING SETUP {{{ ====================================================
+LINEWIDTH = 80
+# }}}
+# OCEAN TEST COLLECTION {{{ ===================================================
 @oceanTestSuites = {
-  :oceanTechnical         => %w[exp.oce_test_parallel.run],
-  :oceanBasicConservation => %w[exp.oce_test_numeric.run exp.oce_tracer_bubble.run exp.oce_omip_testSurface.run],
-  :oceanLong              => %w[exp.omipR2B05L40.run exp.oce_SmallBoxACC_0010km_cell.run],
+  :oceanTechnical         => %w[exp.oce_test_parallel],
+  :oceanSurface           => %w[exp.oce_omip_testSurface],
+  :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
+  :oceanLong              => %w[exp.omipR2B05L40 exp.oce_SmallBoxACC_0080km_cell],
+  :oceanDev               => %w[oceanTechnical oceanBasicConservation],
+  :oceanStable            => %w[oceanLong],
 }
 
 # collect OCEAN test automatically from its checksuite
@@ -15,13 +21,16 @@ Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item|
   end
 }
 
+# collect ALL TESTS
+@allTests = (Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'} + @oceanTests.keys )
+# }}}
+# RUNSCTIP GENERATION {{{ =====================================================
 # define symlink rule
 @oceanTests.each {|template,source|
   file template => source do 
     FileUtils.ln_s(source, template, :force => true, :verbose => true)
   end
 }
-
 # define rule for create .run files from existing template (exp/post)
 (Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run'} + @oceanTests.keys ).each {|template|
   runScriptName = "#{template}.run"
@@ -29,11 +38,10 @@ Dir.glob('./checksuite.ocean_internal/**/*').sort.each {|item|
     sh "cd ..; ./make_runscripts #{template.sub(/^exp./,'')}"
   end
 }
-
+# }}}
+# LIST TESTS {{{ ==============================================================
 desc "Show all known ocean tests"
 task :showOcean do
-  LINEWIDTH = 80
- 
   puts "OCEAN TESTSUITS ".ljust(LINEWIDTH,'=')
   @oceanTestSuites.each {|name,experimentList|
     puts name.to_s
@@ -46,12 +54,30 @@ task :showOcean do
   puts '='*LINEWIDTH
 end
 
-desc "Ocean level 1 tests: Anything, that has to be done for going into icon-ocean-dev"
-task :oceanDevLong => ['exp.oce_omip_ref.run','exp.oce_AquaAtlanticBox_0079km.run','exp.oce_SmallBoxACC_0080km_cell.run'] do |t|
-  pp t.prerequisites
+desc "Show all available tests"
+task :showAll do
+  puts "ALL TESTS".ljust(LINEWIDTH,'=')
+  @allTests.each {|k,v|
+    puts [k.ljust(50,' '),v].join(':')
+  }
+  puts '='*LINEWIDTH
 end
+# }}}
+desc "Run named test or testsuite or TEST='a,b,..'"
+task :run, :name do |t,args|
+  testsGiven = args.name.nil? ? (ENV.has_key?('TEST') ? ENV['TEST'].split(',') : nil ) : args.name
+  
+  puts "try to run #{testsGiven.join(' ')} ..."
 
-desc "Run Smaller technical tests on the ocean model"
-task :oceanDevShort => @oceanTechnicalTests do |t|
-  pp t.prerequisites
+  # if testsuites are given, transform them into lists of experiments
+  experimentList =[]
+  testsGiven.each {|test| }
 end
+# HELP {{{ ====================================================================
+desc "Show detailed help"
+task :help do
+  puts "F1!"
+  sh "rake -T"
+end
+# }}}
+# vim:fdm=marker
