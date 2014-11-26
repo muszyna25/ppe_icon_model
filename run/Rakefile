@@ -1,4 +1,3 @@
-require 'pp'
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
 # }}}
@@ -86,17 +85,45 @@ task :showSuites do
   puts '='*LINEWIDTH
 end
 # }}}
-def getExperimentsFromTestSuite(suite)
+def dbg(item)
+  if ENV.has_key?('DEBUG')
+    require 'pp'
+    pp item
+  end
 end
-desc "Run named test or testsuite or TEST='a,b,..'"
+def getExperimentsFromTestSuite(suite)
+  dbg(suite)
+  items = @testSuites[suite]
+  experimentList = []
+  items.each {|item|
+    if @testSuites.keys.include?(item.to_sym) then
+      experimentList << getExperimentsFromTestSuite(item.to_sym)
+    else
+      experimentList << item
+    end
+  }
+  experimentList
+end
+desc "Run named test or testsuite or TESTS='a,b,..'"
 task :run, :name do |t,args|
-  testsGiven = args.name.nil? ? (ENV.has_key?('TEST') ? ENV['TEST'].split(',') : nil ) : args.name
+  testsGiven = args.name.nil? ? (ENV.has_key?('TESTS') ? ENV['TESTS'].split(',') : nil ) : [args.name]
   
   puts "try to run #{testsGiven.join(' ')} ..."
 
   # if testsuites are given, transform them into lists of experiments
   experimentList =[]
-  testsGiven.each {|test| }
+  testsGiven.each {|test| 
+    if @testSuites.keys.include?(test.to_sym) then
+      experimentList << getExperimentsFromTestSuite(test.to_sym)
+    else
+      experimentList << test
+    end
+  }
+  experimentList.flatten!; dbg(experimentList)
+
+  experimentList.each {|experiment|
+    sh "echo start #{experiment}"
+  }
 end
 # HELP {{{ ====================================================================
 desc "Show detailed help"
