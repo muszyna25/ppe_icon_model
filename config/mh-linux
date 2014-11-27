@@ -430,7 +430,8 @@ case "$ac_sitename" in
                       FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
                       F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
 
-                      NETCDFROOT  = $software_tree/netcdf-fortran/4.4.0-ifort
+                      NETCDFROOT  = $software_tree/netcdf-c/4.3.2
+                      NETCDFFROOT = $software_tree/netcdf-fortran/4.4.0-intel14
                       HDF5ROOT    = $software_tree/hdf5/1.8.13
                       SZIPROOT    = $software_tree/libaec/0.3
 # to use BullX MPI uncomment the following 2 lines and comment the MPI_LIB and MPIROOT assignment for Intel MPI
