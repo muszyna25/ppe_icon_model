@@ -2248,7 +2248,8 @@ CONTAINS
               
             END DO ! jev = 1, patch_2D%verts%num_edges(jv,block)
             
-            zarea_fraction(jv,jk,block) = zarea_fraction(jv,jk,block) / earth_radius_squared 
+            ! this is calculated already on the unit sphere
+            ! zarea_fraction(jv,jk,block) = zarea_fraction(jv,jk,block) / earth_radius_squared 
             
           ENDIF !( sea_edges_per_vertex(jv,jk,block) == patch_2D%verts%num_edges(jv,block) )
           !The two quantities: 
