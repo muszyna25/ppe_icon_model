@@ -1814,7 +1814,8 @@ CONTAINS
 
     !INTEGER :: vertex_edge
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
-
+    REAL(wp) :: earth_radius_squared
+    
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: owned_verts!, in_domain_verts
@@ -1832,6 +1833,7 @@ CONTAINS
 
     sea_edges_per_vertex(:,:,:)                       = 0
     zarea_fraction(1:nproma,1:n_zlev,1:patch_2D%nblks_v) = 0.0_wp
+    earth_radius_squared = earth_radius * earth_radius
 
     !-------------------------------------------------------------
     !0. check the coefficients for edges, these are:
@@ -2195,7 +2197,7 @@ CONTAINS
         DO jv = i_startidx_v, i_endidx_v
 
           IF ( sea_edges_per_vertex(jv,jk,block) == no_dual_edges ) THEN ! we have to count for lateral boundaries at the top
-            zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block)/(earth_radius*earth_radius)
+            zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block) / earth_radius_squared
             !zarea_fraction(jv,jk,block)=SUM(operators_coefficients%variable_dual_vol_norm(jv,jk,block,:))
 
             !ELSEIF(operators_coefficients%bnd_edges_per_vertex(jv,jk,block)/=0)THEN!boundary edges are involved
@@ -2246,6 +2248,8 @@ CONTAINS
               
             END DO ! jev = 1, patch_2D%verts%num_edges(jv,block)
             
+            zarea_fraction(jv,jk,block) = zarea_fraction(jv,jk,block) / earth_radius_squared 
+            
           ENDIF !( sea_edges_per_vertex(jv,jk,block) == patch_2D%verts%num_edges(jv,block) )
           !The two quantities: 
           !zarea_fraction(jv,jk,block)*(earth_radius*earth_radius)
@@ -2258,7 +2262,7 @@ CONTAINS
           IF(zarea_fraction(jv,jk,block)/=0.0_wp)THEN
 
             operators_coefficients%rot_coeff(jv,jk,block,:)&
-            &=operators_coefficients%rot_coeff(jv,jk,block,:)/(zarea_fraction(jv,jk,block)*(earth_radius*earth_radius))
+            &=operators_coefficients%rot_coeff(jv,jk,block,:)/(zarea_fraction(jv,jk,block)*earth_radius_squared)
             
             DO jev = 1, patch_2D%verts%num_edges(jv,block)
               operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)&
