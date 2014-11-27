@@ -163,8 +163,8 @@ CONTAINS
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
-    REAL(wp) :: ztemperature_rad(nbdim)
-    REAL(wp) :: ztemperature_eff(nbdim)
+    REAL(wp) :: ztsfc_rad(nbdim)
+    REAL(wp) :: ztsfc_eff(nbdim)
 
 
     ! Temporary array used by GW_HINES
@@ -397,21 +397,21 @@ CONTAINS
        ! surface temperatures for radiative transfer and radiative heating computations
        !
        ! for radiative heating : effective sfc temp. [K]
-       ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
+       ztsfc_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
        !
        ! for radiative transfer: radiative sfc temp. [K]
-       ztemperature_rad(:) = 0._wp
+       ztsfc_rad(:) = 0._wp
        DO jsfc=1,nsfc_type
-         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
+         ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce) + &
            & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
        ENDDO
-       ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
+       ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce)**0.25_wp
 
        IF (phy_config%ljsbach) THEN
          ! Reset to land values pre-calculated in JSBACH
          WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
-            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb)
-            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb)
+            ztsfc_rad(jcs:jce) = field%tsfc_rad(jcs:jce,jb)
+            ztsfc_eff(jcs:jce) = field%tsfc_eff(jcs:jce,jb)
          ENDWHERE
        END IF
 
@@ -562,7 +562,7 @@ CONTAINS
           & alb_vis_dif= field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
           & alb_nir_dif= field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
           & emis_rad   = ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & tk_sfc     = ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
+          & tk_sfc     = ztsfc_rad(:)             ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
           & z_mc       = zheight(:,:)             ,&!< in     height at full levels [m]
@@ -641,8 +641,8 @@ CONTAINS
         & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = ztemperature_eff(:)            ,&! in    surface temperature           [K]
-        & ptsfctrad  = ztemperature_rad(:)            ,&! in    sfc temp. used in "radiation" [K]
+        & ptsfc      = ztsfc_eff(:)                   ,&! in    surface temperature           [K]
+        & ptsfctrad  = ztsfc_rad(:)                   ,&! in    sfc temp. used in "radiation" [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !
@@ -868,8 +868,8 @@ CONTAINS
                        & albnirdir = field% albnirdir(:,jb),                    &! inout
                        & albvisdif = field% albvisdif(:,jb),                    &! inout
                        & albnirdif = field% albnirdif(:,jb),                    &! inout
-                       & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
-                       & surface_temperature_eff = field%surface_temperature_eff(:,jb), &! out
+                       & surface_temperature_rad = field%tsfc_rad(:,jb), &! out
+                       & surface_temperature_eff = field%tsfc_eff(:,jb), &! out
                        & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
                        & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
                        & T2    = field% T2   (:,:,jb),  &! inout, for sea ice

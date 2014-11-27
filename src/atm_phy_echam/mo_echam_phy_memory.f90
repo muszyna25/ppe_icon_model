@@ -243,10 +243,10 @@ MODULE mo_echam_phy_memory
 
     ! JSBACH
     REAL(wp),POINTER :: &
-      & surface_temperature_rad  (:,  :),  &!< [K] radiative sfc. temperature
-      & surface_temperature_eff  (:,  :),  &!< [K] effective sfc. temperature
-      & csat                     (:,  :),  &!<
-      & cair                     (:,  :)    !<
+      & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature
+      & tsfc_eff  (:,  :),  &!< [K] effective sfc. temperature
+      & csat      (:,  :),  &!<
+      & cair      (:,  :)    !<
 
     ! Sea ice.
     ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
@@ -1036,12 +1036,12 @@ CONTAINS
 
     cf_desc    = t_cf_var('tsfc_rad', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_rad', field%surface_temperature_rad, &
+    CALL add_var( field_list, prefix//'tsfc_rad', field%tsfc_rad, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('tsfc_eff', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_eff', field%surface_temperature_eff, &
+    CALL add_var( field_list, prefix//'tsfc_eff', field%tsfc_eff, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('csat', '', '', DATATYPE_FLT32)

@@ -799,10 +799,10 @@ CONTAINS
       IF (phy_config%ljsbach) THEN
 
 !$OMP WORKSHARE
-        field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
-        field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
-        field% csat                   (:,  :) = 1.0_wp
-        field% cair                   (:,  :) = 1.0_wp
+        field% tsfc_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
+        field% tsfc_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
+        field% csat    (:,  :) = 1.0_wp
+        field% cair    (:,  :) = 1.0_wp
 !$OMP END WORKSHARE
 
       END IF ! ljsbach
