@@ -42,7 +42,7 @@ MODULE mo_echam_phy_memory
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
-  USE mo_sfc_indices,         ONLY: nsfc_type
+  USE mo_echam_sfc_indices,   ONLY: nsfc_type
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,         ONLY: t_var_list

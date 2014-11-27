@@ -69,7 +69,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
-  USE mo_sfc_indices,          ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
+  USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
 
   ! subgrid scale orography
   USE mo_ssodrag,              ONLY: sugwd

@@ -49,7 +49,7 @@ MODULE mo_echam_phy_main
     &                               timer_cucall, timer_vdiff
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
-  USE mo_sfc_indices,         ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
