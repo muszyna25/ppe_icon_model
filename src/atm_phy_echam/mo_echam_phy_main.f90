@@ -220,11 +220,6 @@ CONTAINS
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
 
-    IF ( phy_config%ljsbach ) THEN
-      IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
-      IF (iice.LE.nsfc_type) field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
-    ENDIF
-
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
     !------------------------------------------------------------
@@ -894,8 +889,6 @@ CONTAINS
                        & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
                        & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
 
-        field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
-
     ELSE
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in
@@ -959,7 +952,7 @@ CONTAINS
                      & psoflw=field%swflxsfc(:,jb),ptsw=field%tsfc(:,jb) )
 !
 ! update tsfc_tile (radheat also uses tsfc) if ml_ocean is called
-      field%tsfc_tile(:,jb,1) = field%tsfc(:,jb)
+      field%tsfc_tile(:,jb,iwtr) = field%tsfc(:,jb)
     ENDIF
 
     ! Merge surface temperatures
@@ -967,6 +960,11 @@ CONTAINS
     DO jsfc=1,nsfc_type
       field%tsfc(jcs:jce,jb) = field%tsfc(jcs:jce,jb) + zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)
     ENDDO
+    
+    ! For output, copy surface temperatures from tsfc_tile array to separate tsurfx variables
+    IF (iwtr.LE.nsfc_type) field%tsurfw(:,jb) = field%tsfc_tile(:,jb,iwtr)
+    IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
+    IF (iice.LE.nsfc_type) field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
 
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
