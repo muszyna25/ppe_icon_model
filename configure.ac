@@ -210,12 +210,13 @@ if test "x$load_modules" != x ;  then
       cp configure conf__.tmp 
     fi
     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-    echo "./conf__.tmp $ac_configure_args" >> conf_load_module.tmp
+    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
     echo "rm conf__.tmp" >> conf_load_module.tmp
+    echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
-    ./conf_load_module.tmp
+    ./conf_load_module.tmp ; rc=$?
     rm conf_load_module.tmp
-    exit
+    exit $rc
   fi  
 fi
   
