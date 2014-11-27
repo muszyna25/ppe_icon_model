@@ -153,7 +153,7 @@ CONTAINS
     REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
     REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
-    ! Temporary arrays used by VDIFF
+    ! Temporary arrays used by VDIFF, JSBACH
 
     REAL(wp) :: zfactor_sfc(nbdim)
     REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
@@ -165,6 +165,7 @@ CONTAINS
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
+    REAL(wp) :: z0m_ilnd (nbdim)      !< roughness length for momentum over land
     REAL(wp) :: ztemperature_rad(nbdim)
     REAL(wp) :: ztemperature_eff(nbdim)
 
@@ -845,7 +846,6 @@ CONTAINS
         field% shflx_tile(:,jb,:) = 0._wp
         field% evap_tile (:,jb,:) = 0._wp
 
-    IF (phy_config%ljsbach) THEN
       CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                          & vdiff_config%lsfc_mom_flux,   &! in
                          & pdtime, psteplen,             &! in, time steps
@@ -884,7 +884,7 @@ CONTAINS
                        & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
                        & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
                        & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-                       & pemterall = field% emterall(:,nlevp1,jb), &! in, pemter, surface net longwave flux [W/m2]
+                       & pemterall = field% lwflxsfc(:,jb), &! in, surface net longwave flux
                        & ptrsolall = field% swflxsfc(:,jb), &! in, replaces jsswvis & jsswnir, net surface shortwave flux [W/m2]
                        & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
                        & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
@@ -893,7 +893,7 @@ CONTAINS
                        & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
                        & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
                        & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
-                       & z0m_lnd = field% z0m_tile(:,jb,ilnd), &! out, roughness length for momentum over land
+                       & z0m_lnd = z0m_ilnd(:),         &! out, roughness length for momentum over land
                        & z0h_lnd = field% z0h_lnd (:,jb),      &! out, roughness length for heat over land
                        & albvisdir = field% albvisdir(:,jb),                    &! inout
                        & albnirdir = field% albnirdir(:,jb),                    &! inout
@@ -920,65 +920,11 @@ CONTAINS
                        & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
                        & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
 
-        field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
+! preliminary
+    IF (phy_config%ljsbach) field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
+    IF (phy_config%ljsbach) field% z0m_tile(:,jb,ilnd) = z0m_ilnd(:)
 
-    ELSE
-    CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
-                       & vdiff_config%lsfc_mom_flux,   &! in
-                       & pdtime, psteplen,             &! in, time steps
-                       & jg, jce, nbdim, field%kice,   &! in
-                       & nlev, nsfc_type,              &! in
-                       & iwtr, iice, ilnd,             &! in, indices of surface types
-                       & zfrc(:,:),                    &! in, area fraction
-                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
-                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
-                       & zfactor_sfc(:),               &! in, from "vdiff_down"
-                       & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
-                       & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
-                       & zaa, zaa_btm, zbb, zbb_btm,   &! inout
-                       & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
-                       & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
-                       & field%  tsfc_tile(:,jb,:),    &! inout
-                       & field%u_stress   (:,  jb),    &! out
-                       & field%v_stress   (:,  jb),    &! out
-                       & field% lhflx     (:,  jb),    &! out
-                       & field% shflx     (:,  jb),    &! out
-                       & field%  evap     (:,  jb),    &! out, for "cucall"
-                       & field%u_stress_tile  (:,jb,:),   &! out
-                       & field%v_stress_tile  (:,jb,:),   &! out
-                       & field% lhflx_tile    (:,jb,:),   &! out
-                       & field% shflx_tile    (:,jb,:),   &! out
-                       & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
-                       & field%  evap_tile    (:,jb,:),   &! out
-                       & ptrsolall = field% swflxsfc(:,jb), &! in, net surface shortwave flux [W/m2]
-                       & pemterall = field% lwflxsfc(:,jb), &! in, surface net longwave flux [W/m2]
-                       & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
-                       & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-                       & albvisdir = field% albvisdir(:,jb),                    &! inout
-                       & albnirdir = field% albnirdir(:,jb),                    &! inout
-                       & albvisdif = field% albvisdif(:,jb),                    &! inout
-                       & albnirdif = field% albnirdif(:,jb),                    &! inout
-                       & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
-                       & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
-                       & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
-                       & hi    = field% hi   (:,:,jb),  &! in, for sea ice
-                       & hs    = field% hs   (:,:,jb),  &! in, for sea ice
-                       & conc  = field% conc (:,:,jb),  &! in, for sea ice
-                       & Qtop  = field% Qtop (:,:,jb),  &! out, for sea ice
-                       & Qbot  = field% Qbot (:,:,jb),  &! out, for sea ice
-                       & albvisdir_ice = field% albvisdir_ice(:,:,jb), &! inout ice albedos
-                       & albnirdir_ice = field% albnirdir_ice(:,:,jb), &! inout
-                       & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
-                       & albnirdif_ice = field% albnirdif_ice(:,:,jb), &! inout
-                       & albvisdir_wtr = field% albvisdir_wtr(:  ,jb), &! inout ocean albedos
-                       & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
-                       & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
-                       & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
-                       & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
-                       & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
-
-    ENDIF ! ljsbach
-
+!
     IF (phy_config%lmlo) THEN
       CALL ml_ocean ( nbdim, jcs, jce, pdtime,pahflw=field%lhflx_tile(:,jb,:),                 &
                      & pahfsw=field%shflx_tile(:,jb,:),ptrflw=field%lwflxsfc(:,jb), &
