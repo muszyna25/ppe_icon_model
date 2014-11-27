@@ -213,11 +213,7 @@ MODULE mo_echam_phy_memory
                              !< Computed in "vdiff" by getting the square root of
                              !< thvvar(:,nlev-1,:). Used by "cucall".
 
-    ! AMIP-sst and ice, preliminary 3 compartiments for water/ice/land for surface temp.
     REAL(wp),POINTER :: &
-      & tsurfw (:,  :),     &!< sst as read in from amip input (==tsw)
-      & tsurfi (:,  :),     &!< ice surface temperature
-      & tsurfl (:,  :),     &!< land surface temperature
       & siced  (:,  :),     &!< ice depth
       & alake  (:,  :),     &!< lake mask
       & alb    (:,  :),     &!< surface background albedo
@@ -992,21 +988,6 @@ CONTAINS
          &        ldims=shape2d,                                 &
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('tsfc_wtr', 'K', 'surface temperature over water', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_wtr', field%tsurfw,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('tsfc_ice', 'K', 'surface temperature over ice', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_ice', field%tsurfi,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('tsfc_lnd', 'K', 'surface temperature over land', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_lnd', field%tsurfl,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('siced', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)

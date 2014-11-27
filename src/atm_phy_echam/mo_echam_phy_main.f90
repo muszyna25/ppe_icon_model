@@ -961,11 +961,6 @@ CONTAINS
       field%tsfc(jcs:jce,jb) = field%tsfc(jcs:jce,jb) + zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)
     ENDDO
     
-    ! For output, copy surface temperatures from tsfc_tile array to separate tsurfx variables
-    IF (iwtr.LE.nsfc_type) field%tsurfw(:,jb) = field%tsfc_tile(:,jb,iwtr)
-    IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
-    IF (iice.LE.nsfc_type) field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
-
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);
