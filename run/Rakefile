@@ -25,7 +25,7 @@ LINEWIDTH = 80
   @testCases[component] = {}
   Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
     filename = File.basename(item)
-    if not File.directory?(item) and ('exp.' == filename[0,4] or 'check.' == filename[0,6]) then
+    if not File.directory?(item) and (['exp','post','check'].include?(filename.split('.').first)) then
       @testCases[component][filename] = item
       CLEAN.include(filename)
     end
@@ -54,7 +54,7 @@ CLEAN.include('*.run')
 @allTests.each {|template|
   runScriptName = "#{template}.run"
   file runScriptName => template do
-    sh "cd ..; ./make_runscripts #{template.sub(/^exp./,'')}"
+    sh "cd ..; ./make_runscripts #{template.sub(/^(exp|post)./,'')}"
   end
 }
 # }}}
@@ -249,6 +249,21 @@ def checkAll
 end
 # }}}
 # RUNNING|CHECKING TESTS {{{ ===========================================================
+# config first
+@jobHost   = /[[:alpha:]]+/.match(`hostname`.chomp)[0] ; dbg(@jobHost)
+@jobSubmit = {thunder: 'sbatch' , blizzard: 'llsubmit', passat: 'llsubmit'}#[@jobHost.to_sym]
+@jobCancel = {thunder: 'scancel', blizzard: 'llcancel', passat: 'llcancel'}#[#@jobHost.to_sym]
+@jobStatus = {thunder: 'squeue' , blizzard: 'llq'     , passat: 'llq'     }#[@jobHost.to_sym]
+# default is direct execution
+@jobSubmit.default = ''
+
+def mySh(args)
+  if ENV.has_key?('DRYRUN') then
+    puts args
+  else
+    sh args
+  end
+end
 desc "Run named test or testsuite or TESTS='a,b,..'"
 task :run, :name do |t,args|
   testsGiven = args.name.nil? ? (ENV.has_key?('TESTS') ? ENV['TESTS'].split(',') : nil ) : [args.name]
@@ -278,7 +293,7 @@ task :run, :name do |t,args|
   experimentList.each {|experiment|
     Rake::Task[experiment.to_sym].invoke
     Rake::Task["#{experiment}.run".to_sym].invoke
-    puts "start ./#{experiment}.run"
+    sh "#{@jobSubmit[@jobHost]} ./#{experiment}.run"
   }
 end
 desc "Run all tests for agiven component: ocean coupled"
