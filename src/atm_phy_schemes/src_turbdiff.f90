@@ -1814,7 +1814,8 @@ SUBROUTINE turbtran
         dz_0a_h  (ie),    &
         dz_sa_h  (ie),    &
         dz_s0_h  (ie),    &
-        velmin   (ie)
+        velmin   (ie),    &
+        ratsea   (ie)
 
 #ifdef _CRAYFTN
      REAL (KIND=ireals), POINTER, CONTIGUOUS :: &
@@ -2056,6 +2057,12 @@ SUBROUTINE turbtran
       DO i=istartpar, iendpar
          rat_m_2d(i)=frc_2d(i)*tkvm(i,ke)/tkvm(i,ke1)
          rat_h_2d(i)=frc_2d(i)*tkvh(i,ke)/tkvh(i,ke1)
+         ratsea(i) = rat_sea
+         ! Increase rat_sea for very large temperature differences between water and adjacent air
+         ! in order to reduce excessive peaks in latent heat flux
+         IF (t_g(i) - t(i,ke) > 8._ireals) THEN
+           ratsea(i) = rat_sea*(1._ireals + 0.05_ireals*(t_g(i) - t(i,ke) - 8._ireals))
+         ENDIF
       END DO
 
 ! 4)  Berechnung der Transferkoeffizienten:
@@ -2078,7 +2085,7 @@ SUBROUTINE turbtran
             tkvm(i,ke1)=MAX( con_m, tkvm(i,ke1) )
             tkvh(i,ke1)=MAX( con_h, tkvh(i,ke1) )
 
-            fakt=z1+(z1-REAL(NINT(fr_land(i)),ireals))*(rat_sea-z1)
+            fakt=z1+(z1-REAL(NINT(fr_land(i)),ireals))*(ratsea(i)-z1)
 
             rat_m=tkvm(i,ke1)/con_m
             rat_h=tkvh(i,ke1)/con_h

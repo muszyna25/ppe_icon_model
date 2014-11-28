@@ -332,6 +332,9 @@ CONTAINS
         prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
         prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         !
+        prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%tsfc_eff (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        !
 ! TODO: ME preliminary setting for ice
         prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
@@ -799,8 +802,6 @@ CONTAINS
       IF (phy_config%ljsbach) THEN
 
 !$OMP WORKSHARE
-        field% tsfc_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
-        field% tsfc_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
         field% csat    (:,  :) = 1.0_wp
         field% cair    (:,  :) = 1.0_wp
 !$OMP END WORKSHARE
