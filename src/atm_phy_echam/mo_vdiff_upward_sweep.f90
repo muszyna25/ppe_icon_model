@@ -23,11 +23,7 @@ MODULE mo_vdiff_upward_sweep
   USE mo_kind,               ONLY: wp
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,     &
                                  & rhs_bksub, vdiff_tendencies
-#ifdef __ICON__
   USE mo_echam_vdiff_params, ONLY: tpfac2, itop
-#else
-  USE mo_physc2,             ONLY: tpfac2, itop
-#endif
 
   IMPLICIT NONE
   PRIVATE
