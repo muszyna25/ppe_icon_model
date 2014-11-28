@@ -20,6 +20,9 @@
 !! - First adaptions for unified use of parameterizations within
 !!   ICON-ART and COSMO-ART. Changes performed for: Mineral dust, Sea salt
 !!
+!!  chemical tracer section
+!!  by Roland Ruhnke (RR), Jennifer Schroeter (JS), KIT (2014-11-27)
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -64,7 +67,9 @@ MODULE mo_art_emission_interface
                                           &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
-  USE mo_art_chemtracer,                ONLY: art_emiss_chemtracer
+  USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer      !< JS
+  USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase        !< JS
+  USE mo_datetime,                      ONLY: t_datetime
 #endif
 
   IMPLICIT NONE
@@ -77,7 +82,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,p_trac)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,datetime,p_trac)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -112,6 +117,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  dz(:,:)                 !< Height of lowest layer
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode     !< pointer to current aerosol mode
+    TYPE(t_datetime), INTENT(IN) :: datetime !< JS
   
   
   
@@ -283,11 +289,34 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     IF (art_config(jg)%lart_chem) THEN
     
       IF (art_config(jg)%iart_chem_mechanism == 0) THEN
-        CALL art_emiss_chemtracer(ext_data,p_patch,dtime,p_nh_state%diag,p_trac)
-      ENDIF
-      
+              DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+
+        CALL art_emiss_chemtracer(datetime, &
+            & p_trac,                       &
+            & p_nh_state%diag%pres,         &
+            & ext_data%atm%llsm_atm_c,      &
+            & p_patch,                      &
+            & jb,istart,iend,nlev,nproma,   &
+            & p_nh_state%diag%extra_3d)
+        
+        ENDDO
+        ELSEIF (art_config(jg)%iart_chem_mechanism == 1) THEN
+        DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+
+        CALL art_emiss_gasphase(p_trac,     &
+            & p_nh_state%diag%pres,         &
+            & ext_data%atm%llsm_atm_c,      &
+            & p_patch,                      &
+            & jb,istart,iend,nlev,nproma,   &
+            & p_nh_state%diag%extra_3d)
+        ENDDO
+
     ENDIF
-    
+    ENDIF
   ENDIF !lart
        
 #endif

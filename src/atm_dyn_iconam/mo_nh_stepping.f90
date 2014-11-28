@@ -1271,8 +1271,9 @@ MODULE mo_nh_stepping
                 &      prm_diag(jg),                             &!in
                 &      p_lnd_state(jg)%diag_lnd,                 &!in
                 &      p_nh_state(jg)%prog(n_new)%rho,           &!in 
+                &      datetime,           &!in 
                 &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
-            ENDIF   
+            ENDIF    
 
 
             IF (msg_level >= 13) THEN
