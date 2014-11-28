@@ -225,12 +225,6 @@ CONTAINS
     ENDIF
   ENDIF 
 
-  ! Check whether an analysis file is provided
-  IF(latbc_varnames_map_file == ' ') THEN
-    WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but missing.'
-    CALL message(TRIM(routine),message_text)
-  ENDIF
-
   ! Check whther an analysis file is provided, if lread_ana=.TRUE.
   IF (lread_ana) THEN
     IF (dwdana_filename ==' ') THEN
