@@ -71,6 +71,9 @@ MODULE mo_io_config
 
   LOGICAL :: write_initial_state = .true.
 
+  INTEGER :: n_chkpt           ! number of timesteps between successive checkpoint events
+  INTEGER :: n_diag            ! number of timesteps between successive tot_int diag events
+
 !  LOGICAL ::  use_set_event_to_simstep = .true.       ! if .true., the set_event_to_simstep routine is activated
 
   ! currently used by hydrostatic model only
@@ -78,6 +81,31 @@ MODULE mo_io_config
   LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
   
 CONTAINS
+
+  !>
+  !! Set up derived components of the I/O config state
+  !!
+  !! Set up derived components of the I/O config state. This routine is 
+  !! called, after all namelists have been read and a synoptic consistency 
+  !! check has been done.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-11-28)
+  !!
+  SUBROUTINE configure_io()
+
+    !-----------------------------------------------------------------------
+
+    ! number of timesteps between successive checkpoint events
+    n_chkpt = n_checkpoints()
+
+    ! number of timesteps between successive tot_int diag events
+    n_diag  = n_diags()
+
+  END SUBROUTINE configure_io
+
+
+
   !----------------------------------------------------------------------------------
    FUNCTION n_checkpoints()
 
