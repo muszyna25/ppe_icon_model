@@ -24,8 +24,8 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "179"                #---experiment number---
-set EXPNUM2       "177"                #---experiment number used for score comparison---
+set EXPNUM        "195"                #---experiment number---
+set EXPNUM2       "194"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20000801
 set LAST_DATE     20000804
@@ -293,7 +293,7 @@ suite $USER
                 event svn_export
                 event tarfile
                 event clear_directory
-                meter revision 0 20000 20000
+                meter revision 0 30000 30000
 
             task init_build
                 trigger (init_svn == complete)

@@ -152,6 +152,7 @@ CONTAINS
           & psso_theta=ext_data%atm%sso_theta   (:,jb)  ,  & !< in:  angle
           & psso_sigma=ext_data%atm%sso_sigma   (:,jb)  ,  & !< in:  slope
           & pdt       = tcall_sso_jg                    ,  & !< in:  time step
+          & mkenvh    = prm_diag%ktop_envel     (:,jb)  ,  & !< out: top of envelope layer
           & ldebug    =.FALSE.                          ,  & !< in:  debug control switch
           & pdu_sso   =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
           & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb)   ) !< out: v-tendency due to SSO

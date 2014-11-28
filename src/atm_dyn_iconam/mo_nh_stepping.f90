@@ -32,11 +32,11 @@ MODULE mo_nh_stepping
   USE mo_kind,                     ONLY: wp
   USE mo_nonhydro_state,           ONLY: p_nh_state
   USE mo_nonhydrostatic_config,    ONLY: iadv_rcf, lhdiff_rcf, itime_scheme, &
-    &                                    nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2, &
+    &                                    divdamp_order, divdamp_fac, divdamp_fac_o2, &
     &                                    ih_clch, ih_clcm, kstart_moist
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,                ONLY: l_outputtime, l_diagtime, is_checkpoint_time
+  USE mo_io_config,                ONLY: is_checkpoint_time
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
@@ -145,8 +145,6 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
   USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
-  USE mo_io_config,                ONLY: inextra_3d
-  USE mo_nonhydro_types,           ONLY: t_nh_diag
   USE mo_fortran_tools,            ONLY: swap
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -641,10 +639,6 @@ MODULE mo_nh_stepping
       &              ((jstep==(nsteps+jstep0)) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
       &                  istime4name_list_output(jstep))))
-    ! "l_outputtime", "l_diagtime": global flags used by other subroutines
-    l_outputtime   = l_nml_output
-    l_diagtime     = (.NOT. output_mode%l_none) .AND. jstep >= 0 .AND. &
-      & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
 
     ! Computation of diagnostic quantities may also be necessary for
     ! meteogram sampling:

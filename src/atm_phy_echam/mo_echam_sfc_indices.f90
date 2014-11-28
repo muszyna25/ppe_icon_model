@@ -26,7 +26,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_icoham_sfc_indices
+MODULE mo_echam_sfc_indices
 
   USE mo_exception, ONLY: message, message_text
   USE mo_echam_phy_config, ONLY: phy_config => echam_phy_config
@@ -110,21 +110,21 @@ CONTAINS
 
 
     WRITE(message_text,*) " "
-    CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))
+    CALL message("mo_echam_sfc_indices/init_sfc_indices",TRIM(message_text))
 
     WRITE(message_text,'(i3,a)')    &
       & nsfc_type, " surface type(s) activated."
-    CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))
+    CALL message("mo_echam_sfc_indices/init_sfc_indices",TRIM(message_text))
 
     WRITE(message_text,'(a,4i4,a)') &
       & "Indices for water, ice, land, and grid-box mean are ", &
       & iwtr, iice, ilnd, igbm, ", respectively."
-    CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))
+    CALL message("mo_echam_sfc_indices/init_sfc_indices",TRIM(message_text))
 
     WRITE(message_text,*) " "
-    CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))
+    CALL message("mo_echam_sfc_indices/init_sfc_indices",TRIM(message_text))
 
   END SUBROUTINE init_sfc_indices
   !-------------
 
-END MODULE mo_icoham_sfc_indices
+END MODULE mo_echam_sfc_indices

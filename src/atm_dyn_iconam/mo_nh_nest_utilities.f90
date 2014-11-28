@@ -26,7 +26,7 @@ MODULE mo_nh_nest_utilities
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent, &
     p_patch
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start
+  USE mo_grid_config,         ONLY: n_dom
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
   USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct, grf_scalfbk, grf_tracfbk
@@ -35,12 +35,11 @@ MODULE mo_nh_nest_utilities
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
   USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iqi, iqs, iforcing
+  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iforcing
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
-    &                           MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
     grf_bdyintp_end_c,                         &
@@ -538,11 +537,8 @@ CONTAINS
     TYPE(t_nh_prog), POINTER           :: p_nhc_tr  => NULL()
     TYPE(t_patch), POINTER             :: p_pp => NULL()
     TYPE(t_patch), POINTER             :: p_pc => NULL()
-    TYPE(t_int_state), POINTER         :: p_int => NULL()
     TYPE(t_gridref_state), POINTER     :: p_grf => NULL()
-    TYPE(t_gridref_state), POINTER     :: p_grfc => NULL()
     TYPE(t_grid_cells), POINTER        :: p_gcp => NULL()
-    TYPE(t_grid_edges), POINTER        :: p_gep => NULL()
 
 
     INTEGER :: i_startblk              ! start block
@@ -552,7 +548,7 @@ CONTAINS
 
     INTEGER :: jb, jc, jk, jt, ic      ! loop indices
 
-    INTEGER :: nlev_c, nlevp1_c        ! number of full and half levels (child domain)
+    INTEGER :: nlev_c                  ! number of full levels (child domain)
 
     INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
     INTEGER :: ntracer_bdyintp
@@ -561,9 +557,6 @@ CONTAINS
       aux3dc(nproma,ntracer+4,p_patch(jgc)%nblks_c), &
       theta_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c), &
       rho_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c)
-
-    ! Pointers to index fields
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
     ! Switch to control if the child domain is vertically nested and therefore 
     ! needs interpolation of upper boundary conditions
@@ -587,23 +580,17 @@ CONTAINS
     p_nhc_dyn     => p_nh_state(jgc)%prog(ntc_dyn)
     p_nhp_tr      => p_nh_state(jg)%prog(ntp_tr)
     p_nhc_tr      => p_nh_state(jgc)%prog(ntc_tr)
-    p_int         => p_int_state(jg)
     p_grf         => p_grf_state(jg)
-    p_grfc        => p_grf_state(jgc)
     p_pp          => p_patch(jg)
     p_pc          => p_patch(jgc)
     p_gcp         => p_patch(jg)%cells
-    p_gep         => p_patch(jg)%edges
 
-    iidx          => p_gcp%child_idx
-    iblk          => p_gcp%child_blk
 
     i_chidx = p_patch(jgc)%parent_child_index
     i_nchdom   = MAX(1,p_pc%n_childdom)
 
     ! number of vertical levels (child domain)
     nlev_c   = p_pc%nlev
-    nlevp1_c = p_pc%nlevp1
 
     ! determine if upper boundary interpolation is needed
     IF (lvert_nest .AND. (p_pp%nshift_child > 0)) THEN  
@@ -887,7 +874,7 @@ CONTAINS
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
     ! Indices
-    INTEGER :: jb, jc, jk, jt, je, js, i_nchdom, i_chidx, i_startblk, i_endblk, &
+    INTEGER :: jb, jc, jk, jt, je, js, i_chidx, i_startblk, i_endblk, &
       i_startidx, i_endidx, istartblk_c, istartblk_e
     INTEGER :: nlev_c, nlev_p
     INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
@@ -939,7 +926,6 @@ CONTAINS
     p_gep => p_patch_local_parent(jg)%edges
     p_pp  => p_patch_local_parent(jg)
 
-    i_nchdom = MAX(1,p_pc%n_childdom)
     i_chidx  = p_pc%parent_child_index
 
     ! number of full levels of child domain
@@ -1191,13 +1177,12 @@ CONTAINS
     TYPE(t_nh_diag),    POINTER     :: p_diag        => NULL()
     TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
     TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
-    TYPE(t_gridref_state), POINTER  :: p_grfc => NULL()
     TYPE(t_int_state), POINTER      :: p_int => NULL()
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
     ! Indices
-    INTEGER :: jb, jc, jk, js, i_nchdom, i_chidx, i_startblk, i_endblk, &
+    INTEGER :: jb, jc, jk, js, i_chidx, i_startblk, i_endblk, &
       i_startidx, i_endidx, istartblk_c
     INTEGER :: nlev_c, nlev_p
     INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
@@ -1223,7 +1208,6 @@ CONTAINS
     p_parent_prog     => p_nh_state(jgp)%prog(nsav1(jgp))
     p_child_prog      => p_nh_state(jg)%prog(nnow(jg))
     p_diag            => p_nh_state(jg)%diag
-    p_grfc            => p_grf_state(jg)
     p_pc              => p_patch(jg)
 
     p_grf => p_grf_state_local_parent(jg)
@@ -1231,7 +1215,6 @@ CONTAINS
     p_gcp => p_patch_local_parent(jg)%cells
     p_pp  => p_patch_local_parent(jg)
 
-    i_nchdom = MAX(1,p_pc%n_childdom)
     i_chidx  = p_pc%parent_child_index
 
     ! number of full levels of child domain

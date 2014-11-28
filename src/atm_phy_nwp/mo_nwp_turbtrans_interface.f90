@@ -104,6 +104,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! Local scalars:
 
   INTEGER :: jc,jb,jt,jg,ic,i_count      !loop indices
+  INTEGER :: jk_gust(nproma)
 
   ! local variables for turbdiff
 
@@ -172,7 +173,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
 !$OMP tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t,     &
-!$OMP qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm) ICON_OMP_GUIDED_SCHEDULE
+!$OMP qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -261,6 +262,17 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDDO
     ENDIF
 
+    IF (atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
+      DO jc = i_startidx, i_endidx
+        IF (prm_diag%ktop_envel(jc,jb) < nlev) THEN
+          jk_gust(jc) = prm_diag%ktop_envel(jc,jb) - 1
+        ELSE
+          jk_gust(jc) = nlev
+        ENDIF
+      ENDDO
+    ELSE
+      jk_gust(:) = nlev
+    ENDIF
 
     IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
 
@@ -334,12 +346,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
         ! dynamic gusts
-        prm_diag%dyn_gust(i_startidx:i_endidx,jb) = nwp_dyn_gust(                      &
-          &                             prm_diag%u_10m(i_startidx:i_endidx,jb),        &
-          &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
-          &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
-          &                             p_diag%u      (i_startidx:i_endidx,nlev,jb),   &
-          &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)    )
+        DO jc = i_startidx, i_endidx
+          prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
+            &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
+            &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb) )
+        ENDDO
 
         prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
           &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
@@ -567,7 +578,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               &                                           prm_diag%v_10m_t(jc,jb,jt),   &
               &                                           prm_diag%tcm_t  (jc,jb,jt),   &
               &                                           p_diag%u      (jc,nlev,jb),   &
-              &                                           p_diag%v      (jc,nlev,jb)),  &
+              &                                           p_diag%v      (jc,nlev,jb),   &
+              &                                           p_diag%u(jc,jk_gust(jc),jb),  &
+              &                                           p_diag%v(jc,jk_gust(jc),jb)), &
               &                              prm_diag%dyn_gust(jc,jb) )
 
           ENDDO
@@ -634,13 +647,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
       ! dynamic gusts
-      prm_diag%dyn_gust(i_startidx:i_endidx,jb) = nwp_dyn_gust(                      &
-        &                             prm_diag%u_10m(i_startidx:i_endidx,jb),        &
-        &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
-        &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
-        &                             p_diag%u      (i_startidx:i_endidx,nlev,jb),   &
-        &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)    )
-
+      DO jc = i_startidx, i_endidx
+        prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
+          &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
+          &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb) )
+      ENDDO
 
       prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
         &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )

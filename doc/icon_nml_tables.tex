@@ -845,90 +845,8 @@ Defined and used in: \verb+src/namelists/mo_echam_conv_nml.f90+
 
 \textbf{lrad} &
 L& .TRUE.&&
-Switch on radiation.& iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lvdiff} &
-L& .TRUE.&&
-Switch on turbulent mixing (i.e. vertical diffusion).&
-iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lconv} &
-L& .TRUE.&&
-Switch on cumulus convection.& iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lcond} &
-L& .TRUE.&&
-Switch on large scale condensation.& iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{icover} &
-I& 1 &&
-1 = diagnostic Sunquist cloud cover scheme, \par 2 = prognostic Tompkins cloud cover scheme.&
-iforcing = 2\par
-Note: icover = .TRUE. runs, but has not been evaluated (yet) in ICON.
-\tabularnewline
-
-%\hline
-\textbf{lgw\_hines} &
-L& .TRUE.&&
-.TRUE. for atmospheric gravity wave drag by the Hines scheme&
-iforcing = 2\par
-\tabularnewline
-
-%\hline
-\textbf{lssodrag} &
-L& .TRUE.&&
-.TRUE. for subgrid scale orographic drag& iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{llandsurf} &
-L& .FALSE.&&
-.TRUE. for surface exchanges& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-%\hline
-\textbf{lice} &
-L& .FALSE.&&
-.TRUE. for sea-ice temperature calculation& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-%\hline
-\textbf{lmeltpond} &
-L& .FALSE.&&
-.TRUE. for calculation of meltponds& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-%\hline
-\textbf{lhd} &
-L& .FALSE.&&
-.TRUE. for hydrologic discharge model& iforcing = 2\par
-{\color{red}Not implemeted yet}
-\tabularnewline
-
-%\hline
-\textbf{lmlo} &
-L& .FALSE.&&
-.TRUE. for mixed layer ocean& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-%\hline
-\textbf{ljsbach} &
-L& .FALSE.&&
-.TRUE. for calculating the JSBACH land surface& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-%\hline
-\textbf{lamip} &
-L& .FALSE.&&
-.TRUE. for AMIP simulations& iforcing = 2\par {\color{red}Not implemeted yet}
+.TRUE. for radiation.&
+run\_nml/iforcing = 2
 \tabularnewline
 
 %\hline
@@ -936,8 +854,78 @@ L& .FALSE.&&
 R&
 3600.&
 s&
-time interval of full radiation computation&
-run\_nml/iforcing = iecham
+time interval for radiative transfer computation&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lvdiff} &
+L& .TRUE.&&
+.TRUE. for vertical turbulent diffusion&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lconv} &
+L& .TRUE.&&
+.TRUE. for cumulus convection&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lcond} &
+L& .TRUE.&&
+.TRUE. for large scale condensation&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{icover} &
+I& 1 &&
+1 = diagnostic cloud cover scheme (Sunquist)&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lgw\_hines} &
+L& .TRUE.&&
+.TRUE. for non-orographic gravity wave drag (Hines)&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lssodrag} &
+L& .TRUE.&&
+.TRUE. for subgrid scale orographic effects (Lott and Miller)&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lice} &
+L& .FALSE.&&
+.TRUE. for sea-ice temperature calculation&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lmlo} &
+L& .FALSE.&&
+.TRUE. for mixed layer ocean&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{ljsbach} &
+L& .FALSE.&&
+.TRUE. for calculating land surface properties (JSBACH)&
+run\_nml/iforcing = 2
+\tabularnewline
+
+%\hline
+\textbf{lamip} &
+L& .FALSE.&&
+.TRUE. for AMIP boundary conditions&
+run\_nml/iforcing = 2
 \tabularnewline
 
 %\hline
@@ -954,7 +942,7 @@ Defined and used in: \verb+src/namelists/mo_echam_phy_nml.f90+
 
 %\hline
 preset&
-C& ''none'' & &
+C& ''determ\dots'' & &
 Setting this different to ''none'' enables a couple of defaults for
 the other \texttt{gribout\_nml} namelist parameters. If, additionally, the
 user tries to set any of these other parameters to a conflicting

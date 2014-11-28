@@ -47,7 +47,6 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: t0_melt, zt_ice
   USE mo_satad,                ONLY: sat_pres_water, spec_humi
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_vdfouter,             ONLY: vdfouter
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
