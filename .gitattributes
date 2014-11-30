@@ -740,7 +740,6 @@ run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
-run/exp.check_oce_omip_0160km -text
 run/exp.check_restart -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-ocean-prod -text
@@ -832,10 +831,10 @@ run/exp.test_nh3_tri_tracer_solid_body -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_oce_acc -text
-run/exp.test_oce_buildbot -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
+run/exp.test_oce_omip_0160km -text
 run/exp.test_oce_parallel -text
 run/exp.test_oce_testbed_read -text
 run/exp.tracer_solid_body -text
