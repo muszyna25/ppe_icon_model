@@ -181,7 +181,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin  = 0.75  !           " 
  pat_len = 100.
  c_diff  = 0.2
- rat_sea = 9.0  ! ** 9.0 for R3B7, 8.5 for R2B6 in order to get similar temperature biases in the tropics **
+ rat_sea = 8.5  ! ** new since r20191: 8.5 for R3B7, 8.0 for R2B6 in order to get similar temperature biases in the tropics **
  ltkesso = .true.
  frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
  imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
@@ -224,8 +224,8 @@ cat > ${atmo_namelist} << EOF
  iadv_rcf       = 5
  lhdiff_rcf     = .true.
  divdamp_order  = 24    ! for data assimilation runs, '2' provides extra-strong filtering of gravity waves 
- divdamp_type   = 3     !!! optional: 2 for assimilation cycle if very strong gravity-wave filtering is desired
- divdamp_fac    = 0.004 ! for R2B6; recommendation for R3B7: 0.003; use 0.032 in combination with divdamp_order=2 for data assimilation runs
+ divdamp_type   = 32    !!! optional: 2 for assimilation cycle if very strong gravity-wave filtering is desired
+ divdamp_fac    = 0.004
  l_open_ubc     = .false.
  igradp_method  = 3
  l_zdiffu_t     = .true.
@@ -262,8 +262,8 @@ cat > ${atmo_namelist} << EOF
  hdiff_order      = 5
  itype_vn_diffu   = 1
  itype_t_diffu    = 2
- hdiff_efdt_ratio = 24.0   ! for R2B6; recommendation for R3B7: 30.0
- hdiff_smag_fac   = 0.025  ! for R2B6; recommendation for R3B7: 0.02
+ hdiff_efdt_ratio = 24.0
+ hdiff_smag_fac   = 0.025
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
 /

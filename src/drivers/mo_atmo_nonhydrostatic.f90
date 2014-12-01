@@ -22,7 +22,7 @@ USE mo_master_control,       ONLY: is_restart_run
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
-USE mo_io_config,            ONLY: dt_diag,dt_checkpoint
+USE mo_io_config,            ONLY: configure_io
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
@@ -39,7 +39,6 @@ USE mo_dynamics_config,      ONLY: iequations, nnow, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
-! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
@@ -94,8 +93,6 @@ PRIVATE
 PUBLIC :: atmo_nonhydrostatic
 PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
-! module data
-INTEGER :: n_diag, n_chkpt
 
 CONTAINS
 
@@ -112,8 +109,7 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-    CALL perform_nh_stepping( time_config%cur_datetime,       &
-      &                       n_chkpt, n_diag  )
+    CALL perform_nh_stepping( time_config%cur_datetime )
  
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
@@ -336,14 +332,6 @@ CONTAINS
 
     END IF
 
-    !---------------------------------------------------------
-    ! The most primitive event handling algorithm: 
-    ! compute time step interval for taking a certain action
-    !--------------------------------------------------------- 
- 
-    ! !!OUTDATED!! writing output is now controlled via 'istime4output' !!OUTDATED!!
-    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
@@ -353,6 +341,9 @@ CONTAINS
     !------------------------------------------------------------------
     ! Prepare output file
     !------------------------------------------------------------------
+
+    CALL configure_io()   ! set n_chkpt and n_diag, which control 
+                          ! writing of restart files and tot_int diagnostics.
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.

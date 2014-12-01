@@ -56,6 +56,7 @@
 \definecolor{darkred}{rgb}{0.5,0.,0.}
 \definecolor{darkblue}{rgb}{0.,0.,0.6}
 \definecolor{darkgreen}{rgb}{0.,0.5,0.}
+\definecolor{darkgrey}{rgb}{0.7,0.75,0.71}
 
 % textcolors
 \newcommand{\tred}{\textcolor{red}}
@@ -71,6 +72,22 @@
 \lstnewenvironment{fortran}%
 {\lstset{language=[95]Fortran,%
     basicstyle=\ttfamily\footnotesize\color{darkgreen},%
+    breaklines=true,%
+    commentstyle=\ttfamily\color{blue},%
+    emptylines=0,%
+    keywordstyle=\color{black}\ttfamily\bfseries,%
+    backgroundcolor=\color{darkgrey!5},
+    framexleftmargin=4mm,%
+    frame=shadowbox,%
+    rulesepcolor=\color{darkgreen}}}
+{}
+
+
+% Sky environment
+\lstnewenvironment{skydb}%
+{\lstset{language=SQL,%
+    basicstyle=\ttfamily\footnotesize\color{black},%
+    breaklines=true,%
     commentstyle=\ttfamily\color{blue},%
     emptylines=0,%
     keywordstyle=\color{black}\ttfamily\bfseries,%

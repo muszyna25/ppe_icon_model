@@ -94,9 +94,8 @@ MODULE mo_name_list_output
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar,                         &
+    &                                     PROLEPTIC_GREGORIAN, setCalendar, OPERATOR(-),            &
     &                                     timedelta, newTimedelta, deallocateTimedelta
-  USE mo_mtime_extensions,          ONLY: getTimeDeltaFromDateTime
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -499,7 +498,7 @@ CONTAINS
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+    forecast_delta = mtime_date - mtime_begin
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
       &                                    forecast_delta%minute, forecast_delta%second 
     CALL deallocateDatetime(mtime_date)

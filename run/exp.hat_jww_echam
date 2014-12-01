@@ -121,10 +121,7 @@ cat > ${atmo_namelist} << EOF
  lssodrag   = .FALSE.
  lmlo       = .FALSE.
  lice       = .FALSE.
- lmeltpond  = .FALSE.
- llandsurf  = .FALSE.
  ljsbach    = .FALSE.
- lhd        = .FALSE.
  lamip      = .FALSE.
 /
 &echam_conv_nml

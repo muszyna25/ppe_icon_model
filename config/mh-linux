@@ -68,6 +68,7 @@ SVNVERSION=`svnversion | sed 's/ //g'`
 case "$fortran_compiler" in
     default|gcc)
         config_compiler=gcc
+        compiler_version    = $(gfortran --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
         GRIB_APIBASE=/opt/grib_api
         CFLAGS      = "$CFLAGS" -DpgiFortran -D__SVN_VERSION="${SVNVERSION}"
         FCPP        = -xf95-cpp-input
@@ -95,6 +96,7 @@ case "$fortran_compiler" in
 	;;
     nag)
         config_compiler=nag
+        compiler_version = $(nagfor -v 2>&1 | awk 'NR==1{split($5,v,"."); printf("nag%1d%1d", v[1],substr(v[2],1,1))}')
         CFLAGS      = "$CFLAGS" -DNAGf90Fortran
         FC          = nagfor
 #        GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
@@ -114,6 +116,7 @@ case "$fortran_compiler" in
         ;;
     pgi)
         config_compiler=pgi
+        compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = pgfortran
        # FC          = pgfortran
@@ -165,6 +168,7 @@ case "$fortran_compiler" in
         ;; 
     intel)
         config_compiler=intel
+        compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
         #  CC     = icc
         # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         CFLAGS      = "$CFLAGS" -DpgiFortran
@@ -426,7 +430,8 @@ case "$ac_sitename" in
                       FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
                       F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
 
-                      NETCDFROOT  = $software_tree/netcdf-fortran/4.4.0-ifort
+                      NETCDFROOT  = $software_tree/netcdf-c/4.3.2
+                      NETCDFFROOT = $software_tree/netcdf-fortran/4.4.0-intel14
                       HDF5ROOT    = $software_tree/hdf5/1.8.13
                       SZIPROOT    = $software_tree/libaec/0.3
 # to use BullX MPI uncomment the following 2 lines and comment the MPI_LIB and MPIROOT assignment for Intel MPI
@@ -464,8 +469,8 @@ case "$ac_sitename" in
                 sync_submit=srunjob --account=mpi
                 case "$fortran_compiler" in
                     default|gcc)
-                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc47
-                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-gcc47
+                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc48
+                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-gcc48
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS 
                       load_modules="gcc/4.7.2" "${load_modules}"
                       ;;
@@ -495,77 +500,81 @@ case "$ac_sitename" in
         *)
            case "$host" in
               x86_64-*-linux-*)        # 64 bit lenny or squeeze MPI/ZMAW workstation
-                  dist_codename=$(lsb_release -c)
-                  case "$dist_codename" in
-                      *lenny*)
-                          SOFTWARE_TREE=/sw/lenny-x64
-                          HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.5-p1-static
-                          NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.1-static
-                          FFLAGS  = "$FFLAGS" "$DEFOPT""__HAS_METIS__"
-                          METIS_LIB = -L/zmaw/home/m300056/lib/mpipc -lmetis
-                          ;;
+                   ZLIBROOT = /usr
+                   SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
+                   IB_LIBS  = -lrdmacm -libverbs
+                   case "$dist_codename" in
                       *squeeze*)
-                          SOFTWARE_TREE=/sw/squeeze-x64
-                          HDF5ROOT     = $SOFTWARE_TREE/hdf5-1.8.7-static
-                          NETCDFVERS   = $SOFTWARE_TREE/netcdf-4.1.3-static
-                          ;;
-                      *)
-                          echo
-                          echo WARNING:
-                          echo No default setup for your Linux distribution , codename: $dist_codename
-                          echo
-                          echo
-                          ;;
-                  esac
-                  SZIPROOT = $SOFTWARE_TREE/szip-2.1-static
-                  ZLIBROOT = /usr
-                  load_modules = "ncl/6.0.0-gccsys" "cdo/default" "python/2.7-ve0" "${load_modules}"
-                  load_profile = "." "/client/etc/profile.zmaw"
-                  config_target=mpipc
-                  make_command="make" "-j" "2"
-                  submit=""
-                  
-                  SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
-                  IB_LIBS  = -lrdmacm -libverbs
-
-                  case "$fortran_compiler" in
-                      default|gcc)
-                         NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc47
-                         MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-gcc47
-                         MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                         load_modules="gcc/4.7.2" "${load_modules}"
-                         ;;
-                      nag)
-                         NETCDFROOT = $SOFTWARE_TREE/netcdf-4.1.3-static-nag53
-                         MPIROOT    = $SOFTWARE_TREE/mpilib/openmpi-1.6.5-static-nag53
-                         MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                         load_modules="gcc/4.7.2" "nag/5.3.951" "${load_modules}"
-                         ;;
-                      pgi)
-                         NETCDFROOT  = $SOFTWARE_TREE/netcdf-4.1.3-static-pgi14
-                         MPIROOT     = $SOFTWARE_TREE/mpilib/openmpi-1.6.5-static-pgi14
-                         MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                         load_modules= "gcc/4.7.2" "pgi/14.7" "${load_modules}"
-                         ;;
-                      intel)
-                         NETCDFROOT  = $SOFTWARE_TREE/netcdf-4.1.3-static-intel14
-                         MPIROOT     = $SOFTWARE_TREE/mpilib/openmpi-1.6.5-static-intel14
-                         MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                         # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
-                         HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                         load_modules="gcc/4.7.2" "intel/14.0.2" "${load_modules}"
-                         ;;
-                  esac
-                  ;;
-              *)  # unknown ...
-                  echo
-                  echo
-                  echo Unknown Linux system type - currently not supported ...
-                  echo
-                  exit
-                  ;;
-          esac
-          ;;
+                           load_modules = "ncl/6.0.0-gccsys" "cdo/default" "python/2.7-ve0" "${load_modules}"   
+                           SZIPROOT = $software_tree/szip-2.1-static
+                           NETCDFROOT = $software_tree/netcdf-4.1.3-static-${compiler_version}
+                           HDF5ROOT = $software_tree/hdf5-1.8.7-static
+                           MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-${compiler_version}
+                           MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
+                           case "$fortran_compiler" in
+                               default|gcc)
+                                   load_modules="gcc/4.7.2" "${load_modules}"
+                                   ;;
+                               nag)
+                                   load_modules="gcc/4.7.2" "nag/5.3.951" "${load_modules}"
+                                   ;;
+                               pgi)
+                                   load_modules= "gcc/4.7.2" "pgi/14.7" "${load_modules}"
+                                   ;;
+                               intel)
+                                   # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
+                                   HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
+                                   load_modules="gcc/4.7.2" "intel/14.0.2" "${load_modules}"
+                                   ;;
+                           esac
+                           ;;
+                       *wheezy*)
+                           load_modules = "ncl/6.2.0-precompiled" "cdo/1.6.5.1" "python/2.7-ve4" "${load_modules}"   
+                           SZIPROOT = $software_tree/szip-2.1-static-gccsys
+                           NETCDFFROOT = $software_tree/netcdf_fortran-4.4.0-static-${compiler_version}
+                           NETCDFROOT = $software_tree/netcdf-4.3.2-static-gccsys
+                           HDF5ROOT = $software_tree/hdf5-1.8.13-static-gccsys
+                           MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                           MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $IB_LIBS $SYS_LIBS
+                           case "$fortran_compiler" in
+                               default|gcc)
+                                   load_modules="gcc/4.9.1" "${load_modules}"
+                                   ;;
+                               nag)
+                                   load_modules="gcc/4.9.1" "nag/6.0.1017" "${load_modules}"
+                                   ;;
+                               pgi)
+                                   load_modules= "gcc/4.9.1" "pgi/14.7" "${load_modules}"
+                                   ;;
+                               intel)
+                                   # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
+                                   HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
+                                   load_modules="gcc/4.9.1" "intel/14.0.2" "${load_modules}"
+                                   ;;
+                           esac
+                           ;;
+                       *)
+                           echo
+                           echo WARNING:
+                           echo No default setup for your Linux distribution , codename: $dist_codename
+                           echo
+                           echo
+                           ;;
+                   esac
+                   load_profile = "." "/client/etc/profile.zmaw"
+                   config_target=mpipc
+                   make_command="make" "-j" "2"
+                   submit=""
+                   ;;
+               *)  # unknown ...
+                   echo
+                   echo
+                   echo Unknown Linux system type - currently not supported ...
+                   echo
+                   exit
+                   ;;
+           esac
+           ;;
         esac
         ;;
         #-------------------------------------------------------------------

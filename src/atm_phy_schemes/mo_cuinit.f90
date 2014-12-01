@@ -764,8 +764,10 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           zdz(jl)    = (pgeoh(jl,jk) - pgeoh(jl,jk+1))*zrg
           zqf = (pqenh(jl,jk+1) + pqenh(jl,jk))*0.5_JPRB
           zsf = (zsenh(jl,jk+1) + zsenh(jl,jk))*0.5_JPRB
-          zmix(jl)=2.0_JPRB*0.8E-4_JPRB*zdz(jl)*(paph(jl,jk)/paph(jl,klev+1))**3
+!          zmix(jl)=2.0_JPRB*0.8E-4_JPRB*zdz(jl)*(paph(jl,jk)/paph(jl,klev+1))**3
 !         ZMIX(JL)=0.4_JPRB*ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
+          ZMIX(JL)=( 1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK-1)/PQSEN(JL,JK-1)) ) &
+        &   *ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
           zqu(jl,jk)= zqu(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zqf*zmix(jl)
           zsuh(jl,jk)= zsuh(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zsf*zmix(jl)
           zqold(jl)  = zqu(jl,jk)

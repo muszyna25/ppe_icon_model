@@ -43,16 +43,17 @@
 !!
 MODULE mo_action
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_exception,          ONLY: message, message_text
   USE mo_impl_constants,     ONLY: vname_len
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,    &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,          &
-    &                              newTimedelta, deallocateTimedelta
-  USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS,    &
+    &                              newTimedelta, deallocateTimedelta,         & 
+    &                              getPTStringFromMS,                         &
     &                              getTriggeredPreviousEventAtDateTime
+  USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_run_config,         ONLY: msg_level
   USE mo_action_types,       ONLY: t_var_action
@@ -301,7 +302,7 @@ CONTAINS
     ! Use factor 999 instead of 1000, since no open interval is available
     ! needed [trigger_date, trigger_date + slack[
     ! used   [trigger_date, trigger_date + slack]
-    CALL getPTStringFromMS(INT(999._wp*slack),str_slack)
+    CALL getPTStringFromMS(INT(999._wp*slack,i8),str_slack)
     ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
     p_slack => newTimedelta(str_slack)
 

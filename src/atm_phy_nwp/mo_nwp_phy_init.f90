@@ -87,9 +87,6 @@ MODULE mo_nwp_phy_init
                                     impl_weight
   USE src_turbdiff,           ONLY: organize_turbdiff
 
-  ! air-sea-land interface
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
-
   ! vertical diffusion
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min

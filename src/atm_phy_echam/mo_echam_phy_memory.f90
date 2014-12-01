@@ -2,8 +2,7 @@
 #define HAVE_F95
 #endif
 !>
-!! Data types and variables used by the ECHAM6 physics package implemented
-!! in the ICOHAM model.
+!! Data types and variables used by the ECHAM6 physics package.
 !!
 !! This module contains
 !! <ol>
@@ -43,7 +42,7 @@ MODULE mo_echam_phy_memory
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type
+  USE mo_echam_sfc_indices,   ONLY: nsfc_type
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,         ONLY: t_var_list
@@ -214,11 +213,7 @@ MODULE mo_echam_phy_memory
                              !< Computed in "vdiff" by getting the square root of
                              !< thvvar(:,nlev-1,:). Used by "cucall".
 
-    ! AMIP-sst and ice, preliminary 3 compartiments for water/ice/land for surface temp.
     REAL(wp),POINTER :: &
-      & tsurfw (:,  :),     &!< sst as read in from amip input (==tsw)
-      & tsurfi (:,  :),     &!< ice surface temperature
-      & tsurfl (:,  :),     &!< land surface temperature
       & siced  (:,  :),     &!< ice depth
       & alake  (:,  :),     &!< lake mask
       & alb    (:,  :),     &!< surface background albedo
@@ -248,10 +243,10 @@ MODULE mo_echam_phy_memory
 
     ! JSBACH
     REAL(wp),POINTER :: &
-      & surface_temperature_rad  (:,  :),  &!< [K] radiative sfc. temperature
-      & surface_temperature_eff  (:,  :),  &!< [K] effective sfc. temperature
-      & csat                     (:,  :),  &!<
-      & cair                     (:,  :)    !<
+      & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature
+      & tsfc_eff  (:,  :),  &!< [K] effective sfc. temperature
+      & csat      (:,  :),  &!<
+      & cair      (:,  :)    !<
 
     ! Sea ice.
     ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
@@ -994,21 +989,6 @@ CONTAINS
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT )
 
-    cf_desc    = t_cf_var('tsfc_wtr', 'K', 'surface temperature over water', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_wtr', field%tsurfw,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('tsfc_ice', 'K', 'surface temperature over ice', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_ice', field%tsurfi,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('tsfc_lnd', 'K', 'surface temperature over land', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_lnd', field%tsurfl,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
     cf_desc    = t_cf_var('siced', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'siced', field%siced,      &
@@ -1056,12 +1036,12 @@ CONTAINS
 
     cf_desc    = t_cf_var('tsfc_rad', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_rad', field%surface_temperature_rad, &
+    CALL add_var( field_list, prefix//'tsfc_rad', field%tsfc_rad, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('tsfc_eff', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tsfc_eff', field%surface_temperature_eff, &
+    CALL add_var( field_list, prefix//'tsfc_eff', field%tsfc_eff, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('csat', '', '', DATATYPE_FLT32)

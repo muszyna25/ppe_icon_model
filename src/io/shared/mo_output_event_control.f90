@@ -23,18 +23,16 @@ MODULE mo_output_event_control
   USE mo_mpi,                ONLY: my_process_is_mpi_test
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i4, i8
   USE mo_master_nml,         ONLY: model_base_dir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
     &                              MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
     &                              datetime, setCalendar, resetCalendar,                &
     &                              deallocateDatetime, datetimeToString,                &
-    &                              newDatetime, OPERATOR(>=),                           &
-    &                              OPERATOR(+), timedelta, newTimedelta,                &
+    &                              newDatetime, OPERATOR(>=), OPERATOR(*),              &
+    &                              OPERATOR(+), OPERATOR(-), timedelta, newTimedelta,   &
     &                              deallocateTimedelta, OPERATOR(<=), OPERATOR(>),      &
-    &                              OPERATOR(<), OPERATOR(==), datetimedividebyseconds,  &
-    &                              datetimeaddseconds
-  USE mo_mtime_extensions,   ONLY: getPTStringFromMS, getTimeDeltaFromDateTime
+    &                              OPERATOR(<), OPERATOR(==), divisionquotienttimedelta
   USE mo_var_list_element,   ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
@@ -145,9 +143,9 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   ! --------------------------------------------------------------------------------------------------
-  SUBROUTINE compute_step(mtime_date1, mtime_begin, mtime_end, dtime,  &
+  SUBROUTINE compute_step(mtime_current, mtime_begin, mtime_end, dtime,  &
     &                     iadv_rcf, delta, step_offset, step, exact_date)
-    TYPE(datetime),  POINTER                         :: mtime_date1         !< input date to translated into step
+    TYPE(datetime),  POINTER                         :: mtime_current       !< input date to translated into step
     TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
     TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
@@ -160,28 +158,43 @@ CONTAINS
     INTEGER                             :: i
     REAL                                :: intvlsec
     TYPE(datetime),  POINTER            :: mtime_step
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
+    CHARACTER(len=max_datetime_str_len)  :: dtime_string
+    CHARACTER(len=max_timedelta_str_len) :: td_String    
+
+    TYPE(timedelta), POINTER             :: tddiff => NULL()
+    TYPE(timedelta), POINTER             :: vlsec => NULL()
+    
+    TYPE(divisionquotienttimedelta)      :: tq 
+    
     ! first, we compute the dynamic time step which is *smaller* than
-    ! the desired date "mtime_date1"
+    ! the desired date "mtime_current"
     intvlsec    = REAL(dtime)
-    step        = FLOOR(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
+    CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
+    vlsec => newtimedelta(td_string)
+    
+    tddiff => newtimedelta('PT0S')
+    tddiff = mtime_current - mtime_begin
+    
+    CALL dividetimedeltainseconds(tddiff, vlsec, tq)
+    step = INT(tq%quotient,i4)
 
     IF (step >= 0) THEN
-      mtime_step  => datetimeaddseconds(mtime_begin, REAL(step*intvlsec))
+
+      mtime_step = mtime_begin + step * vlsec
 
       ! starting from this step, we make (at most iadv_rcf) steps
-      ! until we are *greater* than the desired date "mtime_date1" and
+      ! until we are *greater* than the desired date "mtime_current" and
       ! we have reached an advection time step
       LOOP : DO i=1,iadv_rcf
         IF (ldebug) THEN
           CALL datetimeToString(mtime_step, dtime_string)
           WRITE (0,*) "mtime_step = ", TRIM(dtime_string)
-          CALL datetimeToString(mtime_date1, dtime_string)
-          WRITE (0,*) "mtime_date1 = ", TRIM(dtime_string)
+          CALL datetimeToString(mtime_current, dtime_string)
+          WRITE (0,*) "mtime_current = ", TRIM(dtime_string)
         END IF
 
-        IF ((mtime_step >= mtime_date1) .AND.  &
+        IF ((mtime_step >= mtime_current) .AND.  &
           & (MOD(step, iadv_rcf) == 0) .OR. (mtime_step == mtime_end)) THEN
           EXIT LOOP
         END IF

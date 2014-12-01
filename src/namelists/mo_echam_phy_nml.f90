@@ -55,10 +55,7 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lgw_hines  !< .true. for atmospheric gravity wave drag
   LOGICAL  :: lmlo       !< .true. for mixed layer ocean
   LOGICAL  :: lice       !< .true. for sea-ice temperature calculation
-  LOGICAL  :: lmeltpond  !< .true. for calculation of meltponds
-  LOGICAL  :: llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
   LOGICAL  :: ljsbach    !< .true. for calculating the JSBACH land surface
-  LOGICAL  :: lhd        !< .true. for hydrologic discharge model
   LOGICAL  :: lamip      !< .true. for AMIP simulations
   LOGICAL  :: lebudget   !< .true. for echam physcics energy budget calculation
 
@@ -67,8 +64,7 @@ MODULE mo_echam_phy_nml
     &                      lrad, dt_rad, lvdiff,    &
     &                      lconv, lcond, icover,    &
     &                      lssodrag, lgw_hines,     &
-    &                      lmlo, lice, lmeltpond,   &
-    &                      llandsurf, ljsbach, lhd, &
+    &                      lmlo, lice, ljsbach,     &
     &                      lamip, lebudget
 
 CONTAINS
@@ -96,10 +92,7 @@ CONTAINS
     lgw_hines = .TRUE.
     lmlo      = .FALSE.
     lice      = .FALSE.
-    lmeltpond = .FALSE.
-    llandsurf = .FALSE.
     ljsbach   = .FALSE.
-    lhd       = .FALSE.
     lamip     = .FALSE.
     lebudget  = .FALSE.
 
@@ -165,10 +158,7 @@ CONTAINS
     echam_phy_config% lgw_hines = lgw_hines                                           
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% lice      = lice                                                
-    echam_phy_config% lmeltpond = lmeltpond                                           
-    echam_phy_config% llandsurf = llandsurf                                           
     echam_phy_config% ljsbach   = ljsbach
-    echam_phy_config% lhd       = lhd                                                 
     echam_phy_config% lamip     = lamip                                                
     echam_phy_config% lebudget  = lebudget
 

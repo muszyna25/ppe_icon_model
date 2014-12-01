@@ -31,7 +31,7 @@ MODULE mo_echam_phy_bcs
   USE mo_echam_phy_config           ,ONLY: echam_phy_config
   USE mo_radiation_config           ,ONLY: ighg, isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero
 
-  USE mo_icoham_sfc_indices         ,ONLY: iwtr
+  USE mo_echam_sfc_indices          ,ONLY: iwtr
 
   USE mo_time_interpolation         ,ONLY: time_weights_limm
   USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
@@ -139,12 +139,10 @@ CONTAINS
         CALL read_bc_sst_sic(datetime%year, patch)
       END IF
       CALL bc_sst_sic_time_weights(datetime)
-      CALL bc_sst_sic_time_interpolation( prm_field(jg)%seaice(:,:) ,&
-        &                                 prm_field(jg)%tsurfw(:,:) ,&
-        &                                 prm_field(jg)%siced(:,:)  ,&
+      CALL bc_sst_sic_time_interpolation( prm_field(jg)%seaice(:,:)         ,&
+        &                                 prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
+        &                                 prm_field(jg)%siced(:,:)          ,&
         &                                 prm_field(jg)%lsmask(:,:) )
-
-      prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
 
       ! The ice model should be able to handle different thickness classes, 
       ! but for AMIP we ONLY USE one ice class.

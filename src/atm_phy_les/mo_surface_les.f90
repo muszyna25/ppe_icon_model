@@ -67,7 +67,7 @@ MODULE mo_surface_les
   REAL(wp), PARAMETER :: bsh = 4.7_wp  !Businger Stable Heat
   REAL(wp), PARAMETER :: buh = 9._wp   !Businger Untable Heat
   REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor  
-  REAL(wp), PARAMETER :: min_wind = 0.01_wp !min wind
+  REAL(wp), PARAMETER :: min_wind = 0.5_wp !min wind = convective velocity scale in CBL 
 
   !Parameters for surface parameterizations from COSMO docs
   REAL(wp), PARAMETER :: beta_10 = 0.042_wp
@@ -111,7 +111,7 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
 
-    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind
+    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind, wstar
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
@@ -373,7 +373,7 @@ MODULE mo_surface_les
     CASE(5)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc, &
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
 !$OMP            RIB,tcn_mom,tcn_heat,zh,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -389,8 +389,16 @@ MODULE mo_surface_les
 
            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),pres_sfc(jc,jb))
 
-           !Mean wind at nlev
-           mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+           !rho at surface: no qc at suface
+           rhos   =  pres_sfc(jc,jb)/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
+           !convective velocity scale for zero wind conditions (Belajaars 1995)
+           wstar = ( prm_diag%z_pbl(jc,jb)*grav*ABS((1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) *     &
+                     prm_diag%shfl_s(jc,jb)*rcpd+vtmpc1*theta_sfc*prm_diag%lhfl_s(jc,jb)/alv)/  &
+                    (theta_sfc*rhos) )**0.333333
+
+           mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2+wstar**2) )
           
            !Z height to be used as a reference height in surface layer
            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
@@ -408,10 +416,6 @@ MODULE mo_surface_les
            prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zh,tcn_heat)
 
            !Get surface fluxes
-           !rho at surface: no qc at suface
-           rhos   =  pres_sfc(jc,jb)/( rd * &
-                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
-
            prm_diag%shfl_s(jc,jb)  = rhos*cpd*prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
            prm_diag%lhfl_s(jc,jb)  = rhos*alv*prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
            prm_diag%umfl_s(jc,jb)  = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 

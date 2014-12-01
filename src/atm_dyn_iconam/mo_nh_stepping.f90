@@ -32,11 +32,11 @@ MODULE mo_nh_stepping
   USE mo_kind,                     ONLY: wp
   USE mo_nonhydro_state,           ONLY: p_nh_state
   USE mo_nonhydrostatic_config,    ONLY: iadv_rcf, lhdiff_rcf, itime_scheme, &
-    &                                    nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2, &
+    &                                    divdamp_order, divdamp_fac, divdamp_fac_o2, &
     &                                    ih_clch, ih_clcm, kstart_moist
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,                ONLY: l_outputtime, l_diagtime, is_checkpoint_time
+  USE mo_io_config,                ONLY: is_checkpoint_time, n_chkpt, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
@@ -145,8 +145,6 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
   USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
-  USE mo_io_config,                ONLY: inextra_3d
-  USE mo_nonhydro_types,           ONLY: t_nh_diag
   USE mo_fortran_tools,            ONLY: swap
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -242,11 +240,8 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (datetime, n_checkpoint, n_diag )
+  SUBROUTINE perform_nh_stepping (datetime)
 !
-  INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
-
-
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
   TYPE(t_simulation_status)            :: simulation_status
 
@@ -397,6 +392,7 @@ MODULE mo_nh_stepping
                               & p_nh_state(1)%diag,                   & !in
                               & p_lnd_state(1)%prog_lnd(nnow_rcf(1)), &
                               & p_lnd_state(1)%diag_lnd,              &  
+                              & prm_nwp_tend(1),                      &
                               & prm_diag(1)                )     !inout
   
         !write out time series
@@ -430,7 +426,7 @@ MODULE mo_nh_stepping
 ! !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
 ! !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 ! 
-!     CALL perform_nh_timeloop (datetime, jfile, n_checkpoint, n_diag, l_have_output )
+!     CALL perform_nh_timeloop (datetime, jfile, l_have_output )
 !     CALL model_end_ompthread()
 ! 
 ! !$OMP SECTION
@@ -442,7 +438,7 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (datetime, n_checkpoint, n_diag )
+    CALL perform_nh_timeloop (datetime)
 !   ENDIF
 
   CALL deallocate_nh_stepping ()
@@ -459,12 +455,10 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (datetime, n_checkpoint, n_diag )
+  SUBROUTINE perform_nh_timeloop (datetime)
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
-
-  INTEGER, INTENT(IN)                  :: n_checkpoint, n_diag
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
@@ -641,10 +635,6 @@ MODULE mo_nh_stepping
       &              ((jstep==(nsteps+jstep0)) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
       &                  istime4name_list_output(jstep))))
-    ! "l_outputtime", "l_diagtime": global flags used by other subroutines
-    l_outputtime   = l_nml_output
-    l_diagtime     = (.NOT. output_mode%l_none) .AND. jstep >= 0 .AND. &
-      & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
 
     ! Computation of diagnostic quantities may also be necessary for
     ! meteogram sampling:
@@ -787,7 +777,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (is_checkpoint_time(jstep,n_checkpoint) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
+    IF (is_checkpoint_time(jstep,n_chkpt) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
       lwrite_checkpoint = .TRUE.
     ENDIF
 

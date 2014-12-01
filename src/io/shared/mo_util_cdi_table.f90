@@ -1,3 +1,4 @@
+
 !>
 !! Contains utility routines for CDI I/O (table summary).
 !!
@@ -25,8 +26,7 @@ MODULE mo_util_cdi_table
   USE mtime,               ONLY : newDatetime, newTimedelta, datetime, timedelta, &
     &                             timedeltaToString, max_timedelta_str_len,       &
     &                             max_datetime_str_len, deallocateDatetime,       &
-    &                             deallocateTimedelta
-  USE mo_mtime_extensions, ONLY : getTimeDeltaFromDateTime
+    &                             deallocateTimedelta, OPERATOR(-)
   USE mo_dictionary,       ONLY : t_dictionary, dict_get
 
 
@@ -247,20 +247,20 @@ CONTAINS
       CALL cdiDecodeTime(vdate, year, month, day)
       CALL cdiDecodeTime(vtime, hour, minute, second)
       mtime_vdatetime => newDatetime(year, month , day,  &
-        &                            hour, minute, second, ims=0)
+        &                            hour, minute, second, 0)
       ! get rdate and rtime
       rdate   = taxisInqRdate(taxisID)
       rtime   = taxisInqRtime(taxisID)
       CALL cdiDecodeTime(rdate, year, month, day)
       CALL cdiDecodeTime(rtime, hour, minute, second)
       mtime_rdatetime => newDatetime(year, month , day,  &
-        &                            hour, minute, second, ims=0)
+        &                            hour, minute, second, 0)
 
       ! this 'initialization' is necessary, in order to correctly deal with 
       ! timedelta=0.
       forecast_time =>newTimedelta("PT00H")
       ! compute forecastTime
-      CALL getTimeDeltaFromDateTime(mtime_vdatetime, mtime_rdatetime, forecast_time)
+      forecast_time = mtime_vdatetime - mtime_rdatetime
       CALL timedeltaToString(forecast_time, forecast_time_string)
 
       entry_str = TRIM(forecast_time_string)

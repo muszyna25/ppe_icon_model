@@ -72,9 +72,9 @@
   rsnt               prm_swflxtoa
   rlnt               prm_lwflxtoa
 #
-  ts_wtr             prm_tsfc_wtr
-  ts_ice             prm_tsfc_ice
-  ts_lnd             prm_tsfc_lnd
+  ts_wtr             prm_tsfc_tile_1
+  ts_ice             prm_tsfc_tile_2
+  ts_lnd             prm_tsfc_tile_3
 #
   alb                prm_albvisdir
 #
