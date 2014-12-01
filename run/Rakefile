@@ -12,6 +12,7 @@ LINEWIDTH = 80
   :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
+  :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
 }
 
 # collect ALL test automatically from checksuites
