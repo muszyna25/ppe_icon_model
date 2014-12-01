@@ -721,7 +721,6 @@ run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
 run/checksuite.ocean_internal/omip/exp.oce_omipR2B04L40 -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160-40km_R-refined-NAtlantic -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160km_40levels_cell -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_160km_cell_long-ptest -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160km_edge -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_ref -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_testSurface -text
@@ -735,7 +734,6 @@ run/checksuite.ocean_internal/other/exp.oce_default -text
 run/checksuite.ocean_internal/other/exp.oce_mpiom_new_noland -text
 run/checksuite.ocean_internal/other/exp.oce_sltst -text
 run/checksuite.ocean_internal/other/exp.oce_test_numeric -text
-run/checksuite.ocean_internal/other/exp.oce_test_numeric_noland_ptest -text
 run/checksuite.ocean_internal/other/exp.oce_test_numeric_r2b5 -text
 run/checksuite.ocean_internal/other/exp.oce_test_omip_edge -text
 run/checksuite.ocean_internal/other/exp.oce_test_parallel -text
@@ -753,6 +751,8 @@ run/checksuite.ocean_internal/other/post.test_oce_numeric -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric_tracerconservation -text
 run/checksuite.ocean_internal/other/variations.rb -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
+run/checksuite.ocean_internal/technical/exp.oce_omip_160km_cell_long-ptest -text
+run/checksuite.ocean_internal/technical/exp.oce_test_numeric_noland_ptest -text
 run/checksuite.ocean_internal/tracers/exp.oce_test_numeric_tracerconservation -text
 run/checksuite.ocean_internal/tracers/exp.oce_testbed_vertical_diffusion -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble -text
