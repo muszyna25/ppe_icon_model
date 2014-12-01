@@ -936,11 +936,11 @@ CONTAINS
       END DO ! blocks
 !ICON_OMP_END_PARALLEL_DO
 
-   DO level= start_level, 5!end_level-1  
-    write(*,*)'SIZES Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
-    & minval(param%k_veloc_h(:,level,:)), maxval(laplacian_vort(:,level,:)),minval(laplacian_vort(:,level,:)),&
-     &maxval(length_scale)**LEITH_EXPONENT,minval(length_scale)**LEITH_EXPONENT
-    END DO    
+!    DO level= start_level, 5!end_level-1  
+!     write(*,*)'SIZES Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
+!     & minval(param%k_veloc_h(:,level,:)), maxval(laplacian_vort(:,level,:)),minval(laplacian_vort(:,level,:)),&
+!      &maxval(length_scale)**LEITH_EXPONENT,minval(length_scale)**LEITH_EXPONENT
+!     END DO    
 
    !3b) In case of modified Leith, we need additionally the Laplacian of divergence    
    ELSEIF(leith_closure==2)THEN
@@ -1008,11 +1008,11 @@ CONTAINS
     &str_module,idt_src, in_subset=edges_in_domain)      
 !   !---------------------------------------------------------------------   
 
-   DO level= start_level, 5!end_level-1  
-   write(*,*)'Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
-   & minval(param%k_veloc_h(:,level,:))!, maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))!,&
-   !&maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))
-   END DO
+!    DO level= start_level, 5!end_level-1  
+!    write(*,*)'Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
+!    & minval(param%k_veloc_h(:,level,:))!, maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))!,&
+!    !&maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))
+!    END DO
 
   END SUBROUTINE calculate_leith_closure
   !-------------------------------------------------------------------------
