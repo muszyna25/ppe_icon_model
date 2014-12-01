@@ -18,6 +18,16 @@ plotCmd="${scriptPath}/icon_plot.ncl"
 for expDir in ${hourlyDataPath} ${dailyDataPath}; do 
   echo "Try do get results from ${expDir}";
   cd ${expDir};
-  ls ocean_accumulation*.nc*;
+  case "${expDir}" in
+  "${hourlyDataPath}")
+    for ifile in ocean_accumulation*.nc*; do
+      cdo diffv -selname,u $ifile -selname,u_acc $ifile
+      cdo diffv -selname,t $ifile -selname,t_acc $ifile
+    done;
+    ;;
+  esac
+
   cd -;
 done
+
+# vim:ft=sh
