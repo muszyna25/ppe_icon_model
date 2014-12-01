@@ -6,6 +6,10 @@ LINEWIDTH = 80
 # }}}
 # TEST COLLECTION {{{ =========================================================
 @testSuites = {
+  :oceanAccumulation      => %w[exp.ocean_accumulation_hourly exp.ocean_accumulation_daily],
+  :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
+  :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
+  :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
   :oceanTechnical         => %w[exp.oce_test_parallel],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
@@ -127,7 +131,7 @@ NAME_COLUMN_WIDTH   = 65
 DATE_COLUMN_WIDTH   = 20
 #@log                = Logger.new("#{ENV['HOME']}/rllq.log")
 #==============================================================================
-def getAdditionalInfo(ssh,logfile,tag)
+def getAdditionalInfo(ssh,logfile,tag)# {{{
   info =[]
 # info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").split(' ')[-4,-1]
   info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1")
@@ -247,7 +251,7 @@ def checkAll
       #}
       #@log.info(log)
     }
-end
+end# }}}
 # }}}
 # RUNNING|CHECKING TESTS {{{ ===========================================================
 # config first
@@ -294,7 +298,7 @@ task :run, :name do |t,args|
   experimentList.each {|experiment|
     Rake::Task[experiment.to_sym].invoke
     Rake::Task["#{experiment}.run".to_sym].invoke
-    sh "#{@jobSubmit[@jobHost]} ./#{experiment}.run"
+    sh "#{@jobSubmit[@jobHost.to_sym]} ./#{experiment}.run"
   }
 end
 desc "Run all tests for agiven component: ocean coupled"
@@ -318,6 +322,15 @@ task :selfCheck do
     puts t.name
     t.invoke unless %w[check clean clobber].include?(t.name)
   }
+end
+task :showSubmit do
+  require 'pp'
+
+  puts 'HOST is:'
+  pp @jobHost
+  puts 'SUBMITs is: '
+  pp @jobSubmit
+  pp @jobSubmit[@jobHost.to_sym]
 end
 # }}}
 # vim:fdm=marker
