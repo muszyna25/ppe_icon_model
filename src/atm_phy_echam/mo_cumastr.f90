@@ -16,7 +16,7 @@ MODULE mo_cumastr
 
   USE mo_kind,               ONLY: wp
 !  USE mo_control,            ONLY: nn
-  USE mo_physical_constants, ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv
+  USE mo_physical_constants, ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv, cvd, cvv
 !  USE mo_time_control,       ONLY: time_step_len
 !  USE mo_param_switches,     ONLY: iconv, lconvmassfix
   USE mo_echam_convect_tables,     ONLY: prepare_ua_index_spline,lookup_ua_spline, &
@@ -159,7 +159,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
   DO 120 jk=1,klev
 !IBM* NOVECTOR
      DO jl=1,kproma
-        ztp1(jl,jk)=ptm1(jl,jk)+ptte(jl,jk)*ztmst
+        ztp1(jl,jk)=ptm1(jl,jk)+ptte(jl,jk)*ztmst * cvd/cpd
         zqp1(jl,jk)=MAX(0._wp,pqm1(jl,jk)+pqte(jl,jk)*ztmst)
         zxlp1=pxlm1(jl,jk)+pxlte(jl,jk)*ztmst
         zxip1=pxim1(jl,jk)+pxite(jl,jk)*ztmst
