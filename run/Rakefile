@@ -279,6 +279,10 @@ task :run, :name do |t,args|
   end
   puts "try to run #{testsGiven.join(' ')} ..."
 
+  # determine the submission command
+  submitCommand = ENV.has_key?('SUBMIT') ? ENV['SUBMIT'] : @jobSubmit[@jobHost.to_sym]
+  dbg("Submission Command is: '#{submitCommand}'")
+
   # if testsuites are given, transform them into lists of experiments
   experimentList =[]
   testsGiven.each {|test| 
@@ -298,7 +302,7 @@ task :run, :name do |t,args|
   experimentList.each {|experiment|
     Rake::Task[experiment.to_sym].invoke
     Rake::Task["#{experiment}.run".to_sym].invoke
-    sh "#{@jobSubmit[@jobHost.to_sym]} ./#{experiment}.run"
+    sh "#{submitCommand} ./#{experiment}.run"
   }
 end
 desc "Run all tests for agiven component: ocean coupled"
