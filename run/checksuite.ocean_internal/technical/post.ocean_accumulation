@@ -1,43 +1,23 @@
-EXP="test_oce_acc"
+EXP_DAILY=${EXPNAME}_daily
+EXP_HOURLY=${EXPNAME}_hourly
+
 varNames2D="h"
 varNames3D="t s rhopot u v"
 varNames="${varNames2D} ${varNames3D}"
+hourlyFilePattern='${EXP_HOURLY}*.nc*'
+dailyFilePattern='${EXP_DAILY}*.nc*'
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
-dataPath="${baseBath}../experiments/${EXP}/"
+hourlyDataPath="${baseBath}../experiments/${EXP_HOURLY}/"
+dailyDataPath="${baseBath}../experiments/${EXP_DAILY}/"
 scriptPath="/pool/data/ICON/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
-# set the CDO path for the dwd to a local installation
-case "$(hostname -d)" in
-  dwd.de)
-    CDO="/e/uhome/extrmuel/local/bin/cdo"
-    ;;
-  *)
-    CDO="cdo"
-esac
 # ================================================================================
-# plotting
-## find the last input file
-cd ${dataPath}
-iFile=$(ls ${EXP}* | tail -n 1)
-if [[ ! -f ${iFile} ]]; then
-  echo "Could not find the input file '${iFile}'"
-  echo "Give up!"
-  exit 1
-fi
-
-iFiles=$(ls ${EXP}*)
-
-for file in $iFiles; do 
-  echo "CHECKING FILE: $file ========================================="
-  for var in $varNames; do 
-    cdo diffv -selname,$var $file -selname,${var}_acc $file
-  done
+for expDir in ${hourlyDataPath} ${dailyDataPath}; do 
+  echo "Try do get results from ${expDir}";
+  cd ${expDir};
+  ls ocean_accumulation*.nc*;
+  cd -;
 done
-
-check_error $? "test_oce_acc"
-
-exit
-
