@@ -751,8 +751,8 @@ run/checksuite.ocean_internal/other/variations.rb -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/technical/exp.check_restart_1x4days -text
 run/checksuite.ocean_internal/technical/exp.check_restart_2x2days -text
-run/checksuite.ocean_internal/technical/exp.oce_omip_160km_cell_long-ptest -text
 run/checksuite.ocean_internal/technical/exp.ocean_ptest_analytic_noforcing -text
+run/checksuite.ocean_internal/technical/exp.ocean_ptest_omip_160km_1year -text
 run/checksuite.ocean_internal/technical/post.test_compare_restarts -text
 run/checksuite.ocean_internal/tracers/exp.oce_test_numeric_tracerconservation -text
 run/checksuite.ocean_internal/tracers/exp.oce_testbed_vertical_diffusion -text
