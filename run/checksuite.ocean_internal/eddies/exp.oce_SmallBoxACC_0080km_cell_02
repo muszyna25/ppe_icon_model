@@ -21,7 +21,7 @@ output_interval="P10D"     # ocean model output interval in days
 #
 LOC='POOL'
 #grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
-ocean_grids="SmallBoxACC_0080km_+10Lat.nc"
+ocean_grids="Ocean_SmallBoxACC_0080km_80kmBoundedLand.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
