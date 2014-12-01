@@ -678,6 +678,7 @@ CONTAINS
     
     CALL veloc_diff_harmonic_curl_curl( u_vec_e, vort, patch_3D, p_op_coeff,&
       & p_vn_dual, z_nabla2_e)!, k_h)     
+    CALL sync_patch_array(sync_e,patch_2D,z_nabla2_e)
       
     ! compute divergence of vector field
     !     CALL div_oce_3d( u_vec_e, patch_2D, p_op_coeff%div_coeff, z_div_c)
@@ -712,13 +713,16 @@ CONTAINS
     
     ! compute divergence of vector field
     CALL div_oce_3d( z_nabla2_e, patch_3D, p_op_coeff%div_coeff, z_div_c)
+    CALL sync_patch_array(sync_c,patch_2D,z_div_c)
     
     ! compute rotation of vector field for the ocean
     CALL map_edges2vert_3d( patch_2D, &
       & z_nabla2_e,&
       & p_op_coeff%edge2vert_coeff_cc,&
-      & p_nabla2_dual)
-      
+      & p_nabla2_dual)      
+    CALL sync_patch_array_mult(sync_v, patch_2D, 3, &
+      & p_nabla2_dual(:,:,:)%x(1), p_nabla2_dual(:,:,:)%x(2), p_nabla2_dual(:,:,:)%x(3))
+    
     CALL rot_vertex_ocean_3d( patch_3D, z_nabla2_e, p_nabla2_dual, p_op_coeff, z_rot_v)
     
     !combine divergence and vorticity
