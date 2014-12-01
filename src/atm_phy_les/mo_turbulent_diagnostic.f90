@@ -224,6 +224,7 @@ CONTAINS
                             & p_prog,   p_prog_rcf,       & !in
                             & p_diag,                     & !in
                             & p_prog_land, p_diag_land,   & !in
+                            & phy_tend,                   & !in
                             & prm_diag                )     !inout
                             
 
@@ -238,6 +239,7 @@ CONTAINS
 
     TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
     TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
+    TYPE(t_nwp_phy_tend),TARGET,INTENT(in):: phy_tend    !< atm tend vars
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     ! Local
@@ -739,6 +741,15 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
        outvar = outvar*outvar0d
+     CASE('dt_t_sw')
+       CALL levels_horizontal_mean(phy_tend%ddt_temp_radsw, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlev))
+     CASE('dt_t_lw')
+       CALL levels_horizontal_mean(phy_tend%ddt_temp_radlw, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlev))
+     CASE('dt_t_tb')
+       CALL levels_horizontal_mean(phy_tend%ddt_temp_turb, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlev))
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -1105,6 +1116,15 @@ CONTAINS
        longname = 'net shortwave flux'
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
+     CASE('dt_t_sw') 
+       longname = 'shortwave temp tendency'
+       unit     = 'K/s'
+     CASE('dt_t_lw') 
+       longname = 'longwave temp tendency'
+       unit     = 'K/s'
+     CASE('dt_t_tb') 
+       longname = 'turbulent temp tendency'
+       unit     = 'K/s'
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')

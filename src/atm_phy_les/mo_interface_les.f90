@@ -1445,6 +1445,7 @@ CONTAINS
                               & pt_prog,  pt_prog_rcf,      & !in
                               & pt_diag,                    & !in
                               & lnd_prog_new, lnd_diag,     & !in
+                              & prm_nwp_tend,               & !in
                               & prm_diag                )     !inout
 
       !write out time series

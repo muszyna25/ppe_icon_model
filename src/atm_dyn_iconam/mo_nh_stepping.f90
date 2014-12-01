@@ -392,6 +392,7 @@ MODULE mo_nh_stepping
                               & p_nh_state(1)%diag,                   & !in
                               & p_lnd_state(1)%prog_lnd(nnow_rcf(1)), &
                               & p_lnd_state(1)%diag_lnd,              &  
+                              & prm_nwp_tend(1),                      &
                               & prm_diag(1)                )     !inout
   
         !write out time series
