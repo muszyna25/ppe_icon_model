@@ -340,7 +340,7 @@ SUB_FILES=${SUB_FILES='no'}
 # Set defaults for file types, dates, and the restart date for the 
 # checks depending on the experiment.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
-  TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_pl lnd_ml phy_2d_ml phy_3d_ml'}
+  TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_rmb_pl lnd_ml phy_2d_ml phy_3d_ml'}
   DATES=${DATES='19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
   RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi

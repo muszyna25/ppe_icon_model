@@ -87,9 +87,6 @@ MODULE mo_nwp_phy_init
                                     impl_weight
   USE src_turbdiff,           ONLY: organize_turbdiff
 
-  ! air-sea-land interface
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
-
   ! vertical diffusion
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min
@@ -1392,8 +1389,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
   ! COSMO SSO scheme
   !
-  IF ( (atm_phy_nwp_config(jg)%inwp_sso == 1)  .AND. (jg == 1) ) THEN
-    CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
+  IF ( atm_phy_nwp_config(jg)%inwp_sso == 1 ) THEN
+    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
+    prm_diag%ktop_envel(:,:) = nlev
   ENDIF
 
   !  WW diagnostics

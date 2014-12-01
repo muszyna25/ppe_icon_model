@@ -97,7 +97,6 @@ CONTAINS
 
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog => NULL()
     TYPE(t_nh_prog),    POINTER     :: p_parent_save => NULL()
-    TYPE(t_nh_diag),    POINTER     :: p_parent_tend => NULL()
     TYPE(t_nh_prog),    POINTER     :: p_child_prog => NULL()
     TYPE(t_nh_prog),    POINTER     :: p_child_save => NULL()
     TYPE(t_nh_diag),    POINTER     :: p_child_tend => NULL()
@@ -113,10 +112,8 @@ CONTAINS
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
     TYPE(t_lnd_prog),   POINTER     :: p_lndp => NULL()
-    TYPE(t_lnd_prog),   POINTER     :: p_lndp_old => NULL()
     TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
     TYPE(t_wtr_prog),   POINTER     :: p_wtrp => NULL()
-    TYPE(t_lnd_diag),   POINTER     :: p_ldiag => NULL()
 
     ! Indices
     INTEGER :: jb, jc, jk, jt, je, js, jgc, i_nchdom, i_chidx, &
@@ -163,7 +160,6 @@ CONTAINS
     p_parent_prog    => p_nh_state(jgp)%prog(nnew(jgp))
     p_parent_prog_rcf=> p_nh_state(jgp)%prog(nnew_rcf(jgp))
     p_parent_save    => p_nh_state(jgp)%prog(nsav1(jgp))
-    p_parent_tend    => p_nh_state(jgp)%diag
     p_child_prog     => p_nh_state(jg)%prog(nnow(jg))
     p_child_prog_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
     p_child_save     => p_nh_state(jg)%prog(nsav2(jg))
@@ -173,10 +169,8 @@ CONTAINS
     p_gec            => p_patch(jg)%edges
     p_pc             => p_patch(jg)
     p_lndp           => p_lnd_state(jgp)%prog_lnd(nnew_rcf(jgp))
-    p_lndp_old       => p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp))
     p_lndc           => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
     p_wtrp           => p_lnd_state(jgp)%prog_wtr(nnew_rcf(jgp))
-    p_ldiag          => p_lnd_state(jg)%diag_lnd
 
     p_grf => p_grf_state_local_parent(jg)
     p_grfp => p_grf_state(jgp)
@@ -995,10 +989,10 @@ CONTAINS
     ! Indices
     INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
       i_startblk, i_endblk, i_startidx, i_endidx, ic, &
-      i_rlstart_c, i_rlstart_e, i_rlend_c, i_rlend_e, i_nchdom_p
+      i_rlend_c, i_rlend_e, i_nchdom_p
 
-    INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
-    INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
+    INTEGER :: nlev_c            ! number of full levels (child dom)
+    INTEGER :: nlev_p            ! number of full levels (parent dom)
     INTEGER :: nshift
     INTEGER :: ntracer_fbk
 
@@ -1060,10 +1054,8 @@ CONTAINS
     p_pp   => p_patch_local_parent(jg)
 
     nlev_c   = p_pc%nlev
-    nlevp1_c = p_pc%nlevp1
 
     nlev_p   = p_pp%nlev
-    nlevp1_p = p_pp%nlevp1
 
     nshift = p_pc%nshift
     js     = nshift
@@ -1078,9 +1070,7 @@ CONTAINS
     i_chidx  = p_pc%parent_child_index
     i_nchdom_p = MAX(1,p_patch(jgp)%n_childdom)
 
-    ! start and end index levels for application of feedback relaxation
-    i_rlstart_c = grf_fbk_start_c   ! grf_fbk_start_c or min_rlcell_int
-    i_rlstart_e = grf_fbk_start_e   ! grf_fbk_start_e or min_rledge_int
+    ! end index levels for application of feedback relaxation
     i_rlend_c   = min_rlcell_int
     i_rlend_e   = min_rledge_int
 

@@ -27,9 +27,8 @@ MODULE mo_echam_phy_config
   PUBLIC :: get_lrad, get_dt_rad, get_lvdiff,    & !< functions to retrieve values
     &       get_lconv, get_lcond, get_icover,    & !<   of single parameters of the
     &       get_lgw_hines, get_lssodrag,         & !<   whole echam6 configuration
-    &       get_lmlo, get_lice, get_lmeltpond,   & !<   state without USEing the
-    &       get_llandsurf, get_ljsbach, get_lhd, & !<   whole state.
-    &       get_lamip, get_lebudget
+    &       get_lmlo, get_lice, get_ljsbach,     & !<   state without USEing the
+    &       get_lamip, get_lebudget                !<   whole state.
 
   !>
   !! Derived type containing main switches for configuring the echam physics package
@@ -51,10 +50,7 @@ MODULE mo_echam_phy_config
                             !<         by blocking and gravity waves (lgwdrag in ECHAM6)
     LOGICAL  :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL  :: lice        !<  .true. for sea-ice temperature calculation
-    LOGICAL  :: lmeltpond   !<  .true. for calculation of meltponds
-    LOGICAL  :: llandsurf   !<  .true. for surface exchanges. (lsurf in ECHAM6)
     LOGICAL  :: ljsbach     !<  .true. for calculating the JSBACH land surface
-    LOGICAL  :: lhd         !<  .true. for hydrologic discharge model
 
     LOGICAL  :: lamip       !<  .true. for AMIP simulations with monthly transient boundary conditions   
     LOGICAL  :: lebudget    !<  .true. for echam physics energy budget calculation
@@ -100,10 +96,7 @@ CONTAINS
     CALL print_value('    lssodrag   ',echam_phy_config% lssodrag )
     CALL print_value('    lmlo       ',echam_phy_config% lmlo     )
     CALL print_value('    lice       ',echam_phy_config% lice     )
-    CALL print_value('    lmeltpond  ',echam_phy_config% lmeltpond)
-    CALL print_value('    llandsurf  ',echam_phy_config% llandsurf)
     CALL print_value('    ljsbach    ',echam_phy_config% ljsbach  )
-    CALL print_value('    lhd        ',echam_phy_config% lhd      )
     CALL message('','')
     CALL message(method_name,'ECHAM6 physics boundary conditions:')
     CALL print_value('    lamip      ',echam_phy_config% lamip    )
@@ -172,24 +165,9 @@ CONTAINS
   END FUNCTION get_lice
   !>
   !!
-  LOGICAL FUNCTION get_lmeltpond()
-    get_lmeltpond = echam_phy_config%lmeltpond
-  END FUNCTION get_lmeltpond
-  !>
-  !!
-  LOGICAL FUNCTION get_llandsurf()
-    get_llandsurf = echam_phy_config%llandsurf
-  END FUNCTION get_llandsurf
-  !>
-  !!
   LOGICAL FUNCTION get_ljsbach()
     get_ljsbach = echam_phy_config%ljsbach
   END FUNCTION get_ljsbach
-  !>
-  !!
-  LOGICAL FUNCTION get_lhd()
-    get_lhd = echam_phy_config%lhd
-  END FUNCTION get_lhd
   !>
   !!
   LOGICAL FUNCTION get_lamip()

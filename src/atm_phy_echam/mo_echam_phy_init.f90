@@ -1,6 +1,5 @@
 !>
-!! @brief Contains subroutines for initializing the ECHAM physics
-!! package in ICOHAM.
+!! @brief Contains subroutines for initializing the ECHAM physics package.
 !!
 !! @author Hui Wan, MPI-M
 !!
@@ -70,8 +69,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
-                                   & init_sfc_indices
+  USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
 
   ! subgrid scale orography
   USE mo_ssodrag,              ONLY: sugwd
@@ -150,7 +148,7 @@ CONTAINS
         tsi      = tsi_radt
       CASE (1)
         ! in this case, transient solar irradiation is used and has to be implemented inside
-        ! the time loop (mo_interface_icoham_echam)
+        ! the time loop (mo_echam_phy_bcs)
         CONTINUE
       CASE (2)
         ssi_radt(:) = ssi_preind(:)
@@ -188,7 +186,7 @@ CONTAINS
 
     ! For surface processes:
     ! nsfc_type, iwtr, etc. are set in this subroutine.
-    ! See mo_icoham_sfc_indicies.f90 for further details.
+    ! See mo_sfc_indices.f90 for further details.
 
     CALL init_sfc_indices( ctest_name )
 
@@ -322,17 +320,21 @@ CONTAINS
       CALL read_bc_sst_sic(current_date%year, p_patch(1))
       CALL bc_sst_sic_time_weights(current_date)
       DO jg= 1,ndomain
-        CALL bc_sst_sic_time_interpolation(prm_field(jg)%seaice(:,:), &
-!           &                               prm_field(jg)%tsfc_tile(:,:,:), &
-           &                               prm_field(jg)%tsurfw(:,:), &
-           &                               prm_field(jg)%siced(:,:), &
+        !
+        ! sea surface temperature, ice concentration and ice depth from external data
+        CALL bc_sst_sic_time_interpolation(prm_field(jg)%seaice(:,:),         &
+           &                               prm_field(jg)%tsfc_tile(:,:,iwtr), &
+           &                               prm_field(jg)%siced(:,:),          &
            &                               prm_field(jg)%lsmask(:,:))
-        prm_field(jg)%tsurfl(:,:) = prm_field(jg)%tsurfw(:,:)
-        prm_field(jg)%tsurfi(:,:) = prm_field(jg)%tsurfw(:,:)
-        prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
-! TODO: ME preliminary setting for ice
-        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsurfw(:,:)
-        prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsurfw(:,:)
+        !
+! TODO: ME preliminary setting for ice and land and total surface
+        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        !
+        prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%tsfc_eff (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        !
 ! TODO: ME preliminary setting for ice
         prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
@@ -800,10 +802,8 @@ CONTAINS
       IF (phy_config%ljsbach) THEN
 
 !$OMP WORKSHARE
-        field% surface_temperature_rad(:,  :) = field% tsfc_tile(:,:,ilnd)
-        field% surface_temperature_eff(:,  :) = field% tsfc_tile(:,:,ilnd)
-        field% csat                   (:,  :) = 1.0_wp
-        field% cair                   (:,  :) = 1.0_wp
+        field% csat    (:,  :) = 1.0_wp
+        field% cair    (:,  :) = 1.0_wp
 !$OMP END WORKSHARE
 
       END IF ! ljsbach

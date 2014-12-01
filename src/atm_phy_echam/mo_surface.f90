@@ -26,7 +26,7 @@ MODULE mo_surface
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
-  USE mo_icoham_sfc_indices,ONLY: nsfc_type
+  USE mo_echam_sfc_indices, ONLY: nsfc_type
 #ifndef __NO_ICON_OCEAN__
   USE mo_sea_ice,           ONLY: ice_fast
 #endif

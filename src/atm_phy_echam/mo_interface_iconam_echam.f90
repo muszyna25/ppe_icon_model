@@ -162,7 +162,6 @@ CONTAINS
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
-    LOGICAL  :: any_uv_tend
     LOGICAL  :: ltrig_rad
     REAL(wp) :: time_radtran
 
@@ -205,9 +204,11 @@ CONTAINS
       !
     CASE (2) ! idcphycpl
       ! In this case all ECHAM physics is treated as "slow" physics.
-      ! The tracer state still needs to be updated with the physics
-      ! tendencies computed at the end of the last physics call for
-      ! the "now" state of this advection time step.
+      ! The provisional "new" tracer state, resulting from the advection
+      ! step, still needs to be updated with the physics tracer tendencies
+      ! computed at the end of the last physics call for the then final
+      ! "new" state that was used as "now" state for the dynamics and
+      ! advection of this time step.
       ! (The corresponding update for the dynamics variables has
       ! already happened in the dynamical core.)
       !
@@ -222,13 +223,13 @@ CONTAINS
             !
             ! water vapor
             pt_prog_new_rcf%tracer(jc,jk,jb,iqv) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqv)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqv) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqv) * dtadv_loc
             ! cloud water
             pt_prog_new_rcf%tracer(jc,jk,jb,iqc) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqc)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqc) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqc) * dtadv_loc
             ! cloud ice
             pt_prog_new_rcf%tracer(jc,jk,jb,iqi) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqi)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqi) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqi) * dtadv_loc
             !
           END DO
         END DO
@@ -271,12 +272,13 @@ CONTAINS
     ! Now the new prognostic and diagnostic state variables (pt_prog_new, pt_prog_new_rcf,
     ! pt_diag) of the dynamical core are ready to be used in the phyiscs.
     !
-    ! idcphycpl = 1: This is the provisional new state that still needs to be
-    !                updated by the physics.
+    ! idcphycpl = 1: This is the provisional "new" state that still needs to be
+    !                updated by the physics to obtain the final "new" state.
     !
-    ! idcphycpl = 2: This is the final new state, for which the phyiscs
+    ! idcphycpl = 2: This is the final "new" state, for which the phyiscs
     !                forcing is computed that will be applied in the next
-    !                dynamical step(s).
+    !                dynamical step(s) (pt_diag%ddt_exner_phy) and advection
+    !                step (pt_diag%ddt_vn_phy, see above).
     !
     !=====================================================================================
 
@@ -325,7 +327,7 @@ CONTAINS
             &                                      * (pt_prog_new%w(jc,jk,jb)+pt_prog_new%w(jc,jk+1,jb)) &
             &                                      * pt_prog_new%rho(jc,jk,jb) * grav
           !
-          ! Initialize the ECHAM phyiscs tendencies 
+          ! Initialize the tendencies passed to the ECHAM physics
           prm_tend(jg)%          u(jc,jk,jb)     = 0.0_wp
           prm_tend(jg)%          v(jc,jk,jb)     = 0.0_wp
           !
@@ -438,100 +440,102 @@ CONTAINS
 
     !=====================================================================================
     !
-    ! (6) Convert physics tandencies in the wind components (u,v) to tendencies in
-    !     normal wind vn.
+    ! (6) Convert physics tendencies to dynamics tendencies
     !
-    !
-    any_uv_tend = echam_phy_config%lconv     .OR. &
-      &           echam_phy_config%lvdiff    .OR. &
-      &           echam_phy_config%lgw_hines .OR. &
-      &           echam_phy_config%lssodrag
+    !     (a) (dT/dt|phy, dqv/dt|phy, dqc/dt|phy, dqi/dt|phy) --> dexner/dt|phy
 
-    IF (any_uv_tend) THEN
-
-      ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
-        &      zdvdt(nproma,nlev,patch%nblks_c), &
-        &      stat=return_status)
-      IF (return_status > 0) THEN
-        CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
-      END IF
-      zdudt(:,:,:) = 0.0_wp
-      zdvdt(:,:,:) = 0.0_wp
-
+    ! Loop over cells
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
-        zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
-        zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
+
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+
+            z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
+            z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi) 
+            !
+            pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
+              &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
+              &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
+              &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
+              &     + pt_diag%temp(jc,jk,jb)                                                &
+              &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
+            !
+            ! Additionally use this loop also to set the dynamical exner increment to zero.
+            ! (It is accumulated over one advective time step in solve_nh)
+            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+
+        END DO
       END DO
+
+    END DO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
+    !
+    ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
+      &      zdvdt(nproma,nlev,patch%nblks_c), &
+      &      stat=return_status)
+    IF (return_status > 0) THEN
+      CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
+    END IF
+    zdudt(:,:,:) = 0.0_wp
+    zdvdt(:,:,:) = 0.0_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+      zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
+      zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ! Now derive the physics-induced normal wind tendency, and add it to the
-      ! total tendency.
-      CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
+    ! Now derive the physics-induced normal wind tendency, and add it to the
+    ! total tendency.
+    CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
 
-      jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
-      jbe   = patch%nblks_e
+    jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
+    jbe   = patch%nblks_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,jes,jee,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,jbe
-        CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
+    DO jb = jbs,jbe
+      CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
+!!$      CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
-        DO jk = 1,nlev
-          DO je = jes,jee
+      DO jk = 1,nlev
+        DO je = jes,jee
 
-            jcn  =   patch%edges%cell_idx(je,jb,1)
-            jbn  =   patch%edges%cell_blk(je,jb,1)
-            zvn1 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v1 &
-              &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v2
+          jcn  =   patch%edges%cell_idx(je,jb,1)
+          jbn  =   patch%edges%cell_blk(je,jb,1)
+          zvn1 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v1 &
+            &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v2
 
-            jcn  =   patch%edges%cell_idx(je,jb,2)
-            jbn  =   patch%edges%cell_blk(je,jb,2)
-            zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
-              &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
+          jcn  =   patch%edges%cell_idx(je,jb,2)
+          jbn  =   patch%edges%cell_blk(je,jb,2)
+          zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
+            &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
 
-            pt_diag%ddt_vn_phy(je,jk,jb) =   pt_int_state%c_lin_e(je,1,jb)*zvn1 &
-              &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
+          pt_diag%ddt_vn_phy(je,jk,jb) =   pt_int_state%c_lin_e(je,1,jb)*zvn1 &
+            &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
 
-          END DO ! je
-        END DO ! jk
+        END DO ! je
+      END DO ! jk
 
-      END DO ! jb
+    END DO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      DEALLOCATE(zdudt, zdvdt)
-
-    ELSE
-
-      jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
-      jbe   = patch%nblks_e
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,jes,jee) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,jbe
-        CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
-
-        DO jk = 1,nlev
-          DO je = jes,jee
-
-            pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
-
-          END DO ! je
-        END DO ! jk
-
-      END DO ! jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    END IF ! any_uv_tend
+    DEALLOCATE(zdudt, zdvdt)
     !
     !=====================================================================================
 
@@ -545,10 +549,10 @@ CONTAINS
 
     CASE (1) ! idcphycpl
       ! In this case all ECHAM physics is treated as "fast" physics:
-      ! - The provisional new state is updated with the total phyiscs
-      !   tendencies, providing the final new state
+      ! - The provisional "new" state is updated with the total phyiscs
+      !   tendencies, providing the final "new" state
       ! - The physics forcing that is passed to the dynamical
-      !   core is set to zero
+      !   core must be set to zero
 
       ! Loop over edges
       jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
@@ -570,7 +574,7 @@ CONTAINS
             pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
               &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dtadv_loc
             !
-            ! Set slow physics forcing to zero
+            ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
 
           END DO
@@ -591,28 +595,28 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
 
-            ! (2) Tracers and temperature
-            !
-            ! Update with the total phyiscs tendencies
-            !
-            pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp(jc,jk,jb)             &
-              &                                    + prm_tend(jg)%temp(jc,jk,jb) * dtadv_loc
+            ! (2) Tracers
             !
             pt_prog_new_rcf%tracer(jc,jk,jb,iqv) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqv)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqv) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqv) * dtadv_loc
             pt_prog_new_rcf%tracer(jc,jk,jb,iqc) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqc)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqc) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqc) * dtadv_loc
             pt_prog_new_rcf%tracer(jc,jk,jb,iqi) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqi)             &
-              &                                    + prm_tend(jg)%        q(jc,jk,jb,iqi) * dtadv_loc
+              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqi) * dtadv_loc
             !
-            ! Compute new scalar prognostic variables theta_v and exner from temp and tracer
+            ! (3) Exner function and virtual potential temperature
+            !
+            ! (a) Update T, then compute Temp_v, Exner and Theta_v
+            !
+            pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp    (jc,jk,jb)             &
+              &                                    + prm_tend(jg)%temp_phy(jc,jk,jb) * dtadv_loc
             !
             z_qsum = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
             !
             pt_diag%tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                             &
               &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum)
             !
-            ! Save provisoinal new exner from the slow-physics-forced dynamics
+            ! Save provisional "new" exner from the slow-physics-forced dynamics
             z_exner = pt_prog_new%exner(jc,jk,jb)
             !
             ! Compute final new exner
@@ -622,15 +626,23 @@ CONTAINS
             ! Add exner change from fast phyiscs to exner_old (why?)
             pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
             !
+!!$            ! (b) Update Exner, then compute Temp_v
+!!$            !
+!!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new%exner(jc,jk,jb)                 &
+!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
+!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
+!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
+!!$            !
+!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd) &
+!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd_o_p0ref)
+!!$            !
+            !
+            ! (a) and (b) Compute Theta_v
+            !
             pt_prog_new%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) / pt_prog_new%exner(jc,jk,jb)
             !
-            ! Set slow physics forcing to zero
-            !
+            ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag%ddt_exner_phy(jc,jk,jb) = 0._wp
-            !
-            ! Reset dynamical exner increment to zero
-            ! (it is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
             !
         END DO
       END DO
@@ -641,52 +653,11 @@ CONTAINS
 
     CASE (2) ! idcphycpl
       ! In this case all ECHAM physics is treated as "slow" physics:
-      ! - The new state is already complete
-      ! - The full physics forcing is passed to the dynamical core
-      !   - pt_diag%ddt_vn_phy is ready
-      !   - pt_diag%ddt_exner_phy needs to be computed from the new state
-      !     and the tendencies prm_tend(jg)%temp and prm_tend(jg)%q
-
-      ! Loop over cells
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
-
-        DO jk = 1,nlev
-          DO jc = jcs, jce
-
-            ! (2) Tracers and temperature
-            !
-            ! The temperature forcing needs to be converted to an exner forcing, 
-            ! which depends on the forcings in temperature and water tracers.
-            z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-            z_ddt_qsum = prm_tend(jg)%q(jc,jk,jb,iqc)         + prm_tend(jg)%q(jc,jk,jb,iqi) 
-            !
-            pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
-              &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
-              &  * (  prm_tend(jg)%temp(jc,jk,jb)                                           &
-              &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
-              &     + pt_diag%temp(jc,jk,jb)                                                &
-              &     * (        vtmpc1*prm_tend(jg)%q(jc,jk,jb,iqv)         - z_ddt_qsum ) )
-            !
-            ! Reset dynamical exner increment to zero
-            ! (it is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-            !
-            ! The tracer tendencies are neither used in the dynamical core nor
-            ! in the transport scheme, but only at the beginning of this physics
-            ! interface. Therefore tracer tendencies are kept in physics state,
-            ! and nothing needs to be passed to the dynamics state.
-
-        END DO
-      END DO
-
-    END DO !jb
-!$OMP END DO
-!$OMP END PARALLEL
+      ! - The full physics forcing has been computed for the final "new" state,
+      !   which is the "now" state of the next time step, on which the forcing
+      !   shall be applied.
+      ! - Hence the full phyiscs forcing is passed on and nothing needs to be
+      !   done here.
 
     END SELECT ! idcphycpl
     !

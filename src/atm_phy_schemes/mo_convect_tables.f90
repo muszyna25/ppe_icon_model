@@ -1154,6 +1154,7 @@ CONTAINS
 
   END SUBROUTINE lookuperror
 
+  !-------------
   !>
   !! Compute saturation specific humidity
   !! from the given temperature and pressure.
@@ -1184,10 +1185,9 @@ CONTAINS
       pqs(jl) = zes*zcor
     ENDDO
 !
-    IF (lookupoverflow) CALL lookuperror ('compute_qsat_amip')
+    IF (lookupoverflow) CALL lookuperror ('compute_qsat')
 
   END SUBROUTINE compute_qsat
   !-------------
-
 
 END MODULE mo_convect_tables

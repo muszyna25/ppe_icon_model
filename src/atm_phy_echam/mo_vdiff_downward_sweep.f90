@@ -227,7 +227,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
 !
-    CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,         &! in
+    CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & lsfc_mom_flux, lsfc_heat_flux,         &! in
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
