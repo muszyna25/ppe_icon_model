@@ -48,7 +48,7 @@ MODULE mo_art_emission_interface
                                           &   iCS137,iI131,iTE132,          &
                                           &   iZR95,iXE133,iI131g,          &
                                           &   iI131o,iBA140,iRU103
-    
+  USE mo_datetime,                      ONLY: t_datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -69,7 +69,6 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer      !< JS
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase        !< JS
-  USE mo_datetime,                      ONLY: t_datetime
 #endif
 
   IMPLICIT NONE
@@ -102,6 +101,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< list of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< density of air [kg/m3]
+  TYPE(t_datetime), INTENT(IN) :: &
+    &  datetime !< JS
   REAL(wp), INTENT(inout) :: &
     &  p_trac(:,:,:,:)         !< tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -117,7 +118,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  dz(:,:)                 !< Height of lowest layer
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode     !< pointer to current aerosol mode
-    TYPE(t_datetime), INTENT(IN) :: datetime !< JS
   
   
   
