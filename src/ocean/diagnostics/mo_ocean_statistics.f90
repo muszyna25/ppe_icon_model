@@ -102,7 +102,6 @@ CONTAINS
     IF (PRESENT(p_phys_param)) THEN
       ! physics
       DO jtrc=1,no_tracer
-        CALL add_fields(ocean_state%p_acc%tracer(:,:,:,jtrc),ocean_state%p_prog(nnew(1))%tracer(:,:,:,jtrc),cells)
         CALL add_fields(ocean_state%p_acc%k_tracer_h(:,:,:,jtrc),p_phys_param%k_tracer_h(:,:,:,jtrc),edges)
         CALL add_fields(ocean_state%p_acc%a_tracer_v(:,:,:,jtrc),p_phys_param%a_tracer_v(:,:,:,jtrc),cells)
       END DO
