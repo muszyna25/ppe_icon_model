@@ -59,10 +59,10 @@ MODULE mo_ocean_initial_conditions
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_netcdf_read,        ONLY: read_netcdf_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_ocean_types,          ONLY: t_hydro_ocean_state
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_math_operators, ONLY: grad_fd_norm_oce_3d, smooth_onCells
-  USE mo_ocean_ab_timestepping,ONLY: update_time_indices
+  USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3d, smooth_onCells
+  USE mo_oce_ab_timestepping,ONLY: update_time_indices
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -552,6 +552,11 @@ CONTAINS
     CASE (300)
       CALL tracer_bubble(patch_3d, ocean_salinity ,initial_salinity_top, initial_salinity_bottom)
 
+    CASE (301)
+      CALL tracer_bubble_disturbed(patch_3d, ocean_salinity ,initial_salinity_top, initial_salinity_bottom)
+
+    CASE (302)
+      CALL tracer_double_bubble(patch_3d, ocean_salinity ,initial_salinity_top, initial_salinity_bottom)
 
 
     !------------------------------
@@ -720,6 +725,14 @@ CONTAINS
     !------------------------------
     CASE (300)
       CALL tracer_bubble(patch_3d, ocean_temperature ,initial_temperature_top, initial_temperature_bottom)
+
+    !------------------------------
+    CASE (301)
+      CALL tracer_bubble_disturbed(patch_3d, ocean_temperature ,initial_temperature_top, initial_temperature_bottom)
+
+    !------------------------------
+    CASE (302)
+      CALL tracer_double_bubble(patch_3d, ocean_temperature ,initial_temperature_top, initial_temperature_bottom)
 
     !------------------------------
     CASE (401)
@@ -2967,7 +2980,7 @@ stop
     lat_bubble= -30.0_wp
     lon_bubble  = -140.0_wp
     radius_bubble = 50.0_wp
-    layers_above_bubble = 6 !=14 if bubble should be positioned at the bottom
+    layers_above_bubble = 14 !=14 if bubble should be positioned at the bottom
     layers_bubble = 6 
     dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
@@ -2982,11 +2995,11 @@ stop
       DO jc = start_cell_index, end_cell_index
 
         !transfer to latitude in degrees
-        lat_deg = cell_center(jc,jb)% lat* rad2deg
-        lon_deg = cell_center(jc,jb)% lon* rad2deg
+        lat_deg = cell_center(jc,jb)% lat * rad2deg
+        lon_deg = cell_center(jc,jb)% lon * rad2deg
 
         !to determine the closest point on grid to given midpoint of the bubble
-        dist=SQRT((lat_bubble-lat_deg)**2.0_wp + (lon_bubble-lon_deg)**2.0_wp)
+        dist = SQRT( (lat_bubble-lat_deg)**2.0_wp + (lon_bubble-lon_deg)**2.0_wp )
 
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
@@ -3021,6 +3034,210 @@ stop
 
    END SUBROUTINE tracer_bubble
 
+
+ SUBROUTINE tracer_bubble_disturbed(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt,&
+  & lon_bubble_opt, radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+! This subroutine places an ellipsoid of defined salinity or temperature, which has its maximum/minimum 
+! value at the midpoint and approaches the value of its environment linearly with radius
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d 
+    REAL(wp), TARGET :: tracer(:,:,:)
+    REAL(wp),intent(in):: bubble_inside, bubble_outside
+    REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER ::layers_above_bubble, layers_bubble, layers_perturbation
+    REAL(wp):: lat_deg, lon_deg, z_tmp, test, amplitude_perturbation
+    REAL(wp):: dist, dist_layer
+    REAL(wp):: lat_bubble, lon_bubble, radius_bubble
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_bubble_disturbed'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! Coordinates midpoint of bubble in South Pacific:
+    lat_bubble= -30.0_wp
+    lon_bubble  = -140.0_wp
+    radius_bubble = 30.0_wp
+    layers_above_bubble = 14 !=14 if bubble should be positioned at the bottom
+    layers_bubble = 16 
+    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    layers_perturbation = 1
+    amplitude_perturbation = 0.5
+    CALL assign_if_present(lat_bubble,lat_bubble_opt)
+    CALL assign_if_present(lon_bubble,lon_bubble_opt)
+    CALL assign_if_present(radius_bubble,radius_bubble_opt)
+    CALL assign_if_present(layers_above_bubble,layers_above_bubble_opt)
+    CALL assign_if_present(layers_bubble,layers_above_bubble_opt)
+
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        !transfer to latitude in degrees
+        lat_deg = cell_center(jc,jb)% lat * rad2deg
+        lon_deg = cell_center(jc,jb)% lon * rad2deg
+
+        !to determine the closest point on grid to given midpoint of the bubble
+        dist = SQRT( (lat_bubble-lat_deg)**2.0_wp + (lon_bubble-lon_deg)**2.0_wp )
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+            IF (      (dist <= radius_bubble) &
+              & .AND. (jk <= layers_above_bubble + layers_bubble) &
+              & .AND. (jk >= layers_above_bubble)) THEN
+              
+              test = (ABS(jk - (layers_above_bubble + dist_layer)) / dist_layer)
+              z_tmp = (dist/radius_bubble) + test
+
+              IF (z_tmp <= 1) THEN
+
+                tracer(jc,jk,jb) = &
+                   & bubble_outside + (bubble_inside-bubble_outside) * (1.0_wp - z_tmp) * (1.0_wp - test)
+
+                  IF( jk >= layers_above_bubble + layers_bubble - layers_perturbation ) THEN
+  
+                     tracer(jc,jk,jb) = bubble_outside + (bubble_inside-bubble_outside) *&
+                                        & ( 1.0_wp - z_tmp ) * ( 1.0_wp - test )- &
+                                        & amplitude_perturbation + &
+                                        & SIN( 2.0_wp * pi * dist / radius_bubble ) * &
+                                        & amplitude_perturbation
+  
+                  END IF
+
+              ELSE
+
+                tracer(jc,jk,jb) = bubble_outside
+
+              END IF
+
+            ELSE
+
+                tracer(jc,jk,jb) = bubble_outside
+
+            END IF
+
+        END DO 
+      END DO
+    END DO
+
+
+   END SUBROUTINE tracer_bubble_disturbed
+
+ SUBROUTINE tracer_double_bubble(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt,&
+  & lon_bubble_opt, radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+! This subroutine places an ellipsoid of defined salinity or temperature, which has its maximum/minimum 
+! value at the midpoint and approaches the value of its environment linearly with radius
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d 
+    REAL(wp), TARGET :: tracer(:,:,:)
+    REAL(wp),intent(in):: bubble_inside, bubble_outside
+    REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER ::layers_above_bubble, layers_bubble
+    REAL(wp):: lat_deg, lon_deg, z_tmp, test
+    REAL(wp):: dist, dist_layer
+    REAL(wp):: lat_bubble, lon_bubble, radius_bubble, small_bubble_inside
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_double_bubble'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! Coordinates midpoint of bubble in South Pacific:
+    lat_bubble= -30.0_wp
+    lon_bubble  = -140.0_wp
+    radius_bubble = 50.0_wp
+    layers_above_bubble = 4 !=14 if bubble should be positioned at the bottom
+    layers_bubble = 14 
+    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    small_bubble_inside = 2.0_wp * ( bubble_outside - bubble_inside ) + bubble_inside
+    CALL assign_if_present(lat_bubble,lat_bubble_opt)
+    CALL assign_if_present(lon_bubble,lon_bubble_opt)
+    CALL assign_if_present(radius_bubble,radius_bubble_opt)
+    CALL assign_if_present(layers_above_bubble,layers_above_bubble_opt)
+    CALL assign_if_present(layers_bubble,layers_above_bubble_opt)
+
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        !transfer to latitude in degrees
+        lat_deg = cell_center(jc,jb)% lat * rad2deg
+        lon_deg = cell_center(jc,jb)% lon * rad2deg
+
+        !to determine the closest point on grid to given midpoint of the bubble
+        dist = SQRT( (lat_bubble-lat_deg)**2.0_wp + (lon_bubble-lon_deg)**2.0_wp )
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+            IF (      (dist <= radius_bubble) &
+              & .AND. (jk <= layers_above_bubble + layers_bubble) &
+              & .AND. (jk >= layers_above_bubble)) THEN
+              
+              test = (ABS(jk - (layers_above_bubble + dist_layer)) / dist_layer)
+              z_tmp = (dist/radius_bubble) + test
+
+              IF (z_tmp <= 1) THEN
+
+                tracer(jc,jk,jb) = &
+                   & bubble_outside + (bubble_inside-bubble_outside) * (1.0_wp - z_tmp) * (1.0_wp - test)
+
+              ELSE
+
+                tracer(jc,jk,jb) = bubble_outside
+
+              END IF
+
+            ELSEIF (  ( dist <= radius_bubble / 2.0_wp ) &
+              & .AND. ( jk <= layers_above_bubble + layers_bubble + 5 +  layers_bubble ) &
+              & .AND. ( jk >= layers_above_bubble + layers_bubble + 5 ) ) THEN
+
+              test = (ABS(jk - (layers_above_bubble  + layers_bubble + 5 + dist_layer)) / dist_layer)
+              z_tmp = ( 2.0_wp * dist / radius_bubble ) + test
+
+              IF (z_tmp <= 1) THEN
+
+                tracer(jc,jk,jb) = &
+                   & bubble_outside + ( small_bubble_inside - bubble_outside ) * &
+                   & ( 1.0_wp - z_tmp ) * ( 1.0_wp - test )
+
+              ELSE
+
+                tracer(jc,jk,jb) = bubble_outside
+
+              END IF
+
+            ELSE
+
+                tracer(jc,jk,jb) = bubble_outside
+
+            END IF
+
+        END DO 
+      END DO
+    END DO
+
+
+   END SUBROUTINE tracer_double_bubble
 
   !-----------------------------------------------------------------------------------
 !   SUBROUTINE fill_tracer_x_height(patch_3d, ocean_state)
