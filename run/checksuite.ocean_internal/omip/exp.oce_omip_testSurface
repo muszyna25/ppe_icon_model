@@ -40,7 +40,7 @@ B=4   # number of bisections applied
 grid_ext="etopo40_planet_newgeom_noinland"
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 LOC="POOL"
-LOC="OTHR"
+#LOC="OTHR"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
