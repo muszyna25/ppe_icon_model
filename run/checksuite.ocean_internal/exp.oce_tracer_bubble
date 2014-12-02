@@ -70,9 +70,9 @@ grid_ext="etopo40_planet"
 #use_gridfile_for_grabbing_externale_data='true'
 #grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
-#grids_folder="/data/dkrz/ICON/ocean_data/ocean_grid/not_used"
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-#ocean_grids="AtlanticAquaBox_0079km.nc"
+
+ocean_grids="AtlanticAquaBox_0079km.nc"
+#ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
@@ -162,7 +162,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_default','group:ice_default','condep','mld','group:oce_geometry'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -172,15 +172,15 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
-!  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-!  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
-!                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev             =   40
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+! n_zlev             =   40
+! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+!                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+!                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+!                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
    solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
@@ -237,7 +237,7 @@ cat > ${ocean_namelist} << EOF
   initial_salinity_top    = 35.0 ! top = in bubble
   initial_salinity_bottom = 35.0 ! bottom = outside
   initial_temperature_top    = 5.0 ! top = in bubble
-  initial_temperature_bottom = 8.0 ! bottom = outside
+  initial_temperature_bottom = 30.0 ! bottom = outside
 /
 &ocean_diagnostics_nml
   diagnostics_level  = 1
