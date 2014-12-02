@@ -1,5 +1,4 @@
 require 'rake/clean'
-require 'net/ssh'
 require 'logger'
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
