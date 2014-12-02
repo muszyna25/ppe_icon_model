@@ -27,6 +27,7 @@ MODULE mo_ocean_diagnostics
     &                              sync_c, sync_e, sync_patch_array
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, cvec2gvec
   USE mo_util_dbg_prnt,      ONLY: dbg_print
+  USE mo_dbg_nml,            ONLY: idbg_val
   USE mo_math_constants,     ONLY: rad2deg, dbl_eps
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     & min_rlcell, min_rledge, min_rlcell, &
@@ -751,7 +752,7 @@ CONTAINS
     END DO
     CALL enable_sync_checks()
     ! fluxes through given paths
-    IF (my_process_is_stdio()) &
+    IF (my_process_is_stdio() .AND. idbg_val > 0) &
       & WRITE(0,*) "---------------  fluxes --------------------------------"
     DO i=1,oce_section_count
       sflux = section_flux(oce_sections(i), p_os%p_prog(nnew(1))%vn)
@@ -761,7 +762,7 @@ CONTAINS
       !     IF (my_process_is_stdio()) &
       !       & write(0,*) oce_sections(i)%subset%name, ":", sflux, 'at edges:',oce_sections(i)%subset%block
       ! #else
-      IF (my_process_is_stdio()) &
+      IF (my_process_is_stdio() .AND. idbg_val > 0) &
         & WRITE(0,*) oce_sections(i)%subset%name, ":", sflux
       ! #endif
       
@@ -792,7 +793,7 @@ CONTAINS
         monitor%agulhas_longer         = sflux*rho_ref
       END SELECT
     ENDDO
-    IF (my_process_is_stdio()) &
+    IF (my_process_is_stdio() .AND. idbg_val > 0) &
       & WRITE(0,*) "---------------  end fluxes ----------------------------"
     
     

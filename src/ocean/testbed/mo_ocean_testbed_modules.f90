@@ -151,8 +151,7 @@ CONTAINS
     INTEGER :: jstep0 ! start counter for time loop
     INTEGER :: tracer_index
     
-    INTEGER :: jc,level,jb, je
-    INTEGER :: z_dolic
+    INTEGER :: jc,level,jb
     INTEGER :: start_cell_index, end_cell_index
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     REAL(wp) :: delta_t
