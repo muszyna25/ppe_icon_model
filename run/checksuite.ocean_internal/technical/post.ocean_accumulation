@@ -57,14 +57,15 @@ for expDir in ${EXP_DAILY} ${EXP_HOURLY} ${EXPNAME}; do
     case "${expDir}" in
       "${hourlyDataPath}"|"${EXPNAME}")
         for ifile in ocean_accumulation*.nc*; do
-          { myDiff $ifile u wet_c  && myDiff $ifile h wet_c &&  myDiff $ifile s wet_c  && myDiff $ifile t wet_c; } || exit 1
+          for var in u h s t; do 
+            myDiff $ifile $var wet_c || exit 1
           done;
-          ;;
-      esac
+        done;
+        ;;
+    esac
 
-      cd -;
-    fi;
-  done
-
+    cd -;
+  fi;
+done
 
 # vim:ft=sh
