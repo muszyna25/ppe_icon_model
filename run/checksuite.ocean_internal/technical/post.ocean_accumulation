@@ -1,5 +1,6 @@
 EXP_DAILY=${EXPNAME}_daily
 EXP_HOURLY=${EXPNAME}_hourly
+EXP_SIMPLE=${EXPNAME}_simple
 
 varNames2D="h"
 varNames3D="t s rhopot u v"
@@ -9,25 +10,61 @@ dailyFilePattern='${EXP_DAILY}*.nc*'
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
-hourlyDataPath="${baseBath}../experiments/${EXP_HOURLY}/"
-dailyDataPath="${baseBath}../experiments/${EXP_DAILY}/"
+dataPath="${baseBath}../experiments/"
 scriptPath="/pool/data/ICON/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 # ================================================================================
-for expDir in ${hourlyDataPath} ${dailyDataPath}; do 
-  echo "Try do get results from ${expDir}";
-  cd ${expDir};
-  case "${expDir}" in
-  "${hourlyDataPath}")
-    for ifile in ocean_accumulation*.nc*; do
-      cdo diffv -selname,u $ifile -selname,u_acc $ifile
-      cdo diffv -selname,t $ifile -selname,t_acc $ifile
-    done;
-    ;;
-  esac
+function myDiff {
+  ifile=$1
+  varName=$2
+  maskName=$3
+  ofile=`mktemp`
 
-  cd -;
-done
+  cdo -s diffv -div -selname,$varName $ifile -selname,$maskName $ifile -div -selname,${varName}_acc $ifile -selname,$maskName $ifile > $ofile
+
+  nDiff=$(wc -l < $ofile)
+
+  if (( $nDiff > 0 )); then
+    cat $ofile;
+  fi
+
+  rm -f $ofile
+  return $nDiff
+}
+EXP_DAILY=${EXPNAME}_daily
+EXP_HOURLY=${EXPNAME}_hourly
+EXP_SIMPLE=${EXPNAME}_simple
+
+varNames2D="h"
+varNames3D="t s rhopot u v"
+varNames="${varNames2D} ${varNames3D}"
+hourlyFilePattern='${EXP_HOURLY}*.nc*'
+dailyFilePattern='${EXP_DAILY}*.nc*'
+# ================================================================================
+# technical stuff
+basePath=${ICON_BASE_PATH}
+dataPath="${baseBath}../experiments/"
+scriptPath="/pool/data/ICON/tools"
+nclCaller="nclsh"
+plotCmd="${scriptPath}/icon_plot.ncl"
+# ================================================================================
+cd ${dataPath}
+for expDir in ${EXP_DAILY} ${EXP_HOURLY} ${EXPNAME}; do
+  if [ -d ${expDir} ]; then
+    echo "Try do get results from ${expDir}";
+    cd ${expDir};
+    case "${expDir}" in
+      "${hourlyDataPath}"|"${EXPNAME}")
+        for ifile in ocean_accumulation*.nc*; do
+          { myDiff $ifile u wet_c  && myDiff $ifile h wet_c &&  myDiff $ifile s wet_c  && myDiff $ifile t wet_c; } || exit 1
+          done;
+          ;;
+      esac
+
+      cd -;
+    fi;
+  done
+
 
 # vim:ft=sh
