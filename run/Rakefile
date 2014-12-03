@@ -125,6 +125,7 @@ def getExperimentsFromTestSuite(suite)
     if @testSuites.keys.include?(item.to_sym) then
       experimentList << getExperimentsFromTestSuite(item.to_sym)
     else
+      if item.kind_of?(Array)
       experimentList << item
     end
   }
@@ -142,128 +143,6 @@ STATE_COLUMNS_WIDTH = 12
 NAME_COLUMN_WIDTH   = 65
 DATE_COLUMN_WIDTH   = 20
 #@log                = Logger.new("#{ENV['HOME']}/rllq.log")
-#==============================================================================
-def getAdditionalInfo(ssh,logfile,tag)# {{{
-  info =[]
-# info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").split(' ')[-4,-1]
-  info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1")
-
-  if info.nil? then
-    return ''
-  end
-
-  info_  = info_.split(' ') unless info_.nil?
-  info_  = info_.values_at(-3,-2,-1).map(&:to_f).map {|v| "%E"%v}.join(' ') unless info_.nil?
-  
-  info << "#{tag}: #{info_}"
-  info.join(' - ')
-end
-def checkAll
-  RemoteQStat.each {|hpc,setup|
-      host, user, command, port = setup[:host], setup[:user], setup[:command], setup[:port]
-
-      log = ''
-      log << "# #{hpc} ".ljust(80,'=') << "\n"
-
-      Net::SSH.start(host,user,port: port) do |ssh|
-        case hpc.to_s
-        when /thunder|wizard/ then
-          ssh.exec!('source /etc/profile; source /client/etc/profile.zmaw')
-          columns = [:state,:name,:id,:nodes,:time]
-          results = {}
-          status = ssh.exec!(command + ' -u $USER -o "%T %j %i %D %M"')
-          next if status.nil?
-          status.chomp.split("\n").each_with_index {|line,lineIndex|
-            next if 0 == lineIndex
-            state,name,id,nodes,time = line.split
-            if 'RUNNING' == state then
-              scontrol = ssh.exec!("/usr/bin/scontrol show job #{id}").split("\n")
-              workdir = scontrol.grep(/WorkDir/).first.split('=').last.chomp
-              script  = scontrol.grep(/Command/).first.split('=').last.chomp
-              logfile = workdir + '/' + ssh.exec!("grep 'error=' #{script}").chomp.split('=').last.sub(/%j/,id)
-              lastDate = ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
-              info = @options.has_key?("tag") ? getAdditionalInfo(ssh,logfile,@options["tag"]) : ''
-              if 'default' == @info then
-                myLog = [
-                  state.ljust(STATE_COLUMNS_WIDTH,' '),
-                  name.ljust(NAME_COLUMN_WIDTH,' '),
-                  id,
-                  nodes,
-                  lastDate.nil? ? '' : lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                  info,
-                ].join(' | ') << "\n"
-              else
-                myLog = [
-                  state.ljust(STATE_COLUMNS_WIDTH,' '),
-                  name.ljust(NAME_COLUMN_WIDTH,' '),
-                  id,
-                  nodes,
-                  lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                  info,script,logfile,
-                ].join(' | ') << "\n"
-              end
-              log << myLog 
-              # [
-              #   state.ljust(STATE_COLUMNS_WIDTH,' '),
-              #   name.ljust(NAME_COLUMN_WIDTH,' '),
-              #   id,
-              #   nodes,
-              #   lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-              #   info,
-              # ].join(' | ') << "\n"
-            else
-              log << [state.ljust(STATE_COLUMNS_WIDTH,' '),name.ljust(NAME_COLUMN_WIDTH,' '),id,nodes].join(' | ') << "\n"
-            end
-          }
-        when /blizzard/ then
-          ssh.exec!('source ~/.profile;')
-          myJobs = ssh.exec!("#{command} -u $USER | grep $USER")
-          next if myJobs.nil?
-          myJobs =  myJobs.split("\n").map {|l| l.split(' ').first }
-          myJobs.each {|job|
-            jobList = ssh.exec!("#{command} #{job} -l").chomp.split("\n")
-            name    = jobList.grep(/Job Name/).first.split(':').last.strip
-            status  = jobList.grep(/Status/).first.split(':').last.strip.upcase
-            script  = (not jobList.grep(/Executable/).empty?) ? jobList.grep(/Executable/).first.split(':').last : jobList.grep(/Cmd/).first.split(':').last
-            id      = jobList.grep(/Job Step Id/).first.split(':').last.strip
-
-            logfile     = [
-              jobList.grep(/Initial Working Dir:/).first.split(':').last,
-              jobList.grep(/Err:/).first.split(':').last.strip.chomp
-            ].join('/')
-            if 'RUNNING' == status then
-              lastDate = ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last.to_s
-              #puts name
-              #pp ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
-              info = @options.has_key?("tag") ? getAdditionalInfo(ssh,logfile,@options["tag"]) : ''
-            else
-              lastDate = ''
-            end
-            if 'default' == @info then
-              log << [
-                status.ljust(STATE_COLUMNS_WIDTH,' '),
-                name.ljust(NAME_COLUMN_WIDTH,' '),
-                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                info,
-              ].join(' | ') << "\n"
-            else
-              log << [
-                status.ljust(STATE_COLUMNS_WIDTH,' '),
-                name.ljust(NAME_COLUMN_WIDTH,' '),
-                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                id,info,script,logfile,
-              ].join(' | ') << "\n"
-            end
-          }
-        end
-      end
-      puts log
-      #lock.synchronize {
-      #  File.open(@logfile,"a") {|logfile| logfile << log }
-      #}
-      #@log.info(log)
-    }
-end# }}}
 # }}}
 # RUNNING|CHECKING TESTS {{{ ===========================================================
 # config first
