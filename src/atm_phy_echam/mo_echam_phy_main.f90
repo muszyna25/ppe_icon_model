@@ -125,7 +125,17 @@ CONTAINS
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
+    REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
+
+    REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
+    REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
+    REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
+    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
+    REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
+    REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
+    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
+    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 
     REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
     REAL(wp) :: zheight(nbdim,nlev)       !< temp for height input
@@ -216,6 +226,8 @@ CONTAINS
     tend%    v_phy (jcs:jce,:,jb)   = tend%    v (jcs:jce,:,jb)
     tend%    q_phy (jcs:jce,:,jb,:) = tend%    q (jcs:jce,:,jb,:)
 
+    ! initialize physics heating
+    zq_phy(:,:) = 0._wp
 
     ! 2. local switches and parameters
 
@@ -250,7 +262,8 @@ CONTAINS
         !
         ! 3.2b Specific heat of moist air
         !
-        zcair   (jc,jk) = zcd+(zcv-zcd)*MAX(field%q(jc,jk,jb,iqv),0.0_wp)
+        zcair   (jc,jk) = zcd+(zcv-zcd)*field%q(jc,jk,jb,iqv)
+        zconv   (jc,jk) = 1._wp/(zmair(jc,jk)*zcair(jc,jk))
         !
       END DO
     END DO
@@ -650,14 +663,19 @@ CONTAINS
         ! output
         ! ------
         !
-        & pdtdtradsw = tend%temp_radsw        (:,:,jb),&! out   rad. heating by SW         [K/s]
-        & pdtdtradlw = tend%temp_radlw        (:,:,jb),&! out   rad. heating by LW         [K/s]
+        & pdtdtradsw = zq_rsw                   (:,:) ,&! out   rad. heating by SW         [W/m2]
+        & pdtdtradlw = zq_rlw                   (:,:) ,&! out   rad. heating by LW         [W/m2]
         & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
         & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
         & pflxtoalw  = field%lwflxtoa           (:,jb) )! out   longwave toa net flux      [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
+
+      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_rsw(jcs:jce,:) + zq_rlw(jcs:jce,:)
+      
+      tend%temp_radsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:) * zconv(jcs:jce,:)
+      tend%temp_radlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:) * zconv(jcs:jce,:)
 
       ! Add shortwave and longwave heating rate to total heating rate
       tend% temp(jcs:jce,:,jb) = tend% temp       (jcs:jce,:,jb) &
