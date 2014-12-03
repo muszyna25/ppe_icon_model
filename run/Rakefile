@@ -32,20 +32,20 @@ LINEWIDTH = 80
 }.each {|component,componentExperiments|
   @testCases[component] = {}
   Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
-    filename = File.basename(item)
-    if not File.directory?(item) and (['exp','post','check'].include?(filename.split('.').first)) then
-      @testCases[component][filename] = item
-      CLEAN.include(filename)
+    template = File.basename(item)
+    if not File.directory?(item) and (['exp','post','check'].include?(template.split('.').first)) then
+      @testCases[component][template] = item
+      CLEAN.include(template)
     end
   }
 }
 
 # collect ALL TESTS
 #   available top level tests
-@allTests = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
+@allTemplates = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
 #   templates from ckecksuites
-@testCases.each_value {|v| @allTests << v.keys}
-@allTests.flatten!
+@testCases.each_value {|v| @allTemplates << v.keys}
+@allTemplates.flatten!
 
 CLEAN.include('*.run')
 # }}}
@@ -59,7 +59,7 @@ CLEAN.include('*.run')
   }
 }
 # define rule for create .run files
-@allTests.each {|template|
+@allTemplates.each {|template|
   runScriptName = "#{template}.run"
   file runScriptName => template do
     # get the technial setup from the command line or the test setup
@@ -95,7 +95,7 @@ end
 desc "Show all available tests cases"
 task :showTests do
   puts "ALL TESTS".ljust(LINEWIDTH,'=')
-  @allTests.each {|k,v|
+  @allTemplates.each {|k,v|
     puts [k.ljust(50,' '),v].join(':')
   }
   puts '='*LINEWIDTH
@@ -302,7 +302,7 @@ task :run, :name do |t,args|
     if @testSuites.keys.include?(test.to_sym) then
       experimentList << getExperimentsFromTestSuite(test.to_sym)
     else
-      experimentList << test if @allTests.include?(test)
+      experimentList << test if @allTemplates.include?(test)
     end
   }
   experimentList.flatten!; dbg(experimentList)
