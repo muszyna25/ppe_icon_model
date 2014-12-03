@@ -210,20 +210,23 @@ add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_lan
 datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
+# links for yearly files
+start_year=1978
+last_year=1980
 # - ozone
-year=1978
-while [[ $year -le 2009 ]]
+year=$start_year
+datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+while [[ $year -le $last_year ]]
 do
-  datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
 #
 ### - tropospheric aerosol
-##year=1978
-##while [[ $year -le 2009 ]]
+##year=$start_year
+##datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+##while [[ $year -le $last_year ]]
 ##do
-##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
 ##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
 ##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
 ##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc          ./
@@ -231,10 +234,10 @@ done
 ##done
 #
 ### - stratospheric aerosol
-##year=1978
-##while [[ $year -le 2009 ]]
+##year=$start_year
+##datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+##while [[ $year -le $last_year ]]
 ##do
-##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 ##  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./
 ##  (( year = year+1 ))
 ##done

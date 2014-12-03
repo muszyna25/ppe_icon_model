@@ -370,15 +370,19 @@ add_required_file ${INDATA}/r2b4_amip/lnd/ic_land_soil_1976.nc               ./i
 
 # - well mixed greenhouse gases
 add_required_file $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc        ./bc_greenhouse_gases.nc
-
+#
+# links for yearly files
+start_year=1977
+last_year=1980
 # - ozone
-year=1977
-while [[ $year -le 2009 ]]
+year=$start_year
+datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+while [[ $year -le $last_year ]]
 do
-  add_required_file $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc  ./bc_ozone_${year}.nc
- (( year = year+1 ))
+  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
+  (( year = year+1 ))
 done
-
+#
 # - sst and sic
 add_required_file $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./bc_sic.nc
 add_required_file $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc
