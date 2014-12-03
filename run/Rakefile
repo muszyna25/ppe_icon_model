@@ -11,6 +11,7 @@ LINEWIDTH = 80
   :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
   :oceanTechnical         => %w[exp.oce_test_parallel],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
+  :oceanNpromaCheck       => ['exp.oce_omip_testSurface',],
   :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
   :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
@@ -58,7 +59,16 @@ CLEAN.include('*.run')
 @allTests.each {|template|
   runScriptName = "#{template}.run"
   file runScriptName => template do
-    sh "cd ..; ./make_runscripts #{template.sub(/^(exp|post)./,'')}"
+    # get the technial setup from the command line or the test setup
+    #   internal setup first
+    setup = {}
+    #   from the command line may overwrite internal default
+    %w[with_mpi with_openmp cpu_time mpi_procs_pernode nproma openmp_threads omp_stacksize resources memory_model memory node_usage no_of_nodes queue out_script in_script job_name in_folder out_folder].each {|environmentKey| 
+      setup[environmentKey] = ENV[environmentKey] if ENV.has_key?(environmentKey)
+    }
+
+    sh "cd ..; ./config/make_target_runscript in_script=#{template} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
+    # nproma=123 with_mpi=true mpi_procs_pernode=2
   end
 }
 # }}}
