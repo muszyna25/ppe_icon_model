@@ -112,6 +112,15 @@ DEXP1=$2
 MODEL_DIR2=$3
 DEXP2=$4
 TEST=$5
+DISTRO=$(lsb_release -cs)
+case $DISTRO in
+  squeeze)
+    module load cdo/1.6.5.1
+    ;;
+  wheezy)
+    module load cdo/1.6.5.1
+    ;;
+esac
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
 #
