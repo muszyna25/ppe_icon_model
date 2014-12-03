@@ -144,12 +144,12 @@ NAME_COLUMN_WIDTH   = 65
 DATE_COLUMN_WIDTH   = 20
 #@log                = Logger.new("#{ENV['HOME']}/rllq.log")
 #==============================================================================
-def getAdditionalInfo(ssh,logfile,tag)# {{{
+def getAdditionalInfo(logfile,tag)# {{{
   info =[]
 # info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").split(' ')[-4,-1]
-  info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1")
+  info_  = IO.popen("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").read
 
-  if info.nil? then
+  if info.empty? then
     return ''
   end
 
@@ -183,7 +183,7 @@ def checkAll
               script  = scontrol.grep(/Command/).first.split('=').last.chomp
               logfile = workdir + '/' + sh("grep 'error=' #{script}").chomp.split('=').last.sub(/%j/,id)
               lastDate = sh("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
-              info = @options.has_key?("tag") ? getAdditionalInfo(ssh,logfile,@options["tag"]) : ''
+              info = @options.has_key?("tag") ? getAdditionalInfo(logfile,@options["tag"]) : ''
               if 'default' == @info then
                 myLog = [
                   state.ljust(STATE_COLUMNS_WIDTH,' '),
@@ -236,7 +236,7 @@ def checkAll
               lastDate = sh("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last.to_s
               #puts name
               #pp ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
-              info = @options.has_key?("tag") ? getAdditionalInfo(ssh,logfile,@options["tag"]) : ''
+              info = @options.has_key?("tag") ? getAdditionalInfo(logfile,@options["tag"]) : ''
             else
               lastDate = ''
             end
