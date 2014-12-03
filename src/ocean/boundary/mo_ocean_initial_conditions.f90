@@ -59,10 +59,10 @@ MODULE mo_ocean_initial_conditions
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_netcdf_read,        ONLY: read_netcdf_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_oce_types,          ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,        ONLY: t_hydro_ocean_state
   USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
-  USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3d, smooth_onCells
-  USE mo_oce_ab_timestepping,ONLY: update_time_indices
+  USE mo_ocean_math_operators, ONLY: grad_fd_norm_oce_3d, smooth_onCells
+  USE mo_ocean_ab_timestepping,ONLY: update_time_indices
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -1804,6 +1804,7 @@ CONTAINS
         linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / & 
           & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
 
+        ! note: this will initialize also the land points
         DO jk = top_level, bottom_level!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &
             & = ocean_tracer(jc,jk-1,jb) + linear_increase * &
