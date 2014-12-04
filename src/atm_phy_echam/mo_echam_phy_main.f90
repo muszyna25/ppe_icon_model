@@ -672,12 +672,14 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
+      ! heating accumulated
       zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_rsw(jcs:jce,:) + zq_rlw(jcs:jce,:)
       
+      ! tendencies
       tend%temp_radsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:) * zconv(jcs:jce,:)
       tend%temp_radlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:) * zconv(jcs:jce,:)
 
-      ! Add shortwave and longwave heating rate to total heating rate
+      ! tendencies accumulated
       tend% temp(jcs:jce,:,jb) = tend% temp       (jcs:jce,:,jb) &
         &                      + tend% temp_radsw (jcs:jce,:,jb) &
         &                      + tend% temp_radlw (jcs:jce,:,jb)
@@ -1007,8 +1009,16 @@ CONTAINS
         &             tend%    u_gwh(:,:,jb)   ,&
         &             tend%    v_gwh(:,:,jb) )
 
-      tend% temp_gwh(jcs:jce,:,jb) = zdis_gwh(jcs:jce,:)/zcair(jcs:jce,:)
+      ! heating
+      zq_gwh(jcs:jce,:) = zdis_gwh(jcs:jce,:) * zmair(jcs:jce,:)
 
+      ! heating accumulated
+      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_gwh(jcs:jce,:)
+
+      ! tendency
+      tend% temp_gwh(jcs:jce,:,jb) = zq_gwh(jcs:jce,:)*zconv(jcs:jce,:)
+
+      ! tendencies accumulated
       tend% temp(jcs:jce,:,jb) = tend% temp(jcs:jce,:,jb) + tend% temp_gwh(jcs:jce,:,jb)
       tend%    u(jcs:jce,:,jb) = tend%    u(jcs:jce,:,jb) + tend%    u_gwh(jcs:jce,:,jb)
       tend%    v(jcs:jce,:,jb) = tend%    v(jcs:jce,:,jb) + tend%    v_gwh(jcs:jce,:,jb)
@@ -1056,8 +1066,16 @@ CONTAINS
                      tend%    u_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
                      tend%    v_sso(:,:,jb)                     ) ! out, tendency of meridional wind
 
-      tend% temp_sso(jcs:jce,:,jb) = zdis_sso(jcs:jce,:)/zcair(jcs:jce,:)
+      ! heating
+      zq_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * zmair(jcs:jce,:)
 
+      ! heating accumulated
+      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_sso(jcs:jce,:)
+
+      ! tendency
+      tend% temp_sso(jcs:jce,:,jb) = zq_sso(jcs:jce,:)*zconv(jcs:jce,:)
+
+      ! tendencies accumulated
       tend% temp(jcs:jce,:,jb) = tend% temp(jcs:jce,:,jb) + tend% temp_sso(jcs:jce,:,jb)
       tend%    u(jcs:jce,:,jb) = tend%    u(jcs:jce,:,jb) + tend%    u_sso(jcs:jce,:,jb)
       tend%    v(jcs:jce,:,jb) = tend%    v(jcs:jce,:,jb) + tend%    v_sso(jcs:jce,:,jb)
