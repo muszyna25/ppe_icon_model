@@ -1051,6 +1051,7 @@ INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
 REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov
 !-----------------------------------------------------------------------
+
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
 
 nflevg=klev
@@ -1068,21 +1069,29 @@ detrpen=0.75E-4_JPRB
 
 !     ENTRORG: ENTRAINMENT FOR POSITIVELY BUOYANT DEEP/SHALLOW CONVECTION 1/(M)
 !     -------
-!ENTRORG=1.75E-3_JPRB
-! ENTRORG=1.86E-3_JPRB ! for approximate equivalence with previous setting of 1.9e-4*grav
-ENTRORG=1.9E-3_JPRB ! further tuning
+
+!ENTRORG=1.75E-3_JPRB     !40r3 default
+!ENTRORG=1.86E-3_JPRB     !for approximate equivalence with previous setting of 1.9e-4*grav
+ENTRORG=1.9E-3_JPRB       !further tuning
 
 !     ENTSHALP: SHALLOW ENTRAINMENT DEFINED AS ENTSHALP*ENTRORG
+!     --------
+
 ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
+!     ----------
+
 ENTSTPC1=0.55_JPRB
 ENTSTPC2=1.E-4_JPRB
+!ENTSTPC1=0.8_JPRB        !40r3 default
+!ENTSTPC2=2.E-4_JPRB      !40r3 default
 
 !     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
 !     ------
 
 entrdd =2.0E-4_JPRB
+!entrdd =3.0E-4_JPRB      !40r3 default
 
 !     RMFCMAX:   MAXIMUM MASSFLUX VALUE ALLOWED FOR UPDRAFTS ETC
 !     -------
