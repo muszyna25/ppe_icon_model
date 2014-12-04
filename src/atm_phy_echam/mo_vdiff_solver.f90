@@ -969,7 +969,7 @@ CONTAINS
                            & + pxite_vdf(jl,jk)
 
         pxlte(jl,jk) = pxlte(jl,jk) + pxlte_vdf(jl,jk)
-        pxite(jl,jk) = pxlte(jl,jk) + pxite_vdf(jl,jk)
+        pxite(jl,jk) = pxite(jl,jk) + pxite_vdf(jl,jk)
 
         pxvar(jl,jk) = bb(jl,jk,ixv) + tpfac3*pxvar(jl,jk)
       END DO
