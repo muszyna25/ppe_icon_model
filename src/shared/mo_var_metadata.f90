@@ -34,8 +34,9 @@ MODULE mo_var_metadata
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_time_config,        ONLY: time_config
-  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime, &
-    &                              MAX_DATETIME_STR_LEN
+  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
+    &                              timedelta, newTimedelta, deallocateTimedelta, &
+    &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
   USE mo_mtime_extensions,   ONLY: get_datetime_string
 
   IMPLICIT NONE
@@ -414,29 +415,87 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-13)
+  !! Modification by Daniel Reinert, DWD (2014-12-03)
+  !! - add optional start and end time arguments
   !!
-  FUNCTION new_action(actionID, intvl) RESULT(var_action)
+  FUNCTION new_action(actionID, intvl, opt_start, opt_end) RESULT(var_action)
 
-    INTEGER               ,INTENT(IN)   :: actionID  ! action ID  
-    CHARACTER(LEN=*)      ,INTENT(IN)   :: intvl     ! action interval [h]
-    TYPE(t_var_action_element)          :: var_action
-    TYPE(datetime)        ,POINTER      :: inidatetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_ini_datetime
+    INTEGER                                      , INTENT(IN) :: actionID  ! action ID  
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)          , INTENT(IN) :: intvl     ! action interval [ISO_8601]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN), OPTIONAL, INTENT(IN) :: opt_start ! action start time [ISO_8601]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN), OPTIONAL, INTENT(IN) :: opt_end   ! action end time [ISO_8601]
 
-    ! create dummy datetime for initialization
-    ! initializing with zero everywhere, currently gives a segfault (r18839)
-    ! when trying to make use of inidatetime
-    CALL get_datetime_string(mtime_ini_datetime, time_config%ini_datetime)
-    inidatetime  => newDatetime(TRIM(mtime_ini_datetime)) 
+    ! local variables
+    TYPE(timedelta), POINTER              :: start_offset, end_offset
+    TYPE(datetime), POINTER               :: startdatetime, enddatetime
+    TYPE(t_var_action_element)            :: var_action
+    TYPE(datetime), POINTER               :: inidatetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime ! ISO_8601
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end           ! start and end time 
+                                                                  ! in ISO_8601 format
+    !---------------------------------------------------------------------------------
+
+    ! create model ini_datetime in ISO_8601 format
+    CALL get_datetime_string(iso8601_ini_datetime, time_config%ini_datetime)
+    ! create model end_datetime in ISO_8601 format
+    CALL get_datetime_string(iso8601_end_datetime, time_config%end_datetime)
+
+    ! assign start time if present
+    IF (PRESENT(opt_start)) THEN
+      !
+      ! convert model ini datetime from ISO_8601 format to type datetime
+      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime)) 
+      !
+      ! convert start offset from ISO_8601 to TYPE timedelta
+      start_offset => newTimedelta(TRIM(opt_start))
+      !
+      ! add start offset to model ini date
+      startdatetime = inidatetime + start_offset
+      ! transform back from TYPE datetime to ISO_8601
+      CALL dateTimeToString(startdatetime, start)
+      ! cleanup
+      CALL deallocateTimeDelta(start_offset)
+    ELSE
+      ! default start time = model initialization time
+      start = TRIM(iso8601_ini_datetime)
+    ENDIF
+
+
+    ! assign end time if present
+    IF (PRESENT(opt_end)) THEN
+      !
+      ! convert model ini datetime from ISO_8601 format to type datetime
+      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
+      !
+      ! convert end offset from ISO_8601 to TYPE timedelta
+      end_offset => newTimedelta(TRIM(opt_end))
+      !
+      ! add end offset to model ini date
+      enddatetime = inidatetime + end_offset
+      ! transform back from TYPE datetime to ISO_8601
+      CALL dateTimeToString(enddatetime, end) 
+      ! cleanup
+      CALL deallocateTimeDelta(end_offset)
+    ELSE 
+      ! default end time = model end time
+      end = TRIM(iso8601_end_datetime)
+    ENDIF
+
 
     ! define var_action
     var_action%actionID   = actionID
-    var_action%intvl      = TRIM(intvl)
-    var_action%lastActive = TRIM(mtime_ini_datetime)  ! init
-    var_Action%EventLastTriggerDate = inidatetime     ! init
+    var_action%intvl      = TRIM(intvl)                ! interval
+    var_action%start      = TRIM(start)                ! start
+    var_action%end        = TRIM(end)                  ! end
+    var_action%lastActive = TRIM(start)                ! arbitrary init
+    !
+    ! convert start datetime from ISO_8601 format to type datetime
+    startdatetime  => newDatetime(TRIM(start)) 
+    var_Action%EventLastTriggerDate = startdatetime    ! arbitrary init
 
     ! cleanup
-    CALL deallocateDatetime(inidatetime)
+    CALL deallocateDatetime(startdatetime)
 
   END FUNCTION new_action
 

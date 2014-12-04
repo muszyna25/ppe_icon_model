@@ -50,7 +50,7 @@ MODULE mo_action
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,          &
-    &                              newTimedelta, deallocateTimedelta
+    &                              newTimedelta, deallocateTimedelta, setCalendar
   USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS,    &
     &                              getTriggeredPreviousEventAtDateTime
   USE mo_util_string,        ONLY: remove_duplicates
@@ -161,11 +161,10 @@ CONTAINS
     INTEGER :: i, iact
     INTEGER :: nvars                        ! number of variables assigned to action
 
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_action)  , POINTER :: action_list
+    TYPE(t_list_element), POINTER       :: element
+    TYPE(t_var_action)  , POINTER       :: action_list
     CHARACTER(LEN=2)                    :: str_actionID
-    CHARACTER(LEN=128)                  :: intvl             ! action interval [PTnH]
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_ref_datetime ! ISO_8601
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
@@ -173,9 +172,12 @@ CONTAINS
     ! init nvars
     nvars = 0
 
-    ! compute sim_start, sim_end in a formate appropriate for mtime
-    CALL get_datetime_string(sim_start, time_config%ini_datetime)
-    CALL get_datetime_string(sim_end,   time_config%end_datetime)
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+
+    ! create model ini_datetime in ISO_8601 format. Will be used 
+    ! as reference date for setting up events. 
+    CALL get_datetime_string(iso8601_ref_datetime, time_config%ini_datetime)
+
 
     ! store actionID
     act_obj%actionID = actionID
@@ -211,12 +213,14 @@ CONTAINS
 
 
             ! Create event for this specific field
-            intvl = action_list%action(iact)%intvl
             write(str_actionID,'(i2)') actionID 
-            event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(intvl)
-            act_obj%var_element_ptr(nvars)%event =>newEvent(TRIM(event_name),TRIM(sim_start), &
-              &                                       TRIM(sim_start), TRIM(sim_end), &
-              &                                       TRIM(intvl))
+            event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(action_list%action(iact)%intvl)
+            act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
+              &                                    TRIM(event_name),                    &
+              &                                    TRIM(iso8601_ref_datetime),          &
+              &                                    TRIM(action_list%action(iact)%start),&
+              &                                    TRIM(action_list%action(iact)%end  ),&
+              &                                    TRIM(action_list%action(iact)%intvl))
 
           END IF
         ENDDO  LOOPACTION ! loop over variable-specific actions
