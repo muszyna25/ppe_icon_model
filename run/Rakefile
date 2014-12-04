@@ -1,12 +1,12 @@
 require 'rake/clean'
 require 'logger'
+require 'pp'
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
 # }}}
 # HELPER METHODS {{{ ==========================================================
 def dbg(item)
   if ENV.has_key?('DEBUG')
-    require 'pp'
     pp item
   end
 end
@@ -45,8 +45,8 @@ def makeRunTarget(sourceTemplate,setup={})
     setup['out_script'] = targetRunscript
     setup  = setup.merge(setupByEnv)
   end
-  pp setup
-  pp targetRunscript
+  dbg(setup)
+  dbg(targetRunscript)
 
   file targetRunscript => sourceTemplate do
     sh "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
@@ -114,7 +114,9 @@ task :showOcean do
   @testSuites.each {|name,experimentList|
     if /^ocean/.match(name.to_s) then
       puts name.to_s
-      experimentList.each {|experiment| puts "\t"+experiment }
+      experimentList.each {|experiment| 
+        puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
+      }
     end
   }
   puts "ALL OCEAN TESTS".ljust(LINEWIDTH,'=')
@@ -128,16 +130,18 @@ desc "Show all available tests cases"
 task :showTests do
   puts "ALL TESTS".ljust(LINEWIDTH,'=')
   @allTemplates.each {|k,v|
-    puts [k.ljust(50,' '),v].join(':')
+    puts [k.ljust(50,' '),v].join
   }
   puts '='*LINEWIDTH
 end
 desc "Show all available test suites"
-task :showSuites do
-  puts "ALL SUITES".ljust(LINEWIDTH,'=')
+task :showSuites, :name do |t,args|
   @testSuites.each {|name,experimentList|
+    next if args.name.to_s != name.to_s unless args.name.nil?
     puts name.to_s
-    experimentList.each {|experiment| puts "\t"+experiment }
+    experimentList.each {|experiment|
+      puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
+    }
   }
   puts '='*LINEWIDTH
 end
@@ -321,12 +325,12 @@ task :run, :name do |t,args|
     sh "#{submitCommand} ./#{experiment}.run"
   }
 end
-desc "Run all tests for agiven component: ocean coupled"
-task :runAllOf,:component do 
-end
 desc "Check all your running jobs"
 task :check do
   checkAll
+end
+task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
+  sh "cat #{t.prerequisites.join(' ')}"
 end
 # }}}
 # HELP {{{ ====================================================================
