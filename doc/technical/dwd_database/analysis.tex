@@ -128,15 +128,15 @@ weights are used:
  g(t) = \frac{\Delta t}{T}\qquad \text{, for } -T/2 < t < T/2
 \end{align}
 $T$ is the window width and $\Delta t$ is the fast physics time step. The key point in terms of technical implementation is that the model 
-must be started $90$ minutes prior to the actual starting time of the assimilation run. The model is started from the 22:30 CET first guess. 
-The analysis increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV}, whose validity time is 00:00 CET are added over 
-$3$ hours until at 1:30 the free forecast starts. Then, two first guess data sets are written into the database. One at 1:30 CET, which will 
-be used for starting the next 3h assimilation run, and a second one at 3:00 CET, which is required as input for the assimilation system 
+must be started $90$ minutes prior to the actual starting time of the assimilation run. The model is started from the 22:30 UTC first guess. 
+The analysis increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV}, whose validity time is 00:00 UTC are added over 
+$3$ hours until at 1:30 the free forecast starts. Then, two first guess data sets are written into the database. One at 1:30 UTC, which will 
+be used for starting the next 3h assimilation run, and a second one at 3:00 UTC, which is required as input for the assimilation system 
 itself. Thus in general, using the IAU method requires some care in terms of reading and writing the right fields at the right times.
 \begin{figure}[hbt]
  \centering
  \includegraphics[width=1.0\textwidth]{IAU_scheme_2.png}
- \caption{Time line for an ICON assimilation run starting at 00:00CET.}\label{fig_IAU_scheme}
+ \caption{Time line for an ICON assimilation run starting at 00:00 UTC.}\label{fig_IAU_scheme}
 \end{figure}
 
 %In principle, this method is not restricted to atmospheric fields, but also applicable to assimilated soil and surface fields. Possible candidates 
