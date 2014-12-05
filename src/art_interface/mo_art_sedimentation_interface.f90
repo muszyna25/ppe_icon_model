@@ -29,7 +29,8 @@ MODULE mo_art_sedi_interface
   USE mo_impl_constants,                ONLY: min_rlcell_int
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
-  USE mo_run_config,                    ONLY: lart
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
+  USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv
   USE mo_exception,                     ONLY: finish
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
@@ -44,7 +45,8 @@ MODULE mo_art_sedi_interface
   USE mo_art_config,                    ONLY: art_config
 ! sedimentation and deposition routines
   USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
-  USE mo_art_sedi_depo,                 ONLY: art_calc_v_sed_dep
+  USE mo_art_sedi_2mom,                 ONLY: art_calc_v_sed, art_calc_sed_flx
+  USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
   USE mo_art_radioactive,               ONLY: art_drydepo_radioact
 #endif
 
@@ -62,9 +64,10 @@ CONTAINS
 SUBROUTINE art_sedi_interface( p_patch, &
            &                   p_dtime, &
            &                   p_prog,  &
-           &                   p_metrics, p_rho, p_diag, &
-           &                   p_tracer_new, &
-           &                   p_dz, &
+           &                   p_metrics, rho, p_diag, &
+           &                   prm_diag, &
+           &                   p_trac, &
+           &                   dz, &
            &                   lprint_cfl )
 !! Interface for ART routines for calculation of
 !! sedimentation and deposition velocities
@@ -83,13 +86,15 @@ SUBROUTINE art_sedi_interface( p_patch, &
   TYPE(t_nh_metrics), INTENT(IN)    :: &
     &   p_metrics                         !< metrical fields
   REAL(wp), INTENT(IN)              :: & 
-    &  p_rho(:,:,:)                       !< density of air at full levels
+    &  rho(:,:,:)                       !< density of air at full levels
   TYPE(t_nh_diag), INTENT(IN)       :: &
     &  p_diag                             !< diagnostic variables
+  TYPE(t_nwp_phy_diag), INTENT(in)  :: &
+    &  prm_diag                !< list of diagnostic fields (physics)
   REAL(wp), INTENT(INOUT)           :: &
-    &  p_tracer_new(:,:,:,:)              !< tracer mixing ratio [kg/kg]
+    &  p_trac(:,:,:,:)              !< tracer mixing ratio [kg/kg]
   REAL(wp), INTENT(IN)              :: &      
-    &  p_dz(:,:,:)                        !< cell height defined at full levels
+    &  dz(:,:,:)                        !< cell height defined at full levels
   LOGICAL, INTENT(IN)               :: &               
     &  lprint_cfl                         !< determines if vertical CFL number shall be printed in upwind_vflux_ppm_cfl
   REAL(wp), ALLOCATABLE             :: &  
@@ -117,8 +122,7 @@ SUBROUTINE art_sedi_interface( p_patch, &
     &  i_rlend,     &
     &  i_startblk,  &
     &  i_endblk,    &
-    &  i_startidx,  &
-    &  i_endidx,    &
+    &  istart,iend, &
     &  jg,          & !< patch id
     &  jsp, i,      & !< counter
     &  iubc=0,      & !< upper boundary condition 0 = none
@@ -128,7 +132,13 @@ SUBROUTINE art_sedi_interface( p_patch, &
 
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
-
+  REAL(wp), ALLOCATABLE   :: &
+    &  vsed0(:,:),           & !< Sedimentation velocities 0th moment [m s-1]
+    &  vsed3(:,:),           & !< Sedimentation velocities 3th moment [m s-1]
+    &  vdep0(:),             & !< Deposition velocities 0th moment [m s-1]
+    &  vdep3(:)                !< Deposition velocities 3th moment [m s-1]
+  
+  
   lcompute_gt=.TRUE. ! compute geometrical terms
   lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components. improvement:
                      ! compute values for first component, cleanup after last component.
@@ -141,6 +151,9 @@ SUBROUTINE art_sedi_interface( p_patch, &
   nlevp1 = p_patch%nlevp1      !< Number of vertical half levels
   nlev   = p_patch%nlev    !< Number of vertical full levels
   nblks  = p_patch%nblks_c
+  
+  ALLOCATE(vsed0(nproma,nlev),vsed3(nproma,nlev))
+  ALLOCATE(vdep0(nproma),vdep3(nproma))
   
   !Get all cell enitities, except halos
   i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -157,10 +170,10 @@ SUBROUTINE art_sedi_interface( p_patch, &
       
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
+          &                istart, iend, i_rlstart, i_rlend)
         DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            rhodz_new(jc,jk,jb) = p_rho(jc,jk,jb) * p_dz(jc,jk,jb)
+          DO jc = istart, iend
+            rhodz_new(jc,jk,jb) = rho(jc,jk,jb) * dz(jc,jk,jb)
           ENDDO
         ENDDO
       ENDDO
@@ -176,15 +189,39 @@ SUBROUTINE art_sedi_interface( p_patch, &
         
           class is (t_fields_2mom)
             ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
-            call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
+            call fields%modal_param(p_art_data(jg),p_patch,p_trac)
             
-            call art_calc_v_sed_dep(p_patch,p_metrics,p_prog,p_diag,fields,p_rho,p_tracer_new)
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                &                istart, iend, i_rlstart, i_rlend)
+              ! Calculate sedimentation velocities for 0th and 3rd moment
+              CALL art_calc_v_sed(rho(:,:,jb),dz(:,:,jb),p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), &
+                &     fields%density(:,:,jb),fields%diameter(:,:,jb), fields%info%exp_aero,         &
+                &     fields%knudsen_nr(:,:,jb), istart, iend, nlev, vsed0(:,:), vsed3(:,:))
+              ! Calculate massflux due to sedimentation for 0th and 3rd moment
+              CALL art_calc_sed_flx(vsed0(:,:),vsed3(:,:),p_metrics%wgtfac_c(:,:,jb),               &
+                &     p_metrics%wgtfacq_c(:,:,jb),rho(:,:,jb),                                      &
+                &     p_diag%rho_ic(:,:,jb), istart, iend, nlev,                                    &
+                &     fields%flx_contra_vsed0(:,:,jb),fields%flx_contra_vsed3(:,:,jb))
+              ! Calculate deposition velocities for 0th and 3rd moment
+              CALL art_calc_v_dep(p_diag%temp(:,nlev,jb), p_diag%temp_ifc(:,nlev+1,jb),             &
+                &     p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), rho(:,nlev,jb),prm_diag%tcm(:,jb),  &
+                &     prm_diag%tch(:,jb),p_trac(:,nlev,jb,iqv),p_trac(:,nlev,jb,iqc),               &
+                &     p_trac(:,nlev,jb,iqr), p_prog%theta_v(:,nlev,jb), prm_diag%gz0(:,jb),         &
+                &     dz(:,nlev,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,nlev,jb),               &
+                &     fields%diameter(:,nlev,jb),fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), &
+                &     vsed0(:,nlev), vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
+              ! Store deposition velocities for the use in turbulence scheme
+              CALL art_store_v_dep(vdep0(:), vdep3(:), fields%info%njsp, fields%info%jsp(:),        &
+                &     fields%info%i_number_conc, art_config(jg)%nturb_tracer,                       &
+                &     p_prog%turb_tracer(jb,:),istart,iend,p_art_data(jg)%turb_fields%vdep(:,jb,:))
+            ENDDO
             mflx_contra_vsed => fields%flx_contra_vsed3
             nflx_contra_vsed => fields%flx_contra_vsed0
             
           class is (t_fields_volc)
             call art_sedi_volc( p_patch,p_metrics,p_prog,           &
-              &              p_rho, p_diag,                         & 
+              &              rho, p_diag,                         & 
               &              fields%diam,fields%rho,                &
               &              fields%flx_contra_vsed3,               &
               &              fields%itracer) 
@@ -216,11 +253,11 @@ SUBROUTINE art_sedi_interface( p_patch, &
             ! ----------------------------------
             ! --- calculate vertical flux term due to sedimentation
             ! ----------------------------------
-          
-            CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
-              &                       iubc, flx_contra_vsed, p_dtime,             & !< in! we need here nflx if i = 0
+            ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
+            CALL upwind_vflux_ppm_cfl(p_patch, p_trac(:,:,:,jsp),           & !< in
+              &                       iubc, flx_contra_vsed, p_dtime,             & !< in
               &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
-              &                       p_dz, rhodz_new, lprint_cfl,                & !< in
+              &                       dz, rhodz_new, lprint_cfl,                & !< in
               &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
   
             ! ----------------------------------
@@ -229,17 +266,17 @@ SUBROUTINE art_sedi_interface( p_patch, &
           
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-                &                i_startidx, i_endidx, i_rlstart, i_rlend)
+                &                istart, iend, i_rlstart, i_rlend)
               DO jk = 1, nlev
                 ! index of bottom half level
                 ikp1 = jk + 1
-                DO jc = i_startidx, i_endidx
+                DO jc = istart, iend
     
                   sedim_update = (p_dtime * (  p_upflux_sed(jc,jk,  jb)   &
                      &                      - p_upflux_sed(jc,ikp1,jb) )  &
                      &         / rhodz_new(jc,jk,jb))
               
-                  p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp) - sedim_update
+                  p_trac(jc,jk,jb,jsp) =   p_trac(jc,jk,jb,jsp) - sedim_update
               
                 END DO!jc
               END DO !jk
@@ -254,12 +291,14 @@ SUBROUTINE art_sedi_interface( p_patch, &
     ! --- Clip the tracers
     ! ----------------------------------
   
-      CALL art_clip_lt(p_tracer_new,0.0_wp)
+      CALL art_clip_lt(p_trac,0.0_wp)
       
       DEALLOCATE(p_upflux_sed)
     ENDIF !lart_aerosol
   ENDIF !lart
-
+  
+  DEALLOCATE(vsed0,vsed3,vdep0,vdep3)
+  
 #endif
 
 END SUBROUTINE art_sedi_interface
