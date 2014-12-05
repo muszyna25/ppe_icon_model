@@ -102,8 +102,7 @@ case "$fortran_compiler" in
         INFOFLAGS=
         #DEBUGFLAGS= -g -qcheck -qstackprotect=all
         GENFLAGS = $INFOFLAGS
-        MISMATCH = -Dextname
-        CFLAGS   = $MISMATCH -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DpgiFortran
+        CFLAGS   = -DHAVE_CF_INTERFACE -DIBMR2Fortran
 
         FC       = mpixlf2003_r
 
@@ -491,11 +490,15 @@ case "$ac_sitename" in
             juqueen*)
                 #NETCDFROOT  = /bgsys/local/netcdf
 		NETCDFROOT = /homeb/slmet/slmet016/netcdf_xlc
+		NETCDFROOT = /homeb/slmet/slmet027/opt/netcdf-c-4.3.2-parallel
+                NETCDFFROOT = /homeb/slmet/slmet027/opt/netcdf-fortran-4.4.0-parallel
 		HDF5ROOT = /bgsys/local/hdf5
 		SZIPROOT = /bgsys/local/szip
 		ZLIBROOT = /bgsys/local/zlib
+                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 IB_LIBS    = -ldl -Wl,--export-dynamic -lutil -lm -ldl -ldrt
-                MPI_LIB    = -WL,-pthread "$IB_LIBS" -Wl
+                OTHER_LIBS = -L/bgsys/local/parallel-netcdf/v1.3.1/lib -lpnetcdf 
+                MPI_LIB    = -WL,-pthread $IB_LIBS -Wl
                 config_target=juqueen
                 make_command="make" "-j8"
                 submit="llsubmit"
