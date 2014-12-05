@@ -1060,12 +1060,12 @@ CONTAINS
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
        idx_sgs_qc_flx = n
-     CASE('bynprd') 
-       longname = 'Buoyancy production divided by eddy diffusivity.'
+     CASE('bruvais') 
+       longname = 'Brunt Vaisala Frequency'
        unit     = '1/s2'
        is_at_full_level(n) = .FALSE.
      CASE('mechprd') 
-       longname = 'Mechanical production divided by eddy viscosity.'
+       longname = 'Mechanical production term in TKE'
        unit     = '1/s2'
        is_at_full_level(n) = .FALSE.
      CASE('wthsfs') 
