@@ -86,7 +86,7 @@ read db=numex cat=icrgl130l90_main_fc_exp1 exp=901 d=2012062800 s[h]=6,12,18,24 
 \end{skydb}
 
 \item Retrieve wind components U and V at 300 hPa on the regular grid from a 24 hour forecast on
-2013-10-03 at 00 UTC. lv=P specifies the level type as pressure levels:
+2013-10-03 at 00 UTC. lv=P specifies the level type as pressure levels. lv1=30000 specifies the level in Pa. 
 
 \begin{skydb}
 read db=numex cat=icrgl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=24 p=U,V lv=P lv1=30000 bin f=uvReg300hPa
