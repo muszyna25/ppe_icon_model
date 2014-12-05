@@ -47,7 +47,7 @@ MODULE mo_vdiff_solver
   INTEGER :: iu, iv, ih, iqv
   INTEGER :: ixl, ixi, ixv
   INTEGER :: itke, ithv
-  INTEGER :: itrc_start, itrc_end
+  INTEGER :: itrc_start
   INTEGER :: nmatrix
   INTEGER :: imh, imqv, imuv
 
@@ -96,15 +96,10 @@ CONTAINS
 
     IF(ktrac > 0)  THEN
       itrc_start = 7 + khydromet +1
-      itrc_end   = itrc_start + ktrac - 1
     ELSE
       itrc_start = 7 + khydromet
-      itrc_end   = itrc_start
     ENDIF
     !<KF
-
-!    itrc_start = 10
-!    itrc_end   = itrc_start + ktrac - 1
 
     !-------------------------------------------------------------------
     ! # of vertical levels on which the prognostic equations are solved
@@ -731,7 +726,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,  &! in
-                             & ktrac, ksfc_type, idx_lnd, idx_wtr, idx_ice,&! in
+                             & ktrac, ksfc_type, idx_wtr,                  &! in
                              & pdtime, pstep_len,                          &! in
                              & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
                              & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
@@ -741,7 +736,7 @@ CONTAINS
 #else
                              & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,   &! inout, inout, in
 #endif
-                             & pqshear, ihpbl, pcfh_tile, pqsat_tile, &! in
+                             & pqshear, ihpbl,                       &! in
                              & pcfm_tile, pfrc, ptte_corr, bb,       &! in
                              & pkedisp, pxvar, pz0m_tile,            &! inout
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
@@ -751,7 +746,7 @@ CONTAINS
                              & psh_vdiff,pqv_vdiff                   )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
-    INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr, idx_ice
+    INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pstep_len, pdtime
 
     REAL(wp),INTENT(IN)  :: pum1   (kbdim,klev)
@@ -777,8 +772,6 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: prhoh   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pqshear (kbdim,klev)
     INTEGER, INTENT(IN)  :: ihpbl   (kbdim)
-    REAL(wp),INTENT(IN)  :: pcfh_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)  :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: pcfm_tile     (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: pfrc          (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: ptte_corr(kbdim)

@@ -882,18 +882,12 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_vdiff)
 
-      CALL vdiff_up( vdiff_config%lsfc_heat_flux,     &! in
-                   & jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
-                   & iwtr, iice, ilnd,                &! in, indices of different sfc types
+                   & iwtr,                            &! in, indices of different sfc types
                    & pdtime, psteplen,                &! in, time steps
                    & zfrc(:,:),                       &! in, area fraction of each sfc type
-                  !& field% cfm_tile(:,:,jb),         &! in
-                  !& field% cfh_tile(:,:,jb),         &! in
                    & field% cfm_tile(:,jb,:),         &! in
-                   & field% cfh_tile(:,jb,:),         &! in
-                  !& field% qs_sfc_tile(:,:,jb),      &! in, sfc spec. humidity at saturation
-                   & field% qs_sfc_tile(:,jb,:),      &! in, sfc spec. humidity at saturation
                    & zaa,                             &! in, from "vdiff_down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
                    &  zcptgz(:,:),                    &! in, from "vdiff_down"
