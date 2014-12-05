@@ -48,7 +48,8 @@ MODULE mo_les_nml
   !Some parameters
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
-  REAL(wp) :: km_min  !min turbulent diffusivity
+  REAL(wp) :: km_min        !min turbulent diffusivity
+  REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
 
   !Scheme for vertical discretization
   INTEGER :: vert_scheme_type !1=explicit, 2=implicit
@@ -62,7 +63,7 @@ MODULE mo_les_nml
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
                     smag_constant, turb_prandtl, bflux, tran_coeff,   &
                     vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
-                    expname, ldiag_les_out, km_min
+                    expname, ldiag_les_out, km_min, min_sfc_wind
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -105,6 +106,7 @@ CONTAINS
     smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
     km_min           = 0.01_wp  
+    min_sfc_wind     = 1._wp !Default from Holstag and Boville 1991
 
     bflux       = -999._wp
     tran_coeff  = -999._wp
@@ -183,6 +185,7 @@ CONTAINS
       les_config(jg)% avg_interval_sec  =  avg_interval_sec
       les_config(jg)% sampl_freq_sec    =  sampl_freq_sec
       les_config(jg)% km_min            =  km_min
+      les_config(jg)% min_sfc_wind      =  min_sfc_wind
     END DO
 
     !-----------------------------------------------------
