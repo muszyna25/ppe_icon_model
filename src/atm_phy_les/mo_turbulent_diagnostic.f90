@@ -646,27 +646,11 @@ CONTAINS
 
        CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
 
-     CASE('bynprd')
-       !Buoyancy production term = prm_diag%buoyancy_prod * kh
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
-        DO jb = i_startblk,i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
-            DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = prm_diag%buoyancy_prod(jc,jk,jb) * prm_diag%tkvh(jc,jk,jb) 
-            END DO
-          END DO
-          DO jc = i_startidx, i_endidx
-           var3dh(jc,1,jb)      = var3dh(jc,2,jb)
-           var3dh(jc,nlevp1,jb) = var3dh(jc,nlev,jb)
-          END DO
-        END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+     CASE('bruvais')
 
-       CALL levels_horizontal_mean(var3dh,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%bruvais,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
+       outvar(1)      = outvar(2) 
+       outvar(nlevp1) = outvar(nlev) 
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2

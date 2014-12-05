@@ -105,7 +105,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
 
-    REAL(wp), ALLOCATABLE :: theta(:,:,:)
+    REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -133,6 +133,7 @@ MODULE mo_sgs_turbulence
               visc_smag_c(nproma,nlev,p_patch%nblks_c),      &
               visc_smag_ie(nproma,nlevp1,p_patch%nblks_e),   &                              
               theta(nproma,nlev,p_patch%nblks_c),            &
+              theta_v(nproma,nlev,p_patch%nblks_c),          &
               DIV_c(nproma,nlev,p_patch%nblks_c),            &
               rho_ic(nproma,nlevp1,p_patch%nblks_c)          &
              )
@@ -167,6 +168,9 @@ MODULE mo_sgs_turbulence
        DO jc = i_startidx, i_endidx
          theta(jc,1:nlev,jb)  = p_nh_diag%temp(jc,1:nlev,jb) / &
                                 p_nh_prog%exner(jc,1:nlev,jb)
+
+         theta_v(jc,1:nlev,jb)  = p_nh_diag%tempv(jc,1:nlev,jb) / &
+                                  p_nh_prog%exner(jc,1:nlev,jb)
        END DO
     END DO
 !$OMP END DO NOWAIT
@@ -180,9 +184,8 @@ MODULE mo_sgs_turbulence
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
                             p_nh_prog%tracer(:,:,:,iqv))
 
-    !Calculate Brunt Vaisala Frequency and store in prm_diag%buoyancy_prod
-    CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta, p_nh_prog%tracer(:,:,:,iqc), &
-                            rho_ic, p_nh_diag%temp, prm_diag%buoyancy_prod)
+    !Calculate Brunt Vaisala Frequency 
+    CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
 
@@ -217,7 +220,7 @@ MODULE mo_sgs_turbulence
 
     
     DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_iv, visc_smag_ie,  &
-               theta, visc_smag_c, rho_ic, DIV_c)
+               theta, visc_smag_c, rho_ic, DIV_c, theta_v)
 
 
   END SUBROUTINE drive_subgrid_diffusion
@@ -550,9 +553,8 @@ MODULE mo_sgs_turbulence
 
     !--------------------------------------------------------------------------
     !3) Classical Smagorinsky model with stability correction due to Lilly 1962
-    !   at interface cell centers. At this point buoyancy_prod contains Brunt Vaisala 
-    !   Frequency and mech_prod is twice the actual mechanical production term. These 
-    !   are only converted to proper terms during output. 
+    !   at interface cell centers. At this point mech_prod is twice the actual 
+    !   mechanical production term.
     !--------------------------------------------------------------------------
     !MP = Mechanical prod term calculated above
     !visc = mixing_length_sq * SQRT(MP)/2 * SQRT(1-Ri/Pr) where 
@@ -580,7 +582,7 @@ MODULE mo_sgs_turbulence
            diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl      * &
                      MAX( les_config(jg)%km_min, p_nh_metrics%mixing_length_sq(jc,jk,jb) * &
                      SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp                 - &
-                     les_config(jg)%rturb_prandtl*prm_diag%buoyancy_prod(jc,jk,jb))) ) 
+                     les_config(jg)%rturb_prandtl*prm_diag%bruvais(jc,jk,jb))) ) 
          END DO
        END DO
        DO jc = i_startidx, i_endidx
