@@ -123,7 +123,7 @@ CONTAINS
       'u      ','v      ','w      ','th     ','exner  ','rho    ','qv     ',   & !1-7
       'qc     ','wu     ','wv     ','wth    ','wqv    ','wqc    ','ww     ',   & !8-14
       'thth   ','qvqv   ','qcqc   ','uu     ','vv     ','kh     ','km     ',   & !15-21
-      'thv    ','wthv   ','wqvd   ','wthd   ','wqcd   ','bynprd ','mechprd',   & !22-28
+      'thv    ','wthv   ','wqvd   ','wthd   ','wqcd   ','bruvais','mechprd',   & !22-28
       'wud    ','wvd    ','wthsfs ','rh     ','clc    ','qi     ','qs     ',   & !29-35
       'qr     ','qg     ','qh     ','lwf    ','swf    ','dt_t_sw','dt_t_lw',   & !36-42
       'dt_t_tb' /)    !43 
