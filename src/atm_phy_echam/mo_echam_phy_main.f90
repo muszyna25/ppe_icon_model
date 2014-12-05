@@ -919,13 +919,6 @@ CONTAINS
                   !& field% z0m_tile(:,:,jb),         &! inout
                    & field% z0m_tile(:,jb,:),         &! inout
                    & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
-                   &  tend%    u(:,:,jb),             &! inout
-                   &  tend%    v(:,:,jb),             &! inout
-                   &  tend% temp(:,:,jb),             &! inout
-                   &  tend%    q(:,:,jb,iqv),         &! inout
-                   &  tend%    q(:,:,jb,iqc),         &! inout
-                   &  tend%    q(:,:,jb,iqi),         &! inout
-                   &  tend%    q(:,:,jb,iqt:),        &! inout
                    &  tend%    u_vdf(:,:,jb),         &! out
                    &  tend%    v_vdf(:,:,jb),         &! out
                    &  tend% temp_vdf(:,:,jb),         &! out
@@ -941,6 +934,15 @@ CONTAINS
                    & field%      tke(:,:,jb),         &! out
                    & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                    & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+
+      ! tendencies accumulated
+      tend%    u(jcs:jce,:,jb)      = tend%    u(jcs:jce,:,jb)      + tend%    u_vdf(jcs:jce,:,jb)
+      tend%    v(jcs:jce,:,jb)      = tend%    v(jcs:jce,:,jb)      + tend%    v_vdf(jcs:jce,:,jb)
+      tend% temp(jcs:jce,:,jb)      = tend% temp(jcs:jce,:,jb)      + tend% temp_vdf(jcs:jce,:,jb)
+      tend%    q(jcs:jce,:,jb,iqv)  = tend%    q(jcs:jce,:,jb,iqv)  + tend%    q_vdf(jcs:jce,:,jb,iqv)
+      tend%    q(jcs:jce,:,jb,iqc)  = tend%    q(jcs:jce,:,jb,iqc)  + tend%    q_vdf(jcs:jce,:,jb,iqc)
+      tend%    q(jcs:jce,:,jb,iqi)  = tend%    q(jcs:jce,:,jb,iqi)  + tend%    q_vdf(jcs:jce,:,jb,iqi)
+      tend%    q(jcs:jce,:,jb,iqt:) = tend%    q(jcs:jce,:,jb,iqt:) + tend%    q_vdf(jcs:jce,:,jb,iqt:)
 
 !    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
 !

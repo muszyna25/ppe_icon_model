@@ -744,8 +744,6 @@ CONTAINS
                              & pqshear, ihpbl, pcfh_tile, pqsat_tile, &! in
                              & pcfm_tile, pfrc, ptte_corr, bb,       &! in
                              & pkedisp, pxvar, pz0m_tile,            &! inout
-                             & pute, pvte, ptte, pqte,               &! inout
-                             & pxlte, pxite, pxtte,                  &! inout
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
                              & pxtte_vdf, pxvarprod, pz0m,           &! out
@@ -791,14 +789,6 @@ CONTAINS
                                              !< kinetic energy
     REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pz0m_tile(kbdim,ksfc_type)
-
-    REAL(wp),INTENT(INOUT) :: pute (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pvte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: ptte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pqte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxlte(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
 
     REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
@@ -909,9 +899,6 @@ CONTAINS
         pute_vdf(jl,jk) = (bb(jl,jk,iu)-tpfac2*pum1(jl,jk))*zrdt
         pvte_vdf(jl,jk) = (bb(jl,jk,iv)-tpfac2*pvm1(jl,jk))*zrdt
 
-        pute(jl,jk) = pute(jl,jk) + pute_vdf(jl,jk)
-        pvte(jl,jk) = pvte(jl,jk) + pvte_vdf(jl,jk)
-
         zunew = bb(jl,jk,iu) + tpfac3*pum1(jl,jk)
         zvnew = bb(jl,jk,iv) + tpfac3*pvm1(jl,jk)
 
@@ -936,7 +923,6 @@ CONTAINS
       DO jl=1,kproma
         zqnew = bb(jl,jk,iqv) + tpfac3*pqm1(jl,jk)
         pqte_vdf(jl,jk) = (zqnew-pqm1(jl,jk))*zrdt
-        pqte(jl,jk) = pqte(jl,jk) + pqte_vdf(jl,jk)
 
         zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
 
@@ -960,16 +946,12 @@ CONTAINS
         IF (phy_config%ljsbach) THEN
           IF (jk == klev) ptte_vdf(jl,jk) = ptte_vdf(jl,jk)-ptte_corr(jl)
         ENDIF
-        ptte(jl,jk) = ptte(jl,jk) + ptte_vdf(jl,jk)
 
         pxlte_vdf(jl,jk) = (bb(jl,jk,ixl) - tpfac2*pxlm1(jl,jk))*zrdt
         pxite_vdf(jl,jk) = (bb(jl,jk,ixi) - tpfac2*pxim1(jl,jk))*zrdt
         zdqtdt     (jl,jk) =   pqte_vdf (jl,jk) &
                            & + pxlte_vdf(jl,jk) &
                            & + pxite_vdf(jl,jk)
-
-        pxlte(jl,jk) = pxlte(jl,jk) + pxlte_vdf(jl,jk)
-        pxite(jl,jk) = pxite(jl,jk) + pxite_vdf(jl,jk)
 
         pxvar(jl,jk) = bb(jl,jk,ixv) + tpfac3*pxvar(jl,jk)
       END DO
@@ -998,7 +980,6 @@ CONTAINS
           DO jk = itop,klev
             DO jl = 1,kproma
               pxtte_vdf(jl,jk,jt) = (bb(jl,jk,irhs)-tpfac2*pxtm1(jl,jk,jt))*zrdt
-              pxtte(jl,jk,jt) = pxtte(jl,jk,jt) + pxtte_vdf(jl,jk,jt)
             ENDDO
           ENDDO
         ENDDO

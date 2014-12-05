@@ -52,8 +52,6 @@ CONTAINS
                        ptte_corr,                                        &! in
                        bb,                                               &! inout
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
-                       pute,       pvte,        ptte,        pqte,       &! inout
-                       pxlte,      pxite,       pxtte,                   &! inout
                        pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pxvarprod,  pvmixtau,    pz0m,                    &! out
@@ -123,14 +121,6 @@ CONTAINS
 
     ! Tendencies
 
-    REAL(wp),INTENT(INOUT) :: pute (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pvte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: ptte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pqte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxlte(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
-
     REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
@@ -174,7 +164,6 @@ CONTAINS
                          & pcfm_tile, pfrc, ptte_corr, bb,              &! in
                          & pkedisp(:),                                  &! inout ("pvdis" in echam)
                          & pxvar(:,:), pz0m_tile(:,:),                  &! inout
-                         & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
                          & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)
