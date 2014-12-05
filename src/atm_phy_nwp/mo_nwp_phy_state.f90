@@ -590,10 +590,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = t_grib2_var( 0, 2, 22, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'gust10', diag%gust10,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
-                & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"))!, &
-!                & isteptype=TSTEP_MAX,                                         &
-!                & initval_r=0._wp, resetval_r=0._wp,                           &
-!                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
+                & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
+                & isteptype=TSTEP_MAX,                                         &
+                & initval_r=0._wp, resetval_r=0._wp,                           &
+                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
@@ -1772,18 +1772,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tmax_2m', diag%tmax_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.TRUE.)!,                                   &
-!          & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
-!          & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
+          & ldims=shape2d, lrestart=.TRUE.,                                   &
+          & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
+          & action_list=actions(new_action(ACTION_RESET,'PT03H')) ) 
 
         ! &      diag%tmin_2m(nproma,nblks_c)
         cf_desc    = t_cf_var('tmin_2m', 'K ','Min 2m temperature', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tmin_2m', diag%tmin_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.TRUE.)!,                                   &
-!          & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
-!          & action_list=actions(new_action(ACTION_RESET,'PT03H')) ) 
+          & ldims=shape2d, lrestart=.TRUE.,                                   &
+          & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
+          & action_list=actions(new_action(ACTION_RESET,'PT03H')) ) 
 
 
         ! &      diag%qv_2m(nproma,nblks_c)
