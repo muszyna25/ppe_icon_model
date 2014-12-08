@@ -61,7 +61,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
-              &                  prm_diag, rho, p_trac)
+              &                  prm_diag, rho, tracer)
 !>
 !! Interface for ART-routines dealing with washout
 !!
@@ -70,30 +70,30 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
 !! routine.
 !!
   TYPE(t_nh_prog), TARGET, INTENT(inout) :: & 
-    &  pt_prog                           !<the prognostic variables
+    &  pt_prog                           !< Prognostic variables
   TYPE(t_nh_diag), TARGET, INTENT(inout) :: &
-    &  pt_diag                           !<the diagnostic variables
+    &  pt_diag                           !< Diagnostic variables
   REAL(wp), INTENT(IN)              :: &
-    &  dtime                             !< time interval, fast physics
+    &  dtime                             !< Time step (fast physics)
   TYPE(t_patch), TARGET, INTENT(IN) :: &
-    &  p_patch                           !< patch on which computation is performed
+    &  p_patch                           !< Patch on which computation is performed
   TYPE(t_nwp_phy_diag), INTENT(IN)  :: &
-    &  prm_diag                          !< diagnostic variables
+    &  prm_diag                          !< Diagnostic variables (Physics)
   REAL(wp), INTENT(IN)              :: &          
-    &  rho(:,:,:)                        !< density of air  [kg/m3]
+    &  rho(:,:,:)                        !< Density of air [kg/m3]
   REAL(wp), INTENT(INOUT)           :: &
-    &  p_trac(:,:,:,:)                   !< tracer mixing ratios after transport  [kg/kg]
+    &  tracer(:,:,:,:)                   !< Tracer mixing ratios [kg/kg]
   ! Local Variables
   INTEGER                 :: & 
     &  jg, jb, ijsp,         & !< patch id, counter for block loop, conuter for jsp loop
     &  i_startblk, i_endblk, & !< Start and end of block loop
     &  istart, iend,         & !< Start and end of nproma loop
-    &  i_rlstart, i_rlend,   & !< 
-    &  i_nchdom,             & !< 
+    &  i_rlstart, i_rlend,   & !< Relaxation start and end
+    &  i_nchdom,             & !< Number of child domains
     &  nlev                    !< Number of levels (equals index of lowest full level)
   REAL(wp),ALLOCATABLE    :: &
-    &  wash_rate_m0(:,:),    & !< Washout rates [UNIT kg-1 s-1] or [UNIT m-3 s-1], UNIT must be a number
-    &  wash_rate_m3(:,:)       !< Washout rates [UNIT kg-1 s-1] or [UNIT m-3 s-1], UNIT might be mug, kg
+    &  wash_rate_m0(:,:),    & !< Washout rates [# m-3 s-1]
+    &  wash_rate_m3(:,:)       !< Washout rates [UNIT m-3 s-1], UNIT might be mug, kg
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
     !-----------------------------------------------------------------------
@@ -107,7 +107,6 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
   
-  
   IF(lart) THEN 
     IF (art_config(jg)%lart_aerosol) THEN
       ALLOCATE(wash_rate_m0(nproma,nlev))
@@ -118,30 +117,28 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
      
       DO WHILE(ASSOCIATED(this_mode))
         ! Select type of mode
-        select type (fields=>this_mode%fields)
-        
-          class is (t_fields_2mom)
-            ! Before washout, the modal parameters have to be calculated
-            call fields%modal_param(p_art_data(jg),p_patch,p_trac)
-            
+        SELECT TYPE (fields=>this_mode%fields)
+          CLASS IS (t_fields_2mom)
             ! This DO loop will be outside the DO WHILE ASSOCIATED loop as soon as modal_param is rewritten for single blocks
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
-              
+              ! Before washout, the modal parameters have to be calculated
+              CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
+                &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
               !Washout rate
               IF (.FALSE.) THEN ! Check if qnr is present
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb), pt_diag%pres(:,:,jb),                         &
-                   &                p_trac(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
-                   &                fields%diameter(:,:,jb),fields%info%sg_ini, p_trac(:,:,jb,iqr),          &
+                   &                tracer(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
+                   &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
                    &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
                    &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
-                   &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb), qnr=p_trac(:,:,jb,iqnr))
+                   &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb), qnr=tracer(:,:,jb,iqnr))
               ELSE
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb), pt_diag%pres(:,:,jb),                         &
-                   &                p_trac(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
-                   &                fields%diameter(:,:,jb),fields%info%sg_ini, p_trac(:,:,jb,iqr),          &
+                   &                tracer(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
+                   &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
                    &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
                    &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
@@ -149,39 +146,39 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
               ENDIF
               ! Update mass mixing ratios
               DO ijsp = 1, fields%info%njsp
-                CALL art_integrate_explicit(p_trac(:,:,jb,fields%info%jsp(ijsp)),  wash_rate_m3(:,:), dtime,          &
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%info%jsp(ijsp)),  wash_rate_m3(:,:), dtime,          &
                   &                         istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
               ENDDO
               ! Update mass-specific number
-              CALL art_integrate_explicit(p_trac(:,:,jb,fields%info%i_number_conc), wash_rate_m0(:,:), dtime,         &
+              CALL art_integrate_explicit(tracer(:,:,jb,fields%info%i_number_conc), wash_rate_m0(:,:), dtime,         &
                 &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
             ENDDO
               
-          class is (t_fields_volc)
-            call art_washout_volc(p_patch,dtime,prm_diag,   &
-                           &      p_trac,rho,fields%itracer)
+          CLASS IS (t_fields_volc)
+            CALL art_washout_volc(p_patch,dtime,prm_diag,   &
+                           &      tracer,rho,fields%itracer)
                            
-          class is (t_fields_radio)
-            call art_washout_radioact(fields,p_patch,dtime,prm_diag,  &
-                               &      p_trac,rho,p_art_data(jg))
+          CLASS IS (t_fields_radio)
+            CALL art_washout_radioact(fields,p_patch,dtime,prm_diag,  &
+                               &      tracer,rho,p_art_data(jg))
                                
-          class default
-            call finish('mo_art_washout_interface:art_washout_interface', &
+          CLASS DEFAULT
+            CALL finish('mo_art_washout_interface:art_washout_interface', &
                  &      'ART: Unknown mode field type')
-        end select
+        END SELECT
                                   
         this_mode => this_mode%next_mode
-      END DO
+      ENDDO !associated(this_mode)
     
       ! ----------------------------------
       ! --- Clip the tracers
       ! ----------------------------------
     
-      CALL art_clip_lt(p_trac,0.0_wp)
+      CALL art_clip_lt(tracer,0.0_wp)
       DEALLOCATE(wash_rate_m0)
       DEALLOCATE(wash_rate_m3)
-    ENDIF
-  ENDIF
+    ENDIF !lart_aerosol
+  ENDIF !lart
 #endif
 
 END SUBROUTINE art_washout_interface

@@ -66,8 +66,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph, &
        &                             set_qnr,set_qni,set_qns,set_qng
-  USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom, &
-       &                             art_clouds_interface_twomom_prepare
+  USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
@@ -197,9 +196,6 @@ CONTAINS
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
     
-    IF (atm_phy_nwp_config(jg)%inwp_gscp == 6) THEN
-      CALL art_clouds_interface_twomom_prepare(p_patch,p_prog_rcf%tracer(:,:,:,:))
-    ENDIF
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk

@@ -1321,7 +1321,6 @@ MODULE mo_nh_stepping
                &      p_nh_state(jg)%diag,                    &!in
                &      prm_diag(jg),                           &!in
                &      p_nh_state(jg)%prog(n_sedi)%tracer,     &!inout
-               &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
         ENDIF !ltransport
