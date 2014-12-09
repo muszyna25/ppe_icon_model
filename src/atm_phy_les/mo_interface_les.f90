@@ -481,6 +481,7 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       CALL les_turbulence (  dt_phy_jg(itfastphy),              & !>in
+                            & linit,                            & !in
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
                             & pt_prog,                          & !>in

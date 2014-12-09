@@ -94,7 +94,7 @@ MODULE mo_surface_les
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
-  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
+  SUBROUTINE  surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
                                  prm_diag, theta, qv)
 
@@ -108,6 +108,7 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
+    LOGICAL,           INTENT(in)        :: linit         !indicate first time step
 
     REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind, wstar
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
@@ -118,7 +119,6 @@ MODULE mo_surface_les
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
     INTEGER :: nlev, jg, itr, jkp1
-    LOGICAL, SAVE :: lfirst_guess = .TRUE.
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_surface_les:surface_conditions'
 
@@ -398,7 +398,7 @@ MODULE mo_surface_les
            !Z height to be used as a reference height in surface layer
            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
 
-           IF(lfirst_guess)THEN
+           IF(linit)THEN
              !First guess for ustar and th star using bulk approach
              RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
 
@@ -408,8 +408,6 @@ MODULE mo_surface_les
              !Heat transfer coefficient
              tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
              prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
-
-             lfirst_guess = .FALSE.
            END IF
 
            diff = 1._wp

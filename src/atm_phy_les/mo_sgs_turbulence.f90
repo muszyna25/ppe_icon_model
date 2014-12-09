@@ -88,7 +88,7 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
-  SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
@@ -104,6 +104,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
+    LOGICAL,           INTENT(in)        :: linit         !indicate the first time step
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
@@ -180,7 +181,7 @@ MODULE mo_sgs_turbulence
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
 
-    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+    CALL surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
                             p_nh_prog%tracer(:,:,:,iqv))
 
