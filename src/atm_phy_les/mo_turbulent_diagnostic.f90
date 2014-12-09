@@ -63,7 +63,7 @@ MODULE mo_turbulent_diagnostic
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
-  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
+  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx, idx_dt_t_gsp
   
   CHARACTER(20) :: tname     = 'time'
   CHARACTER(20) :: tlongname = 'Time'
@@ -76,6 +76,7 @@ MODULE mo_turbulent_diagnostic
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
   PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx, idx_sgs_u_flx, idx_sgs_v_flx
+  PUBLIC  :: idx_dt_t_gsp
 
 CONTAINS
 
@@ -1109,6 +1110,10 @@ CONTAINS
      CASE('dt_t_tb') 
        longname = 'turbulent temp tendency'
        unit     = 'K/s'
+     CASE('dt_t_mc') 
+       longname = 'microphysics temp tendency'
+       unit     = 'K/s'
+       idx_dt_t_gsp = n
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')

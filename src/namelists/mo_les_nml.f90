@@ -57,7 +57,7 @@ MODULE mo_les_nml
   !Parameters for additional diagnostic output
   LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
   REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
-  CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(43) !list of variables  
+  CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(44) !list of variables  
   CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
 
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
@@ -126,7 +126,7 @@ CONTAINS
       'thv    ','wthv   ','wqvd   ','wthd   ','wqcd   ','bruvais','mechprd',   & !22-28
       'wud    ','wvd    ','wthsfs ','rh     ','clc    ','qi     ','qs     ',   & !29-35
       'qr     ','qg     ','qh     ','lwf    ','swf    ','dt_t_sw','dt_t_lw',   & !36-42
-      'dt_t_tb' /)    !43 
+      'dt_t_tb','dt_t_mc' /)    !43-44 
 
     turb_tseries_list = (/                                          &
       'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6
