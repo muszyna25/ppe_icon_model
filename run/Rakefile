@@ -48,7 +48,9 @@ def makeRunTarget(sourceTemplate,setup={})
   dbg(setup)
   dbg(targetRunscript)
 
-  file targetRunscript => sourceTemplate do
+  file targetRunscript => sourceTemplate do |t|
+    tag = t.prerequisites[0].split('.')[1..-1].join('.')
+    sh "cd ..; ./config/make_target_runscript in_script=post.#{tag}"
     sh "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
   end
 end
