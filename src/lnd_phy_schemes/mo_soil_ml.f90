@@ -4736,6 +4736,33 @@ ENDIF
          ELSE
            zzz = (prs_gsp(i)+prs_con(i))*zdtdrhw
          ENDIF
+         ! prevent accumulation of new snow if the air temperature is above 1 deg C with
+         ! linear transition between 0.5 and 1 deg C
+         IF (zzz > 0.5_ireals*zepsi .AND. zth_low(i) > t0_melt + 0.5_ireals) THEN
+           ! part of the new snow that accumulates on the ground
+           zaa = MAX(0._ireals, zzz*(t0_melt + 1._ireals - zth_low(i))*2._ireals)
+           !
+           ! the rest is transferred into soil moisture or runoff:
+           zdwgme        = (zzz-zaa)*zrock(i)                    ! contribution to w_so
+           zro           = (1._ireals - zrock(i))*(zzz-zaa)      ! surface runoff
+           zredfu        = MAX( 0.0_ireals,  MIN( 1.0_ireals, (zw_fr(i,1) -  &
+                           zfcap(i,1))/MAX(zporv(i,1)-zfcap(i,1), zepsi)))
+           zdwgdt(i,1) = zdwgdt(i,1) + zdwgme*(1._ireals - zredfu)
+           zro           = zro + zdwgme*zredfu    ! Infiltration not possible
+                                                  ! for this fraction
+    
+           ! zro-, zdw_so_dt-correction in case of pore volume overshooting
+           zw_ovpv = MAX(0._ireals, zw_fr(i,1)* zdzhs(1) * zrhwddt +  &
+                     zdwgdt(i,1) - zporv(i,1) * zdzhs(1) * zrhwddt)
+           zro = zro + zw_ovpv
+           zdwgdt(i,1)= zdwgdt(i,1) - zw_ovpv
+    
+           runoff_s(i) = runoff_s(i) + zro*zroffdt
+
+           ! correct SWE for immediately melted new snow
+           zzz = zaa
+           w_snow_new(i) = MIN(w_snow_new(i),w_snow_now(i)+zzz)
+         ENDIF
          rho_snow_new(i)  = (w_snow_now(i)+zzz) / &
           ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/zrho_snowf )
 
