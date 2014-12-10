@@ -2364,9 +2364,11 @@ IF (itype_interception == 1) THEN
                 ELSE
                   zrootfc = zropartw(i,kso)/(zwroot(i) + zepsi)
                   ztrang(i,kso) = ztrabpf*zrootfc/MAX(zepsi,zbwt(i))
+                ENDIF
+
                   IF(zw_fr(i,kso)+ztrang(i,kso)*zdtdrhw/zdzhs(kso) &
                                     .LT.zpwp(i,kso)) ztrang(i,kso) = 0._ireals
-                ENDIF
+
                 lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
                 ztrangs(i)    = ztrangs(i) + ztrang(i,kso)
               END IF  ! upwards directed potential evaporation only
