@@ -310,8 +310,14 @@ CONTAINS
     p_slack => newTimedelta(str_slack)
 
 
+! openMP parallelization currently does not work as expected. Maybe this is only 
+! because of a non-threadsave message routine. Thus, we stick to a poor mens kernel
+! parallelization for the time being.
+!!$OMP PARALLEL
     ! Loop over all fields attached to this action
+!!$OMP DO PRIVATE(ivar,var_action_idx,field,this_event,isactive,lastTrigger_datetime,message_text)
     DO ivar = 1, act_obj%nvars
+
       var_action_idx = act_obj%var_action_index(ivar)
 
       field      => act_obj%var_element_ptr(ivar)%p
@@ -357,7 +363,8 @@ CONTAINS
       ENDIF
 
     ENDDO
-
+!!$OMP END DO
+!!$OMP END PARALLEL
 
     ! cleanup
     !
@@ -384,7 +391,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: ivar    ! element number 
 
     ! re-set field to its pre-defined reset-value
+!$OMP PARALLEL WORKSHARE
     act_obj%var_element_ptr(ivar)%p%r_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%rval
+!$OMP END PARALLEL WORKSHARE
 
   END SUBROUTINE reset_kernel
 
