@@ -94,7 +94,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff, solverCoeff_sp, p_ext_data)
+      CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff)
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')

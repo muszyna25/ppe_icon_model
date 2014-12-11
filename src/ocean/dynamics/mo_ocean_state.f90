@@ -617,6 +617,13 @@ CONTAINS
       & DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'vn_pred_ptp', ocean_state_diag%vn_pred_ptp, &
+      & grid_unstructured_edge, za_depth_below_sea, &
+      & t_cf_var('vn_pred_ptp','m/s','transformed predicted vn normal velocity component', &
+      & DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)      
+      
     ! predicted vn normal velocity component
 !    CALL add_var(ocean_restart_list, 'vn_impl_vert_diff', ocean_state_diag%vn_impl_vert_diff,&
 !      & grid_unstructured_edge, za_depth_below_sea, &

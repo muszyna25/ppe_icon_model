@@ -41,9 +41,9 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_operator_coeff, &
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_operator_coeff, &
     & t_verticalAdvection_ppm_coefficients, t_solverCoeff_singlePrecision
-  USE mo_ocean_physics,         ONLY: t_ho_params
+  USE mo_ocean_physics,       ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
@@ -1078,7 +1078,7 @@ CONTAINS
 
           IF (edge_block > 0) THEN
             rot_coeff(vertex_index,vertex_block,neigbor)           &
-            &= patch_2D%edges%dual_edge_length(edge_index,edge_block) &
+            &= patch_2D%edges%dual_edge_length(edge_index,edge_block) &     !PK why not dual_edge_length from above ??
             &* patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
           ENDIF
         ENDDO !neigbor=1,6
@@ -1527,7 +1527,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch_2D%nblks_v,1:no_dual_edges)
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch_2D%nblks_e,1:2)
     TYPE(t_cartesian_coordinates) :: vertex_position, edge_center, vertex_center
-    TYPE(t_cartesian_coordinates) :: dist_vector, dist_vector_basic
+    TYPE(t_cartesian_coordinates) :: dist_vector,dist_vector2, dist_vector_basic
     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
 
     REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch_2D%nblks_e,1:2*no_dual_edges )
@@ -1597,20 +1597,16 @@ CONTAINS
               length = SQRT(SUM( dist_vector%x * dist_vector%x ))
             ENDIF
 
-            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
-            orientation = DOT_PRODUCT( dist_vector%x,                         &
-               & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)
+             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
+             orientation = DOT_PRODUCT( dist_vector%x,                         &
+                & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)   
+               
             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
 
               edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
               & dual_edge_length(edge_index, edge_block) 
           ENDIF !(edge_block > 0) THEN
-
-          !rot_coeff(vertex_index,vertex_block,neigbor)     &
-          !    &= patch_2D%edges%dual_edge_length(edge_index,edge_block) * &
-          !    & patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
-
         ENDDO !neigbor=1,6
       ENDDO ! vertex_index = start_index, end_index
     ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block

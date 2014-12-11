@@ -218,6 +218,8 @@ MODULE mo_ocean_types
     ! dimension: (nproma, n_zlev, nblks_e)
       & vn_pred(:,:,:)        ,& ! predicted normal velocity vector at edges.
     ! dimension: (nproma, n_zlev, nblks_e)
+      & vn_pred_ptp(:,:,:)        ,& ! predicted normal velocity vector at edges.
+    ! dimension: (nproma, n_zlev, nblks_e)    
     !  & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
     ! dimension: (nproma, n_zlev, nblks_e)
       & vn_time_weighted(:,:,:),&  ! predicted normal velocity vector at edges.

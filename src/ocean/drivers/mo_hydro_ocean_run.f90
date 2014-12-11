@@ -203,7 +203,7 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
       CALL calc_scalar_product_veloc_3d( patch_3d,  &
-        & ocean_state(jg)%p_prog(nold(1))%vn,         &
+        & ocean_state(jg)%p_diag%vn_time_weighted,&! ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_diag,                     &
         & operators_coefficients)
       IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)

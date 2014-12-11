@@ -525,7 +525,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
     ! note that this will go through the lateral boundaries
-    patch_2D         => patch_3D%p_patch_2d(1)
+    patch_2D        => patch_3D%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
     !-----------------------------------------------------------------------
     

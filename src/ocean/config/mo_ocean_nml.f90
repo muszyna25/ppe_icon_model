@@ -176,6 +176,11 @@ MODULE mo_ocean_nml
                                                       ! > 10 = latest performnce optimizations
 !   LOGICAL :: use_edges2edges_viacell_fast        = .false.
 
+  INTEGER           :: MASS_MATRIX_INVERSION_TYPE =0  
+  INTEGER,PARAMETER :: NO_INVERSION               =0
+  INTEGER,PARAMETER :: MASS_MATRIX_INVERSION      =1
+  INTEGER,PARAMETER :: BUREAUCRATIC_MASS_MATRIX_INVERSION=2
+
 
   ! physical parameters for  aborting the ocean model
   REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
@@ -336,7 +341,8 @@ MODULE mo_ocean_nml
     &                 use_continuity_correction    , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
-    &                 fast_performance_level
+    &                 fast_performance_level       , &
+    &                 MASS_MATRIX_INVERSION_TYPE
 
 
   NAMELIST/ocean_tracer_transport_nml/&

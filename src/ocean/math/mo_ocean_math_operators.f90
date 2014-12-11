@@ -40,7 +40,7 @@ MODULE mo_ocean_math_operators
   USE mo_dynamics_config,    ONLY: nold
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
-  USE mo_ocean_types,          ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
+  USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
     & t_verticaladvection_ppm_coefficients, t_operator_coeff
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
 !   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -1346,12 +1346,12 @@ CONTAINS
           ENDIF
         END DO
       END DO!write(*,*)'bathymetry',maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c)
-!ICON_OMP_END_DO
-      write(*,*)'bathymetry cell',&
-      &maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c),&
-      &maxval(ocean_state%p_diag%thick_c),minval(ocean_state%p_diag%thick_c),&
-      &maxval(ocean_state%p_prog(nold(1))%h),minval(ocean_state%p_prog(nold(1))%h)
+      !write(*,*)'bathymetry cell',&
+      !&maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c),&
+      !&maxval(ocean_state%p_diag%thick_c),minval(ocean_state%p_diag%thick_c),&
+      !&maxval(ocean_state%p_prog(nold(1))%h),minval(ocean_state%p_prog(nold(1))%h)
       
+!ICON_OMP_END_DO
       
       !Step 2: calculate edge-located variables for 2D and 3D case from respective cell variables
       !For SWE : thick_e = thickness of fluid column at edges
@@ -1386,10 +1386,10 @@ CONTAINS
           ENDIF
         END DO
       END DO
+      !write(*,*)'bathymetry edge',&
+      !&maxval(ocean_state%p_diag%thick_e),minval(ocean_state%p_diag%thick_e),&
+      !&maxval(ocean_state%p_diag%h_e),minval(ocean_state%p_diag%h_e)      
 !ICON_OMP_END_DO
-      write(*,*)'bathymetry edge',&
-      &maxval(ocean_state%p_diag%thick_e),minval(ocean_state%p_diag%thick_e),&
-      &maxval(ocean_state%p_diag%h_e),minval(ocean_state%p_diag%h_e)      
 
 !ICON_OMP_MASTER
       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%thick_e)

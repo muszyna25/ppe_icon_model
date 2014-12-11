@@ -1788,7 +1788,7 @@ CONTAINS
   SUBROUTINE upper_ocean_TS(p_patch, p_patch_vert, ice, p_os, atmos_fluxes)
     TYPE(t_patch),TARGET,             INTENT(IN)    :: p_patch
     TYPE(t_patch_vert),        INTENT(IN)    :: p_patch_vert
-    TYPE(t_sea_ice),           INTENT(IN   ) :: ice
+    TYPE(t_sea_ice),           INTENT(INOUT) :: ice
     TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
     TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
 
