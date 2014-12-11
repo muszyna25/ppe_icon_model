@@ -50,8 +50,10 @@ def makeRunTarget(sourceTemplate,setup={})
 
   file targetRunscript => sourceTemplate do |t|
     tag = t.prerequisites[0].split('.')[1..-1].join('.')
-    sh "cd ..; ./config/make_target_runscript in_script=post.#{tag}" if File.exist?("./run/post.#{tag}")
-    sh "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun  #{setup.sort.map {|item| item.join('=')}.join(' ')}"
+    exp = "EXPNAME=#{tag}"
+    sh "cd ..; ./config/make_target_runscript in_script=post.#{tag} #{exp} with_mpi='no' with_openmp='no'" if File.exist?("./run/post.#{tag}")
+    
+    sh "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun #{exp} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
   end
 end
 # }}}
