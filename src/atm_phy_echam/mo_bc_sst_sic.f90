@@ -26,8 +26,7 @@ MODULE mo_bc_sst_sic
   USE mo_scatter,            ONLY: scatter_time_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_datetime,           ONLY: t_datetime, add_time, date_to_time, idaylen, rdaylen
-  USE mo_run_config,         ONLY: dtime
+  USE mo_datetime,           ONLY: t_datetime, date_to_time, idaylen, rdaylen
   USE mo_physical_constants, ONLY: tf_salt !, tmelt 
 
   IMPLICIT NONE
@@ -186,28 +185,17 @@ CONTAINS
 
     ! calculates weighting factores for monthly sst and sea ice
 
-    TYPE(t_datetime) :: next_date
-
     TYPE(t_datetime) :: date_monm1, date_monp1
-    INTEGER   :: yr, mo, dy, hr, mn, se
+    INTEGER   :: yr, mo, dy
     INTEGER   :: isec
     INTEGER   :: imp1, imm1, imlenm1, imlen, imlenp1
     REAL (dp) :: zsec, zdayl
     REAL (dp) :: zmohlf, zmohlfp1, zmohlfm1
     REAL (dp) :: zdh, zdhp1, zdhm1
     
-    ! time of next timestep and split
-    !
-    next_date = current_date
-    CALL add_time(dtime,0,0,0,next_date)
-    CALL date_to_time(next_date)    
-
-    yr = next_date%year
-    mo = next_date%month 
-    dy = next_date%day   
-    hr = next_date%hour  
-    mn = next_date%minute
-    se = INT(next_date%second)
+    yr = current_date%year
+    mo = current_date%month 
+    dy = current_date%day   
 
     ! month index for sst and sic data  (0..13)
     imp1 = mo+1
@@ -215,7 +203,7 @@ CONTAINS
       
     ! determine length of months and position within current month
 
-    date_monm1%calendar = next_date%calendar
+    date_monm1%calendar = current_date%calendar
     IF (imm1 ==  0) THEN
       date_monm1%year = yr-1;  date_monm1%month = 12;   date_monm1%day = 1;
     ELSE
@@ -224,7 +212,7 @@ CONTAINS
     date_monm1%hour = 0;   date_monm1%minute = 0; date_monm1%second   = 0;
     CALL date_to_time(date_monm1)
 
-    date_monp1%calendar = next_date%calendar
+    date_monp1%calendar = current_date%calendar
     IF (imp1 == 13) THEN
       date_monp1%year = yr+1;  date_monp1%month = 1;    date_monp1%day = 1;
     ELSE
@@ -234,7 +222,7 @@ CONTAINS
     CALL date_to_time(date_monp1)
 
     imlenm1 = date_monm1%monlen
-    imlen   = next_date%monlen
+    imlen   = current_date%monlen
     imlenp1 = date_monp1%monlen
       
     zdayl    = rdaylen
@@ -247,7 +235,7 @@ CONTAINS
     nmw1   = mo
       
     ! seconds in the present month
-    isec = (dy-1) * idaylen + INT(next_date%daysec)
+    isec = (dy-1) * idaylen + INT(current_date%daysec)
     zsec = REAL(isec,dp)
       
     IF(zsec <= zmohlf) THEN                     ! first part of month
@@ -262,7 +250,7 @@ CONTAINS
       
     ! weighting factors for first/second half of day
       
-    zsec = REAL(next_date%second, dp)
+    zsec = REAL(current_date%second, dp)
     zdh   = 12.0_dp*3600.0_dp
     zdhm1 = zdh
     zdhp1 = zdh
