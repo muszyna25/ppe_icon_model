@@ -367,6 +367,10 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
 % uses package enumitem
 %\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
 \begin{description}[leftmargin=3.0cm,style=sameline]
+% \item [APAB\_S] Photosynthetically active radiation flux at the surface, i.e.\ that part of the net short-wave radiation flux 
+%                 that photosynthetic organisms are able to use in the process of photosynthesis. This is approximately the case for 
+%                 solar radiation in the spectrakl range from $400$ to $700\,\mathrm{nm}$. Average over forecast time.
+
  \item [FR\_ICE] Sea and lake ice cover. Currently, the only possible values are $0$ (no ice cover) and $1$ (ice covered grid point). For 
                  lake points, \texttt{FR\_ICE} is synchronized with \texttt{H\_ICE} meaning that \texttt{FR\_ICE} is set to $1$ ($0$), 
                  where the lake model indicates \texttt{H\_ICE}$>0$ (\texttt{H\_ICE}$=0$).
@@ -389,6 +393,10 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
 % uses package enumitem
 %\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
 \begin{description}[leftmargin=3.0cm,style=sameline]
+ \item [RUNOFF\_G] Water runoff from soil layers. Sum over forecast.
+
+ \item [RUNOFF\_S] Surface water runoff from interception and snow reservoir and from limited infiltration rate. Sum over forecast.
+
  \item [T\_SO] Temperature of the soil and earth surface (uppermost level). The soil full level depths at which the 
 the soil temperature is defined are given in Table \ref{tab_soillayer}. The temperature at the uppermost level \texttt{T\_SO(0)} 
 is not prognostic. It is rather set equal to the temperature at the first prognostic level \texttt{T\_SO(1)}. The temperature 
