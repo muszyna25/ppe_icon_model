@@ -623,8 +623,8 @@
       eoff = 0_i8
       DO jv = 1, latbc_buffer%ngrp_vars
          ! Receive 2d and 3d variables
-         CALL compute_data_receive (latbc_buffer%mapped_name(jv), latbc_buffer%hgrid(jv), &
-              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data)
+         CALL compute_data_receive (latbc_buffer%hgrid(jv), latbc_buffer%nlev(jv), &
+                                    latbc_buffer%vars(jv)%buffer, eoff, patch_data)
       ENDDO
 
       ! Reading the next time step
@@ -934,8 +934,8 @@
 
       DO jv = 1, latbc_buffer%ngrp_vars
          ! Receive 2d and 3d variables
-         CALL compute_data_receive (latbc_buffer%mapped_name(jv), latbc_buffer%hgrid(jv), &
-              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data)
+         CALL compute_data_receive ( latbc_buffer%hgrid(jv), latbc_buffer%nlev(jv), &
+                                     latbc_buffer%vars(jv)%buffer, eoff, patch_data)
       ENDDO
 
       ! Reading the next time step

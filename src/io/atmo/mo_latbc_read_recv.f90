@@ -37,11 +37,6 @@
 !! software.
 !!
 !!
-  ! TODO [MP]
-  !
-  ! NAG Fortran Compiler Release 5.3.2(951)
-  ! Warning: ../../../src/io/shared/mo_latbc_read_recv.f90, line 241: Unused local variable I_DOM
-  ! Warning: ../../../src/io/shared/mo_latbc_read_recv.f90, line 241: Unused dummy variable VARNAME
 
 MODULE mo_latbc_read_recv
 
@@ -200,9 +195,8 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by M. Pondkule, DWD (2014-05-15)
   ! 
-  SUBROUTINE compute_data_receive (varname, hgrid, nlevs, var_out, eoff, patch_data)
+  SUBROUTINE compute_data_receive (hgrid, nlevs, var_out, eoff, patch_data)
  
-    CHARACTER(len=*),    INTENT(IN)    :: varname        !< var name of field to be read
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     REAL(sp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
@@ -213,7 +207,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':compute_data_receive'
     ! local variables:
-    INTEGER     :: j, jl, jb, jk, i_dom, mpi_error      
+    INTEGER     :: j, jl, jb, jk, mpi_error      
 
 #ifndef NOMPI
     CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
