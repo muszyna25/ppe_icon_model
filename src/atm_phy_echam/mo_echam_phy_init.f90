@@ -90,7 +90,9 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_weights, bc_sst_sic_time_interpolation
+  USE mo_time_interpolation         ,ONLY: time_weights_limm
+  USE mo_time_interpolation_weights ,ONLY: wi_limm
+  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
 
@@ -330,16 +332,20 @@ CONTAINS
         CALL bc_greenhouse_gases_time_interpolation(current_date)
       ENDIF
 
+      ! interpolation weights for linear interpolation
+      ! of monthly means onto the actual integration time step
+      CALL time_weights_limm(current_date, wi_limm)
+
       ! sea surface temperature, sea ice concentration and depth
-      CALL bc_sst_sic_time_weights(current_date)
       DO jg= 1,ndomain
         !
         CALL read_bc_sst_sic(current_date%year, p_patch(1))
         !
-        CALL bc_sst_sic_time_interpolation(prm_field(jg)%seaice(:,:),         &
-           &                               prm_field(jg)%tsfc_tile(:,:,iwtr), &
-           &                               prm_field(jg)%siced(:,:),          &
-           &                               prm_field(jg)%lsmask(:,:))
+        CALL bc_sst_sic_time_interpolation(wi_limm                           ,&
+          &                                prm_field(jg)%lsmask(:,:)         ,&
+          &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
+          &                                prm_field(jg)%seaice(:,:)         ,&
+          &                                prm_field(jg)%siced(:,:)          )
         !
 ! TODO: ME preliminary setting for ice and land and total surface
         prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)

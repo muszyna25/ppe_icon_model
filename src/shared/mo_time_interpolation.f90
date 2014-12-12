@@ -21,10 +21,12 @@ MODULE mo_time_interpolation
   !
   !----------------------------------------------------------------------
   
-  USE mo_datetime,    ONLY: t_datetime, aux_datetime, print_datetime_all
+  USE mo_datetime,    ONLY: t_datetime, aux_datetime !, print_datetime_all
   USE mo_datetime,    ONLY: OPERATOR(==)
   USE mo_kind,        ONLY: wp
   USE mo_time_interpolation_weights, ONLY: t_wi_limm
+
+  USE mo_bc_sst_sic,  ONLY: wgt1, wgt2, nmw1, nmw2 ! PROVISIONALLY FOR JSBACH
 
   IMPLICIT NONE
 
@@ -82,6 +84,15 @@ MODULE mo_time_interpolation
 !!$  CALL print_datetime_all(event_date)
 !!$  WRITE(0,*) 'wi%inm1,wi%inm2,wi%wgt1,wi%wgt2= ',wi%inm1, wi%inm2, wi%wgt1, wi%wgt2
 !!$  WRITE(0,*) '=============================================================='
+
+    ! PROVISIONALLY FOR JSBACH
+    ! month 1
+    nmw1 = wi%inm1
+    wgt1 = wi%wgt1
+    ! month 2
+    nmw2 = wi%inm2
+    wgt2 = wi%wgt2
+
   END SUBROUTINE time_weights_limm 
 
 END MODULE mo_time_interpolation

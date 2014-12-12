@@ -27,14 +27,10 @@ MODULE mo_echam_phy_bcs
   USE mo_model_domain               ,ONLY: t_patch
 
   USE mo_master_nml                 ,ONLY: lrestart
-!!$  USE mo_time_config                ,ONLY: time_config
   USE mo_echam_phy_config           ,ONLY: echam_phy_config
   USE mo_radiation_config           ,ONLY: ighg, isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero
 
   USE mo_echam_sfc_indices          ,ONLY: iwtr
-
-  USE mo_time_interpolation         ,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
 
   USE mo_impl_constants             ,ONLY: io3_amip
 
@@ -43,7 +39,7 @@ MODULE mo_echam_phy_bcs
 
   USE mo_bc_greenhouse_gases        ,ONLY: bc_greenhouse_gases_time_interpolation
   USE mo_bc_sst_sic                 ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, &
-    &                                      bc_sst_sic_time_weights, bc_sst_sic_time_interpolation
+    &                                      bc_sst_sic_time_interpolation
   USE mo_bc_solar_irradiance        ,ONLY: read_bc_solar_irradiance, ssi_time_interpolation
 
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
@@ -131,6 +127,10 @@ CONTAINS
     END IF
     time_radtran  = 2._wp*pi * datetime_radtran%daytim  ! time of day in radian
 
+    ! interpolation weights for linear interpolation
+    ! of monthly means onto the actual integration time step
+    CALL time_weights_limm(datetime, wi_limm)
+
     ! Read and interpolate in time monthly mean SST for AMIP simulations
     ! SST is needed for turbulent vertical fluxes and for radiation.
     !
@@ -138,22 +138,17 @@ CONTAINS
       IF (datetime%year /= get_current_bc_sst_sic_year()) THEN
         CALL read_bc_sst_sic(datetime%year, patch)
       END IF
-      CALL bc_sst_sic_time_weights(datetime)
-      CALL bc_sst_sic_time_interpolation( prm_field(jg)%seaice(:,:)         ,&
+      CALL bc_sst_sic_time_interpolation( wi_limm                           ,&
+        &                                 prm_field(jg)%lsmask(:,:)         ,&
         &                                 prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
-        &                                 prm_field(jg)%siced(:,:)          ,&
-        &                                 prm_field(jg)%lsmask(:,:) )
+        &                                 prm_field(jg)%seaice(:,:)         ,&
+        &                                 prm_field(jg)%siced(:,:)          )
 
       ! The ice model should be able to handle different thickness classes, 
       ! but for AMIP we ONLY USE one ice class.
       prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
       prm_field(jg)%hi  (:,1,:) = prm_field(jg)%siced (:,:)
     END IF
-
-    ! interpolation weights for linear interpolation
-    ! of monthly means onto the actual integration time step
-    CALL time_weights_limm(datetime, wi_limm)
-
 
     ! total solar irradiation at the mean sun earth distance
     IF (isolrad==1) THEN
