@@ -49,7 +49,7 @@ MODULE mo_echam_phy_main
     &                               timer_cucall, timer_vdiff
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
-  USE mo_sfc_indices,         ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
@@ -99,10 +99,6 @@ CONTAINS
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
-
-!!$    REAL(wp) :: zbetaa (nbdim,nlev)       !< qt distribution minimum in beta
-!!$    REAL(wp) :: zbetab (nbdim,nlev)       !< qt distribution maximum in beta
-!!$    REAL(wp) :: zbetass(nbdim,nlev)
 
 !!$    REAL(wp) :: zhmixtau   (nbdim,nlev)   !< timescale of mixing for horizontal eddies
     REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
@@ -154,6 +150,7 @@ CONTAINS
     REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
     REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
+    
     ! Temporary arrays used by VDIFF
 
     REAL(wp) :: zfactor_sfc(nbdim)
@@ -166,8 +163,8 @@ CONTAINS
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
-    REAL(wp) :: ztemperature_rad(nbdim)
-    REAL(wp) :: ztemperature_eff(nbdim)
+    REAL(wp) :: ztsfc_rad(nbdim)
+    REAL(wp) :: ztsfc_eff(nbdim)
 
 
     ! Temporary array used by GW_HINES
@@ -189,6 +186,7 @@ CONTAINS
 
     REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon
 
+    
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
@@ -221,11 +219,6 @@ CONTAINS
     ! 2. local switches and parameters
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
-
-    IF ( phy_config%lamip ) THEN
-      IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)
-      IF (iice.LE.nsfc_type) field%tsurfi(:,jb) = field%tsfc_tile(:,jb,iice)
-    ENDIF
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
@@ -395,7 +388,7 @@ CONTAINS
        ! perpetual equinox,
        ! no diurnal cycle,
        ! the product tsi*cos(zenith angle) should equal 340 W/m2
-         ztsi = tsi ! no rescale becuase tsi has been adjusted in echam_phy_init with ssi_rce
+         ztsi = tsi ! no rescale because tsi has been adjusted in echam_phy_init with ssi_rce
        END SELECT
 
 
@@ -404,21 +397,21 @@ CONTAINS
        ! surface temperatures for radiative transfer and radiative heating computations
        !
        ! for radiative heating : effective sfc temp. [K]
-       ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
+       ztsfc_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
        !
        ! for radiative transfer: radiative sfc temp. [K]
-       ztemperature_rad(:) = 0._wp
+       ztsfc_rad(:) = 0._wp
        DO jsfc=1,nsfc_type
-         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
+         ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce) + &
            & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
        ENDDO
-       ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
+       ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce)**0.25_wp
 
        IF (phy_config%ljsbach) THEN
          ! Reset to land values pre-calculated in JSBACH
          WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
-            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb)
-            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb)
+            ztsfc_rad(jcs:jce) = field%tsfc_rad(jcs:jce,jb)
+            ztsfc_eff(jcs:jce) = field%tsfc_eff(jcs:jce,jb)
          ENDWHERE
        END IF
 
@@ -524,23 +517,10 @@ CONTAINS
                              & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
                              & o3_clim     = field% o3(:,:,jb)        )! OUT
 
-!              IF (jb == 1) THEN
-!                DO jk = 1,nlev_o3
-!                WRITE(0,*)'plev=',jk,'o3plev=', atm_td%o3(jce,1,jb,selmon)
-!                ENDDO
-!                DO jk = 1,nlev
-!                WRITE(0,*)'nlev=',jk,'o3intp=', field%o3(jce,1,jb)
-!                ENDDO
-!              ENDIF
             CASE(io3_amip)
               CALL o3_timeint(kproma=jce,               kbdim=nbdim,                 &
                               nlev_pres=nplev_o3,                                    &
                               ext_o3=o3_plev(:,:,jb,:), o3_time_int=zo3_timint       )
-!!$              IF (jb == 1) THEN
-!!$                 DO jk=1,nplev_o3
-!!$                    WRITE(0,*) 'plev=',jk,'o3_plev=',o3_plev(jce,jk,jb,1),'o3_time_int=',zo3_timint(jce,jk)
-!!$                 END DO
-!!$              END IF
               CALL o3_pl2ml(kproma=jce,                 kbdim=nbdim,          &
                           & nlev_pres=nplev_o3,         klev=nlev,            &
                           & pfoz=plev_full_o3,          phoz=plev_half_o3,    &
@@ -548,49 +528,7 @@ CONTAINS
                           & pph=field%presi_new(:,:,jb),                      &
                           & o3_time_int=zo3_timint,                           &
                           & o3_clim=field%o3(:,:,jb)                          )
-!!$              IF (jb == 1) THEN
-!!$                 DO jk=1,nlev
-!!$                    WRITE(0,*) 'lev=',jk,'o3_clim=',field%o3(jce,jk,jb)
-!!$                 END DO
-!!$              END IF
             END SELECT
-
-
-!!$        ! debug fields "radin"
-!!$        !
-!!$        DO jc = jcs,jce
-!!$          !
-!!$          IF (field% lfland(jc,jb)) THEN
-!!$            rlfland(jc) = 1._wp
-!!$          ELSE
-!!$            rlfland(jc) = 0._wp
-!!$          END IF
-!!$          !
-!!$          IF (field% lfglac(jc,jb)) THEN
-!!$            rlfglac(jc) = 1._wp
-!!$          ELSE
-!!$            rlfglac(jc) = 0._wp
-!!$          END IF
-!!$          !
-!!$        END DO
-!!$        !
-!!$        field% debug_2d_1(:,jb) = field% albvisdir(:,jb)
-!!$        field% debug_2d_2(:,jb) = field% albnirdir(:,jb)
-!!$        field% debug_2d_3(:,jb) = field% albvisdif(:,jb)
-!!$        field% debug_2d_4(:,jb) = field% albnirdif(:,jb)
-!!$        field% debug_2d_5(:,jb) = REAL(itype(:),wp)
-!!$        field% debug_2d_6(:,jb) = field% tsfc(:,jb)
-!!$        field% debug_2d_7(:,jb) = rlfland(:)
-!!$        field% debug_2d_8(:,jb) = rlfglac(:)
-!!$        !
-!!$        field% debug_3d_1(:,1:nlev,jb) = field% presi_old(:,1:nlev,jb)
-!!$        field% debug_3d_2(:,1:nlev,jb) = field% presm_old(:,1:nlev,jb)
-!!$        field% debug_3d_3(:,1:nlev,jb) = field% temp     (:,1:nlev,jb)
-!!$        field% debug_3d_4(:,1:nlev,jb) = field% q        (:,1:nlev,jb,iqv)
-!!$        field% debug_3d_5(:,1:nlev,jb) = field% q        (:,1:nlev,jb,iqc)
-!!$        field% debug_3d_6(:,1:nlev,jb) = field% q        (:,1:nlev,jb,iqi)
-!!$        field% debug_3d_7(:,1:nlev,jb) = field% acdnc    (:,1:nlev,jb)
-!!$        field% debug_3d_8(:,1:nlev,jb) = field% aclc     (:,1:nlev,jb)
 
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -624,7 +562,7 @@ CONTAINS
           & alb_vis_dif= field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
           & alb_nir_dif= field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
           & emis_rad   = ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & tk_sfc     = ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
+          & tk_sfc     = ztsfc_rad(:)             ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
           & z_mc       = zheight(:,:)             ,&!< in     height at full levels [m]
@@ -669,24 +607,8 @@ CONTAINS
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 
-!!$        ! debug fields "radout"
-!!$        !
-!!$        field% debug_2d_1(:,jb) = field% aclcov(:,jb)
-!!$        field% debug_2d_2(:,jb) = field% nirsfc(:,jb)
-!!$        field% debug_2d_3(:,jb) = field% nirdffsfc(:,jb)
-!!$        field% debug_2d_4(:,jb) = field% vissfc(:,jb)
-!!$        field% debug_2d_5(:,jb) = field% visdffsfc(:,jb)
-!!$        field% debug_2d_6(:,jb) = field% parsfc(:,jb)
-!!$        field% debug_2d_7(:,jb) = field% pardffsfc(:,jb)
-!!$        !
-!!$        field% debug_3d_1(:,1:nlev,jb) = field% emterclr(:,1:nlev,jb)
-!!$        field% debug_3d_2(:,1:nlev,jb) = field% trsolclr(:,1:nlev,jb)
-!!$        field% debug_3d_3(:,1:nlev,jb) = field% emterall(:,1:nlev,jb)
-!!$        field% debug_3d_4(:,1:nlev,jb) = field% trsolall(:,1:nlev,jb)
-!!$
-
          END IF ! ltrig_rad
-!!$
+
       ! 4.2 RADIATIVE HEATING
       !----------------------
 
@@ -719,9 +641,8 @@ CONTAINS
         & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = ztemperature_eff(:)            ,&! in    surface temperature           [K]
-        & ptsfctrad  = ztemperature_rad(:)            ,&! in    sfc temp. used in "radiation" [K]
-        & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
+        & ptsfc      = ztsfc_eff(:)                   ,&! in    surface temperature           [K]
+        & ptsfctrad  = ztsfc_rad(:)                   ,&! in    sfc temp. used in "radiation" [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !
@@ -733,8 +654,7 @@ CONTAINS
         & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
         & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
-        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
-        & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
+        & pflxtoalw  = field%lwflxtoa           (:,jb) )! out   longwave toa net flux      [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -948,8 +868,8 @@ CONTAINS
                        & albnirdir = field% albnirdir(:,jb),                    &! inout
                        & albvisdif = field% albvisdif(:,jb),                    &! inout
                        & albnirdif = field% albnirdif(:,jb),                    &! inout
-                       & surface_temperature_rad = field%surface_temperature_rad(:,jb), &! out
-                       & surface_temperature_eff = field%surface_temperature_eff(:,jb), &! out
+                       & surface_temperature_rad = field%tsfc_rad(:,jb), &! out
+                       & surface_temperature_eff = field%tsfc_eff(:,jb), &! out
                        & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
                        & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
                        & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
@@ -968,8 +888,6 @@ CONTAINS
                        & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
                        & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
                        & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
-
-        field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 
     ELSE
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
@@ -1034,7 +952,7 @@ CONTAINS
                      & psoflw=field%swflxsfc(:,jb),ptsw=field%tsfc(:,jb) )
 !
 ! update tsfc_tile (radheat also uses tsfc) if ml_ocean is called
-      field%tsfc_tile(:,jb,1) = field%tsfc(:,jb)
+      field%tsfc_tile(:,jb,iwtr) = field%tsfc(:,jb)
     ENDIF
 
     ! Merge surface temperatures
@@ -1042,7 +960,7 @@ CONTAINS
     DO jsfc=1,nsfc_type
       field%tsfc(jcs:jce,jb) = field%tsfc(jcs:jce,jb) + zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)
     ENDDO
-
+    
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);

@@ -117,6 +117,12 @@ if (!(c)) {\
 #  define psmile_bsend_init  psmile_bsend_init__
 #  define psmile_redirstdout psmile_redirstdout__
 
+#elif defined (IBMR2Fortran) && ! defined (extname)
+
+#  define psmile_bsend       psmile_bsend
+#  define psmile_bsend_init  psmile_bsend_init
+#  define psmile_redirstdout psmile_redirstdout
+
 #else
 
 #  define psmile_bsend       psmile_bsend_

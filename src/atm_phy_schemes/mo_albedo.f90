@@ -561,6 +561,7 @@ CONTAINS
     ! Local scalars:
     REAL(wp):: snow_frac               !< snow cover fraction
     REAL(wp):: zminsnow_alb            !< temperature-dependent minimum snow albedo
+    REAL(wp):: zmaxsnow_alb            !< maximum snow albedo depending on snow depth and roughness length
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsalb_snow              !< snow albedo (predictor)
     REAL(wp):: zsnow_alb               !< snow albedo (corrector)
@@ -593,7 +594,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,&
 !$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea,   &
-!$OMP            i_count_flk,i_count_seaice,zminsnow_alb) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice,zminsnow_alb,zmaxsnow_alb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -644,9 +645,16 @@ CONTAINS
             ! - aging of snow not considered
             ! - instead, snow albedo is limited to land-class specific value
 
-            ! get land cover class
-            ilu = ext_data%atm%lc_class_t(jc,jb,jt) 
-            zsnow_alb = MIN(zsalb_snow, ABS(ext_data%atm%snowalb_lcc(ilu)))
+            IF (ntiles_lnd > 1) THEN     ! tile approach
+              ! get land cover class
+              ilu = ext_data%atm%lc_class_t(jc,jb,jt) 
+              zsnow_alb = MIN(zsalb_snow, ABS(ext_data%atm%snowalb_lcc(ilu)))
+            ELSE
+              ! special treatment for forests
+              zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+                + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+                + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+            ENDIF
 
             ! snow cover fraction
             snow_frac = lnd_diag%snowfrac_t(jc,jb,jt)
@@ -662,6 +670,16 @@ CONTAINS
             ! near IR broadband surface albedo (white sky)
             prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
+
+            ! Limit snow albedo in case of thin snow cover depending on landuse roughness length
+            ! it is assumed that vegetation is fully covered by snow if the snow depth exceeds
+            ! three times the roughness length
+            ilu = ext_data%atm%lc_class_t(jc,jb,jt)
+            zmaxsnow_alb = csalb_snow_max*MIN(1._wp,SQRT(0.25_wp+0.25_wp*lnd_diag%h_snow_t(jc,jb,jt)/&
+              ext_data%atm%z0_lcc(ilu)))
+            prm_diag%albdif_t(jc,jb,jt)    = MIN(zmaxsnow_alb,prm_diag%albdif_t(jc,jb,jt))
+            prm_diag%albvisdif_t(jc,jb,jt) = MIN(zmaxsnow_alb,prm_diag%albvisdif_t(jc,jb,jt))
+            prm_diag%albnirdif_t(jc,jb,jt) = MIN(zmaxsnow_alb,prm_diag%albnirdif_t(jc,jb,jt))
 
           ENDDO  ! ic
 

@@ -27,7 +27,7 @@ MODULE mo_interface_echam_ocean
   USE mo_parallel_config     ,ONLY: nproma
   
   USE mo_run_config          ,ONLY: nlev
-  USE mo_sfc_indices         ,ONLY: iwtr, iice
+  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
 #ifdef YAC_coupling

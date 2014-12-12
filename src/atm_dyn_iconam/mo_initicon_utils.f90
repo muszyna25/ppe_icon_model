@@ -39,7 +39,8 @@ MODULE mo_initicon_utils
     &                               lconsistency_checks
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
-    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP
+    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS
+  USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text, warning
   USE mo_grid_config,         ONLY: n_dom
@@ -48,7 +49,7 @@ MODULE mo_initicon_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake,            &
     &                               isub_lake
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, crhosmin_ml, crhosmax_ml
+  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
   USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
@@ -1018,11 +1019,20 @@ MODULE mo_initicon_utils
                ! for seapoints, freshsnow is set to 0
               IF(alb_snow_var == 'ALB_SNOW') THEN
 
-                IF (ext_data(jg)%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
-                  t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
-                  zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data(jg)%atm%alb_dif(jc,jb)
+                IF (albedo_type == MODIS) THEN
+                  IF (ext_data(jg)%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+                    t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
+                    zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data(jg)%atm%alb_dif(jc,jb)
+                  ELSE
+                    zminsnow_alb = csalb_snow_min
+                  ENDIF
                 ELSE
-                  zminsnow_alb = csalb_snow_min
+                  IF (ext_data(jg)%atm%lc_class_t(jc,jb,jt) == ext_data(jg)%atm%i_lc_snow_ice) THEN
+                    t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
+                    zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*csalb_snow
+                  ELSE
+                    zminsnow_alb = csalb_snow_min
+                  ENDIF
                 ENDIF
 
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &

@@ -36,14 +36,20 @@ MODULE mo_action_types
   ! defines single variable specific action
   !
   TYPE t_var_action_element
-    INTEGER                         :: actionID              ! action ID  
-    CHARACTER(LEN=128)              :: intvl                 ! action interval [PTnH]
-    CHARACTER(MAX_DATETIME_STR_LEN) :: lastActive            ! date of last triggering
-    TYPE(datetime)                  :: EventLastTriggerDate  ! last intended action event trigger date.
-                                                             ! Differs from lastActive in the sense 
-                                                             ! that it is the intended trigger date, whereas 
-                                                             ! lastActive is the TRUE trigger date. These two 
-                                                             ! can differ by the allowed 'slack'.  
+    INTEGER                             :: actionID              ! action ID
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start                 ! action start time (duration)
+                                                                 ! [PnYnMnDTnHnMn]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: end                   ! action end time   (duration)
+                                                                 ! [PnYnMnDTnHnMn]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: intvl                 ! action interval (duration)
+                                                                 ! [PnYnMnDTnHnMn]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: lastActive            ! date of last triggering
+                                                                 ! [YYY-MM-DDThh:mm:ss]
+    TYPE(datetime)                      :: EventLastTriggerDate  ! last intended trigger date.
+                                                               ! Differs from lastActive in the sense 
+                                                               ! that it is the intended trigger date, whereas 
+                                                               ! lastActive is the TRUE trigger date. These two 
+                                                               ! can differ by the allowed 'slack'.  
   END TYPE t_var_action_element
 
 

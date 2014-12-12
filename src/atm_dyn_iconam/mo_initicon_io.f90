@@ -1231,6 +1231,9 @@ MODULE mo_initicon_io
 
     ENDDO ! loop over model domains
 
+    ! Tell the vertical interpolation routine that vn needs to be processed
+    lread_vn = .TRUE.
+
   END SUBROUTINE read_dwdfg_atm_ii
 
 

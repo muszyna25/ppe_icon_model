@@ -35,7 +35,8 @@ MODULE mo_ha_stepping
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
-  USE mo_io_config,           ONLY: l_diagtime, l_outputtime, is_checkpoint_time
+  USE mo_io_config,           ONLY: l_diagtime, l_outputtime, is_checkpoint_time, &
+    &                               n_chkpt, n_diag
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
@@ -200,8 +201,7 @@ CONTAINS
   !!
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state,               &
                                 & p_grf_state,                        &
-                                & p_hydro_state, datetime,            &
-                                & n_checkpoint, n_diag )
+                                & p_hydro_state, datetime             )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
@@ -209,7 +209,6 @@ CONTAINS
   TYPE(t_patch),         TARGET, INTENT(IN)    :: p_patch(n_dom)
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
-  INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
 
   TYPE(t_datetime), INTENT(INOUT)              :: datetime
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
@@ -376,7 +375,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (is_checkpoint_time(jstep,n_checkpoint,(nsteps+jstep0))) THEN
+    IF (is_checkpoint_time(jstep,n_chkpt,(nsteps+jstep0))) THEN
 
       IF (use_async_restart_output) THEN
         DO jg = 1, n_dom

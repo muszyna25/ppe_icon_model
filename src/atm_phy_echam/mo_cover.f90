@@ -109,7 +109,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
   REAL(wp),INTENT(OUT)   ::  &
       & printop(kbdim)
 
-  INTEGER  :: jl, jk, kbeta, jb
+  INTEGER  :: jl, jk, jb
   INTEGER  :: locnt, nl, ilev
   REAL(wp) :: zdtdz, zcor, zrhc, zsat, zqr
   INTEGER  :: itv1(kproma*klev), itv2(kproma*klev)
@@ -155,8 +155,6 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
      END DO
   END DO
 !
-  kbeta = klev+1
-!
 !       1.3   Checking occurrence of low-level inversion
 !             (below 2000 m, sea points only, no convection)
 !
@@ -195,9 +193,9 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
 !
 !       1.   Calculate the saturation mixing ratio
 !
-  IF (ktdia < kbeta) THEN
+  IF (ktdia < klev+1) THEN
 
-     DO jk = ktdia,kbeta-1
+     DO jk = ktdia,klev
 
         CALL prepare_ua_index_spline('cover (2)',kproma,ptm1(1,jk),itv1(1),      &
                                          za(1),pxim1(1,jk),nphase,zphase,itv2)

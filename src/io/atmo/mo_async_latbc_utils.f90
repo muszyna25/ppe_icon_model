@@ -75,7 +75,7 @@
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN
+         &                            MAX_TIMEDELTA_STR_LEN, OPERATOR(>=)
     USE mo_mtime_extensions,    ONLY: get_datetime_string
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
@@ -88,6 +88,8 @@
          &                            operator(+)
     USE mo_mtime_extensions,    ONLY: get_duration_string_real, getTimeDeltaFromDateTime
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    USE mo_master_nml,          ONLY: lrestart
+    USE mo_run_config,          ONLY: nsteps, dtime
 
     IMPLICIT NONE
 
@@ -136,6 +138,7 @@
     TYPE(timedelta), pointer :: my_duration_slack
     TYPE(datetime), pointer :: mtime_date
     TYPE(datetime), pointer :: mtime_read
+    TYPE(datetime), pointer :: mtime_end
     TYPE(event), pointer :: prefetchEvent
     TYPE(timedelta), pointer :: delta_dtime
     LOGICAL :: isactive
@@ -254,7 +257,13 @@
 
 #ifndef NOMPI
       ! local variables
+      REAL(wp)     :: delta_tstep_secs, delta_dtime_secs, end_date
+      TYPE(timedelta), pointer :: delta_tstep
+      TYPE(timedelta), pointer :: delta_tend
+      TYPE(datetime), pointer :: mtime_current
+      TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
+      INTEGER       :: i, add_delta, end_delta, finish_delta
       REAL          :: tdiff
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
@@ -275,7 +284,7 @@
       event_name = 'Prefetch input'
 
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
-           TRIM(sim_start), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
+           TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
       tdiff = (0.5*dtime)
       CALL get_duration_string_real(tdiff, tdiff_string)
@@ -283,7 +292,77 @@
 
       delta_dtime => newTimedelta(latbc_config%dt_latbc)
 
-      mtime_read  => newDatetime(TRIM(sim_cur_read))
+      mtime_read  => newDatetime(TRIM(sim_start))
+
+      ! time interval delta_dtime_secs in seconds
+      delta_dtime_secs = 86400 *INT(delta_dtime%day)    &
+           &                  + 3600  *INT(delta_dtime%hour)   &
+           &                  + 60    *INT(delta_dtime%minute) &
+           &                  +        INT(delta_dtime%second)
+
+      ! a check so that prefetch processor checks whether to
+      ! read the boundary data from a file
+      IF(nsteps /= 0) THEN
+         mtime_end => newDatetime(TRIM(sim_start))
+
+         end_date = nsteps * dtime
+
+         add_delta = FLOOR(end_date / delta_dtime_secs)
+
+         DO i = 1, add_delta+1
+            mtime_end = mtime_end + delta_dtime
+         ENDDO
+
+      ELSE
+         mtime_finish => newDatetime(TRIM(sim_end))
+         delta_tend => newTimedelta(latbc_config%dt_latbc)
+
+         CALL getTimeDeltaFromDateTime (mtime_read, mtime_finish, delta_tend)
+
+         finish_delta = 86400 *INT(delta_tend%day)    &
+              &                  + 3600  *INT(delta_tend%hour)   &
+              &                  + 60    *INT(delta_tend%minute) &
+              &                  +        INT(delta_tend%second)
+
+         end_delta = FLOOR(finish_delta/delta_dtime_secs) * delta_dtime_secs
+         ! check if the difference is less than zero than
+         ! point mtime_end to time sim_end
+         IF((finish_delta - end_delta) < 1e-15) THEN
+            mtime_end => newDatetime(TRIM(sim_end))
+         ELSE
+            ! deallocating mtime and deltatime
+            mtime_end => newDatetime(TRIM(sim_end))
+            mtime_end = mtime_end + delta_dtime
+         ENDIF
+         CALL deallocateDatetime(mtime_finish)
+         CALL deallocateTimedelta(delta_tend)
+      ENDIF
+
+      ! if there is lrestart flag than prefetch processor needs to start reading
+      ! the data from the new date time of restart file. Below the time at which
+      ! restart file starts is calculated and added to mtime_read which is the
+      ! time step for reading the boundary data
+      IF(lrestart) THEN
+         mtime_current => newDatetime(TRIM(sim_cur_read))
+         delta_tstep => newTimedelta(latbc_config%dt_latbc)
+         CALL getTimeDeltaFromDateTime (mtime_read, mtime_current, delta_tstep)
+
+         ! time interval delta_tstep_secs in seconds
+         delta_tstep_secs = 86400 *INT(delta_tstep%day)    &
+              &                  + 3600  *INT(delta_tstep%hour)   &
+              &                  + 60    *INT(delta_tstep%minute) &
+              &                  +        INT(delta_tstep%second)
+
+         add_delta = FLOOR(delta_tstep_secs / delta_dtime_secs)
+         ! no of times delta_dtime needs to be added to get the current time to
+         ! read the boundary data file
+         DO i = 1, add_delta
+            mtime_read = mtime_read + delta_dtime
+         ENDDO
+         ! deallocating mtime and deltatime
+         CALL deallocateTimedelta(delta_tstep)
+         CALL deallocateDatetime(mtime_current)
+      ENDIF
 
       ! prepare read/last indices
       start_latbc_tlev = 1   ! read in the first time-level slot
@@ -443,6 +522,10 @@
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(len=132) :: message_text
 
+      ! if mtime_read is same as mtime_end the prefetch processor returns without further
+      ! proceeding to generate filename and than looking for boundary data file
+      IF(mtime_read >= mtime_end) &
+           RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
@@ -457,9 +540,9 @@
       latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
       IF (latbc_fileid < 0) THEN
-        WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
-             ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
-        CALL finish(routine, TRIM(message_text))
+         WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
+              ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
+         CALL finish(routine, TRIM(message_text))
       ENDIF
 
       ! initializing the displacement array for each compute processor
@@ -540,8 +623,8 @@
       eoff = 0_i8
       DO jv = 1, latbc_buffer%ngrp_vars
          ! Receive 2d and 3d variables
-         CALL compute_data_receive (latbc_buffer%mapped_name(jv), latbc_buffer%hgrid(jv), &
-              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data)
+         CALL compute_data_receive (latbc_buffer%hgrid(jv), latbc_buffer%nlev(jv), &
+                                    latbc_buffer%vars(jv)%buffer, eoff, patch_data)
       ENDDO
 
       ! Reading the next time step
@@ -743,6 +826,10 @@
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=132) :: message_text
 
+      ! if mtime_read is same as mtime_end the prefetch processor returns without further
+      ! proceeding to generate filename and than looking for boundary data file
+      IF(mtime_read >= mtime_end) &
+           RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
@@ -758,9 +845,9 @@
       latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
       IF (latbc_fileid < 0) THEN
-        WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
-             ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
-        CALL finish(routine, TRIM(message_text))
+         WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
+              ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
+         CALL finish(routine, TRIM(message_text))
       ENDIF
 
       ! initializing the displacement array for each compute processor
@@ -847,8 +934,8 @@
 
       DO jv = 1, latbc_buffer%ngrp_vars
          ! Receive 2d and 3d variables
-         CALL compute_data_receive (latbc_buffer%mapped_name(jv), latbc_buffer%hgrid(jv), &
-              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data)
+         CALL compute_data_receive ( latbc_buffer%hgrid(jv), latbc_buffer%nlev(jv), &
+                                     latbc_buffer%vars(jv)%buffer, eoff, patch_data)
       ENDDO
 
       ! Reading the next time step
@@ -1166,6 +1253,7 @@
       ! deallocating Date and time
       CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_read)
+      CALL deallocateDatetime(mtime_end)
       CALL deallocateTimedelta(my_duration_slack)
       CALL deallocateTimedelta(delta_dtime)
 #endif
@@ -1377,7 +1465,7 @@
       REAL(wp) :: msg(2)
       CHARACTER(*), PARAMETER :: method_name = "compute_start_async_pref"
 
-   !   CALL p_barrier(comm=p_comm_work) ! make sure all are here
+      !   CALL p_barrier(comm=p_comm_work) ! make sure all are here
 
       msg(1) = REAL(msg_pref_start,  wp)
 
@@ -1395,7 +1483,7 @@
 #ifndef NOMPI
       REAL(wp) :: msg(2)
 
-    !  CALL p_barrier(comm=p_comm_work) ! make sure all are here
+      !  CALL p_barrier(comm=p_comm_work) ! make sure all are here
 
       msg(1) = REAL(msg_pref_shutdown, wp)
       msg(2) = 0._wp
@@ -1454,7 +1542,6 @@
 
       latbc_config%lc1 = (delta_tstep%day * 86400._wp + delta_tstep%hour * 3600._wp +  &
            delta_tstep%minute * 60._wp + delta_tstep%second) / latbc_config%dtime_latbc
-      ! write (0,*) "B: lc1 = ", latbc_config%lc1
       latbc_config%lc2 = 1._wp - latbc_config%lc1
 
       ! deallocating mtime and deltatime

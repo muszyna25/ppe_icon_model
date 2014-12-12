@@ -44,11 +44,13 @@ MODULE mo_io_config
 
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
   INTEGER :: inextra_3d                 ! number of extra output fields for debugging
+
   LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
-  !  from the beginning of the run
-  ! if .TRUE. the output fluxex are average values 
-  !  from the beginning of the run, except of 
-  !  TOT_PREC that would be accumulated
+                                        ! from the beginning of the run
+                                        ! if .TRUE. the output fluxex are average values 
+                                        ! from the beginning of the run, except of 
+                                        ! TOT_PREC that would be accumulated
+
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
   INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
 
@@ -60,11 +62,7 @@ MODULE mo_io_config
                                         !  output fields
 
   ! derived variables
-
-  LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
-  LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
-!  LOGICAL ::  use_set_event_to_simstep = .true.       ! if .true., the set_event_to_simstep routine is activated
-
+  !
   INTEGER, PARAMETER :: read_netcdf_broadcast_method  = 1
   INTEGER, PARAMETER :: read_netcdf_distribute_method = 2
   INTEGER :: default_read_method = read_netcdf_broadcast_method
@@ -72,8 +70,42 @@ MODULE mo_io_config
   INTEGER :: restart_file_type = FILETYPE_NC2
 
   LOGICAL :: write_initial_state = .true.
+
+  INTEGER :: n_chkpt           ! number of timesteps between successive checkpoint events
+  INTEGER :: n_diag            ! number of timesteps between successive tot_int diag events
+
+!  LOGICAL ::  use_set_event_to_simstep = .true.       ! if .true., the set_event_to_simstep routine is activated
+
+  ! currently used by hydrostatic model only
+  LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
+  LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
   
 CONTAINS
+
+  !>
+  !! Set up derived components of the I/O config state
+  !!
+  !! Set up derived components of the I/O config state. This routine is 
+  !! called, after all namelists have been read and a synoptic consistency 
+  !! check has been done.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-11-28)
+  !!
+  SUBROUTINE configure_io()
+
+    !-----------------------------------------------------------------------
+
+    ! number of timesteps between successive checkpoint events
+    n_chkpt = n_checkpoints()
+
+    ! number of timesteps between successive tot_int diag events
+    n_diag  = n_diags()
+
+  END SUBROUTINE configure_io
+
+
+
   !----------------------------------------------------------------------------------
    FUNCTION n_checkpoints()
 

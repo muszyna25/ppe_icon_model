@@ -25,6 +25,8 @@ MODULE mo_initicon_config
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len
   USE mo_mtime_extensions,   ONLY: getPTStringFromMS
+  USE mo_parallel_config,    ONLY: num_prefetch_proc
+  USE mo_exception,          ONLY: finish, message_text
 
   IMPLICIT NONE
 
@@ -149,19 +151,27 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2013-07-11)
   !!
   SUBROUTINE configure_initicon
-  !
+    !
     CHARACTER(len=max_timedelta_str_len) :: PTshift
     TYPE(timedelta), POINTER             :: mtime_shift_local
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !-----------------------------------------------------------------------
-
+    !
+    ! Check whether an mapping file is provided for prefetching boundary data
+    ! calls a finish either when the flag is absent
+    !
+    IF ((num_prefetch_proc == 1) .AND. (latbc_varnames_map_file == ' ')) THEN
+       WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but not found due to missing flag.'
+       CALL finish(TRIM(routine),message_text)
+    ENDIF
 
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
-      init_mode_soil = 1   ! full coldstart is executed
-                           ! i.e. w_so_ice and h_snow are re-diagnosed
+       init_mode_soil = 1   ! full coldstart is executed
+       ! i.e. w_so_ice and h_snow are re-diagnosed
     ELSE IF ( ANY((/MODE_DWDANA_INC, MODE_IAU/) == init_mode) ) THEN
-      init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
+       init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE
-      init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
+       init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
 
 

@@ -122,7 +122,6 @@ CONTAINS
     REAL(wp) :: t_s_new_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: h_snow_incr(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_mult_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_so_now_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
@@ -287,7 +286,6 @@ CONTAINS
           lc_class_t(ic,jb,isubs)            = ext_data%atm%lc_class_t(jc,jb,isubs)
           freshsnow_t(ic,jb,isubs)           = p_lnd_diag%freshsnow_t(jc,jb,isubs)
           h_snow_t(ic,jb,isubs)              = p_lnd_diag%h_snow_t(jc,jb,isubs)
-          h_snow_incr(ic,jb,isubs)           = p_lnd_diag%h_snow_incr(jc,jb)
 
           soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
@@ -411,7 +409,6 @@ CONTAINS
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
         &  h_snow            = h_snow_t(:,jb,isubs)             , & ! snow depth                        (m H2O)
-        &  h_snow_incr       = h_snow_incr(:,jb,isubs)          , & ! snow depth increment              (m H2O)
         &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)       , & ! snow density                      (kg/m**3)
         &  rho_snow_mult_now = rho_snow_mult_now_t(:,:,jb,isubs), & ! snow density                      (kg/m**3)
         &  t_so_now          = t_so_now_t(:,:,jb,isubs)         , & ! soil temperature (main level)     (  K  )
