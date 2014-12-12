@@ -48,7 +48,7 @@ MODULE mo_initicon
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
-    &                               isub_lake
+    &                               isub_lake, isub_water, isub_seaice
   USE mo_phyparam_soil,       ONLY: cporv, crhosmin_ml
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -64,7 +64,7 @@ MODULE mo_initicon
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
-                                    
+  USE mo_util_string,         ONLY: one_of                                    
 
   IMPLICIT NONE
 
@@ -1572,12 +1572,13 @@ MODULE mo_initicon
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt             ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt          ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(wp):: missval
     INTEGER :: rl_start, rl_end 
     INTEGER :: i_startidx, i_endidx
+    LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
   !-------------------------------------------------------------------------
 
     ! get CDImissval
@@ -1593,6 +1594,11 @@ MODULE mo_initicon
       rl_start = 1
       rl_end   = min_rlcell
 
+
+      ! check, whether t_so is read from analysis
+      lanaread_tso = ( one_of('t_so', initicon(jg)%grp_vars_ana(1:initicon(jg)%ngrp_vars_ana)) /= -1)
+
+
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
@@ -1601,19 +1607,65 @@ MODULE mo_initicon
                            i_startidx, i_endidx, rl_start, rl_end)
 
 
-        !get SST from first soil level t_so (for sea and lake points)
+        IF (lanaread_tso) THEN
+          !
+          ! SST analysis (T_SO(0)) was read into initicon(jg)%sfc%sst.
+          ! Now copy to diag_lnd%t_seasfc for water, ice and lake points
+          !
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  & ! nproma,nlev_soil+1,nblks,ntiles_total
-                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
-        END DO
+          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
+          END DO
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
-                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
-        END DO
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+           jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
+          END DO
+
+
+          ! Fill T_SO(0) over open water points with new SST analysis
+          !
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%spw_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_spw(ic,jb)
+            p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,isub_water) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+          END DO
+          !
+          ! Fill T_SO(0) below seaice points with T_SO(0) from analysis
+          !
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%spi_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_spi(ic,jb)
+            p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,isub_seaice) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+          END DO
+          !
+          ! Fill T_SO(0) over lake points with T_SO(0) from analysis
+          !
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,isub_lake) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+          END DO
+
+        ELSE  ! SST (T_SO(0)) is not read from the analysis
+          !
+          ! get SST from first guess T_SO (for sea and lake points)
+          !
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  & ! nproma,nlev_soil+1,nblks,ntiles_total
+                                     & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+          END DO
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
+                                     & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1)
+          END DO
+
+        ENDIF  ! lanaread_t_so
 
 
 

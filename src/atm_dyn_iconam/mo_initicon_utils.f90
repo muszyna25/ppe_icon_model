@@ -282,8 +282,8 @@ MODULE mo_initicon_utils
       ! check correctness of validity-time
       lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
 
-      ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
-      ! write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
+!       write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
+!       write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
 
       IF (.NOT. lmatch_vtime) THEN
         WRITE(message_text,'(a)') 'Non-matching validity datetime for first guess field '&
@@ -1227,9 +1227,12 @@ MODULE mo_initicon_utils
       ENDIF
 
       ! Allocate surface output data
+      ! always allocate sst (to be on the safe side)
+      ALLOCATE(initicon(jg)%sfc%sst(nproma,nblks_c))
+
+
       IF ( init_mode == MODE_IFSANA ) THEN
         ALLOCATE(initicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
-                 initicon(jg)%sfc%sst      (nproma,nblks_c             ), &
                  initicon(jg)%sfc%tsnow    (nproma,nblks_c             ), &
                  initicon(jg)%sfc%snowalb  (nproma,nblks_c             ), &
                  initicon(jg)%sfc%snowweq  (nproma,nblks_c             ), &
@@ -1429,10 +1432,12 @@ MODULE mo_initicon_utils
         DEALLOCATE(initicon(jg)%atm%tke)
       ENDIF
 
+      ! always allocated (hack!)
+      DEALLOCATE(initicon(jg)%sfc%sst)
+
       ! surface output data
       IF (initicon(jg)%sfc%linitialized) THEN
         DEALLOCATE(initicon(jg)%sfc%tskin,    &
-                   initicon(jg)%sfc%sst,      &
                    initicon(jg)%sfc%tsnow,    &
                    initicon(jg)%sfc%snowalb,  &
                    initicon(jg)%sfc%snowweq,  &
