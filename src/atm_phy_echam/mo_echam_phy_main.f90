@@ -125,6 +125,8 @@ CONTAINS
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
+    REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
+    REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
     REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
@@ -239,13 +241,13 @@ CONTAINS
 
     ! Use constant volume or constant pressure specific heats for dry air and vapor
     ! for the computation of temperature tendencies.
-    IF ( iequations == inh_atmosphere ) THEN
-      zcd = cvd
-      zcv = cvv
-    ELSE
+!!$    IF ( iequations == inh_atmosphere ) THEN
+!!$      zcd = cvd
+!!$      zcv = cvv
+!!$    ELSE
       zcd = cpd
       zcv = cpv
-    END IF
+!!$    END IF
 
     DO jk = 1,nlev
       DO jc = jcs,jce
@@ -264,6 +266,9 @@ CONTAINS
         !
         zcair   (jc,jk) = zcd+(zcv-zcd)*field%q(jc,jk,jb,iqv)
         zconv   (jc,jk) = 1._wp/(zmair(jc,jk)*zcair(jc,jk))
+        !
+        zcpair  (jc,jk) = cpd+(cpv-cpd)*field%q(jc,jk,jb,iqv)
+        zcvair  (jc,jk) = cvd+(cvv-cvd)*field%q(jc,jk,jb,iqv)
         !
       END DO
     END DO
@@ -1291,6 +1296,10 @@ CONTAINS
     tend%    u_phy (jcs:jce,:,jb)   = tend%    u (jcs:jce,:,jb)   - tend%    u_phy (jcs:jce,:,jb)
     tend%    v_phy (jcs:jce,:,jb)   = tend%    v (jcs:jce,:,jb)   - tend%    v_phy (jcs:jce,:,jb)
     tend%    q_phy (jcs:jce,:,jb,:) = tend%    q (jcs:jce,:,jb,:) - tend%    q_phy (jcs:jce,:,jb,:)
+
+    IF ( iequations == inh_atmosphere ) THEN
+      tend% temp_phy (jcs:jce,:,jb) = tend% temp_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:)/zcvair(jcs:jce,:)
+    END IF
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
