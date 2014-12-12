@@ -48,12 +48,21 @@ def makeRunTarget(sourceTemplate,setup={})
   dbg(setup)
   dbg(targetRunscript)
 
+  tag, expname  = sourceTemplate.split('.')
+  dbg([tag,expname])
+
+  CLEAN.include(targetRunscript)
+
+  creationCommand  = case tag
+                     when "post"
+                       "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} EXPNAME=#{expname} with_mpi='no' with_openmp='no'"
+                     when "exp"
+                       "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun EXPNAME=#{expname} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
+                     else
+                       "echo 'Could not create targetRunscript: #{targetRunscript}"
+                     end
   file targetRunscript => sourceTemplate do |t|
-    tag = t.prerequisites[0].split('.')[1..-1].join('.')
-    exp = "EXPNAME=#{tag}"
-    sh "cd ..; ./config/make_target_runscript in_script=post.#{tag} #{exp} with_mpi='no' with_openmp='no'" if File.exist?("./run/post.#{tag}")
-    
-    sh "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun #{exp} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
+    sh creationCommand
   end
 end
 # }}}
