@@ -412,6 +412,14 @@ CONTAINS
        !
        ! for radiative heating : effective sfc temp. [K]
        ztsfc_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
+       IF (phy_config%ljsbach) THEN
+         ! Reset to land values pre-calculated in JSBACH
+         WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
+            ztsfc_eff(jcs:jce) = field%tsfc_eff(jcs:jce,jb)
+         ENDWHERE
+       END IF
+       field%tsfc_eff(jcs:jce,jb) = ztsfc_eff(jcs:jce)
+       !
        !
        ! for radiative transfer: radiative sfc temp. [K]
        ztsfc_rad(:) = 0._wp
@@ -420,18 +428,23 @@ CONTAINS
            & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
        ENDDO
        ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce)**0.25_wp
-
+       !
        IF (phy_config%ljsbach) THEN
          ! Reset to land values pre-calculated in JSBACH
          WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
             ztsfc_rad(jcs:jce) = field%tsfc_rad(jcs:jce,jb)
-            ztsfc_eff(jcs:jce) = field%tsfc_eff(jcs:jce,jb)
          ENDWHERE
        END IF
+       !
+       field%tsfc_rad(jcs:jce,jb) = ztsfc_rad(jcs:jce)
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
        IF (ltrig_rad) THEN
+
+          ! store tsfc_rad of this radiatiative transfer timestep in tsfc_radt,
+          ! so that it can be reused in radheat in the other timesteps
+          field%tsfc_radt(jcs:jce,jb) = ztsfc_rad(jcs:jce)
 
           ! to do (for implementing seasonal cycle):
           ! - compute orbit position at ptime_radtran
@@ -576,7 +589,7 @@ CONTAINS
           & alb_vis_dif= field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
           & alb_nir_dif= field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
           & emis_rad   = ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & tk_sfc     = ztsfc_rad(:)             ,&!< in     grid box mean surface temperature
+          & tk_sfc     = field%tsfc_radt(:,jb)    ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
           & z_mc       = zheight(:,:)             ,&!< in     height at full levels [m]
@@ -655,8 +668,8 @@ CONTAINS
         & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = ztsfc_eff(:)                   ,&! in    surface temperature           [K]
-        & ptsfctrad  = ztsfc_rad(:)                   ,&! in    sfc temp. used in "radiation" [K]
+        & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. temperature now         [K]
+        & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. temp. at last rad. step [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !

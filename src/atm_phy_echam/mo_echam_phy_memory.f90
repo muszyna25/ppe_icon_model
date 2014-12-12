@@ -244,6 +244,7 @@ MODULE mo_echam_phy_memory
     ! JSBACH
     REAL(wp),POINTER :: &
       & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature
+      & tsfc_radt (:,  :),  &!< [K] radiative sfc. temperature at radiation time
       & tsfc_eff  (:,  :),  &!< [K] effective sfc. temperature
       & csat      (:,  :),  &!<
       & cair      (:,  :)    !<
@@ -1037,6 +1038,11 @@ CONTAINS
     cf_desc    = t_cf_var('tsfc_rad', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'tsfc_rad', field%tsfc_rad, &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('tsfc_radt', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'tsfc_radt', field%tsfc_radt, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('tsfc_eff', '', '', DATATYPE_FLT32)
