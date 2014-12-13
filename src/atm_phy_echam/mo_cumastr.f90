@@ -159,14 +159,14 @@ SUBROUTINE cucall(   iconv,                                          &! in
   DO 120 jk=1,klev
 !IBM* NOVECTOR
      DO jl=1,kproma
-        ztp1(jl,jk)=ptm1(jl,jk)
-        zqp1(jl,jk)=MAX(0._wp,pqm1(jl,jk))
-        zxlp1=pxlm1(jl,jk)
-        zxip1=pxim1(jl,jk)
+        ztp1(jl,jk)=ptm1(jl,jk)+ptte(jl,jk)*ztmst
+        zqp1(jl,jk)=MAX(0._wp,pqm1(jl,jk)+pqte(jl,jk)*ztmst)
+        zxlp1=pxlm1(jl,jk)+pxlte(jl,jk)*ztmst
+        zxip1=pxim1(jl,jk)+pxite(jl,jk)*ztmst
         zxp1(jl,jk)=MAX(0._wp,zxlp1+zxip1)
         ztvp1(jl,jk)=ztp1(jl,jk)*(1._wp+vtmpc1*zqp1(jl,jk)-zxp1(jl,jk))
-        zup1(jl,jk)=pum1(jl,jk)
-        zvp1(jl,jk)=pvm1(jl,jk)
+        zup1(jl,jk)=pum1(jl,jk)+pvom(jl,jk)*ztmst
+        zvp1(jl,jk)=pvm1(jl,jk)+pvol(jl,jk)*ztmst
      END DO
 
      CALL prepare_ua_index_spline('cucall',kproma,ztp1(1,jk),idx(1),za(1))
