@@ -1297,6 +1297,10 @@ CONTAINS
     tend%    v_phy (jcs:jce,:,jb)   = tend%    v (jcs:jce,:,jb)   - tend%    v_phy (jcs:jce,:,jb)
     tend%    q_phy (jcs:jce,:,jb,:) = tend%    q (jcs:jce,:,jb,:) - tend%    q_phy (jcs:jce,:,jb,:)
 
+    IF ( iequations == inh_atmosphere ) THEN
+      tend% temp_phy (jcs:jce,:,jb) = tend% temp_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:)/zcvair(jcs:jce,:)
+    END IF
+
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
 
