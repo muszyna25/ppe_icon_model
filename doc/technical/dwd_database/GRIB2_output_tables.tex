@@ -66,38 +66,70 @@ defined on cell centers. A single 2D GRIB2 field on the native and regular lat-l
 For details regarding the available fields, please see the tables below. Note that the vertical rules in the leftmost column indicate, whether the field is 
 available on the native grid ($\,$\markRed$\,$), on the lat-lon grid($\,$\markBlue$\,$), or on both grids($\,$\markRed\markBlue$\,$). 
 
+
 \subsection{Time-constant (external parameter) fields}
 
-\begin{table}[H]
-\caption{Time-constant fields (Date D=000000)}
- \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
+Table \ref{table_constdb} provides an overview of the available time invariant fields. All except for \texttt{HHL}, \texttt{ELON}, \texttt{ELAT}, 
+\texttt{VLON}, \texttt{VLAT} are available from the database category \texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. See Section 
+\ref{sec_skycat} for more details on the database categories and Section \ref{sec_example} for sample retrievals.
+
+\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
+ \caption{Time-constant fields}\label{table_constdb}\\
   \toprule
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
+\endfirsthead
+\caption[]{\emph{continued}}\\
+\midrule
+\endhead
+\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
+\endfoot
+\endlastfoot
+\multicolumn{8}{c}{\textbf{Date/Time} (YYYY-MM-DDThh) \textbf{D=0001-01-01T00}}\\
+\midrule
 \groups[tri][] & HSURF                         &  Geometric height of the earths surface above msl                                       &               0                                   &                       3                     &                    6                       &                 1/101                           &                      inst                   &        $\mathrm{m}$   \\
 \groups[tri][] & HHL                           &  Geometric height of model half levels above msl                                        &               0                                   &                       3                     &                    6                       &                 150/101                         &                      inst                   &        $\mathrm{m}$   \\
-\groups[tri][] & RLAT                          &  Geographical latitude                                                                  &               0                                   &                     191                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, N}$   \\
-\groups[tri][] & RLON                          &  Geographical longitude                                                                 &               0                                   &                     191                     &                    2                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, E}$   \\
 \groups[tri][] & CLAT                          &  Geographical latitude of native grid triangle cell center                              &               0                                   &                     191                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, N}$   \\
 \groups[tri][] & CLON                          &  Geographical longitude of native grid triangle cell center                             &               0                                   &                     191                     &                    2                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, E}$   \\
 \groups[tri][] & ELAT                          &  Geographical latitude of native grid triangle edge midpoint                            &               0                                   &                     191                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, N}$   \\
 \groups[tri][] & ELON                          &  Geographical longitude of native grid triangle edge midpoint                           &               0                                   &                     191                     &                    2                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, E}$   \\
 \groups[tri][] & VLAT                          &  Geographical latitude of native grid triangle vertex                                   &               0                                   &                     191                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, N}$   \\
 \groups[tri][] & VLON                          &  Geographical longitude of native grid triangle vertex                                  &               0                                   &                     191                     &                    2                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, E}$   \\
+\groups[tri][] & FOR\_E                        &  Fraction of evergreen forest (possible range [$0,1$])                                  &               2                                   &                       0                     &                   29                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][] & FOR\_D                        &  Fraction of deciduous forest (possible range [$0,1$])                                  &               2                                   &                       0                     &                   30                       &                 1/--                            &                      inst                   &        $1$ \\
 \groups[tri][] & FR\_LAND                      &  Land fraction (possible range [$0,1$])                                                 &               2                                   &                       0                     &                    0                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][] & FR\_LAKE                      &  Fresh water lake fraction (possible range [$0,1$])                                     &               1                                   &                       2                     &                    2                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][] & DEPTH\_LK                     &  Lake depth                                                                             &               1                                   &                       2                     &                    0                       &                 1/162                           &                      inst                   &        $\mathrm{m}$ \\
 \groups[tri][] & ROOTDP                        &  Root depth of vegetation                                                               &               2                                   &                       0                     &                   32                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
-\groups[tri][] & EMIS\_RAD                     &  Longwave surface emissivity                                                            &               2                                   &                       3                     &                  199                       &                 1/--                            &                      inst                   &        $1$ \\
 \groups[tri][] & RSMIN                         &  Minimum stomatal resistance                                                            &               2                                   &                       0                     &                   16                       &                 1/--                            &                      inst                   &        $\mathrm{s\,m^{-1}}$ \\
+\groups[tri][] & EMIS\_RAD                     &  Longwave surface emissivity                                                            &               2                                   &                       3                     &                  199                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][] & SOILTYP                       &  Soil type of land fraction  (9 types $[1,\dots, 9]$)                                   &               2                                   &                       3                     &                  196                       &                 1/--                            &                      inst                   &        $1$ \\
 \groups[tri][] & SSO\_STDH                     &  Standard deviation of sub-grid scale orography                                         &               0                                   &                       3                     &                   20                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
 \groups[tri][] & SSO\_GAMMA                    &  Anisotropy of sub-gridscale orography                                                  &               0                                   &                       3                     &                   24                       &                 1/--                            &                      inst                   &        $1$ \\
 \groups[tri][] & SSO\_THETA                    &  Angle of sub-gridscale orography                                                       &               0                                   &                       3                     &                   21                       &                 1/--                            &                      inst                   &        $\mathrm{rad}$ \\
 \groups[tri][] & SSO\_SIGMA                    &  Slope of sub-gridscale orography                                                       &               0                                   &                       3                     &                   22                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][] & LAI\_MX                       &  Leaf area index in the vegetation phase                                                &               2                                   &                       0                     &                   28                       &                 1/--                            &                      max                    &        $1$ \\
+\groups[tri][] & NDVI\_MAX                     &  Normalized differential vegetation index                                               &               2                                   &                       0                     &                   31                       &                 1/--                            &                      max                    &        $1$ \\
 \groups[tri][] & PLCOV\_MX                     &  Plant covering degree in the vegetation phase                                          &               2                                   &                       0                     &                    4                       &                 1/--                            &                      max                    &        $1$ \\
 \groups[tri][] & T\_2M\_CL                     &  Climatological $2\,\mathrm{m}$ temperature (used as lower bc.\ for soil model)         &               0                                   &                       0                     &                    0                       &               103/--                            &                      inst                   &        $\mathrm{K}$ \\
+\groups[tri][] & Z0                            &  Surface roughness length (over land)                                                   &               2                                   &                       0                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
+\midrule
+\multicolumn{8}{c}{\textbf{Date/Time} (YYYY-MM-DDThh) \textbf{D=1111-01-11T11}}\\
+\midrule
+\groups[tri][] & AER\_SS12                     &  Sea salt aerosol climatology (monthly fields)                                          &               0                                   &                      20                     &                   102                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & AER\_DUST12                   &  Total soil dust aerosol climatology (monthly fields)                                   &               0                                   &                      20                     &                   102                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & AER\_ORG12                    &  Organic aerosol climatology (monthly fields)                                           &               0                                   &                      20                     &                   102                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & AER\_SO412                    &  Total sulfate aerosol climatology (monthly fields)                                     &               0                                   &                      20                     &                   102                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & AER\_BC12                     &  Black carbon aerosol climatology (monthly fields)                                      &               0                                   &                      20                     &                   102                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & ALB\_DIF12                    &  Shortwave ($0.3 - 5.0\,\mathrm{\mu m}$) albedo for diffuse radiation (monthly fields)  &               0                                   &                      19                     &                    18                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & ALB\_UV12                     &  UV-visible ($0.3 - 0.7\,\mathrm{\mu m}$) albedo for diffuse radiation (monthly fields) &               0                                   &                      19                     &                   222                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
+\groups[tri][] & ALB\_NI12                     &  Near infrared ($0.7 - 5.0\,\mathrm{\mu m}$) albedo for diffuse radiation (monthly fields) &            0                                   &                      19                     &                   223                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
 \groups[tri][] & NDVI\_MRAT                    &  ratio of monthly mean NDVI (normalized differential vegetation index) to annual max    &               0                                   &                       0                     &                   192                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
   \bottomrule
- \end{tabular}
-\end{table}
+\end{longtable}
+%  \bottomrule
+% \end{tabular}
+%\end{table}
 
 
 
@@ -373,12 +405,21 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
 
  \item [FR\_ICE] Sea and lake ice cover. Currently, the only possible values are $0$ (no ice cover) and $1$ (ice covered grid point). For 
                  lake points, \texttt{FR\_ICE} is synchronized with \texttt{H\_ICE} meaning that \texttt{FR\_ICE} is set to $1$ ($0$), 
-                 where the lake model indicates \texttt{H\_ICE}$>0$ (\texttt{H\_ICE}$=0$).
+                 where the lake model indicates $\texttt{H\_ICE}>0$ ($\texttt{H\_ICE}=0$).
 
  \item [H\_ICE] Ice thickness over sea and frozen fresh water lakes. The maximum allowable ice thickness is limited to $3\,\mathrm{m}$. 
-                New sea-ice points generated by the analysis are initialized with \texttt{H\_ICE}$=0.5\,\mathrm{m}$.
+                New sea-ice points generated by the analysis are initialized with $\texttt{H\_ICE}=0.5\,\mathrm{m}$.
 
- \item [T\_ICE] Ice temperature over sea-ice and frozen lake points. Ice-free points over land, sea and lakes are set to \texttt{T\_SO(0)}.
+ \item [T\_ICE] Ice temperature over sea-ice and frozen lake points. Melting ice has a temperature of $273.15\,\mathrm{K}$. Ice-free 
+                points over land, sea, and lakes are set to \texttt{T\_SO(0)}.
+
+ \item [T\_G]   Temperature at the atmosphere-surface interface. It is the temperature that is crucial for the computation of surface fluxes. 
+                \texttt{T\_G} is equal to \texttt{T\_SO(0)} over open water and snow-free land. At other grid points one has
+                \begin{itemize} 
+                  \item $\texttt{T\_G}=\texttt{T\_SNOW} + (1 - \mathrm{f\_snow})*(\texttt{T\_SO(0)} - \texttt{T\_SNOW})$ over (partially) 
+                        snow covered grid points. $\mathrm{f\_snow}$ is the grid point fraction that is snow covered.
+                  \item $\texttt{T\_G}=\texttt{T\_ICE}$ over frozen sea and fresh water lakes
+                \end{itemize}
 
  \item [TOT\_PREC] Total precipitation accumulated since model start.\\
                 \texttt{TOT\_PREC = RAIN\_GSP + SNOW\_GSP + RAIN\_CON + SNOW\_CON}
@@ -386,6 +427,12 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
  \item [W\_I]   Water content of interception layer, i.e.\ the amount of precipitation intercepted by vegetation canopies. The maximum 
                 capacity of the interception reservoir is currently limited to $6.0E-3\,\mathrm{kg\,m^{-2}}$ due to numerical reasons 
                 and thus almost negligible. Over water points, \texttt{W\_I} is set to 0.
+
+ \item [Z0]     Surface roughness length. Constant over land, where it depends only on the type of land cover. I.e.\ it does 
+                not contain any contribution from subgrid-scale orography. Over water, the roughness length usually varies 
+                with time. It is computed by the so called Charnock-formula, which parameterizes the impact of waves on the 
+                roughness length. Note that this field differs significantly from the extermal parameter field \texttt{Z0} 
+                (see Table \ref{table_extpar_products} or \ref{table_constdb}).  
 \end{description}
 
 
@@ -398,10 +445,10 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
  \item [RUNOFF\_S] Surface water runoff from interception and snow reservoir and from limited infiltration rate. Sum over forecast.
 
  \item [T\_SO] Temperature of the soil and earth surface (uppermost level). The soil full level depths at which the 
-the soil temperature is defined are given in Table \ref{tab_soillayer}. The temperature at the uppermost level \texttt{T\_SO(0)} 
-is not prognostic. It is rather set equal to the temperature at the first prognostic level \texttt{T\_SO(1)}. The temperature 
-at the lowermost level \texttt{T\_SO(8)} is set to the climatological $2\,\mathrm{m}$ temperature \texttt{T\_2M\_CL}. At 
-sea-points, \texttt{T\_SO(0:7)} is filled with the sea-surface temperature. Note that \texttt{T\_SO(0)} does not necessarily 
-represent the temperature at the interface soil-atmosphere. I.e.\ Over snow/ice covered surfaces, \texttt{T\_SO(0)} 
-represents the temperature below snow/ice.
+               the soil temperature is defined are given in Table \ref{tab_soillayer}. The temperature at the uppermost 
+               level \texttt{T\_SO(0)} is not prognostic. It is rather set equal to the temperature at the first prognostic 
+               level \texttt{T\_SO(1)}. The temperature at the lowermost level \texttt{T\_SO(8)} is set to the climatological 
+               $2\,\mathrm{m}$ temperature \texttt{T\_2M\_CL}. At sea-points, \texttt{T\_SO(0:7)} is filled with the sea-surface 
+               temperature. Note that \texttt{T\_SO(0)} does not necessarily represent the temperature at the interface soil-atmosphere. 
+               I.e.\ Over snow/ice covered surfaces, \texttt{T\_SO(0)} represents the temperature below snow/ice.
 \end{description}
