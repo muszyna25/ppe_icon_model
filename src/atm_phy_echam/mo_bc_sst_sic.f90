@@ -42,16 +42,9 @@ MODULE mo_bc_sst_sic
   CHARACTER(len=*), PARAMETER :: sst_fn = 'bc_sst.nc'
   CHARACTER(len=*), PARAMETER :: sic_fn = 'bc_sic.nc'
 
-  ! weighting factors and indices for time interpolation
-
-  REAL(dp):: wgt1, wgt2
-  INTEGER :: nmw1, nmw2
-
   PUBLIC :: read_bc_sst_sic
   PUBLIC :: bc_sst_sic_time_interpolation
   PUBLIC :: get_current_bc_sst_sic_year
-
-  PUBLIC :: wgt1, wgt2, nmw1, nmw2
 
   INTEGER, SAVE :: current_year = -1
 
