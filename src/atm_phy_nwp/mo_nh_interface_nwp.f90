@@ -534,15 +534,21 @@ CONTAINS
     ENDIF
 
       IF (lart) THEN
-
-        CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list, &
-                  &          pt_diag,                            &
+!< JS: added ext_data again, datetime, p_metrics, pt_diag_pt_prog%rho
+        CALL art_reaction_interface(ext_data,                    & !> in
+                  &          pt_patch,                           & !> in
+                  &          datetime,                           & !> in
+                  &          dt_phy_jg(itfastphy),               & !> in
+                  &          p_prog_list,                        & !> in
+                  &          pt_prog,                            & !> in
+                  &          p_metrics,                          & !> in
+                  &          pt_diag,                            & !> inout
                   &          pt_prog_rcf%tracer)
 
-        CALL art_washout_interface(dt_phy_jg(itfastphy),         & !>in
+        CALL art_washout_interface(pt_prog,pt_diag,              & !>in
+                  &          dt_phy_jg(itfastphy),               & !>in
                   &          pt_patch,                           & !>in
                   &          prm_diag,                           & !>in
-                  &          pt_prog%rho,                        & !>in
                   &          pt_prog_rcf%tracer)                   !>inout
 
       ENDIF !lart

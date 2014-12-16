@@ -43,7 +43,6 @@ MODULE mo_art_clouds_interface
 
   PUBLIC  :: art_clouds_interface_twomom
   PUBLIC  :: art_clouds_interface_twomom_init
-  PUBLIC  :: art_clouds_interface_twomom_prepare
 
 CONTAINS
 !!
@@ -128,44 +127,6 @@ SUBROUTINE art_clouds_interface_twomom_init(msg_level)
 #endif
 
 END SUBROUTINE art_clouds_interface_twomom_init
-!!
-!!-------------------------------------------------------------------------
-!!
-SUBROUTINE art_clouds_interface_twomom_prepare(p_patch,p_trac)
-  !! Interface for ART: Aerosol-Cloud-Interactions Preparation (Call of modpar)
-  !! @par Revision History
-  !! Initial revision by Daniel Rieger, KIT (2014-11-10)
-  TYPE(t_patch), TARGET, INTENT(IN) :: &
-    &  p_patch                           !< patch on which computation is performed
-  REAL(wp), INTENT(inout), TARGET   :: &
-    &  p_trac(:,:,:,:)                   !< Tracer fields
-  INTEGER  :: jg                         !< patch id
-#ifdef __ICON_ART
-  TYPE(t_mode), POINTER   :: this_mode
-  
-  jg  = p_patch%id
-  
-  IF (lart) THEN
-    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-   
-    DO WHILE(ASSOCIATED(this_mode))
-      ! Select type of mode
-      select type (fields=>this_mode%fields)
-        class is (t_fields_2mom)
-          ! Before microphysics, the modal parameters have to be calculated
-          call fields%modal_param(p_art_data(jg),p_patch,p_trac)
-        class default
-          ! nothing to to do
-      end select
-      this_mode => this_mode%next_mode
-    END DO
-  ELSE
-    call finish('mo_art_clouds_interface:art_clouds_interface_twomom_prepare', &
-         &      'Two moment micophysics with ART aerosol chosen (inwp_gscp=6), but lart=.FALSE.')
-  ENDIF !lart
-#endif
-
-END SUBROUTINE art_clouds_interface_twomom_prepare
 !!
 !!-------------------------------------------------------------------------
 !!
