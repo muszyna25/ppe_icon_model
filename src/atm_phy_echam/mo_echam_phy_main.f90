@@ -1158,11 +1158,13 @@ CONTAINS
         &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
 !0      &          field% tke,                &! in     tkem1 (from "vdiff")
         &          field% thvsig(:,jb),       &! in           (from "vdiff")
-        &          tend% temp(:,:,jb),        &! inout  tte
-        &          tend% u(:,:,jb),           &! inout  vom
-        &          tend% v(:,:,jb),           &! inout  vol
-        &          tend% q(:,:,jb,iqv),       &! inout  qte
-        &          tend% q(:,:,jb,iqt:),      &! inout  xtte
+        &          tend% temp(:,:,jb),        &! inout  tte for updating
+        &          tend% u(:,:,jb),           &! inout  vom for updating
+        &          tend% v(:,:,jb),           &! inout  vol for updating
+        &          tend% q(:,:,jb,iqv),       &! inout  qte for updating
+        &          tend% q(:,:,jb,iqt:),      &! inout  xtte for updating
+        &          tend% q_dyn(:,:,jb,iqv),   &! in     qte by transport
+        &          tend% q_phy(:,:,jb,iqv),   &! in     qte by physics
         &          zqtec,                     &! inout
 !        &          tend% x_dtr(:,:,jb),       &! inout  xtec
         &          field% ch_concloud(:,jb),  &! inout condensational heat

@@ -55,6 +55,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                      pthvsig,                                        &! in
                      ptte,     pvom,     pvol,                       &! inout
                      pqte,     pxtte,                                &! inout
+                     pqte_dyn, pqte_phy,                             &! in
                      pqtec,                                          &! inout
                      pch_concloud, pcon_dtrl, pcon_dtri,             &! inout
                      pcon_iqte,                                      &! inout
@@ -120,6 +121,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
   REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)
   REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
   REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+  REAL(wp),INTENT(IN)    :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
 
   REAL(wp)::  ztp1(kbdim,klev),         zqp1(kbdim,klev),              &
               zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
@@ -131,6 +133,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
               zmfu(kbdim,klev),         zmfd(kbdim,klev),              &
               zqsat(kbdim,klev),        zrain(kbdim),                  &
               za(kbdim),                ua(kbdim)
+
+  REAL(wp)::  zqte_dyn_phy(kbdim,klev)
 
   INTEGER ::  itopec2(kbdim),           idx(kbdim)
   INTEGER ::  icbot(kbdim),             ictop(kbdim)
@@ -223,6 +227,10 @@ SUBROUTINE cucall(   iconv,                                          &! in
 !*           -----------------------------------------------------------
 !
 !
+  ! Total moisture tendency due to transport and the parameterized processes
+  ! computed before "cucall".
+  zqte_dyn_phy(1:kproma,:) = pqte_dyn(1:kproma,:)+pqte_phy(1:kproma,:)
+
   SELECT CASE (iconv)
   CASE(1)
      CALL cumastr(kproma, kbdim, klev, klevp1, klevm1, ilab,           &
@@ -235,6 +243,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
+                  zqte_dyn_phy,                                        &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
                   pch_concloud, pcon_dtrl, pcon_dtri,                  &
@@ -255,6 +264,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
+                  zqte_dyn_phy,                                        &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
                   pch_concloud, pcon_dtrl, pcon_dtri,                  &
@@ -275,6 +285,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
+                  zqte_dyn_phy,                                        &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
                   pch_concloud, pcon_dtrl, pcon_dtri,                  &
@@ -333,6 +344,7 @@ SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
            pverv,    pqsen,    pqhfla,                                  &
            paphp1,   pgeo,                                              &
            ptte,     pqte,     pvom,     pvol,                          &
+           pqte_dyn_phy,                                                &
            prsfc,    pssfc,    pxtec,                                   &
            pqtec,    pqude,    zcpen,    zcen,                          &
            pch_concloud, pcon_dtrl, pcon_dtri, pcon_iqte,               &
@@ -435,6 +447,7 @@ REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+REAL(wp),INTENT(IN)   :: pqte_dyn_phy(kbdim,klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -569,15 +582,15 @@ INTRINSIC MIN, MAX
   jk=1
   DO 310 jl=1,kproma
      zdqpbl(jl)=0.0_wp
-     zdqcv(jl)=pqte(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
+     zdqcv(jl)=pqte_dyn_phy(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
      idtop(jl)=0
 310 END DO
   DO 320 jk=2,klev
      zjk = REAL(jk,wp)
      DO 315 jl=1,kproma
         zhelp      = paphp1(jl,jk+1)-paphp1(jl,jk)
-        zdqcv(jl)  = zdqcv(jl)+pqte(jl,jk)*zhelp
-        zdqpbl(jl) = zdqpbl(jl) + FSEL(zjk - zkcbot(jl),pqte(jl,jk),0._wp)*zhelp
+        zdqcv(jl)  = zdqcv(jl)+pqte_dyn_phy(jl,jk)*zhelp
+        zdqpbl(jl) = zdqpbl(jl) + FSEL(zjk - zkcbot(jl),pqte_dyn_phy(jl,jk),0._wp)*zhelp
 #ifdef __ibmdbg__
         PRINT '(A6,I3,I4,E18.10,L3)','zdqpbl',jk,jl,zdqpbl(jl),(FSEL(zjk - zkcbot(jl),1._wp,0._wp)==1._wp)
 #endif
@@ -782,7 +795,7 @@ INTRINSIC MIN, MAX
              zxtenh,   pxten,    pxtu,     zmfuxt,                     &
              pten,     pqen,     pqsen,                                &
              pgeo,     zgeoh,    paphp1,   pthvsig,                    &
-             pqte,     pverv,    ilwmin,                               &
+             pqte_dyn_phy,       pverv,    ilwmin,                     &
              ldcum,    ldland,   ktype,    ilab,                       &
              ptu,      pqu,      plu,      zuu,      zvu,              &
              pmfu,     zmfub,    zentr,                                &
@@ -1042,7 +1055,7 @@ INTRINSIC MIN, MAX
              zxtenh,   pxten,    pxtu,     zmfuxt,                     &
              pten,     pqen,     pqsen,                                &
              pgeo,     zgeoh,    paphp1,   pthvsig,                    &
-             pqte,     pverv,    ilwmin,                               &
+             pqte_dyn_phy,       pverv,    ilwmin,                     &
              ldcum,    ldland,   ktype,    ilab,                       &
              ptu,      pqu,      plu,      zuu,      zvu,              &
              pmfu,     zmfub,    zentr,                                &
@@ -1130,6 +1143,7 @@ SUBROUTINE cumastrt( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            pverv,    pqsen,    pqhfla,                                 &
            paphp1,   pgeo,                                             &
            ptte,     pqte,     pvom,     pvol,                         &
+           pqte_dyn_phy,                                               &
            prsfc,    pssfc,    pxtec,                                  &
            pqtec,    pqude,    zcpen,    zcen,                         &
            pch_concloud, pcon_dtrl, pcon_dtri, pcon_iqte,              &
@@ -1232,6 +1246,7 @@ REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+REAL(wp),INTENT(IN)   :: pqte_dyn_phy(kbdim,klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1352,13 +1367,13 @@ INTRINSIC MIN, MAX
   jk=1
   DO 310 jl=1,kproma
      zdqpbl(jl)=0.0_wp
-     zdqcv(jl)=pqte(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
+     zdqcv(jl)=pqte_dyn_phy(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
      idtop(jl)=0
 310 END DO
   DO 320 jk=2,klev
      DO 315 jl=1,kproma
-        zdqcv(jl)=zdqcv(jl)+pqte(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
-        IF(jk.GE.kcbot(jl)) zdqpbl(jl)=zdqpbl(jl)+pqte(jl,jk)          &
+        zdqcv(jl)=zdqcv(jl)+pqte_dyn_phy(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
+        IF(jk.GE.kcbot(jl)) zdqpbl(jl)=zdqpbl(jl)+pqte_dyn_phy(jl,jk)          &
                              *(paphp1(jl,jk+1)-paphp1(jl,jk))
 315  END DO
 320 END DO
@@ -1450,7 +1465,7 @@ INTRINSIC MIN, MAX
              zxtenh,   pxten,    pxtu,     zmfuxt,                     &
              pten,     pqen,     pqsen,                                &
              pgeo,     zgeoh,    paphp1,   pthvsig,                    &
-             pqte,     pverv,    ilwmin,                               &
+             pqte_dyn_phy,       pverv,    ilwmin,                     &
              ldcum,    ldland,   ktype,    ilab,                       &
              ptu,      pqu,      plu,      zuu,      zvu,              &
              pmfu,     zmfub,    zentr,                                &
@@ -1579,7 +1594,7 @@ INTRINSIC MIN, MAX
              zxtenh,   pxten,    pxtu,     zmfuxt,                     &
              pten,     pqen,     pqsen,                                &
              pgeo,     zgeoh,    paphp1,   pthvsig,                    &
-             pqte,     pverv,    ilwmin,                               &
+             pqte_dyn_phy,       pverv,    ilwmin,                     &
              ldcum,    ldland,   ktype,    ilab,                       &
              ptu,      pqu,      plu,      zuu,      zvu,              &
              pmfu,     zmfub,    zentr,                                &
@@ -1665,6 +1680,7 @@ SUBROUTINE cumastrh( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            pverv,    pqsen,    pqhfla,                                 &
            paphp1,   pgeo,                                             &
            ptte,     pqte,     pvom,     pvol,                         &
+           pqte_dyn_phy,                                               &
            prsfc,    pssfc,    pxtec,                                  &
            pqtec,    pqude,    zcpen,    zcen,                         &
            pch_concloud, pcon_dtrl, pcon_dtri, pcon_iqte,              &
@@ -1767,6 +1783,7 @@ REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+REAL(wp),INTENT(IN)   :: pqte_dyn_phy(kbdim,klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1890,13 +1907,13 @@ INTRINSIC MIN, MAX
   jk=1
   DO 310 jl=1,kproma
      zdqpbl(jl)=0.0_wp
-     zdqcv(jl)=pqte(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
+     zdqcv(jl)=pqte_dyn_phy(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
      idtop(jl)=0
 310 END DO
   DO 320 jk=2,klev
      DO 315 jl=1,kproma
-        zdqcv(jl)=zdqcv(jl)+pqte(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
-        IF(jk.GE.kcbot(jl)) zdqpbl(jl)=zdqpbl(jl)+pqte(jl,jk)          &
+        zdqcv(jl)=zdqcv(jl)+pqte_dyn_phy(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
+        IF(jk.GE.kcbot(jl)) zdqpbl(jl)=zdqpbl(jl)+pqte_dyn_phy(jl,jk)          &
                                        *(paphp1(jl,jk+1)-paphp1(jl,jk))
 315  END DO
 320 END DO
@@ -1989,7 +2006,7 @@ INTRINSIC MIN, MAX
              zxtenh,   pxten,    pxtu,     zmfuxt,                     &
              pten,     pqen,     pqsen,                                &
              pgeo,     zgeoh,    paphp1,   pthvsig,                    &
-             pqte,     pverv,    ilwmin,                               &
+             pqte_dyn_phy,       pverv,    ilwmin,                     &
              ldcum,    ldland,   ktype,    ilab,                       &
              ptu,      pqu,      plu,      zuu,      zvu,              &
              pmfu,     zmfub,    zentr,                                &
@@ -2164,7 +2181,7 @@ INTRINSIC MIN, MAX
              zxtenh,   pxten,    pxtu,     zmfuxt,                     &
              pten,     pqen,     pqsen,                                &
              pgeo,     zgeoh,    paphp1,   pthvsig,                    &
-             pqte,     pverv,    ilwmin,                               &
+             pqte_dyn_phy,       pverv,    ilwmin,                     &
              ldcum,    ldland,   ktype,    ilab,                       &
              ptu,      pqu,      plu,      zuu,      zvu,              &
              pmfu,     zmfub,    zentr,                                &
