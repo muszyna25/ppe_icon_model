@@ -1649,7 +1649,7 @@ MODULE mo_initicon_io
       CALL read_data_2d (parameters, filetype, 'h_ice', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice, opt_checkgroup=checkgrp )
 
       ! T_SO(0)
-      my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt)
+      my_ptr2d => initicon(jg)%sfc%sst(:,:)
       CALL read_data_2d (parameters, filetype, 't_so', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! h_snow
