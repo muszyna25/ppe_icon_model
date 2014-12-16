@@ -1158,11 +1158,11 @@ CONTAINS
         &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
 !0      &          field% tke,                &! in     tkem1 (from "vdiff")
         &          field% thvsig(:,jb),       &! in           (from "vdiff")
-        &          tend% temp(:,:,jb),        &! inout  tte for updating
-        &          tend% u(:,:,jb),           &! inout  vom for updating
-        &          tend% v(:,:,jb),           &! inout  vol for updating
-        &          tend% q(:,:,jb,iqv),       &! inout  qte for updating
-        &          tend% q(:,:,jb,iqt:),      &! inout  xtte for updating
+        &          tend% temp(:,:,jb),        &! in     tte  for internal updating
+        &          tend% u(:,:,jb),           &! in     vom  for internal updating
+        &          tend% v(:,:,jb),           &! in     vol  for internal updating
+        &          tend% q(:,:,jb,iqv),       &! in     qte  for internal updating
+        &          tend% q(:,:,jb,iqt:),      &! in     xtte for internal updating
         &          tend% q_dyn(:,:,jb,iqv),   &! in     qte by transport
         &          tend% q_phy(:,:,jb,iqv),   &! in     qte by physics
         &          zqtec,                     &! inout
@@ -1189,6 +1189,14 @@ CONTAINS
       field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
 
       IF (ltimer) call timer_stop(timer_cucall)
+
+      ! tendencies accumulated
+      tend%    u(jcs:jce,:,jb)      = tend%    u(jcs:jce,:,jb)      + tend%    u_cnv(jcs:jce,:,jb)
+      tend%    v(jcs:jce,:,jb)      = tend%    v(jcs:jce,:,jb)      + tend%    v_cnv(jcs:jce,:,jb)
+      tend% temp(jcs:jce,:,jb)      = tend% temp(jcs:jce,:,jb)      + tend% temp_cnv(jcs:jce,:,jb)
+      tend%    q(jcs:jce,:,jb,iqv)  = tend%    q(jcs:jce,:,jb,iqv)  + tend%    q_cnv(jcs:jce,:,jb,iqv)
+      tend%    q(jcs:jce,:,jb,iqt:) = tend%    q(jcs:jce,:,jb,iqt:) + tend%    q_cnv(jcs:jce,:,jb,iqt:)
+
 
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 

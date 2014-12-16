@@ -53,8 +53,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
                      papp1,    paphp1,                               &! in
                      pqhfla,                                         &! in
                      pthvsig,                                        &! in
-                     ptte,     pvom,     pvol,                       &! inout
-                     pqte,     pxtte,                                &! inout
+                     ptte,     pvom,     pvol,                       &! in
+                     pqte,     pxtte,                                &! in
                      pqte_dyn, pqte_phy,                             &! in
                      pqtec,                                          &! inout
                      pch_concloud, pcon_dtrl, pcon_dtri,             &! inout
@@ -99,12 +99,12 @@ SUBROUTINE cucall(   iconv,                                          &! in
   INTEGER, INTENT (IN) :: krow
   REAL(wp),INTENT (IN) :: time_step_len, pcd, pcv
 
-  REAL(wp)::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
-              pum1(kbdim,klev),         pvm1(kbdim,klev),              &
-              ptte(kbdim,klev),         pqte(kbdim,klev),              &
-              pvom(kbdim,klev),         pvol(kbdim,klev),              &
-              pverv(kbdim,klev),        pgeo(kbdim,klev),              &
-              papp1(kbdim,klev),        paphp1(kbdim,klevp1)
+  REAL(wp),INTENT (IN) ::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
+                           pum1(kbdim,klev),         pvm1(kbdim,klev),              &
+                           ptte(kbdim,klev),         pqte(kbdim,klev),              &
+                           pvom(kbdim,klev),         pvol(kbdim,klev),              &
+                           pverv(kbdim,klev),        pgeo(kbdim,klev),              &
+                           papp1(kbdim,klev),        paphp1(kbdim,klevp1)
   REAL(wp)::  prsfc(kbdim),             pssfc(kbdim)
   REAL(wp)::  pthvsig(kbdim)
   INTEGER ::  ktype(kbdim)
@@ -113,8 +113,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
   INTEGER ::  ilab(kbdim,klev)
   REAL(wp)::  pxtec(kbdim,klev),        pqtec(kbdim,klev)
   REAL(wp)::  pxtecl(kbdim,klev),       pxteci(kbdim,klev)
-  REAL(wp)::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
-              pxlte(kbdim,klev),        pxite(kbdim,klev)
+  REAL(wp),INTENT (IN) ::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
+                           pxlte(kbdim,klev),        pxite(kbdim,klev)
 
   REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim), pcon_dtrl(kbdim), pcon_dtri(kbdim)
   REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim)
@@ -242,7 +242,6 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   zxtp1,    zxtu,     pxtte,                           &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
-                  ptte,     pqte,     pvom,     pvol,                  &
                   zqte_dyn_phy,                                        &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
@@ -263,7 +262,6 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   zxtp1,    zxtu,     pxtte,                           &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
-                  ptte,     pqte,     pvom,     pvol,                  &
                   zqte_dyn_phy,                                        &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
@@ -284,7 +282,6 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   zxtp1,    zxtu,     pxtte,                           &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
-                  ptte,     pqte,     pvom,     pvol,                  &
                   zqte_dyn_phy,                                        &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
@@ -343,7 +340,6 @@ SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
            pxten,    pxtu,     pxtte,                                   &
            pverv,    pqsen,    pqhfla,                                  &
            paphp1,   pgeo,                                              &
-           ptte,     pqte,     pvom,     pvol,                          &
            pqte_dyn_phy,                                                &
            prsfc,    pssfc,    pxtec,                                   &
            pqtec,    pqude,    zcpen,    zcen,                          &
@@ -455,8 +451,6 @@ INTEGER, INTENT (IN) :: krow
 REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
            pxen(kbdim,klev),        ptven(kbdim,klev),                 &
            puen(kbdim,klev),        pven(kbdim,klev),                  &
-           ptte(kbdim,klev),        pqte(kbdim,klev),                  &
-           pvom(kbdim,klev),        pvol(kbdim,klev),                  &
            pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
            paphp1(kbdim,klevp1),                                       &
            pverv(kbdim,klev)
@@ -1098,8 +1092,8 @@ INTRINSIC MIN, MAX
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
               krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------
-              paphp1,   pten,     ptte,     pqte,                      &
-              pxtte,    pxtec,    zmfuxt,   zmfdxt,                    &
+              paphp1,   pten,                                          &
+              pxtec,    zmfuxt,   zmfdxt,                              &
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
@@ -1107,7 +1101,7 @@ INTRINSIC MIN, MAX
               prsfc,    pssfc,                                         &
               pch_concloud, pcon_dtrl, pcon_dtri,                      &
               pxtecl,   pxteci, pcon_iqte,                             &
-              ptte_cnv, pqte_cnv, pxtte_cnv                        )
+              ptte_cnv, pqte_cnv, pxtte_cnv                            )
 !
 !-----------------------------------------------------------------------
 !
@@ -1117,7 +1111,7 @@ INTRINSIC MIN, MAX
   IF(lmfdudv) THEN
      CALL cududv(kproma,   kbdim,    klev,     klevp1,                 &
                  itopm2,   ktype,    kcbot,    paphp1,   ldcum,        &
-                 puen,     pven,     pvom,     pvol,                   &
+                 puen,     pven,                                       &
                  zuu,      zud,      zvu,      zvd,                    &
                  pmfu,     pmfd,     pvom_cnv, pvol_cnv                )
 !
@@ -1142,7 +1136,6 @@ SUBROUTINE cumastrt( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            pxten,    pxtu,     pxtte,                                  &
            pverv,    pqsen,    pqhfla,                                 &
            paphp1,   pgeo,                                             &
-           ptte,     pqte,     pvom,     pvol,                         &
            pqte_dyn_phy,                                               &
            prsfc,    pssfc,    pxtec,                                  &
            pqtec,    pqude,    zcpen,    zcen,                         &
@@ -1254,8 +1247,6 @@ INTEGER, INTENT (IN) :: krow
 REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
            pxen(kbdim,klev),        ptven(kbdim,klev),                 &
            puen(kbdim,klev),        pven(kbdim,klev),                  &
-           ptte(kbdim,klev),        pqte(kbdim,klev),                  &
-           pvom(kbdim,klev),        pvol(kbdim,klev),                  &
            pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
            paphp1(kbdim,klevp1),                                       &
            pverv(kbdim,klev)
@@ -1637,8 +1628,8 @@ INTRINSIC MIN, MAX
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
               krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------
-              paphp1,   pten,     ptte,     pqte,                      &
-              pxtte,    pxtec,    zmfuxt,   zmfdxt,                    &
+              paphp1,   pten,                                          &
+              pxtec,    zmfuxt,   zmfdxt,                              &
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
@@ -1648,7 +1639,7 @@ INTRINSIC MIN, MAX
               pxtecl,   pxteci, pcon_iqte,                             &
               ptte_cnv, pqte_cnv, pxtte_cnv                            )
 !
-!---------------------------------------------------------------------
+!-----------------------------------------------------------------------
 !
 !*    9.0          UPDATE TENDENCIES FOR U AND U IN SUBROUTINE CUDUDV
 !                  --------------------------------------------------
@@ -1656,7 +1647,7 @@ INTRINSIC MIN, MAX
   IF(lmfdudv) THEN
      CALL cududv(kproma,   kbdim,    klev,     klevp1,                 &
                  itopm2,   ktype,    kcbot,    paphp1,   ldcum,        &
-                 puen,     pven,     pvom,     pvol,                   &
+                 puen,     pven,                                       &
                  zuu,      zud,      zvu,      zvd,                    &
                  pmfu,     pmfd,     pvom_cnv, pvol_cnv                )
 !
@@ -1679,7 +1670,6 @@ SUBROUTINE cumastrh( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            pxten,    pxtu,     pxtte,                                  &
            pverv,    pqsen,    pqhfla,                                 &
            paphp1,   pgeo,                                             &
-           ptte,     pqte,     pvom,     pvol,                         &
            pqte_dyn_phy,                                               &
            prsfc,    pssfc,    pxtec,                                  &
            pqtec,    pqude,    zcpen,    zcen,                         &
@@ -1791,8 +1781,6 @@ INTEGER, INTENT (IN) :: krow
 REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
            pxen(kbdim,klev),        ptven(kbdim,klev),                 &
            puen(kbdim,klev),        pven(kbdim,klev),                  &
-           ptte(kbdim,klev),        pqte(kbdim,klev),                  &
-           pvom(kbdim,klev),        pvol(kbdim,klev),                  &
            pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
            paphp1(kbdim,klevp1),                                       &
            pverv(kbdim,klev)
@@ -2224,8 +2212,8 @@ INTRINSIC MIN, MAX
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
               krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------
-              paphp1,   pten,     ptte,     pqte,                      &
-              pxtte,    pxtec,    zmfuxt,   zmfdxt,                    &
+              paphp1,   pten,                                          &
+              pxtec,    zmfuxt,   zmfdxt,                              &
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
@@ -2243,7 +2231,7 @@ INTRINSIC MIN, MAX
   IF(lmfdudv) THEN
      CALL cududv(kproma,   kbdim,    klev,     klevp1,                 &
                  itopm2,   ktype,    kcbot,    paphp1,   ldcum,        &
-                 puen,     pven,     pvom,     pvol,                   &
+                 puen,     pven,                                       &
                  zuu,      zud,      zvu,      zvd,                    &
                  pmfu,     pmfd,     pvom_cnv, pvol_cnv                )
 !
