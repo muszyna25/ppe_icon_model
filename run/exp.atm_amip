@@ -43,6 +43,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 (( dt_checkpoint =  300 * day))
 (( dt_restart    = 1200 * day))
 #
+output_interval="PT06H"
 file_interval="P30D"
 
 # namelist files
@@ -318,7 +319,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl'
@@ -333,7 +334,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl'
@@ -345,7 +346,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg','pfull','dpres_mc'
@@ -360,7 +361,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  pl_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg'
@@ -384,7 +385,7 @@ if [[ "$output_phy" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'cosmu0'  , 'rsdt'    ,
@@ -419,7 +420,7 @@ if [[ "$output_phy" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'cosmu0'  , 'rsdt'    ,
@@ -451,15 +452,21 @@ if [[ "$output_phy" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
-                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf'  ,
-                    'tend_temp_gwh', 'tend_temp_sso',
-                    'tend_u' , 'tend_u_cnv' , 'tend_u_vdf' , 'tend_u_gwh' , 'tend_u_sso' ,
-                    'tend_v' , 'tend_v_cnv' , 'tend_v_vdf' , 'tend_v_gwh' , 'tend_v_sso' ,
-                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+ ml_varlist       = 'tend_temp'      , 'tend_temp_dyn'  , 'tend_temp_phy'  ,
+                    'tend_temp_radlw', 'tend_temp_radsw',
+                    'tend_temp_vdf'  , 'tend_temp_gwh'  , 'tend_temp_sso'  ,
+                    'tend_temp_cnv'  , 'tend_temp_cld'  , 
+                    'tend_u'         , 'tend_u_dyn'     , 'tend_u_phy'     ,
+                    'tend_u_vdf'     , 'tend_u_gwh'     , 'tend_u_sso'     ,
+                    'tend_u_cnv'     , 
+                    'tend_v'         , 'tend_v_dyn'     , 'tend_v_phy'     ,
+                    'tend_v_vdf'     , 'tend_v_gwh'     , 'tend_v_sso'     ,
+                    'tend_v_cnv'     ,
+                    'tend_qv'        , 'tend_qv_dyn'    , 'tend_qv_phy'    ,
+                    'tend_qv_cld'    , 'tend_qv_cnv'    , 'tend_qv_vdf'
 /
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d_rmb"
@@ -471,15 +478,21 @@ if [[ "$output_phy" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- pl_varlist       = 'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw',
-                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf'  ,
-                    'tend_temp_gwh', 'tend_temp_sso',
-                    'tend_u' , 'tend_u_cnv' , 'tend_u_vdf' , 'tend_u_gwh' , 'tend_u_sso' ,
-                    'tend_v' , 'tend_v_cnv' , 'tend_v_vdf' , 'tend_v_gwh' , 'tend_v_sso' ,
-                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+ pl_varlist       = 'tend_temp'      , 'tend_temp_dyn'  , 'tend_temp_phy'  ,
+                    'tend_temp_radlw', 'tend_temp_radsw',
+                    'tend_temp_vdf'  , 'tend_temp_gwh'  , 'tend_temp_sso'  ,
+                    'tend_temp_cnv'  , 'tend_temp_cld'  , 
+                    'tend_u'         , 'tend_u_dyn'     , 'tend_u_phy'     ,
+                    'tend_u_vdf'     , 'tend_u_gwh'     , 'tend_u_sso'     ,
+                    'tend_u_cnv'     , 
+                    'tend_v'         , 'tend_v_dyn'     , 'tend_v_phy'     ,
+                    'tend_v_vdf'     , 'tend_v_gwh'     , 'tend_v_sso'     ,
+                    'tend_v_cnv'     ,
+                    'tend_qv'        , 'tend_qv_dyn'    , 'tend_qv_phy'    ,
+                    'tend_qv_cld'    , 'tend_qv_cnv'    , 'tend_qv_vdf'
  p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
                     15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
@@ -499,7 +512,7 @@ if [[ "$output_aer" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
@@ -516,7 +529,7 @@ if [[ "$output_aer" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  pl_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
@@ -541,7 +554,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
@@ -566,7 +579,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'

@@ -103,6 +103,7 @@
 #
 # temperature:
   tend_temp          prm_tend_temp
+  tend_temp_dyn      prm_tend_temp_dyn
   tend_temp_phy      prm_tend_temp_phy
   tend_temp_radlw    prm_tend_temp_radlw
   tend_temp_radsw    prm_tend_temp_radsw
@@ -114,6 +115,7 @@
 #
 # u-wind:
   tend_u             prm_tend_u
+  tend_u_dyn         prm_tend_u_dyn
   tend_u_phy         prm_tend_u_phy
   tend_u_cnv         prm_tend_u_cnv
   tend_u_vdf         prm_tend_u_vdf
@@ -122,6 +124,7 @@
 #
 # v-wind:
   tend_v             prm_tend_v
+  tend_v_dyn         prm_tend_v_dyn
   tend_v_phy         prm_tend_v_phy
   tend_v_cnv         prm_tend_v_cnv
   tend_v_vdf         prm_tend_v_vdf
@@ -130,6 +133,7 @@
 #
 # qv
   tend_qv            prm_tend_qv
+  tend_qv_dyn        prm_tend_qv_dyn
   tend_qv_phy        prm_tend_qv_phy
   tend_qv_cld        prm_tend_qv_cld
   tend_qv_cnv        prm_tend_qv_cnv

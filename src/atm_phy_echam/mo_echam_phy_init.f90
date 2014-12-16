@@ -874,6 +874,11 @@ CONTAINS
       tend% temp_cld(:,:,:)   = 0._wp
       tend%    q_cld(:,:,:,:) = 0._wp
 
+      tend% temp_dyn(:,:,:)   = 0._wp
+      tend%    q_dyn(:,:,:,:) = 0._wp
+      tend%    u_dyn(:,:,:)   = 0._wp
+      tend%    v_dyn(:,:,:)   = 0._wp
+
       tend% temp_phy(:,:,:)   = 0._wp
       tend%    q_phy(:,:,:,:) = 0._wp
       tend%    u_phy(:,:,:)   = 0._wp

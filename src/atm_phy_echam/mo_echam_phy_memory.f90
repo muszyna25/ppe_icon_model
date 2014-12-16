@@ -423,6 +423,13 @@ MODULE mo_echam_phy_memory
       & temp       (:,:,:)  , & !< accumulated tendency
       &    q       (:,:,:,:), & !< accumulated tendency
       !
+      ! dynamics and transport processes
+      !
+      &    u_dyn   (:,:,:)  , & !< accumulated tendency
+      &    v_dyn   (:,:,:)  , & !< accumulated tendency
+      & temp_dyn   (:,:,:)  , & !< accumulated tendency
+      &    q_dyn   (:,:,:,:), & !< accumulated tendency
+      !
       ! all physics processes
       !
       &    u_phy   (:,:,:)  , & !< accumulated tendency
@@ -469,6 +476,7 @@ MODULE mo_echam_phy_memory
       & temp_radlw (:,:,:)      !< temperature tendency from radiation
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_phy_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_cld_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_cnv_ptr(:)
@@ -2138,6 +2146,16 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
+    ! &       tend% temp_dyn  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('temperature_tendency_dyn', 'K s-1', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'temp_dyn', tend%temp_dyn,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
+
     ! &       tend% temp_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -2231,6 +2249,16 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
+    ! &       tend%    u_dyn  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('u_wind_tendency_dyn', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'u_dyn', tend%u_dyn,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
+
     ! &       tend%    u_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -2288,6 +2316,16 @@ CONTAINS
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, prefix//'v', tend%v,                                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
+
+    ! &       tend%    v_dyn  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('v_wind_tendency_dyn', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'v_dyn', tend%v_dyn,                                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -2380,6 +2418,14 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
+    CALL add_var( tend_list, prefix//'q_dyn', tend%q_dyn,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
+                & t_cf_var('tend_q_dyn', 's-1', 'tracer tendency dynamics',    &
+                & DATATYPE_FLT32),                                             &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+                & ldims = shape_trc,                                           &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
     CALL add_var( tend_list, prefix//'q_phy', tend%q_phy,                      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
                 & t_cf_var('tend_q_phy', 's-1', 'tracer tendency phyiscs',     &
@@ -2415,6 +2461,7 @@ CONTAINS
     ! Referrence to individual tracer, for I/O                                            
                                                                                             
     ALLOCATE(tend%     q_ptr(ktracer))
+    ALLOCATE(tend% q_dyn_ptr(ktracer))
     ALLOCATE(tend% q_phy_ptr(ktracer))
     ALLOCATE(tend% q_cld_ptr(ktracer))
     ALLOCATE(tend% q_cnv_ptr(ktracer))
@@ -2432,6 +2479,17 @@ CONTAINS
                   & vert_interp=create_vert_interp_metadata(                       &
                   &             vert_intp_type=vintp_types("P","Z","I"),           & 
                   &             vert_intp_method=VINTP_METHOD_LIN ) )
+                                                                                          
+      CALL add_ref( tend_list, prefix//'q_dyn',                                           &       
+                  & prefix//'q'//ctracer_list(jtrc:jtrc)//'_dyn', tend%q_dyn_ptr(jtrc)%p, &       
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                    &       
+                  & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_dyn', 's-1', '',        &
+                  &          DATATYPE_FLT32),                                             &       
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &       
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )                                        
                                                                                           
       CALL add_ref( tend_list, prefix//'q_phy',                                           &       
                   & prefix//'q'//ctracer_list(jtrc:jtrc)//'_phy', tend%q_phy_ptr(jtrc)%p, &       
