@@ -541,7 +541,6 @@ CONTAINS
                   &          dt_phy_jg(itfastphy),               & !> in
                   &          p_prog_list,                        & !> in
                   &          pt_prog,                            & !> in
-                  &          pt_prog%rho,                        & !> in
                   &          p_metrics,                          & !> in
                   &          pt_diag,                            & !> inout
                   &          pt_prog_rcf%tracer)
@@ -550,7 +549,6 @@ CONTAINS
                   &          dt_phy_jg(itfastphy),               & !>in
                   &          pt_patch,                           & !>in
                   &          prm_diag,                           & !>in
-                  &          pt_prog%rho,                        & !>in
                   &          pt_prog_rcf%tracer)                   !>inout
 
       ENDIF !lart

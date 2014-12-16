@@ -61,7 +61,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
-              &                  prm_diag, rho, tracer)
+              &                  prm_diag, tracer)
 !>
 !! Interface for ART-routines dealing with washout
 !!
@@ -79,8 +79,6 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  p_patch                           !< Patch on which computation is performed
   TYPE(t_nwp_phy_diag), INTENT(IN)  :: &
     &  prm_diag                          !< Diagnostic variables (Physics)
-  REAL(wp), INTENT(IN)              :: &          
-    &  rho(:,:,:)                        !< Density of air [kg/m3]
   REAL(wp), INTENT(INOUT)           :: &
     &  tracer(:,:,:,:)                   !< Tracer mixing ratios [kg/kg]
   ! Local Variables
@@ -91,13 +89,17 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  i_rlstart, i_rlend,   & !< Relaxation start and end
     &  i_nchdom,             & !< Number of child domains
     &  nlev                    !< Number of levels (equals index of lowest full level)
+  REAL(wp),POINTER        :: &
+    &  rho(:,:,:)              !< Pointer to air density [kg m-3]
   REAL(wp),ALLOCATABLE    :: &
     &  wash_rate_m0(:,:),    & !< Washout rates [# m-3 s-1]
     &  wash_rate_m3(:,:)       !< Washout rates [UNIT m-3 s-1], UNIT might be mug, kg
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
-    !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
     
+  rho => pt_prog%rho
+  
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id

@@ -55,7 +55,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list,p_prog,p_rho,p_metrics,p_diag,p_tracer_now)
+SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list,p_prog,p_metrics,p_diag,p_tracer_now)
 
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
@@ -81,13 +81,14 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
 
     TYPE(t_nh_prog), INTENT(IN) ::p_prog
 
-    REAL(wp), INTENT(INOUT) ::  &  !< density of air 
-      &  p_rho(:,:,:)              !< [kg/m3]
 
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
   REAL(wp), INTENT(INOUT)           ::  &
     &  p_tracer_now(:,:,:,:)               !< tracer mixing ratios (specific concentrations)
 
+  REAL(wp), POINTER ::  &  !< density of air 
+    &  p_rho(:,:,:)              !< [kg/m3]
+    
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
 #endif
@@ -96,7 +97,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
  
 #ifdef __ICON_ART
   jg  = p_patch%id
-
+  p_rho => p_prog%rho
   IF(lart) THEN
     IF (art_config(jg)%lart_aerosol) THEN
       ! ----------------------------------

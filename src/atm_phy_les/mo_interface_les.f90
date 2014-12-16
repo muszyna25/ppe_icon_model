@@ -531,7 +531,6 @@ CONTAINS
                  &          dt_phy_jg(itfastphy),               & !>in
                  &          pt_patch,                           & !>in
                  &          prm_diag,                           & !>in
-                 &          pt_prog%rho,                        & !>in               
                  &          pt_prog_rcf%tracer)                   !>inout             
     ENDIF !lart
 
