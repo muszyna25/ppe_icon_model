@@ -65,6 +65,12 @@ def makeRunTarget(sourceTemplate,setup={})
     sh creationCommand
   end
 end
+def getAllGivenTests(args, environment)
+  testsGiven = args.name.nil? ? (environment.has_key?('TESTS') ? environment['TESTS'].split(',') : nil ) : [args.name]
+  testsGiven
+end
+def getExpNameFromScript(scriptName)
+end
 # }}}
 # BASIC TEMPLATE PROCESSING {{{
 @componentTemplates = {}
@@ -304,7 +310,7 @@ end # }}}
 
 desc "Run named test or testsuite or TESTS='a,b,..'"
 task :run, :name do |t,args|
-  testsGiven = args.name.nil? ? (ENV.has_key?('TESTS') ? ENV['TESTS'].split(',') : nil ) : [args.name]
+  testsGiven = getAllGivenTests(args,ENV)
   
   if testsGiven.nil? then
     warn "Nothing to test!"
@@ -338,9 +344,14 @@ task :run, :name do |t,args|
     sh "#{submitCommand} ./#{experiment}.run"
   }
 end
-desc "Check all your running jobs"
-task :check do
-  checkAll
+desc "Check all your running jobs: Finished? Running? Failed?"
+task :check,:name do |t,args|
+  testsGiven = getAllGivenTests(args,ENV)
+
+  # check experiment status
+  testsGiven.each {|test|
+    test
+  }
 end
 task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
   sh "cat #{t.prerequisites.join(' ')}"
