@@ -235,11 +235,11 @@ SUBROUTINE cucall(   iconv,                                          &! in
   CASE(1)
      CALL cumastr(kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-                  krow,     papp1,                                     &
+!                  krow,     papp1,                                     &
 !---End Included for scavenging-----------------------------------------
                   ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
                   ztvp1,    ktrac,    ldland,                          &
-                  zxtp1,    zxtu,     pxtte,                           &
+                  zxtp1,    zxtu,     &!pxtte,                           &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   zqte_dyn_phy,                                        &
@@ -255,11 +255,11 @@ SUBROUTINE cucall(   iconv,                                          &! in
   CASE(2)
      CALL cumastrt(kproma, kbdim, klev, klevp1, klevm1, ilab,          &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-                  krow,     papp1,                                     &
+!                  krow,     papp1,                                     &
 !---End Included for scavenging-----------------------------------------
                   ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
                   ztvp1,    ktrac,    ldland,                          &
-                  zxtp1,    zxtu,     pxtte,                           &
+                  zxtp1,    zxtu,     &!pxtte,                           &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   zqte_dyn_phy,                                        &
@@ -275,11 +275,11 @@ SUBROUTINE cucall(   iconv,                                          &! in
   CASE(3)
      CALL cumastrh(kproma, kbdim, klev, klevp1, klevm1, ilab,          &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-                  krow,     papp1,                                     &
+!                  krow,     papp1,                                     &
 !---End Included for scavenging-----------------------------------------
                   ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
                   ztvp1,    ktrac,    ldland,                          &
-                  zxtp1,    zxtu,     pxtte,                           &
+                  zxtp1,    zxtu,     &!pxtte,                           &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   zqte_dyn_phy,                                        &
@@ -334,10 +334,10 @@ SUBROUTINE cucall(   iconv,                                          &! in
 END SUBROUTINE cucall
 
 SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
-                      krow,    papp1,                                   &
+!                      krow,    papp1,                                   &
            pten,     pqen,     pxen,     puen,     pven,                &
            ptven,    ktrac,    ldland,                                  &
-           pxten,    pxtu,     pxtte,                                   &
+           pxten,    pxtu,     &!pxtte,                                   &
            pverv,    pqsen,    pqhfla,                                  &
            paphp1,   pgeo,                                              &
            pqte_dyn_phy,                                                &
@@ -445,7 +445,7 @@ REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 REAL(wp),INTENT(IN)   :: pqte_dyn_phy(kbdim,klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-INTEGER, INTENT (IN) :: krow
+!INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
 !
 REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
@@ -494,7 +494,7 @@ REAL(wp):: zdqcv(kbdim)
 INTEGER :: ihmin(kbdim), ilo1(kbdim), ldidx(kbdim), loidx(kbdim)
 INTEGER :: ilab(kbdim,klev),        idtop(kbdim),                      &
            ictop0(kbdim),           ilwmin(kbdim)
-REAL(wp):: pxten(kbdim,klev,ktrac), pxtte(kbdim,klev,ktrac),           &
+REAL(wp):: pxten(kbdim,klev,ktrac), &!pxtte(kbdim,klev,ktrac),           &
            pxtu(kbdim,klev,ktrac),                                     &
            zxtenh(kbdim,klev,ktrac),zxtd(kbdim,klev,ktrac),            &
            zmfuxt(kbdim,klev,ktrac),zmfdxt(kbdim,klev,ktrac)
@@ -502,7 +502,7 @@ LOGICAL :: loddraf(kbdim),          ldland(kbdim)
 LOGICAL :: ldcum(kbdim)
 LOGICAL :: llo1
 !---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04, UL, 28.3.07):-------
-REAL(wp):: papp1(kbdim,klev)
+!REAL(wp):: papp1(kbdim,klev)
 REAL(wp):: zmwc(kbdim,klev),        zmrateprecip(kbdim,klev)
 !---End Included for scavenging-----------------------------------------
 !
@@ -511,7 +511,6 @@ REAL(wp):: zcons2, ztau, zqumqe, zdqmin, zmfmax, zalvs, zalvdcp, zqalv &
          , zhsat, zes, zcor, zqsat, zdqsdt, zgam, zzz, zhhat           &
          , zb, zbi, zroi, zdz, zdhdz, zdepth, zfac, zrh, zeps          &
          , zjk, zhelp, zlo1, zpaphp1i, ztenhi, zkctop, zpbmpt, za1, za2
-INTEGER :: icuasc
 !
 !  INTRINSIC FUNCTIONS
 INTRINSIC MIN, MAX
@@ -781,8 +780,6 @@ INTRINSIC MIN, MAX
 !*             (B) DO ASCENT IN 'CUASC'IN ABSENCE OF DOWNDRAFTS
 !                  --------------------------------------------
 !
-  icuasc=1
-!
   CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -1041,7 +1038,6 @@ INTRINSIC MIN, MAX
 !*                 FOR SHALLOW TO MEDIUM CONVECTION (TYPE=2)
 !*                 AND FOR MID-LEVEL CONVECTION (TYPE=3).
 !                  --------------------------------------------------
-  icuasc=2
 !
   CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
@@ -1069,9 +1065,9 @@ INTRINSIC MIN, MAX
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
 !---Included for scavenging in wetdep_interface (Philip Stier, 28/03/01, UL, 28.3.07):-------
-             krow,                                                     &
-             pxtte,    pxtu,     ptu,                                  &
-             zmwc,     zmrateprecip,                                   &
+!             krow,                                                     &
+!             pxtte,    pxtu,     ptu,                                  &
+!             zmwc,     zmrateprecip,                                   &
 !---End Included for scavenging-----------------------------------------
              zxtenh,   zmfuxt,   zmfdxt,                               &
              paphp1,   zgeoh,                                          &
@@ -1090,7 +1086,7 @@ INTRINSIC MIN, MAX
 !
   CALL cudtdq(kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
-              krow,                                                    &
+!              krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------
               paphp1,   pten,                                          &
               pxtec,    zmfuxt,   zmfdxt,                              &
@@ -1120,7 +1116,7 @@ INTRINSIC MIN, MAX
 !  IF (lconvmassfix) THEN
 !     CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
 !                          klevp1,         ktrac,         krow,              &
-!                          papp1,          paphp1,        pxtte,             &
+!                          papp1,          paphp1,        pxtte_cnv,         &
 !                          .FALSE.  )
 !  END IF
 !
@@ -1129,11 +1125,11 @@ END SUBROUTINE cumastr
 
 SUBROUTINE cumastrt( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-                     krow,    papp1,                                   &
+!                     krow,    papp1,                                   &
 !---End Included for scavenging-----------------------------------------
            pten,     pqen,     pxen,     puen,     pven,               &
            ptven,    ktrac,    ldland,                                 &
-           pxten,    pxtu,     pxtte,                                  &
+           pxten,    pxtu,     &!pxtte,                                  &
            pverv,    pqsen,    pqhfla,                                 &
            paphp1,   pgeo,                                             &
            pqte_dyn_phy,                                               &
@@ -1241,7 +1237,7 @@ REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 REAL(wp),INTENT(IN)   :: pqte_dyn_phy(kbdim,klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-INTEGER, INTENT (IN) :: krow
+!INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
 !
 REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
@@ -1280,10 +1276,10 @@ REAL(wp):: zentr(kbdim),            zhcbase(kbdim),                    &
            zdqpbl(kbdim),           zdqcv(kbdim)
 REAL(wp):: zsfl(kbdim),             zdpmel(kbdim,klev)
 REAL(wp):: ua(kbdim), dua(kbdim), ub(kbdim), za(kbdim)
-REAL(wp):: zhhatt(kbdim,klev)
+!REAL(wp):: zhhatt(kbdim,klev)
 INTEGER :: ilab(kbdim,klev),        idtop(kbdim),                      &
            ictop0(kbdim),           ilwmin(kbdim), loidx(kbdim)
-REAL(wp):: pxten(kbdim,klev,ktrac), pxtte(kbdim,klev,ktrac),           &
+REAL(wp):: pxten(kbdim,klev,ktrac), &!pxtte(kbdim,klev,ktrac),           &
            pxtu(kbdim,klev,ktrac),                                     &
            zxtenh(kbdim,klev,ktrac),zxtd(kbdim,klev,ktrac),            &
            zmfuxt(kbdim,klev,ktrac),zmfdxt(kbdim,klev,ktrac)
@@ -1291,7 +1287,7 @@ LOGICAL :: loddraf(kbdim),          ldland(kbdim)
 LOGICAL :: ldcum(kbdim)
 LOGICAL :: llo1
 !---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
-REAL(wp):: papp1(kbdim,klev)
+!REAL(wp):: papp1(kbdim,klev)
 REAL(wp):: zmwc(kbdim,klev),        zmrateprecip(kbdim,klev)
 !---End Included for scavenging-----------------------------------------
 !
@@ -1429,7 +1425,7 @@ INTRINSIC MIN, MAX
            zzz=zcpcu(jl,jk)*ztenh(jl,jk)*vtmpc1
            zhhat=zhsat-((zzz+zgam*zzz)/(1._wp+zgam*zzz*zqalv))*             &
                 MAX(zqsenh(jl,jk)-zqenh(jl,jk),0._wp)
-           zhhatt(jl,jk)=zhhat
+!           zhhatt(jl,jk)=zhhat
            zlo1 = FSEL(zjk - zictop0(jl),0._wp,1._wp)
            zlo1 = FSEL(zhhat - zhcbase(jl),0._wp,zlo1)
            zictop0(jl) = FSEL(-zlo1,zictop0(jl),zjk)
@@ -1605,9 +1601,9 @@ INTRINSIC MIN, MAX
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
 !---Included for scavenging in wetdep_interface (Philip Stier, 28/03/01):-------
-             krow,                                                     &
-             pxtte,    pxtu,     ptu,                                  &
-             zmwc,     zmrateprecip,                                   &
+!             krow,                                                     &
+!             pxtte,    pxtu,     ptu,                                  &
+!             zmwc,     zmrateprecip,                                   &
 !---End Included for scavenging-----------------------------------------
              zxtenh,   zmfuxt,   zmfdxt,                               &
              paphp1,   zgeoh,                                          &
@@ -1626,7 +1622,7 @@ INTRINSIC MIN, MAX
 !
   CALL cudtdq(kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
-              krow,                                                    &
+!              krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------
               paphp1,   pten,                                          &
               pxtec,    zmfuxt,   zmfdxt,                              &
@@ -1664,10 +1660,10 @@ INTRINSIC MIN, MAX
 END SUBROUTINE cumastrt
 
 SUBROUTINE cumastrh( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
-                     krow,    papp1,                                   &
+!                     krow,    papp1,                                   &
            pten,     pqen,     pxen,     puen,     pven,               &
            ptven,    ktrac,    ldland,                                 &
-           pxten,    pxtu,     pxtte,                                  &
+           pxten,    pxtu,     &!pxtte,                                  &
            pverv,    pqsen,    pqhfla,                                 &
            paphp1,   pgeo,                                             &
            pqte_dyn_phy,                                               &
@@ -1775,7 +1771,7 @@ REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
 REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 REAL(wp),INTENT(IN)   :: pqte_dyn_phy(kbdim,klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-INTEGER, INTENT (IN) :: krow
+!INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
 !
 REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
@@ -1815,10 +1811,10 @@ REAL(wp):: zentr(kbdim),            zhcbase(kbdim),                    &
 REAL(wp):: zsfl(kbdim),             zdpmel(kbdim,klev)
 REAL(wp):: zcape(kbdim),            zheat(kbdim)
 REAL(wp):: ua(kbdim), dua(kbdim), ub(kbdim), za(kbdim)
-REAL(wp):: zhhatt(kbdim,klev)
+!REAL(wp):: zhhatt(kbdim,klev)
 INTEGER :: ilab(kbdim,klev),        idtop(kbdim),                      &
            ictop0(kbdim),           ilwmin(kbdim), loidx(kbdim)
-REAL(wp):: pxten(kbdim,klev,ktrac), pxtte(kbdim,klev,ktrac),           &
+REAL(wp):: pxten(kbdim,klev,ktrac), &!pxtte(kbdim,klev,ktrac),           &
            pxtu(kbdim,klev,ktrac),                                     &
            zxtenh(kbdim,klev,ktrac),zxtd(kbdim,klev,ktrac),            &
            zmfuxt(kbdim,klev,ktrac),zmfdxt(kbdim,klev,ktrac)
@@ -1826,7 +1822,7 @@ LOGICAL :: loddraf(kbdim),          ldland(kbdim)
 LOGICAL :: ldcum(kbdim)
 LOGICAL :: llo1
 !---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
-REAL(wp):: papp1(kbdim,klev)
+!REAL(wp):: papp1(kbdim,klev)
 REAL(wp):: zmwc(kbdim,klev),        zmrateprecip(kbdim,klev)
 !---End Included for scavenging-----------------------------------------
 !
@@ -1967,7 +1963,7 @@ INTRINSIC MIN, MAX
            zzz=zcpcu(jl,jk)*ztenh(jl,jk)*vtmpc1
            zhhat=zhsat-((zzz+zgam*zzz)/(1._wp+zgam*zzz*zqalv))*             &
                 MAX(zqsenh(jl,jk)-zqenh(jl,jk),0._wp)
-           zhhatt(jl,jk)=zhhat
+!           zhhatt(jl,jk)=zhhat
            zlo1 = FSEL(zjk - zictop0(jl),0._wp,1._wp)
            zlo1 = FSEL(zhhat - zhcbase(jl),0._wp,zlo1)
            zictop0(jl) = FSEL(-zlo1,zictop0(jl),zjk)
@@ -2189,9 +2185,9 @@ INTRINSIC MIN, MAX
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
 !---Included for scavenging in wetdep_interface (Philip Stier, 28/03/01):-------
-             krow,                                                     &
-             pxtte,    pxtu,     ptu,                                  &
-             zmwc,     zmrateprecip,                                   &
+!             krow,                                                     &
+!             pxtte,    pxtu,     ptu,                                  &
+!             zmwc,     zmrateprecip,                                   &
 !---End Included for scavenging-----------------------------------------
              zxtenh,   zmfuxt,   zmfdxt,                               &
              paphp1,   zgeoh,                                          &
@@ -2210,7 +2206,7 @@ INTRINSIC MIN, MAX
 !
   CALL cudtdq(kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
-              krow,                                                    &
+!              krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------
               paphp1,   pten,                                          &
               pxtec,    zmfuxt,   zmfdxt,                              &
