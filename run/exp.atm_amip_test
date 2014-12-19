@@ -455,18 +455,18 @@ if [[ "$output_phy" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_temp'      , 'tend_temp_dyn'  , 'tend_temp_phy'  ,
-                    'tend_temp_rlw'  , 'tend_temp_rsw'  ,
-                    'tend_temp_vdf'  , 'tend_temp_gwh'  , 'tend_temp_sso'  ,
-                    'tend_temp_cnv'  , 'tend_temp_cld'  , 
-                    'tend_u'         , 'tend_u_dyn'     , 'tend_u_phy'     ,
-                    'tend_u_vdf'     , 'tend_u_gwh'     , 'tend_u_sso'     ,
-                    'tend_u_cnv'     , 
-                    'tend_v'         , 'tend_v_dyn'     , 'tend_v_phy'     ,
-                    'tend_v_vdf'     , 'tend_v_gwh'     , 'tend_v_sso'     ,
-                    'tend_v_cnv'     ,
-                    'tend_qv'        , 'tend_qv_dyn'    , 'tend_qv_phy'    ,
-                    'tend_qv_cld'    , 'tend_qv_cnv'    , 'tend_qv_vdf'
+ ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
+                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
+                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 'tend_ua_sso'  ,
+                    'tend_ua_cnv'  , 
+                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
+                    'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
+                    'tend_va_cnv'  ,
+                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
+                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
 /
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d_rmb"
@@ -481,18 +481,18 @@ if [[ "$output_phy" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- pl_varlist       = 'tend_temp'      , 'tend_temp_dyn'  , 'tend_temp_phy'  ,
-                    'tend_temp_rlw'  , 'tend_temp_rsw'  ,
-                    'tend_temp_vdf'  , 'tend_temp_gwh'  , 'tend_temp_sso'  ,
-                    'tend_temp_cnv'  , 'tend_temp_cld'  , 
-                    'tend_u'         , 'tend_u_dyn'     , 'tend_u_phy'     ,
-                    'tend_u_vdf'     , 'tend_u_gwh'     , 'tend_u_sso'     ,
-                    'tend_u_cnv'     , 
-                    'tend_v'         , 'tend_v_dyn'     , 'tend_v_phy'     ,
-                    'tend_v_vdf'     , 'tend_v_gwh'     , 'tend_v_sso'     ,
-                    'tend_v_cnv'     ,
-                    'tend_qv'        , 'tend_qv_dyn'    , 'tend_qv_phy'    ,
-                    'tend_qv_cld'    , 'tend_qv_cnv'    , 'tend_qv_vdf'
+ pl_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
+                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
+                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 'tend_ua_sso'  ,
+                    'tend_ua_cnv'  , 
+                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
+                    'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
+                    'tend_va_cnv'  ,
+                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
+                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
  p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
                     15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
