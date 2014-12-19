@@ -986,7 +986,7 @@ ocean_state%p_diag%vn_pred=ocean_state%p_diag%vn_pred_ptp
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           ocean_state%p_aux%g_n(je, jk, blockNo) = &
             & - ocean_state%p_diag%press_grad    (je, jk, blockNo)  &
-            & + ocean_state%p_diag%grad          (je, jk, blockNo)  &            
+            & - ocean_state%p_diag%grad          (je, jk, blockNo)  &            
             & - ocean_state%p_diag%veloc_adv_horz(je, jk, blockNo)  &
             & - ocean_state%p_diag%veloc_adv_vert(je, jk, blockNo)  &
             & + ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  !&
@@ -1000,7 +1000,7 @@ ocean_state%p_diag%vn_pred=ocean_state%p_diag%vn_pred_ptp
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           ocean_state%p_aux%g_n(je, jk, blockNo) = &
             & - ocean_state%p_diag%press_grad    (je, jk, blockNo)  &
-            & + ocean_state%p_diag%grad          (je, jk, blockNo)  &            
+            & - ocean_state%p_diag%grad          (je, jk, blockNo)  &            
             & - ocean_state%p_diag%veloc_adv_horz(je, jk, blockNo)  &
    !         & - ocean_state%p_diag%veloc_adv_vert(je, jk, blockNo)  &
             & + ocean_state%p_diag%laplacian_horz(je, jk, blockNo)  !&
