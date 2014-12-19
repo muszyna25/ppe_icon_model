@@ -513,6 +513,8 @@ CONTAINS
       &              jg, prm_diag%v_10m(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
+      &              jg, prm_diag%lwflxall(:,1,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBS", "W m-2", "shortwave net flux at surface", &
       &              jg, prm_diag%swflxsfc(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "THBS", "W m-2", "longwave net flux at surface", &
