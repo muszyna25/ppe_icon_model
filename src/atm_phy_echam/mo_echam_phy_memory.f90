@@ -418,62 +418,62 @@ MODULE mo_echam_phy_memory
       !
       ! all processes
       !
-      &    u       (:,:,:)  , & !< accumulated tendency
-      &    v       (:,:,:)  , & !< accumulated tendency
-      & temp       (:,:,:)  , & !< accumulated tendency
-      &    q       (:,:,:,:), & !< accumulated tendency
+      &    u     (:,:,:)  , & !< accumulated tendency
+      &    v     (:,:,:)  , & !< accumulated tendency
+      & temp     (:,:,:)  , & !< accumulated tendency
+      &    q     (:,:,:,:), & !< accumulated tendency
       !
       ! dynamics and transport processes
       !
-      &    u_dyn   (:,:,:)  , & !< accumulated tendency
-      &    v_dyn   (:,:,:)  , & !< accumulated tendency
-      & temp_dyn   (:,:,:)  , & !< accumulated tendency
-      &    q_dyn   (:,:,:,:), & !< accumulated tendency
+      &    u_dyn (:,:,:)  , & !< accumulated tendency
+      &    v_dyn (:,:,:)  , & !< accumulated tendency
+      & temp_dyn (:,:,:)  , & !< accumulated tendency
+      &    q_dyn (:,:,:,:), & !< accumulated tendency
       !
       ! all physics processes
       !
-      &    u_phy   (:,:,:)  , & !< accumulated tendency
-      &    v_phy   (:,:,:)  , & !< accumulated tendency
-      & temp_phy   (:,:,:)  , & !< accumulated tendency
-      &    q_phy   (:,:,:,:), & !< accumulated tendency
+      &    u_phy (:,:,:)  , & !< accumulated tendency
+      &    v_phy (:,:,:)  , & !< accumulated tendency
+      & temp_phy (:,:,:)  , & !< accumulated tendency
+      &    q_phy (:,:,:,:), & !< accumulated tendency
       !
       ! cloud microphysics
       !
-      & temp_cld   (:,:,:)  , & !< temperature tendency from cloud microphysical processes
-      &    q_cld   (:,:,:,:), & !< tracer tendency from cloud microphysical process
+      & temp_cld (:,:,:)  , & !< temperature tendency from cloud microphysical processes
+      &    q_cld (:,:,:,:), & !< tracer tendency from cloud microphysical process
       !
       ! cumulus convection
       !
-      & temp_cnv    (:,:,:),   & !< temperature tendency from cumulus convection
-      &    u_cnv    (:,:,:),   & !< u-wind tendency from cumulus convection
-      &    v_cnv    (:,:,:),   & !< v-wind tendency from cumulus convection
-      &    q_cnv    (:,:,:,:), & !< tracer tendency from cumulus convection
-      &    xl_dtr   (:,:,:),   & !< cloud liquid tendency due to detrainment (memory_g3b:xtecl)
-      &    xi_dtr   (:,:,:),   & !< cloud ice tendency due to detrainment (memory_g3b:xteci)
+      & temp_cnv (:,:,:),   & !< temperature tendency from cumulus convection
+      &    u_cnv (:,:,:),   & !< u-wind tendency from cumulus convection
+      &    v_cnv (:,:,:),   & !< v-wind tendency from cumulus convection
+      &    q_cnv (:,:,:,:), & !< tracer tendency from cumulus convection
+      &    xl_dtr(:,:,:),   & !< cloud liquid tendency due to detrainment (memory_g3b:xtecl)
+      &    xi_dtr(:,:,:),   & !< cloud ice tendency due to detrainment (memory_g3b:xteci)
       !
       ! vertical turbulent mixing ("vdiff")
       !
-      & temp_vdf   (:,:,:)  , & !< temperature tendency due to turbulent mixing
-      &    u_vdf   (:,:,:)  , & !< u-wind tendency due to turbulent mixing
-      &    v_vdf   (:,:,:)  , & !< v-wind tendency due to turbulent mixing
-      &    q_vdf   (:,:,:,:), & !< tracer tendency due to turbulent mixing
+      & temp_vdf (:,:,:)  , & !< temperature tendency due to turbulent mixing
+      &    u_vdf (:,:,:)  , & !< u-wind tendency due to turbulent mixing
+      &    v_vdf (:,:,:)  , & !< v-wind tendency due to turbulent mixing
+      &    q_vdf (:,:,:,:), & !< tracer tendency due to turbulent mixing
       !
       ! Hines param. for atmospheric gravity waves
       !
-      & u_gwh      (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
-      & v_gwh      (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
-      & temp_gwh   (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
+      & u_gwh    (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
+      & v_gwh    (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
+      & temp_gwh (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
-      & u_sso      (:,:,:)  , & !< u-wind tendency from sso drag
-      & v_sso      (:,:,:)  , & !< v-wind tendency from sso drag
-      & temp_sso   (:,:,:)  , & !< temperature tendency from sso drag
+      & u_sso    (:,:,:)  , & !< u-wind tendency from sso drag
+      & v_sso    (:,:,:)  , & !< v-wind tendency from sso drag
+      & temp_sso (:,:,:)  , & !< temperature tendency from sso drag
       !
       ! radiation
       !
-      & temp_radsw (:,:,:)  , & !< temperature tendency from radiation
-      & temp_radlw (:,:,:)      !< temperature tendency from radiation
+      & temp_rsw (:,:,:)  , & !< temperature tendency from radiation
+      & temp_rlw (:,:,:)      !< temperature tendency from radiation
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
@@ -2166,20 +2166,20 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_radsw(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temperature_tendency_radsw', 'K s-1', '', DATATYPE_FLT32)
+    ! &       tend% temp_rsw(nproma,nlev,nblks),            &
+    cf_desc    = t_cf_var('temperature_tendency_rsw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_radsw', tend%temp_radsw,                      &
+    CALL add_var( tend_list, prefix//'temp_rsw', tend%temp_rsw,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_radlw(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temperature_tendency_radlw', 'K s-1', '', DATATYPE_FLT32)
+    ! &       tend% temp_rlw(nproma,nlev,nblks),            &
+    cf_desc    = t_cf_var('temperature_tendency_rlw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_radlw', tend%temp_radlw,                      &
+    CALL add_var( tend_list, prefix//'temp_rlw', tend%temp_rlw,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &

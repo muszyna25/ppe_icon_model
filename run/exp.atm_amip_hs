@@ -270,7 +270,7 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
  output_interval  = "PT01H"                          ! ISO-format interval
  file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
+ ml_varlist       = 'tend_temp'    , 'tend_temp_rlw', 'tend_temp_rsw', 'tend_temp_cld'
                     'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
 /
 EOF

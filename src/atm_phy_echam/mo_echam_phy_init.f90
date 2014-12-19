@@ -868,8 +868,8 @@ CONTAINS
       ! Initialization of tendencies is necessary for doing I/O with
       ! the NAG compiler
 
-      tend% temp_radsw(:,:,:) = 0._wp
-      tend% temp_radlw(:,:,:) = 0._wp
+      tend% temp_rsw(:,:,:)   = 0._wp
+      tend% temp_rlw(:,:,:)   = 0._wp
 
       tend% temp_cld(:,:,:)   = 0._wp
       tend%    q_cld(:,:,:,:) = 0._wp

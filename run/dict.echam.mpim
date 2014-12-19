@@ -105,8 +105,8 @@
   tend_temp          prm_tend_temp
   tend_temp_dyn      prm_tend_temp_dyn
   tend_temp_phy      prm_tend_temp_phy
-  tend_temp_radlw    prm_tend_temp_radlw
-  tend_temp_radsw    prm_tend_temp_radsw
+  tend_temp_rlw      prm_tend_temp_rlw
+  tend_temp_rsw      prm_tend_temp_rsw
   tend_temp_cld      prm_tend_temp_cld
   tend_temp_cnv      prm_tend_temp_cnv
   tend_temp_vdf      prm_tend_temp_vdf
