@@ -902,24 +902,6 @@ CONTAINS
       tend%    u_sso(:,:,:)   = 0._wp
       tend%    v_sso(:,:,:)   = 0._wp
 
-!!$      field% debug_2d_1(:,  :) = 0.0_wp
-!!$      field% debug_2d_2(:,  :) = 0.0_wp
-!!$      field% debug_2d_3(:,  :) = 0.0_wp
-!!$      field% debug_2d_4(:,  :) = 0.0_wp
-!!$      field% debug_2d_5(:,  :) = 0.0_wp
-!!$      field% debug_2d_6(:,  :) = 0.0_wp
-!!$      field% debug_2d_7(:,  :) = 0.0_wp
-!!$      field% debug_2d_8(:,  :) = 0.0_wp
-!!$
-!!$      field% debug_3d_1(:,:,:) = 0.0_wp
-!!$      field% debug_3d_2(:,:,:) = 0.0_wp
-!!$      field% debug_3d_3(:,:,:) = 0.0_wp
-!!$      field% debug_3d_4(:,:,:) = 0.0_wp
-!!$      field% debug_3d_5(:,:,:) = 0.0_wp
-!!$      field% debug_3d_6(:,:,:) = 0.0_wp
-!!$      field% debug_3d_7(:,:,:) = 0.0_wp
-!!$      field% debug_3d_8(:,:,:) = 0.0_wp
-
       NULLIFY( field,tend )
 
   END SUBROUTINE initcond_echam_phy
