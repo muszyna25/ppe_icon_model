@@ -546,11 +546,11 @@ CONTAINS
     grad_div_e         (1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e)          =0.0_wp
     div_c              (1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp 
     
-#ifdef NAGFOR
-     z_div_grad_u(:,:,:)%x(1) = 0.0_wp
-     z_div_grad_u(:,:,:)%x(2) = 0.0_wp
-     z_div_grad_u(:,:,:)%x(3) = 0.0_wp
-#endif
+!#ifdef NAGFOR
+!     z_div_grad_u(:,:,:)%x(1) = 0.0_wp
+!     z_div_grad_u(:,:,:)%x(2) = 0.0_wp
+!     z_div_grad_u(:,:,:)%x(3) = 0.0_wp
+!#endif
 !     laplacian_vn_out  (1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
     
     
