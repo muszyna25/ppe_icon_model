@@ -308,12 +308,12 @@ CONTAINS
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_ocean_diffusion:velocity_diffusion_horz')
     !-------------------------------------------------------------------------------
-    patch_2D         => patch_3D%p_patch_2d(1)
-    all_cells       => patch_2D%cells%ALL
-    cells_in_domain       => patch_2D%cells%in_domain
-    cells_oneEdgeInDomain => patch_2D%cells%one_edge_in_domain
-    all_edges       => patch_2D%edges%ALL
-    edges_in_domain => patch_2D%edges%in_domain
+    patch_2D               => patch_3D%p_patch_2d(1)
+    all_cells              => patch_2D%cells%ALL
+    cells_in_domain        => patch_2D%cells%in_domain
+    cells_oneEdgeInDomain  => patch_2D%cells%one_edge_in_domain
+    all_edges              => patch_2D%edges%ALL
+    edges_in_domain        => patch_2D%edges%in_domain
     edges_gradIsCalculable => patch_2D%edges%gradIsCalculable
     !-------------------------------------------------------------------------------
     start_level = 1
@@ -530,12 +530,12 @@ CONTAINS
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_ocean_diffusion:velocity_diffusion_horz')
     !-------------------------------------------------------------------------------
-    patch_2D         => patch_3D%p_patch_2d(1)
-    all_cells       => patch_2D%cells%ALL
-    cells_in_domain       => patch_2D%cells%in_domain
-    cells_oneEdgeInDomain => patch_2D%cells%one_edge_in_domain
-    all_edges       => patch_2D%edges%ALL
-    edges_in_domain => patch_2D%edges%in_domain
+    patch_2D               => patch_3D%p_patch_2d(1)
+    all_cells              => patch_2D%cells%ALL
+    cells_in_domain        => patch_2D%cells%in_domain
+    cells_oneEdgeInDomain  => patch_2D%cells%one_edge_in_domain
+    all_edges              => patch_2D%edges%ALL
+    edges_in_domain        => patch_2D%edges%in_domain
     edges_gradIsCalculable => patch_2D%edges%gradIsCalculable
     !-------------------------------------------------------------------------------
     start_level = 1
@@ -620,7 +620,7 @@ CONTAINS
     CALL div_oce_3D( grad_div_e, patch_3D, p_op_coeff%div_coeff, div_c)
 
 !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block                                                                           
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       DO edge_index = start_edge_index, end_edge_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
@@ -630,10 +630,12 @@ CONTAINS
           il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
           ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
           
-          laplacian_vn_out(edge_index,level,blockNo) &
-            &= -0.5_wp* p_param%k_veloc_h(edge_index,level,blockNo)*(div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
+          laplacian_vn_out(edge_index,level,blockNo) = &
+            & -0.5_wp &
+            & * p_param%k_veloc_h(edge_index,level,blockNo) &
+            & * (div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
               
-        ENDDO
+        END DO
       END DO
     END DO
 !ICON_OMP_END_DO
