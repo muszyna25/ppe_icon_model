@@ -554,12 +554,10 @@ CONTAINS
 !     laplacian_vn_out  (1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
     
     
-!ICON_OMP_PARALLEL PRIVATE(iidx, iblk )
     !-------------------------------------------------------------------------------------------------------
     !Step 1: Calculate gradient of cell velocity vector.
     !Result is a gradient vector, located at edges
-!ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, &
-!ICON_OMP il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index,edge_index,level,il_c1,ib_c1,il_c2,ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
     ! DO blockNo = edges_gradIsCalculable%start_block, edges_gradIsCalculable%end_block
     DO blockNo = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
@@ -621,8 +619,7 @@ CONTAINS
 
     CALL div_oce_3D( grad_div_e, patch_3D, p_op_coeff%div_coeff, div_c)
 
-    !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, &
-!ICON_OMP il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block                                                                           
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       DO edge_index = start_edge_index, end_edge_index
