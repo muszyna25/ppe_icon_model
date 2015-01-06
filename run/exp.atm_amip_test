@@ -74,6 +74,7 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ irad_type        = 2
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file

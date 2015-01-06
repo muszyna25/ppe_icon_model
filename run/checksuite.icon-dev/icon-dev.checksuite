@@ -115,12 +115,16 @@ TEST=$5
 DISTRO=$(lsb_release -cs)
 case $DISTRO in
   squeeze)
+    . /sw/share/Modules/init/ksh
     module load cdo/1.6.5.1
     ;;
   wheezy)
+    . /sw/share/Modules/init/ksh
     module load cdo/1.6.5.1
     ;;
 esac
+echo `which cdo`
+echo `module list`
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
 #

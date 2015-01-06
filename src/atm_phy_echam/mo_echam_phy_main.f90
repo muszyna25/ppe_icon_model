@@ -32,7 +32,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
   USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, ltimer
+    &                               iqv, iqc, iqi, iqt, ltimer, irad_type
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
@@ -535,6 +535,15 @@ CONTAINS
 
         zaedummy(:,:) = 0.0_wp
         zheight (:,:) = field%geom(:,:,jb)/grav
+
+        SELECT CASE (irad_type)
+          CASE (1)
+            CALL finish('radiation','irad_type=1, default radiation')
+          CASE (2) 
+            CALL finish('radiation','irad_type=2, psrad radiation')
+          CASE DEFAULT
+            CALL finish('radiation','irad_type neither 1 nor 2, not supported')
+        END SELECT
 
         CALL radiation(               &
           !
