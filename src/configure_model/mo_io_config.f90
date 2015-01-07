@@ -146,6 +146,39 @@ CONTAINS
      END IF
    END FUNCTION is_checkpoint_time
   !----------------------------------------------------------------------------------
-  
+
+  !>
+  !! Decides about diagnostic computation of total integrals
+  !!
+  !! Decides about diagnostic computation of total integrals, which 
+  !! is performed in "supervise_total_integrals_nh"
+  !! Total integrals are computed 
+  !! - at the first time step (or the first time step after restart)
+  !! - if (MOD(current_step,n_diag) == 0)
+  !! - at the very last time step
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-12-01)
+  !!
+  FUNCTION is_totint_time(current_step, restart_step, n_diag, n_steps)
+
+    INTEGER, INTENT(IN) :: current_step !< current time step number
+    INTEGER, INTENT(IN) :: restart_step !< time step for which the restart file was produced
+                                        !< rfile_step+1: first step after restart
+    INTEGER, INTENT(IN) :: n_steps      !< total number of time steps
+    INTEGER, INTENT(IN) :: n_diag       !< number of timesteps between successive calls
+
+    LOGICAL :: is_totint_time           ! Result
+
+    ! local variables
+    INTEGER :: kstep                    ! time step number relative to restart step
+
+    kstep = current_step - restart_step
+
+    is_totint_time = ((kstep == 1)                        .OR. &
+      &              (MOD(current_step,n_diag) == 0)      .OR. &
+      &              (kstep==n_steps))                    .AND.&
+      &              (current_step > 0 )
+  END FUNCTION is_totint_time
 
 END MODULE mo_io_config

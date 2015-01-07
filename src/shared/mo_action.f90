@@ -44,8 +44,9 @@
 MODULE mo_action
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text
-  USE mo_impl_constants,     ONLY: vname_len
+  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,    &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
@@ -54,6 +55,8 @@ MODULE mo_action
   USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS,    &
     &                              getTriggeredPreviousEventAtDateTime
   USE mo_util_string,        ONLY: remove_duplicates
+  USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
+    &                              set_table_entry, print_table, t_table
   USE mo_run_config,         ONLY: msg_level
   USE mo_action_types,       ONLY: t_var_action
   USE mo_time_config,        ONLY: time_config
@@ -235,6 +238,7 @@ CONTAINS
 
 
     IF (msg_level >= 11) THEN
+
       ! remove duplicate variable names
       DO i=1,act_obj%nvars
         varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
@@ -250,10 +254,63 @@ CONTAINS
         END IF
       ENDDO
       CALL message('',message_text)
+
+      IF(my_process_is_stdio()) THEN
+        CALL action_setup_print (act_obj)
+      ENDIF
     ENDIF
 
   END SUBROUTINE action_collect_vars
 
+
+
+  !>
+  !! Screen print out of action event setup
+  !!
+  !! Screen print out of action event setup.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-06)
+  !!
+  SUBROUTINE action_setup_print (act_obj)
+
+    CLASS(t_action_obj)         :: act_obj  !< action for which setup will be printed
+    TYPE(t_table)               :: table
+
+    ! local variables
+    INTEGER  :: ivar            ! loop counter
+    INTEGER  :: irow            ! row to fill
+    INTEGER  :: var_action_idx  ! index of current action in variable-specific action list
+    !--------------------------------------------------------------------------
+
+    ! table-based output
+    CALL initialize_table(table)
+    ! the latter is no longer mandatory
+    CALL add_table_column(table, "VarName")
+    CALL add_table_column(table, "Start date")
+    CALL add_table_column(table, "End date")
+    CALL add_table_column(table, "Interval")
+
+    irow = 0
+    DO ivar=1,act_obj%nvars
+
+      var_action_idx = act_obj%var_action_index(ivar)
+
+      irow = irow + 1 
+      CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
+      CALL set_table_entry(table,irow,"Start date", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%start))
+      CALL set_table_entry(table,irow,"End date", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%end))
+      CALL set_table_entry(table,irow,"Interval", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%intvl))
+    ENDDO
+
+    CALL print_table(table, opt_delimiter=' | ')
+    CALL finalize_table(table)
+
+    WRITE (0,*) " " ! newline
+  END SUBROUTINE action_setup_print
 
 
 
@@ -379,6 +436,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-09-12)
+  !! Modification by Daniel Reinert, DWD (2014-12-17)
+  !! - extend reset kernel to integer fields
   !!
   SUBROUTINE reset_kernel(act_obj, ivar)
     ! usually, we have "t_reset_obj" as PASS type for this deferred
@@ -390,10 +449,22 @@ CONTAINS
 #endif
     INTEGER, INTENT(IN) :: ivar    ! element number 
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_action:reset_kernel'
+    !-------------------------------------------------------------------
+
     ! re-set field to its pre-defined reset-value
+    IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%r_ptr)) THEN
 !$OMP PARALLEL WORKSHARE
-    act_obj%var_element_ptr(ivar)%p%r_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%rval
+      act_obj%var_element_ptr(ivar)%p%r_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%rval
 !$OMP END PARALLEL WORKSHARE
+    ELSE IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%i_ptr)) THEN
+!$OMP PARALLEL WORKSHARE
+      act_obj%var_element_ptr(ivar)%p%i_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%ival
+!$OMP END PARALLEL WORKSHARE
+    ELSE
+      CALL finish (routine, 'Field not allocated for '//TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
+    ENDIF
 
   END SUBROUTINE reset_kernel
 

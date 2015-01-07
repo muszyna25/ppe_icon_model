@@ -97,7 +97,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
-                            & dt_loc, dtadv_loc, dt_phy_jg,        & !input
+                            & dt_loc, dt_phy_jg,                   & !input
                             & p_sim_time, nstep, datetime,         & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
@@ -118,8 +118,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: linit           !< .TRUE. if initialization call (this switch is currently used
                                                     !  to call turbtran in addition to the slow-physics routines
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
-    REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
-    REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
+    REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     REAL(wp),INTENT(in)          :: p_sim_time
     INTEGER, INTENT(in)          :: nstep           !time step counter
@@ -1319,7 +1318,7 @@ CONTAINS
 &                                   +         prm_nwp_tend%ddt_v_ls(jk)                &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
 
-            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
                                               pt_int_state%c_lin_e(jce,1,jb)           &
 &                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
@@ -1344,7 +1343,7 @@ CONTAINS
           DO jce = i_startidx, i_endidx
 #endif
 
-            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
                                               pt_int_state%c_lin_e(jce,1,jb)           &
 &                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
@@ -1408,9 +1407,9 @@ CONTAINS
       npoints   = SUM(npoints_blk)
       dpsdt_avg = global_sum_array(dpsdt_avg)
       npoints   = global_sum_array(npoints)
-      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
+      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dt_loc)
       ! Exclude initial time step where pres_sfc_old is zero
-      IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
+      IF (dpsdt_avg < 10000._wp/dt_loc) THEN
         WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF

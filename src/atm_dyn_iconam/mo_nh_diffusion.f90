@@ -32,7 +32,7 @@ MODULE mo_nh_diffusion
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff
   USE mo_intp,                ONLY: edges2cells_vector, cells2verts_scalar
-  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, iadv_rcf, lhdiff_rcf
+  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, ndyn_substeps, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_parallel_config,     ONLY: nproma
@@ -143,7 +143,7 @@ MODULE mo_nh_diffusion
 
     ! Normalized diffusion coefficient for boundary diffusion
     IF (lhdiff_rcf) THEN
-      fac_bdydiff_v = SQRT(REAL(iadv_rcf,wp))/denom_diffu_v
+      fac_bdydiff_v = SQRT(REAL(ndyn_substeps,wp))/denom_diffu_v
     ELSE
       fac_bdydiff_v = 1._wp/denom_diffu_v
     ENDIF
@@ -185,17 +185,17 @@ MODULE mo_nh_diffusion
       smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
     ELSE IF (lhdiff_rcf) THEN ! combination with divergence damping inside the dynamical core
       IF (diffu_type == 4) THEN
-        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
+        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)/ &
                                  3._wp*p_nh_metrics%enhfac_diffu(:))
       ELSE ! For Smagorinsky diffusion, the Smagorinsky coefficient rather than the background
            ! diffusion coefficient is enhanced near the model top (see below)
-        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/3._wp)
+        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)/3._wp)
       ENDIF
       IF (diffu_type == 3) THEN
         smag_offset   = 0._wp
         smag_limit(:) = 0.125_wp
       ELSE
-        smag_offset   = 0.25_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+        smag_offset   = 0.25_wp*diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)
         smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
       ENDIF
     ELSE           ! enhanced diffusion near model top only
@@ -212,7 +212,7 @@ MODULE mo_nh_diffusion
     ENDIF
 
     ! Multiplication factor for nabla4 diffusion on vertical wind speed
-    diff_multfac_w = MIN(1._wp/48._wp,diffusion_config(jg)%k4w*REAL(iadv_rcf,wp))
+    diff_multfac_w = MIN(1._wp/48._wp,diffusion_config(jg)%k4w*REAL(ndyn_substeps,wp))
 
     ! Factor for additional nabla2 diffusion in upper damping zone
     diff_multfac_n2w(:) = 0._wp
@@ -254,7 +254,7 @@ MODULE mo_nh_diffusion
       ! empirically determined scaling factor
       diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
 
-      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(iadv_rcf,wp)
+      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,wp)
 
     ELSE
       ltemp_diffu = .FALSE.

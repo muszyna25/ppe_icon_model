@@ -67,12 +67,12 @@ MODULE mo_les_config
 
   CONTAINS
 
-  SUBROUTINE configure_les(jg, dtime_adv)
+  SUBROUTINE configure_les(jg, dtime)
   !--------------------------------------------------------------------------------------
   !  Set up LES parameters 
   !--------------------------------------------------------------------------------------
     INTEGER, INTENT(IN) :: jg !patch id
-    REAL(wp),INTENT(IN) :: dtime_adv
+    REAL(wp),INTENT(IN) :: dtime
 
     CHARACTER(*), PARAMETER :: routine = "mo_les_config:configure_les:"
 
@@ -118,14 +118,14 @@ MODULE mo_les_config
     !Adjust sampling and frequency time
     IF(les_config(jg)%ldiag_les_out)THEN
 
-     IF( MOD(les_config(jg)%avg_interval_sec, dtime_adv) > 10._wp*dbl_eps )  THEN
+     IF( MOD(les_config(jg)%avg_interval_sec, dtime) > 10._wp*dbl_eps )  THEN
       WRITE(message_text,'(a,2F13.4)') &
         &'WARNING: averaging interval and advective timesteps not synchronized: ', &
-        & les_config(jg)%avg_interval_sec, dtime_adv
+        & les_config(jg)%avg_interval_sec, dtime
       CALL message(TRIM(routine), TRIM(message_text))
 
       les_config(jg)%avg_interval_sec =   &
-           REAL((FLOOR(les_config(jg)%avg_interval_sec/dtime_adv) + 1),wp) * dtime_adv
+           REAL((FLOOR(les_config(jg)%avg_interval_sec/dtime) + 1),wp) * dtime
 
       WRITE(message_text,'(a,2F13.4)') &
           'implicit synchronization in configure_les: avg_interval_sec =', &
@@ -133,14 +133,14 @@ MODULE mo_les_config
       CALL message(TRIM(routine), TRIM(message_text))
      END IF
 
-     IF( MOD(les_config(jg)%sampl_freq_sec, dtime_adv) > 10._wp*dbl_eps )  THEN
+     IF( MOD(les_config(jg)%sampl_freq_sec, dtime) > 10._wp*dbl_eps )  THEN
       WRITE(message_text,'(a,2F13.4)') &
         &'WARNING: sampling frequency and advective timesteps not synchronized: ', &
-        & les_config(jg)%sampl_freq_sec, dtime_adv
+        & les_config(jg)%sampl_freq_sec, dtime
       CALL message(TRIM(routine), TRIM(message_text))
 
       les_config(jg)%sampl_freq_sec =   &
-           REAL((FLOOR(les_config(jg)%sampl_freq_sec/dtime_adv) + 1),wp) * dtime_adv
+           REAL((FLOOR(les_config(jg)%sampl_freq_sec/dtime) + 1),wp) * dtime
 
       WRITE(message_text,'(a,2F13.4)') &
          'implicit synchronization in configure_les: sampl_freq_sec =', &

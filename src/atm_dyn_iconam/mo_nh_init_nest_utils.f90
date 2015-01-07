@@ -32,7 +32,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
-  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref
+  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o
+  USE mo_phyparam_soil,         ONLY: crhosminf
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
     &                                 min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH,&
     &                                 dzsoil, inwp
@@ -71,7 +72,8 @@ MODULE mo_nh_init_nest_utils
 
   REAL(wp), PARAMETER :: rd_o_cvd = 1._wp / cvd_o_rd
 
-  PUBLIC :: initialize_nest, topo_blending_and_fbk, interpolate_increments
+  PUBLIC :: initialize_nest, topo_blending_and_fbk, interpolate_increments, &
+            interpolate_sfcana
 
   CONTAINS
   !-------------
@@ -387,7 +389,7 @@ MODULE mo_nh_init_nest_utils
     i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
     i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -613,7 +615,7 @@ MODULE mo_nh_init_nest_utils
     i_startblk = p_pc%cells%start_blk(1,1)
     i_endblk   = p_pc%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,jk1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, &
@@ -940,8 +942,222 @@ MODULE mo_nh_init_nest_utils
     CALL sync_patch_array_mult(SYNC_C,p_pc,3,initicon(jgc)%atm_inc%temp,initicon(jgc)%atm_inc%pres,  &
                                initicon(jgc)%atm_inc%qv)
 
+    DEALLOCATE(vn_lp, temp_lp, pres_lp, qv_lp)
 
   END SUBROUTINE interpolate_increments
+
+  !-------------
+  !>
+  !! SUBROUTINE interpolate_sfcana
+  !!
+  !! Driver routine for interpolating surface analysis data from a parent domain to a child domain
+  !! The routine is supposed to work incombination with incremental analysis update only;
+  !! it processes sst (i.e. t_so(0) over sea points only), w_so increments, fr_ice, w_snow, rho_snow,
+  !! h_snow and freshsnow
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2014-12-12)
+  !!
+  !!
+  SUBROUTINE interpolate_sfcana(initicon, jg, jgc)
+
+    TYPE(t_initicon_state), TARGET, INTENT(INOUT) :: initicon(:)
+
+    INTEGER, INTENT(IN) :: jg   ! parent (source) domain ID
+    INTEGER, INTENT(IN) :: jgc  ! child  (target) domain ID
+
+    ! local pointers
+    TYPE(t_patch),         POINTER  :: p_pp, p_pc
+    TYPE(t_gridref_state), POINTER  :: p_grf
+    TYPE(t_int_state),     POINTER  :: p_int
+
+    TYPE(t_lnd_prog),   POINTER     :: p_parent_lprog
+    TYPE(t_lnd_prog),   POINTER     :: p_child_lprog
+    TYPE(t_lnd_diag),   POINTER     :: p_parent_ldiag
+    TYPE(t_lnd_diag),   POINTER     :: p_child_ldiag
+
+    ! local variables
+
+    ! Indices
+    INTEGER :: jb, jc, jk, jk1, jt, i_chidx, i_startblk, i_endblk, &
+               i_startidx, i_endidx
+    INTEGER :: rl_start, rl_end
+
+    INTEGER :: num_lndvars
+
+    ! Local arrays for variables living on the local parent grid in the MPI case. These have
+    ! to be allocatable because their dimensions differ between MPI and non-MPI runs
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: lndvars_lp
+
+    ! Local arrays on the parent or child grid. These would not have to be allocatable,
+    ! but the computational overhead does not matter for an initialization routine
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: lndvars_par, lndvars_chi
+
+    INTEGER :: i_count, ic
+
+    LOGICAL :: l_parallel
+
+    !-----------------------------------------------------------------------
+
+
+    IF (msg_level >= 7) THEN
+      WRITE(message_text,'(a,i2,a,i2)') 'Interpolation of surface analysis data, domain ',jg,' =>',jgc
+      CALL message('interpolate_sfcana',message_text)
+    ENDIF
+
+    IF (.NOT. my_process_is_mpi_parallel()) THEN
+      l_parallel = .FALSE.
+    ELSE
+      l_parallel = .TRUE.
+    ENDIF
+
+    p_parent_lprog    => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+    p_child_lprog     => p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc))
+    p_parent_ldiag    => p_lnd_state(jg)%diag_lnd
+    p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
+
+    p_pc              => p_patch(jgc)
+
+    p_grf => p_grf_state_local_parent(jgc)
+    p_int => p_int_state_local_parent(jgc)
+    p_pp  => p_patch_local_parent(jgc)
+
+    i_chidx  = p_pc%parent_child_index
+
+    ! Number of variables to be interpolated
+    num_lndvars = nlev_soil + 5
+    
+    ALLOCATE(lndvars_par (nproma, num_lndvars, p_patch(jg)%nblks_c), &
+             lndvars_chi (nproma, num_lndvars, p_patch(jgc)%nblks_c) )
+
+    ALLOCATE(lndvars_lp (nproma, num_lndvars, p_pp%nblks_c) )
+
+    IF (p_test_run) THEN
+      lndvars_par  = 0._wp
+      lndvars_chi  = 0._wp
+    ENDIF
+
+
+    ! Step 1: boundary interpolation
+    !
+    ! Note: the sepration between boundary interpolation and the interpolation
+    ! of the fields in the prognostic region of the nest is needed because the
+    ! existing interpolation routines are runtime-optimized for operations that
+    ! are needed regularly. Boundary interpolation is executed from the parent grid
+    ! to the child grid, whereas the so-called nudging interpolation works from
+    ! the local parent grid to the child grid.
+
+
+    ! Step 1a: prepare boundary interpolation
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+    ! cell-based variables
+    i_startblk = p_patch(jg)%cells%start_block(grf_bdywidth_c+1)
+    i_endblk   = p_patch(jg)%cells%end_block(min_rlcell)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
+
+      DO jk = 1, nlev_soil
+        DO jc = i_startidx, i_endidx
+          lndvars_par(jc,jk,jb)  = initicon(jg)%sfc_inc%w_so(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+      jk1 = nlev_soil
+      DO jc = i_startidx, i_endidx
+        lndvars_par(jc,jk1+1,jb) = initicon(jg)%sfc%sst(jc,jb)
+        lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%fr_seaice(jc,jb)
+        lndvars_par(jc,jk1+3,jb) = p_parent_lprog%w_snow_t(jc,jb,1)
+        lndvars_par(jc,jk1+4,jb) = MAX(crhosminf,p_parent_lprog%rho_snow_t(jc,jb,1))
+        lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%freshsnow_t(jc,jb,1)
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+    ! Step 1b: execute boundary interpolation
+    CALL sync_patch_array(SYNC_C,p_patch(jg),lndvars_par)
+    CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1,  &
+      lndvars_par, lndvars_chi, lnoshift=.TRUE.                 )
+
+
+    ! Step 2: Interpolation of fields in the model interior
+
+    ! Step 2a: Copy variables from parent grid to fields on feedback-parent grid
+    ! (trivial without MPI parallelization, but communication call needed for MPI)
+
+    CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=lndvars_lp, SEND=lndvars_par)
+
+    ! Step 2b: Perform interpolation from local parent to child grid
+
+    ! Note: the sync routines cannot be used for the synchronization on the local
+    ! parent grid
+
+    IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, lndvars_lp)
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
+                                1, 1, f3din1=lndvars_lp, f3dout1=lndvars_chi, overshoot_fac=1.005_wp )
+    CALL sync_patch_array(SYNC_C,p_pc,lndvars_chi)
+
+
+
+    ! Step 3: Add reference state to thermodynamic variables and copy land fields
+    ! from the container arrays to the prognostic variables (for the time being,
+    ! all tiles are initialized with the interpolated aggregated variables)
+    ! Note that nest boundary points have to be included here to obtain a proper
+    ! initialization of all grid points
+
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+    ! cell-based variables
+    i_startblk = p_pc%cells%start_block(1)
+    i_endblk   = p_pc%cells%end_block(min_rlcell)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,jk1) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlcell)
+
+      DO jk = 1, nlev_soil
+        DO jc = i_startidx, i_endidx
+          initicon(jgc)%sfc_inc%w_so(jc,jk,jb) = lndvars_chi(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+      jk1 = nlev_soil
+
+      DO jc = i_startidx, i_endidx
+        initicon(jgc)%sfc%sst(jc,jb)       = lndvars_chi(jc,jk1+1,jb)
+        p_child_ldiag%fr_seaice(jc,jb)     = lndvars_chi(jc,jk1+2,jb)
+        p_child_lprog%w_snow_t(jc,jb,1)    = lndvars_chi(jc,jk1+3,jb)
+        p_child_lprog%rho_snow_t(jc,jb,1)  = lndvars_chi(jc,jk1+4,jb)
+        p_child_ldiag%freshsnow_t(jc,jb,1) = lndvars_chi(jc,jk1+5,jb)
+
+        ! diagnose h_snow after interpolation
+        p_child_ldiag%h_snow_t(jc,jb,1) = p_child_lprog%w_snow_t(jc,jb,1)/p_child_lprog%rho_snow_t(jc,jb,1)*rhoh2o
+
+        ! set limits and remove small fractions of fr_seaice
+        p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
+        IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
+        IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
+        p_child_ldiag%freshsnow_t(jc,jb,1) = MIN(1._wp,p_child_ldiag%freshsnow_t(jc,jb,1))
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    DEALLOCATE(lndvars_par, lndvars_chi, lndvars_lp)
+
+  END SUBROUTINE interpolate_sfcana
 
 
   RECURSIVE SUBROUTINE topo_blending_and_fbk(jg)

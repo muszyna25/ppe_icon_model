@@ -77,7 +77,7 @@ CONTAINS
     !---------------------------------------------------------------------
     DO i=1,testbed_iterations
 !       CALL integrate_nh_test_comm(p_nh_state, p_patch, p_int_state, datetime, p_grf_state, &
-!         &               1, jstep, dtime, dtime_adv, sim_time, 1,                 &
+!         &               1, jstep, dtime, sim_time, 1,                            &
 !         &               l_compute_diagnostic_quants                              )
     ENDDO
     !---------------------------------------------------------------------

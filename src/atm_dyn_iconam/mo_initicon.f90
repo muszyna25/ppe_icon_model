@@ -37,7 +37,7 @@ MODULE mo_initicon
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,             &
     &                               rho_incr_filter_wgt, lread_ana,         &
-    &                               lp2cintp_incr
+    &                               lp2cintp_incr, lp2cintp_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA, MODE_ICONVREMAP, &
     &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,           &
@@ -1231,8 +1231,8 @@ MODULE mo_initicon
 
       ! 2) compute vn increments (w increment neglected)
       !
-      IF (jg == 1 .OR. .NOT. lp2cintp_incr(jg)) THEN ! If increments were interpolated from the parent domain,
-                                                     ! they have already been converted into vn increments
+      IF (.NOT. lp2cintp_incr(jg)) THEN ! If increments were interpolated from the parent domain,
+                                        ! they have already been converted into vn increments
 
         ! include boundary interpolation zone of nested domains and the halo edges as far as possible
         rl_start = 2
@@ -1273,7 +1273,7 @@ MODULE mo_initicon
 
       ! required to avoid crash in nabla4_vec (in case of interpolation from the parent domain,
       !                                        the sync has already been done)
-      IF (jg == 1 .OR. .NOT. lp2cintp_incr(jg)) THEN
+      IF (.NOT. lp2cintp_incr(jg)) THEN
         CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
       ENDIF
 
@@ -1572,7 +1572,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, jgch          ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(wp):: missval
@@ -1596,8 +1596,12 @@ MODULE mo_initicon
 
 
       ! check, whether t_so is read from analysis
-      lanaread_tso = ( one_of('t_so', initicon(jg)%grp_vars_ana(1:initicon(jg)%ngrp_vars_ana)) /= -1)
-
+      IF (lp2cintp_sfcana(jg)) THEN
+        jgch = p_patch(jg)%parent_id
+      ELSE
+        jgch = jg
+      ENDIF
+      lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
 
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -1718,7 +1722,8 @@ MODULE mo_initicon
                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = 0._wp
                ENDIF
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) == missval)) THEN
-                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = 0._wp
+                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = & ! 0._wp
+                   p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
                ENDIF
 
             ENDDO  ! jc

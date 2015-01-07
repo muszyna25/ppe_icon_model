@@ -1618,6 +1618,22 @@ Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
 init\_mode=5,6
 \tabularnewline
 
+start\_time\_avg\_fg&
+R & 0 & s &
+Start time for calculating temporally averaged first guess output for data assimilation. &
+\tabularnewline
+
+end\_time\_avg\_fg&
+R & 0 & s &
+End time for calculating temporally averaged first guess output for data assimilation. \\
+Setting end\_time\_avg\_fg $>$ start\_time\_avg\_fg activates the averaging &
+\tabularnewline
+
+interval\_avg\_fg&
+R & 0 & s &
+Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_avg\_fg must not be smaller than the averaging interval &
+\tabularnewline
+
 rho\_incr\_filter\_wgt &
 R & 0 & s &
 Vertical filtering weight on density increments &
@@ -1690,6 +1706,13 @@ Can be specified separately for each nested domain; setting the first (global) e
 the interpolation for all nested domains. & init\_mode=5,6
 \tabularnewline
 
+%\hline
+lp2cintp\_sfcana&
+L(n\_dom) & .FALSE.& &
+If true, interpolate atmospheric surface analysis data from parent domain. \\
+Can be specified separately for each nested domain; setting the first (global) entry to true activates
+the interpolation for all nested domains. & init\_mode=6
+\tabularnewline
 
 %\hline
 \textbf{ifs2icon\_filename}&
@@ -2619,8 +2642,7 @@ Flag. Separate files for each PE.&
 n0\_mtgrm&
 I(n\_dom) &
 0&&
-initial time step for meteogram output.\\
-Note: must be an integer multiple of \emph{iadv\_rcf}, since meteogram output is written only at advection time steps. &
+initial time step for meteogram output.&
 \tabularnewline
 
 %\hline
@@ -2727,11 +2749,9 @@ Type of vertical coordinate:\\
 \tabularnewline
 
 %\hline
-iadv\_rcf&
+ndyn\_substeps&
 I& 5& &
-reduced calling frequency (rcf) for transport/diffusion/physics \\
-1: no rcf (every dynamics-step)\\
-n$>$1: transport every n-th step &
+number of dynamics substeps per fast-physics / transport step &
 \tabularnewline
 
 %\hline
@@ -2864,7 +2884,7 @@ If only one value is specified, it is copied to all child domains, implying that
 of parameterizations and time steps is used in all domains. If the number of values given
 in the namelist is larger than 1 but less than the number of model domains, then the settings
 from the highest domain ID are used for the remaining model domains. If the time steps are not
-an integer multiple of the advective time step (dtime*iadv\_rcf), then the time step of the
+an integer multiple of the advective time step (dtime), then the time step of the
 respective physics parameterization is automatically rounded to the next higher integer multiple
 of the advective time step.
 
@@ -3394,7 +3414,7 @@ I&2& &
 R($k \ast$ 3)&None& &
  Post-processing times: start, end, increment.
  We choose  the advection time step matching or following the 
- requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
+ requested output time, therefore we require \texttt{output\_bounds(3) > dtime}.
  Multiple triples are possible in order to define multiple starts/ends/intervals.
  See namelist parameters \texttt{output\_start}, \texttt{output\_end}, \texttt{output\_interval}
  for an alternative specification of output events.
@@ -3455,7 +3475,7 @@ C(:)&\'' \''& &
 C(:)&\'' \''& &
  ISO8601 time stamp for repeating output intervals.
  We choose  the advection time step matching or following the 
- requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
+ requested output time, therefore we require \texttt{output\_bounds(3) > dtime}.
  An example for this time stamp format is given below.
  More than one value is possible in order to define multiple start/end/interval triples.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
@@ -4128,7 +4148,13 @@ calculating time steps.&
 %\hline
 \textbf{dtime} &
 R & 600.0& s&
-time step&
+time step.\\
+For real case runs the maximum allowable time step can be estimated as\\
+ $1.8 \cdot \mathrm{ndyn\_substeps} \cdot \overline{\Delta x}\,\mathrm{s\, km^{-1}}$,\\
+where $\overline{\Delta x}$ is the average resolution in $\mathrm{km}$ and
+$\mathrm{ndyn\_substeps}$ is the number of dynamics substeps set in
+nonhydrostatic\_nml.  ndyn\_substeps should not be increased beyond the
+default value $5$.&
 \tabularnewline
 
 

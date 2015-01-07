@@ -74,7 +74,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=120
+dtime=480
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 nsteps=1
@@ -175,7 +175,6 @@ inwp_satad      = 1
  vwind_offctr   = 0.12
  damp_height    = 23000.
  rayleigh_coeff = 0.05
- iadv_rcf       = 4
  l_open_ubc     = .false.
 /
 &sleve_nml

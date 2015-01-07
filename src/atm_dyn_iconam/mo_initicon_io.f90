@@ -36,14 +36,14 @@ MODULE mo_initicon_io
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
-    &                               nml_filetype => filetype, lp2cintp_incr,            &
-    &                               lread_ana, lread_vn
-  USE mo_nh_init_nest_utils,  ONLY: interpolate_increments
+    &                               nml_filetype => filetype, lread_ana, lread_vn,      &
+    &                               lp2cintp_incr, lp2cintp_sfcana
+  USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_grid_config,         ONLY: n_dom, nroot
+  USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work, p_comm_work_test
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
@@ -181,6 +181,7 @@ MODULE mo_initicon_io
         DO jg=1,n_dom
 
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
           jlev = p_patch(jg)%level
           ! generate file name
           dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, nroot, jlev, jg)
@@ -1297,7 +1298,7 @@ MODULE mo_initicon_io
       ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
       IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
-        IF (jg > 1 .AND. lp2cintp_incr(jg)) THEN
+        IF (lp2cintp_incr(jg)) THEN
           ! Perform parent-to-child interpolation of atmospheric DA increments
           jgp = p_patch(jg)%parent_id
           CALL interpolate_increments(initicon, jgp, jg)
@@ -1454,10 +1455,9 @@ MODULE mo_initicon_io
         my_ptr2d =>p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, opt_checkgroup=checkgrp)
 
-        ! Uninitialized t_g in the boundary region will create floating point
-        ! run-time error in the land scheme.
-        ! Aggregated values are not prog variables, aggregated values are calculated in init_nwp_phy  (PR)
-        IF (init_mode == MODE_COSMODE) THEN
+        ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
+        ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
+        IF (jt == 1 .AND. (jg > 1 .OR. l_limited_area) ) THEN
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
         ! include boundary interpolation zone of nested domains and halo points
           DO jb = 1, p_patch(jg)%nblks_c
@@ -1603,7 +1603,7 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
 
-    INTEGER :: jg, jt
+    INTEGER :: jg, jgp, jt
     INTEGER :: ngrp_vars_ana, filetype
 
     REAL(wp), POINTER :: my_ptr2d(:,:)
@@ -1629,6 +1629,12 @@ MODULE mo_initicon_io
       ! save some paperwork
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
+      IF (init_mode == MODE_IAU .AND. lp2cintp_sfcana(jg)) THEN
+        ! Perform parent-to-child interpolation of surface fields read from the analysis
+        jgp = p_patch(jg)%parent_id
+        CALL interpolate_sfcana(initicon, jgp, jg)
+        CYCLE
+      ENDIF
 
       IF(my_process_is_stdio()) THEN
         CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
