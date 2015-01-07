@@ -384,22 +384,22 @@ MODULE mo_nh_stepping
     END DO
 
     !AD: Also output special diagnostics for LES on torus
-     IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
-       CALL calculate_turbulent_diagnostics(                      &
-                              & p_patch(1),                       & !in
-                              & p_nh_state(1)%prog(nnow(1)),      &
-                              & p_nh_state(1)%prog(nnow_rcf(1)),  & !in
-                              & p_nh_state(1)%diag,                   & !in
-                              & p_lnd_state(1)%prog_lnd(nnow_rcf(1)), &
-                              & p_lnd_state(1)%diag_lnd,              &  
-                              & prm_nwp_tend(1),                      &
-                              & prm_diag(1)                )     !inout
+    IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
+      CALL calculate_turbulent_diagnostics(                      &
+                             & p_patch(1),                       & !in
+                             & p_nh_state(1)%prog(nnow(1)),      &
+                             & p_nh_state(1)%prog(nnow_rcf(1)),  & !in
+                             & p_nh_state(1)%diag,                   & !in
+                             & p_lnd_state(1)%prog_lnd(nnow_rcf(1)), &
+                             & p_lnd_state(1)%diag_lnd,              &  
+                             & prm_nwp_tend(1),                      &
+                             & prm_diag(1)                )     !inout
   
-       !write out time series
-       CALL write_time_series(prm_diag(1)%turb_diag_0dvar, time_config%sim_time(1))
-       CALL write_vertical_profiles(prm_diag(1)%turb_diag_1dvar, time_config%sim_time(1), 1)
-       prm_diag(1)%turb_diag_1dvar = 0._wp
-     END IF   
+      !write out time series
+      CALL write_time_series(prm_diag(1)%turb_diag_0dvar, time_config%sim_time(1))
+      CALL write_vertical_profiles(prm_diag(1)%turb_diag_1dvar, time_config%sim_time(1), 1)
+      prm_diag(1)%turb_diag_1dvar = 0._wp
+    END IF   
 
 
 #ifdef MESSY
@@ -485,7 +485,6 @@ MODULE mo_nh_stepping
 
   IF (ltimer) CALL timer_start(timer_total)
 
-  lwrite_checkpoint = .FALSE.
 
   ! allocate temporary variable for restarting purposes
   ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
@@ -793,17 +792,18 @@ MODULE mo_nh_stepping
     !
 !DR      CALL reset_act%execute(slack=dtime)
 !DR Workaround for gfortran 4.5 (and potentially others)
-     CALL reset_action(dtime)
+    CALL reset_action(dtime)
 
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
+    ! check whether time has come for writing restart file
     IF (is_checkpoint_time(jstep,n_chkpt) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
       lwrite_checkpoint = .TRUE.
+    ELSE
+      lwrite_checkpoint = .FALSE.
     ENDIF
 
-    ! Enforce that checkpointing files are written at the end of a physics time step
-    ! (no reproducibility otherwise)
     IF (lwrite_checkpoint) THEN
       IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
@@ -842,8 +842,7 @@ MODULE mo_nh_stepping
 #endif
       END IF
 
-      lwrite_checkpoint = .FALSE.
-    END IF
+    END IF  ! lwrite_checkpoint
 
 #ifdef MESSYTIMER
     ! timer sync

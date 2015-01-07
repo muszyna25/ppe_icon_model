@@ -17,7 +17,7 @@
 !!
 MODULE mo_nh_prepadv_types
 
-  USE mo_kind,                 ONLY: wp, vp
+  USE mo_kind,                 ONLY: wp
 
   IMPLICIT NONE
 
@@ -48,12 +48,8 @@ MODULE mo_nh_prepadv_types
   END TYPE t_prepare_adv
 
 
-  ! counter for 'reduced calling frequency' and Marchuk splitting
+  ! counter for Marchuk splitting
   TYPE :: t_step_adv
-    ! Counts total number of dynamics time steps for each patch (necessary for
-    ! generalization of rcf to arbitrary (even) number of iadv_rcf)
-    INTEGER :: ntsteps
-
     ! Determines sequence of operations for Marchuk-splitting (for transport)
     INTEGER :: marchuk_order
   END TYPE t_step_adv
