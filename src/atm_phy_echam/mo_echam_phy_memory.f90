@@ -244,6 +244,7 @@ MODULE mo_echam_phy_memory
     ! JSBACH
     REAL(wp),POINTER :: &
       & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature
+      & tsfc_radt (:,  :),  &!< [K] radiative sfc. temperature at radiation time
       & tsfc_eff  (:,  :),  &!< [K] effective sfc. temperature
       & csat      (:,  :),  &!<
       & cair      (:,  :)    !<
@@ -373,33 +374,6 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: u_stress_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: v_stress_tile_ptr(:)
 
-!!$    ! Variables for debugging
-    REAL(wp),POINTER :: &
-!!$      ! 2d arrays
-      & debug_2d_1(:,:),    &!< 2d variable for debug purposes
-      & debug_2d_2(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_3(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_4(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_5(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_6(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_7(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_8(:,:),    &!< 2d variable for debug purposes
-!!$      ! 3d arrays
-      & debug_3d_1(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_2(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_2b(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_2c(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_3(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_4(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_5(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_6(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_7(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_8(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_9(:,:,:),  &!< 3d variable for debug purposes
-      & debug_3d_10(:,:,:), &!< 3d variable for debug purposes
-      & debug_3d_11(:,:,:), &!< 3d variable for debug purposes
-      & debug_3d_12(:,:,:)   !< 3d variable for debug purposes
-
   END TYPE t_echam_phy_field
 
   !>
@@ -417,57 +391,65 @@ MODULE mo_echam_phy_memory
       !
       ! all processes
       !
-      &    u       (:,:,:)  , & !< accumulated tendency
-      &    v       (:,:,:)  , & !< accumulated tendency
-      & temp       (:,:,:)  , & !< accumulated tendency
-      &    q       (:,:,:,:), & !< accumulated tendency
+      &    u     (:,:,:)  , & !< accumulated tendency
+      &    v     (:,:,:)  , & !< accumulated tendency
+      & temp     (:,:,:)  , & !< accumulated tendency
+      &    q     (:,:,:,:), & !< accumulated tendency
+      !
+      ! dynamics and transport processes
+      !
+      &    u_dyn (:,:,:)  , & !< accumulated tendency
+      &    v_dyn (:,:,:)  , & !< accumulated tendency
+      & temp_dyn (:,:,:)  , & !< accumulated tendency
+      &    q_dyn (:,:,:,:), & !< accumulated tendency
       !
       ! all physics processes
       !
-      &    u_phy   (:,:,:)  , & !< accumulated tendency
-      &    v_phy   (:,:,:)  , & !< accumulated tendency
-      & temp_phy   (:,:,:)  , & !< accumulated tendency
-      &    q_phy   (:,:,:,:), & !< accumulated tendency
+      &    u_phy (:,:,:)  , & !< accumulated tendency
+      &    v_phy (:,:,:)  , & !< accumulated tendency
+      & temp_phy (:,:,:)  , & !< accumulated tendency
+      &    q_phy (:,:,:,:), & !< accumulated tendency
       !
       ! cloud microphysics
       !
-      & temp_cld   (:,:,:)  , & !< temperature tendency from cloud microphysical processes
-      &    q_cld   (:,:,:,:), & !< tracer tendency from cloud microphysical process
+      & temp_cld (:,:,:)  , & !< temperature tendency from cloud microphysical processes
+      &    q_cld (:,:,:,:), & !< tracer tendency from cloud microphysical process
       !
       ! cumulus convection
       !
-      & temp_cnv    (:,:,:),   & !< temperature tendency from cumulus convection
-      &    u_cnv    (:,:,:),   & !< u-wind tendency from cumulus convection
-      &    v_cnv    (:,:,:),   & !< v-wind tendency from cumulus convection
-      &    q_cnv    (:,:,:,:), & !< tracer tendency from cumulus convection
-      &    xl_dtr   (:,:,:),   & !< cloud liquid tendency due to detrainment (memory_g3b:xtecl)
-      &    xi_dtr   (:,:,:),   & !< cloud ice tendency due to detrainment (memory_g3b:xteci)
+      & temp_cnv (:,:,:),   & !< temperature tendency from cumulus convection
+      &    u_cnv (:,:,:),   & !< u-wind tendency from cumulus convection
+      &    v_cnv (:,:,:),   & !< v-wind tendency from cumulus convection
+      &    q_cnv (:,:,:,:), & !< tracer tendency from cumulus convection
+      &    xl_dtr(:,:,:),   & !< cloud liquid tendency due to detrainment (memory_g3b:xtecl)
+      &    xi_dtr(:,:,:),   & !< cloud ice tendency due to detrainment (memory_g3b:xteci)
       !
       ! vertical turbulent mixing ("vdiff")
       !
-      & temp_vdf   (:,:,:)  , & !< temperature tendency due to turbulent mixing
-      &    u_vdf   (:,:,:)  , & !< u-wind tendency due to turbulent mixing
-      &    v_vdf   (:,:,:)  , & !< v-wind tendency due to turbulent mixing
-      &    q_vdf   (:,:,:,:), & !< tracer tendency due to turbulent mixing
+      & temp_vdf (:,:,:)  , & !< temperature tendency due to turbulent mixing
+      &    u_vdf (:,:,:)  , & !< u-wind tendency due to turbulent mixing
+      &    v_vdf (:,:,:)  , & !< v-wind tendency due to turbulent mixing
+      &    q_vdf (:,:,:,:), & !< tracer tendency due to turbulent mixing
       !
       ! Hines param. for atmospheric gravity waves
       !
-      & u_gwh      (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
-      & v_gwh      (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
-      & temp_gwh   (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
+      & u_gwh    (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
+      & v_gwh    (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
+      & temp_gwh (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
-      & u_sso      (:,:,:)  , & !< u-wind tendency from sso drag
-      & v_sso      (:,:,:)  , & !< v-wind tendency from sso drag
-      & temp_sso   (:,:,:)  , & !< temperature tendency from sso drag
+      & u_sso    (:,:,:)  , & !< u-wind tendency from sso drag
+      & v_sso    (:,:,:)  , & !< v-wind tendency from sso drag
+      & temp_sso (:,:,:)  , & !< temperature tendency from sso drag
       !
       ! radiation
       !
-      & temp_radsw (:,:,:)  , & !< temperature tendency from radiation
-      & temp_radlw (:,:,:)      !< temperature tendency from radiation
+      & temp_rsw (:,:,:)  , & !< temperature tendency from radiation
+      & temp_rlw (:,:,:)      !< temperature tendency from radiation
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_phy_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_cld_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_cnv_ptr(:)
@@ -1037,6 +1019,11 @@ CONTAINS
     cf_desc    = t_cf_var('tsfc_rad', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'tsfc_rad', field%tsfc_rad, &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('tsfc_radt', '', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'tsfc_radt', field%tsfc_radt, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('tsfc_eff', '', '', DATATYPE_FLT32)
@@ -1947,142 +1934,6 @@ CONTAINS
                   & ldims=shape2d )
     END DO
 
-    !-----------------------------------------
-    ! fields for debugging 
-    !-----------------------------------------
-
-    CALL add_var( field_list, '2D_var1', field%debug_2d_1,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('stress', '?', '2D debug var 1',                     &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, '2D_var2', field%debug_2d_2,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('stress', '?', '2D debug var 2',                     &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'ptm1', field%debug_3d_1,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 1',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'pqm1', field%debug_3d_2,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'pqm1',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'pxlm1', field%debug_3d_2b,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'pxlm1',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'pxim1', field%debug_3d_2c,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'pxim1',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'ptte', field%debug_3d_3,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 3',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'pqte', field%debug_3d_4,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 4',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'ztp1', field%debug_3d_5,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 5',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'zqp1', field%debug_3d_6,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 6',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'zqsat', field%debug_3d_7,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 7',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, 'pverv', field%debug_3d_8,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 8',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    !CALL add_var( field_list, prefix//'3D_var9', field%debug_3d_9,              &
-    CALL add_var( field_list, 'paphp1', field%debug_3d_9,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 9',                        &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    !CALL add_var( field_list, prefix//'3D_var10', field%debug_3d_10,            &
-    CALL add_var( field_list, 'papp1', field%debug_3d_10,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 10',                       &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    !CALL add_var( field_list, prefix//'3D_var11', field%debug_3d_11,            &
-    CALL add_var( field_list, 'pgeo', field%debug_3d_11,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 11',                       &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-    CALL add_var( field_list, '3D_var12', field%debug_3d_12,                    &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
-                & t_cf_var('stress', '?', 'debug var 12',                       &
-                &          DATATYPE_FLT32),                                     &
-                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape3d,                                                &
-                & lrestart = .FALSE.) 
-
-
   END SUBROUTINE new_echam_phy_field_list
   !-------------
   !>
@@ -2132,6 +1983,16 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
+    ! &       tend% temp_dyn  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('temperature_tendency_dyn', 'K s-1', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'temp_dyn', tend%temp_dyn,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
+
     ! &       tend% temp_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -2142,20 +2003,20 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_radsw(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temperature_tendency_radsw', 'K s-1', '', DATATYPE_FLT32)
+    ! &       tend% temp_rsw(nproma,nlev,nblks),            &
+    cf_desc    = t_cf_var('temperature_tendency_rsw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_radsw', tend%temp_radsw,                      &
+    CALL add_var( tend_list, prefix//'temp_rsw', tend%temp_rsw,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_radlw(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temperature_tendency_radlw', 'K s-1', '', DATATYPE_FLT32)
+    ! &       tend% temp_rlw(nproma,nlev,nblks),            &
+    cf_desc    = t_cf_var('temperature_tendency_rlw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_radlw', tend%temp_radlw,                      &
+    CALL add_var( tend_list, prefix//'temp_rlw', tend%temp_rlw,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -2225,6 +2086,16 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
+    ! &       tend%    u_dyn  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('u_wind_tendency_dyn', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'u_dyn', tend%u_dyn,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
+
     ! &       tend%    u_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -2282,6 +2153,16 @@ CONTAINS
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, prefix//'v', tend%v,                                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
+
+    ! &       tend%    v_dyn  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('v_wind_tendency_dyn', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'v_dyn', tend%v_dyn,                                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -2374,6 +2255,14 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
+    CALL add_var( tend_list, prefix//'q_dyn', tend%q_dyn,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
+                & t_cf_var('tend_q_dyn', 's-1', 'tracer tendency dynamics',    &
+                & DATATYPE_FLT32),                                             &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+                & ldims = shape_trc,                                           &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
     CALL add_var( tend_list, prefix//'q_phy', tend%q_phy,                      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
                 & t_cf_var('tend_q_phy', 's-1', 'tracer tendency phyiscs',     &
@@ -2409,6 +2298,7 @@ CONTAINS
     ! Referrence to individual tracer, for I/O                                            
                                                                                             
     ALLOCATE(tend%     q_ptr(ktracer))
+    ALLOCATE(tend% q_dyn_ptr(ktracer))
     ALLOCATE(tend% q_phy_ptr(ktracer))
     ALLOCATE(tend% q_cld_ptr(ktracer))
     ALLOCATE(tend% q_cnv_ptr(ktracer))
@@ -2426,6 +2316,17 @@ CONTAINS
                   & vert_interp=create_vert_interp_metadata(                       &
                   &             vert_intp_type=vintp_types("P","Z","I"),           & 
                   &             vert_intp_method=VINTP_METHOD_LIN ) )
+                                                                                          
+      CALL add_ref( tend_list, prefix//'q_dyn',                                           &       
+                  & prefix//'q'//ctracer_list(jtrc:jtrc)//'_dyn', tend%q_dyn_ptr(jtrc)%p, &       
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                    &       
+                  & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_dyn', 's-1', '',        &
+                  &          DATATYPE_FLT32),                                             &       
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &       
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )                                        
                                                                                           
       CALL add_ref( tend_list, prefix//'q_phy',                                           &       
                   & prefix//'q'//ctracer_list(jtrc:jtrc)//'_phy', tend%q_phy_ptr(jtrc)%p, &       
