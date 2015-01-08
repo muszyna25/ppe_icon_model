@@ -466,8 +466,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_nml_output, lprint_timestep, &
-    &                                     lwrite_checkpoint, ldom_active(n_dom), &
-    &                                     lcfl_watch_mode
+    &                                     lwrite_checkpoint, lcfl_watch_mode
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(t_datetime)                     :: datetime_old
 
@@ -662,9 +661,6 @@ MODULE mo_nh_stepping
     l_compute_diagnostic_quants = jstep >= 0 .AND. l_compute_diagnostic_quants .AND. &
       &                           .NOT. output_mode%l_none
     
-    ! This serves to ensure that postprocessing is executed both immediately after
-    ! activating and immediately after terminating a model domain
-    ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
 
     ! Calculations for enhanced sound-wave and gravity-wave damping during the spinup phase
     ! if mixed second-order/fourth-order divergence damping (divdamp_order=24) is chosen.
@@ -685,7 +681,6 @@ MODULE mo_nh_stepping
     !
     CALL integrate_nh(datetime, 1, jstep-jstep_shift, dtime, 1)
 
-    ldom_active(1:n_dom) = ldom_active(1:n_dom) .OR. p_patch(1:n_dom)%ldom_active
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
@@ -694,7 +689,7 @@ MODULE mo_nh_stepping
         CALL aggr_landvars
 
         DO jg=1, n_dom
-          IF (.NOT. ldom_active(jg)) CYCLE
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           ! diagnostics which are only required for output 
           CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
             &                      ih_clch(jg), ih_clcm(jg),               & !in
@@ -717,7 +712,7 @@ MODULE mo_nh_stepping
       ! Unit conversion for output from mass mixing ratios to densities
       !
       DO jg = 1, n_dom
-        IF (.NOT. ldom_active(jg)) CYCLE
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         CALL art_tools_interface('unit_conversion',p_nh_state(jg),jg)
       END DO
     ENDIF
@@ -734,7 +729,7 @@ MODULE mo_nh_stepping
     ! interpolate selected fields to p- and/or z-levels
     simulation_status = new_simulation_status(l_output_step  = l_nml_output,             &
       &                                       l_last_step    = (jstep==(nsteps+jstep0)), &
-      &                                       l_dom_active   = ldom_active,     &
+      &                                       l_dom_active   = p_patch(1:)%ldom_active,  &
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
