@@ -173,9 +173,8 @@ MODULE mo_nh_stepping
                                                ! the corresponding physics package
                                                ! (fast physics packages are treated as one)
 
-  LOGICAL, ALLOCATABLE :: linit_slowphy(:) ! determines whether slow physics has already been initialized
-
-  LOGICAL, ALLOCATABLE :: linit_dyn(:)  ! determines whether dynamics has already been initialized
+  LOGICAL, ALLOCATABLE :: linit_dyn(:)  ! determines whether dynamics must be initialized
+                                        ! on given patch
 
 
   ! additional time control variables which are not dimensioned with the number 
@@ -1558,7 +1557,6 @@ MODULE mo_nh_stepping
 
             jstep_adv(jgc)%marchuk_order = 0
             time_config%sim_time(jgc)    = time_config%sim_time(jg)
-            linit_slowphy(jgc)           = .TRUE.
             t_elapsed_phy(jgc,:)         = 0._wp
             linit_dyn(jgc)               = .TRUE.
 
@@ -2409,8 +2407,7 @@ MODULE mo_nh_stepping
   !
   ! deallocate flow control variables
   !
-  DEALLOCATE( lcall_phy, linit_slowphy, linit_dyn, &
-    &         t_elapsed_phy, STAT=ist )
+  DEALLOCATE( lcall_phy, linit_dyn, t_elapsed_phy, STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ( 'mo_nh_stepping: perform_nh_stepping',          &
       &    'deallocation for lcall_phy, t_elapsed_phy ' //        &
@@ -2455,8 +2452,8 @@ MODULE mo_nh_stepping
 
 
   ! allocate flow control variables for transport and slow physics calls
-  ALLOCATE(lcall_phy(n_dom,iphysproc),linit_slowphy(n_dom),        &
-    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc_short),  &
+  ALLOCATE(lcall_phy(n_dom,iphysproc), linit_dyn(n_dom), &
+    &      t_elapsed_phy(n_dom,iphysproc_short),         &
     &      STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
@@ -2465,7 +2462,6 @@ MODULE mo_nh_stepping
   !
   ! initialize
   IF (is_restart_run()) THEN
-    linit_slowphy(:)  = .FALSE.
     !
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
     DO jg = 1,n_dom
@@ -2488,7 +2484,6 @@ MODULE mo_nh_stepping
   ELSE
     jstep_adv(:)%marchuk_order = 0
     time_config%sim_time(:)    = 0._wp
-    linit_slowphy(:)           = .TRUE.
     t_elapsed_phy(:,:)         = 0._wp
     linit_dyn(:)               = .TRUE.
   ENDIF
