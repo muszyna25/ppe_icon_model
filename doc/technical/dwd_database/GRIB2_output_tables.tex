@@ -1,15 +1,25 @@
 \svnInfo $Id$
 \chapter{Available output fields in GRIB2-format}
 
-
-In GRIB2, a variable is uniquely defined by the following set of metadata:
+ICON output fields are exclusively available in GRIB2 format (\textbf{GRI}dded \textbf{B}inary Edition \textbf{2}), with the exception of 
+meteogram data (NetCDF). GRIB is a bit-oriented data storage format which was developed by WMO to facilitate the exchange of large volumes of 
+gridded data between weather prediction centres. For decoding and encoding GRIB2 messages, the DWD in general and ICON in particular 
+makes use of the ECMWF GRIB API. The current operational version at DWD is $1.12.3$.
+ 
+In GRIB2, a product (i.e.\ a variable/field) is identified by a set of three parameters
+% variable is uniquely defined by the following set of metadata:
 \begin{itemize}
  \item \emph{Discipline} (see GRIB2 code table 4.2)
  \item \emph{ParameterCategory} (see GRIB2 code table 4.2)
- \item \emph{ParameterNumber} (see GRIB2 code table 4.2)
- \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
- \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
+ \item \emph{ParameterNumber} (see GRIB2 code table 4.2), 
 \end{itemize}
+augmented by a large number of additional metadata to uniquely describe the nature of the data, like e.g.\
+\begin{itemize}
+  \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
+  \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
+ \end{itemize}
+just to name a few.
+
 A documentation of the official WMO GRIB2 code tables can be found here: \url{http://www.wmo.int/pages/prog/www/WMOCodes/WMO306_vI2/LatestVERSION/WMO306_vI2_GRIB2_CodeFlag_en.pdf}\\
 In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurface} will be abbreviated by \emph{Lev-Typ~1/2}.
 
@@ -63,16 +73,20 @@ fields is provided in Section \ref{sec_outfields}.
 ICON output is available on two distinct horizontal grids: The native triangular grid with an average resolution of $13\,\mathrm{km}$, 
 and a regular latitude-longitude grid with a resolution of $\Delta \lambda = \Delta \Phi=0.25^{\circ}$. On the native grid most output 
 fields are defined on triangle cell centers, except for \texttt{VN}, which is defined on cell edges. On the lat-lon grid, all fields are 
-defined on cell centers. A single 2D GRIB2 field on the native and regular lat-lon grid contains $2949120$ and $1036800$ grid points, respectively. 
+defined on cell centers. A single 2D GRIB2 field on the native and regular lat-lon grid contains $2949120$ and $1036800$ grid points, respectively.
 
-For details regarding the available fields, please see the tables below. Note that the vertical rules in the leftmost column indicate, whether the field is 
+Please note that for ICON fields the time unit is minutes rather than hours, and thus differs from GME (hours). 
+
+For details regarding the available fields, please see the tables below. Note that the vertical rules in the leftmost column indicate whether the field is 
 available on the native grid ($\,$\markRed$\,$), on the lat-lon grid($\,$\markBlue$\,$), or on both grids($\,$\markRed\markBlue$\,$). 
 
 
 \subsection{Time-constant (external parameter) fields}
 
 Table \ref{table_constdb} provides an overview of the available time invariant fields. All except for \texttt{HHL}, \texttt{ELON}, \texttt{ELAT}, 
-\texttt{VLON}, \texttt{VLAT} are available from the database category \texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. See Section 
+\texttt{VLON}, \texttt{VLAT} are available from the database category \texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. However, since  
+\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON, they should be taken as well as \texttt{HHL} from 
+\emph{forecast} database categories for step $s[h]=0$ (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}). See Section 
 \ref{sec_skycat} for more details on the database categories and Section \ref{sec_example} for sample retrievals.
 
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
@@ -473,6 +487,6 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
  \item [TQX\_DIA] Total column integrated water species \texttt{X}, with $\texttt{X}\in \{\texttt{C}, \texttt{I}\}$. 
                   Takes into account the sub-grid-scale variability that includes simple treatments of turbulent motion and convective 
                   detrainment. These cloud variables attempt to represent all model included physical processes. They are also 
-                  consistent with the cloud cover variables \texttt{CC}, \texttt{CLCT}, \texttt{CLCH}, \texttt{CLCM} and \texttt{CLCL}. 
+                  consistent with the cloud cover variables \texttt{CLC}, \texttt{CLCT}, \texttt{CLCH}, \texttt{CLCM} and \texttt{CLCL}. 
 \end{description}
 

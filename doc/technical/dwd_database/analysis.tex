@@ -120,7 +120,7 @@ This drip by drip incorporation acts as a low pass filter in frequency domain on
 small scale unbalanced modes are effectively filtered (see \cite{Bloom96}). The filter characteristic depends on the weighting function 
 $g(t)$. It should be noted that IAU only filters the increments and not the backgound state, such that regions where analysis increments are 
 zero remain unaffected. This method is currently applied to the prognostic atmospheric fields $\pi$, $\rho$, $v_{n}$, $q_{v}$, based on 
-analysis increments provided for $u$, $v$, $p$, $t$ and $q_{v}$.
+analysis increments provided for $u$, $v$, $p$, $t$ and $q_{v}$. $\pi$ denotes the Exner pressure.
 
 The method sounds incredibly simple, however there are a few technical aspects to be taken care of when implementing this into an operational 
 system: Figure \ref{fig_IAU_scheme} shows how the IAU-method is implemented in ICON for a $3\,\mathrm{h}$ assimilation run starting at midnight. 
