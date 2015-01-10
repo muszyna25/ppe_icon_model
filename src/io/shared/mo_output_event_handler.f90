@@ -2283,7 +2283,7 @@ CONTAINS
 
     ev_step = 0
     DO istep=1,event%n_event_steps
-      IF (event%event_step(istep)%i_sim_step <= jstep)  ev_step = istep
+      IF (event%event_step(istep)%i_sim_step < jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
 
