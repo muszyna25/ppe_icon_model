@@ -757,6 +757,7 @@ run/checksuite.ocean_internal/technical/exp.ocean_accumulation_daily -text
 run/checksuite.ocean_internal/technical/exp.ocean_accumulation_hourly -text
 run/checksuite.ocean_internal/technical/exp.ocean_ptest_analytic_noforcing -text
 run/checksuite.ocean_internal/technical/exp.ocean_ptest_omip_160km_1year -text
+run/checksuite.ocean_internal/technical/post.oce_omip_performance -text
 run/checksuite.ocean_internal/technical/post.ocean_accumulation -text
 run/checksuite.ocean_internal/technical/post.test_compare_restarts -text
 run/checksuite.ocean_internal/tracers/exp.oce_test_numeric_tracerconservation -text
