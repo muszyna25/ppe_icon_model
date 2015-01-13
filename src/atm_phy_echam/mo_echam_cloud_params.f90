@@ -45,7 +45,7 @@ MODULE mo_echam_cloud_params
   PUBLIC :: jbmin, jbmin1, jbmax, fjbmin, fjbmin1, fjbmax
   PUBLIC :: lonacc
 
-  PUBLIC :: csatsc
+  PUBLIC :: csatsc, cinv
   PUBLIC :: ceffmin
   PUBLIC :: csecfrl
   PUBLIC :: ccraut,ccsacl,ccracl,cauloc
@@ -66,6 +66,7 @@ MODULE mo_echam_cloud_params
   REAL(wp), PARAMETER :: crt     = 0.7_wp
   INTEGER,  PARAMETER :: nex     = 4
   REAL(wp), PARAMETER :: ceffmax = 150.0_wp   ! max eff.radius for ice cloud
+  REAL(wp), PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate
 
   !---------------------------------------
   ! default values for cloud cover scheme
