@@ -20,7 +20,7 @@
 MODULE mo_echam_cloud_params
 
   USE mo_kind,               ONLY: wp
-  USE mo_physical_constants, ONLY: tmelt, g=>grav
+  USE mo_physical_constants, ONLY: tmelt, grav
   USE mo_datetime,           ONLY: rdaylen
   USE mo_exception,          ONLY: finish, print_value
 
@@ -151,112 +151,6 @@ CONTAINS
     csatsc  = 1.0_wp
     cauloc  = 5.0_wp
 
-    IF (lcouple .OR. lipcc) THEN
-       csatsc  = 1.0_wp
-       cauloc  = 0.0_wp
-    ENDIF
-
-!!echam!
-!!echam! Special 11-Level values
-!!echam!
-!!echam
-!!echam  IF (nlev == 11) THEN
-!!echam    ccsacl  = 0.5_wp
-!!echam    ccracl  = 6.0_wp
-!!echam    csecfrl = 1.e-6_wp
-!!echam    ccraut  = 30.0_wp
-!!echam    cvtfall = 7.0_wp
-!!echam    ceffmin = 30.0_wp    ! min eff.radius for ice cloud
-!!echam    ccwmin  = 5.e-7_wp  ! cloud water limit for cover>0
-!!echam    csatsc  = 1.0_wp
-!!echam  ELSE
-!!echam    ccsacl  = 0.10_wp
-!!echam    ccracl  = 6.0_wp
-!!echam    csecfrl = 5.e-7_wp
-!!echam    IF(lham) csecfrl = 1.e-8_wp
-!!echam    ccraut  = 15.0_wp
-!!echam    cvtfall = 3.29_wp
-!!echam    ceffmin = 10.0_wp    ! min eff.radius for ice cloud
-!!echam    ccwmin  = 1.e-7_wp  ! cloud water limit for cover>0
-!!echam    csatsc  = 1.0_wp
-!!echam  ENDIF
-!!echam!
-!!echam!                19 Level, no middle atmosphere
-!!echam!
-!!echam  IF (nlev == 11  .AND. .NOT. lmidatm) THEN
-!!echam    IF (nn == 21) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE IF (nn == 31) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam
-!!echam  ELSE IF (nlev == 19 .AND. .NOT. lmidatm) THEN
-!!echam    IF (nn == 31) THEN
-!!echam      cauloc  = 1.0_wp
-!!echam    ELSE IF (nn == 42) THEN
-!!echam      cauloc  = 2.0_wp
-!!echam      IF(lham) cauloc  = 1.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                31 Level, no middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 31  .AND. .NOT. lmidatm) THEN
-!!echam    IF (nn == 63) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                39 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF (nlev == 39 .AND. lmidatm) THEN
-!!echam    IF (nn == 31) THEN
-!!echam      cauloc  = 3.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                47 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 47  .AND. lmidatm) THEN
-!!echam    IF (nn == 63) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                95 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 95  .AND. lmidatm) THEN
-!!echam    IF (nn == 127) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                199 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 199  .AND. lmidatm) THEN
-!!echam    IF (nn == 255) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam  ELSE
-!!echam    CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam  ENDIF
-!!echam!
-!!echam!-- overwrite values for coupled runs
-!!echam!
-!!echam!!echam  IF(lcouple .OR. lipcc) THEN
-!!echam    csatsc  = 1.0_wp
-!!echam    cauloc  = 0.0_wp
-!!echam  ENDIF
-!
 !
 !-- half level pressure values, assuming 101320. Pa surface pressure
 
@@ -273,7 +167,7 @@ CONTAINS
   END DO
 !
   DO jk = 1, nlev
-    zh(jk)=(zph(nlev+1)-zp(jk))/(g*1.25_wp)
+    zh(jk)=(zph(nlev+1)-zp(jk))/(grav*1.25_wp)
   END DO
 !
 ! -- search for highest inversion level (first full level below 1000 m)
