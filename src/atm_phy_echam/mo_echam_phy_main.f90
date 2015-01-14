@@ -323,10 +323,10 @@ CONTAINS
         lland = field%lfland(jc,jb)
         lglac = lland.AND.field%glac(jc,jb).GT.0._wp
         IF (lland.AND.(.NOT.lglac)) THEN
-          zn1= 50._wp
-          zn2=220._wp
+          zn1= 20._wp
+          zn2=180._wp
         ELSE
-          zn1= 50._wp
+          zn1= 20._wp
           zn2= 80._wp
         ENDIF
         IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
