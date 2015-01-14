@@ -30,7 +30,7 @@ MODULE mo_initicon_io
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
@@ -1388,10 +1388,10 @@ MODULE mo_initicon_io
   !!
   SUBROUTINE read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
-    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
-    INTEGER,                INTENT(IN)    :: fileID_fg(:), filetype_fg(:)
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag),      INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    INTEGER,                   INTENT(IN)    :: fileID_fg(:), filetype_fg(:)
 
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
@@ -1401,6 +1401,9 @@ MODULE mo_initicon_io
     INTEGER :: ngrp_vars_fg
     REAL(wp), POINTER :: my_ptr2d(:,:)
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_lnd_prog), POINTER :: lnd_prog
+    TYPE(t_lnd_diag), POINTER :: lnd_diag
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
     CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
     TYPE(t_inputParameters) :: parameters
 
@@ -1414,6 +1417,10 @@ MODULE mo_initicon_io
     !----------------------------------------!
 
     DO jg = 1, n_dom
+
+      lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+      wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -1434,25 +1441,25 @@ MODULE mo_initicon_io
 
       ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
       IF (init_mode /= MODE_COSMODE) THEN
-        CALL read_data_2d(parameters, filetype, 'fr_seaice', p_lnd_state(jg)%diag_lnd%fr_seaice, opt_checkgroup=checkgrp)
+        CALL read_data_2d(parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, opt_checkgroup=checkgrp)
       ELSE
 !$OMP PARALLEL WORKSHARE
-        p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0._wp
+        lnd_diag%fr_seaice(:,:) = 0._wp
 !$OMP END PARALLEL WORKSHARE
       ENDIF ! init_mode /= MODE_COSMODE
 
 
       ! sea-ice related fields
-      CALL read_data_2d(parameters, filetype, 't_ice', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'h_ice', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_ice', wtr_prog%t_ice, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'h_ice', wtr_prog%h_ice, opt_checkgroup=checkgrp)
 
       ! tile based fields
       DO jt=1, ntiles_total + ntiles_water
 
-        my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,jt)
+        my_ptr2d => lnd_prog%t_g_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 't_g', my_ptr2d, opt_checkgroup=checkgrp)
 
-        my_ptr2d =>p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt)
+        my_ptr2d =>lnd_diag%qv_s_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, opt_checkgroup=checkgrp)
 
         ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
@@ -1468,12 +1475,10 @@ MODULE mo_initicon_io
             ENDIF
 
             DO jc = 1, i_endidx
-              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = &
-                &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(jc,jb,1)
-
-              p_lnd_state(jg)%diag_lnd%qv_s(jc,jb) = &
-               &    p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,1)
+              lnd_prog%t_g(jc,jb)  = lnd_prog%t_g_t(jc,jb,1)
+              lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s_t(jc,jb,1)
             ENDDO  ! jc
+
           ENDDO  ! jb
 !$OMP END PARALLEL DO
         ENDIF
@@ -1483,40 +1488,40 @@ MODULE mo_initicon_io
       !  tile based fields
       DO jt=1, ntiles_total
 
-        my_ptr2d => p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt)
+        my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, opt_checkgroup=checkgrp )
 
-        my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt)
+        my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
-        my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt)
+        my_ptr2d => lnd_prog%w_i_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'w_i', my_ptr2d, opt_checkgroup=checkgrp )
 
-        my_ptr2d => p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt)
+        my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
-        my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt)
+        my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype,'t_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
-        my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt)
+        my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
 
         IF (lmulti_snow) THEN
         ! multi layer snow fields
-           my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt)
+           my_ptr3d => lnd_prog%t_snow_mult_t(:,:,:,jt)
            CALL read_data_3d (parameters, filetype, 't_snow_mult', nlev_snow+1, my_ptr3d, opt_checkgroup=checkgrp )
 
-           my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt)
+           my_ptr3d => lnd_prog%rho_snow_mult_t(:,:,:,jt)
            CALL read_data_3d (parameters, filetype, 'rho_snow_mult', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
 
-           my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%wtot_snow_t(:,:,:,jt)
+           my_ptr3d => lnd_prog%wtot_snow_t(:,:,:,jt)
            CALL read_data_3d (parameters, filetype, 'wtot_snow', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
 
-           my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%wliq_snow_t(:,:,:,jt)
+           my_ptr3d => lnd_prog%wliq_snow_t(:,:,:,jt)
            CALL read_data_3d (parameters, filetype, 'wliq_snow', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
 
-           my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%dzh_snow_t(:,:,:,jt)
+           my_ptr3d => lnd_prog%dzh_snow_t(:,:,:,jt)
            CALL read_data_3d (parameters, filetype, 'dzh_snow', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
         END IF ! lmulti_snow
 
@@ -1526,7 +1531,7 @@ MODULE mo_initicon_io
         ! Note that either w_so OR smi is written to w_so_t. Which one is required depends
         ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
         ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
-        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
+        my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
         !
         ! Note that no pointer assignment is missing here, since either W_SO or SMI is read
@@ -1536,10 +1541,10 @@ MODULE mo_initicon_io
 
         ! Skipped in MODE_COMBINED and in MODE_COSMODE. In that case, w_so_ice
         ! is re-diagnosed in terra_multlay_init
-        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt)
+        my_ptr3d => lnd_prog%w_so_ice_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 'w_so_ice', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
 
-        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,:,:,jt)
+        my_ptr3d => lnd_prog%t_so_t(:,:,:,jt)
         CALL read_data_3d (parameters, filetype, 't_so', nlev_soil+1, my_ptr3d, opt_checkgroup=checkgrp)
 
       ENDDO ! jt
@@ -1552,13 +1557,13 @@ MODULE mo_initicon_io
 
       ! first guess for fresh water lake fields
       !
-      CALL read_data_2d(parameters, filetype, 't_mnw_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 't_wml_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'h_ml_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 't_bot_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'c_t_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 't_b1_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'h_b1_lk', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_mnw_lk', wtr_prog%t_mnw_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_wml_lk', wtr_prog%t_wml_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'h_ml_lk', wtr_prog%h_ml_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_bot_lk', wtr_prog%t_bot_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'c_t_lk', wtr_prog%c_t_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_b1_lk', wtr_prog%t_b1_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'h_b1_lk', wtr_prog%h_b1_lk, opt_checkgroup=checkgrp)
 
       CALL deleteInputParameters(parameters)
 
@@ -1571,7 +1576,7 @@ MODULE mo_initicon_io
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         DO jt=1, ntiles_total
-          CALL smi_to_wsoil(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+          CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
         ENDDO
       ENDDO
     END IF
@@ -1596,18 +1601,21 @@ MODULE mo_initicon_io
   !!
   SUBROUTINE read_dwdana_sfc (p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
 
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
-    INTEGER,                INTENT(IN)    :: fileID_ana(:), filetype_ana(:)
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    INTEGER,                   INTENT(IN)    :: fileID_ana(:), filetype_ana(:)
 
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
 
-    INTEGER :: jg, jgp, jt
+    INTEGER :: jg, jgp, jt, jb, jc, i_endidx
     INTEGER :: ngrp_vars_ana, filetype
 
     REAL(wp), POINTER :: my_ptr2d(:,:)
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_lnd_prog), POINTER :: lnd_prog
+    TYPE(t_lnd_diag), POINTER :: lnd_diag
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
     TYPE(t_inputParameters) :: parameters
     CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
 
@@ -1621,6 +1629,10 @@ MODULE mo_initicon_io
     !----------------------------------------!
 
     DO jg = 1, n_dom
+
+      lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+      wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -1648,49 +1660,74 @@ MODULE mo_initicon_io
       checkgrp => initicon(jg)%grp_vars_ana(1:ngrp_vars_ana)
 
       ! sea-ice fraction
-      CALL read_data_2d (parameters, filetype, 'fr_seaice', p_lnd_state(jg)%diag_lnd%fr_seaice, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, opt_checkgroup=checkgrp )
       ! sea-ice temperature
-      CALL read_data_2d (parameters, filetype, 't_ice', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 't_ice', wtr_prog%t_ice, opt_checkgroup=checkgrp )
       ! sea-ice height
-      CALL read_data_2d (parameters, filetype, 'h_ice', p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'h_ice', wtr_prog%h_ice, opt_checkgroup=checkgrp )
 
       ! T_SO(0)
       my_ptr2d => initicon(jg)%sfc%sst(:,:)
       CALL read_data_2d (parameters, filetype, 't_so', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! h_snow
-      my_ptr2d => p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt)
+      my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
       CALL read_data_2d (parameters, filetype, 'h_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! w_snow
-      my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(:,:,jt)
+      my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
       CALL read_data_2d (parameters, filetype, 'w_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! w_i
-      my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(:,:,jt)
+      my_ptr2d => lnd_prog%w_i_t(:,:,jt)
       CALL read_data_2d (parameters, filetype, 'w_i', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! t_snow
-      my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt)
+      my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
       CALL read_data_2d (parameters, filetype, 't_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! rho_snow
-      my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt)
+      my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
       CALL read_data_2d (parameters, filetype, 'rho_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! freshsnow
-      my_ptr2d => p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt)
+      my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
       CALL read_data_2d (parameters, filetype, 'freshsnow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! w_so
       IF (init_mode == MODE_IAU) THEN
         my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
       ELSE
-        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
+        my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
       ENDIF
       CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
 
       CALL deleteInputParameters(parameters)
+
+      ! Fill remaining tiles for snow variables if tile approach is used
+      ! Only fields that are actually read from the snow analysis are copied; note that MODE_IAU is mandatory when using tiles
+      IF (init_mode == MODE_IAU .AND. ntiles_total>1) THEN
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jt,i_endidx)
+        DO jb = 1, p_patch(jg)%nblks_c
+          IF (jb == p_patch(jg)%nblks_c) THEN
+            i_endidx = p_patch(jg)%npromz_c
+          ELSE
+            i_endidx = nproma
+          ENDIF
+
+          DO jt = 2, ntiles_total
+            DO jc = 1, i_endidx
+              lnd_diag%freshsnow_t(jc,jb,jt) = lnd_diag%freshsnow_t(jc,jb,1)
+              lnd_diag%h_snow_t(jc,jb,jt)    = lnd_diag%h_snow_t(jc,jb,1)
+              lnd_prog%w_snow_t(jc,jb,jt)    = lnd_prog%w_snow_t(jc,jb,1)
+              lnd_prog%rho_snow_t(jc,jb,jt)  = lnd_prog%rho_snow_t(jc,jb,1)
+            ENDDO
+          ENDDO
+
+        ENDDO
+!$OMP END PARALLEL DO
+      ENDIF
 
     ENDDO ! loop over model domains
 
