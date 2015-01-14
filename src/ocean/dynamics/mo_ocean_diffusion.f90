@@ -83,7 +83,7 @@ CONTAINS
     REAL(wp), INTENT(inout)             :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
-    !REAL(wp) :: z_lapl(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: z_lapl(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     !INTEGER  :: level
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_ocean_diffusion:velocity_diffusion_horz')
@@ -94,7 +94,7 @@ CONTAINS
       
       !divgrad laplacian is chosen
       IF(veloc_diffusion_form==2)THEN
-        
+        CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of harmonic Laplacian not recommended")        
         CALL veloc_diff_harmonic_div_grad( patch_3D,&
           & p_param,   &
           & p_diag,    &
@@ -115,12 +115,14 @@ CONTAINS
     ELSEIF(veloc_diffusion_order==2)THEN
       
       IF(veloc_diffusion_form==2)THEN
-        
+        CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
         CALL veloc_diff_biharmonic_div_grad( patch_3D,   &
           & p_param,      &
           & p_diag,       &
           & p_op_coeff,   &
           & laplacian_vn_out)
+          
+          
       ELSEIF(veloc_diffusion_form==1)THEN
         
         CALL veloc_diff_biharmonic_curl_curl( patch_3D,        &
@@ -589,33 +591,31 @@ CONTAINS
 !ICON_OMP_END_DO
     CALL sync_patch_array(SYNC_E, patch_2D, z_grad_u_normal)
     
-    CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_grad_u_normal, p_op_coeff, &
-        & z_grad_u_normal_ptp)
-        
-    CALL div_oce_3D( z_grad_u_normal_ptp, patch_3D, p_op_coeff%div_coeff, div_c)
-    
+    !CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_grad_u_normal, p_op_coeff, &
+    !    & z_grad_u_normal_ptp)   
+    !CALL div_oce_3D( z_grad_u_normal_ptp, patch_3D, p_op_coeff%div_coeff, div_c)
+    CALL div_oce_3D( z_grad_u_normal, patch_3D, p_op_coeff%div_coeff, div_c)
     CALL grad_fd_norm_oce_3D( div_c, patch_3D, p_op_coeff%grad_coeff, grad_div_e)
-    
-    !Step 4: Repeat the application of div and grad and take the mixing coefficients into account
-    !First the grad of previous result
-    !now times the mixiing/friction coefficient
-! !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, &
-! !ICON_OMP il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
-!     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-!       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-!       DO edge_index = start_edge_index, end_edge_index
-!         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
-!           
-!             grad_div_e(edge_index,level,blockNo) &
-!             &= p_param%k_veloc_h(edge_index,level,blockNo) * &
-!             & grad_div_e(edge_index,level,blockNo)
-!               
-!         ENDDO
-!       END DO
-!     END DO
-! !ICON_OMP_END_DO
+
+! !     !Step 4: Repeat the application of div and grad and take the mixing coefficients into account
+! !     !First the grad of previous result
+! !     !now times the mixiing/friction coefficient
+! ! !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, &
+! ! !ICON_OMP il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
+! !     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+! !       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+! !       DO edge_index = start_edge_index, end_edge_index
+! !         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
+! !           
+! !             grad_div_e(edge_index,level,blockNo) &
+! !             &= sqrt(p_param%k_veloc_h(edge_index,level,blockNo)) * &
+! !             & grad_div_e(edge_index,level,blockNo)
+! !               
+! !         ENDDO
+! !       END DO
+! !     END DO
+! ! !ICON_OMP_END_DO
    CALL sync_patch_array(SYNC_E, patch_2D, grad_div_e)
-   !!CALL map_edges2cell_3d(patch_3d, grad_div_e, operators_coefficients, z_div_grad_u) 
 
     CALL div_oce_3D( grad_div_e, patch_3D, p_op_coeff%div_coeff, div_c)
 
@@ -630,16 +630,13 @@ CONTAINS
           il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
           ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
           
-          laplacian_vn_out(edge_index,level,blockNo) = &
-            & -0.5_wp &
-            & * p_param%k_veloc_h(edge_index,level,blockNo) &
-            & * (div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
+          laplacian_vn_out(edge_index,level,blockNo) &
+            &= -0.5_wp*p_param%k_veloc_h(edge_index,level,blockNo)*(div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
               
         END DO
       END DO
     END DO
 !ICON_OMP_END_DO
-
     !!Step 6: Map divergence back to edges
     !CALL map_cell2edges_3d( patch_3D, div_c,laplacian_vn_out,p_op_coeff)! requires cells_oneEdgeInDomain 
     
@@ -915,10 +912,10 @@ CONTAINS
       END DO
     END DO
 
-!      DO level=1,n_zlev
-!       write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
-!       &minval(nabla4_vec_e(:,level,:))
-!      END DO
+      DO level=1,n_zlev
+       write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
+       &minval(nabla4_vec_e(:,level,:))
+      END DO
 
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl

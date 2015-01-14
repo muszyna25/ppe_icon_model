@@ -1398,7 +1398,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
       ENDDO
     ENDDO
- write(0,*)'Galewsky-Test6:vn', maxval(vn),minval(vn)
+ !write(0,*)'Galewsky-Test6:vn', maxval(vn),minval(vn)
   END SUBROUTINE  velocity_GalewskyTest
   !-----------------------------------------------------------------------------------
 
@@ -1419,7 +1419,8 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: edge_vn!, COS_angle1, SIN_angle1
     REAL(wp) :: vn_perturb, alpha,beta, phi_2
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_5'
+    REAL(wp) :: shear_depth, shear_center, shear_top,shear_bottom
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_KelvinHelmholtz'
     !-------------------------------------------------------------------------
 
     ! CALL message(TRIM(method_name), ' ')
@@ -1427,44 +1428,62 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     patch_2d => patch_3d%p_patch_2d(1)
     all_edges => patch_2d%edges%ALL
     
-    phi_2=0.25_wp*pi
-    beta=1.0_wp/15.0_wp
-    alpha=1.0_wp/3.0_wp
-
+    phi_2 = 0.25_wp*pi
+    beta  = 1.0_wp/15.0_wp
+    alpha = 1.0_wp/3.0_wp
+    
+    
+    shear_depth  = 4.0_wp
+    shear_center = INT(0.5_wp*n_zlev)
+    shear_top    = shear_center-INT(0.5_wp*shear_depth)
+    shear_bottom = shear_center+INT(0.5_wp*shear_depth)
+    
+    edge_vn = 0.1_wp
 
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
-        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
-
-        uu = Galewsky_u(point_lon,point_lat,velocity_amplitude)
-
-        vv = Galewsky_v(point_lon,point_lat,velocity_amplitude)
-
-        edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-              & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
-
-        DO level = 1, INT(0.5*n_zlev)
-          vn(edge_index, level, edge_block) = 0.01_wp*edge_vn
+      
+         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+         uu = Galewsky_u(point_lon,point_lat,velocity_amplitude)
+         vv = Galewsky_v(point_lon,point_lat,velocity_amplitude)
+         edge_vn = 0.01_wp*(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2)
+              
+        !Above shear layer
+        DO level = 1, INT(shear_top)
+          vn(edge_index, level, edge_block) = edge_vn
         ENDDO
-        DO level = INT(0.5*n_zlev)+1,n_zlev
-          vn(edge_index, level, edge_block) = -0.01_wp*edge_vn
-        ENDDO
-        IF(level==INT(0.5*n_zlev)+1)THEN
-          IF(point_lon<= pi .and. point_lon> -pi)THEN
-          vn_perturb=120.0_wp*cos(point_lat)&
-          &*exp(-(point_lon/alpha)**2)*exp(-((phi_2-point_lat)/beta)**2)
         
-          vn(edge_index, level, edge_block) = vn(edge_index, level, edge_block)+vn_perturb
-
-          ENDIF
-        ENDIF
+        !Shear layer
+        DO level = INT(shear_top+1),INT(shear_bottom-1)
+          vn(edge_index, level, edge_block) = edge_vn* ((shear_center-level)/shear_depth)
+        ENDDO
+        
+        !Below shear layer
+        DO level = INT(shear_bottom),n_zlev
+          vn(edge_index, level, edge_block) = -edge_vn
+        ENDDO
+!         IF(level==INT(0.5*n_zlev)+1)THEN
+!           IF(point_lon<= pi .and. point_lon> -pi)THEN
+!           vn_perturb=120.0_wp*cos(point_lat)&
+!           &*exp(-(point_lon/alpha)**2)*exp(-((phi_2-point_lat)/beta)**2)
+!         
+!           vn(edge_index, level, edge_block) = vn(edge_index, level, edge_block)+vn_perturb
+! 
+!           ENDIF
+!         ENDIF
       ENDDO
     ENDDO
+!     DO level = 1, n_zlev
+!      write(*,*)'velocity', level, maxval(vn(:, level,:))   
+!     ENDDO
+
 
   END SUBROUTINE  velocity_KelvinHelmholtzTest
   !-----------------------------------------------------------------------------------
+
   
   
   
@@ -2467,35 +2486,54 @@ stop
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc, level
     INTEGER :: start_cell_index, end_cell_index
- 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_TropicsPolar'
+    REAL(wp) :: shear_depth, shear_center, shear_top,shear_bottom 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_KelvinHelmholtzTest'
     !-------------------------------------------------------------------------
 
     patch_2d    => patch_3d%p_patch_2d(1)
     all_cells   => patch_2d%cells%ALL
     cell_center => patch_2d%cells%center
 
-    ! Temperature profile depends on latitude and depth
-    ! Construct temperature profile
-    !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
-    !   for maximum tropical temperature see values above
-    CALL message(TRIM(method_name), ': simple tropics-pol/vertical temperature profile')
+    
+    shear_depth  = 4.0_wp
+    shear_center = INT(0.5_wp*n_zlev)
+    shear_top    = shear_center-INT(0.5_wp*shear_depth)
+    shear_bottom = shear_center+INT(0.5_wp*shear_depth)
+    
+    top_value    = 10.0_wp
+    bottom_value = 5.0_wp
+    
+!         linear_increase = (bottom_value - top_value ) / & 
+!           & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
 
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
       
-        DO jk = 1, INT(0.5_wp*n_zlev)
-          ocean_temperature(jc,jk,jb) = top_value!initial_temperature_top
-        END DO
-        DO jk =INT(0.5_wp*n_zlev)+1,n_zlev
-          ocean_temperature(jc,jk,jb) = bottom_value!initial_temperature_bottom
-        END DO
+      
+        !Above shear layer
+        DO level = 1, INT(shear_top)
+          ocean_temperature(jc,level,jb) = top_value
+        ENDDO
+        
+        !Shear layer
+        DO level = INT(shear_top+1),INT(shear_bottom-1)
+          ocean_temperature(jc,level,jb) = ocean_temperature(jc,level-1,jb)-(top_value-bottom_value)/shear_depth
+
+        ENDDO
+        
+        !Below shear layer
+        DO level = INT(shear_bottom),n_zlev
+          ocean_temperature(jc,level,jb) = bottom_value
+        ENDDO
       END DO
     END DO
+!      DO level = 1, n_zlev
+!       write(*,*)'ocean_temperature', level, maxval(ocean_temperature(:, level,:))   
+!      ENDDO
 
   END SUBROUTINE temperature_KelvinHelmholtzTest
   !-------------------------------------------------------------------------------

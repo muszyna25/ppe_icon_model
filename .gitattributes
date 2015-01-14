@@ -749,6 +749,14 @@ run/checksuite.ocean_internal/other/post.test_oce_default -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric_tracerconservation -text
 run/checksuite.ocean_internal/other/variations.rb -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp2_WavePropagation -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp3_WindDrivenBasin -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp4_CheckerBoardBasin -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6a_Instability_Barotropic -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6b_Instability_KelvinHelmholtz -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityChannel_10km -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/technical/exp.check_restart_1x4days -text
 run/checksuite.ocean_internal/technical/exp.check_restart_2x2days -text
