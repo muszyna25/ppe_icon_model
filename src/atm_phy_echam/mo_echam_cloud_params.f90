@@ -55,22 +55,40 @@ MODULE mo_echam_cloud_params
   !----------------------------------------
   ! default values for cloud microphysics
   !----------------------------------------
-  REAL(wp)            :: cthomi  = tmelt-35.0_wp
+
+  REAL(wp), PARAMETER :: cthomi  = tmelt-35.0_wp
   REAL(wp), PARAMETER :: cn0s    = 3.e6_wp
   REAL(wp), PARAMETER :: crhoi   = 500.0_wp
   REAL(wp), PARAMETER :: crhosno = 100.0_wp
-  REAL(wp)            :: ccsaut  = 95.0_wp
+  REAL(wp), PARAMETER :: cauloc  = 5.0_wp
+  REAL(wp), PARAMETER :: ccsaut  = 95.0_wp
+  REAL(wp), PARAMETER :: ccraut  = 15.0_wp
+  REAL(wp), PARAMETER :: ccsacl  = 0.1_wp
+  REAL(wp), PARAMETER :: ccracl  = 6.0_wp
+  REAL(wp), PARAMETER :: csecfrl = 5.e-7_wp
+  REAL(wp), PARAMETER :: cvtfall = 3.29_wp
   REAL(wp), PARAMETER :: clmax   = 0.5_wp
   REAL(wp), PARAMETER :: clmin   = 0.0_wp
-  REAL(wp), PARAMETER :: crs     = 0.9_wp
-  REAL(wp), PARAMETER :: crt     = 0.7_wp
-  INTEGER,  PARAMETER :: nex     = 4
+  REAL(wp), PARAMETER :: ceffmin = 10.0_wp    ! min eff.radius for ice cloud 
   REAL(wp), PARAMETER :: ceffmax = 150.0_wp   ! max eff.radius for ice cloud
-  REAL(wp), PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate
+  LOGICAL,  PARAMETER :: lonacc = .TRUE.
 
   !---------------------------------------
   ! default values for cloud cover scheme
   !---------------------------------------
+
+  REAL(wp), PARAMETER :: cptop        = 1000.0_wp   ! min. pressure level for cond. 
+  REAL(wp), PARAMETER :: cpbot        = 50000.0_wp  ! max. pressure level for tropopause calc.  
+
+  ! Sundqvist scheme:
+
+  REAL(wp), PARAMETER :: crs     = 0.9_wp     ! Critical relative humidity at surface
+  REAL(wp), PARAMETER :: crt     = 0.7_wp     ! Critical relative humidity aloft
+  INTEGER,  PARAMETER :: nex     = 4          ! Transition parameter for critical relative humidity profile
+  REAL(wp), PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate 
+  REAL(wp), PARAMETER :: csatsc  = 1.0_wp     ! Critical relative humidity multiplier under low-level inversions
+
+  ! Tompkins scheme:
 
   REAL(wp), PARAMETER :: cbeta_cs     = 10.0_wp                  ! K1: conv source of skew
   REAL(wp), PARAMETER :: ctaus        = 1.0_wp/( 0.5_wp*rdaylen) ! htau shortest timescale
@@ -78,24 +96,14 @@ MODULE mo_echam_cloud_params
   REAL(wp), PARAMETER :: ctauk        = 0.091625_wp              ! htau K = sqrt(3)*Cs(=0.23)^2.
   REAL(wp), PARAMETER :: cbeta_pq     = 2.0_wp                   ! q_0: target value for q
   REAL(wp), PARAMETER :: cbeta_pq_max = 50.0_wp                  ! max values for q
+  REAL(wp), PARAMETER :: ccwmin       = 1.e-7_wp
   REAL(wp), PARAMETER :: cvarmin      = 0.1_wp                   ! b-a_0: min dist width *qv
   REAL(wp), PARAMETER :: cmmrmax      = 0.005_wp                 ! max mmr of cld in cldy region
   REAL(wp), PARAMETER :: cqtmin       = 1.e-12_wp                ! total water minimum
 
-  REAL(wp), PARAMETER :: cptop        = 1000.0_wp   ! min. pressure level for cond.
-  REAL(wp), PARAMETER :: cpbot        = 50000.0_wp  ! max. pressure level for tropopause calc.
-
-  LOGICAL,  PARAMETER :: lonacc = .TRUE.
-
   !-------------------------------------------------------------
   ! parameters initialized in subroutine sucloud of this module
   !-------------------------------------------------------------
-  REAL(wp) :: csatsc
-  REAL(wp) :: ceffmin
-  REAL(wp) :: csecfrl
-  REAL(wp) :: ccraut,ccsacl,ccracl,cauloc
-  REAL(wp) :: cvtfall
-  REAL(wp) :: ccwmin
 
   INTEGER  :: ncctop           ! max. level for condensation
   INTEGER  :: nccbot           ! lowest level for tropopause calculation
@@ -137,19 +145,6 @@ CONTAINS
 
     REAL(wp) :: za, zb, zph(nlev+1), zp(nlev), zh(nlev)
     INTEGER  :: jk
-
-    ! Resolution dependent parameters.
-    ! A single set of values are hardwired here. Tuning needed for ICON
-
-    ccsacl  = 0.1_wp
-    ccracl  = 6.0_wp
-    csecfrl = 5.e-7_wp
-    ccraut  = 15.0_wp
-    cvtfall = 3.29_wp
-    ceffmin = 10.0_wp    ! min eff.radius for ice cloud
-    ccwmin  = 1.e-7_wp   ! cloud water limit for cover>0
-    csatsc  = 1.0_wp
-    cauloc  = 5.0_wp
 
 !
 !-- half level pressure values, assuming 101320. Pa surface pressure
