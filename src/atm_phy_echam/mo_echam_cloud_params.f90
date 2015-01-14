@@ -39,6 +39,7 @@ MODULE mo_echam_cloud_params
   PUBLIC :: cthomi,cn0s,crhoi,crhosno
   PUBLIC :: ccsaut
   PUBLIC :: clmin,clmax
+  PUBLIC :: clwprat 
   PUBLIC :: crs,crt,nex
   PUBLIC :: cqtmin
   PUBLIC :: cptop, cpbot, ncctop, nccbot
@@ -65,10 +66,11 @@ MODULE mo_echam_cloud_params
   REAL(wp), PARAMETER :: ccraut  = 15.0_wp
   REAL(wp), PARAMETER :: ccsacl  = 0.1_wp
   REAL(wp), PARAMETER :: ccracl  = 6.0_wp
-  REAL(wp), PARAMETER :: csecfrl = 5.e-7_wp
-  REAL(wp), PARAMETER :: cvtfall = 3.29_wp
+  REAL(wp), PARAMETER :: csecfrl = 5.e-6_wp
+  REAL(wp), PARAMETER :: cvtfall = 2.5_wp
   REAL(wp), PARAMETER :: clmax   = 0.5_wp
   REAL(wp), PARAMETER :: clmin   = 0.0_wp
+  REAL(wp), PARAMETER :: clwprat = 4.0_wp
   REAL(wp), PARAMETER :: ceffmin = 10.0_wp    ! min eff.radius for ice cloud 
   REAL(wp), PARAMETER :: ceffmax = 150.0_wp   ! max eff.radius for ice cloud
   LOGICAL,  PARAMETER :: lonacc = .TRUE.
@@ -82,11 +84,11 @@ MODULE mo_echam_cloud_params
 
   ! Sundqvist scheme:
 
-  REAL(wp), PARAMETER :: crs     = 0.9_wp     ! Critical relative humidity at surface
-  REAL(wp), PARAMETER :: crt     = 0.7_wp     ! Critical relative humidity aloft
-  INTEGER,  PARAMETER :: nex     = 4          ! Transition parameter for critical relative humidity profile
+  REAL(wp), PARAMETER :: crs     = 0.975_wp   ! Critical relative humidity at surface
+  REAL(wp), PARAMETER :: crt     = 0.75_wp    ! Critical relative humidity aloft
+  INTEGER,  PARAMETER :: nex     = 2          ! Transition parameter for critical relative humidity profile
   REAL(wp), PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate 
-  REAL(wp), PARAMETER :: csatsc  = 1.0_wp     ! Critical relative humidity multiplier under low-level inversions
+  REAL(wp), PARAMETER :: csatsc  = 0.7_wp     ! Min critical relative humidity multiplier under low-level inversions
 
   ! Tompkins scheme:
 
