@@ -30,6 +30,9 @@ def makeLinkTarget(sourceTemplate, targetTemplate)
     FileUtils.ln_s(sourceTemplate, targetTemplate, :force => true, :verbose => true)
   end
 end
+def getScriptNameWithSetup(template,setup)
+  targetRunscript = "#{template}_#{setup.sort.map {|s| s.tr(' ','')}.join('_')}.run"
+end
 def makeRunTarget(sourceTemplate,setup={})
   # command line arguments may overwrite internal defaults
   # but dont change the resulting runscript name
@@ -41,7 +44,7 @@ def makeRunTarget(sourceTemplate,setup={})
     targetRunscript = "#{sourceTemplate}.run"
     setup = setupByEnv
   else
-    targetRunscript = "#{sourceTemplate}_#{setup.sort.map {|item| item.join}.join}.run"
+    targetRunscript = getScriptNameWithSetup(sourceTemplate,setup)
     setup['out_script'] = targetRunscript
     setup  = setup.merge(setupByEnv)
   end
@@ -61,6 +64,7 @@ def makeRunTarget(sourceTemplate,setup={})
                      else
                        "echo 'Could not create targetRunscript: #{targetRunscript}"
                      end
+  desc "run script: #{targetRunscript}"
   file targetRunscript => sourceTemplate do |t|
     sh creationCommand
   end
@@ -70,6 +74,18 @@ def getAllGivenTests(args, environment)
   testsGiven
 end
 def getExpNameFromScript(scriptName)
+end
+desc "Test internal library"
+task :testLib, :name do |t,args|
+  require 'minitest/autorun'
+  tester = Minitest::Test.new(0)
+  case args.name
+  when 'getScriptNameWithSetup'
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma=4.run')
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes=43_nproma=4.run')
+  else
+    warn "No Test for method: #{args.name}"
+  end
 end
 # }}}
 # BASIC TEMPLATE PROCESSING {{{
@@ -116,9 +132,19 @@ CLEAN.include('*.run')
   :oceanTechnical         => %w[exp.oce_test_parallel],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanNpromaCheck       => [['exp.oce_omip_ref','nproma=3'],['exp.oce_omip_testSurface','nproma=7']],
-  :oceanMpiCheck          => [['exp.oce_omip_ref','no_of_nodes=1'],
-                              ['exp.oce_omip_ref','no_of_nodes=2'],
-                              ['exp.oce_omip_ref','no_of_nodes=1','mpi_procs_pernode=7']],
+  :oceanMpiCheck          => [
+    ['exp.oce_omip_ref','no_of_nodes=1'],
+    ['exp.oce_omip_ref','no_of_nodes=2'],
+    ['exp.oce_omip_ref','no_of_nodes=1','mpi_procs_pernode=7'],
+  ],
+  :oceanPerformance       => [
+    ['exp.oce_omip_performance','mpi_total_procs=1'],
+    ['exp.oce_omip_performance','mpi_total_procs=2'],
+    ['exp.oce_omip_performance','mpi_total_procs=4'],
+    ['exp.oce_omip_testSurface','mpi_total_procs=1'],
+    ['exp.oce_omip_testSurface','mpi_total_procs=2'],
+    ['exp.oce_omip_testSurface','mpi_total_procs=4'],
+  ],
   :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
   :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
@@ -324,11 +350,17 @@ task :run, :name do |t,args|
 
   # if testsuites are given, transform them into lists of experiments
   experimentList =[]
-  testsGiven.each {|test| 
-    if @testSuites.keys.include?(test.to_sym) then
-      experimentList << getExperimentsFromTestSuite(test.to_sym)
+  testsGiven.each {|test|
+    # special handling for technical variations of existing experiments
+    unless test.kind_of?(Array) then
+      if @testSuites.keys.include?(test.to_sym) then
+        experimentList << getExperimentsFromTestSuite(test.to_sym)
+      else
+        experimentList << test if @allTemplates.include?(test)
+      end
     else
-      experimentList << test if @allTemplates.include?(test)
+      template = test.pop
+      setup = test
     end
   }
   experimentList.flatten!; dbg(experimentList)
@@ -381,6 +413,10 @@ task :showSubmit do
   puts 'SUBMITs is: '
   pp @jobSubmit
   pp @jobSubmit[@jobHost.to_sym]
+end
+task :checkEnv do
+  #pp ENV
+  pp ENV.has_key?('omp_stacksize')
 end
 # }}}
 # vim:fdm=marker
