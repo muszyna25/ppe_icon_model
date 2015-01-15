@@ -34,7 +34,7 @@ B=4   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -72,7 +72,7 @@ grid_ext="etopo40_planet"
 #-----------------------------------------------------------------------------
 #grids_folder="/data/dkrz/ICON/ocean_data/ocean_grid/not_used"
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-#ocean_grids="AtlanticAquaBox_0079km.nc"
+ocean_grids="AtlanticAquaBox_0079km.nc"
 #=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
@@ -82,7 +82,7 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=11
+iforc=10 #11
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "type_surfRelax_Temp" below]
@@ -105,7 +105,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 # model timing
 ((  days_checkp   = 1000  ))   # write restart file interval [days]
 ((  days_restart  = 2000  ))   # stop model for restart [days]
-((  hours_data    = 6  ))   # ocean model output interval hours [hours] - for test runs
+((  hours_data    = 2  ))   # ocean model output interval hours [hours] - for test runs
 ((  days_file     = 10 ))   # write restart file interval [days]
 ((  year_output   = 10 ))   # stop writing model output to file [years]
 (( hour           = 3600 ))
@@ -141,12 +141,14 @@ cat > ${ocean_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
+ use_dummy_cell_closure = .true.
+ use_duplicated_connectivity = .false.
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600         ! model timestep in seconds
+ dtime       =  1     !3600         ! model timestep in seconds
  output      = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output = 3
@@ -176,11 +178,42 @@ cat > ${ocean_namelist} << EOF
 !  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev             =   40
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+!  n_zlev             =   40
+!  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+!                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+!                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+!                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+
+! 40 unevenly spaced levels used by MPIOM/GR30
+  n_zlev             =   40
+  dzlev_m(1:40)      =   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,
+                         60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,
+                         60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,
+                         60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0,   60.0
+
+! MPIOM 80 levels:
+! n_zlev          =   80
+! dzlev_m(1:80)   =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
+!                     13.,13.,14.,14.,15.,16.,16.,17.,18.,19.,
+!                     20.,21.,21.,22.,24.,25.,26.,27.,28.,29.,
+!                     31.,32.,34.,35.,37.,39.,40.,42.,44.,46.,
+!                     48.,50.,53.,55.,58.,60.,63.,66.,69.,72.,
+!                     76.,79.,83.,87.,91.,95.,99.,104.,108.,113.,
+!                     119.,124.,130.,136.,142.,149.,155.,163.,170.,178.,
+!                     186.,195.,204.,213.,223.,233.,244.,255.,267.,279.
+
+! MPIOM 80 levels:
+! n_zlev          =   80
+! dzlev_m(1:80)   =   100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 80.0,  80.0, 80.0, 70.0,
+!                     60.,60.,60.,60.,60.,60.,60.,50.,50.,50.,
+!                     40.,40.,40.,40.,40.,40.,40.,20.,20.,20.,
+!                     20.,20.,20.,20.,20.,20.,20.,20.,20.,20.,
+!                     20.,20.,20.,20.,20.,20.,20.,20.,20.,20.,
+!                     20.,20.,20.,20.,20.,20.,20.,20.,20.,20.,
+!                     20.,20.,20.,20.,20.,20.,20.,20.,20.,20.,
+!                    20.,20.,20.,20.,20.,100.,100.,100.,100.,100.
+
+
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
    solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
@@ -232,12 +265,12 @@ cat > ${ocean_namelist} << EOF
 &ocean_initialConditions_nml
   ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   initial_salinity_type      = 200
-  initial_temperature_type   = 302
+  initial_temperature_type   = 301
 !  initial_sst_type           = 'sst1'
   initial_salinity_top    = 35.0 ! top = in bubble
   initial_salinity_bottom = 35.0 ! bottom = outside
-  initial_temperature_top    = 5.0 ! top = in bubble
-  initial_temperature_bottom = 12.5 ! bottom = outside
+  initial_temperature_top    = 20.0 ! top = in bubble
+  initial_temperature_bottom = 10.0 ! bottom = outside
 /
 &ocean_diagnostics_nml
   diagnostics_level  = 1
