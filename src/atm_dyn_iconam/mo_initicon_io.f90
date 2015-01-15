@@ -1567,19 +1567,15 @@ MODULE mo_initicon_io
 
       CALL deleteInputParameters(parameters)
 
-    ENDDO ! loop over model domains
-
-
-    ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
-    ! SMI stored in w_so_t must be converted to w_so
-    IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-      DO jg = 1, n_dom
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+      ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+      ! SMI stored in w_so_t must be converted to w_so
+      IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
         DO jt=1, ntiles_total
           CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
         ENDDO
-      ENDDO
-    END IF
+      END IF
+
+    ENDDO ! loop over model domains
 
   END SUBROUTINE read_dwdfg_sfc
 
