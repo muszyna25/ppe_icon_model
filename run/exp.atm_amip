@@ -349,7 +349,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg','pfull','dpres_mc'
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc'
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
@@ -364,7 +364,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- pl_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg'
+ pl_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg'
  p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
                     15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
