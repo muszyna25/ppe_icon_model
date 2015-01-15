@@ -893,7 +893,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now_grf, n_now, n_new, n_save, n_sedi
+    INTEGER :: n_now_grf, n_now, n_new, n_save
     INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
   
     INTEGER :: jstep, jgp, jgc, jn
@@ -1217,23 +1217,19 @@ MODULE mo_nh_stepping
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
 
-! So far, ART-sedimentation was performed at each dynamics time step. How to proceed???
-! With the following code it would now be called every physics step only!
+        ! ART tracer sedimentation: 
+        !     Internal substepping with ndyn_substeps_var(jg)
+        !-----------------------
           IF (lart) THEN
-!!$            IF (lstep_adv(jg)) THEN
-              n_sedi = n_new_rcf
-!!$            ELSE
-!!$              n_sedi = n_now_rcf
-!!$            ENDIF
-            
             CALL art_sedi_interface( p_patch(jg),             &!in
                &      dt_loc,                                 &!in
-               &      p_nh_state(jg)%prog(n_sedi),            &!in              
+               &      p_nh_state(jg)%prog(n_new_rcf),         &!in
                &      p_nh_state(jg)%metrics,                 &!in
                &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
                &      prm_diag(jg),                           &!in
-               &      p_nh_state(jg)%prog(n_sedi)%tracer,     &!inout
+               &      ndyn_substeps_var(jg),                  &!in
+               &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
 
