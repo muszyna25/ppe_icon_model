@@ -75,9 +75,14 @@ end
 #
 # link the existing template to top level
 def makeLinkTarget(sourceTemplate, targetTemplate)
+  desc "link component test #{sourceTemplate} to toplevel #{targetTemplate}"
   file targetTemplate => sourceTemplate do
+    sh 'pwd'
+    sh 'ls'
+    pp sourceTemplate
     FileUtils.ln_s(sourceTemplate, targetTemplate, :force => true, :verbose => true)
   end
+  CLEAN.include(targetTemplate)
 end
 # create a runscript from an existing toplevel template
 # optional setup for technical variations
@@ -100,7 +105,7 @@ def makeRunTarget(sourceTemplate,setup={})
   dbg(setup)
   dbg(targetRunscript)
 
-  tag, expname  = sourceTemplate.split('.')
+  tag, expname  = targetRunscript.split('.')
   dbg([tag,expname])
 
   CLEAN.include(targetRunscript)
@@ -170,7 +175,7 @@ templatesWithRealPath = @componentTemplates.values.map(&:values).flatten.delete_
         setupHash: setup.map {|v| v.split('=')}.to_h,
       })
       # get real path name for the template
-      templateRealPath  = templatesWithRealPath.grep(/#{template}$/)
+      templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
         templateWithSetup = getTemplateNameWithSetup(template,setup)
       scriptWithSetup   = getScriptNameWithSetup(template,setup)
 
