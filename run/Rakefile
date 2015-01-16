@@ -1,6 +1,21 @@
 require 'rake/clean'
 require 'logger'
 require 'pp'
+
+#==============================================================================
+# EXAMPLES:
+# 1. Create a runscrtipt from an existing template
+#   rake exp.tet_oce_default.run
+# 2. Create all runscripts from an existing test suite
+#   rake oceanLong
+# 3. Run an exiting runscript/test suite
+#   rake run[exp.test_oce_default]
+#   rake run[oceanLong]
+# 4. Run same stuff with special technical setup
+#   rake run[exp.test_oce_default] no_of_nodes=8
+#   rake run[oceanLong] nproma=128
+#==============================================================================
+#==============================================================================
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
 # }}}
