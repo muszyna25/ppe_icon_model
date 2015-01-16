@@ -15,10 +15,36 @@ require 'pp'
 #   rake run[exp.test_oce_default] no_of_nodes=8
 #   rake run[oceanLong] nproma=128
 #==============================================================================
-#==============================================================================
-# BASIC FOMATING SETUP {{{ ====================================================
-LINEWIDTH = 80
+# USER DEFINED TEST COLLECTIONS {{{ ===========================================
+@testSuites = {
+  :oceanAccumulation      => %w[exp.ocean_accumulation_hourly exp.ocean_accumulation_daily],
+  :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
+  :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
+  :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
+  :oceanTechnical         => %w[exp.oce_test_parallel],
+  :oceanSurface           => %w[exp.oce_omip_testSurface],
+  :oceanNpromaCheck       => [['exp.oce_omip_ref','nproma=3'],['exp.oce_omip_testSurface','nproma=7']],
+  :oceanMpiCheck          => [
+    ['exp.oce_omip_ref','no_of_nodes=1'],
+    ['exp.oce_omip_ref','no_of_nodes=2'],
+    ['exp.oce_omip_ref','no_of_nodes=1','mpi_procs_pernode=7'],
+  ],
+  :oceanPerformance       => [
+    ['exp.oce_omip_performance','mpi_total_procs=1'],
+    ['exp.oce_omip_performance','mpi_total_procs=2'],
+    ['exp.oce_omip_performance','mpi_total_procs=4'],
+    ['exp.oce_omip_testSurface','mpi_total_procs=1'],
+    ['exp.oce_omip_testSurface','mpi_total_procs=2'],
+    ['exp.oce_omip_testSurface','mpi_total_procs=4'],
+  ],
+  :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
+  :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
+  :oceanDev               => %w[oceanTechnical oceanBasicConservation],
+  :oceanStable            => %w[oceanLong],
+  :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
+}
 # }}}
+#==============================================================================
 # HELPER METHODS {{{ ==========================================================
 def dbg(item)
   if ENV.has_key?('DEBUG')
@@ -39,8 +65,11 @@ def getExperimentsFromTestSuite(suite)
   }
   experimentList
 end
+def getTemplateNameWithSetup(template,setup)
+  return "#{template}_#{setup.sort.map {|s| s.tr(' ','').gsub(/=/,'')}.join('_')}"
+end
 def getScriptNameWithSetup(template,setup)
-  targetRunscript = "#{template}_#{setup.sort.map {|s| s.tr(' ','')}.join('_')}.run"
+  return getTemplateNameWithSetup(template,setup)+'.run'
 end
 # collect ALL test automatically from checksuites
 #
@@ -64,6 +93,7 @@ def makeRunTarget(sourceTemplate,setup={})
     setup = setupByEnv
   else
     targetRunscript = getScriptNameWithSetup(sourceTemplate,setup)
+    setup = setup.map {|v| v.tr(' ','').split('=')}.to_h if setup.kind_of?(Array)
     setup['out_script'] = targetRunscript
     setup  = setup.merge(setupByEnv)
   end
@@ -95,7 +125,7 @@ end
 def getExpNameFromScript(scriptName)
 end
 # }}}
-# BASIC TEMPLATE PROCESSING {{{
+# BASIC TEMPLATE PROCESSING {{{ ===============================================
 @componentTemplates = {}
 {
   :ocean          => {:subDirPattern => 'ocean_internal/**/*'},
@@ -112,53 +142,58 @@ end
     end
   }
 }
-# collect ALL TESTS
-#   available top level tests
+# collect ALL TESTS -----------------------------------------------------------
+#  available top level tests
 @allTemplates = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
-#   templates from ckecksuites
+#  templates from ckecksuites
 @componentTemplates.each_value {|v| @allTemplates << v.keys}
 @allTemplates.flatten!
 CLEAN.include('*.run')
-# define symlink rule for checksuite items
+#  (A) define rule for create .run files for toplevel and plain component templates
+@allTemplates.each {|template| makeRunTarget(template) }
+#  (B) define symlink rule for checksuite items
 @componentTemplates.each {|component, componentsTests|
-  componentsTests.each {|template,source|
-    makeLinkTarget(source, template)
-  }
+  componentsTests.each {|template,source| makeLinkTarget(source, template) }
 }
-# define rule for create .run files
-@allTemplates.each {|template|
-  makeRunTarget(template)
+#  (C) define targets for all testsuite targetes WITH special parameters
+templatesWithRealPath = @componentTemplates.values.map(&:values).flatten.delete_if {|v| v.empty?}
+@testSuites.each {|name,experimentList|
+  testSuiteRunscripts = []
+  experimentList.each {|experimentDescription|
+    # handle ONLY tests WITH parameter settings - all other are alreade covered by (A) and (B)
+    if experimentDescription.kind_of?(Array) then
+      template, setup = experimentDescription[0],experimentDescription[1..-1]
+
+      dbg( {
+        template: template,
+        setup: setup,
+        setupHash: setup.map {|v| v.split('=')}.to_h,
+      })
+      # get real path name for the template
+      templateRealPath  = templatesWithRealPath.grep(/#{template}$/)
+        templateWithSetup = getTemplateNameWithSetup(template,setup)
+      scriptWithSetup   = getScriptNameWithSetup(template,setup)
+
+      dbg( {
+        templatesWithRealPath: templateRealPath,
+        templateWithSetup: templateWithSetup,
+        scriptWithSetup: scriptWithSetup,
+      })
+
+      makeLinkTarget(templateRealPath,templateWithSetup)
+      makeRunTarget(template,setup)
+
+      testSuiteRunscripts << scriptWithSetup
+    else
+      testSuiteRunscripts << experimentDescription
+    end
+  }
+  file name => testSuiteRunscripts 
 }
 # }}}
-# USER DEFINED TEST COLLECTIONS {{{ =========================================================
-@testSuites = {
-  :oceanAccumulation      => %w[exp.ocean_accumulation_hourly exp.ocean_accumulation_daily],
-  :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
-  :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
-  :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
-  :oceanTechnical         => %w[exp.oce_test_parallel],
-  :oceanSurface           => %w[exp.oce_omip_testSurface],
-  :oceanNpromaCheck       => [['exp.oce_omip_ref','nproma=3'],['exp.oce_omip_testSurface','nproma=7']],
-  :oceanMpiCheck          => [
-    ['exp.oce_omip_ref','no_of_nodes=1'],
-    ['exp.oce_omip_ref','no_of_nodes=2'],
-    ['exp.oce_omip_ref','no_of_nodes=1','mpi_procs_pernode=7'],
-  ],
-  :oceanPerformance       => [
-    ['exp.oce_omip_performance','mpi_total_procs=1'],
-    ['exp.oce_omip_performance','mpi_total_procs=2'],
-    ['exp.oce_omip_performance','mpi_total_procs=4'],
-    ['exp.oce_omip_testSurface','mpi_total_procs=1'],
-    ['exp.oce_omip_testSurface','mpi_total_procs=2'],
-    ['exp.oce_omip_testSurface','mpi_total_procs=4'],
-  ],
-  :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
-  :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
-  :oceanDev               => %w[oceanTechnical oceanBasicConservation],
-  :oceanStable            => %w[oceanLong],
-  :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
-}
-
+# BASIC FOMATING SETUP {{{ ====================================================
+LINEWIDTH = 80
+# }}}
 # LIST TESTS {{{ ==============================================================
 desc "Show all known ocean tests"
 task :showOcean do
@@ -430,9 +465,12 @@ task :testLib, :name do |t,args|
   require 'minitest/autorun'
   tester = Minitest::Test.new(0)
   case args.name
+  when 'getTemplateNameWithSetup'
+    tester.assert_equal(getTemplateNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma4')
+    tester.assert_equal(getTemplateNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes43_nproma4')
   when 'getScriptNameWithSetup'
-    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma=4.run')
-    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes=43_nproma=4.run')
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma4.run')
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes43_nproma4.run')
   else
     warn "No Test for method: #{args.name}"
   end
