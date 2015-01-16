@@ -209,13 +209,20 @@ Table \ref{table_constdb} provides an overview of the available time invariant f
 
 \subsection{Multi-level fields interpolated to pressure levels}
 
-The following pressure levels are available: $1000$, $950$, $925$, $900$, $850$, $800$, $700$, $600$, $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
-$70$, $50$, $30$, \textcolor{red}{$20$}, $10$, \textcolor{red}{$7$}, $5$, \textcolor{red}{$3$}, \textcolor{red}{$2$}, \textcolor{red}{$1$}, 
-\textcolor{red}{$0.3$}, \textcolor{red}{$0.1$} $\mathrm{hPa}$. Newly available 
-pressure levels (as compared to GME) are highlighted in red. I.e.\ note that all $17$ WMO standard pressure levels are included.
+\newcommand{\pressurelevelsTriangular}{$1000$, $950$, $850$, $700$, $500$, $300$ $\mathrm{hPa}$}
 
-\begin{table}[H]
-\caption{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels}
+\newcommand{\pressurelevelsRegular}{$1000$, $950$, $925$, $900$, $850$, $800$, $700$, $600$, $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
+$70$, $50$, $30$, \textcolor{red}{$20$}, $10$, \textcolor{red}{$7$}, $5$, \textcolor{red}{$3$}, \textcolor{red}{$2$}, \textcolor{red}{$1$}, 
+\textcolor{red}{$0.3$}, \textcolor{red}{$0.1$} $\mathrm{hPa}$}
+
+For regular grid output the following pressure levels are available: \pressurelevelsRegular. 
+Newly available pressure levels (as compared to GME) are highlighted in red. 
+The output fields are listed in Table~\ref{table:output_pressurelevels_regular}.
+I.e.\ note that all $17$ WMO standard pressure levels are included.
+
+\begin{table}
+\caption{Regular grid output:
+         Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels \pressurelevelsRegular.}
  \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
   \toprule
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
@@ -228,12 +235,30 @@ pressure levels (as compared to GME) are highlighted in red. I.e.\ note that all
 \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
   \bottomrule
  \end{tabular}
+\label{table:output_pressurelevels_regular}%
 \end{table}
 
+\begin{table}
+\caption{Native (triangular) grid output:
+         Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels \pressurelevelsTriangular.}
+ \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
+  \toprule
+&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+\groups[tri][] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
+\groups[tri][] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\
+\groups[tri][] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
+\groups[tri][] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+\groups[tri][] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+  \bottomrule
+ \end{tabular}
+\label{table:output_pressurelevels_triangular}%
+\end{table}
 
+On the native (triangular) grid, output is generated for levels \pressurelevelsTriangular.
+The output fields are listed in Table~\ref{table:output_pressurelevels_triangular}.
 
-
-
+\newpage
 \subsection{Single-level fields}
 
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
