@@ -145,7 +145,8 @@ MODULE mo_var_metadata_types
 
   !> data specific for horizontal interpolation.
   TYPE t_hor_interp_meta
-    INTEGER :: hor_intp_type ! NONE/LONLAT
+    INTEGER :: hor_intp_type ! NONE/RBF/Nearest-Neighbor/...
+    INTEGER :: fallback_type ! replaces "hor_intp_type" if this is not feasible
     INTEGER :: lonlat_id     ! lon-lat grid (ID in global list)
   END TYPE t_hor_interp_meta
 

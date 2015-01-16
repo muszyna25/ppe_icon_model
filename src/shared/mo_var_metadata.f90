@@ -63,19 +63,21 @@ CONTAINS
   ! Quasi-constructor for horizontal interpolation meta data
   !
   ! Fills data structure with default values (unless set otherwise).
-  FUNCTION create_hor_interp_metadata(hor_intp_type, lonlat_id)    &
+  FUNCTION create_hor_interp_metadata(hor_intp_type, fallback_type, lonlat_id)    &
     RESULT(hor_interp_meta)
 
     TYPE(t_hor_interp_meta) :: hor_interp_meta
     INTEGER, INTENT(IN), OPTIONAL      :: &
-      &  hor_intp_type, lonlat_id
+      &  hor_intp_type, fallback_type, lonlat_id
 
     ! set default values
     hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT_RBF
+    hor_interp_meta%fallback_type    = HINTP_TYPE_LONLAT_RBF
     hor_interp_meta%lonlat_id        = 0 ! invalid ID
 
     ! supersede with user definitions
     CALL assign_if_present(hor_interp_meta%hor_intp_type, hor_intp_type)
+    CALL assign_if_present(hor_interp_meta%fallback_type, fallback_type)
     CALL assign_if_present(hor_interp_meta%lonlat_id,     lonlat_id)
 
   END FUNCTION create_hor_interp_metadata

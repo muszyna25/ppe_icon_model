@@ -1696,6 +1696,7 @@ src/shared/mo_math_utilities.f90 -text
 src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_mtime_extensions.f90 -text
 src/shared/mo_namelist.f90 -text
+src/shared/mo_octree.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
@@ -1727,6 +1728,8 @@ src/shared/mo_var_metadata_types.f90 -text
 src/shared/mo_vertical_coord_table.f90 -text
 src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
+src/shr_horizontal/mo_delaunay.f90 -text
+src/shr_horizontal/mo_delaunay_types.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text

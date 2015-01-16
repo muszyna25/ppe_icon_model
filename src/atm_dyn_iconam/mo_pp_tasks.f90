@@ -32,7 +32,7 @@ MODULE mo_pp_tasks
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,                            &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
-    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA
+    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR
   USE mo_model_domain,            ONLY: t_patch
   USE mo_var_list_element,        ONLY: t_var_list_element
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
@@ -59,7 +59,7 @@ MODULE mo_pp_tasks
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL,                  &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
     &                                   is_2d_field
-  USE mo_intp_lonlat,             ONLY: rbf_interpol_lonlat,                     &
+  USE mo_intp_lonlat,             ONLY: interpol_lonlat,                         &
     &                                   rbf_vec_interpol_lonlat
   USE mo_sync,                    ONLY: sync_patch_array,                        &
     &                                   SYNC_C, SYNC_E,                          &
@@ -70,6 +70,7 @@ MODULE mo_pp_tasks
     &                                   compute_field_omega
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area
+  USE mo_interpol_config,         ONLY: support_baryctr_intp
   IMPLICIT NONE
 
   ! interface definition
@@ -222,6 +223,23 @@ CONTAINS
     ptr_int_lonlat => lonlat_grid_list(lonlat_id)%intp(jg)
     hintp_type     = p_info%hor_interp%hor_intp_type
 
+    ! --------------------------------------------------------------------------
+    !
+    ! IMPORTANT: Currently, barycentric interpolation supported only
+    !            - for patch #1 and
+    !            - if the namelist parameter "interpol_nml/support_baryctr_intp"
+    !              has been set to .TRUE.
+    !
+    ! If these two prerequisites are not met, then we choose a different
+    ! interpolation algorithm as a fallback option. This algorithm is specified
+    ! by "hor_interp%fallback_type".
+    ! --------------------------------------------------------------------------
+    IF (hintp_type == HINTP_TYPE_LONLAT_BCTR) THEN
+      IF ((jg > 1) .OR. .NOT. support_baryctr_intp) THEN
+        hintp_type = p_info%hor_interp%fallback_type
+      END IF
+    END IF
+
     in_var_idx        = 1
     IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
     out_var_idx       = 1
@@ -260,7 +278,8 @@ CONTAINS
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL rbf_interpol_lonlat(                 &
+          CALL interpol_lonlat(                     &
+            &   TRIM(p_info%name),                  &
             &   tmp_var(:,:,:),                     &
             &   ptr_int_lonlat,                     &
             &   out_var%r_ptr(:,:,:,out_var_idx,1), &
@@ -272,7 +291,8 @@ CONTAINS
         ELSE
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL rbf_interpol_lonlat(                 &
+          CALL interpol_lonlat(                     &
+            &   TRIM(p_info%name),                  &
             &   in_var%r_ptr(:,:,:,in_var_idx,1),   &
             &   ptr_int_lonlat,                     &
             &   out_var%r_ptr(:,:,:,out_var_idx,1), &
@@ -296,7 +316,8 @@ CONTAINS
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL rbf_interpol_lonlat(                 &
+          CALL interpol_lonlat(                     &
+            &   TRIM(p_info%name),                  &
             &   tmp_int_var(:,:,:),                 &
             &   ptr_int_lonlat,                     &
             &   out_var%i_ptr(:,:,:,out_var_idx,1), &
@@ -308,7 +329,8 @@ CONTAINS
         ELSE
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL rbf_interpol_lonlat(                 &
+          CALL interpol_lonlat(                     &
+            &   TRIM(p_info%name),                  &
             &   in_var%i_ptr(:,:,:,in_var_idx,1),   &
             &   ptr_int_lonlat,                     &
             &   out_var%i_ptr(:,:,:,out_var_idx,1), &
