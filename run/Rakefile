@@ -39,15 +39,19 @@ def getExperimentsFromTestSuite(suite)
   }
   experimentList
 end
+def getScriptNameWithSetup(template,setup)
+  targetRunscript = "#{template}_#{setup.sort.map {|s| s.tr(' ','')}.join('_')}.run"
+end
 # collect ALL test automatically from checksuites
+#
+# link the existing template to top level
 def makeLinkTarget(sourceTemplate, targetTemplate)
   file targetTemplate => sourceTemplate do
     FileUtils.ln_s(sourceTemplate, targetTemplate, :force => true, :verbose => true)
   end
 end
-def getScriptNameWithSetup(template,setup)
-  targetRunscript = "#{template}_#{setup.sort.map {|s| s.tr(' ','')}.join('_')}.run"
-end
+# create a runscript from an existing toplevel template
+# optional setup for technical variations
 def makeRunTarget(sourceTemplate,setup={})
   # command line arguments may overwrite internal defaults
   # but dont change the resulting runscript name
@@ -89,18 +93,6 @@ def getAllGivenTests(args, environment)
   testsGiven
 end
 def getExpNameFromScript(scriptName)
-end
-desc "Test internal library"
-task :testLib, :name do |t,args|
-  require 'minitest/autorun'
-  tester = Minitest::Test.new(0)
-  case args.name
-  when 'getScriptNameWithSetup'
-    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma=4.run')
-    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes=43_nproma=4.run')
-  else
-    warn "No Test for method: #{args.name}"
-  end
 end
 # }}}
 # BASIC TEMPLATE PROCESSING {{{
@@ -432,6 +424,18 @@ end
 task :checkEnv do
   #pp ENV
   pp ENV.has_key?('omp_stacksize')
+end
+desc "Test internal library"
+task :testLib, :name do |t,args|
+  require 'minitest/autorun'
+  tester = Minitest::Test.new(0)
+  case args.name
+  when 'getScriptNameWithSetup'
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma=4.run')
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes=43_nproma=4.run')
+  else
+    warn "No Test for method: #{args.name}"
+  end
 end
 # }}}
 # vim:fdm=marker
