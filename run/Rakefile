@@ -33,6 +33,8 @@ require 'pp'
     ['exp.oce_omip_performance','mpi_total_procs=1'],
     ['exp.oce_omip_performance','mpi_total_procs=2'],
     ['exp.oce_omip_performance','mpi_total_procs=4'],
+    ['exp.oce_omip_performance','no_of_nodes=2'],
+    ['exp.oce_omip_performance','no_of_nodes=4'],
     ['exp.oce_omip_testSurface','mpi_total_procs=1'],
     ['exp.oce_omip_testSurface','mpi_total_procs=2'],
     ['exp.oce_omip_testSurface','mpi_total_procs=4'],
