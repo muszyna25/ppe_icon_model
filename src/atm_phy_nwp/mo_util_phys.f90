@@ -83,13 +83,13 @@ CONTAINS
 
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(wp) :: ff10m, ustar, utop_ssoenv
-    REAL(wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
+    REAL(wp) :: ff10m, ustar, uadd_sso
+    REAL(wp), PARAMETER :: gust_factor = 8.0_wp ! previously 3.0_wp * 2.4_wp
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
-    utop_ssoenv = SQRT( u_env**2 + v_env**2)
+    uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
     ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
-    vgust_dyn = MAX(utop_ssoenv, ff10m + gust_factor*ustar)
+    vgust_dyn = ff10m + uadd_sso + gust_factor*ustar
 
   END FUNCTION nwp_dyn_gust
 
@@ -629,7 +629,7 @@ CONTAINS
         ! DA increments of humidity are limited to positive values if RH < 2% or QV < 2.5e-6
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            IF (zrhw(jc,jk) < 0.02_wp .OR. pt_diag%qv_incr(jc,jk,jb) < 2.5e-6_wp) THEN
+            IF (zrhw(jc,jk) < 0.02_wp .OR. pt_prog_rcf%tracer(jc,jk,jb,iqv) < 2.5e-6_wp) THEN
               zqin = MAX(0._wp, pt_diag%qv_incr(jc,jk,jb))
             ELSE
               zqin = pt_diag%qv_incr(jc,jk,jb)

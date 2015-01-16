@@ -33601,7 +33601,10 @@ size_t gribapiEncode(int varID, int levelID, int vlistID, int gridID, int zaxisI
       {
         if ( vlistptr->vars[varID].opt_grib_dbl_update[i] )
           {
-            vlistptr->vars[varID].opt_grib_dbl_update[i] = FALSE;
+	    //            vlistptr->vars[varID].opt_grib_dbl_update[i] = FALSE;
+	    //DR: Fix for multi-level fields (otherwise only the 1st level is correct)
+            if ( zaxisInqSize(zaxisID)==(levelID+1) )
+	      vlistptr->vars[varID].opt_grib_dbl_update[i] = FALSE;
             int ret = my_grib_set_double(gh, vlistptr->vars[varID].opt_grib_dbl_keyword[i],
                                          vlistptr->vars[varID].opt_grib_dbl_val[i]);
             if (ret != 0) {
@@ -33616,7 +33619,10 @@ size_t gribapiEncode(int varID, int levelID, int vlistID, int gridID, int zaxisI
       {
         if ( vlistptr->vars[varID].opt_grib_int_update[i] )
           {
-            vlistptr->vars[varID].opt_grib_int_update[i] = FALSE;
+	    //            vlistptr->vars[varID].opt_grib_int_update[i] = FALSE;
+	    //DR: Fix for multi-level fields (otherwise only the 1st level is correct)
+            if ( zaxisInqSize(zaxisID)==(levelID+1) )
+              vlistptr->vars[varID].opt_grib_int_update[i] = FALSE;
             int ret = my_grib_set_long(gh, vlistptr->vars[varID].opt_grib_int_keyword[i],
                                        vlistptr->vars[varID].opt_grib_int_val[i]);
             if (ret != 0) {

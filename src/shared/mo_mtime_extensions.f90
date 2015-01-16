@@ -22,7 +22,7 @@ MODULE mo_mtime_extensions
   USE mtime,       ONLY: datetime, event, MAX_TIMEDELTA_STR_LEN, MAX_DATETIME_STR_LEN, &
     &                    newDatetime, deallocateDatetime, datetimeToString, timedelta, &
     &                    newTimedelta, deallocateTimedelta, OPERATOR(+),               &
-    &                    setCalendar, PROLEPTIC_GREGORIAN
+    &                    setCalendar, PROLEPTIC_GREGORIAN, getPTStringFromMS
   USE mo_datetime, ONLY: t_datetime
   USE mo_exception,ONLY: message,finish
   IMPLICIT NONE

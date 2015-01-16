@@ -65,7 +65,7 @@ MODULE mo_nh_torus_exp
   PUBLIC :: init_nh_state_gate
 
   !DEFINED PARAMETERS (Stevens 2007 JAS) for init_nh_state_cbl:
-  REAL(wp), PARAMETER :: zp0     = p0ref !< surface pressure
+  REAL(wp), PARAMETER :: zp0     = 101540._wp !p0ref !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
   REAL(wp), PARAMETER :: dtdz_st = 0.04_wp    !< theta lapse rate in stratosphere (T>0!)
@@ -735,6 +735,7 @@ MODULE mo_nh_torus_exp
     LOGICAL,               INTENT(IN)   :: lprofile
 
     REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
+    REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), ex_sfc
     REAL(wp) :: topo_height,thth,curr_height
     REAL(wp), ALLOCATABLE :: zpot_temp(:)
     REAL(wp), ALLOCATABLE :: zq_sat(:)
@@ -749,7 +750,6 @@ MODULE mo_nh_torus_exp
      routine = 'mo_nh_torus_exp:init_nh_state_rce'
 
   !-------------------------------------------------------------------------
-
 
 
     ! values for the blocking
@@ -785,15 +785,18 @@ MODULE mo_nh_torus_exp
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
 
-    !Set some reference density
-    rho_sfc = zp0 / (rd * th_cbl(1) )
-
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
+    ex_sfc = (zp0/p0ref)**rd_o_cpd
+
+    ! surface density
+    rho_sfc = zp0/( rd *  &
+       (th_cbl(1)*ex_sfc*(1._wp+vtmpc1*rh_sfc*spec_humi(sat_pres_water(th_cbl(1)),zp0))) ) 
+
 
     IF (lprofile) THEN ! use an LES-baed initial profile: DEFAULT
 
-      topo_height=13000._wp
+      topo_height=16000._wp
       thth=th_cbl(1)+(4.8_wp/1000._wp)*topo_height
 
       IF (.NOT. analyticprof) THEN
@@ -812,7 +815,7 @@ MODULE mo_nh_torus_exp
         IF (analyticprof) THEN
           DO jk = 1, nlev
             ptr_nh_prog%tracer(1:nlen,jk,jb,iqv)=rh_sfc*spec_humi(sat_pres_water(th_cbl(1)),zp0)*&
-            & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/2800._wp)
+            & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/1500.0_wp)
           END DO
         ELSE ! get iqv from external file
           ! qsat = incomping specific humidity 
@@ -841,20 +844,22 @@ MODULE mo_nh_torus_exp
 
           ! virtual potential temperature
           ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-            0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+            vtmpc1*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
         END DO
 
-        !Get hydrostatic pressure and exner at lowest level
-        ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
-
-        !Get exner at other levels
-        DO jk = nlev-1, 1, -1
-           z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
-                                       ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
-   
-           ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
-              &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+        !Get hydrostatic exner at the surface using surface pressure 
+        z_exner_h(1:nlen,nlev+1) = ex_sfc
+ 
+        !Get exner at full levels starting from exner at surface
+        DO jk = nlev, 1, -1
+          !exner at next half level after surface
+          z_exner_h(1:nlen,jk) = z_exner_h(1:nlen,jk+1) - grav/cpd *    &
+                                 ptr_metrics%ddqz_z_full(1:nlen,jk,jb)/ &
+                                 ptr_nh_prog%theta_v(1:nlen,jk,jb)
+        
+          !exner at main levels
+          ptr_nh_prog%exner(1:nlen,jk,jb) = 0.5_wp * &
+                                      (z_exner_h(1:nlen,jk)+z_exner_h(1:nlen,jk+1))
         END DO
 
         IF ( jb == 1 ) THEN
@@ -933,11 +938,6 @@ MODULE mo_nh_torus_exp
       ENDDO !jb
     ENDIF ! lprofile
     
-    !Mean wind and reference
-    ptr_nh_prog%vn    = 0._wp
-    ptr_nh_prog%w     = 0._wp
-    ptr_nh_ref%w_ref  = ptr_nh_prog%w
-
   !--------------------------------------------------------------------------------
     !Mean wind 
   !--------------------------------------------------------------------------------
@@ -971,6 +971,12 @@ MODULE mo_nh_torus_exp
       END DO
      END DO
     END DO     
+
+
+    !W wind and reference
+    CALL init_w(ptr_patch, ptr_int, ptr_nh_prog%vn, ptr_metrics%z_ifc, ptr_nh_prog%w)
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
+    ptr_nh_ref%w_ref = ptr_nh_prog%w
   !--------------------------------------------------------------------------------
 
   END SUBROUTINE init_nh_state_rce
@@ -1021,7 +1027,7 @@ MODULE mo_nh_torus_exp
     jg = ptr_patch%id
 
     !Set some reference density
-    IF(les_config(jg)%isrfc_type==1)THEN
+    IF(les_config(jg)%isrfc_type==5)THEN
       rho_sfc = zp0 / (rd * les_config(jg)%sst)
     ELSE
       rho_sfc = zp0 / (rd * th_cbl(1) )

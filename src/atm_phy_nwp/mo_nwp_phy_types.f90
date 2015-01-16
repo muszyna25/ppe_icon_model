@@ -292,7 +292,7 @@ MODULE mo_nwp_phy_types
 #endif
       ::                   &
       z_pbl(:,:)          ,& !> Boundary layer height  (m)
-      buoyancy_prod(:,:,:),& !> Buoyant production/loss term in TKE equation
+      bruvais(:,:,:),&       !> Brunt Vaisala Frequency
       mech_prod(:,:,:)       !> Mechanical production/loss term in TKE equation
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)

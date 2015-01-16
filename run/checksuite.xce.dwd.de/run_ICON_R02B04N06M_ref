@@ -148,8 +148,8 @@ cat > NAMELIST_NWP << EOF
  ltestcase                   =                      .TRUE.        ! idealized testcase runs
  num_lev                     =         90, 60, 54, 60, 54         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                        500         ! number of time steps of this run
- dtime                       =                        288         ! timestep in seconds
+ nsteps                      =                        100         ! number of time steps of this run
+ dtime                       =                       1440         ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
  ntracer                     =                          5         ! number of advected tracers
@@ -228,7 +228,7 @@ cat > NAMELIST_NWP << EOF
  vwind_offctr                =                          0.2       ! off-centering in vertical wind solver
  damp_height                 =                      50000.0       ! height at which Rayleigh damping of vertical wind starts
  rayleigh_coeff              =                          0.10      ! Rayleigh damping coefficient
- iadv_rcf                    =                          5         ! calling frequency for transport/diffusion/physics
+ ndyn_substeps               =                          5         ! number of dynamical core substeps
  lhdiff_rcf                  =                      .TRUE.        ! .TRUE.=compute diffusion only at advection time steps
  divdamp_order               =                          4         ! order of divergence damping
  l_open_ubc                  =                     .FALSE.        ! .TRUE.=use open upper boundary condition

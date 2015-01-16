@@ -112,6 +112,17 @@ DEXP1=$2
 MODEL_DIR2=$3
 DEXP2=$4
 TEST=$5
+DISTRO=$(lsb_release -cs)
+case $DISTRO in
+  squeeze)
+    . /sw/share/Modules/init/ksh
+    module load cdo/1.6.5.1
+    ;;
+  wheezy)
+    . /sw/share/Modules/init/ksh
+    module load cdo/1.6.5.1
+    ;;
+esac
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
 #
@@ -165,6 +176,8 @@ for DATE in $DIFF_DATES; do
     FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
     #
     echo "Compare for TYPE=$TYPE"
+    echo 'File1: '`ls -al ${FILE1}`
+    echo 'File2: '`ls -al ${FILE2}`
     cdo diffn ${FILE1} ${FILE2} > cdo_diffn.out
     #
     STATUS=`echo $?`
@@ -340,7 +353,7 @@ SUB_FILES=${SUB_FILES='no'}
 # Set defaults for file types, dates, and the restart date for the 
 # checks depending on the experiment.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
-  TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_pl lnd_ml phy_2d_ml phy_3d_ml'}
+  TYPES=${TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_rmb_pl lnd_ml lnd_rmb_ml phy_2d_ml phy_2d_rmb_ml phy_3d_ml phy_3d_rmb_pl'}
   DATES=${DATES='19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
   RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
@@ -467,14 +480,14 @@ if string_in_list $MD $CMODES; then
   echo ' '
   cd ${REFERENCE} 
   RUN_STATUS=-1
-  if [ "${OVERWRITE}" == 'yes' -o ! -d experiments/${EXP_BASE} ] ;then 
+  if [ ! -d experiments/${EXP_BASE} ] ;then 
     if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
       ${MODEL_DIR}/make_runscripts ${SCRIPT}
     fi
     if [ ! -d experiments ]; then
       mkdir experiments
     fi
-    cd ${SCRIPT_DIR}
+    cd run
     if [ ! -f exp.${SCRIPT}.run ]; then
       if [ "$COLOUR" == 'no' ]; then
         echo 'reference model: '$REFERENCE

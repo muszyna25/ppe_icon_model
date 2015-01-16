@@ -94,6 +94,43 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -J
 	;;
+    xlf)
+        config_compiler=mpixlc_r
+        CC       = mpixlc_r
+        OPTFLAGS = -q64 -O2  -qmaxmem=-1 -qstrict -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint
+        INFOFLAGS= -qlistopt -qphsinfo -V
+        INFOFLAGS=
+        #DEBUGFLAGS= -g -qcheck -qstackprotect=all
+        GENFLAGS = $INFOFLAGS
+        CFLAGS   = -DHAVE_CF_INTERFACE -DIBMR2Fortran
+
+        FC       = mpixlf2003_r
+
+        #DEBUG_FLAGS = -g -qcheck=all -qstackprotect=all
+        DEBUG_FLAGS = -OO -qnoopt -g -qfullpath -WF,-DNOXLFPROCESS
+        BASIC_OPT_FLAGS = -qalias_size -q64 -qmaxmem=-1 -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint -WF,-D__LOOP_EXCHANGE
+        STD_FLAGS = -O2 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"
+        #HIOPT_FLAGS = -O3 -qhot -qstrict -qarch=qp -qtune=qp -qcache=auto -qxflag=nvectver -qxflag=nsmine -qfloat=fltint -qessl -q64 -qmaxmem=-1  -qlinedebug  -WF,-D__LOOP_EXCHANGE -WF,-DHAVE_FAST_MATH_LIB -WF,-DHAVE_MASS
+        HIOPT_FLAGS = -O3 -qhot -qstrict -qarch=qp -qtune=qp -qcache=auto -qxflag=nvectver -qxflag=nsmine -qfloat=fltint -qessl -q64 -qmaxmem=-1  -qlinedebug  -WF,-D__LOOP_EXCHANGE -WF,-DHAVE_MASS
+        FFLAGS   = $GENFLAGS -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000
+
+        F77      = mpixlf77_r
+        F77FLAGS = $STD_FLAGS
+
+        case "$with_flags" in
+          debug)
+            OMPFLAG = -qsmp=omp:noopt
+            F77FLAGS = $GENFLAGS $FMISMATCH -O0 -g
+            ;;
+          *)
+            OMPFLAG = -qsmp=omp
+            ;;
+        esac
+        DEFOPT   = -WF,-D
+        DEFCOPT  = -D
+        MODOPT   = -I
+        MODDIR   = -qmoddir=
+        ;;
     nag)
         config_compiler=nag
         compiler_version = $(nagfor -v 2>&1 | awk 'NR==1{split($5,v,"."); printf("nag%1d%1d", v[1],substr(v[2],1,1))}')
@@ -104,7 +141,7 @@ case "$fortran_compiler" in
         STD_FLAGS   = -Wc,-O3 -Wc,-march=native
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
-	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatter,mpi_scatterv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,mpi_get_address,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatter,mpi_scatterv,mpi_allgather,mpi_allgatherv,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,mpi_get_address,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" "$INCLUDES"
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
@@ -448,6 +485,28 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
+    kfa-juelich.de)
+        case "$(hostname)" in
+            juqueen*)
+                #NETCDFROOT  = /bgsys/local/netcdf
+		NETCDFROOT = /homeb/slmet/slmet016/netcdf_xlc
+		NETCDFROOT = /homeb/slmet/slmet027/opt/netcdf-c-4.3.2-parallel
+                NETCDFFROOT = /homeb/slmet/slmet027/opt/netcdf-fortran-4.4.0-parallel
+		HDF5ROOT = /bgsys/local/hdf5
+		SZIPROOT = /bgsys/local/szip
+		ZLIBROOT = /bgsys/local/zlib
+                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+                IB_LIBS    = -ldl -Wl,--export-dynamic -lutil -lm -ldl -ldrt
+                OTHER_LIBS = -L/bgsys/local/parallel-netcdf/v1.3.1/lib -lpnetcdf 
+                MPI_LIB    = -WL,-pthread $IB_LIBS -Wl
+                config_target=juqueen
+                make_command="make" "-j8"
+                submit="llsubmit"
+		mpi_startrun="runjob" "--ranks-per-node" "\\\$mpi_procs_pernode" "--envs" "OMP_NUM_THREADS=\\\$OMP_NUM_THREADS" "--exe"
+                ;;
+        esac
+        ;;
+#===============================================
     zmaw.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')
         software_tree = /sw/${dist_codename}-x64
@@ -497,8 +556,8 @@ case "$ac_sitename" in
                       ;;
                 esac
                 ;;
-        *)
-           case "$host" in
+          *)
+            case "$host" in
               x86_64-*-linux-*)        # 64 bit lenny or squeeze MPI/ZMAW workstation
                    ZLIBROOT = /usr
                    SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl

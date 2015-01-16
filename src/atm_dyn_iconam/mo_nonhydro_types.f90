@@ -155,8 +155,15 @@ MODULE mo_nonhydro_types
     &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
     &  exner_incr(:,:,:),   & ! exner inrement                   [-]
     &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
-    &  qv_incr   (:,:,:)      ! specific humidity increment      [kg/kg]
+    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
+    &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
+    &  pres_avg (:,:,:),    & ! exner average                    [-]
+    &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
+    &  qv_avg    (:,:,:)      ! specific humidity average        [kg/kg]
 
+    INTEGER, POINTER ::     &
+    &  nsteps_avg(:)          ! number of time steps summed up for averaging
 
 
     REAL(wp), POINTER ::    & !
@@ -339,6 +346,8 @@ MODULE mo_nonhydro_types
    INTEGER  :: nudge_c_dim, nudge_e_dim ! for grid points on which lateral boundary nudging is applied
    INTEGER  :: bdy_halo_c_dim ! for halo points belonging to the nest boundary region
    INTEGER  :: bdy_mflx_e_dim ! for mass fluxes at lateral nest boundary
+
+   REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
 
    ! Finally, a mask field that excludes boundary halo points

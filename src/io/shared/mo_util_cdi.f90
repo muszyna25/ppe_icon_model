@@ -26,7 +26,7 @@ MODULE mo_util_cdi
   USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_comm_work, p_comm_work_test,  &
     &                              p_io, my_process_is_stdio, p_mpi_wtime
-  USE mo_util_string,        ONLY: tolower
+  USE mo_util_string,        ONLY: tolower, toupper, one_of
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
@@ -924,12 +924,21 @@ CONTAINS
     TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
     TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
 
+    ! special fields for which time-dependent metainfos should be set even though they are not of 
+    ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
+    ! performed over the entire model run but over only some intervals.
+    CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
+
     !---------------------------------------------------------
     ! Set time-dependent metainfo
     !---------------------------------------------------------
     !
     ! Skip inapplicable fields
-    IF (ALL((/TSTEP_MAX, TSTEP_MIN/) /= info%isteptype) ) RETURN
+    ! Currently all TSTEP_AVG and TSTEP_ACC fields are skipped, except for special ones 
+    ! listed in ana_avg_vars
+    IF ((ALL((/TSTEP_MAX, TSTEP_MIN/) /= info%isteptype)) .AND. &
+      & (one_of(TRIM(info%name),ana_avg_vars) == -1) ) RETURN
+
 
     ! get vlistID. Note that the stream-internal vlistID must be used. 
     ! It is obtained via streamInqVlist(streamID)

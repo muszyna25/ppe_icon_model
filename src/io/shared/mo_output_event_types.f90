@@ -58,7 +58,6 @@ MODULE mo_output_event_types
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: run_start                        !< start of this run (-> restart)
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: restart_time                     !< end of this run (-> restart)
     REAL(wp)                              :: dtime                            !< [s] length of a time step
-    INTEGER                               :: iadv_rcf                         !< advection step: frequency ratio
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: dom_start_time, dom_end_time     !< model domain start/end time
     INTEGER                               :: jstep0                           !< initial time loop counter (important for restart)
   END TYPE t_sim_step_info
