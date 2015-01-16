@@ -204,8 +204,8 @@ MODULE mo_ocean_nml
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
   INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
   INTEGER  :: veloc_diffusion_form  = 2          !form of friction/diffusion operator
-                                                 !1: Laplace=curlcurl-graddiv
-                                                 !2: Laplace=div k  grad
+                                                 !2: Laplace=curlcurl-graddiv
+                                                 !1: Laplace=div k  grad
                                                  !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
   REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
   REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
