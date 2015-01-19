@@ -68,11 +68,15 @@ def getExperimentsFromTestSuite(suite)
   items = @testSuites[suite]
   experimentList = []
   items.each {|item|
-    if @testSuites.keys.include?(item.to_sym) then
-      experimentList << getExperimentsFromTestSuite(item.to_sym)
+    if item.kind_of?(Array) then
+      template, setup = item[0],item[1..-1]
+      experimentList << getTemplateNameWithSetup(template,setup)
     else
-    #  if item.kind_of?(Array)
-      experimentList << item
+      if @testSuites.keys.include?(item.to_sym) then
+        experimentList << getExperimentsFromTestSuite(item.to_sym)
+      else
+        experimentList << item
+      end
     end
   }
   experimentList
