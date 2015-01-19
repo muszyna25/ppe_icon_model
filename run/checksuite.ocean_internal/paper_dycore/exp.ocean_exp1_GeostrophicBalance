@@ -37,6 +37,7 @@ B=4   # number of bisections applied
 #grid_ext="etopo40_planet_newgeom_noinland"
 ocean_grids="iconR2B04-ocean_aqua_planet.nc" #ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 LOC="POOL"
+autoPostProcessing=false
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
