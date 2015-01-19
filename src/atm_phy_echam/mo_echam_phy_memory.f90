@@ -243,9 +243,9 @@ MODULE mo_echam_phy_memory
 
     ! JSBACH
     REAL(wp),POINTER :: &
-      & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature
+      & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
       & tsfc_radt (:,  :),  &!< [K] radiative sfc. temperature at radiation time
-      & tsfc_eff  (:,  :),  &!< [K] effective sfc. temperature
+      & tsfc_eff  (:,  :),  &!< [K] effective sfc. temperature for use in radheat
       & csat      (:,  :),  &!<
       & cair      (:,  :)    !<
 

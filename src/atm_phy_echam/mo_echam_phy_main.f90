@@ -176,9 +176,6 @@ CONTAINS
     REAL(wp) :: zch_tile (nbdim,nsfc_type)
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
     REAL(wp) :: z0m_ilnd (nbdim)      !< roughness length for momentum over land
-    REAL(wp) :: ztsfc_rad(nbdim)
-    REAL(wp) :: ztsfc_eff(nbdim)
-
 
     ! Temporary array used by GW_HINES
 
@@ -410,46 +407,13 @@ CONTAINS
          ztsi = tsi ! no rescale because tsi has been adjusted in echam_phy_init with ssi_rce
        END SELECT
 
-
-       ! Einar: This should be done in update_surface
-       !
-       ! surface temperatures for radiative transfer and radiative heating computations
-       !
-       ! for radiative heating : effective sfc temp. [K]
-       ztsfc_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
-       IF (phy_config%ljsbach) THEN
-         ! Reset to land values pre-calculated in JSBACH
-         WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
-            ztsfc_eff(jcs:jce) = field%tsfc_eff(jcs:jce,jb)
-         ENDWHERE
-       END IF
-       field%tsfc_eff(jcs:jce,jb) = ztsfc_eff(jcs:jce)
-       !
-       !
-       ! for radiative transfer: radiative sfc temp. [K]
-       ztsfc_rad(:) = 0._wp
-       DO jsfc=1,nsfc_type
-         ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce) + &
-           & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
-       ENDDO
-       ztsfc_rad(jcs:jce) = ztsfc_rad(jcs:jce)**0.25_wp
-       !
-       IF (phy_config%ljsbach) THEN
-         ! Reset to land values pre-calculated in JSBACH
-         WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
-            ztsfc_rad(jcs:jce) = field%tsfc_rad(jcs:jce,jb)
-         ENDWHERE
-       END IF
-       !
-       field%tsfc_rad(jcs:jce,jb) = ztsfc_rad(jcs:jce)
-
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
        IF (ltrig_rad) THEN
 
           ! store tsfc_rad of this radiatiative transfer timestep in tsfc_radt,
           ! so that it can be reused in radheat in the other timesteps
-          field%tsfc_radt(jcs:jce,jb) = ztsfc_rad(jcs:jce)
+          field%tsfc_radt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
 
           ! to do (for implementing seasonal cycle):
           ! - compute orbit position at ptime_radtran
@@ -673,8 +637,8 @@ CONTAINS
         & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. temperature now         [K]
-        & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. temp. at last rad. step [K]
+        & ptsfc      = field%tsfc_eff (:,jb)          ,&! in    eff. surface temperature now         [K]
+        & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
         & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !
@@ -815,7 +779,7 @@ CONTAINS
                          & zaa, zaa_btm, zbb, zbb_btm,   &! inout
                          & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
                          & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
-                         & field%  tsfc_tile(:,jb,:),    &! inout
+                         & field% tsfc_tile(:,jb,:),     &! inout
                          & field%u_stress    (:,  jb),   &! out
                          & field%v_stress    (:,  jb),   &! out
                          & field% lhflx      (:,  jb),   &! out
@@ -838,8 +802,8 @@ CONTAINS
                        & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
                        & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
                        & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-                       & pemterall = field% lwflxsfc(:,jb), &! in, surface net longwave flux [W/m2]
-                       & ptrsolall = field% swflxsfc(:,jb), &! in, replaces jsswvis & jsswnir, net surface shortwave flux [W/m2]
+                       & pflxsfclw = field% lwflxsfc(:,jb), &! in, net surface longwave flux [W/m2]
+                       & pflxsfcsw = field% swflxsfc(:,jb), &! in, net surface shortwave flux [W/m2]
                        & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
                        & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
                        & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
@@ -853,8 +817,8 @@ CONTAINS
                        & albnirdir = field% albnirdir(:,jb),                    &! inout
                        & albvisdif = field% albvisdif(:,jb),                    &! inout
                        & albnirdif = field% albnirdif(:,jb),                    &! inout
-                       & surface_temperature_rad = field%tsfc_rad(:,jb), &! out
-                       & surface_temperature_eff = field%tsfc_eff(:,jb), &! out
+                       & ptsfc_rad = field%tsfc_rad(:,jb),                      &! out
+                       & ptsfc_eff = field%tsfc_eff(:,jb),                      &! out
                        & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
                        & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
                        & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
