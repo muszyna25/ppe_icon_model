@@ -29,7 +29,7 @@ MODULE mo_initicon_utils
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_diag, t_nh_prog
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
@@ -39,7 +39,8 @@ MODULE mo_initicon_utils
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
-    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS, min_rlcell_int
+    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS,&
+    &                               min_rlcell_int, grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
@@ -47,8 +48,8 @@ MODULE mo_initicon_utils
   USE mo_grid_config,         ONLY: n_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake,            &
-    &                               isub_lake
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
+    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld, nlev_snow
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -69,7 +70,7 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: newDatetime, datetime, OPERATOR(==), OPERATOR(+), &
     &                               deallocateDatetime
-  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_statistics,          ONLY: time_avg
 
@@ -93,7 +94,7 @@ MODULE mo_initicon_utils
   PUBLIC :: deallocate_extana_atm 
   PUBLIC :: deallocate_extana_sfc
   PUBLIC :: average_first_guess
-
+  PUBLIC :: fill_tile_points
 
   CONTAINS
 
@@ -795,6 +796,217 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE create_input_groups
 
+  !>
+  !! SUBROUTINE fill_tile_points
+  !! Used in the case of a tile coldstart, i.e. initializing a run with tiles with first guess
+  !! data not containing tiles (or only tile-averaged variables)
+  !! Specifically, this routine fills sub-grid scale (previously nonexistent) land and water points
+  !! with appropriate data from neighboring grid points where possible
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2015-01-16)
+  !!
+  !!
+  SUBROUTINE fill_tile_points(p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    TYPE(t_lnd_prog),  POINTER :: lnd_prog
+    TYPE(t_lnd_diag),  POINTER :: lnd_diag
+    TYPE(t_wtr_prog),  POINTER :: wtr_prog
+
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+    INTEGER :: jg, jb, jk, jc, jt, ji
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+
+    REAL(wp), DIMENSION(nproma,10) :: lpmask, fpmask, spmask
+    REAL(wp), DIMENSION(nproma)    :: lpcount, fpcount, spcount
+    REAL(wp) :: wgt(10), fr_lnd, fr_lk, fr_sea, th_notile
+
+    !-------------------------------------------------------------------------
+
+    th_notile = 0.5_wp
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+      wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
+
+      iidx     => p_int_state(jg)%rbf_c2grad_idx
+      iblk     => p_int_state(jg)%rbf_c2grad_blk
+
+      i_startblk = p_patch(jg)%cells%start_block(grf_bdywidth_c+1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell_int)
+
+      DO ji = 2, 10
+        SELECT CASE (ji)
+        CASE(2,5,8) ! direct neighbors
+          wgt(ji) = 1._wp
+        CASE DEFAULT ! indirect neighbors
+          wgt(ji) = 0.5_wp
+        END SELECT
+      ENDDO
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(ji,jb,jk,jc,jt,i_startidx,i_endidx,lpmask,fpmask,spmask,lpcount,fpcount,spcount,fr_lnd,fr_lk,fr_sea)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
+
+        lpmask(:,:) = 0._wp
+        fpmask(:,:) = 0._wp
+        spmask(:,:) = 0._wp
+
+        lpcount(:) = 0._wp
+        fpcount(:) = 0._wp
+        spcount(:) = 0._wp
+
+        ! Prepare control variables to determine for which grid points neighbor filling is possible
+        DO jc = i_startidx, i_endidx
+
+          fr_lnd = ext_data(jg)%atm%fr_land(jc,jb)
+          IF (fr_lnd > frlnd_thrhld .AND. fr_lnd < th_notile) THEN
+            lpmask(jc,1) = 1._wp
+            DO ji = 2,10
+              fr_lnd = ext_data(jg)%atm%fr_land(iidx(ji,jc,jb),iblk(ji,jc,jb))
+              IF (fr_lnd > th_notile) THEN
+                lpmask(jc,ji) = wgt(ji)
+                lpcount(jc) = lpcount(jc)+wgt(ji)
+              ENDIF
+            ENDDO
+            IF (lpcount(jc) == 0._wp) lpmask(jc,1) = 0._wp
+          ENDIF
+
+          fr_lk = ext_data(jg)%atm%fr_lake(jc,jb)
+          IF (fr_lk > frlake_thrhld .AND. fr_lk < th_notile) THEN
+            fpmask(jc,1) = 1._wp
+            DO ji = 2,10
+              fr_lk = ext_data(jg)%atm%fr_lake(iidx(ji,jc,jb),iblk(ji,jc,jb))
+              IF (fr_lk > th_notile) THEN
+                fpmask(jc,ji) = wgt(ji)
+                fpcount(jc) = fpcount(jc)+wgt(ji)
+              ENDIF
+            ENDDO
+            IF (fpcount(jc) == 0._wp) fpmask(jc,1) = 0._wp
+          ENDIF
+
+          fr_sea = 1._wp - (ext_data(jg)%atm%fr_lake(jc,jb)+ext_data(jg)%atm%fr_land(jc,jb))
+          IF (fr_sea > frsea_thrhld .AND. fr_sea < th_notile) THEN
+            spmask(jc,1) = 1._wp
+            DO ji = 2,10
+              fr_sea = 1._wp - (ext_data(jg)%atm%fr_lake(iidx(ji,jc,jb),iblk(ji,jc,jb)) + &
+                                ext_data(jg)%atm%fr_land(iidx(ji,jc,jb),iblk(ji,jc,jb))   )
+              IF (fr_sea > th_notile) THEN
+                spmask(jc,ji) = wgt(ji)
+                spcount(jc) = spcount(jc)+wgt(ji)
+              ENDIF
+            ENDDO
+            IF (spcount(jc) == 0._wp) spmask(jc,1) = 0._wp
+          ENDIF
+
+        ENDDO
+
+        ! Apply neighbor filling
+        DO jc = i_startidx, i_endidx
+
+          ! a) ocean points
+          IF (spmask(jc,1) == 1._wp) THEN
+            CALL ngb_search(lnd_diag%fr_seaice, iidx, iblk, spmask, spcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_ice, iidx, iblk, spmask, spcount, jc, jb)
+            CALL ngb_search(wtr_prog%h_ice, iidx, iblk, spmask, spcount, jc, jb)
+          ENDIF
+
+          ! b) lake points
+          IF (fpmask(jc,1) == 1._wp) THEN
+            CALL ngb_search(wtr_prog%t_mnw_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_wml_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%h_ml_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_bot_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%c_t_lk,   iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%h_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+          ENDIF
+        ENDDO
+
+        ! c) land points
+        DO jt = 1, ntiles_total
+
+          ! single-layer fields
+          DO jc = i_startidx, i_endidx
+            IF (lpmask(jc,1) == 1._wp) THEN
+              CALL ngb_search(lnd_diag%freshsnow_t(:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%w_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%w_i_t      (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_diag%h_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%t_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%rho_snow_t (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+
+              CALL ngb_search(lnd_prog%t_so_t(:,nlev_soil+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+            ENDIF
+          ENDDO
+
+          ! soil fields
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+              IF (lpmask(jc,1) == 1._wp) THEN
+                CALL ngb_search(lnd_prog%t_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%w_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%w_so_ice_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              ENDIF
+            ENDDO
+          ENDDO
+
+          IF (lmulti_snow) THEN ! multi-layer snow fields
+            DO jk = 1, nlev_snow
+              DO jc = i_startidx, i_endidx
+                IF (lpmask(jc,1) == 1._wp) THEN
+                  CALL ngb_search(lnd_prog%t_snow_mult_t(:,jk,:,jt),   iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%rho_snow_mult_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%wtot_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%wliq_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%dzh_snow_t(:,jk,:,jt),      iidx, iblk, lpmask, lpcount, jc, jb)
+
+                  IF (jk == 1) CALL ngb_search(lnd_prog%t_snow_mult_t(:,nlev_snow+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                ENDIF
+              ENDDO
+            ENDDO
+          ENDIF
+
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDDO  ! jg
+
+    CONTAINS
+
+    SUBROUTINE ngb_search (fld, iidx, iblk, mask, cnt, jc, jb)
+
+      REAL(wp), INTENT(INOUT) :: fld(:,:)
+      REAL(wp), INTENT(IN)    :: mask(:,:), cnt(:)
+      INTEGER,  INTENT(IN)    :: iidx(:,:,:), iblk(:,:,:), jc, jb
+
+      INTEGER :: ji
+
+      fld(jc,jb) = 0._wp
+      DO ji = 2, 10
+        fld(jc,jb) = fld(jc,jb) + fld(iidx(ji,jc,jb),iblk(ji,jc,jb))*mask(jc,ji)
+      ENDDO
+      fld(jc,jb) = fld(jc,jb)/cnt(jc)
+
+    END SUBROUTINE ngb_search
+
+  END SUBROUTINE fill_tile_points
 
 
   !>
