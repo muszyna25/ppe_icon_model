@@ -30,14 +30,15 @@ require 'pp'
     ['exp.oce_omip_ref','no_of_nodes=1','mpi_procs_pernode=7'],
   ],
   :oceanPerformance       => [
-    ['exp.oce_omip_performance','mpi_total_procs=1'],
-    ['exp.oce_omip_performance','mpi_total_procs=2'],
-    ['exp.oce_omip_performance','mpi_total_procs=4'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=1'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=2'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=4'],
     ['exp.oce_omip_performance','no_of_nodes=2'],
     ['exp.oce_omip_performance','no_of_nodes=4'],
-    ['exp.oce_omip_testSurface','mpi_total_procs=1'],
-    ['exp.oce_omip_testSurface','mpi_total_procs=2'],
-    ['exp.oce_omip_testSurface','mpi_total_procs=4'],
+    ['exp.oce_omip_performance','no_of_nodes=8'],
+    ['exp.oce_omip_testSurface','mpi_procs_pernode=1'],
+    ['exp.oce_omip_testSurface','mpi_procs_pernode=2'],
+    ['exp.oce_omip_testSurface','mpi_procs_pernode=4'],
   ],
   :oceanBasicConservation => %w[exp.oce_test_numeric exp.oce_tracer_bubble exp.oce_omip_testSurface],
   :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
@@ -436,6 +437,13 @@ task :check,:name do |t,args|
 end
 task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
   sh "cat #{t.prerequisites.join(' ')}"
+end
+desc "Check performance of last run with given experiment name"
+task :checkPerformace, :expname do |t,args|
+  # get the most recent LOG file
+  # grep the simulated time from start_date and end_date
+  # grep the total computing time from the timer output 'L total'
+  # compute the performance in years/day
 end
 # }}}
 # HELP {{{ ====================================================================
