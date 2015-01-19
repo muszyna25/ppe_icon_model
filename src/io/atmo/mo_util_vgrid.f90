@@ -28,7 +28,7 @@ MODULE mo_util_vgrid
   USE mo_run_config,                        ONLY: number_of_grid_used, msg_level, check_uuid_gracefully
   !
   USE mo_impl_constants,                    ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                             ishallow_water, SUCCESS
+    &                                             ishallow_water, SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
   USE mo_ext_data_state,                    ONLY: ext_data
@@ -245,7 +245,8 @@ CONTAINS
     REAL(dp), ALLOCATABLE      :: levels(:)
     TYPE(t_uuid)               :: uuid
     CHARACTER(len=1)           :: uuid_string(16)
-    CHARACTER(len=132) :: message_text
+    CHARACTER(len=132)         :: message_text
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     CALL message(routine, "create vertical grid description file.")
 
@@ -308,8 +309,9 @@ CONTAINS
       cdiFileID   = streamOpenWrite(TRIM(filename), output_type)
       ! check if the file could be opened
       IF (cdiFileID < 0) THEN
+        CALL cdiGetStringError(cdiFileID, cdiErrorText)
         WRITE(message_text,'(4a)') 'File ', TRIM(filename), &
-             ' cannot be opened: ', TRIM(cdiStringError(cdiFileID))
+             ' cannot be opened: ', TRIM(cdiErrorText)
         CALL finish(routine, TRIM(message_text))
       ENDIF
 
@@ -377,7 +379,8 @@ CONTAINS
 
     CHARACTER(len=uuid_string_length) :: uuid_unparsed
     TYPE(t_uuid)             :: vgrid_uuid
-    TYPE(t_inputParameters) :: parameters   !TODO[NH]: Move to caller?
+    TYPE(t_inputParameters)  :: parameters   !TODO[NH]: Move to caller?
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     CALL message(routine, "read vertical grid description file.")
 
@@ -389,8 +392,9 @@ CONTAINS
       cdiFileID = streamOpenRead(TRIM(filename))
       ! check if the file could be opened
       IF (cdiFileID < 0) THEN
+        CALL cdiGetStringError(cdiFileID, cdiErrorText)
         WRITE(message_text,'(4a)') 'File ', TRIM(filename), &
-             ' cannot be opened: ', TRIM(cdiStringError(cdiFileID))
+             ' cannot be opened: ', TRIM(cdiErrorText)
         CALL finish(routine, TRIM(message_text))
       ENDIF
 

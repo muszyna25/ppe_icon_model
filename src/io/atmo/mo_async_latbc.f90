@@ -99,7 +99,7 @@ MODULE mo_async_latbc
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
-         &                                  cdistringerror
+         &                                  cdiGetStringError
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
@@ -422,7 +422,8 @@ MODULE mo_async_latbc
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
       LOGICAL :: l_exist
-      CHARACTER(LEN=filename_max) :: latbc_filename
+      CHARACTER(LEN=filename_max)    :: latbc_filename
+      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! allocating buffers containing name of variables
       ALLOCATE(latbc_buffer%grp_vars(200))
@@ -483,8 +484,9 @@ MODULE mo_async_latbc
          !
          fileID_latbc = streamOpenRead(TRIM(latbc_file))
          IF (fileID_latbc < 0) THEN
+           CALL cdiGetStringError(fileID_latbc, cdiErrorText)
            WRITE(message_text,'(4a)') 'File ', TRIM(latbc_file), &
-                ' cannot be opened: ', TRIM(cdiStringError(fileID_latbc))
+                ' cannot be opened: ', TRIM(cdiErrorText)
            CALL finish(routine, TRIM(message_text))
          ENDIF
 
@@ -603,7 +605,8 @@ MODULE mo_async_latbc
       INTEGER :: jlev, fileID_latbc
       LOGICAL :: l_exist
       CHARACTER(len=132) :: message_text
-      CHARACTER(LEN=filename_max) :: latbc_filename
+      CHARACTER(LEN=filename_max)    :: latbc_filename
+      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! prefetch processor opens the file and checks if variables are present
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
@@ -620,8 +623,9 @@ MODULE mo_async_latbc
          !
          fileID_latbc = streamOpenRead(TRIM(latbc_file))
          IF (fileID_latbc < 0) THEN
+           CALL cdiGetStringError(fileID_latbc, cdiErrorText)
            WRITE(message_text,'(4a)') 'File ', TRIM(latbc_file), &
-                ' cannot be opened: ', TRIM(cdiStringError(fileID_latbc))
+                ' cannot be opened: ', TRIM(cdiErrorText)
            CALL finish(routine, TRIM(message_text))
          ENDIF
 

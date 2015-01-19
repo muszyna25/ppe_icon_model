@@ -520,7 +520,8 @@
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::prefetch_latbc_icon_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(len=132) :: message_text
+      CHARACTER(len=132)             :: message_text
+      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
@@ -540,8 +541,9 @@
       latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
       IF (latbc_fileid < 0) THEN
+         CALL cdiGetStringError(latbc_fileid, cdiErrorText)
          WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
-              ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
+              ' cannot be opened: ', TRIM(cdiErrorText)
          CALL finish(routine, TRIM(message_text))
       ENDIF
 
@@ -824,7 +826,8 @@
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_ifs_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(LEN=132) :: message_text
+      CHARACTER(LEN=132)             :: message_text
+      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
@@ -845,8 +848,9 @@
       latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
       IF (latbc_fileid < 0) THEN
+         CALL cdiGetStringError(latbc_fileid, cdiErrorText)
          WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
-              ' cannot be opened: ', TRIM(cdiStringError(latbc_fileid))
+              ' cannot be opened: ', TRIM(cdiErrorText)
          CALL finish(routine, TRIM(message_text))
       ENDIF
 
