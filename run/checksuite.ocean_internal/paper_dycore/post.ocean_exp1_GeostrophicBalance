@@ -3,7 +3,7 @@ oType="png"
 # technical stuff
 basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/${EXPNAME}/"
-scriptPath="/pool/data/ICON/tools"
+scriptPath="../../scripts/postprocessing/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 # set the CDO path for the dwd to a local installation
@@ -14,6 +14,18 @@ case "$(hostname -d)" in
   *)
     CDO="cdo"
 esac
+
+source /sw/share/Modules/init/bash
+module load python
+absoluteScriptPath=$(python - <<EOF
+import os
+print(os.path.realpath('${scriptPath}'))
+EOF
+)
+
+module unload ncl
+module load ncl/6.2.0-precompiled
+export NCARG_USRRESFILE=${absoluteScriptPath}/.hluresfile
 # ================================================================================
 # plotting
 ## find the last input file
