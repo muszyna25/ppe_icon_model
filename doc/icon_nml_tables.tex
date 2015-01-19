@@ -1715,6 +1715,14 @@ the interpolation for all nested domains. & init\_mode=6
 \tabularnewline
 
 %\hline
+ltile\_coldstart&
+L & .FALSE.& &
+If true, tiled surface fields are initialized with tile-averaged fields (or first-guess fields from a no-tile run). \\
+Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
+land or water points with reasonable values. & init\_mode=6
+\tabularnewline
+
+%\hline
 \textbf{ifs2icon\_filename}&
 C &
 &

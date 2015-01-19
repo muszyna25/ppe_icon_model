@@ -47,6 +47,7 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
+  PUBLIC :: ltile_coldstart
   PUBLIC :: lcalc_avg_fg
   PUBLIC :: start_time_avg_fg
   PUBLIC :: end_time_avg_fg
@@ -102,6 +103,7 @@ MODULE mo_initicon_config
                                      ! assimilation increments
   LOGICAL  :: lp2cintp_sfcana(max_dom) ! If true, perform parent-to-child interpolation of
                                        ! surface analysis data
+  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess without tiles
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time

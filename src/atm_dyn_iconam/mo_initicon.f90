@@ -35,9 +35,9 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,             &
-    &                               rho_incr_filter_wgt, lread_ana,         &
-    &                               lp2cintp_incr, lp2cintp_sfcana
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
+    &                               rho_incr_filter_wgt, lread_ana,               &
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA, MODE_ICONVREMAP, &
     &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,           &
@@ -58,7 +58,7 @@ MODULE mo_initicon
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_initicon_utils,      ONLY: create_input_groups,                         &
+  USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points,                        &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
@@ -501,6 +501,12 @@ MODULE mo_initicon
     ! read DWD first guess and analysis for surface/land
     ! 
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
+    ! from neighboring grid points where possible
+    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data)
+    ENDIF
 
     IF(lread_ana) &   
       CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
@@ -1499,7 +1505,8 @@ MODULE mo_initicon
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
-              IF ((lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp)) THEN
+              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND.  &
+                  cporv(ext_data(jg)%atm%soiltyp(jc,jb)) > 1.e-9_wp) THEN
                 ! This should only happen for a tile coldstart; in this case, 
                 ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
@@ -1746,7 +1753,7 @@ MODULE mo_initicon
             p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp
           ENDIF
           IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) == missval) THEN
-            p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = 0._wp
+            p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = tf_salt
           ENDIF
         ENDDO  ! jc
 
