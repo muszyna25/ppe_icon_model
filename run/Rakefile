@@ -52,6 +52,7 @@ end
   :oceanLong              => %w[exp.oce_omipR2B04L40 exp.oce_SmallBoxACC_0080km_cell],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
+  :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
 }
 # }}}
@@ -88,9 +89,6 @@ end
 def makeLinkTarget(sourceTemplate, targetTemplate)
   desc "link component test #{sourceTemplate} to toplevel #{targetTemplate}"
   file targetTemplate => sourceTemplate do
-    sh 'pwd'
-    sh 'ls'
-    pp sourceTemplate
     FileUtils.ln_s(sourceTemplate, targetTemplate, :force => true, :verbose => true)
   end
   CLEAN.include(targetTemplate)
@@ -201,7 +199,7 @@ templatesWithRealPath = @componentTemplates.values.map(&:values).flatten.delete_
 
       testSuiteRunscripts << scriptWithSetup
     else
-      testSuiteRunscripts << experimentDescription
+      testSuiteRunscripts << experimentDescription+".run"
     end
   }
   file name => testSuiteRunscripts 
