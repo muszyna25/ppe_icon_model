@@ -440,10 +440,37 @@ task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
 end
 desc "Check performance of last run with given experiment name"
 task :checkPerformace, :expname do |t,args|
+  if args.expname.nil? then
+    warn "No expname given"
+    exit 1
+  end
+  # ---------------------------------------------------------------------------
+  require 'date'
+
+  simulationLengthInYears = lambda {|timeinfo| 
+    startinfo = timeinfo.grep(/start_date/).map(&:chomp).map {|item| item.split('=').last.gsub(/\'|\"/,'')}.map {|t| Date.parse(t).to_time.to_i}
+    endinfo   = timeinfo.grep(/end_date/).map(&:chomp).map {|item| item.split('=').last.gsub(/\'|\"/,'')}.map {|t| Date.parse(t).to_time.to_i}
+    lengthInSeconds = endinfo[0]-startinfo[0]
+    lengthInSeconds/(DateTime.new(2002,1,1).to_time.to_i - DateTime.new(2001,1,1).to_time.to_i)
+  }
+  runTimeInDays = lambda {|logfile|
+    runTimes             = IO.popen("tail -n 4000 #{logfile}").readlines.grep(/L\s+total/).map {|item| item.chomp.split.last.to_f}
+    ntimers              = runTimes.size
+    meanRuntimeInSeconds = runTimes.inject {|sum,t| sum += t}/ntimers
+    meanRuntimeInSeconds/86400
+  }
   # get the most recent LOG file
+  logfile = Dir.glob("LOG.exp.#{args.expname}.run.*.o").sort_by {|f| File.ctime(f)}.last
+  dbg(logfile)
   # grep the simulated time from start_date and end_date
+  length = simulationLengthInYears[File.open("exp.#{args.expname}.run").readlines.grep(/(start|end)_date=/)]
+  dbg(['lengthInYears:',length])
   # grep the total computing time from the timer output 'L total'
+  meanRuntime = runTimeInDays[logfile]
+  dbg(['meanRuntime',meanRuntime])
   # compute the performance in years/day
+  performanceInYearsPerDay = length/meanRuntime
+  puts [args.expname, performanceInYearsPerDay].join(' ')
 end
 # }}}
 # HELP {{{ ====================================================================
