@@ -196,29 +196,6 @@ SUBROUTINE cucall(   iconv,                                          &! in
      zrain(jl)=0._wp
      locum(jl)=.FALSE.
 130 END DO
-
-! temporary fields for debugging.
-  DO jk=1,klev
-     DO jl=1,kproma
-        field%debug_3d_1(jl,jk,krow)=ptm1(jl,jk)
-        field%debug_3d_2(jl,jk,krow)=pqm1(jl,jk)
-        field%debug_3d_2b(jl,jk,krow)=pxlm1(jl,jk)
-        field%debug_3d_2c(jl,jk,krow)=pxim1(jl,jk)
-        field%debug_3d_3(jl,jk,krow)=ptte(jl,jk)
-        field%debug_3d_4(jl,jk,krow)=pqte(jl,jk)
-        field%debug_3d_5(jl,jk,krow)=ztp1(jl,jk)
-        field%debug_3d_6(jl,jk,krow)=zqp1(jl,jk)
-        field%debug_3d_7(jl,jk,krow)=zqsat(jl,jk)
-        field%debug_3d_8(jl,jk,krow)=pverv(jl,jk)
-        field%debug_3d_9(jl,jk,krow)=paphp1(jl,jk)
-        field%debug_3d_10(jl,jk,krow)=papp1(jl,jk)
-        field%debug_3d_11(jl,jk,krow)=pgeo(jl,jk)
-     END DO
-  END DO
-  DO jl=1,kproma
-     field%debug_2d_1(jl,krow)=pqhfla(jl)
-     field%debug_2d_2(jl,krow)=pthvsig(jl)
-  END DO
 !
 !
 !-----------------------------------------------------------------------

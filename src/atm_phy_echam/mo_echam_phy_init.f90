@@ -868,8 +868,8 @@ CONTAINS
       ! Initialization of tendencies is necessary for doing I/O with
       ! the NAG compiler
 
-      tend% temp_radsw(:,:,:) = 0._wp
-      tend% temp_radlw(:,:,:) = 0._wp
+      tend% temp_rsw(:,:,:)   = 0._wp
+      tend% temp_rlw(:,:,:)   = 0._wp
 
       tend% temp_cld(:,:,:)   = 0._wp
       tend%    q_cld(:,:,:,:) = 0._wp
@@ -901,24 +901,6 @@ CONTAINS
       tend% temp_sso(:,:,:)   = 0._wp
       tend%    u_sso(:,:,:)   = 0._wp
       tend%    v_sso(:,:,:)   = 0._wp
-
-!!$      field% debug_2d_1(:,  :) = 0.0_wp
-!!$      field% debug_2d_2(:,  :) = 0.0_wp
-!!$      field% debug_2d_3(:,  :) = 0.0_wp
-!!$      field% debug_2d_4(:,  :) = 0.0_wp
-!!$      field% debug_2d_5(:,  :) = 0.0_wp
-!!$      field% debug_2d_6(:,  :) = 0.0_wp
-!!$      field% debug_2d_7(:,  :) = 0.0_wp
-!!$      field% debug_2d_8(:,  :) = 0.0_wp
-!!$
-!!$      field% debug_3d_1(:,:,:) = 0.0_wp
-!!$      field% debug_3d_2(:,:,:) = 0.0_wp
-!!$      field% debug_3d_3(:,:,:) = 0.0_wp
-!!$      field% debug_3d_4(:,:,:) = 0.0_wp
-!!$      field% debug_3d_5(:,:,:) = 0.0_wp
-!!$      field% debug_3d_6(:,:,:) = 0.0_wp
-!!$      field% debug_3d_7(:,:,:) = 0.0_wp
-!!$      field% debug_3d_8(:,:,:) = 0.0_wp
 
       NULLIFY( field,tend )
 

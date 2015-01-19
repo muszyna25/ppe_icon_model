@@ -694,18 +694,18 @@ CONTAINS
       zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_rsw(jcs:jce,:) + zq_rlw(jcs:jce,:)
       
       ! tendencies
-      tend%temp_radsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:) * zconv(jcs:jce,:)
-      tend%temp_radlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:) * zconv(jcs:jce,:)
+      tend%temp_rsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:) * zconv(jcs:jce,:)
+      tend%temp_rlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:) * zconv(jcs:jce,:)
 
       ! tendencies accumulated
-      tend% temp(jcs:jce,:,jb) = tend% temp       (jcs:jce,:,jb) &
-        &                      + tend% temp_radsw (jcs:jce,:,jb) &
-        &                      + tend% temp_radlw (jcs:jce,:,jb)
+      tend% temp(jcs:jce,:,jb) = tend% temp     (jcs:jce,:,jb) &
+        &                      + tend% temp_rsw (jcs:jce,:,jb) &
+        &                      + tend% temp_rlw (jcs:jce,:,jb)
 
     ELSE   ! If computation of radiative heating is by-passed
 
-      tend%temp_radsw(jcs:jce,:,jb) = 0.0_wp
-      tend%temp_radlw(jcs:jce,:,jb) = 0.0_wp
+      tend%temp_rsw(jcs:jce,:,jb) = 0.0_wp
+      tend%temp_rlw(jcs:jce,:,jb) = 0.0_wp
 
     END IF ! lrad
 
