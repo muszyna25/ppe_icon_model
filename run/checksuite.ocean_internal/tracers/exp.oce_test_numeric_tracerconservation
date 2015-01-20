@@ -46,6 +46,8 @@ B=4   # number of bisections applied
 #   ts_phc_annual-iconR${R}B0{B}-${init_oce_suff}
 #
 #-----------------------------------------------------------------------------
+autoPostProcessing=true
+#-----------------------------------------------------------------------------
 # surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
 init_relax=0   # 1: use relaxation initialization file
 # provide name suffix for thickness of surface layer

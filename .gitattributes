@@ -772,7 +772,7 @@ run/checksuite.ocean_internal/technical/post.test_compare_restarts -text
 run/checksuite.ocean_internal/tracers/exp.oce_test_numeric_tracerconservation -text
 run/checksuite.ocean_internal/tracers/exp.oce_testbed_vertical_diffusion -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble -text
-run/checksuite.ocean_internal/tracers/post.test_oce_numeric_tracerconservation -text
+run/checksuite.ocean_internal/tracers/post.oce_test_numeric_tracerconservation -text
 run/checksuite.ocean_internal/tracers/post_oce_tracer_bubble_saltcontent.py -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
