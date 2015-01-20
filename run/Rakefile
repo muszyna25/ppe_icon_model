@@ -59,6 +59,7 @@ end
     %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
     %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
   ],
+  :oceanTracers           => %w[exp.oce_test_numeric_tracerconservation],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
 }
 # }}}
