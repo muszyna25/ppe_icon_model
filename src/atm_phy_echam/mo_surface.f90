@@ -296,6 +296,7 @@ CONTAINS
           ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ztsfc_lnd_eff(1:kproma)
         ELSE
           ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)
+        END IF
       ENDDO
 
       ! calculate grid box mean radiative temperature for use in radiation
