@@ -750,6 +750,9 @@ run/checksuite.ocean_internal/other/post.test_oce_numeric -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric_tracerconservation -text
 run/checksuite.ocean_internal/other/variations.rb -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0039km -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0079km -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0158km -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp2_WavePropagation -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp3_WindDrivenBasin -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp4_CheckerBoardBasin -text
