@@ -53,6 +53,12 @@ end
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
   :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
+# :oceanDycoreExp1        => %w[exp.ocean_exp1_GeostrophicBalance_0020km exp.ocean_exp1_GeostrophicBalance_0039km exp.ocean_exp1_GeostrophicBalance_0079km exp.ocean_exp1_GeostrophicBalance_0158km],
+  :oceanDycoreExp1        => [
+    %w[exp.ocean_exp1_GeostrophicBalance_0039km no_of_nodes=3],
+    %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
+    %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
+  ],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
 }
 # }}}
