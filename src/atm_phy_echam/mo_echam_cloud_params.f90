@@ -61,7 +61,7 @@ MODULE mo_echam_cloud_params
   REAL(wp), PARAMETER :: cn0s    = 3.e6_wp
   REAL(wp), PARAMETER :: crhoi   = 500.0_wp
   REAL(wp), PARAMETER :: crhosno = 100.0_wp
-  REAL(wp), PARAMETER :: cauloc  = 5.0_wp
+  REAL(wp), PARAMETER :: cauloc  = 0.0_wp
   REAL(wp), PARAMETER :: ccsaut  = 95.0_wp
   REAL(wp), PARAMETER :: ccraut  = 15.0_wp
   REAL(wp), PARAMETER :: ccsacl  = 0.1_wp
