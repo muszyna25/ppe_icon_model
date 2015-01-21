@@ -414,8 +414,12 @@ CONTAINS
 
           ! Note: direct write to standard error output is used here by intention
           ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                     p_vn(je,jk,jb),p_vt(je,jk,jb)
+          WRITE(0,'(a,a,i5,a,i5,a,i5,a,f8.2,a,f8.2,a,f10.2,a,f10.2)')  &
+               & 'horizontal CFL number exceeded at:',                 &
+               & '  je =',je,'  jk =',jk,'  jb =',jb,                  &
+               & '  lon=',p_patch%edges%center(je,jb)%lon,             &
+               & '  lat=',p_patch%edges%center(je,jb)%lat,             &
+               & '  vn =',p_vn(je,jk,jb),'  vt =',p_vt(je,jk,jb)
         ENDDO
       ENDIF
 
@@ -1233,8 +1237,12 @@ CONTAINS
 
           ! Note: direct write to standard error output is used here by intention
           ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                    p_vn(je,jk,jb),p_vt(je,jk,jb)
+          WRITE(0,'(a,a,i5,a,i5,a,i5,a,f8.2,a,f8.2,a,f10.2,a,f10.2)')  &
+               & 'horizontal CFL number exceeded at:',                 &
+               & '  je =',je,'  jk =',jk,'  jb =',jb,                  &
+               & '  lon=',p_patch%edges%center(je,jb)%lon,             &
+               & '  lat=',p_patch%edges%center(je,jb)%lat,             &
+               & '  vn =',p_vn(je,jk,jb),'  vt =',p_vt(je,jk,jb)
         ENDDO
       ENDIF
 
