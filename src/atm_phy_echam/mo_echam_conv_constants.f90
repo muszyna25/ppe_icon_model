@@ -44,9 +44,9 @@ MODULE mo_echam_conv_constants
   REAL(wp),PARAMETER :: cbfac    = 1.0_wp    !< factor for std dev of virtual pot temp
   REAL(wp),PARAMETER :: centrmax = 3.E-4_wp  !<
 
-  REAL(wp),PARAMETER :: dlev     = 3.0E4_wp  !< "zdlev" in subroutine "cuasc".
-                                             !< Critical thickness (unit: Pa) necessary for the
-                                             !< onset of convective precipitation
+  REAL(wp),PARAMETER :: dlev_lnd = 3.0E4_wp  !< Critical thickness (unit: Pa) necessary for the
+  REAL(wp),PARAMETER :: dlev_oce = 1.5E4_wp  !< onset of convective precipitation
+
   REAL(wp),PARAMETER :: cmftau   = 7200._wp  !< characteristic adjustment time scale (s)
                                              !< (replaces "ztau" in "cumastr")
 
