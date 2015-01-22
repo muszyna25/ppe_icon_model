@@ -708,6 +708,7 @@ run/add_required_ocean_files -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/check.atm_amip -text
+run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
@@ -1264,7 +1265,6 @@ src/atm_phy_echam/mo_cover.f90 -text
 src/atm_phy_echam/mo_cuadjust.f90 -text
 src/atm_phy_echam/mo_cuascent.f90 -text
 src/atm_phy_echam/mo_cudescent.f90 -text
-src/atm_phy_echam/mo_cuentr.f90 -text
 src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
