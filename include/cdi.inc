@@ -384,6 +384,11 @@
 !                                    (INTEGER         cdiErrno)
       EXTERNAL        cdiStringError
 
+!                     cdiGetStringError
+!                                    (INTEGER         cdiErrno,
+!                                     CHARACTER*(*)   name)
+      EXTERNAL        cdiGetStringError
+
 !                     cdiDebug
 !                                    (INTEGER         debug)
       EXTERNAL        cdiDebug

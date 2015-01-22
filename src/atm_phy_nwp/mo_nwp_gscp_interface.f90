@@ -117,7 +117,7 @@ CONTAINS
     INTEGER :: jc,jb,jg,jk               !<block indices
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
-    REAL(wp) :: z_dt_temp(nproma,p_patch%nlev,p_patch%nblks_c),outvar(p_patch%nlev)
+    REAL(wp) :: z_dtemp(nproma,p_patch%nlev,p_patch%nblks_c),outvar(p_patch%nlev)
     LOGICAL  :: l_nest_other_micro
     LOGICAL  :: ltwomoment
 
@@ -352,7 +352,7 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
-                       dt_temp = z_dt_temp (:,:,jb),             &!inout opt. temperature tendency
+                       dtemp  = z_dtemp (:,:,jb),                &!inout opt. temperature increment
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.          )    
 
@@ -533,9 +533,9 @@ CONTAINS
 
     !Additional diagnostic for idealized LES runs
     IF(is_sampling_time)THEN
-      CALL levels_horizontal_mean(z_dt_temp, p_patch%cells%area, p_patch%cells%owned, outvar)
+      CALL levels_horizontal_mean(z_dtemp, p_patch%cells%area, p_patch%cells%owned, outvar)
       prm_diag%turb_diag_1dvar(1:nlev,idx_dt_t_gsp) =  &
-          prm_diag%turb_diag_1dvar(1:nlev,idx_dt_t_gsp) + outvar(1:nlev)
+          prm_diag%turb_diag_1dvar(1:nlev,idx_dt_t_gsp) + outvar(1:nlev)/tcall_gscp_jg
     END IF
      
   END SUBROUTINE nwp_microphysics

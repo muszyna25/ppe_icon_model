@@ -28,7 +28,8 @@ MODULE mo_bc_sst_sic
   USE mo_parallel_config,    ONLY: nproma
   USE mo_datetime,           ONLY: t_datetime, add_time, date_to_time, idaylen, rdaylen
   USE mo_run_config,         ONLY: dtime
-  USE mo_physical_constants, ONLY: tf_salt !, tmelt 
+  USE mo_physical_constants, ONLY: tf_salt !, tmelt
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
 
   IMPLICIT NONE
 
@@ -134,13 +135,16 @@ CONTAINS
     INTEGER :: nmiss, status, vdate, vyear, vmonth
 
     REAL(dp), ALLOCATABLE :: buffer(:)
-    
+
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+
     ym1 = y-1
     yp1 = y+1
 
     streamID = streamOpenRead(fn)
     IF ( streamID < 0 ) THEN
-      WRITE(message_text,*) cdiStringError(streamID)
+      CALL cdiGetStringError(streamID, cdiErrorText)
+      WRITE(message_text,*) TRIM(cdiErrorText)
       CALL finish('mo_bc_sst_sic:read_sst_sic_data', message_text)
     END IF
     

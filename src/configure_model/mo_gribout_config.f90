@@ -122,14 +122,14 @@ MODULE mo_gribout_config
 
   !>
   !!
-  TYPE(t_gribout_config), TARGET :: gribout_config(0:max_phys_dom)
+  TYPE(t_gribout_config), TARGET :: gribout_config(1:max_phys_dom)
 
 
 CONTAINS
 
 
   !>
-  !! potentailly modify generatingCenter and generatingSubcenter 
+  !! potentially modify generatingCenter and generatingSubcenter 
   !!
   !! If generatingCenter and generatingSubcenter are not set via namelist, 
   !! they are filled with values read from the grid file. 

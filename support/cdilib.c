@@ -795,6 +795,11 @@ void    cdiReset(void);
 
 char   *cdiStringError(int cdiErrno);
 
+/*      cdiGetStringError: Get CDI error String */
+/* Wrapper for cdiStringError, since direct use of */
+/* cdiStringError results in SEGFAULT with Cray compiler */
+void    cdiGetStringError(int vlistID, char *name);
+
 void    cdiDebug(int debug);
 
 const char *cdiLibraryVersion(void);
@@ -25144,6 +25149,35 @@ char *cdiStringError(int cdiErrno)
 
   return UnknownError;
 }
+
+
+/*
+@Function  cdiGetStringError
+@Title     Get CDI Error message from cdiStringError
+
+@Prototype void cdiGetStringError(int cdiErrno, char *name)
+@Parameter
+    @Item  cdiErrno  CDI error code.
+    @Item  name      Corresponding error string
+
+@Description
+The function @func{cdiGetStringError} returns a CDI error string.
+
+@Result
+@func{cdiGetStringError} a CDI error string.
+
+@EndFunction
+*/
+void cdiGetStringError(int cdiErrno, char *name)
+{
+
+  strcpy(name, cdiStringError(cdiErrno));
+
+  return;
+}
+
+
+
 /*
  * Local Variables:
  * c-file-style: "Java"
@@ -67072,6 +67106,7 @@ string. */
 
 FCALLSCSUB0 (cdiReset, CDIRESET, cdireset)
 FCALLSCFUN1 (STRING, cdiStringError, CDISTRINGERROR, cdistringerror, INT)
+FCALLSCSUB2 (cdiGetStringError, CDIGETSTRINGERROR, cdigetstringerror, INT, PSTRING)
 FCALLSCSUB1 (cdiDebug, CDIDEBUG, cdidebug, INT)
 FCALLSCFUN0 (STRING, cdiLibraryVersion, CDILIBRARYVERSION, cdilibraryversion)
 FCALLSCSUB0 (cdiPrintVersion, CDIPRINTVERSION, cdiprintversion)
