@@ -248,7 +248,7 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
                     'evapotrans', 'sensible_hflx', 'latent_hflx' 
                     'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
                     't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
-                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
                     'tte_corr', 'rough_m_srf', 'rough_h_srf'
 /
