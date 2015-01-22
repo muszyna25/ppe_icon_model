@@ -88,10 +88,10 @@ CONTAINS
 
   ! The parameters depend on the horizontal resolution. Ideally this
   ! is expressed as a function of the (horizontal) area of the column.
-    gpicmea = 400.0_wp
-    gstd    = 100.0_wp
-    gkdrag  = 0.5_wp
-    gkwake  = 0.5_wp
+    gpicmea = 1.0_wp
+    gstd    = 1.0_wp
+    gkdrag  = 0.2_wp
+    gkwake  = 1.0_wp
 
   ! Compute globally valid layer index nktopg from the vertical coordinate tables that
   ! describe the hybrid sigma coordinate as follows:
