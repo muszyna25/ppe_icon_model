@@ -34,7 +34,8 @@ MODULE mo_output_event_control
     &                              deallocateTimedelta, OPERATOR(<=), OPERATOR(>),      &
     &                              OPERATOR(<), OPERATOR(==),                           &
     &                              divisionquotienttimedelta, dividetimedeltainseconds, &
-    &                              getPTStringFromMS, getPTStringFromSeconds
+    &                              getPTStringFromMS, getPTStringFromSeconds,           &
+    &                              timedeltaToString
   USE mo_var_list_element,   ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
@@ -87,7 +88,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
     INTEGER                  :: idtime_ms, ilist
     TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_date1, &
-      &                         mtime_dom_start, mtime_dom_end
+         &                      mtime_dom_start, mtime_dom_end
     TYPE(timedelta), POINTER :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
@@ -137,6 +138,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_end)
     CALL deallocateTimedelta(delta)
     CALL resetCalendar()
+    write(0,*) 'leave compute_matching_sim_steps ...'
   END SUBROUTINE compute_matching_sim_steps
 
 
@@ -171,18 +173,21 @@ CONTAINS
     intvlsec = INT(dtime)
     CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
     vlsec => newtimedelta(td_string)
+    call timedeltaToString(vlsec, td_string)
+    write(0,*) 'compute_step (vlsec): ', trim(td_string) 
     
     tddiff => newtimedelta('PT0S')
     tddiff = mtime_current - mtime_begin
-    
     CALL dividetimedeltainseconds(tddiff, vlsec, tq)
+
     step = INT(tq%quotient,i4)
     
+    mtime_step => newDatetime('0001-01-01T00:00:00')
     IF (step >= 0) THEN
-
+      mtime_step = mtime_begin + step * vlsec
       CALL datetimeToString(mtime_step, exact_date)
-      CALL deallocateDatetime(mtime_step)
     END IF
+    CALL deallocateDatetime(mtime_step)
 
     ! then we add the offset "jstep0" (nonzero for restart cases):
     step        = step + step_offset
