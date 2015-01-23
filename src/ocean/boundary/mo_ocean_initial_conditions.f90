@@ -4317,9 +4317,9 @@ stop
     ! Coordinates midpoint of bubble in South Pacific:
     lat_bubble= 20.0_wp
     lon_bubble  = -40.0_wp
-    radius_bubble = 5.0_wp
-    layers_above_bubble = 31
-    layers_bubble = 46 
+    radius_bubble = 2.5_wp  !5.0_wp
+    layers_above_bubble = 78 !31
+    layers_bubble = 2 !46 
     dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
@@ -4350,8 +4350,8 @@ stop
 
               IF (z_tmp <= 1) THEN
 
-                tracer(jc,jk,jb) = &
-                   & bubble_outside + (bubble_inside-bubble_outside) * (1.0_wp - z_tmp) * (1.0_wp - test)
+                tracer(jc,jk,jb) = bubble_inside !&
+                   !& bubble_outside + (bubble_inside-bubble_outside) * (1.0_wp - z_tmp) * (1.0_wp - test)
 
               ELSE
 
@@ -4825,11 +4825,11 @@ stop
     lat_bubble= 20.0_wp
     lon_bubble  = -40.0_wp
     radius_bubble = 15.0_wp
-    layers_above_bubble = 55
+    layers_above_bubble =47  !45
     layers_bubble = 20 
     dist_layer=layers_bubble/2.0_wp	!"radius" in z directions
-    a = 1000000.0_wp  ! inner radius in meter
-    s = 1000000.0_wp  ! outer radius in meter
+    a = 250000.0_wp  ! inner radius in meter
+    s = 250000.0_wp  ! outer radius in meter
   
 
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
