@@ -293,11 +293,12 @@ CONTAINS
       ptsfc_eff(:) = 0._wp
       DO jsfc=1,ksfc_type
         IF (jsfc == idx_lnd) THEN
-          ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ztsfc_lnd_eff(1:kproma)
+          ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ztsfc_lnd_eff(1:kproma)**4
         ELSE
-          ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)
+          ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
         END IF
       ENDDO
+      ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma)**0.25_wp
 
       ! calculate grid box mean radiative temperature for use in radiation
       ptsfc_rad(:) = 0._wp
