@@ -480,11 +480,13 @@ task :checkPerformance, :expname do |t,args|
     lengthInSeconds = endinfo[0]-startinfo[0]
     lengthInSeconds/(DateTime.new(2002,1,1).to_time.to_i - DateTime.new(2001,1,1).to_time.to_i).to_f
   }
-  runTimeInDays = lambda {|logfile|
+  runTimesInDays = lambda {|logfile|
     nlines               = %x{wc -l #{logfile}}.to_i
     dbg(['nlines',nlines])
     cmd = "tail -n #{nlines < 4000 ? nlines.to_s : '4000'} #{logfile}"
     dbg(cmd)
+
+    # grep total timer --------------------------------------------------------
     runTimes             = IO.popen(cmd).readlines.grep(/L\s+total/).map {|item| item.chomp.split.last.to_f}
     if runTimes.nil? or runTimes.empty? then
       warn "Could not get timer info from logile: #{logfile}!"
@@ -493,8 +495,21 @@ task :checkPerformance, :expname do |t,args|
     dbg(['runTimes:',runTimes])
     ntimers              = runTimes.size
     meanRuntimeInSeconds = runTimes.inject {|sum,t| sum += t}/ntimers
-    meanRuntimeInSeconds/86400
+    meanRuntimeInDays    = meanRuntimeInSeconds/84600
     dbg(['meanRuntimeInSeconds:',meanRuntimeInSeconds])
+    # grep communication timer -------------------------------------------------
+    communicationTimes             = IO.popen(cmd).readlines.grep(/\s+exch_data /).map {|item| item.chomp.split.last.to_f}
+    dbg(communicationTimes)
+    if communicationTimes.nil? or communicationTimes.empty? then
+      warn "Could not get communication info from logile: #{logfile}!"
+      meanComPart  = 0.0
+    else
+      meanComTimeInSeconds = communicationTimes.inject {|sum,t| sum += t}/ntimers
+      dbg(['meanComTimeInSeconds:',meanComTimeInSeconds])
+      meanComPart          = (meanComTimeInSeconds/meanRuntimeInSeconds).round(3) * 100
+    end
+
+    {:total => meanRuntimeInDays, :com => meanComPart}
   }
   # ---------------------------------------------------------------------------
   # get the most recent LOG file
@@ -504,11 +519,12 @@ task :checkPerformance, :expname do |t,args|
   length = simulationLengthInYears[File.open("exp.#{args.expname}.run").readlines.grep(/(start|end)_date=/)]
   dbg(['lengthInYears:',length])
   # grep the total computing time from the timer output 'L total'
-  meanRuntime = runTimeInDays[logfile]
-  dbg(['meanRuntime',meanRuntime])
+  meanRuntime, meanCommunicationPart = runTimesInDays[logfile].values_at(:total,:com)
   # compute the performance in years/day
-  performanceInYearsPerDay = length/meanRuntime
-  puts [args.expname, performanceInYearsPerDay].join(' ')
+  runTimeInYearsPerDay = (length/meanRuntime).round(1)
+  dbg(['performanceInYearsPerDay:',runTimeInYearsPerDay])
+  dbg(['comTimeInYearsPerDay:',meanCommunicationPart])
+  puts [args.expname, runTimeInYearsPerDay,'years/day',"[com:#{meanCommunicationPart.round(2)}%]"].join(' ')
 end
 
 desc "Check status of given of all experiments"
