@@ -1856,6 +1856,9 @@
       REAL(wp),     PARAMETER :: BBOX_MARGIN = 1.e-3_wp
       ! enlarge the local triangulation area by this factor
       REAL(wp),     PARAMETER :: RADIUS_FACTOR = 1.1_wp
+      ! we use the barycentric coords for the "point in triangle
+      ! test"; this is the threshold for this test
+      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
 
       INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,                 &
         &                                i_startidx, i_endidx, i_startblk, i_endblk,          &
@@ -2076,14 +2079,34 @@
           idx0 = -1
           LOOP: DO i=1,nobjects
             j = obj_list(i) - 1
-            IF (inside_triangle(ll_point_c%x(1:3),         &
-              &                 p_global%a(tri%a(j)%p(0)), &
-              &                 p_global%a(tri%a(j)%p(1)), &
-              &                 p_global%a(tri%a(j)%p(2)))) THEN
-              v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
-              v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
-              v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
+            v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
+            v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
+            v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
+
+            ! --- compute the barycentric interpolation weights for
+            ! --- this triangle
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
+              &                             v1,v2,v3,                             &
+              &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
+
+            IF ( ALL((ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)) >= -1._wp*INSIDETEST_TOL)  .AND. &
+              &  ALL(ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)   <=  1._wp+INSIDETEST_TOL)) THEN
               idx0 = j
+
+              IF (ALL(permutation(tri%a(idx0)%p(0:2)) /= -1)) THEN
+                ! get indices of the containing triangle
+                ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(permutation(tri%a(idx0)%p(0:2)))
+                ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(permutation(tri%a(idx0)%p(0:2)))
+
+                IF (ANY(ptr_int_lonlat%baryctr_idx(1:3,jc,jb) <= 0)) THEN
+                  WRITE (0,*) "permutation(tri%a(idx0)%p(0:2)) = ", permutation(tri%a(idx0)%p(0:2))
+                  CALL finish(routine, "Internal error!")
+                END IF
+              ELSE
+                ! the containing triangle is not local for this PE?
+                CALL finish(routine, "Internal error!")
+              END IF
+
               EXIT LOOP
             END IF
           END DO LOOP
@@ -2108,6 +2131,11 @@
               WRITE (0,*) "c1 = ",  ccw_spherical(p_global%a(tri%a(j)%p(0)),p_global%a(tri%a(j)%p(1)),p)
               WRITE (0,*) "c2 = ",  ccw_spherical(p_global%a(tri%a(j)%p(1)),p_global%a(tri%a(j)%p(2)),p)
               WRITE (0,*) "c3 = ",  ccw_spherical(p_global%a(tri%a(j)%p(2)),p_global%a(tri%a(j)%p(0)),p)
+
+              CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
+                &                             v1,v2,v3,                             &
+                &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
+              WRITE (0,*) "barycentric coords: ", ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)
             END DO
             CALL finish(routine, "Internal error!")
           END IF
@@ -2118,28 +2146,6 @@
             CALL finish(routine, "Internal error!")
           END IF
 
-          ! for the containing triangle: compute barycentric
-          ! coordinates:
-
-          IF (ALL(permutation(tri%a(idx0)%p(0:2)) /= -1)) THEN
-            ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(permutation(tri%a(idx0)%p(0:2)))
-            ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(permutation(tri%a(idx0)%p(0:2)))
-
-            IF (ANY(ptr_int_lonlat%baryctr_idx(1:3,jc,jb) <= 0)) THEN
-              WRITE (0,*) "permutation(tri%a(idx0)%p(0:2)) = ", permutation(tri%a(idx0)%p(0:2))
-              CALL finish(routine, "Internal error!")
-            END IF
-          ELSE
-            ! the containing triangle is not local for this PE?
-            CALL finish(routine, "Internal error!")
-          END IF
-
-          ! --- compute the barycentric interpolation weights for this
-          ! --- triangle
-
-          CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
-            &                             v1,v2,v3,                             &
-            &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
         END DO
       END DO
 !$OMP END PARALLEL DO
