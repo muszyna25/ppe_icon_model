@@ -29,7 +29,16 @@ end
   :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
   :oceanTechnical         => %w[exp.oce_test_parallel],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
-  :oceanNpromaCheck       => [['exp.oce_omip_ref','nproma=3'],['exp.oce_omip_testSurface','nproma=7']],
+  :oceanNpromaCheck       => [
+    ['exp.oce_omip_performance','nproma=1'],
+    ['exp.oce_omip_performance','nproma=2'],
+    ['exp.oce_omip_performance','nproma=4'],
+    ['exp.oce_omip_performance','nproma=8'],
+    ['exp.oce_omip_performance','nproma=16'],
+    ['exp.oce_omip_performance','nproma=24'],
+    ['exp.oce_omip_performance','nproma=32'],
+    ['exp.oce_omip_performance','nproma=64'],
+    ['exp.oce_omip_testSurface','nproma=16']],
   :oceanMpiCheck          => [
     ['exp.oce_omip_ref','no_of_nodes=1'],
     ['exp.oce_omip_ref','no_of_nodes=2'],
@@ -39,6 +48,8 @@ end
     ['exp.oce_omip_performance','mpi_procs_pernode=1'],
     ['exp.oce_omip_performance','mpi_procs_pernode=2'],
     ['exp.oce_omip_performance','mpi_procs_pernode=4'],
+#   ['exp.oce_omip_performance','mpi_procs_pernode=8'],
+#   ['exp.oce_omip_performance','mpi_procs_pernode=16'],
     ['exp.oce_omip_performance','no_of_nodes=1'],
     ['exp.oce_omip_performance','no_of_nodes=2'],
     ['exp.oce_omip_performance','no_of_nodes=3'],
@@ -470,10 +481,20 @@ task :checkPerformance, :expname do |t,args|
     lengthInSeconds/(DateTime.new(2002,1,1).to_time.to_i - DateTime.new(2001,1,1).to_time.to_i).to_f
   }
   runTimeInDays = lambda {|logfile|
-    runTimes             = IO.popen("tail -n 4000 #{logfile}").readlines.grep(/L\s+total/).map {|item| item.chomp.split.last.to_f}
+    nlines               = %x{wc -l #{logfile}}.to_i
+    dbg(['nlines',nlines])
+    cmd = "tail -n #{nlines < 4000 ? nlines.to_s : '4000'} #{logfile}"
+    dbg(cmd)
+    runTimes             = IO.popen(cmd).readlines.grep(/L\s+total/).map {|item| item.chomp.split.last.to_f}
+    if runTimes.nil? or runTimes.empty? then
+      warn "Could not get timer info from logile: #{logfile}!"
+      exit(1)
+    end
+    dbg(['runTimes:',runTimes])
     ntimers              = runTimes.size
     meanRuntimeInSeconds = runTimes.inject {|sum,t| sum += t}/ntimers
     meanRuntimeInSeconds/86400
+    dbg(['meanRuntimeInSeconds:',meanRuntimeInSeconds])
   }
   # ---------------------------------------------------------------------------
   # get the most recent LOG file
