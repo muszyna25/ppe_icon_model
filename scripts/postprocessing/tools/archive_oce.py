@@ -986,10 +986,11 @@ if 'procRegio' in options['ACTIONS']:
   regioMeanData = processRegionMean(options,LOG['mask'],LOG['init'],ymFile,regioCodes,regioDepths,regioVars,regioMaskVar)
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
+mocMeanFile = '/'.join([options['ARCHDIR'],'mocMean'])
+mocFiles    = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
 if 'procMoc' in options['ACTIONS']:
   # collect all MOC files
   dbg(options['MOCPATTERN'])
-  mocFiles        = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
   mocFiles.pop(0)
   # skip the latest one if job is still running
   if options['JOBISRUNNING']:
@@ -1009,7 +1010,6 @@ if 'procMoc' in options['ACTIONS']:
   dbg(mocLog)
   # check for the numbe rof timesteps in the last moc file
   mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
-  mocMeanFile     = '/'.join([options['ARCHDIR'],'mocMean'])
   if ( os.path.exists(mocMeanFile) ):
       os.remove(mocMeanFile)
   if mocNeededNSteps <= mocLastNtime:
