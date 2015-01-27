@@ -60,7 +60,7 @@ MODULE mo_nh_stepping
   USE mo_model_domain,             ONLY: p_patch, t_patch
   USE mo_time_config,              ONLY: time_config
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
-    &                                    n_dom_start, lredgrid_phys, start_time, end_time
+    &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_nh_testcases,             ONLY: init_nh_testcase 
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
@@ -93,7 +93,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -103,7 +103,7 @@ MODULE mo_nh_stepping
   USE mo_nh_interface_nwp,         ONLY: nwp_nh_interface
   USE mo_interface_iconam_echam,   ONLY: interface_iconam_echam
   USE mo_echam_phy_memory,         ONLY: prm_tend
-  USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
+  USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf, copy_rrg_ubc
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
@@ -901,7 +901,7 @@ MODULE mo_nh_stepping
     REAL(wp):: dt_sub                ! (advective) timestep for next finer grid level
     REAL(wp):: rdt_loc,  rdtmflx_loc ! inverse time step for local grid level
 
-    LOGICAL :: lnest_active
+    LOGICAL :: lnest_active, lcall_rrg
 
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
@@ -1355,17 +1355,26 @@ MODULE mo_nh_stepping
           DO jn = 1, p_patch(jg)%n_childdom
 
             jgc = p_patch(jg)%child_id(jn)
+            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-            ! Remark: ideally, we should check for lcall_phy(jgc,itrad) here, but
-            ! it is not yet known at the time of the call whether one of the 
-            ! two physics time steps in the upcoming nest call will be a radiation
-            ! step. Calling interpol_rrg_grf from the nested domain would be better
-            ! from a flow control perspective but does not work with processor splitting
-            !
-            IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1 &
-              .AND. lcall_phy(jg,itrad) ) THEN
+            IF (patch_weight(jgc) > 0._wp) THEN
+              CALL p_bcast(lcall_phy(jgc,itrad),      p_patch(jgc)%proc0, p_comm_work)
+              CALL p_bcast(t_elapsed_phy(jgc,itrad),  p_patch(jgc)%proc0, p_comm_work)
+            ENDIF
 
+            ! Determine if radiation will be called in the nested domain during the subsequent two (small) time steps
+            IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%lproc_on(itrad) .AND. .NOT. lcall_phy(jgc,itrad) &
+              .AND. t_elapsed_phy(jgc,itrad) + dt_loc >= 0.99999999_wp*dt_phy(jgc,itrad) ) THEN
+              lcall_rrg = .TRUE.
+            ELSE
+              lcall_rrg = .FALSE.
+            ENDIF
+
+            IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
               CALL interpol_rrg_grf(jg, jgc, jn, nnew_rcf(jg))
+            ENDIF
+            IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%latm_above_top) THEN
+              CALL copy_rrg_ubc(jg, jgc)
             ENDIF
           ENDDO
           IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
@@ -1594,6 +1603,13 @@ MODULE mo_nh_stepping
               &                  p_nh_state(jgc)%metrics,        &
               &                  p_nh_state(jgc)%prog(nnow(jgc)),&
               &                  p_nh_state(jgc)%diag, itlev = 2 )
+
+            IF ( lredgrid_phys(jgc) ) THEN
+              CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
+              IF (atm_phy_nwp_config(jgc)%latm_above_top) THEN
+                CALL copy_rrg_ubc(jg, jgc)
+              ENDIF
+            ENDIF
 
             CALL init_slowphysics (datetime, jgc, dt_loc, time_config%sim_time)
 
@@ -1940,6 +1956,9 @@ MODULE mo_nh_stepping
 
       IF ( lredgrid_phys(jgc) ) THEN
         CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
+        IF (atm_phy_nwp_config(jgc)%latm_above_top) THEN
+          CALL copy_rrg_ubc(jg, jgc)
+        ENDIF
       ENDIF
     ENDDO
 

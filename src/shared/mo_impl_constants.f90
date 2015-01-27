@@ -268,6 +268,9 @@ MODULE mo_impl_constants
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
+  ! Maximum number of extra model levels added to the reduced radiation grid in case of vertical nesting
+  INTEGER, PARAMETER :: nexlevs_rrg_vnest = 8
+
   ! maximum allowed number of tracers (20 should be enough for the time being) ! DRIEG: For ART, more than 20 tracers are needed
   INTEGER, PARAMETER :: max_ntracer = 200
 
