@@ -138,7 +138,6 @@ CONTAINS
     CALL deallocateDatetime(mtime_end)
     CALL deallocateTimedelta(delta)
     CALL resetCalendar()
-    write(0,*) 'leave compute_matching_sim_steps ...'
   END SUBROUTINE compute_matching_sim_steps
 
 
@@ -174,7 +173,6 @@ CONTAINS
     CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
     vlsec => newtimedelta(td_string)
     call timedeltaToString(vlsec, td_string)
-    write(0,*) 'compute_step (vlsec): ', trim(td_string) 
     
     tddiff => newtimedelta('PT0S')
     tddiff = mtime_current - mtime_begin
