@@ -32,6 +32,7 @@ MODULE mo_advection_geometry
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
+  USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_utilities,      ONLY: lintersect, line_intersect, t_line, &
     &                               t_geographical_coordinates 
   USE mo_advection_utils,     ONLY: t_list2D
@@ -414,8 +415,12 @@ CONTAINS
 
           ! Note: direct write to standard error output is used here by intention
           ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                     p_vn(je,jk,jb),p_vt(je,jk,jb)
+          WRITE(0,'(a,a,i5,a,i5,a,i5,a,f8.2,a,f8.2,a,f10.2,a,f10.2)') &
+               & 'horizontal CFL number exceeded at:',                &
+               & ' je =',je,' jk =',jk,' jb =',jb,                    &
+               & ' lon(deg)=',p_patch%edges%center(je,jb)%lon*rad2deg,&
+               & ' lat(deg)=',p_patch%edges%center(je,jb)%lat*rad2deg,&
+               & ' vn(m/s)=',p_vn(je,jk,jb),' vt(m/s)=',p_vt(je,jk,jb)
         ENDDO
       ENDIF
 
@@ -1233,8 +1238,12 @@ CONTAINS
 
           ! Note: direct write to standard error output is used here by intention
           ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                    p_vn(je,jk,jb),p_vt(je,jk,jb)
+          WRITE(0,'(a,a,i5,a,i5,a,i5,a,f8.2,a,f8.2,a,f10.2,a,f10.2)') &
+               & 'horizontal CFL number exceeded at:',                &
+               & ' je =',je,' jk =',jk,' jb =',jb,                    &
+               & ' lon(deg)=',p_patch%edges%center(je,jb)%lon*rad2deg,&
+               & ' lat(deg)=',p_patch%edges%center(je,jb)%lat*rad2deg,&
+               & ' vn(m/s)=',p_vn(je,jk,jb),' vt(m/s)=',p_vt(je,jk,jb)
         ENDDO
       ENDIF
 
