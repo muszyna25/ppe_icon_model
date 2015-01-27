@@ -50,7 +50,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, dtime_adv, lart
+    &                              output_mode, lart
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -61,7 +61,7 @@ MODULE mo_nml_crosscheck
     &                              lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,   ONLY: advection_config
 
-  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf, &
+  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, &
                                       lhdiff_rcf, rayleigh_type, divdamp_order
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config
@@ -116,7 +116,6 @@ CONTAINS
     ! rescale timestep
     dtime     = dtime     * grid_rescale_factor
     IF (get_my_process_type() == atmo_process) THEN
-      dtime_adv = dtime_adv * grid_rescale_factor
       echam_phy_config%dt_rad = &
         & echam_phy_config%dt_rad * grid_rescale_factor
 
@@ -181,19 +180,16 @@ CONTAINS
          iequations /= IHS_ATM_THETA ) THEN
       !
       ! for non-hydrostatic atmosphere
-      ! - ocean does not know iadv_rcf)
       ! - not relevant for the hydrostatic atmosphere
       !
-      ! Check whether the end of the restart cycle is synchronized with a transport
-      ! event. If not, adapt dt_restart accordingly.
-      ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
+      ! Check whether the end of the restart cycle is synchronized with a 
+      ! transport/physics event. If not, adapt dt_restart accordingly.
       !
-      IF (MOD(time_config%dt_restart,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
-        time_config%dt_restart =                                              &
-          &   REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime)),wp) &
-          &   * REAL(iadv_rcf,wp)*dtime
+      IF (MOD(time_config%dt_restart,dtime) /= 0) THEN
+        time_config%dt_restart =                              &
+          &   REAL(NINT(time_config%dt_restart/(dtime)),wp) * dtime
         WRITE(message_text,'(a)') &
-          &  'length of restart cycle dt_restart synchronized with transport event'
+          &  'length of restart cycle dt_restart synchronized with transport/phys event'
         CALL message(method_name, message_text)
       ENDIF
     ENDIF
@@ -248,18 +244,15 @@ CONTAINS
          iequations /= IHS_ATM_THETA ) THEN
       !
       ! for non-hydrostatic atmosphere
-      ! - ocean does not know iadv_rcf)
       ! - not relevant for the hydrostatic atmosphere
       !
-      ! Check whether checkpointing is synchronized with a transport event.
+      ! Check whether checkpointing is synchronized with a transport/physics event.
       ! If not, adapt dt_checkpoint accordingly.
-      ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
       !
-      IF (MOD(dt_checkpoint,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
-        dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime)),wp) &
-          &           * REAL(iadv_rcf,wp)*dtime
+      IF (MOD(dt_checkpoint,dtime) /= 0) THEN
+        dt_checkpoint = REAL(NINT(dt_checkpoint/(dtime)),wp) * dtime
         WRITE(message_text,'(a)') &
-          &  'length of checkpoint cycle dt_checkpoint synchronized with transport event'
+          &  'length of checkpoint cycle dt_checkpoint synchronized with transport/phys event'
         CALL message(method_name, message_text)
       ENDIF
     ENDIF
@@ -953,11 +946,11 @@ CONTAINS
 
       ! check analysis update window
       !
-      IF ( (dt_iau > 0._wp) .AND. (dt_iau < REAL(iadv_rcf,wp)*dtime)) THEN
-        ! If dt_iau is chosen to be larger than 0, it must be >= dtime_adv at least.
-        dt_iau = dtime_adv
+      IF ( (dt_iau > 0._wp) .AND. (dt_iau < dtime)) THEN
+        ! If dt_iau is chosen to be larger than 0, it must be >= dtime at least.
+        dt_iau = dtime
         WRITE (message_text,'(a,a,f6.2)') "Wrong value for dt_iau. ", &
-          &   "If >0 then at least equal to advective tstep ",REAL(iadv_rcf,wp)*dtime
+          &   "If >0 then at least equal to advective/phys tstep ",dtime
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
 

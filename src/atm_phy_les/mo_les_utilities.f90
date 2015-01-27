@@ -217,15 +217,14 @@ MODULE mo_les_utilities
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2014-July-07)
-  SUBROUTINE brunt_vaisala_freq(p_patch, p_metrics, theta, qc, rho_ic, &
-                                temp, bru_vais)
+  SUBROUTINE brunt_vaisala_freq(p_patch, p_metrics, thetav, bru_vais)
 
     TYPE(t_patch),     INTENT(in), TARGET :: p_patch
     TYPE(t_nh_metrics),INTENT(in), TARGET :: p_metrics 
-    REAL(wp), DIMENSION(:,:,:), INTENT(in):: theta, qc, rho_ic, temp
+    REAL(wp), DIMENSION(:,:,:), INTENT(in):: thetav
     REAL(wp), INTENT(OUT)                 :: bru_vais(:,:,:)
 
-    REAL(wp) :: theta_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
+    REAL(wp) :: thetav_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: term1, qs, temp_ic
     INTEGER  :: i_startblk, i_endblk, rl_start, rl_end
     INTEGER  :: i_endidx, i_startidx, nlev, nlevp1, i_nchdom
@@ -243,10 +242,10 @@ MODULE mo_les_utilities
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, theta, theta_ic, rl_start, rl_end)
+    CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, thetav, thetav_ic, rl_start, rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,temp_ic,qs,term1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
@@ -257,24 +256,8 @@ MODULE mo_les_utilities
       DO jk = 2 , nlev
         DO jc = i_startidx , i_endidx
 #endif
-          bru_vais(jc,jk,jb) = grav * ( theta(jc,jk-1,jb) - theta(jc,jk,jb) ) * &
-                               p_metrics%inv_ddqz_z_half(jc,jk,jb)/theta_ic(jc,jk,jb)    
-
-          !Now for saturated case
-          IF(qc(jc,jk,jb) > 0._wp .AND. qc(jc,jk-1,jb) > 0._wp)THEN 
-
-            temp_ic = p_metrics%wgtfac_c(jc,jk,jb) * temp(jc,jk,jb) + &
-                    (1._wp-p_metrics%wgtfac_c(jc,jk,jb)) * temp(jc,jk-1,jb)
-
-            qs    = qsat_rho(temp_ic,rho_ic(jc,jk,jb))  
-
-            term1 = 1._wp + alv*qs/(rd*temp_ic)
-
-            bru_vais(jc,jk,jb) = ( bru_vais(jc,jk,jb) + grav**2 * rcpd * ( term1 / &
-                    (1._wp + 0.067_wp*alvdcp*qs) - 1._wp )/temp_ic ) * term1 
-
-          END IF
-
+          bru_vais(jc,jk,jb) = grav * ( thetav(jc,jk-1,jb) - thetav(jc,jk,jb) ) * &
+                               p_metrics%inv_ddqz_z_half(jc,jk,jb)/thetav_ic(jc,jk,jb)    
         END DO
       END DO     
     END DO 

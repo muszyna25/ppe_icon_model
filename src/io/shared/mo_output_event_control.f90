@@ -121,7 +121,7 @@ CONTAINS
       IF (((mtime_date1 >= mtime_dom_start) .AND. (mtime_date1 >= mtime_begin)) .OR.  &
         & ((mtime_date1 <= mtime_end) .AND. (mtime_date1 <= mtime_dom_end))) THEN 
         CALL compute_step(mtime_date1, mtime_begin, mtime_end,                &
-          &               sim_step_info%dtime, sim_step_info%iadv_rcf, delta, &
+          &               sim_step_info%dtime, delta,                         &
           &               sim_step_info%jstep0,                               &
           &               result_steps(ilist), result_exactdate(ilist))
         IF (ldebug) THEN
@@ -141,53 +141,32 @@ CONTAINS
 
 
   ! --------------------------------------------------------------------------------------------------
-  !> Utility function: Compute "(date1-sim_start)/(iadv_rcf*dtime)"
+  !> Utility function: Compute "(date1-sim_start)/(dtime)"
   !
   !  @author F. Prill, DWD
   ! --------------------------------------------------------------------------------------------------
   SUBROUTINE compute_step(mtime_date1, mtime_begin, mtime_end, dtime,  &
-    &                     iadv_rcf, delta, step_offset, step, exact_date)
+    &                     delta, step_offset, step, exact_date)
     TYPE(datetime),  POINTER                         :: mtime_date1         !< input date to translated into step
     TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
     TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
-    INTEGER,                             INTENT(IN)  :: iadv_rcf            !< advection step: frequency ratio
     TYPE(timedelta), POINTER                         :: delta
     INTEGER,                             INTENT(IN)  :: step_offset
     INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
     CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
     ! local variables
-    INTEGER                             :: i
     REAL                                :: intvlsec
     TYPE(datetime),  POINTER            :: mtime_step
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
-    ! first, we compute the dynamic time step which is *smaller* than
+    ! first, we compute the dynamic time step which is equal or larger than
     ! the desired date "mtime_date1"
     intvlsec    = REAL(dtime)
-    step        = FLOOR(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
+    step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
 
     IF (step >= 0) THEN
       mtime_step  => datetimeaddseconds(mtime_begin, REAL(step*intvlsec))
 
-      ! starting from this step, we make (at most iadv_rcf) steps
-      ! until we are *greater* than the desired date "mtime_date1" and
-      ! we have reached an advection time step
-      LOOP : DO i=1,iadv_rcf
-        IF (ldebug) THEN
-          CALL datetimeToString(mtime_step, dtime_string)
-          WRITE (0,*) "mtime_step = ", TRIM(dtime_string)
-          CALL datetimeToString(mtime_date1, dtime_string)
-          WRITE (0,*) "mtime_date1 = ", TRIM(dtime_string)
-        END IF
-
-        IF ((mtime_step >= mtime_date1) .AND.  &
-          & (MOD(step, iadv_rcf) == 0) .OR. (mtime_step == mtime_end)) THEN
-          EXIT LOOP
-        END IF
-        mtime_step = mtime_step + delta
-        step       = step + 1
-      END DO LOOP
       CALL datetimeToString(mtime_step, exact_date)
       CALL deallocateDatetime(mtime_step)
     END IF

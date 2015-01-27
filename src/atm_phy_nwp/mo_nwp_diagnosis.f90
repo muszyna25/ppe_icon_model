@@ -57,6 +57,7 @@ MODULE mo_nwp_diagnosis
   USE mo_time_config,        ONLY: time_config
   USE mo_exception,          ONLY: finish
   USE mo_math_constants,     ONLY: pi
+  USE mo_statistics,         ONLY: time_avg
 
   IMPLICIT NONE
 
@@ -1689,37 +1690,6 @@ CONTAINS
 
   END SUBROUTINE nwp_diag_output_minmax_micro
 
-!
-!===========================================================================
-!
-  !>
-  !! Computes updated time average
-  !!
-  !! Computes updated time average for a particular field
-  !!
-  !! @Literature
-  !! Based on proposal found in 
-  !! Jochen Froehlich, 2006:Large Eddy Simulation turbulenter Stroemungen, Teubner,
-  !! page 273
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2014-01-17)
-  !!
-  FUNCTION time_avg (psi_avg_old, psi_inst, wgt)  RESULT (psi_avg_new)
-
-    REAL(wp), INTENT(IN) :: psi_avg_old       !< time average at t(n-1)
-    REAL(wp), INTENT(IN) :: psi_inst          !< instantaneous value
-    REAL(wp), INTENT(IN) :: wgt               !< weight (=dt/sim_time)
-
-    ! Result
-    REAL(wp) :: psi_avg_new                   !< updated time average
-
-    !--------------------------------------------------------------------
-
-    ! compute updated time average
-    psi_avg_new = (1._wp - wgt)*psi_avg_old + wgt*psi_inst
-
-  END FUNCTION time_avg
 
 END MODULE mo_nwp_diagnosis
 

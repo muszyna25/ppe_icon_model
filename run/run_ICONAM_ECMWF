@@ -96,7 +96,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # model timing
 
-dtime=90                     # time step in seconds (150, 180, 225, 300)
+dtime=360                     # time step in seconds
 ndays=10                      # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #nsteps=100
@@ -259,7 +259,6 @@ ntiles           = 1
 !damp_height     = 35000.   ! damping height vertical wind (set about 10km below top, 10 levels)
  damp_height     = 50000.   ! damping height vertical wind (set about 10km below top, 10 levels)
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
- iadv_rcf        = 4        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
  igradp_method   = 3        ! new default
  htop_moist_proc = 30000.   ! height above which moist physics and cld/precip advection off

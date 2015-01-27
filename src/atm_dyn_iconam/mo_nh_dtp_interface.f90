@@ -70,7 +70,8 @@ CONTAINS
   !!   MUSCL scheme for vertical transport
   !!
   SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,         &!in
-    &                        iadv_rcf, lstep_advphy, lclean_mflx, lfull_comp, &!in
+    &                        ndyn_substeps, lstep_advphy, lclean_mflx,        &!in
+    &                        lfull_comp,                                      &!in
     &                        p_nh_diag,                                       &!inout
     &                        p_vn_traj, p_mass_flx_me,                        &!inout
     &                        p_w_traj, p_mass_flx_ic,                         &!inout
@@ -84,13 +85,13 @@ CONTAINS
     TYPE(t_nh_diag),INTENT(INOUT) :: p_nh_diag
 
 
-    INTEGER, INTENT(IN) :: iadv_rcf     !< used here to switch off time-averaging
-    LOGICAL, INTENT(IN) :: lstep_advphy !< used here to switch on time-averaging
-    LOGICAL, INTENT(IN) :: lclean_mflx  !< switch for re-initializing time integrated
-                                        !< mass fluxes and trajectory-velocities
-    LOGICAL, INTENT(IN) :: lfull_comp   !< perform full amount of computations (comes in as .FALSE. if
-                                        !< part of the precomputations has already been done in 
-                                        !< solve_nh and only standard settings are used)
+    INTEGER, INTENT(IN) :: ndyn_substeps !< used here to switch off time-averaging
+    LOGICAL, INTENT(IN) :: lstep_advphy  !< used here to switch on time-averaging
+    LOGICAL, INTENT(IN) :: lclean_mflx   !< switch for re-initializing time integrated
+                                         !< mass fluxes and trajectory-velocities
+    LOGICAL, INTENT(IN) :: lfull_comp    !< perform full amount of computations (comes in as .FALSE. if
+                                         !< part of the precomputations has already been done in 
+                                         !< solve_nh and only standard settings are used)
 
     REAL(wp),INTENT(INOUT) :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT) :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
@@ -99,7 +100,7 @@ CONTAINS
     REAL(wp),INTENT(OUT)   :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
-    REAL(wp) :: r_iadv_rcf           !< reciprocal of iadv_rcf
+    REAL(wp) :: r_ndyn_substeps           !< reciprocal of ndyn_substeps
     REAL(wp) :: z_mass_flx_me(nproma,p_patch%nlev, p_patch%nblks_e)
     REAL(wp) :: z_topflx_tra (nproma,ntracer, p_patch%nblks_c)
     REAL(wp) :: w_tavg               !< contravariant vertical velocity at n+\alpha 
@@ -262,10 +263,10 @@ CONTAINS
     !
     ! compute time averaged mass fluxes and trajectory-velocities
     !
-    IF (lfull_comp .AND. lstep_advphy .AND. iadv_rcf > 1 ) THEN
+    IF (lfull_comp .AND. lstep_advphy .AND. ndyn_substeps > 1 ) THEN
 
 
-      r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
+      r_ndyn_substeps = 1._wp/REAL(ndyn_substeps,wp)
 
       i_rlstart_e  = 2
       IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1) .OR. &
@@ -288,8 +289,8 @@ CONTAINS
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
 
-              p_mass_flx_me(je,jk,jb) = r_iadv_rcf * p_mass_flx_me(je,jk,jb)
-              p_vn_traj(je,jk,jb)     = r_iadv_rcf * p_vn_traj(je,jk,jb)
+              p_mass_flx_me(je,jk,jb) = r_ndyn_substeps * p_mass_flx_me(je,jk,jb)
+              p_vn_traj(je,jk,jb)     = r_ndyn_substeps * p_vn_traj(je,jk,jb)
 
             ENDDO
           ENDDO
@@ -303,14 +304,14 @@ CONTAINS
             DO je = i_startidx, i_endidx
 #endif
 
-              p_mass_flx_me(je,jk,jb) = r_iadv_rcf * (                                       &
+              p_mass_flx_me(je,jk,jb) = r_ndyn_substeps * (                                  &
                 &   z_mass_flx_me(je,jk,jb)*p_int%e_flx_avg(je,1,jb)                         &
                 & + z_mass_flx_me(iqidx(je,jb,1),jk,iqblk(je,jb,1))*p_int%e_flx_avg(je,2,jb) &
                 & + z_mass_flx_me(iqidx(je,jb,2),jk,iqblk(je,jb,2))*p_int%e_flx_avg(je,3,jb) &
                 & + z_mass_flx_me(iqidx(je,jb,3),jk,iqblk(je,jb,3))*p_int%e_flx_avg(je,4,jb) &
                 & + z_mass_flx_me(iqidx(je,jb,4),jk,iqblk(je,jb,4))*p_int%e_flx_avg(je,5,jb) )
 
-              p_vn_traj(je,jk,jb)     = r_iadv_rcf * p_vn_traj(je,jk,jb)
+              p_vn_traj(je,jk,jb)     = r_ndyn_substeps * p_vn_traj(je,jk,jb)
 
             ENDDO
           ENDDO
@@ -330,8 +331,8 @@ CONTAINS
         DO jk = 1, nlevp1
           DO jc = i_startidx, i_endidx
 
-            p_mass_flx_ic(jc,jk,jb) = r_iadv_rcf * p_mass_flx_ic(jc,jk,jb)
-            p_w_traj(jc,jk,jb)      = r_iadv_rcf * p_w_traj(jc,jk,jb)
+            p_mass_flx_ic(jc,jk,jb) = r_ndyn_substeps * p_mass_flx_ic(jc,jk,jb)
+            p_w_traj(jc,jk,jb)      = r_ndyn_substeps * p_w_traj(jc,jk,jb)
 
           ENDDO
         ENDDO
@@ -339,7 +340,7 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
-    ELSE IF ( lstep_advphy .AND. iadv_rcf == 1 .AND. idiv_method == 2 ) THEN
+    ELSE IF ( lstep_advphy .AND. ndyn_substeps == 1 .AND. idiv_method == 2 ) THEN
       ! Compute only averaged mass flux
 
 

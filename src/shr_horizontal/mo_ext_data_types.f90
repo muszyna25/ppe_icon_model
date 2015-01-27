@@ -123,6 +123,9 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< standard deviation of sub-grid scale orography [m]
       &  sso_stdh(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< "raw" sso_stdh without correction for orography smoothing [m]
+      &  sso_stdh_raw(:,:)     ! index1=1,nproma, index2=1,nblks_c
+
     REAL(wp), POINTER ::   &   !< anisotropy of sub-grid scale orography  [ ]
       &  sso_gamma(:,:)        ! index1=1,nproma, index2=1,nblks_c
 

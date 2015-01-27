@@ -1101,7 +1101,7 @@ CONTAINS
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
                                 & opt_lcall_phy, opt_sim_time, &
-                                & opt_jstep_adv_ntsteps,       &
+                                & opt_ndyn_substeps,           &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth_lnd,               &
                                 & opt_nlev_snow,               &
@@ -1122,7 +1122,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndyn_substeps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
@@ -1197,9 +1197,9 @@ CONTAINS
     ! SET_RESTART_ATTRIBUTE
     !-------------------------------------------------------------
 
-    IF (PRESENT(opt_jstep_adv_ntsteps)) THEN
-        WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
-        CALL set_restart_attribute( TRIM(attname), opt_jstep_adv_ntsteps )
+    IF (PRESENT(opt_ndyn_substeps)) THEN
+        WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
+        CALL set_restart_attribute( TRIM(attname), opt_ndyn_substeps )
     ENDIF
 
     IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN

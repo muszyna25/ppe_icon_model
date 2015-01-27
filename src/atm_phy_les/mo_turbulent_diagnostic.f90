@@ -63,7 +63,7 @@ MODULE mo_turbulent_diagnostic
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
-  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
+  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx, idx_dt_t_gsp
   
   CHARACTER(20) :: tname     = 'time'
   CHARACTER(20) :: tlongname = 'Time'
@@ -76,6 +76,7 @@ MODULE mo_turbulent_diagnostic
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
   PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx, idx_sgs_u_flx, idx_sgs_v_flx
+  PUBLIC  :: idx_dt_t_gsp
 
 CONTAINS
 
@@ -224,6 +225,7 @@ CONTAINS
                             & p_prog,   p_prog_rcf,       & !in
                             & p_diag,                     & !in
                             & p_prog_land, p_diag_land,   & !in
+                            & phy_tend,                   & !in
                             & prm_diag                )     !inout
                             
 
@@ -238,6 +240,7 @@ CONTAINS
 
     TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
     TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
+    TYPE(t_nwp_phy_tend),TARGET,INTENT(in):: phy_tend    !< atm tend vars
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     ! Local
@@ -644,27 +647,11 @@ CONTAINS
 
        CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
 
-     CASE('bynprd')
-       !Buoyancy production term = prm_diag%buoyancy_prod * kh
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
-        DO jb = i_startblk,i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
-            DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = prm_diag%buoyancy_prod(jc,jk,jb) * prm_diag%tkvh(jc,jk,jb) 
-            END DO
-          END DO
-          DO jc = i_startidx, i_endidx
-           var3dh(jc,1,jb)      = var3dh(jc,2,jb)
-           var3dh(jc,nlevp1,jb) = var3dh(jc,nlev,jb)
-          END DO
-        END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+     CASE('bruvais')
 
-       CALL levels_horizontal_mean(var3dh,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%bruvais,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
+       outvar(1)      = outvar(2) 
+       outvar(nlevp1) = outvar(nlev) 
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2
@@ -739,6 +726,15 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
        outvar = outvar*outvar0d
+     CASE('dt_t_sw')
+       CALL levels_horizontal_mean(phy_tend%ddt_temp_radsw, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlev))
+     CASE('dt_t_lw')
+       CALL levels_horizontal_mean(phy_tend%ddt_temp_radlw, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlev))
+     CASE('dt_t_tb')
+       CALL levels_horizontal_mean(phy_tend%ddt_temp_turb, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlev))
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -1065,12 +1061,12 @@ CONTAINS
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
        idx_sgs_qc_flx = n
-     CASE('bynprd') 
-       longname = 'Buoyancy production divided by eddy diffusivity.'
+     CASE('bruvais') 
+       longname = 'Brunt Vaisala Frequency'
        unit     = '1/s2'
        is_at_full_level(n) = .FALSE.
      CASE('mechprd') 
-       longname = 'Mechanical production divided by eddy viscosity.'
+       longname = 'Mechanical production term in TKE'
        unit     = '1/s2'
        is_at_full_level(n) = .FALSE.
      CASE('wthsfs') 
@@ -1105,6 +1101,19 @@ CONTAINS
        longname = 'net shortwave flux'
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
+     CASE('dt_t_sw') 
+       longname = 'shortwave temp tendency'
+       unit     = 'K/s'
+     CASE('dt_t_lw') 
+       longname = 'longwave temp tendency'
+       unit     = 'K/s'
+     CASE('dt_t_tb') 
+       longname = 'turbulent temp tendency'
+       unit     = 'K/s'
+     CASE('dt_t_mc') 
+       longname = 'microphysics temp tendency'
+       unit     = 'K/s'
+       idx_dt_t_gsp = n
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
