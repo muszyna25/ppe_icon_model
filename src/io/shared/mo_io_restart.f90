@@ -176,6 +176,7 @@ CONTAINS
     CHARACTER(len=132) :: message_text
     LOGICAL                        :: lsuccess, lexists
     INTEGER                        :: idom, total_dom, fileID, vlistID, root_pe
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     ! rank of broadcast root PE
     root_pe = 0
@@ -202,8 +203,9 @@ CONTAINS
       fileID  = streamOpenRead(rst_filename)
       ! check if the file could be opened
       IF (fileID < 0) THEN
+        CALL cdiGetStringError(fileID, cdiErrorText)
         WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), &
-             ' cannot be opened: ', TRIM(cdiStringError(fileID))
+             ' cannot be opened: ', TRIM(cdiErrorText)
         CALL finish(routine, TRIM(message_text))
       ENDIF
 
@@ -479,6 +481,7 @@ CONTAINS
     REAL(wp) :: real_attribute
     INTEGER :: int_attribute
     LOGICAL :: bool_attribute
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     IF (my_process_is_mpi_test()) RETURN
     !
@@ -536,7 +539,8 @@ CONTAINS
         var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
-          WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID_restart)
+          CALL cdiGetStringError(var_lists(i)%p%cdiFileID_restart, cdiErrorText)
+          WRITE(message_text,'(a)') TRIM(cdiErrorText)
           CALL message('',message_text)
           CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
         ELSE

@@ -3307,6 +3307,7 @@ CONTAINS
     INTEGER                       :: restart_type, i
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'open_restart_file'
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -3354,7 +3355,8 @@ CONTAINS
     p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
 
     IF (p_rf%cdiFileID < 0) THEN
-      WRITE(message_text,'(a)') cdiStringError(p_rf%cdiFileID)
+      CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('', message_text, all_print=.TRUE.)
       CALL finish (subname, 'open failed on '//TRIM(p_rf%filename))
     ELSE

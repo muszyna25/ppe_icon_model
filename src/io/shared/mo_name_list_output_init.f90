@@ -103,7 +103,7 @@ MODULE mo_name_list_output_init
     &                                             level_type_il
   ! lon-lat interpolation
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
-    &                                             compute_lonlat_specs
+    &                                             compute_lonlat_specs, threshold_delta_or_intvls
   USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
     &                                             lonlat_grid_list, n_lonlat_grids,               &
@@ -2210,16 +2210,28 @@ CONTAINS
       CALL gridDefYunits(of%cdiLonLatGridID, 'degrees_north')
 
       ALLOCATE(p_lonlat(ll_dim(1)))
-      DO k=1,ll_dim(1)
-        p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
-      END DO
+      IF (lonlat%grid%reg_lon_def(2) <= threshold_delta_or_intvls) THEN
+        DO k=1,ll_dim(1)
+          p_lonlat(k) = lonlat%grid%reg_lon_def(1) + REAL(k-1,wp)*lonlat%grid%reg_lon_def(2)
+        END DO
+      ELSE
+        DO k=1,ll_dim(1)
+          p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
+        END DO
+      END IF
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim(2)))
-      DO k=1,ll_dim(2)
-        p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
-      END DO
+      IF (lonlat%grid%reg_lat_def(2) <= threshold_delta_or_intvls) THEN
+        DO k=1,ll_dim(2)
+          p_lonlat(k) = lonlat%grid%reg_lat_def(1) + REAL(k-1,wp)*lonlat%grid%reg_lat_def(2)
+        END DO
+      ELSE
+        DO k=1,ll_dim(2)
+          p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
+        END DO
+      END IF
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 #endif

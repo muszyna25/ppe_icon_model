@@ -32,14 +32,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-end_date="2008-08-02T00:00:00Z"
+end_date="2008-08-31T00:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=10
-dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 1 hours
+dtime=12.5
+dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 1 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,7 +54,7 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r2km_s220.nc'
+atmo_dyn_grids='torus_grid_r2km_s64.nc'
 #
 #-----------------------------------------------------------------------------
 #
@@ -80,9 +80,11 @@ cat >> ${atmo_namelist} << EOF
 &nh_testcase_nml
  nh_test_name   = 'RCE'     ! test case identifier
  ape_sst_case   = 'sst_const'
- u_cbl          = 5.0, 0.0  !u_cbl(1)=constant, u_cbl(2)=gradient, default=0
+ u_cbl          = 0.0, 0.0  !u_cbl(1)=constant, u_cbl(2)=gradient, default=0
  v_cbl          = 0.0, 0.0  !v_cbl(1)=constant, v_cbl(2)=gradient, default=0
  th_cbl         = 301.0 0.003
+ sol_const      = 650.83
+ zenithang      = 28.19
 /
 &io_nml
  dt_checkpoint  = ${dt_checkpoint}
@@ -96,28 +98,28 @@ cat >> ${atmo_namelist} << EOF
  iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
  ltestcase      = .TRUE.       ! run testcase
  ltimer         = .true.       ! 
- msg_level      = 12          ! detailed report during integration
+ msg_level      = 10          ! detailed report during integration
  output         = 'nml'
 /
 &nwp_phy_nml
- inwp_gscp       = 1 
+ inwp_gscp       = 4
  inwp_convection = 0 ! 1:Tiedtke/Bechtold
  inwp_radiation  = 1 ! 1:RRTM radiation
- inwp_cldcover   = 1 ! 3: clouds from COSMO SGS cloud scheme
+ inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
  inwp_turb       = 5 ! 1: COSMO diffusion and transfer
  inwp_satad      = 1
- inwp_sso        = 0
- inwp_gwd        = 0
  inwp_surface    = 0 ! 0: none; 1: TERRA
- latm_above_top  = .false.
+ latm_above_top  = .true.
+ dt_rad          = 1600.
 /
 &les_nml
  sst               = 301
  isrfc_type        = 5     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  expname           = '${EXPNAME}'
- avg_interval_sec = 900.
- sampl_freq_sec   = 30.
+ avg_interval_sec = 3600.
+ sampl_freq_sec   = 300.
  ldiag_les_out    = .TRUE.
+ km_min           = 0.0
 /
 &turbdiff_nml
 lconst_z0 = .TRUE.
@@ -158,34 +160,34 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT01H"
+ output_interval  = "PT03H"
  file_interval    = "P01D"
  include_last     = .TRUE.
- output_filename  = 'diag_vars'
+ output_filename  = 'cloud_diag'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars','t_g','qv_s'
+ ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars'
  output_grid      = .TRUE.
 /
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT01H"
+ output_interval  = "PT06H"
  file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'pbl_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- hl_varlist       = 'group:pbl_vars','umfl_s','vmfl_s'
+ ml_varlist       = 'tch','tcm','htop_dc','rh_2m','umfl_s','vmfl_s','lhfl_s','shfl_s','t_g','qv_s'
  output_grid      = .TRUE.
 /
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT03H"
+ output_interval  = "PT06H"
  file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- hl_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','pres_sfc','div'
+ ml_varlist       = 'qv','qc','qi','qs','qr','qh','qni','qnh','rh','u','v','w','temp','pres','rho','theta_v','pres_sfc','div'
  output_grid      = .TRUE.
 /
 &output_nml
@@ -196,9 +198,8 @@ const_z0  = 0.0001
  include_last     = .TRUE.
  output_filename  = 'rad_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:rad_vars'
+ ml_varlist       = 'group:rad_vars','lwflxall','trsolall'
  output_grid      = .TRUE.
- hl_varlist       = 'group:rad_vars','lwflxall','trsolall'
 /
 EOF
 #

@@ -43,6 +43,7 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode  => l_coarse2fine_mode,  &
     & config_lp2cintp_incr       => lp2cintp_incr,       &
     & config_lp2cintp_sfcana     => lp2cintp_sfcana,     &
+    & config_ltile_coldstart     => ltile_coldstart,     &
     & config_start_time_avg_fg   => start_time_avg_fg,   &
     & config_end_time_avg_fg     => end_time_avg_fg,     &
     & config_interval_avg_fg     => interval_avg_fg,     &
@@ -85,6 +86,7 @@ MODULE mo_initicon_nml
                                      ! assimilation increments
   LOGICAL  :: lp2cintp_sfcana(max_dom) ! If true, perform parent-to-child interpolation of
                                        ! surface analysis data
+  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess without tiles
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -137,7 +139,7 @@ MODULE mo_initicon_nml
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
                           lp2cintp_incr, lp2cintp_sfcana,                   &
                           latbc_varnames_map_file, start_time_avg_fg,       &
-                          end_time_avg_fg, interval_avg_fg
+                          end_time_avg_fg, interval_avg_fg, ltile_coldstart
                           
 CONTAINS
 
@@ -195,6 +197,7 @@ CONTAINS
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
   lp2cintp_incr(:)      = .FALSE. ! true: perform parent-to-child interpolation of atmospheric data assimilation increments
   lp2cintp_sfcana(:)    = .FALSE. ! true: perform parent-to-child interpolation of surface analysis data
+  ltile_coldstart       = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
 
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
@@ -308,6 +311,7 @@ CONTAINS
   config_l_coarse2fine_mode  = l_coarse2fine_mode
   config_lp2cintp_incr       = lp2cintp_incr
   config_lp2cintp_sfcana     = lp2cintp_sfcana
+  config_ltile_coldstart     = ltile_coldstart
   config_start_time_avg_fg   = start_time_avg_fg
   config_end_time_avg_fg     = end_time_avg_fg
   config_interval_avg_fg     = interval_avg_fg

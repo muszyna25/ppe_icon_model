@@ -17,8 +17,8 @@
 
 MODULE mo_delaunay_types
 
-#if !defined(NOMPI)
-#if (defined(__xlC__) || defined(_CRAYFTN) || defined(__INTEL_COMPILER))
+#ifndef NOMPI
+#if !defined (__SUNPRO_F95)
   USE MPI
 #endif
 #endif
@@ -38,8 +38,8 @@ MODULE mo_delaunay_types
   PUBLIC :: OPERATOR(<), OPERATOR(/), OPERATOR(*), OPERATOR(==), OPERATOR(+)
   PUBLIC :: ccw_spherical, circum_circle_spherical
 
-#if !defined(NOMPI)
-#if (!defined(_CRAYFTN) && !defined(__INTEL_COMPILER))
+#ifndef NOMPI
+#if defined (__SUNPRO_F95)
   INCLUDE "mpif.h"
 #endif
 #endif

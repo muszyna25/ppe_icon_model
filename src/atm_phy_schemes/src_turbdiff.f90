@@ -2404,7 +2404,7 @@ SUBROUTINE turbtran
 !DIR$ IVDEP
       DO i=istartpar, iendpar
          rcld(i,ke1)=SQRT(l_tur_z0(i)*tkvh(i,ke1)*d_h)* &
-                       ABS(epr_2d(i)*qsat_dT(i)*vari(i,ke1,tet_l)-vari(i,ke1,h2o_g))
+                       ABS(epr_2d(i)*qsat_dT(i)*grad(i,tet_l)-grad(i,h2o_g))
       ENDDO
 
 ! 4h) Berechnung der Enthalpie- und Impulsflussdichten sowie der EDR am Unterrand:
@@ -6238,7 +6238,7 @@ INTEGER (KIND=iintegers) :: &
   i,k ! loop indices
 
 REAL (KIND=ireals), PARAMETER :: &
-  zsig_max = 1.0E-3_ireals,  & ! max. standard deviation of saturation deficit
+  zsig_max = 0.05_ireals,    & ! max. relative standard deviation of saturation deficit
   zclwfak  = 0.005_ireals,   & ! fraction of saturation specific humidity
   zuc      = 0.95_ireals       ! constant for critical relative humidity
 
@@ -6329,9 +6329,9 @@ REAL (KIND=ireals) :: &
             ! using the standard deviation of the saturation deficit
 
             IF (PRESENT(rcld)) THEN !rcld contains standard deviation
-              sig = MIN ( zsig_max, rcld(i,k) )
+              sig = MIN ( zsig_max*qs(i), rcld(i,k) )
             ELSE !clcv contains standard deviation and will be overwritten by cloud cover
-              sig = MIN ( zsig_max, clcv(i,k) )
+              sig = MIN ( zsig_max*qs(i), clcv(i,k) )
             END IF
 
           ELSE !grid scale adjustment wihtout any variance
@@ -6456,7 +6456,7 @@ INTEGER (KIND=iintegers) :: &
   i,k ! loop indices
 
 REAL (KIND=ireals), PARAMETER :: &
-  zsig_max = 1.0E-3_ireals,  & ! max. standard deviation of saturation deficit
+  zsig_max = 0.05_ireals,    & ! max. relative standard deviation of saturation deficit
   zclwfak  = 0.005_ireals,   & ! fraction of saturation specific humidity
   zuc      = 0.95_ireals       ! constant for critical relative humidity
 
@@ -6529,9 +6529,9 @@ REAL (KIND=ireals) :: &
          ! using the standard deviation of the saturation deficit
 
          IF (PRESENT(rcld)) THEN !rcld contains standard deviation
-           sig = MIN ( zsig_max, rcld(i) )
+           sig = MIN ( zsig_max*qs(i), rcld(i) )
          ELSE !clcv contains standard deviation and will be overwritten by cloud cover
-           sig = MIN ( zsig_max, clcv(i) )
+           sig = MIN ( zsig_max*qs(i), clcv(i) )
          END IF
 
        ELSE !grid scale adjustment wihtout any variance
