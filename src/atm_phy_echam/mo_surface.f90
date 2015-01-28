@@ -226,7 +226,12 @@ CONTAINS
     ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
 
-    IF (phy_config%ljsbach) THEN
+    z0m_lnd(:)       = 0._wp
+    z0h_lnd(:)       = 0._wp
+    tte_corr(:)      = 0._wp
+
+    IF (idx_lnd <= ksfc_type) THEN
+      ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
 #ifndef __NO_JSBACH__
 
       CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
@@ -242,9 +247,6 @@ CONTAINS
       dry_static_energy(:) = 0._wp
       evapotranspiration(:) = 0._wp
 
-      z0m_lnd(:)       = 0._wp
-      z0h_lnd(:)       = 0._wp
-      tte_corr(:)      = 0._wp
       ztsfc_lnd(:)     = 0._wp
       ztsfc_lnd_eff(:) = 0._wp
 
@@ -289,24 +291,6 @@ CONTAINS
 
       tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
 
-      ! calculate grid box mean effective temperature for use in radheat
-      ptsfc_eff(:) = 0._wp
-      DO jsfc=1,ksfc_type
-        IF (jsfc == idx_lnd) THEN
-          ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ztsfc_lnd_eff(1:kproma)**4
-        ELSE
-          ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
-        END IF
-      ENDDO
-      ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma)**0.25_wp
-
-      ! calculate grid box mean radiative temperature for use in radiation
-      ptsfc_rad(:) = 0._wp
-      DO jsfc=1,ksfc_type
-          ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
-      ENDDO
-      ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma)**0.25_wp
-
 #else
       CALL finish(method_name, "The JSBACH component is not activated")
 #endif
@@ -318,15 +302,33 @@ CONTAINS
 
     END IF
 
+    ! calculate grid box mean effective temperature for use in radheat
+    ptsfc_eff(:) = 0._wp
+    DO jsfc=1,ksfc_type
+      IF (jsfc == idx_lnd) THEN
+        ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ztsfc_lnd_eff(1:kproma)**4
+      ELSE
+        ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
+      END IF
+    ENDDO
+    ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma)**0.25_wp
+
+    ! calculate grid box mean radiative temperature for use in radiation
+    ptsfc_rad(:) = 0._wp
+    DO jsfc=1,ksfc_type
+      ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
+    ENDDO
+    ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma)**0.25_wp
+
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.
     !
-    zca(1:kproma,:) = 1._wp
-    zcs(1:kproma,:) = 1._wp
-
-    IF (idx_lnd <= ksfc_type .AND. phy_config%ljsbach) THEN
+    IF (idx_lnd <= ksfc_type) THEN
       zca(1:kproma,idx_lnd) = pcair(1:kproma)
       zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
+    ELSE
+      zca(1:kproma,:) = 1._wp
+      zcs(1:kproma,:) = 1._wp
     END IF
 
     ! CALL sea_ice_thermodynamics ?
