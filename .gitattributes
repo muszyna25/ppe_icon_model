@@ -778,6 +778,7 @@ run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble_0010km -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble_0079km -text
 run/checksuite.ocean_internal/tracers/post.oce_test_numeric_tracerconservation -text
+run/checksuite.ocean_internal/tracers/post_0079km.sh -text
 run/checksuite.ocean_internal/tracers/post_oce_tracer_bubble_saltcontent.py -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
