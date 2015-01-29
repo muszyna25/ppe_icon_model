@@ -128,6 +128,7 @@ CONTAINS
                        prec_s,            & ! inout: precip rate snow
                        prec_g,            & ! inout: precip rate graupel
                        prec_h,            & ! inout: precip rate hail
+                       dtemp,             & ! inout: opt. temp increment
                        msg_level,         & ! in: msg_level
                        l_cv          )      ! in: switch for cv/cp
                 
@@ -155,6 +156,8 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT (INOUT)  :: &
          &               prec_r, prec_i, prec_s, prec_g, prec_h
 
+    REAL(wp), OPTIONAL, INTENT (INOUT)  :: dtemp(:,:)
+
     INTEGER,  INTENT (IN)             :: msg_level 
     LOGICAL,  OPTIONAL,  INTENT (IN)  :: l_cv
 
@@ -172,7 +175,7 @@ CONTAINS
     INTEGER  :: ntsedi     ! for sedimentation sub stepping
     
     REAL(wp) :: q_liq_new,q_vap_new
-    REAL(wp) :: zf,hlp
+    REAL(wp) :: zf,hlp,dtemp_loc
     REAL(wp) :: convliq,convice
     REAL(wp) :: tau_inact =  600.  ! relaxation time scale for activated IN number density
     REAL(wp) :: tau_inpot = 1800.  ! relaxation time scale for potential IN number density
@@ -319,8 +322,14 @@ CONTAINS
              q_liq_new = qr(ii,kk) + qc(ii,kk)
              
              ! .. update temperature
-             tk(ii,kk) = tk(ii,kk) - convice * rho_r(ii,kk) * (q_vap_new - q_vap_old(ii,kk))  &
-                  &                + convliq * rho_r(ii,kk) * (q_liq_new - q_liq_old(ii,kk))
+             dtemp_loc  = - convice * rho_r(ii,kk) * (q_vap_new - q_vap_old(ii,kk))  &
+                  &       + convliq * rho_r(ii,kk) * (q_liq_new - q_liq_old(ii,kk))
+
+             tk(ii,kk) = tk(ii,kk) + dtemp_loc
+
+             IF(PRESENT(dtemp)) &
+               dtemp(ii,kk) = dtemp_loc
+
           ENDDO
        ENDDO
 

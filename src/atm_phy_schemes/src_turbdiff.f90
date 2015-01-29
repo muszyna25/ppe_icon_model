@@ -524,7 +524,7 @@ SUBROUTINE init_canopy ( ie, ke, ke1, kcm, &
            hhl, fr_land, plcov, &
 !
            lai, sai, tai, eai, &
-           d_pat, h_can,  &
+           h_can,  &
            c_big, c_sml, r_air )
 
 !_________________________________________________________________________________
@@ -630,8 +630,7 @@ REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &
 REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
-    h_can,        & ! hight of the vertically resolved canopy
-    d_pat           ! horizontal pattern length scale
+    h_can          ! height of the vertically resolved canopy
 
 #ifdef __xlC__
 REAL (KIND=ireals), DIMENSION(ie,kcm:ke1), OPTIONAL, INTENT(INOUT) :: &
@@ -698,16 +697,6 @@ REAL (KIND=ireals), DIMENSION(:,kcm-1:), OPTIONAL, INTENT(INOUT) :: &
      IF (PRESENT(r_air)) r_air=z0 !log(1-rdrg) !log of the volume-fraction being not covered
   END IF
 
-! Provisional values for pattern lenth array:
-  IF (PRESENT(d_pat)) THEN
-     DO i=i_stp, i_enp
-        IF (fr_land(i) <= z1d2) THEN
-           d_pat(i)=z0
-        ELSE
-           d_pat(i)=pat_len !should be a 2D external parameter field
-        END IF
-     END DO
-  END IF
 ! Effective values of the surface area indices:
   IF (PRESENT(sai) .AND. PRESENT(eai) .AND. PRESENT(tai) .AND. &
       PRESENT(lai) .AND. PRESENT(plcov)) THEN
@@ -2415,7 +2404,7 @@ SUBROUTINE turbtran
 !DIR$ IVDEP
       DO i=istartpar, iendpar
          rcld(i,ke1)=SQRT(l_tur_z0(i)*tkvh(i,ke1)*d_h)* &
-                       ABS(epr_2d(i)*qsat_dT(i)*vari(i,ke1,tet_l)-vari(i,ke1,h2o_g))
+                       ABS(epr_2d(i)*qsat_dT(i)*grad(i,tet_l)-grad(i,h2o_g))
       ENDDO
 
 ! 4h) Berechnung der Enthalpie- und Impulsflussdichten sowie der EDR am Unterrand:
@@ -3260,14 +3249,27 @@ SUBROUTINE turbdiff
        ! ALLOCATE ( dzsh(ie),         STAT=ilocstat ); istat = istat + ilocstat
       END IF
 
-      can_fields=.TRUE.
+      dpat => dpat_tar
       IF (PRESENT(d_pat)) THEN
-         dpat => d_pat
+        can_fields=.TRUE.
+        DO i=istartpar,iendpar
+          IF (fr_land(i) <= z1d2) THEN
+            dpat(i) = z0
+          ELSE
+            dpat(i) = MIN(pat_len,d_pat(i))
+          END IF
+        ENDDO
       ELSE
-         dpat => dpat_tar
-       ! ALLOCATE ( dpat(ie),         STAT=ilocstat ); istat = istat + ilocstat
-         can_fields=.FALSE.
+        can_fields=.FALSE.
+        DO i=istartpar,iendpar
+          IF (fr_land(i) <= z1d2) THEN
+            dpat(i) = z0
+          ELSE
+            dpat(i) = pat_len
+          END IF
+        ENDDO
       END IF
+
       IF (PRESENT(c_big)) THEN
          cbig => c_big
       ELSE
@@ -3302,7 +3304,7 @@ SUBROUTINE turbdiff
          CALL init_canopy(ie=ie, ke=ke, ke1=ke1, kcm=kcm, &
               i_stp=istartpar, i_enp=iendpar, &
               fr_land=fr_land, &
-              d_pat=dpat, c_big=cbig, c_sml=csml, r_air=rair)
+              c_big=cbig, c_sml=csml, r_air=rair)
 !print *,"nach init_canopy kcm=",kcm
       END IF
 
@@ -6236,7 +6238,7 @@ INTEGER (KIND=iintegers) :: &
   i,k ! loop indices
 
 REAL (KIND=ireals), PARAMETER :: &
-  zsig_max = 1.0E-3_ireals,  & ! max. standard deviation of saturation deficit
+  zsig_max = 0.05_ireals,    & ! max. relative standard deviation of saturation deficit
   zclwfak  = 0.005_ireals,   & ! fraction of saturation specific humidity
   zuc      = 0.95_ireals       ! constant for critical relative humidity
 
@@ -6327,9 +6329,9 @@ REAL (KIND=ireals) :: &
             ! using the standard deviation of the saturation deficit
 
             IF (PRESENT(rcld)) THEN !rcld contains standard deviation
-              sig = MIN ( zsig_max, rcld(i,k) )
+              sig = MIN ( zsig_max*qs(i), rcld(i,k) )
             ELSE !clcv contains standard deviation and will be overwritten by cloud cover
-              sig = MIN ( zsig_max, clcv(i,k) )
+              sig = MIN ( zsig_max*qs(i), clcv(i,k) )
             END IF
 
           ELSE !grid scale adjustment wihtout any variance
@@ -6454,7 +6456,7 @@ INTEGER (KIND=iintegers) :: &
   i,k ! loop indices
 
 REAL (KIND=ireals), PARAMETER :: &
-  zsig_max = 1.0E-3_ireals,  & ! max. standard deviation of saturation deficit
+  zsig_max = 0.05_ireals,    & ! max. relative standard deviation of saturation deficit
   zclwfak  = 0.005_ireals,   & ! fraction of saturation specific humidity
   zuc      = 0.95_ireals       ! constant for critical relative humidity
 
@@ -6527,9 +6529,9 @@ REAL (KIND=ireals) :: &
          ! using the standard deviation of the saturation deficit
 
          IF (PRESENT(rcld)) THEN !rcld contains standard deviation
-           sig = MIN ( zsig_max, rcld(i) )
+           sig = MIN ( zsig_max*qs(i), rcld(i) )
          ELSE !clcv contains standard deviation and will be overwritten by cloud cover
-           sig = MIN ( zsig_max, clcv(i) )
+           sig = MIN ( zsig_max*qs(i), clcv(i) )
          END IF
 
        ELSE !grid scale adjustment wihtout any variance

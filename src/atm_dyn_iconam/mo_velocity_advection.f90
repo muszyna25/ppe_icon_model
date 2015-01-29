@@ -73,7 +73,7 @@ MODULE mo_velocity_advection
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
     TYPE(t_int_state), TARGET, INTENT(IN):: p_int
     TYPE(t_nh_prog), INTENT(INOUT)       :: p_prog
-    TYPE(t_nh_metrics), INTENT(IN)       :: p_metrics
+    TYPE(t_nh_metrics), INTENT(INOUT)    :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT)       :: p_diag
 
     ! Local variables from solve_nh that are passed for efficiency optimization
@@ -122,7 +122,7 @@ MODULE mo_velocity_advection
     INTEGER :: jg
 
     ! Variables for conditional additional diffusion for vertical advection
-    REAL(vp) :: cfl_w_limit
+    REAL(vp) :: cfl_w_limit, vcfl, vcflmax(p_patch%nblks_c)
     REAL(wp) :: w_con_e, scalfac_exdiff, difcoef
                 
     INTEGER  :: iclist(p_patch%nlev*nproma), ielist(p_patch%nlev*nproma), iklist(p_patch%nlev*nproma), &
@@ -333,7 +333,7 @@ MODULE mo_velocity_advection
     i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, ic, icount, iclist, iklist, difcoef) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, ic, icount, iclist, iklist, difcoef, vcfl) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -413,6 +413,7 @@ MODULE mo_velocity_advection
       ! At these points, additional diffusion is applied in order to prevent numerical 
       ! instability if lextra_diffu = .TRUE.
       ic = 0
+      vcflmax(jb) = 0
       !
       DO jk = MAX(3,nrdmax(jg)-2), nlev-3
         levmask(jb,jk) = .FALSE.
@@ -424,13 +425,15 @@ MODULE mo_velocity_advection
               iklist(ic) = jk
             ENDIF
             levmask(jb,jk) = .TRUE.
+            vcfl = z_w_con_c(jc,jk)*dtime/p_metrics%ddqz_z_half(jc,jk,jb)
+            vcflmax(jb) = MAX(vcflmax(jb),ABS(vcfl))
             !
             ! limit w_con to 85% of the nominal CFL stability threshold
-            IF (z_w_con_c(jc,jk)*dtime/p_metrics%ddqz_z_half(jc,jk,jb) < -0.85_wp) THEN
+            IF (vcfl < -0.85_vp) THEN
               z_w_con_c(jc,jk)           = -0.85_vp*p_metrics%ddqz_z_half(jc,jk,jb)/dtime
               z_w_con_c_full(jc,jk,jb)   =   0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
               z_w_con_c_full(jc,jk-1,jb) =   0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk-1))
-            ELSE IF (z_w_con_c(jc,jk)*dtime/p_metrics%ddqz_z_half(jc,jk,jb) > 0.85_wp) THEN
+            ELSE IF (vcfl > 0.85_vp) THEN
               z_w_con_c(jc,jk)           = 0.85_vp*p_metrics%ddqz_z_half(jc,jk,jb)/dtime
               z_w_con_c_full(jc,jk,jb)   =  0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
               z_w_con_c_full(jc,jk-1,jb) =  0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk-1))
@@ -607,6 +610,11 @@ MODULE mo_velocity_advection
 !$OMP END DO 
      
 !$OMP END PARALLEL
+
+    ! Save maximum vertical CFL number for substep number adaptation
+    i_startblk = p_patch%cells%start_block(grf_bdywidth_c)
+    i_endblk   = p_patch%cells%end_block(min_rlcell_int)
+    p_metrics%max_vcfl_dyn = MAX(p_metrics%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
 
     IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 

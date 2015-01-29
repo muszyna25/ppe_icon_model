@@ -37,11 +37,6 @@
 !! software.
 !!
 !!
-  ! TODO [MP]
-  !
-  ! NAG Fortran Compiler Release 5.3.2(951)
-  ! Warning: ../../../src/io/shared/mo_latbc_read_recv.f90, line 241: Unused local variable I_DOM
-  ! Warning: ../../../src/io/shared/mo_latbc_read_recv.f90, line 241: Unused dummy variable VARNAME
 
 MODULE mo_latbc_read_recv
 
@@ -103,7 +98,7 @@ CONTAINS
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
       &                                jk, ierrstat, dimlen(3), nmiss
-    REAL(dp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
+    REAL(sp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     
 #ifndef NOMPI
     ! allocate a buffer for one vertical level
@@ -111,7 +106,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize temporary buffers
-    tmp_buf(:) = 0._dp
+    tmp_buf(:) = 0._sp
 
     ! get var ID
     vlistID   = streamInqVlist(streamID)
@@ -132,10 +127,10 @@ CONTAINS
    
     DO jk=1, nlevs
        ! read record as 1D field
-       CALL streamReadVarSlice(streamID, varID, jk-1, tmp_buf(:), nmiss)
+       CALL streamReadVarSliceF(streamID, varID, jk-1, tmp_buf(:), nmiss)
        ! send 2d buffer using MPI_PUT
        CALL prefetch_proc_send(patch_data, tmp_buf(:), 1, hgrid, ioff)
-       tmp_buf(:) = 0._dp 
+       tmp_buf(:) = 0._sp 
     ENDDO ! jk=1,nlevs 
     !  ENDIF
   
@@ -167,7 +162,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':prefetch_cdi_2d_real_id'
     INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1)
-    REAL(dp), ALLOCATABLE :: z_dummy_array(:)       !< local dummy array
+    REAL(sp), ALLOCATABLE :: z_dummy_array(:)       !< local dummy array
   
 #ifndef NOMPI
     ! get var ID
@@ -186,7 +181,7 @@ CONTAINS
     
     ! prefetch PE reads and puts data in memory window
     ! read record as 1D field
-    CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array(:), nmiss)
+    CALL streamReadVarSliceF(streamID, varID, 0, z_dummy_array(:), nmiss)
     CALL prefetch_proc_send(patch_data, z_dummy_array(:), 1, hgrid, ioff)
 
     DEALLOCATE(z_dummy_array)
@@ -200,9 +195,8 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by M. Pondkule, DWD (2014-05-15)
   ! 
-  SUBROUTINE compute_data_receive (varname, hgrid, nlevs, var_out, eoff, patch_data)
+  SUBROUTINE compute_data_receive (hgrid, nlevs, var_out, eoff, patch_data)
  
-    CHARACTER(len=*),    INTENT(IN)    :: varname        !< var name of field to be read
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     REAL(sp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
@@ -213,7 +207,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':compute_data_receive'
     ! local variables:
-    INTEGER     :: j, jl, jb, jk, i_dom, mpi_error      
+    INTEGER     :: j, jl, jb, jk, mpi_error      
 
 #ifndef NOMPI
     CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
@@ -251,7 +245,7 @@ CONTAINS
   !  @note This subroutine is called by prefetch PE only.
   !  Initial revision by M. Pondkule, DWD (2014-05-27) 
   !
-  SUBROUTINE prefetch_proc_send(patch_data, var1_dp, nlevs, hgrid, ioff)
+  SUBROUTINE prefetch_proc_send(patch_data, var1_sp, nlevs, hgrid, ioff)
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
 #else
@@ -259,7 +253,7 @@ CONTAINS
 #endif
     ! local variables  
     TYPE(t_patch_data), TARGET, INTENT(IN)  :: patch_data  !< patch data containing information for prefetch 
-    REAL(dp), INTENT(IN) :: var1_dp(:)
+    REAL(sp), INTENT(IN) :: var1_sp(:)
     INTEGER, INTENT(IN) :: nlevs
     INTEGER, INTENT(IN) :: hgrid 
     INTEGER :: voff(0:num_work_procs-1) 
@@ -302,7 +296,7 @@ CONTAINS
             src_start = voff(np)+1
             src_end   = voff(np)+p_ri%pe_own(np)
             voff(np)  = src_end
-            var3_sp(p_ri%reorder_index(dst_start:dst_end)) = var1_dp(src_start:src_end)
+            var3_sp(p_ri%reorder_index(dst_start:dst_end)) = var1_sp(src_start:src_end)
           ENDDO
 !$OMP END DO
 !$OMP END PARALLEL

@@ -33,7 +33,7 @@ end_date="2013-04-24T00:02:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timestep
-dtime=2
+dtime=10
 #
 #restart interval
 dt_checkpoint=60 #1 min
@@ -203,7 +203,6 @@ lsq_high_ord      = 2
  vwind_offctr     =  0.25
  damp_height      =  15000.
  rayleigh_coeff   =  0.25
- iadv_rcf         =  5
  lhdiff_rcf       = .true.
  divdamp_fac      =  0.004
  divdamp_order    =  4

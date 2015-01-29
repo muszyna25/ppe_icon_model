@@ -29,8 +29,8 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp, vp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
-                                     veladv_offctr, divdamp_fac_o2, kstart_dd3d
+                                     divdamp_type, rayleigh_type, rhotheta_offctr,          &
+                                     veladv_offctr, divdamp_fac_o2, kstart_dd3d, ndyn_substeps_var
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -105,9 +105,9 @@ MODULE mo_solve_nonhydro
     LOGICAL,                   INTENT(IN)    :: lprep_adv
     ! Switch if mass fluxes computed for tracer advection need to be reinitialized
     LOGICAL,                   INTENT(IN)    :: lclean_mflx
-    ! Counter of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
+    ! Counter of dynamics time step within a large time step (ranges from 1 to ndyn_substeps)
     INTEGER,                   INTENT(IN)    :: idyn_timestep
-    ! Time step count since last boundary interpolation (ranges from 0 to 2*iadv_rcf-1)
+    ! Time step count since last boundary interpolation (ranges from 0 to 2*ndyn_substeps-1)
     INTEGER,                   INTENT(IN)    :: jstep
     ! Switch to determine if boundary nudging is executed
     LOGICAL,                   INTENT(IN)    :: l_bdy_nudge
@@ -192,7 +192,7 @@ MODULE mo_solve_nonhydro
 
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,     &
                dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf, zf,              &
-               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2
+               z_ntdistv_bary(2), distv_bary(2), r_nsubsteps, scal_divdamp_o2
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
@@ -251,8 +251,8 @@ MODULE mo_solve_nonhydro
     ENDIF
     dthalf  = 0.5_wp*dtime
 
-    ! Inverse value of iadv_rcf for tracer advection precomputations
-    r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
+    ! Inverse value of ndyn_substeps for tracer advection precomputations
+    r_nsubsteps = 1._wp/REAL(ndyn_substeps_var(jg),wp)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -299,7 +299,7 @@ MODULE mo_solve_nonhydro
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
-    dt_shift = dtime*REAL(2*iadv_rcf-1,wp)/2._wp
+    dt_shift = dtime*REAL(2*ndyn_substeps_var(jg)-1,wp)/2._wp
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
     bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
@@ -1442,8 +1442,8 @@ MODULE mo_solve_nonhydro
           ENDIF
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_iadv_rcf*z_vn_avg(je,jk)
-              prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
+              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_nsubsteps*z_vn_avg(je,jk)
+              prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -1524,8 +1524,8 @@ MODULE mo_solve_nonhydro
         ! This is needed for tracer mass consistency along the lateral boundaries
         IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
           DO jk = 1, nlev
-            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
-            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb) / &
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
                                              (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
           ENDDO
         ENDIF
@@ -1539,8 +1539,8 @@ MODULE mo_solve_nonhydro
 
         IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
           DO jk = 1, nlev
-            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
-            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb) / &
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
                                              (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
           ENDDO
         ENDIF
@@ -2023,7 +2023,7 @@ MODULE mo_solve_nonhydro
         IF (lclean_mflx) prep_adv%mass_flx_ic(:,:,jb) = 0._wp
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_iadv_rcf * ( z_contr_w_fl_l(jc,jk) + &
+            prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps * ( z_contr_w_fl_l(jc,jk) + &
               p_nh%diag%rho_ic(jc,jk,jb) * p_nh%metrics%vwind_impl_wgt(jc,jb) * p_nh%prog(nnew)%w(jc,jk,jb) )
           ENDDO
         ENDDO
@@ -2155,7 +2155,7 @@ MODULE mo_solve_nonhydro
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-              prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_iadv_rcf*p_nh%diag%rho_ic(jc,jk,jb) * &
+              prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps*p_nh%diag%rho_ic(jc,jk,jb)* &
                 (p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) +                                       &
                  p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb) )
             ENDDO

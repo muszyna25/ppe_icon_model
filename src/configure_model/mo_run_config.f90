@@ -30,7 +30,7 @@ MODULE mo_run_config
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
-  PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime, dtime_adv
+  PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
@@ -40,7 +40,12 @@ MODULE mo_run_config
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
-  PUBLIC :: iTRCHBR3,iTRCH2BR2                                           !Running index for chemical tracer in ICON-ART - VSLS
+  PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
+  PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
+  PUBLIC :: iTRSF6l,iTRSF6r,iTRSF6d                                      !Running index for chemical tracer in ICON-ART - SF6
+  PUBLIC :: iTRN2O                                                       !Running index for chemical tracer in ICON-ART - N2O
+  PUBLIC :: iTR1                                                         !Running index for chemical tracer in ICON-ART - artificial tracer
+                                                                         ! RR JS  !Running index for chemical tracer in ICON-ART - VSLS
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -162,9 +167,18 @@ MODULE mo_run_config
     INTEGER :: idustc0      !< Sea Salt Aerosol Mode C Number Density
     INTEGER :: iTRCHBR3     !< chemical tracer in ICON-ART
     INTEGER :: iTRCH2BR2    !< chemical tracer in ICON-ART
-
-
-    REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
+    INTEGER :: iTRBRy       !< chemical tracer in ICON-ART
+    INTEGER :: iTRCH4       !< chemical tracer in ICON-ART
+    INTEGER :: iTRCO2       !< chemical tracer in ICON-ART
+    INTEGER :: iTRCO        !< chemical tracer in ICON-ART
+    INTEGER :: iTRH2O       !< chemical tracer in ICON-ART
+    INTEGER :: iTRO3        !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6l      !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6r      !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6d      !< chemical tracer in ICON-ART
+    INTEGER :: iTRN2O       !< chemical tracer in ICON-ART
+    INTEGER :: iTR1         !< chemical tracer in ICON-ART
+                            !< RR JS
 
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevm1             !< number of half levels for each domain without boundaries
@@ -193,21 +207,10 @@ CONTAINS
   !! Exceptions: grid_generatingCenter, grid_generatingSubcenter and number_of_grid_used 
   !!             are set in mo_model_domimp_patches/read_basic_patch 
   !!
-  SUBROUTINE configure_run( opt_iadv_rcf )
-
-    INTEGER, OPTIONAL, INTENT(IN) :: opt_iadv_rcf  !< reduced calling freq. for advection
+  SUBROUTINE configure_run( )
 
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
     
-    !----------------------------
-    ! advective timestep on global patch
-    IF ( PRESENT(opt_iadv_rcf) ) THEN
-      dtime_adv = REAL(opt_iadv_rcf,wp) * dtime  ! NH-atm
-    ELSE
-      dtime_adv = dtime  ! oce, H-atm
-      WRITE(0,*) routine, ': dtime_adv initialized with', dtime
-    ENDIF
-
 
     !----------------------------
     ! Number of vertical levels
@@ -274,4 +277,5 @@ CONTAINS
 !
 
 END MODULE mo_run_config
+
 

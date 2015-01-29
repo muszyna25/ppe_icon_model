@@ -96,7 +96,7 @@ MODULE mo_gribout_nml
                                         ! 3: ...
 
   INTEGER :: &                          ! Table: generatingProcessIdentifier
-    & generatingProcessIdentifier(0:max_dom) ! 1: icogl
+    & generatingProcessIdentifier(1:max_dom) ! 1: icogl
                                         ! 2: icrgl
                                         ! 3: icoeu
                                         ! 4: ...
@@ -250,7 +250,7 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
-    DO jg= 0,max_dom
+    DO jg= 1,max_dom
       gribout_config(jg)%significanceOfReferenceTime       = &
         &                significanceOfReferenceTime
       gribout_config(jg)%productionStatusOfProcessedData   = &

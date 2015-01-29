@@ -1609,7 +1609,7 @@ CONTAINS
         ELSE
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
-          snowdepth_fac = h_snow*(15._wp*freshsnow(ic)+7.5_wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
           lc_fac   = MAX(1._wp,SQRT(2.5_wp*tai(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.875_wp ! this accounts for the effect of human activities on snow cover

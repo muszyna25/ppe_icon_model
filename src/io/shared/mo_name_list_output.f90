@@ -58,7 +58,8 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, ihs_ocean
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
+    &                                     ihs_ocean
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi_constants              ! We need all
   ! utility functions
@@ -161,13 +162,15 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)       :: filename
+    CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
 
     ! open file:
     filename = TRIM(get_current_filename(of%out_event))
     of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
-      WRITE(message_text,'(a)') cdiStringError(of%cdiFileID)
+      CALL cdiGetStringError(of%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('',message_text,all_print=.TRUE.)
       CALL finish (routine, 'open failed on '//TRIM(filename))
     ELSE

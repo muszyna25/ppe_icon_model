@@ -274,8 +274,8 @@ MODULE mo_io_restart_async
     INTEGER               :: opt_nlev_snow
     LOGICAL               :: l_opt_nice_class
     INTEGER               :: opt_nice_class
-    LOGICAL               :: l_opt_jstep_adv_ntstep
-    INTEGER               :: opt_jstep_adv_ntstep
+    LOGICAL               :: l_opt_ndyn_substeps
+    INTEGER               :: opt_ndyn_substeps
     LOGICAL               :: l_opt_jstep_adv_marchuk_order
     INTEGER               :: opt_jstep_adv_marchuk_order
     LOGICAL               :: l_opt_sim_time
@@ -397,7 +397,7 @@ CONTAINS
                                 &   opt_t_elapsed_phy,            &
                                 &   opt_lcall_phy,                &
                                 &   opt_sim_time,                 &
-                                &   opt_jstep_adv_ntstep,         &
+                                &   opt_ndyn_substeps,            &
                                 &   opt_jstep_adv_marchuk_order,  &
                                 &   opt_depth,                    &
                                 &   opt_depth_lnd,                &
@@ -411,7 +411,7 @@ CONTAINS
                           
     INTEGER,              INTENT(IN), OPTIONAL :: opt_depth
     INTEGER,              INTENT(IN), OPTIONAL :: opt_depth_lnd
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_jstep_adv_ntstep
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_ndyn_substeps
     INTEGER,              INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,              INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,              INTENT(IN), OPTIONAL :: opt_nice_class
@@ -506,11 +506,12 @@ CONTAINS
       ENDIF
 
       ! copy optional value parameter
-      IF (PRESENT(opt_jstep_adv_ntstep)) THEN
-        p_pd%opt_jstep_adv_ntstep = opt_jstep_adv_ntstep
-        p_pd%l_opt_jstep_adv_ntstep = .TRUE.
+
+      IF (PRESENT(opt_ndyn_substeps)) THEN
+        p_pd%opt_ndyn_substeps = opt_ndyn_substeps
+        p_pd%l_opt_ndyn_substeps = .TRUE.
       ELSE
-        p_pd%l_opt_jstep_adv_ntstep = .FALSE.
+        p_pd%l_opt_ndyn_substeps = .FALSE.
       ENDIF
 
       IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN
@@ -867,8 +868,8 @@ CONTAINS
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_nlev_snow,    p_comm_work)
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_nice_class, p_comm_work)
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_nice_class,   p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_jstep_adv_ntstep, p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_jstep_adv_ntstep,   p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_ndyn_substeps, p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_ndyn_substeps,   p_comm_work)
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_jstep_adv_marchuk_order, p_comm_work)
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_jstep_adv_marchuk_order,   p_comm_work)
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_sim_time,   p_comm_work)
@@ -1001,7 +1002,7 @@ CONTAINS
           CALL p_recv(nnew_rcf(p_pd%id), p_pd%work_pe0_id, 0)
           CALL p_recv(nnow_rcf(p_pd%id), p_pd%work_pe0_id, 0)
 
-          CALL p_recv(p_pd%opt_jstep_adv_ntstep,        p_pd%work_pe0_id, 0)
+          CALL p_recv(p_pd%opt_ndyn_substeps,           p_pd%work_pe0_id, 0)
           CALL p_recv(p_pd%opt_jstep_adv_marchuk_order, p_pd%work_pe0_id, 0)
           CALL p_recv(p_pd%opt_sim_time,                p_pd%work_pe0_id, 0)
 
@@ -1016,7 +1017,7 @@ CONTAINS
           CALL p_send(nnew_rcf(p_pd%id), 0, 0)
           CALL p_send(nnow_rcf(p_pd%id), 0, 0)
 
-          CALL p_send(p_pd%opt_jstep_adv_ntstep,        0, 0)
+          CALL p_send(p_pd%opt_ndyn_substeps, 0, 0)
           CALL p_send(p_pd%opt_jstep_adv_marchuk_order, 0, 0)
           CALL p_send(p_pd%opt_sim_time,                0, 0)
 
@@ -1087,8 +1088,8 @@ CONTAINS
         CALL p_pack_int( p_pd%opt_nlev_snow,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_bool(p_pd%l_opt_nice_class, p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_int( p_pd%opt_nice_class,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_jstep_adv_ntstep, p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_jstep_adv_ntstep,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_ndyn_substeps, p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_ndyn_substeps,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_bool(p_pd%l_opt_jstep_adv_marchuk_order, p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_int( p_pd%opt_jstep_adv_marchuk_order,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_bool(p_pd%l_opt_sim_time,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
@@ -2403,10 +2404,10 @@ CONTAINS
     ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
     ! SET_RESTART_ATTRIBUTE
     !-------------------------------------------------------------
-    IF (p_pd%l_opt_jstep_adv_ntstep) THEN
-        WRITE(attrib_name, attrib_format_int) 'jstep_adv_ntsteps_DOM', jg
+    IF (p_pd%l_opt_ndyn_substeps) THEN
+        WRITE(attrib_name, attrib_format_int) 'ndyn_substeps_DOM', jg
         CALL set_restart_attribute (TRIM(attrib_name), &
-          &                         p_pd%opt_jstep_adv_ntstep)
+          &                         p_pd%opt_ndyn_substeps)
     ENDIF
 
     IF (p_pd%l_opt_jstep_adv_marchuk_order) THEN
@@ -3306,6 +3307,7 @@ CONTAINS
     INTEGER                       :: restart_type, i
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'open_restart_file'
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -3353,7 +3355,8 @@ CONTAINS
     p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
 
     IF (p_rf%cdiFileID < 0) THEN
-      WRITE(message_text,'(a)') cdiStringError(p_rf%cdiFileID)
+      CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('', message_text, all_print=.TRUE.)
       CALL finish (subname, 'open failed on '//TRIM(p_rf%filename))
     ELSE

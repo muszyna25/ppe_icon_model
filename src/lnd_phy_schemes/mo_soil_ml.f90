@@ -1781,6 +1781,11 @@ END SUBROUTINE message
         ! temperature-dependent aging timescale: 3 days at freezing point, 28 days below -5 deg C
         ztau_snow = 86400._ireals*MIN(28.0_ireals,3._ireals+5._ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
+        ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
+        ! an offset is added in order to ensure moderate aging for low snow depths
+        zuv = MIN(300._ireals, u(i)**2 + v(i)**2 + 12._ireals )
+        ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow(i))/zuv))
+
         ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
         zdsn_old   = zdt/ztau_snow + zdt*zrain_rate*0.1_ireals
 
@@ -2364,9 +2369,11 @@ IF (itype_interception == 1) THEN
                 ELSE
                   zrootfc = zropartw(i,kso)/(zwroot(i) + zepsi)
                   ztrang(i,kso) = ztrabpf*zrootfc/MAX(zepsi,zbwt(i))
+                ENDIF
+
                   IF(zw_fr(i,kso)+ztrang(i,kso)*zdtdrhw/zdzhs(kso) &
                                     .LT.zpwp(i,kso)) ztrang(i,kso) = 0._ireals
-                ENDIF
+
                 lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
                 ztrangs(i)    = ztrangs(i) + ztrang(i,kso)
               END IF  ! upwards directed potential evaporation only
@@ -4735,6 +4742,33 @@ ENDIF
            zzz = (prs_gsp(i)+prs_con(i)+prg_gsp(i))*zdtdrhw
          ELSE
            zzz = (prs_gsp(i)+prs_con(i))*zdtdrhw
+         ENDIF
+         ! prevent accumulation of new snow if the air temperature is above 1 deg C with
+         ! linear transition between 0.5 and 1 deg C
+         IF (zzz > 0.5_ireals*zepsi .AND. zth_low(i) > t0_melt + 0.5_ireals) THEN
+           ! part of the new snow that accumulates on the ground
+           zaa = MAX(0._ireals, zzz*(t0_melt + 1._ireals - zth_low(i))*2._ireals)
+           !
+           ! the rest is transferred into soil moisture or runoff:
+           zdwgme        = (zzz-zaa)*zrock(i)                    ! contribution to w_so
+           zro           = (1._ireals - zrock(i))*(zzz-zaa)      ! surface runoff
+           zredfu        = MAX( 0.0_ireals,  MIN( 1.0_ireals, (zw_fr(i,1) -  &
+                           zfcap(i,1))/MAX(zporv(i,1)-zfcap(i,1), zepsi)))
+           zdwgdt(i,1) = zdwgdt(i,1) + zdwgme*(1._ireals - zredfu)
+           zro           = zro + zdwgme*zredfu    ! Infiltration not possible
+                                                  ! for this fraction
+    
+           ! zro-, zdw_so_dt-correction in case of pore volume overshooting
+           zw_ovpv = MAX(0._ireals, zw_fr(i,1)* zdzhs(1) * zrhwddt +  &
+                     zdwgdt(i,1) - zporv(i,1) * zdzhs(1) * zrhwddt)
+           zro = zro + zw_ovpv
+           zdwgdt(i,1)= zdwgdt(i,1) - zw_ovpv
+    
+           runoff_s(i) = runoff_s(i) + zro*zroffdt
+
+           ! correct SWE for immediately melted new snow
+           zzz = zaa
+           w_snow_new(i) = MIN(w_snow_new(i),w_snow_now(i)+zzz)
          ENDIF
          rho_snow_new(i)  = (w_snow_now(i)+zzz) / &
           ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/zrho_snowf )
