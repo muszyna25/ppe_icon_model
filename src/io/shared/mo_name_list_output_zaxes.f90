@@ -788,6 +788,7 @@ CONTAINS
     TYPE (t_output_file), POINTER   :: p_of
     INTEGER :: i
 
+#ifndef __NO_ICON_ATMO__
     DO i=1,SIZE(output_file)
       p_of => output_file(i)
       SELECT CASE(p_of%ilev_type)
@@ -809,7 +810,8 @@ CONTAINS
         CALL finish(routine, "Internal error!")
       END SELECT
     END DO
-    
+#endif
+
   END SUBROUTINE create_mipz_level_selections
 
 END MODULE mo_name_list_output_zaxes

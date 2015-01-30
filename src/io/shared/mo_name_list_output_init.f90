@@ -73,7 +73,11 @@ MODULE mo_name_list_output_init
   USE mo_time_config,                       ONLY: time_config
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_dynamics_config,                   ONLY: iequations
+
+#ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
+#endif
+
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -299,6 +303,7 @@ CONTAINS
     ! level ordering: zlevels, plevels, ilevels must be ordered from
     ! TOA to bottom:
     !
+#ifndef __NO_ICON_ATMO__
     DO jg = 1, max_dom
       ! pressure levels:
       nh_pzlev_config(jg)%plevels%sort_smallest_first = .TRUE.
@@ -307,6 +312,7 @@ CONTAINS
       ! isentropic levels
       nh_pzlev_config(jg)%ilevels%sort_smallest_first = .FALSE.
     END DO
+#endif
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -598,6 +604,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER     :: p_onl
     INTEGER :: n_dom_out, jp, log_patch_id, nlevs
 
+#ifndef __NO_ICON_ATMO__
     ! Loop over the output namelists and create a union set of
     ! all requested vertical levels (per domain):
     p_onl => first_output_name_list
@@ -661,6 +668,7 @@ CONTAINS
       p_onl => p_onl%next
 
     END DO ! p_onl
+#endif
 
   END SUBROUTINE collect_requested_ipz_levels
 

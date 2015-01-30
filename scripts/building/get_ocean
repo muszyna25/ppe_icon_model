@@ -69,7 +69,7 @@ link_source_list "src/testcases/" "mo_ape_params.f90"
 #-----------------------------------------------------------------------------------
 #get the rest
 cd ${icon_dev_from}/run
-run_scripts=`ls *oce*`
+run_scripts=`ls -d *oce*`
 run_scripts="$run_scripts exec.iconrun add_run_routines post.test_compare_restarts"
 cd -
 
@@ -113,6 +113,7 @@ build_folder=intel_nMyO configure_options=--with-fortran=intel --without-mpi --w
 build_folder=intel_nMnO configure_options=--with-fortran=intel --without-mpi
 build_folder=intel_yMnO configure_options=--with-fortran=intel --with-mpi
 build_folder=intel_yMyO configure_options=--with-fortran=intel --with-mpi --with-openmp
+build_folder=intel_yMyO_hiopt configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=hiopt
 build_folder=intel_yMnO_hiopt configure_options=--with-fortran=intel --with-mpi --with-flags=hiopt
 build_folder=pgi_yMnO configure_options=--with-fortran=pgi  --with-mpi
 EOF
