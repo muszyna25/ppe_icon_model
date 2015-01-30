@@ -149,6 +149,13 @@ MODULE mo_nh_stepping
   USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_fortran_tools,            ONLY: swap
+  USE mtime,                       ONLY: mtime_datetime => datetime, newDatetime,                  &
+    &                                    deallocateDatetime,                                       &
+    &                                    PROLEPTIC_GREGORIAN, setCalendar,                         &
+    &                                    timedelta, newTimedelta, deallocateTimedelta,             &
+    &                                    MAX_DATETIME_STR_LEN
+  USE mo_mtime_extensions,         ONLY: getTimeDeltaFromDateTime, get_datetime_string
+
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -477,6 +484,10 @@ MODULE mo_nh_stepping
   INTEGER                              :: kstep   ! step number relative to restart step
   INTEGER                              :: jstep_shift ! start counter for time loop
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
+  TYPE(mtime_datetime),  POINTER       :: mtime_begin, mtime_date
+  TYPE(timedelta), POINTER             :: forecast_delta
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_cur_datetime
+  CHARACTER(LEN=128)                   :: forecast_delta_str
 
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -571,7 +582,25 @@ MODULE mo_nh_stepping
     lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 .OR. jstep == jstep0+nsteps
 
     IF (lprint_timestep) THEN
-      WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
+      ! compute current datetime in a format appropriate for mtime
+      CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+      mtime_date     => newDatetime(mtime_cur_datetime)
+      ! compute current forecast time (delta):
+      CALL get_datetime_string(mtime_sim_start, time_config%ini_datetime)
+      mtime_begin    => newDatetime(mtime_sim_start)
+      forecast_delta => newTimedelta("P01D")
+      CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+      ! we append the forecast time delta as an ISO 8601 conforming
+      ! string (where, for convenience, the 'T' token has been
+      ! replaced by a blank character)
+      WRITE (forecast_delta_str,'(4(i2.2,a))') forecast_delta%day, 'D ', forecast_delta%hour, 'H', &
+        &                                      forecast_delta%minute, 'M', forecast_delta%second, 'S'
+      CALL deallocateDatetime(mtime_date)
+      CALL deallocateDatetime(mtime_begin)
+      CALL deallocateTimedelta(forecast_delta)
+      ! print current time step
+      WRITE(message_text,'(a,i10,a,a,a)') 'TIME STEP n: ', jstep, '      ( ', TRIM(forecast_delta_str), ' )'
       CALL message(TRIM(routine),message_text)
     ENDIF
 
