@@ -2149,6 +2149,17 @@ CONTAINS
   END SUBROUTINE read_forc_data_oce
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE nf(status)
+
+    INTEGER, INTENT(in) :: status
+
+    IF (status /= nf_noerr) THEN
+      CALL finish('mo_oce_bulk netCDF error', nf_strerror(status))
+    ENDIF
+
+  END SUBROUTINE nf
+  !-------------------------------------------------------------------------
 
 END MODULE mo_ocean_bulk
 

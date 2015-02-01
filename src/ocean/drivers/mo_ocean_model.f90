@@ -37,7 +37,7 @@ MODULE mo_ocean_model
     & dtime,                  & !    :
     & nsteps,                 & !    :
     & ltimer,                 & !    :
-    & num_lev, num_levp1,     &
+    & num_lev,     &
     & nshift,                 &
     & grid_generatingcenter,  & ! grid generating center
     & grid_generatingsubcenter  ! grid generating subcenter
@@ -187,7 +187,6 @@ CONTAINS
         & INT(time_config%dt_restart))
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
-      sim_step_info%iadv_rcf   = 1
       jstep0 = 0
       IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
@@ -398,7 +397,7 @@ CONTAINS
 
     ! 4. Import patches
     !-------------------------------------------------------------------
-    CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
+    CALL build_decomposition(num_lev,nshift, is_ocean_decomposition =.TRUE., &
       & patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)
     CALL complete_ocean_patch(ocean_patch_3d%p_patch_2d(1))
@@ -607,14 +606,14 @@ CONTAINS
           &                      INT(time_config%dt_restart))
         CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
         sim_step_info%dtime      = dtime
-        sim_step_info%iadv_rcf   = 1
         jstep0 = 0
         IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
           ! get start counter for time loop from restart file:
           CALL get_restart_attribute("jstep", jstep0)
         END IF
         sim_step_info%jstep0    = jstep0
-        CALL name_list_io_main_proc(sim_step_info, isample=1)
+!         CALL name_list_io_main_proc(sim_step_info, isample=1)
+        CALL name_list_io_main_proc(sim_step_info)
       END IF
     ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
       ! Shut down MPI

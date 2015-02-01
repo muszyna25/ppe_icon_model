@@ -27,7 +27,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,Cartesian_Mixing
   USE mo_dynamics_config,        ONLY: nold, nnew
-  USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode, test_param
+  USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
   USE mo_exception,              ONLY: message, message_text, finish
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
@@ -559,7 +559,7 @@ ENDIF
         &             p_ice%zUnderIce(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
 
       !------------------------------------------------------------------------
-      computation_type = test_param
+      ! computation_type = test_param
       ! BEFOR : {{{
       zUnderIceBefore = p_ice%zUnderIce
       !salinity
@@ -568,7 +568,8 @@ ENDIF
       saltBefore      = salt_content_in_surface(patch_2D, &
         &                                       patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
         &                                       p_ice, p_os(n_dom),surface_fluxes,zUnderIceBefore,&
-        &                                       computation_type=computation_type,info='BEFORE')
+!         &                                       computation_type=computation_type,info='BEFORE')
+        &                                       info='BEFORE')
       ! liquid water height
       !}}}
 
