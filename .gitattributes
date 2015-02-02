@@ -705,6 +705,7 @@ lapack/spotrs.f -text
 /make_my_runscript -text
 /make_runscripts -text
 run/README -text
+run/Rakefile -text
 run/add_required_atmo_hydrostatic_files -text
 run/add_required_atmo_non-hydrostatic_files -text
 run/add_required_ocean_files -text
