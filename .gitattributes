@@ -726,6 +726,8 @@ run/checksuite.ocean_internal/omip/exp.oce_omip_160km_40levels_cell -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_160km_edge -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_ref -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_testSurface -text
+run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
+run/checksuite.ocean_internal/omip/exp.ocean_omip_short -text
 run/checksuite.ocean_internal/operators/exp.oce_testbed_coriolis -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km_cell_WindTempForcing -text
