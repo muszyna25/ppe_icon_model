@@ -789,6 +789,9 @@ run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_restarttest -text
 run/dict.latbc -text
 run/exec.iconrun -text
 run/exp.test_ocean-buildbot -text
+run/exp.test_ocean_numeric -text
+run/exp.test_ocean_omip_10days -text
+run/exp.test_ocean_omip_parallel -text
 schedulers/ecmwf/def/climplot.def -text
 schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
