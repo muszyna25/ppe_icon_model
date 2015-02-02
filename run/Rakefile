@@ -1,6 +1,7 @@
 require 'rake/clean'
 require 'logger'
 require 'pp'
+require 'cdo'
 begin
   require 'facets'
 rescue
@@ -27,7 +28,7 @@ end
   :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
   :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
   :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
-  :oceanTechnical         => %w[exp.oce_test_parallel],
+  :oceanTechnical         => %w[exp.ocean_omip_ptest exp.oce_test_numeric_tracerconservation],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanNpromaCheck       => [
     ['exp.oce_omip_performance','nproma=1'],
@@ -72,6 +73,7 @@ end
   ],
   :oceanTracers           => %w[exp.oce_test_numeric_tracerconservation],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
+  :atmTimeMean            => %w[exp.atm_amip_acc exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
 }
 # }}}
 #==============================================================================
@@ -80,6 +82,24 @@ def dbg(item)
   if ENV.has_key?('DEBUG')
     pp item
   end
+end
+def checkFiles4Presence(*files)
+  files.each {|file|
+    unless File.exist?(file) then
+      warn "Could access given input file: #{file}!"
+      exit(1)
+    end
+  }
+end
+def checkFile4Variables(*args)
+  file = args.shift
+  varnamesInFile = Cdo.showname(:input => file)[0].split
+  args.each {|varname|
+    unless varnamesInFile.include?(varname) then
+      warn "Could not find variable '#{varname} in '#{file}'"
+      exit(1)
+    end
+  }
 end
 def getExperimentsFromTestSuite(suite)
   dbg(suite)
@@ -168,6 +188,7 @@ end
   :coupled        => {:subDirPattern => 'coupled/*'},
   :iconStableMpim => {:subDirPattern => 'icon-stable.mpim/**/*'},
   :iconDev        => {:subDirPattern => 'icon-dev/check.atm*'},
+  :atmDev         => {:subDirPattern => 'icon-dev/technical/exp.atm*'},
 }.each {|component,componentExperiments|
   @componentTemplates[component] = {}
   Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
@@ -525,6 +546,43 @@ task :checkPerformance, :expname do |t,args|
   dbg(['performanceInYearsPerDay:',runTimeInYearsPerDay])
   dbg(['comTimeInYearsPerDay:',meanCommunicationPart])
   puts [args.expname, runTimeInYearsPerDay,'years/day',"[com:#{meanCommunicationPart.round(2)}%]"].join(' ')
+end
+
+desc "check timeMeanOutput of given variables"
+task :checkTimeMean, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do |t,args|
+  spotFile, meanFile, spotVar, meanVar, initTimestamp = args.values_at(:spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp )
+  dbg({:spotFile => spotFile, :meanFile => meanFile, :spotVar => spotVar,:meanVar => meanVar, :initTimestamp => initTimestamp })
+  # set default value
+  initTimestamp = "1979-01-01T00:00:00" if initTimestamp.nil? 
+  if [spotFile,meanFile, spotVar, meanVar].include?(nil) then
+    warn "Could not get value of one of following inputs: spotFile,meanFile, spotVar, meanVar"
+    verbose(false) do
+      print "USAGE: "
+      sh   "rake -T #{t.name}"
+    end
+    exit(1)
+  end
+
+  # check if files and variables are present
+  checkFiles4Presence(spotFile,meanFile)
+  checkFile4Variables(spotFile,spotVar)
+  checkFile4Variables(meanFile,meanVar)
+
+  # delte first timestep, if it is the initial one
+  Cdo.debug = ENV.has_key?('DEBUG')
+  tempFile = {}
+  [spotFile,meanFile].each_with_index {|f,i|
+    tag               = %w[spot mean][i]
+    ntimes            = Cdo.ntime(:input => f)[0].to_i
+    firstTimestamp    = Cdo.showtimestamp(:input => f)[0].split[0]
+    if firstTimestamp == initTimestamp then
+      tempFile[tag] = Cdo.delete('timestep=1',:input => f, :output => "noInitial_#{tag}_#{File.basename(f)}")
+    end
+  }
+
+  # compare the single timestep of the mean file with the timmean of the spotfile
+  Cdo.diff(:input => "-timmean -selname,#{spotVar} #{tempFile['spot']} -selname,#{meanVar} #{tempFile['mean']}")
+
 end
 
 desc "Check status of given of all experiments"
