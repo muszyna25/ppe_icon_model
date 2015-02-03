@@ -182,7 +182,9 @@ CONTAINS
     !------------------------------------------------------------------
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
-
+write(0,*)'nsteps:',nsteps
+write(0,*)'jstep0:',jstep0
+write(0,*)'datetime:',datetime
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
 
       CALL datetime_to_string(datestring, datetime)

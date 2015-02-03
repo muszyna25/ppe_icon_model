@@ -63,7 +63,7 @@ CONTAINS
     ! Check length of this integration
     !---------------------------------
     !
-    IF (nsteps/=0) THEN   ! User specified a value
+    IF (nsteps>=0) THEN   ! User specified a value
 
       length_sec = REAL(nsteps,wp)*dtime
       time_config%end_datetime = time_config%cur_datetime

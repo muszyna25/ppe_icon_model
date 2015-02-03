@@ -28,7 +28,6 @@ output_interval="P$leading_zero${days_data}D"     # ocean model output interval 
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-use_file_initialConditions=".true."
 external_interpolation_type="mpiom"
 use_gridfile_for_grabbing_externale_data='true'
 init_relax=1
@@ -85,7 +84,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=5                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -174,14 +173,14 @@ cat > ${ocean_namelist} << EOF
   type_surfRelax_Salt             =   1       ! 2-dim relaxation of salinity - see temperature relaxation for type values
   para_surfRelax_Salt             =   3.0     ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
-  forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
+  forcing_set_runoff_to_zero      = .FALSE.    ! set runoff to zero for comparison to MPIOM
   seaice_limit                    =   0.4     ! maximum of 8m (0.4*dz) for both, ice and snow
   limit_elevation                 = .TRUE.
-/                                    
-&ocean_initialConditions_nml
-  use_file_initialConditions = $use_file_initialConditions  ! read ocean initialization file, see above
-! itestcase_oce                   =  50        ! 50=zonally homogen temperature for APE SST (Williamson)
 /
+&ocean_initialConditions_nml
+  initial_salinity_type = 1
+  initial_temperature_type = 1
+/                                    
 &ocean_diagnostics_nml
    diagnostics_level            = 1
    gibraltar(1:10)              = 1367,1369
