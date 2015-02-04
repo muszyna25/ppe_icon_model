@@ -345,7 +345,7 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
   INTEGER         :: icapdcycl
   REAL(KIND=jprb) :: rcpecons
-  REAL(KIND=jprb) :: rcucov
+  ! REAL(KIND=jprb) :: rcucov
   REAL(KIND=jprb) :: rtaumel
   ! REAL(KIND=jprb) :: rhebc
   REAL(KIND=jprb) :: ruvper
@@ -435,7 +435,7 @@ MODULE mo_cuparameters
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
           & entrdd   ,& ! njkt1                    ,&
         ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
-          & rcucov   ,rcpecons ,rtaumel  ,& ! rhebc    ,&
+          & rcpecons ,rtaumel  ,& ! rcucov, rhebc  ,&
           & rmfdeps, icapdcycl
   !yoephli
   PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2
@@ -1049,8 +1049,9 @@ INTEGER(KIND=jpim) :: nulout=6
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
-REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean
+REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov
 !-----------------------------------------------------------------------
+
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
 
 nflevg=klev
@@ -1068,20 +1069,29 @@ detrpen=0.75E-4_JPRB
 
 !     ENTRORG: ENTRAINMENT FOR POSITIVELY BUOYANT DEEP/SHALLOW CONVECTION 1/(M)
 !     -------
-!ENTRORG=1.75E-3_JPRB
-ENTRORG=1.86E-3_JPRB ! for approximate equivalence with previous setting of 1.9e-4*grav
+
+!ENTRORG=1.75E-3_JPRB     !40r3 default
+!ENTRORG=1.86E-3_JPRB     !for approximate equivalence with previous setting of 1.9e-4*grav
+ENTRORG=1.9E-3_JPRB       !further tuning
 
 !     ENTSHALP: SHALLOW ENTRAINMENT DEFINED AS ENTSHALP*ENTRORG
+!     --------
+
 ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
+!     ----------
+
 ENTSTPC1=0.55_JPRB
 ENTSTPC2=1.E-4_JPRB
+!ENTSTPC1=0.8_JPRB        !40r3 default
+!ENTSTPC2=2.E-4_JPRB      !40r3 default
 
 !     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
 !     ------
 
 entrdd =2.0E-4_JPRB
+!entrdd =3.0E-4_JPRB      !40r3 default
 
 !     RMFCMAX:   MAXIMUM MASSFLUX VALUE ALLOWED FOR UPDRAFTS ETC
 !     -------
@@ -1096,7 +1106,7 @@ rmfcmin=1.e-10_JPRB
 !     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
 !     -------
 
-RMFDEPS=0.35_JPRB
+RMFDEPS=0.30_JPRB
 
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
@@ -1116,24 +1126,30 @@ rprcon =1.4E-3_JPRB
 !     RTAUMEL:   MELTING TIME SCALE
 !     RHEBC:     CRITICAL RELATIVE HUMIDITY BELOW CLOUD  FOR EVAPORATION
 
-rcucov=0.05_JPRB
 rcpecons=5.44E-4_JPRB/rg
 rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
 ! rhebc=0.8_JPRB
-zrhebc_land  = 0.7_JPRB ! original IFS value: 0.7
-zrhebc_ocean = 0.8_JPRB ! original IFS value: 0.9
+zrhebc_land  = 0.7_JPRB   ! original IFS value: 0.7
+zrhebc_ocean = 0.825_JPRB ! original IFS value: 0.9
+zrcucov      = 0.05_JPRB  ! original IFS value: 0.05
 !
-! resolution-dependent setting of rhebc for mesh sizes below 12.5 km
+! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
+zres_thresh = 20.0E3_JPRB   ! 20 km
 phy_params%rhebc_land  = zrhebc_land
 phy_params%rhebc_ocean = zrhebc_ocean
+phy_params%rcucov      = zrcucov
+
 !
-IF (rsltn < 12.5E3_JPRB) THEN
-  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
-  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
+IF (rsltn < zres_thresh) THEN
+  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
+  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
+  !
+  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh))**2
   !
   ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
   phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
   phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
+  phy_params%rcucov      = MIN(1._JPRB, phy_params%rcucov)
 ENDIF
 
 !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
@@ -1242,10 +1258,10 @@ CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
 !WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
 WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE')
+CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV')
 !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-WRITE(message_text,'(4x,l6,l6,l6,3F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
-  phy_params%rhebc_land,phy_params%rhebc_ocean
+WRITE(message_text,'(4x,l6,l6,l6,4F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
 

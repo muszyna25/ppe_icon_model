@@ -48,7 +48,7 @@ MODULE mo_cuflxtends
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc,  lepcld              ,&
-    &                        rcucov   ,rcpecons ,rtaumel  ,&!rhebc    ,&
+    &                        rcpecons ,rtaumel ,& !rcucov ,rhebc    ,&
     &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
@@ -75,7 +75,7 @@ CONTAINS
   !OPTIONS XOPT(HSFUN)
   SUBROUTINE cuflxn &
     & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
-    & rhebc_land, rhebc_ocean, ptsphy,                      &
+    & rhebc_land, rhebc_ocean, rcucov,  ptsphy,             &
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
     & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
     & kcbot,    kctop,    kdtop,    ktopm2,&
@@ -196,6 +196,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land, rhebc_ocean
+    REAL(KIND=jprb)   ,INTENT(in)    :: rcucov
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqsen(klon,klev)

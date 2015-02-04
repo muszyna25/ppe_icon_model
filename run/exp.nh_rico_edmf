@@ -43,7 +43,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=5
+dtime=25
 dt_checkpoint=`expr 10 \* 3600 `  # write restart file every 6 hours
 #
 #-----------------------------------------------------------------------------
@@ -192,7 +192,6 @@ lconst_z0 = .TRUE.
  iadv_rhotheta = 2
  igradp_method = 2  !new default
  ivctype       = 2  !1=Gal-Chen; 2=SLEVE
- iadv_rcf      = 5  !default=4
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher

@@ -43,6 +43,7 @@ MODULE mo_interpol_config
   PUBLIC :: lsq_lin_set, lsq_high_set                                           !< variables
   PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                                 !< variables
   PUBLIC :: rbf_scale_mode_ll                                                   !< variables
+  PUBLIC :: support_baryctr_intp                                                !< variables
   PUBLIC :: configure_interpolation                                             !< subroutine
   !>
   !!
@@ -132,6 +133,10 @@ MODULE mo_interpol_config
                                                                                  
     TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
       &                lsq_high_set  ! least squares
+
+    ! Flag. If .FALSE. barycentric interpolation is replaced by a
+    ! fallback interpolation.
+    LOGICAL :: support_baryctr_intp
   
   !END TYPE t_interpol_config
   !>

@@ -25,10 +25,9 @@
 MODULE mo_nonhydrostatic_config
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: max_dom, MAX_CHAR_LENGTH !, & 
-!    &                                MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE  
+  USE mo_impl_constants,       ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_exception,            ONLY: message, message_text
-  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
+  USE mo_vertical_coord_table, ONLY: vct_a
 
   IMPLICIT NONE
 
@@ -41,12 +40,13 @@ MODULE mo_nonhydrostatic_config
   !!----------------------------------------------------------------------------
 !  TYPE :: t_nonhydrostatic_config
 
-    INTEGER  :: itime_scheme            !< Choice of time stepping scheme
+    INTEGER :: itime_scheme             !< Choice of time stepping scheme
 
-    INTEGER :: iadv_rcf                 !if 1: no reduced calling frequency for adv. and phy.
-                                        !if 2: adv. and phys. are called only every 2nd
-                                        !      time step.
-                                        !if 4: called every 4th time step ...
+    INTEGER :: ndyn_substeps            !< number of dynamics substeps per fast-physics step
+
+    ! related runtime control variables for adaptive ndyn_substeps:
+    INTEGER :: ndyn_substeps_max        ! maximum number of dynamics substeps per fast-physics step
+    INTEGER :: ndyn_substeps_var(max_dom)! current (variable) number of dynamics substeps per fast-physics step
 
     LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
     LOGICAL :: lextra_diffu             ! if true: apply additional diffusion at grid points close 
@@ -185,6 +185,9 @@ CONTAINS
       '; high- and mid-level clouds in layers above ', ih_clch(jg), ih_clcm(jg)
     CALL message(TRIM(routine),message_text)
 
+    ! initialization of control variables derived from ndyn_substeps
+    ndyn_substeps_max    = ndyn_substeps + 3
+    ndyn_substeps_var(:) = ndyn_substeps !** needs to be saved in restart attributes **
 
   END SUBROUTINE configure_nonhydrostatic
 

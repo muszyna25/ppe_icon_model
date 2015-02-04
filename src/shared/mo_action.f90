@@ -44,16 +44,19 @@
 MODULE mo_action
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text
-  USE mo_impl_constants,     ONLY: vname_len
+  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,    &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,          &
-    &                              newTimedelta, deallocateTimedelta
+    &                              newTimedelta, deallocateTimedelta, setCalendar
   USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS,    &
     &                              getTriggeredPreviousEventAtDateTime
   USE mo_util_string,        ONLY: remove_duplicates
+  USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
+    &                              set_table_entry, print_table, t_table
   USE mo_run_config,         ONLY: msg_level
   USE mo_action_types,       ONLY: t_var_action
   USE mo_time_config,        ONLY: time_config
@@ -161,11 +164,10 @@ CONTAINS
     INTEGER :: i, iact
     INTEGER :: nvars                        ! number of variables assigned to action
 
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_action)  , POINTER :: action_list
+    TYPE(t_list_element), POINTER       :: element
+    TYPE(t_var_action)  , POINTER       :: action_list
     CHARACTER(LEN=2)                    :: str_actionID
-    CHARACTER(LEN=128)                  :: intvl             ! action interval [PTnH]
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_ref_datetime ! ISO_8601
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
@@ -173,9 +175,12 @@ CONTAINS
     ! init nvars
     nvars = 0
 
-    ! compute sim_start, sim_end in a formate appropriate for mtime
-    CALL get_datetime_string(sim_start, time_config%ini_datetime)
-    CALL get_datetime_string(sim_end,   time_config%end_datetime)
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+
+    ! create model ini_datetime in ISO_8601 format. Will be used 
+    ! as reference date for setting up events. 
+    CALL get_datetime_string(iso8601_ref_datetime, time_config%ini_datetime)
+
 
     ! store actionID
     act_obj%actionID = actionID
@@ -211,12 +216,14 @@ CONTAINS
 
 
             ! Create event for this specific field
-            intvl = action_list%action(iact)%intvl
             write(str_actionID,'(i2)') actionID 
-            event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(intvl)
-            act_obj%var_element_ptr(nvars)%event =>newEvent(TRIM(event_name),TRIM(sim_start), &
-              &                                       TRIM(sim_start), TRIM(sim_end), &
-              &                                       TRIM(intvl))
+            event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(action_list%action(iact)%intvl)
+            act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
+              &                                    TRIM(event_name),                    &
+              &                                    TRIM(iso8601_ref_datetime),          &
+              &                                    TRIM(action_list%action(iact)%start),&
+              &                                    TRIM(action_list%action(iact)%end  ),&
+              &                                    TRIM(action_list%action(iact)%intvl))
 
           END IF
         ENDDO  LOOPACTION ! loop over variable-specific actions
@@ -231,6 +238,7 @@ CONTAINS
 
 
     IF (msg_level >= 11) THEN
+
       ! remove duplicate variable names
       DO i=1,act_obj%nvars
         varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
@@ -246,10 +254,63 @@ CONTAINS
         END IF
       ENDDO
       CALL message('',message_text)
+
+      IF(my_process_is_stdio()) THEN
+        CALL action_setup_print (act_obj)
+      ENDIF
     ENDIF
 
   END SUBROUTINE action_collect_vars
 
+
+
+  !>
+  !! Screen print out of action event setup
+  !!
+  !! Screen print out of action event setup.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-06)
+  !!
+  SUBROUTINE action_setup_print (act_obj)
+
+    CLASS(t_action_obj)         :: act_obj  !< action for which setup will be printed
+    TYPE(t_table)               :: table
+
+    ! local variables
+    INTEGER  :: ivar            ! loop counter
+    INTEGER  :: irow            ! row to fill
+    INTEGER  :: var_action_idx  ! index of current action in variable-specific action list
+    !--------------------------------------------------------------------------
+
+    ! table-based output
+    CALL initialize_table(table)
+    ! the latter is no longer mandatory
+    CALL add_table_column(table, "VarName")
+    CALL add_table_column(table, "Start date")
+    CALL add_table_column(table, "End date")
+    CALL add_table_column(table, "Interval")
+
+    irow = 0
+    DO ivar=1,act_obj%nvars
+
+      var_action_idx = act_obj%var_action_index(ivar)
+
+      irow = irow + 1 
+      CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
+      CALL set_table_entry(table,irow,"Start date", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%start))
+      CALL set_table_entry(table,irow,"End date", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%end))
+      CALL set_table_entry(table,irow,"Interval", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%intvl))
+    ENDDO
+
+    CALL print_table(table, opt_delimiter=' | ')
+    CALL finalize_table(table)
+
+    WRITE (0,*) " " ! newline
+  END SUBROUTINE action_setup_print
 
 
 
@@ -306,8 +367,14 @@ CONTAINS
     p_slack => newTimedelta(str_slack)
 
 
+! openMP parallelization currently does not work as expected. Maybe this is only 
+! because of a non-threadsave message routine. Thus, we stick to a poor mens kernel
+! parallelization for the time being.
+!!$OMP PARALLEL
     ! Loop over all fields attached to this action
+!!$OMP DO PRIVATE(ivar,var_action_idx,field,this_event,isactive,lastTrigger_datetime,message_text)
     DO ivar = 1, act_obj%nvars
+
       var_action_idx = act_obj%var_action_index(ivar)
 
       field      => act_obj%var_element_ptr(ivar)%p
@@ -353,7 +420,8 @@ CONTAINS
       ENDIF
 
     ENDDO
-
+!!$OMP END DO
+!!$OMP END PARALLEL
 
     ! cleanup
     !
@@ -368,6 +436,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-09-12)
+  !! Modification by Daniel Reinert, DWD (2014-12-17)
+  !! - extend reset kernel to integer fields
   !!
   SUBROUTINE reset_kernel(act_obj, ivar)
     ! usually, we have "t_reset_obj" as PASS type for this deferred
@@ -379,8 +449,22 @@ CONTAINS
 #endif
     INTEGER, INTENT(IN) :: ivar    ! element number 
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_action:reset_kernel'
+    !-------------------------------------------------------------------
+
     ! re-set field to its pre-defined reset-value
-    act_obj%var_element_ptr(ivar)%p%r_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%rval
+    IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%r_ptr)) THEN
+!$OMP PARALLEL WORKSHARE
+      act_obj%var_element_ptr(ivar)%p%r_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%rval
+!$OMP END PARALLEL WORKSHARE
+    ELSE IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%i_ptr)) THEN
+!$OMP PARALLEL WORKSHARE
+      act_obj%var_element_ptr(ivar)%p%i_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%ival
+!$OMP END PARALLEL WORKSHARE
+    ELSE
+      CALL finish (routine, 'Field not allocated for '//TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
+    ENDIF
 
   END SUBROUTINE reset_kernel
 

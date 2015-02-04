@@ -73,7 +73,7 @@ CONTAINS
   !! to using fbk_wgt (see above routine)
   !!
   SUBROUTINE feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
-    jg, jgp, l_trac_fbk)
+    jg, jgp)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:feedback'
@@ -87,11 +87,6 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
     INTEGER, INTENT(IN) :: jgp  ! parent grid level
-
-    ! Switch if feedback is done for tracers
-    ! (when calling transport and microphysics not every dynamics time step, tracer feedback
-    !  should probably be restricted to transport time steps)
-    LOGICAL, INTENT(IN) :: l_trac_fbk
 
     ! local variables
 
@@ -214,7 +209,7 @@ CONTAINS
     i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell_int,i_chidx)
 
     ALLOCATE(parent_tend(nproma, nlev_p, i_startblk:i_endblk))
-    IF (ltransport .AND. l_trac_fbk) &
+    IF (ltransport) &
       ALLOCATE(parent_tr_mass(nproma, nlev_p, i_startblk:i_endblk, ntracer), &
       parent_tr_totmass(nproma, nlev_p, i_startblk:i_endblk) )
 
@@ -226,7 +221,7 @@ CONTAINS
     i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
     ALLOCATE(fbk_tend(nproma, nlev_p,  i_startblk:i_endblk))
-    IF(ltransport .AND. l_trac_fbk) &
+    IF(ltransport) &
       ALLOCATE(fbk_tr_mass(nproma, nlev_p, i_startblk:i_endblk, ntracer), &
       fbk_tr_totmass(nproma, nlev_p, i_startblk:i_endblk)  )
 
@@ -237,7 +232,7 @@ CONTAINS
       feedback_w_tend    (nproma, nlevp1_p, i_startblk:i_endblk),  &
       feedback_tg        (nproma, 1, i_startblk:i_endblk)  )
 
-    IF(ltransport .AND. l_trac_fbk) &
+    IF(ltransport) &
       ALLOCATE(feedback_tracer_mass(nproma, nlev_p, i_startblk:i_endblk, ntracer))
 
     i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
@@ -340,7 +335,7 @@ CONTAINS
       ENDDO
 
       ! Tracers
-      IF (ltransport .AND. l_trac_fbk) THEN
+      IF (ltransport) THEN
 
         fbk_tr_totmass(:,:,jb) = 0._wp
 
@@ -408,7 +403,7 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF (ltransport .AND. l_trac_fbk) THEN
+      IF (ltransport) THEN
 
         parent_tr_totmass(:,:,jb) = 0._wp
 
@@ -438,7 +433,7 @@ CONTAINS
     ! fbk_dom_volume is now set in p_nh_state(jg)%metrics
 
     IF (l_mass_consvcorr) THEN
-      IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
+      IF ( .NOT. (ltransport)) THEN
         ! compute conservation correction for global mass only
         aux_diff(1:nlev_p) = global_sum_array3(1,.TRUE.,parent_tend,fbk_tend,diffmask=(/1/))
         DO jk = 1, nlev_p
@@ -719,7 +714,7 @@ CONTAINS
       RECV1=p_parent_prog%vn, SEND1=feedback_vn, &
       nshift=nshift)
 
-    IF (ltransport .AND. l_trac_fbk) THEN
+    IF (ltransport) THEN
 
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer, ntracer*nlev_c, &
         &                     RECV4D=p_parent_prog_rcf%tracer,                         &
@@ -798,7 +793,7 @@ CONTAINS
 
       ! divide tracer density (which is the feedback quantity) by air density,
       ! and apply multiplicative mass conservation correction
-      IF (ltransport .AND. l_trac_fbk) THEN
+      IF (ltransport) THEN
         IF (iforcing <= 1) THEN
           DO jt = 1, ntracer
             DO jk = nshift+1, nlev_p
@@ -872,7 +867,7 @@ CONTAINS
 !$OMP END DO
 
     ! Recompute tracer also on the halo points
-    IF (ltransport .AND. l_trac_fbk) THEN
+    IF (ltransport) THEN
       IF (iforcing <= 1) THEN
 !$OMP DO PRIVATE(jk,jt,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
@@ -930,7 +925,7 @@ CONTAINS
 
     DEALLOCATE(parent_tend, fbk_tend, feedback_thv_tend, feedback_rho_tend, &
       feedback_w_tend, feedback_vn, feedback_tg)
-    IF (ltransport .AND. l_trac_fbk) &
+    IF (ltransport) &
       DEALLOCATE(feedback_tracer_mass,parent_tr_mass,parent_tr_totmass,fbk_tr_mass,fbk_tr_totmass)
 
   END SUBROUTINE feedback
@@ -951,7 +946,7 @@ CONTAINS
   !! Change feedback for cell-based variables from area-weighted averaging
   !! to using fbk_wgt (see above routine)
   !!
-  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk, dt_fbk)
+  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, dt_fbk)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -963,11 +958,6 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
     INTEGER, INTENT(IN) :: jgp  ! parent grid level
-
-    ! Switch if feedback is done for tracers
-    ! (when calling transport and microphysics not every dynamics time step, tracer feedback
-    !  should probably be restricted to transport time steps)
-    LOGICAL, INTENT(IN) :: l_trac_fbk
 
     REAL(wp), INTENT(IN) :: dt_fbk ! time step at which feedback is called
 
@@ -1096,7 +1086,7 @@ CONTAINS
       feedback_rho       (nproma, nlev_c, i_startblk:i_endblk),   &
       feedback_w         (nproma, nlev_c, i_startblk:i_endblk))
 
-    IF(ltransport .AND. l_trac_fbk) &
+    IF(ltransport) &
       ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, ntracer_fbk))
 
     i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
@@ -1203,7 +1193,7 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF (ltransport .AND. l_trac_fbk) THEN ! tracer mass feedback
+      IF (ltransport) THEN ! tracer mass feedback
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
           DO jt = 1, ntracer_fbk
@@ -1272,7 +1262,7 @@ CONTAINS
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
       RECV1=parent_vn, SEND1=feedback_vn )
 
-    IF (ltransport .AND. l_trac_fbk) &
+    IF (ltransport) &
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk, ntracer_fbk*nlev_c, &
       RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
 
@@ -1522,7 +1512,7 @@ CONTAINS
       ENDDO
 
       ! Relaxation of tracer variables
-      IF (ltransport .AND. l_trac_fbk) THEN
+      IF (ltransport) THEN
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1591,7 +1581,7 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
-    IF (ltransport .AND. l_trac_fbk) THEN
+    IF (ltransport) THEN
       CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer_fbk+3, p_parent_prog%rho, p_parent_prog%theta_v, &
         p_parent_prog%w, f4din=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_fbk))
     ELSE
@@ -1622,7 +1612,7 @@ CONTAINS
 
 
     DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
-    IF (ltransport .AND. l_trac_fbk) DEALLOCATE(feedback_rhoqx)
+    IF (ltransport) DEALLOCATE(feedback_rhoqx)
 
   END SUBROUTINE relax_feedback
 

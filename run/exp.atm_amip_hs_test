@@ -263,7 +263,7 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
   fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_temp"
+ output_filename  = "${EXPNAME}_atm_phy_tend_ta"
  filename_format  = "<output_filename>_<datetime2>"
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
@@ -271,8 +271,8 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
  output_interval  = "PT05M"                          ! ISO-format interval
  file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
-                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
+ ml_varlist       = 'tend_ta'    , 'tend_ta_rlw', 'tend_ta_rsw', 'tend_ta_cld'
+                    'tend_ta_cnv', 'tend_ta_vdf', 'tend_ta_gwh', 'tend_ta_sso'
 /
 EOF
 fi
@@ -292,8 +292,8 @@ if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
  output_interval  = "PT05M"                          ! ISO-format interval
  file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso'
-                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso'
+ ml_varlist       = 'tend_ua', 'tend_ua_cnv', 'tend_ua_vdf', 'tend_ua_gwh', 'tend_ua_sso'
+                    'tend_va', 'tend_va_cnv', 'tend_va_vdf', 'tend_va_gwh', 'tend_va_sso'
 /
 EOF
 fi
@@ -313,7 +313,7 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
  output_interval  = "PT05M"                          ! ISO-format interval
  file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf', 'tend_x_dtr'
+ ml_varlist       = 'tend_hus', 'tend_hus_cld', 'tend_hus_cnv', 'tend_hus_vdf'
 /
 EOF
 fi
@@ -370,15 +370,19 @@ add_required_file ${INDATA}/r2b4_amip/lnd/ic_land_soil_1976.nc               ./i
 
 # - well mixed greenhouse gases
 add_required_file $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc        ./bc_greenhouse_gases.nc
-
+#
+# links for yearly files
+start_year=1977
+last_year=1980
 # - ozone
-year=1977
-while [[ $year -le 2009 ]]
+year=$start_year
+datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+while [[ $year -le $last_year ]]
 do
-  add_required_file $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc  ./bc_ozone_${year}.nc
- (( year = year+1 ))
+  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
+  (( year = year+1 ))
 done
-
+#
 # - sst and sic
 add_required_file $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./bc_sic.nc
 add_required_file $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc

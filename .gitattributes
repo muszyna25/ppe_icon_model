@@ -193,6 +193,7 @@ doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/input.tex -text
+doc/technical/dwd_database/intro.tex -text
 doc/technical/dwd_database/litera.bib -text
 doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/IAU_scheme_2.png -text
@@ -224,7 +225,9 @@ doc/technical/icon_technical.tex -text
 doc/technical/icondoc_fig1.pdf -text svneol=unset#unset
 doc/technical/icondoc_fig2.pdf -text
 doc/technical/transport_arlists.tex -text
+doc/userguide/Makefile -text
 doc/userguide/authorlist.tex -text
+doc/userguide/content/cr2014_01_30_rjs.tex -text
 doc/userguide/content/namelist.tex -text
 doc/userguide/content/new_user.tex -text
 doc/userguide/content/output.tex -text
@@ -741,7 +744,7 @@ run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
-run/exp.check_oce_omip_0160km -text
+run/exp.check_atm_jww_hs -text
 run/exp.check_restart -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-ocean-prod -text
@@ -752,9 +755,6 @@ run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
-run/exp.hat_jww_echam -text
-run/exp.hat_jww_ptest -text
-run/exp.hat_jww_rescale -text
 run/exp.hat_rce_120km -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_communication -text
@@ -823,9 +823,7 @@ run/exp.sl_lsmfl -text
 run/exp.test_atm_amip -text
 run/exp.test_atm_amip_noparams -text
 run/exp.test_atm_icoles_nested -text
-run/exp.test_atm_jww_hs -text
 run/exp.test_couple_atmo-ocean -text
-run/exp.test_hat_rce_120km -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
 run/exp.test_nh35_tri_jws -text
@@ -833,15 +831,16 @@ run/exp.test_nh3_tri_tracer_solid_body -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_oce_acc -text
-run/exp.test_oce_buildbot -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
+run/exp.test_oce_omip_0160km -text
 run/exp.test_oce_parallel -text
 run/exp.test_oce_testbed_read -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
+run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.oce_AquaAtlanticBox_0079km -text
@@ -850,7 +849,6 @@ run/post.oce_omip_cell -text
 run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
-run/post.test_hat_jww -text
 run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_nh35_tri_jws -text
 run/post.test_nh3_tri_tracer_solid_body -text
@@ -1268,7 +1266,6 @@ src/atm_phy_echam/mo_cover.f90 -text
 src/atm_phy_echam/mo_cuadjust.f90 -text
 src/atm_phy_echam/mo_cuascent.f90 -text
 src/atm_phy_echam/mo_cudescent.f90 -text
-src/atm_phy_echam/mo_cuentr.f90 -text
 src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
@@ -1695,6 +1692,7 @@ src/shared/mo_math_utilities.f90 -text
 src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_mtime_extensions.f90 -text
 src/shared/mo_namelist.f90 -text
+src/shared/mo_octree.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
@@ -1726,6 +1724,8 @@ src/shared/mo_var_metadata_types.f90 -text
 src/shared/mo_vertical_coord_table.f90 -text
 src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
+src/shr_horizontal/mo_delaunay.f90 -text
+src/shr_horizontal/mo_delaunay_types.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text

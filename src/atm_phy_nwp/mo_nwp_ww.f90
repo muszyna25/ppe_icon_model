@@ -387,10 +387,13 @@ CPRECIP: IF ( rkdiff > rldiff) THEN
             IF ( ( (rsdiff > rrdiff .AND. t_2m(i) <= tmelt+5._wp) .OR.  &
        &         t_2m(i) < tmelt-10._wp)  .OR. irrb == 0) THEN
 !....          Snow shower
-               IF ( rgdiff >= (sf1 * sf2 * 0.75_wp)) THEN
+               IF (     rgdiff >= (sf1 * sf2 * 0.75_wp)) THEN
                  iww(i) = 86
-               ELSE
+               ELSE IF (rgdiff >= (sf1 * sf2 * 0.10_wp)) THEN
                  iww(i) = 85
+               ELSE
+!              Clouds
+                 iww(i) = clct2ww( clct(i) )
                END IF
             ELSE
                IF (igfb == 1) THEN
@@ -402,12 +405,15 @@ CPRECIP: IF ( rkdiff > rldiff) THEN
                   END IF
                ELSE
 !....             Rain shower 
-                  IF (rgdiff > (sf1 * sf2 * 24._wp)) THEN
+                  IF (     rgdiff > (sf1 * sf2 * 24._wp)) THEN
                     iww(i) = 82
                   ELSE IF (rgdiff > (sf1 * sf2 * 1.5_wp)) THEN
                     iww(i) = 81
-                  ELSE
+                  ELSE IF (rgdiff > (sf1 * sf2 * 0.6_wp)) THEN
                     iww(i) = 80
+                  ELSE
+!                   Clouds
+                    iww(i) = clct2ww( clct(i) )
                   END IF
                ENDIF
             ENDIF
@@ -502,15 +508,7 @@ CPRECIP: IF ( rkdiff > rldiff) THEN
 
          ELSE
 !          Clouds
-           IF (      clct(i) > 0.8125_wp ) THEN
-             iww(i) = 3
-           ELSE IF ( clct(i) > 0.4375_wp) THEN
-             iww(i) = 2
-           ELSE IF ( clct(i) > 0.0625_wp) THEN
-             iww(i) = 1
-           ELSE
-             iww(i) = 0
-           END IF
+           iww(i) = clct2ww( clct(i) )
          END IF
 
       END IF WW_PRECIP
@@ -692,5 +690,22 @@ CPRECIP: IF ( rkdiff > rldiff) THEN
       ENDIF
 
     END SUBROUTINE gefr
+
+    INTEGER FUNCTION clct2ww( clct)
+!
+!   WW key (significant weather) for different cloud covers
+!
+      REAL(wp), INTENT(IN) :: clct
+      IF (      clct > 0.8125_wp) THEN
+        clct2ww = 3
+      ELSE IF ( clct > 0.4375_wp) THEN
+        clct2ww = 2
+      ELSE IF ( clct > 0.0625_wp) THEN
+        clct2ww = 1
+      ELSE
+        clct2ww = 0
+      END IF
+    END  FUNCTION clct2ww
+    
 
 END MODULE mo_nwp_ww

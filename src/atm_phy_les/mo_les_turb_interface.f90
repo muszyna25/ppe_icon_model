@@ -52,6 +52,7 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
 SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
+                          & linit,                            & !>in
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
                           & p_int,                            & !>in
@@ -75,8 +76,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
-  REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
-                                                               !< turbulence
+  REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for turbulence
+  LOGICAL,                     INTENT(in)   :: linit
 
   ! Local array bounds
 
@@ -105,7 +106,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   !is made outside the block loop next. However, the tendencies it calculates
   !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
   IF ( atm_phy_nwp_config(jg)%inwp_turb==ismag )THEN
-    CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
+    CALL drive_subgrid_diffusion(linit,        & !in
+                                 p_prog,       & !inout for w (it is updated inside)
                                  p_prog_rcf,   & !in
                                  p_diag,       & !inout
                                  p_metrics,    & !in

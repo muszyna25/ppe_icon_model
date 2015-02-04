@@ -15,7 +15,6 @@
 # | THUNDER_gcc   | thunder   | thunder_gcc   |
 # | THUNDER_nag   | thunder   | thunder_nag   |
 # | THUNDER_intel | thunder   | thunder_intel |
-# | THUNDER_pgi   | thunder   | thunder_pgi   |
 # |               |           |               |
 # +---------------+-----------+---------------+
 #

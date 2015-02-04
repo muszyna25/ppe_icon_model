@@ -45,7 +45,7 @@ MODULE mo_atmo_model
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
-  USE mo_nonhydrostatic_config,   ONLY: iadv_rcf, configure_nonhydrostatic
+  USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
@@ -250,12 +250,8 @@ CONTAINS
     !    because some components of the state, e.g., num_lev, may be
     !    modified in this subroutine which affects the following CALLs.
     !---------------------------------------------------------------------
-    SELECT CASE(iequations)
-    CASE (inh_atmosphere)
-      CALL configure_run( iadv_rcf )
-    CASE DEFAULT
-      CALL configure_run
-    END SELECT
+    CALL configure_run( )
+
 
     ! complete initicon config-state
     CALL configure_initicon
@@ -323,7 +319,6 @@ CONTAINS
             &                      INT(time_config%dt_restart))
           CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
           sim_step_info%dtime      = dtime
-          sim_step_info%iadv_rcf   = iadv_rcf
           jstep0 = 0
           IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
             ! get start counter for time loop from restart file:

@@ -90,7 +90,9 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_weights, bc_sst_sic_time_interpolation
+  USE mo_time_interpolation         ,ONLY: time_weights_limm
+  USE mo_time_interpolation_weights ,ONLY: wi_limm
+  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
 
@@ -222,10 +224,8 @@ CONTAINS
     IF (phy_config%lcond) THEN
       CALL init_cloud_tables
       CALL sucloud( nlev, vct        &
-!!$        &         , lmidatm=.FALSE.  &
         &         , lcouple=.FALSE.  &
         &         , lipcc=.FALSE.    &
-!!$        &         , lham=.FALSE.     &
         &         )
     END IF
 
@@ -244,88 +244,108 @@ CONTAINS
     ndomain = SIZE(p_patch)
 
     ! general
-   !--------------------------------------------------------------
+    !--------------------------------------------------------------
     !< characteristic gridlength needed by sso and sometimes by
     !! convection and turbulence
     !--------------------------------------------------------------
 
     IF (phy_config%lamip) THEN
-!      DO jg= 1,ndomain ! only one file is defined, ie only for domain 1
-      jg = 1
-           ! by default it will create an error if it cannot open/read the file
-           stream_id = openInputFile(land_frac_fn, p_patch(jg), &
-            &                        default_read_method)
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='land', &
-            &           fill_array=prm_field(jg)%lsmask(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='glac', &
-            &           fill_array=prm_field(jg)% glac(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='lake', &
-            &           fill_array=prm_field(jg)% alake(:,:))
-           CALL closeFile(stream_id)
 
-     ! roughness length and background albedo
-           stream_id = openInputFile(land_phys_fn, p_patch(jg), &
-            &                        default_read_method)
-           IF (phy_config%lvdiff) THEN
-             CALL read_2D(stream_id=stream_id, location=onCells, &
-              &           variable_name='z0', &
-              &           fill_array=prm_field(jg)% z0m(:,:))
-           END IF
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='albedo', &
-            &           fill_array=prm_field(jg)% alb(:,:))
-           CALL closeFile(stream_id)
+      IF ( ndomain /= 1 ) THEN
+        CALL finish('','ndomain /=1 is not supported yet')
+      END IF
 
-     ! orography
-           stream_id = openInputFile(land_sso_fn, p_patch(jg), &
-            &                        default_read_method)
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='oromea', &
-            &           fill_array=prm_field(jg)% oromea(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='orostd', &
-            &           fill_array=prm_field(jg)% orostd(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='orosig', &
-            &           fill_array= prm_field(jg)% orosig(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='orogam', &
-            &           fill_array=prm_field(jg)% orogam(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='orothe', &
-            &           fill_array=prm_field(jg)% orothe(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='oropic', &
-            &           fill_array=prm_field(jg)% oropic(:,:))
-           CALL read_2D(stream_id=stream_id, location=onCells, &
-            &           variable_name='oroval', &
-            &           fill_array=prm_field(jg)% oroval(:,:))
-           CALL closeFile(stream_id)
-        ! ENDDO
-
-    ! add lake mask to land sea mask to remove lakes again
       DO jg= 1,ndomain
-        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
-      ENDDO
-    ! read initial time varying boundary conditions
 
-      ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
+        ! read time-constant boundary conditions from files
+
+        ! land, glacier and lake masks
+        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+          &          variable_name='land',                  &
+          &          fill_array=prm_field(jg)%lsmask(:,:))
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+          &          variable_name='glac',                  &
+          &          fill_array=prm_field(jg)% glac(:,:))
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+          &          variable_name='lake',                  &
+          &          fill_array=prm_field(jg)% alake(:,:))
+        CALL closeFile(stream_id)
+        !
+        ! add lake mask to land sea mask to remove lakes again
+        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+
+        ! roughness length and background albedo
+        stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
+        IF (phy_config%lvdiff) THEN
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='z0',                    &
+            &          fill_array=prm_field(jg)% z0m(:,:))
+        END IF
+        IF (phy_config%lrad) THEN
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='albedo',                &
+            &          fill_array=prm_field(jg)% alb(:,:))
+        END IF
+        CALL closeFile(stream_id)
+
+        ! orography
+        IF (phy_config%lssodrag) THEN
+          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='oromea',                &
+            &          fill_array=prm_field(jg)% oromea(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='orostd',                &
+            &          fill_array=prm_field(jg)% orostd(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='orosig',                &
+            &          fill_array=prm_field(jg)% orosig(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='orogam',                &
+            &          fill_array=prm_field(jg)% orogam(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='orothe',                &
+            &          fill_array=prm_field(jg)% orothe(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='oropic',                &
+            &          fill_array=prm_field(jg)% oropic(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+            &          variable_name='oroval',                &
+            &          fill_array=prm_field(jg)% oroval(:,:))
+          CALL closeFile(stream_id)
+        END IF
+
+      END DO ! jg
+
+      ! read time-dependent boundary conditions from file
+
+      ! well mixed greenhouse gases, horizontally constant
       IF (ighg > 0) THEN
-        IF (.NOT. bc_greenhouse_gases_file_read) CALL read_bc_greenhouse_gases(ighg)
+        ! read annual means
+        IF (.NOT. bc_greenhouse_gases_file_read) THEN
+          CALL read_bc_greenhouse_gases(ighg)
+        END IF
+        ! interpolate to the current date and time, placing the annual means at
+        ! the mid points of the current and preceding or following year, if the
+        ! current date is in the 1st or 2nd half of the year, respectively.
         CALL bc_greenhouse_gases_time_interpolation(current_date)
       ENDIF
-      CALL read_bc_sst_sic(current_date%year, p_patch(1))
-      CALL bc_sst_sic_time_weights(current_date)
+
+      ! interpolation weights for linear interpolation
+      ! of monthly means onto the actual integration time step
+      CALL time_weights_limm(current_date, wi_limm)
+
+      ! sea surface temperature, sea ice concentration and depth
       DO jg= 1,ndomain
         !
-        ! sea surface temperature, ice concentration and ice depth from external data
-        CALL bc_sst_sic_time_interpolation(prm_field(jg)%seaice(:,:),         &
-           &                               prm_field(jg)%tsfc_tile(:,:,iwtr), &
-           &                               prm_field(jg)%siced(:,:),          &
-           &                               prm_field(jg)%lsmask(:,:))
+        CALL read_bc_sst_sic(current_date%year, p_patch(1))
+        !
+        CALL bc_sst_sic_time_interpolation(wi_limm                           ,&
+          &                                prm_field(jg)%lsmask(:,:)         ,&
+          &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
+          &                                prm_field(jg)%seaice(:,:)         ,&
+          &                                prm_field(jg)%siced(:,:)          )
         !
 ! TODO: ME preliminary setting for ice and land and total surface
         prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
@@ -333,6 +353,7 @@ CONTAINS
         prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         !
         prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         prm_field(jg)%tsfc_eff (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         !
 ! TODO: ME preliminary setting for ice
@@ -350,24 +371,30 @@ CONTAINS
         prm_field(jg)% hs   (:,:,:) = 0._wp
         prm_field(jg)% hi   (:,:,:) = 0._wp
         prm_field(jg)% conc (:,:,:) = 0._wp
-      ENDDO
 
-    ENDIF    ! phy_config%lamip
+      END DO ! jg
 
 #ifndef __NO_JSBACH__
-    IF (phy_config%ljsbach) THEN
-      ! Do basic initialization of JSBACH
-      CALL jsbach_init_base(master_namelist_filename)
-      ! Now continue initialization of JSBACH for the different grids
-      DO jg=1,ndomain
-        CALL jsbach_init_model( jg, p_patch(jg))                             !< in
-      END DO
-    END IF
+      IF (phy_config%ljsbach) THEN
+
+        ! Do basic initialization of JSBACH
+        CALL jsbach_init_base(master_namelist_filename)
+
+        ! Now continue initialization of JSBACH for the different grids
+        DO jg=1,ndomain
+          CALL jsbach_init_model( jg, p_patch(jg))                             !< in
+        END DO ! jg
+
+      END IF ! phy_config%ljsbach
 #endif
+
+    END IF ! phy_config%lamip
 
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy
+
+
   !-------------
   !>
   !! Loop over all grid levels and give proper values to some components
@@ -841,11 +868,16 @@ CONTAINS
       ! Initialization of tendencies is necessary for doing I/O with
       ! the NAG compiler
 
-      tend% temp_radsw(:,:,:) = 0._wp
-      tend% temp_radlw(:,:,:) = 0._wp
+      tend% temp_rsw(:,:,:)   = 0._wp
+      tend% temp_rlw(:,:,:)   = 0._wp
 
       tend% temp_cld(:,:,:)   = 0._wp
       tend%    q_cld(:,:,:,:) = 0._wp
+
+      tend% temp_dyn(:,:,:)   = 0._wp
+      tend%    q_dyn(:,:,:,:) = 0._wp
+      tend%    u_dyn(:,:,:)   = 0._wp
+      tend%    v_dyn(:,:,:)   = 0._wp
 
       tend% temp_phy(:,:,:)   = 0._wp
       tend%    q_phy(:,:,:,:) = 0._wp
@@ -869,24 +901,6 @@ CONTAINS
       tend% temp_sso(:,:,:)   = 0._wp
       tend%    u_sso(:,:,:)   = 0._wp
       tend%    v_sso(:,:,:)   = 0._wp
-
-!!$      field% debug_2d_1(:,  :) = 0.0_wp
-!!$      field% debug_2d_2(:,  :) = 0.0_wp
-!!$      field% debug_2d_3(:,  :) = 0.0_wp
-!!$      field% debug_2d_4(:,  :) = 0.0_wp
-!!$      field% debug_2d_5(:,  :) = 0.0_wp
-!!$      field% debug_2d_6(:,  :) = 0.0_wp
-!!$      field% debug_2d_7(:,  :) = 0.0_wp
-!!$      field% debug_2d_8(:,  :) = 0.0_wp
-!!$
-!!$      field% debug_3d_1(:,:,:) = 0.0_wp
-!!$      field% debug_3d_2(:,:,:) = 0.0_wp
-!!$      field% debug_3d_3(:,:,:) = 0.0_wp
-!!$      field% debug_3d_4(:,:,:) = 0.0_wp
-!!$      field% debug_3d_5(:,:,:) = 0.0_wp
-!!$      field% debug_3d_6(:,:,:) = 0.0_wp
-!!$      field% debug_3d_7(:,:,:) = 0.0_wp
-!!$      field% debug_3d_8(:,:,:) = 0.0_wp
 
       NULLIFY( field,tend )
 
