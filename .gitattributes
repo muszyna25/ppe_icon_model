@@ -842,6 +842,8 @@ run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
+run/post.nh35_tri_jws -text
+run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.oce_AquaAtlanticBox_0079km -text
@@ -851,8 +853,6 @@ run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
-run/post.test_nh35_tri_jws -text
-run/post.test_nh3_tri_tracer_solid_body -text
 run/post.test_oce_acc -text
 run/post.test_oce_default -text
 run/post.test_oce_numeric -text
