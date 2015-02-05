@@ -10,7 +10,7 @@ start_date="2001-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-(( years_checkpoint  = 25 ))    # write restart file interval [days]
+((  hours_checkp   =24  ))  # write restart file interval [days]
 (( years_restart     = 25 ))    # stop model for restart [days]
 (( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
 #
@@ -20,7 +20,7 @@ leading_zero=""
 if [[ $days_data -lt 10 ]] ; then leading_zero="0"; fi
 output_interval="P$leading_zero${days_data}D"     # ocean model output interval in days
 (( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
-(( dt_checkpoint  = years_checkpoint  * year ))
+(( dt_checkpoint  = hours_checkp  * hour ))
 (( dt_restart     = years_restart     * year ))
 (( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
 #steps_per_file=610                               # assigned output intervals per file interval
@@ -67,14 +67,14 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  profiling_output = 3
  msg_timestamp        = .FALSE.
- timers_level         = 10
- debug_check_level    = 1
+ debug_check_level    = 10
+ restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "PT06H"
-  steps_per_file   = 999
+  steps_per_file   = 1
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceDefault"
   filename_format  = "<output_filename>_<datetime2>"
@@ -88,7 +88,7 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "PT06H"
-  steps_per_file   = 999
+  steps_per_file   = 1
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceDiag"
   filename_format  = "<output_filename>_<datetime2>"
@@ -189,8 +189,8 @@ cat > ${ocean_namelist} << EOF
   limit_elevation                 = .TRUE.
 /                                    
 &ocean_initialConditions_nml
-  use_file_initialConditions = $use_file_initialConditions  ! read ocean initialization file, see above
-! itestcase_oce                   =  50        ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type           = 1
+  initial_temperature_type        = 1  
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1
