@@ -721,7 +721,6 @@ run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
 run/checksuite.ocean_internal/buildbot/exp.oce_SmallBoxACC_0080km_cell_ptest -text
-run/checksuite.ocean_internal/buildbot/exp.oce_omip_160km_cell_ptest -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
