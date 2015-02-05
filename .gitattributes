@@ -775,8 +775,10 @@ run/checksuite.ocean_internal/technical/exp.check_restart_2x2days -text
 run/checksuite.ocean_internal/technical/exp.oce_omip_performance -text
 run/checksuite.ocean_internal/technical/exp.ocean_accumulation_daily -text
 run/checksuite.ocean_internal/technical/exp.ocean_accumulation_hourly -text
+run/checksuite.ocean_internal/technical/exp.ocean_omip_technical -text
 run/checksuite.ocean_internal/technical/exp.ocean_ptest_analytic_noforcing -text
 run/checksuite.ocean_internal/technical/exp.ocean_ptest_omip_160km_1year -text
+run/checksuite.ocean_internal/technical/exp.test_ocean_omip_technical -text
 run/checksuite.ocean_internal/technical/post.oce_omip_performance -text
 run/checksuite.ocean_internal/technical/post.ocean_accumulation -text
 run/checksuite.ocean_internal/technical/post.test_compare_restarts -text
@@ -867,6 +869,7 @@ run/exp.oce_default -text
 run/exp.oce_omip_0160km -text
 run/exp.oce_omip_cell -text
 run/exp.oce_test_parallel -text
+run/exp.ocean_omip_technical -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.test_atm_amip -text
@@ -886,6 +889,7 @@ run/exp.test_ocean-buildbot -text
 run/exp.test_ocean_numeric -text
 run/exp.test_ocean_omip_10days -text
 run/exp.test_ocean_omip_parallel -text
+run/exp.test_ocean_omip_technical -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
