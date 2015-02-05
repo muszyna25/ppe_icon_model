@@ -884,7 +884,6 @@ run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_oce_acc -text
 run/exp.test_oce_testbed_read -text
-run/exp.test_ocean_numeric -text
 run/exp.test_ocean_omip_10days -text
 run/exp.test_ocean_omip_parallel -text
 run/exp.test_ocean_omip_technical -text
