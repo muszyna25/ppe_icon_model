@@ -6,13 +6,13 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-01-03T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 (( years_checkpoint  = 25 ))    # write restart file interval [days]
 (( years_restart     = 25 ))    # stop model for restart [days]
-(( days_data         = 30 ))    # ocean model output interval hours [hours] - for test runs
+(( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -49,7 +49,7 @@ LOC="POOL"
 cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
- nproma         = ${nproma}
+ nproma         = $nproma
  p_test_run     = .true.
  l_fast_sum     = .false.
 /
@@ -62,8 +62,8 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600         ! model timestep in seconds
- output      = 'none'        ! namelist controlled output scheme
+ dtime       = 3600               ! model timestep in seconds
+ output      = 'none'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output     = 2
  msg_timestamp        = .FALSE.
@@ -82,10 +82,10 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
 /
 &dbg_index_nml
-  idbg_mxmn=2                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -179,8 +179,8 @@ cat > ${ocean_namelist} << EOF
   limit_elevation                 = .TRUE.
 /                                    
 &ocean_initialConditions_nml
-  use_file_initialConditions = $use_file_initialConditions  ! read ocean initialization file, see above
-! itestcase_oce                   =  50        ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type           = 1
+  initial_temperature_type        = 1  
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1
