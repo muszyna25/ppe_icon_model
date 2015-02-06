@@ -384,6 +384,7 @@ CONTAINS
     INTEGER ::start_index, end_index
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: cells_subset
+
     !-----------------------------------------------------------------------
     IF ( patch_3D%p_patch_2D(1)%cells%max_connectivity == 3) THEN
       CALL div_oce_3D_mlevels_onTriangles(vec_e, patch_3D, div_coeff, div_vec_c, &

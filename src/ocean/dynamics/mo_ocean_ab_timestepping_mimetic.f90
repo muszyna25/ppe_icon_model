@@ -1076,9 +1076,7 @@ CONTAINS
 
 !     IF (p_test_run) z_vn_ab(:,:,:)  = 0.0_wp
 
-#ifdef NAGFOR
     z_vn_ab(:,:,:)  = 0.0_wp
-#endif
 
     IF(iswm_oce == 1)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE

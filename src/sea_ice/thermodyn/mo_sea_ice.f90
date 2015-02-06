@@ -45,8 +45,8 @@ MODULE mo_sea_ice
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
     &                               i_Qio_type , &
-    &                               init_analytic_conc_param, init_analytic_conc_type, init_analytic_hi_param, &
-    &                               init_analytic_hi_type, init_analytic_hs_param, init_analytic_hs_type
+    &                               init_analytic_conc_param, init_analytic_hi_param, &
+    &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_ocean_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list

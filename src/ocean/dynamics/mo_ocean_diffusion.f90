@@ -321,11 +321,10 @@ CONTAINS
     start_level = 1
     end_level = n_zlev
     
-#ifdef NAGFOR
      z_div_grad_u(:,:,:)%x(1) = 0.0_wp
      z_div_grad_u(:,:,:)%x(2) = 0.0_wp
      z_div_grad_u(:,:,:)%x(3) = 0.0_wp
-#endif
+
 !     laplacian_vn_out  (1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
     
     ! loop over cells in local domain + halo
@@ -701,11 +700,10 @@ CONTAINS
     ! compute divergence of vector field
     ! z_div_c(:,:,patch_2D%alloc_cell_blocks) = 0.0_wp
     
-#ifdef NAGFOR
+    z_div_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
     z_div_c = 0.0_wp
-#endif
 
-    CALL div_oce_3d( u_vec_e, patch_3D, p_op_coeff%div_coeff, z_div_c)
+    CALL div_oce_3D( u_vec_e, patch_3D, p_op_coeff%div_coeff, z_div_c)
     CALL sync_patch_array(sync_c,patch_2D,z_div_c)
     
     ! compute rotation of vector field for the ocean
