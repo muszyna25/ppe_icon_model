@@ -41,7 +41,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=270
+dtime=1080
 
 DT_RAD=2160
 DT_CONV=1080
@@ -168,7 +168,6 @@ dt_sso          = ${DT_SSO}
  vwind_offctr   = 0.2
  damp_height    = 40000.
  rayleigh_coeff = 0.05
- iadv_rcf       = 4
  l_open_ubc     = .true.
  htop_moist_proc = 22500
 /

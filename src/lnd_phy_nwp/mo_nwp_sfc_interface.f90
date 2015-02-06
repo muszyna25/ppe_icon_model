@@ -402,6 +402,7 @@ CONTAINS
           w_snow_now_t(ic)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
           w_i_now_t(ic)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
+          h_snow_t(ic)              =  lnd_diag%h_snow_t(jc,jb,isubs)
           IF (itype_interception == 2) THEN
             w_p_now_t(ic)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
             w_s_now_t(ic)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
@@ -434,7 +435,6 @@ CONTAINS
 
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1) = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
-            h_snow_t(ic)                      =  lnd_diag%h_snow_t(jc,jb,isubs)
           ENDIF
         ENDDO
 

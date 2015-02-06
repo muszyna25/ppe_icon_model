@@ -37,7 +37,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=2
+dtime=10
 dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
@@ -215,7 +215,6 @@ lsq_high_ord      = 2
  vwind_offctr     =  0.25
  damp_height      =  15000.
  rayleigh_coeff   =  0.25
- iadv_rcf         =  5
  lhdiff_rcf       = .true.
  divdamp_fac      =  0.004
  divdamp_order    =  4

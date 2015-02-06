@@ -60,7 +60,7 @@ MODULE mo_cover
 USE mo_kind,                 ONLY : wp
 USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
 USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_eor_uaw_spline
-USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex
+USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, cinv
 #ifdef _PROFILE
 USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
@@ -144,7 +144,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
 !   Initialize variables
 !
   DO jl = 1,kproma
-    zdtmin(jl) =-0.25_wp * grav/cpd   ! fraction of dry adiabatic lapse rate
+    zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
     zknvb(jl)  = 1.0_wp
     printop(jl)= 0.0_wp
   END DO

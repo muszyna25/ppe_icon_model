@@ -34,6 +34,8 @@ MODULE mo_nwp_parameters
     REAL(wp) :: mean_charlen
     ! relative humidity below which sub-cloud evaporation of rain starts over land and water, respectively
     REAL(wp) :: rhebc_land, rhebc_ocean
+    ! fractional area covered by convective precipitation
+    REAL(wp) :: rcucov
     ! launch level for GWD scheme
     INTEGER  :: klaunch
   END TYPE t_phy_params

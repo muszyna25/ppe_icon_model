@@ -169,7 +169,7 @@ INTEGER (KIND=iintegers) :: &
 !
     itype_tran   =2,       & ! type of surface-atmosphere transfer
     imode_tran   =0,       & ! mode of surface-atmosphere transfer
-    icldm_tran   =2,       & ! mode of cloud representation in transfer parametr.
+    icldm_tran   =-1,      & ! mode of cloud representation in transfer parametr.
 !
     imode_turb   =1,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.

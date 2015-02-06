@@ -43,7 +43,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.72
+dtime=2.88
 dt_checkpoint=`expr 2 \* 3600 `  # write restart file every 2 hours
 #
 #-----------------------------------------------------------------------------
@@ -169,7 +169,6 @@ rbf_vec_scale_e = 0.37
  l_zdiffu_t    = .true.
  thslp_zdiffu   = 0.05
  thhgtd_zdiffu  = 125.
- iadv_rcf       = 4
  lhdiff_rcf    = .true.
  divdamp_fac   = 0.004
 /

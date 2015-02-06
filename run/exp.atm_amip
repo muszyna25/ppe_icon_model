@@ -66,7 +66,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 120         ! [s] dynamics time step
+ dtime            = 1200        ! [s] time step
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -87,7 +87,7 @@ cat > ${atmo_namelist} << EOF
  iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
- iadv_rcf         = 10          ! dt_adv/dtime
+ ndyn_substeps    = 10          ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.10
  vwind_offctr     = 0.2
@@ -349,7 +349,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg','pfull','dpres_mc'
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc'
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
@@ -364,7 +364,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- pl_varlist       = 'ta','ua','va','wap','hus','hur','clw','cli','rho','zg'
+ pl_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg'
  p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
                     15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /

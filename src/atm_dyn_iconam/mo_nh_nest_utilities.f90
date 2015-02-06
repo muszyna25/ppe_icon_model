@@ -38,7 +38,7 @@ MODULE mo_nh_nest_utilities
   USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iforcing
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf
+  USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
@@ -216,7 +216,7 @@ CONTAINS
   !! Developed by Guenther Zaengl, DWD, 2010-02-10
   !!
   SUBROUTINE compute_tendencies (jg,n_new,n_now,n_new_rcf,n_now_rcf,&
-    &                            rdt,rdt_rcf,rdt_mflx,lstep_adv)
+    &                            rdt,rdt_mflx)
 
 
     INTEGER,  INTENT(IN) :: jg  ! domain ID
@@ -227,21 +227,16 @@ CONTAINS
 
     ! Inverse value of time step needed for computing the tendencies
     REAL(wp), INTENT(IN) ::  rdt
-    ! Inverse value of time step for integration with reduced calling frequency,
-    ! needed for computing the tracer-tendencies
-    REAL(wp), INTENT(IN) ::  rdt_rcf
     ! Inverse value of time step needed for computing the mass flux tendencies
     REAL(wp), INTENT(IN) ::  rdt_mflx
 
-    LOGICAL :: lstep_adv  ! determines wheter tracer-tendencies should be computed
-    ! (.true.) or not (.false.)
 
     ! local variables
-
+    !
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx,       &
       ib, jb, ic, jc, ie, je, jk, jt, js, i_nchdom, nshift, jk_start, jshift
     INTEGER :: nlev, nlevp1           !< number of full and half levels
-    INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp
+    INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp, nsubs
 
     REAL(wp) :: rdt_ubc, dthalf
     ! Switch to control if the child domain is vertically nested and therefore 
@@ -259,6 +254,8 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)
+
+    nsubs    = ndyn_substeps_var(jg)
 
     p_grf          => p_grf_state(jg)
     p_nh           => p_nh_state(jg)
@@ -291,7 +288,7 @@ CONTAINS
     ! for dynamic nproma blocking
     nproma_bdyintp = MIN(nproma,256)
 
-    rdt_ubc = rdt*REAL(iadv_rcf,wp)/REAL(2*(MAX(1,iadv_rcf-2)),wp)
+    rdt_ubc = rdt*REAL(nsubs,wp)/REAL(2*(MAX(1,nsubs-2)),wp)
     dthalf = 1._wp/(2._wp*rdt)
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nblks_bdyintp,npromz_bdyintp)
@@ -308,34 +305,34 @@ CONTAINS
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
-        p_nh%diag%dw_int         (:,jb,iadv_rcf+1)            = 0._wp
-        p_nh%diag%mflx_ic_int    (:,jb,iadv_rcf+1:iadv_rcf+2) = 0._wp
-        p_nh%diag%dtheta_v_ic_int(:,jb,iadv_rcf+1)            = 0._wp
-        DO js = 1, iadv_rcf
+        p_nh%diag%dw_int         (:,jb,nsubs+1)         = 0._wp
+        p_nh%diag%mflx_ic_int    (:,jb,nsubs+1:nsubs+2) = 0._wp
+        p_nh%diag%dtheta_v_ic_int(:,jb,nsubs+1)         = 0._wp
+        DO js = 1, nsubs
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          = p_nh%diag%dw_int(jc,jb,iadv_rcf+1) +          &
+            p_nh%diag%dw_int(jc,jb,nsubs+1)          = p_nh%diag%dw_int(jc,jb,nsubs+1) +          &
               p_nh%diag%dw_int(jc,jb,js)
-            p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)     = p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1) +     &
+            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) +     &
               p_nh%diag%mflx_ic_int(jc,jb,js)
-            p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) + &
+            p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) + &
               p_nh%diag%dtheta_v_ic_int(jc,jb,js)
           ENDDO
         ENDDO
         DO jc = i_startidx, i_endidx
-          p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          = p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          / REAL(iadv_rcf,wp)
-          p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)     = p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)     / REAL(iadv_rcf,wp)
-          p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) / REAL(iadv_rcf,wp)
+          p_nh%diag%dw_int(jc,jb,nsubs+1)          = p_nh%diag%dw_int(jc,jb,nsubs+1)          / REAL(nsubs,wp)
+          p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)     / REAL(nsubs,wp)
+          p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,nsubs+1) / REAL(nsubs,wp)
         ENDDO
-        IF (iadv_rcf >= 3) THEN
+        IF (nsubs >= 3) THEN
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
-            p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+2)    = (SUM(p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf-1:iadv_rcf)) -    &
+            p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) = (SUM(p_nh%diag%mflx_ic_int(jc,jb,nsubs-1:nsubs)) - &
               SUM(p_nh%diag%mflx_ic_int(jc,jb,1:2)))*rdt_ubc
             ! Shift time level of averaged field back to the beginning of the first dynamic substep
-            p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1)    = p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+1) -       &
-              dthalf*p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+2)
+            p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) - &
+              dthalf*p_nh%diag%mflx_ic_int(jc,jb,nsubs+2)
           ENDDO
         ENDIF
 
@@ -425,7 +422,7 @@ CONTAINS
           ( p_prog_new%w(jc,nlevp1,jb) - p_prog_now%w(jc,nlevp1,jb) )*rdt
       ENDDO
 
-      IF (ltransport .AND. lstep_adv) THEN
+      IF (ltransport) THEN
 
 #ifdef __LOOP_EXCHANGE
       DO ic = jshift+1, jshift+nlen
@@ -443,9 +440,9 @@ CONTAINS
             jb = p_grf%blklist_bdyintp_src_c(ic)
 #endif
 
-              p_nh%diag%grf_tend_tracer(jc,jk,jb,jt) =                     &
-                &            ( p_prog_new_rcf%tracer(jc,jk,jb,jt)          &
-                &            -  p_prog_now_rcf%tracer(jc,jk,jb,jt) )*rdt_rcf
+              p_nh%diag%grf_tend_tracer(jc,jk,jb,jt) =                 &
+                &            ( p_prog_new_rcf%tracer(jc,jk,jb,jt)      &
+                &            -  p_prog_now_rcf%tracer(jc,jk,jb,jt) )*rdt
             ENDDO
           ENDDO
         ENDDO
@@ -510,7 +507,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2008-07-10
   !!
-  SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv, &
+  SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr, &
     mass_flx_p,mass_flx_c)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -521,8 +518,6 @@ CONTAINS
 
     ! Parent and child time levels for dynamical variables and tracers
     INTEGER, INTENT(IN)     :: ntp_dyn, ntc_dyn, ntp_tr, ntc_tr
-
-    LOGICAL, INTENT(IN) :: lstep_adv  ! time tendencies are only interpolated if transport is called
 
     ! Mass fluxes at parent and child level
     REAL(wp), DIMENSION(:,:,:), INTENT(INOUT) :: mass_flx_p, mass_flx_c
@@ -551,7 +546,7 @@ CONTAINS
     INTEGER :: nlev_c                  ! number of full levels (child domain)
 
     INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
-    INTEGER :: ntracer_bdyintp
+    INTEGER :: ntracer_bdyintp, nsubs
 
     REAL(wp) :: aux3dp(nproma,ntracer+4,p_patch(jg)%nblks_c), &
       aux3dc(nproma,ntracer+4,p_patch(jgc)%nblks_c), &
@@ -588,6 +583,8 @@ CONTAINS
 
     i_chidx = p_patch(jgc)%parent_child_index
     i_nchdom   = MAX(1,p_pc%n_childdom)
+
+    nsubs    = ndyn_substeps_var(jg)
 
     ! number of vertical levels (child domain)
     nlev_c   = p_pc%nlev
@@ -628,7 +625,7 @@ CONTAINS
       i_sbc      = p_pc%cells%start_blk(grf_nudge_start_c,1)
       i_ebc      = p_pc%cells%end_blk(min_rlcell_int,i_nchdom)
 
-      IF (ltransport .AND. lstep_adv) THEN
+      IF (ltransport) THEN
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
         DO jb =  i_startblk, i_endblk
@@ -637,9 +634,9 @@ CONTAINS
             0, min_rlcell_int)
 
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
+            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
+            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,nsubs+1)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
@@ -682,9 +679,9 @@ CONTAINS
             0, min_rlcell_int)
 
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
+            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
+            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,nsubs+1)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
@@ -787,7 +784,7 @@ CONTAINS
     ENDIF
 
     ! Lateral boundary interpolation of cell based tracer variables
-    IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 1) THEN
+    IF (ltransport .AND. grf_intmethod_ct == 1) THEN
 
       ! Start and end blocks for which interpolation is needed
       i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
@@ -798,7 +795,7 @@ CONTAINS
         SEND4D=p_diagp%grf_tend_tracer(:,:,:,1:ntracer_bdyintp))
 
 
-    ELSE IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 2) THEN
+    ELSE IF (ltransport .AND. grf_intmethod_ct == 2) THEN
 
       ! Apply positive definite limiter on full tracer fields but not on tendencies
       l_limit(1:ntracer_bdyintp) = .FALSE.
@@ -845,7 +842,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2010-06-18
-  SUBROUTINE prep_bdy_nudging(jgp, jg, lstep_adv)
+  SUBROUTINE prep_bdy_nudging(jgp, jg)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_nest_utilities:prep_bdy_nudging'
@@ -855,11 +852,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: jgp  ! parent grid level
 
 
-    LOGICAL, INTENT(IN) :: lstep_adv  ! Switch if nudging is done for tracers
-    ! (only if tracer transport is called)
-
     ! local variables
-
+    !
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog => NULL()
     TYPE(t_nh_prog),    POINTER     :: p_child_prog  => NULL()
     TYPE(t_nh_prog),    POINTER     :: p_parent_prog_rcf => NULL()
@@ -954,7 +948,7 @@ CONTAINS
       parent_w    (nproma, nlev_p, p_patch_local_parent(jg)%nblks_c),  &
       diff_w      (nproma, nlev_c+1, p_patch_local_parent(jg)%nblks_c) )
 
-    IF(ltransport .AND. lstep_adv) &
+    IF(ltransport) &
       ALLOCATE(parent_tr(nproma, nlev_p, p_patch_local_parent(jg)%nblks_c, ntracer_nudge),&
       &        diff_tr  (nproma, nlev_c, p_patch_local_parent(jg)%nblks_c, ntracer_nudge) )
 
@@ -993,7 +987,7 @@ CONTAINS
     CALL exchange_data(p_pp%comm_pat_glb_to_loc_e,     &
       RECV=parent_vn, SEND=p_parent_prog%vn)
 
-    IF (ltransport .AND. lstep_adv) &
+    IF (ltransport) &
       CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, ntracer_nudge, ntracer_nudge*nlev_p, &
       RECV4D=parent_tr, SEND4D=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_nudge))
 
@@ -1048,7 +1042,7 @@ CONTAINS
       ENDDO
 
       ! Tracers
-      IF (ltransport .AND. lstep_adv) THEN
+      IF (ltransport) THEN
 
         DO jt = 1, ntracer_nudge
 
@@ -1132,7 +1126,7 @@ CONTAINS
     CALL sync_patch_array_mult(SYNC_C,p_pc,3,p_diag%grf_tend_thv,p_diag%grf_tend_rho,  &
       p_diag%grf_tend_w)
 
-    IF (ltransport .AND. lstep_adv) THEN
+    IF (ltransport) THEN
       IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer_nudge, ntracer_nudge*nlev_c, recv4d=diff_tr)
 
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx,          &
@@ -1143,7 +1137,7 @@ CONTAINS
 
     DEALLOCATE(parent_thv, diff_thv, parent_rho, diff_rho, parent_w, diff_w, parent_vn, diff_vn)
 
-    IF(ltransport .AND. lstep_adv) DEALLOCATE(parent_tr, diff_tr)
+    IF(ltransport) DEALLOCATE(parent_tr, diff_tr)
 
 
   END SUBROUTINE prep_bdy_nudging

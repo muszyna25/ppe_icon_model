@@ -29,10 +29,18 @@ MODULE mo_util_phys
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int
+  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
-  USE mo_run_config,            ONLY: iqv
+  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
+  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_art_config,            ONLY: art_config
+  USE mo_initicon_config,       ONLY: is_iau_active, iau_wgt_adv
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist
+  USE mo_satad,                 ONLY: qsat_rho
 
   IMPLICIT NONE
 
@@ -49,7 +57,7 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
-
+  PUBLIC :: nh_update_prog_phy
 
 CONTAINS
 
@@ -75,13 +83,13 @@ CONTAINS
 
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(wp) :: ff10m, ustar, utop_ssoenv
-    REAL(wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
+    REAL(wp) :: ff10m, ustar, uadd_sso
+    REAL(wp), PARAMETER :: gust_factor = 8.0_wp ! previously 3.0_wp * 2.4_wp
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
-    utop_ssoenv = SQRT( u_env**2 + v_env**2)
+    uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
     ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
-    vgust_dyn = MAX(utop_ssoenv, ff10m + gust_factor*ustar)
+    vgust_dyn = ff10m + uadd_sso + gust_factor*ustar
 
   END FUNCTION nwp_dyn_gust
 
@@ -556,6 +564,167 @@ CONTAINS
 
 
   END SUBROUTINE compute_field_omega
+
+  SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, pt_diag, prm_nwp_tend, &
+    &                            prm_diag, pt_prog_rcf, pt_prog )
+
+    TYPE(t_patch),       INTENT(IN)   :: pt_patch     !!grid/patch info.
+    TYPE(t_nh_diag)     ,INTENT(IN)   :: pt_diag      !<the diagnostic variables
+    TYPE(t_nwp_phy_tend),TARGET, INTENT(IN):: prm_nwp_tend   !< atm tend vars
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !!the physics variables
+    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !!the tracer field at
+                                                   !!reduced calling frequency
+    TYPE(t_nh_prog),     INTENT(IN)   :: pt_prog   !! NH prog state at dynamic time step
+    REAL(wp),INTENT(in)            :: pdtime
+
+    ! Local array bounds:
+
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !! blocks
+    INTEGER :: i_startidx, i_endidx    !! slices
+    INTEGER :: i_nchdom                !! domain index
+
+    ! Local scalars:
+    INTEGER  :: nlev        !< number of full levels
+    INTEGER  :: jb          !block index
+    INTEGER  :: jt          !tracers
+    INTEGER  :: jk,jc,jg
+    REAL(wp) :: zqc, zqi, zqcn, zqin
+
+    REAL(wp) :: zrhw(nproma, pt_patch%nlev) ! relative humidity w.r.t. water
+
+    jg = pt_patch%id
+
+    ! number of vertical levels
+    nlev = pt_patch%nlev
+
+    ! local variables related to the blocking
+
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,zqc,zqi,zqcn,zqin,zrhw) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+           &                       i_startidx, i_endidx, rl_start, rl_end)
+
+      ! add analysis increments from data assimilation to qv
+      !
+      IF (is_iau_active) THEN
+        ! Compute relative humidity w.r.t. water
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            zrhw(jc,jk) = pt_prog_rcf%tracer(jc,jk,jb,iqv)/qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
+          ENDDO
+        ENDDO
+
+        ! DA increments of humidity are limited to positive values if RH < 2% or QV < 2.5e-6
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            IF (zrhw(jc,jk) < 0.02_wp .OR. pt_prog_rcf%tracer(jc,jk,jb,iqv) < 2.5e-6_wp) THEN
+              zqin = MAX(0._wp, pt_diag%qv_incr(jc,jk,jb))
+            ELSE
+              zqin = pt_diag%qv_incr(jc,jk,jb)
+            ENDIF
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv * zqin
+          ENDDO
+        ENDDO
+      ENDIF
+
+
+! KF fix to positive values
+      DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          zqc = pt_prog_rcf%tracer(jc,jk,jb,iqc)+pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)
+          zqi = pt_prog_rcf%tracer(jc,jk,jb,iqi)+pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+
+          zqcn = MIN(0._wp,zqc)
+          zqin = MIN(0._wp,zqi)
+
+          pt_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp, zqc)
+          pt_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp, zqi)
+
+          ! Subtract moisture generated by artificial clipping of QC and QI from QV
+          pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,iqv) + zqcn+zqin &
+            &                       + pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv))
+
+        ENDDO
+      ENDDO
+
+      IF(lart .AND. art_config(jg)%lart_conv) THEN
+! KL add convective tendency and fix to positive values
+        DO jt=1,art_config(jg)%nconv_tracer  ! ASH
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
+                 +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
+            ENDDO
+          ENDDO
+        ENDDO
+      ENDIF !lart
+
+!DR additional clipping for qr, qs 
+!DR (very small negative values may occur during the transport process (order 10E-15)) 
+      DO jt=iqr, iqs  ! qr,qs
+        DO jk = kstart_moist(jg), nlev
+          DO jc = i_startidx, i_endidx
+            pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
+          ENDDO
+        ENDDO
+      ENDDO
+
+      IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
+
+!DIR$ IVDEP
+        prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
+          &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
+          &                                  + pdtime                                     &
+          &                                  * prm_diag%rain_con_rate(i_startidx:i_endidx,jb)
+!DIR$ IVDEP
+        prm_diag%snow_con(i_startidx:i_endidx,jb) =                                       &
+          &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)    &
+          &                                  + pdtime                                     &
+          &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
+
+        !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+!DIR$ IVDEP
+        prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
+          &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
+          &                              +  pdtime                                        &
+          &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
+          &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
+
+      ENDIF
+
+
+      IF(is_ls_forcing)THEN
+        DO jt=1, nqtendphy  ! qv,qc,qi
+          DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
+                &                       + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt))
+            ENDDO
+          ENDDO
+        END DO
+      ENDIF  ! is_ls_forcing
+
+
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE nh_update_prog_phy
 
 
 END MODULE mo_util_phys

@@ -34,6 +34,7 @@ MODULE mo_lonlat_grid
   PUBLIC :: bcast_lonlat_specs
   ! types and variables:
   PUBLIC :: t_lon_lat_grid
+  PUBLIC :: threshold_delta_or_intvls
 
   !---------------------------------------------------------------
   ! constants

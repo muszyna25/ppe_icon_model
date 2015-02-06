@@ -66,7 +66,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 120         ! [s] dynamics time step
+ dtime            = 240         ! [s] time step
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -87,7 +87,7 @@ cat > ${atmo_namelist} << EOF
  iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
- iadv_rcf         = 2           ! dt_adv/dtime
+ ndyn_substeps    = 2           ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.10
  vwind_offctr     = 0.2
@@ -211,20 +211,23 @@ add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_lan
 datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
+# links for yearly files
+start_year=1978
+last_year=1980
 # - ozone
-year=1978
+year=$start_year
+datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
 while [[ $year -le 2009 ]]
 do
-  datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
 #
 ### - tropospheric aerosol
-##year=1978
-##while [[ $year -le 2009 ]]
+##year=$start_year
+##datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+##while [[ $year -le $last_year ]]
 ##do
-##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
 ##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
 ##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
 ##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc          ./
@@ -232,10 +235,10 @@ done
 ##done
 #
 ### - stratospheric aerosol
-##year=1978
-##while [[ $year -le 2009 ]]
+##year=$start_year
+##datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+##while [[ $year -le $last_year ]]
 ##do
-##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 ##  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./
 ##  (( year = year+1 ))
 ##done
