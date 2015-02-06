@@ -177,6 +177,10 @@ CONTAINS
       ! get start counter for time loop from restart file:
       CALL get_restart_attribute("jstep", jstep0)
     END IF
+    IF (is_restart_run() .AND. nold(jg) /=1 ) THEN
+      ! swap the g_n and g_nm1
+      CALL update_time_g_n(ocean_state(jg))
+    ENDIF
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
@@ -327,7 +331,7 @@ CONTAINS
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
       ! update intermediate timestepping variables for the tracers
-      CALL update_intermediate_tracer_vars(ocean_state(jg))
+      CALL update_time_g_n(ocean_state(jg))
 
       ! write a restart or checkpoint file
       IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
@@ -424,7 +428,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE update_intermediate_tracer_vars(ocean_state)
+  SUBROUTINE update_time_g_n(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     REAL(wp), POINTER ::  tmp(:,:,:)
 
@@ -436,7 +440,7 @@ CONTAINS
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
     
-  END SUBROUTINE update_intermediate_tracer_vars
+  END SUBROUTINE update_time_g_n
   !-------------------------------------------------------------------------
 
 END MODULE mo_hydro_ocean_run

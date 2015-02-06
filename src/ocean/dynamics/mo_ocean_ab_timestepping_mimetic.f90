@@ -649,7 +649,9 @@ CONTAINS
       & ocean_state%p_diag%laplacian_horz)
     CALL timer_stop(timer_extra3)
  
- 
+    ! CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn       ,str_module,idt_src, in_subset=owned_edges)
+!     write(0,*) "is_first_timestep=", is_first_timestep
+!     write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
     CALL timer_start(timer_extra4)
@@ -862,7 +864,7 @@ CONTAINS
        &maxval(ocean_state%p_diag%vn_pred_ptp(:,1,:)),& 
        &minval(ocean_state%p_diag%vn_pred_ptp(:,1,:))
        
-ocean_state%p_diag%vn_pred=ocean_state%p_diag%vn_pred_ptp       
+      ocean_state%p_diag%vn_pred=ocean_state%p_diag%vn_pred_ptp       
     END IF
   
     
@@ -994,7 +996,7 @@ ocean_state%p_diag%vn_pred=ocean_state%p_diag%vn_pred_ptp
         END DO
       END DO
       
-   ELSEIF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION)THEN    
+    ELSEIF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION)THEN    
    
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -1008,7 +1010,7 @@ ocean_state%p_diag%vn_pred=ocean_state%p_diag%vn_pred_ptp
         END DO
       END DO
    
-   ENDIF
+    ENDIF
 
     IF(is_first_timestep)THEN
       ocean_state%p_aux%g_nimd(1:nproma,1:n_zlev, blockNo) = &
