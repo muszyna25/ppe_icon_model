@@ -50,6 +50,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: sfs_name_list, ffs_name_list
   PUBLIC :: second_tos, first_tos
   PUBLIC :: GRP_PREFIX
+  PUBLIC :: TILE_PREFIX
   ! derived data types:
   PUBLIC :: t_mem_win
   PUBLIC :: t_reorder_info
@@ -73,6 +74,8 @@ MODULE mo_name_list_output_types
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6), PARAMETER :: GRP_PREFIX = "group:"
+  ! prefix for tile-group identifier in output namelist
+  CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345

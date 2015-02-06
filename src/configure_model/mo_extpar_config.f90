@@ -38,6 +38,7 @@ MODULE mo_extpar_config
   PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, heightdiff_threshold
   PUBLIC :: extpar_filename, generate_filename, generate_td_filename
   PUBLIC :: extpar_varnames_map_file
+  PUBLIC :: i_lctype
 
   !>
   !!----------------------------------------------------------------------------
@@ -45,6 +46,9 @@ MODULE mo_extpar_config
   !! atm model
 
   !------------------------------------------------------------------------
+
+  ! namelist variables
+
   INTEGER  :: itopo       ! 0: topography specified by analytical functions,
                           ! 1: topography read from netcdf files
 
@@ -60,7 +64,12 @@ MODULE mo_extpar_config
   ! external parameter: dictionary which maps internal variable names
   ! onto GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
-  
+
+  ! information read from extpar file
+  INTEGER ::  &           !< stores the landcover classification used for the external parameter data
+    &  i_lctype(max_dom)  !< 1: Globcover2009, 2: GLC2000
+                          !< defined in mo_ext_data_state:inquire_extpar_file
+
   !!----------------------------------------------------------------------------
 
 CONTAINS

@@ -340,6 +340,10 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
 
+  ! identifier for landcover classification
+  INTEGER, PARAMETER :: GLOBCOVER2009 =  1
+  INTEGER, PARAMETER :: GLC2000       =  2
+
   !
   ! transport identifiers
   !

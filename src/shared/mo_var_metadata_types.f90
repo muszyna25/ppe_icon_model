@@ -24,6 +24,9 @@ MODULE mo_var_metadata_types
   ! maximum string length for variable names
   INTEGER, PARAMETER :: VARNAME_LEN = 32
 
+  ! maximum number of variable groups supported by info state
+  INTEGER, PARAMETER :: MAX_GROUPS = 99
+
   ! List of variable groups
   ! 
   ! A variable can have any combination of this which means that it is
@@ -79,6 +82,11 @@ MODULE mo_var_metadata_types
     &  "ICE_DIAG              ",  &
     &  "LATBC_PREFETCH_VARS   " /)
 
+  ! List of dynamic variable groups, which are used for tiles
+  !
+  CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: var_groups_dyn(:)
+
+
   ! list of vertical interpolation types
   ! 
   ! A variable can have any combination of this which means that it
@@ -94,6 +102,13 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_NONE      = -1  !< trivial post-op ("do nothing")
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_SCALE     =  1  !< multiply by scalar factor "arg1"
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_RHO       =  2  !< multiply by rho to get densities instead
+  INTEGER, PARAMETER, PUBLIC   :: POST_OP_LUC       =  3  !< convert landuse classes from internal values 
+                                                          !< to GRIB2 values (table 4.243) and vice versa. 
+
+  ! list of available variable classes
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DEFAULT       = 0
+  INTEGER, PARAMETER, PUBLIC :: CLASS_TILE          = 1   !< variable contains tile-specific information
+
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -169,14 +184,16 @@ MODULE mo_var_metadata_types
     LOGICAL                    :: lnew_grib2
     TYPE(t_grib2_var)          :: new_grib2             !< GRIB2 information of modified field
     !
-    REAL(wp)                   :: arg1                  !< post-op argument (e.g. scaling factor)
+    TYPE(t_union_vals)         :: arg1                  !< post-op argument (e.g. scaling factor)
   END TYPE t_post_op_meta
 
 
   TYPE t_var_metadata
     !
     INTEGER                    :: key                   ! hash value of name
-    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name  
+    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name
+    INTEGER                    :: var_class             ! variable type
+    !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE 
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information
@@ -236,7 +253,7 @@ MODULE mo_var_metadata_types
     TYPE(t_hor_interp_meta)    :: hor_interp 
     !
     ! meta data containing the groups to which a variable belongs
-    LOGICAL :: in_group(SIZE(var_groups))
+    LOGICAL :: in_group(MAX_GROUPS)
 
     ! Flag: defines, if this field is updated by the internal
     ! post-processing scheduler
@@ -246,6 +263,7 @@ MODULE mo_var_metadata_types
 
   PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: VARNAME_LEN
+  PUBLIC :: MAX_GROUPS
 
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
@@ -255,5 +273,6 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_post_op_meta
 
   PUBLIC :: var_groups
+  PUBLIC :: var_groups_dyn
 
 END MODULE mo_var_metadata_types

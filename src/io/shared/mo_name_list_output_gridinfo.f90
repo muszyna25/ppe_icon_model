@@ -35,7 +35,9 @@ MODULE mo_name_list_output_gridinfo
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
+  USE mo_util_cdi,                          ONLY: set_GRIB2_additional_keys,                &
+    &                                             set_GRIB2_ensemble_keys,                  &
+    &                                             set_GRIB2_local_keys
 
   USE mo_name_list_output_types,            ONLY: t_patch_info, t_grid_info, t_output_file, &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,         &
@@ -566,8 +568,16 @@ CONTAINS
             &                 grid_coord_grib2(i)%discipline) )
 
           ! GRIB2 Quick hack: Set additional GRIB2 keys
-          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
-            &                            gribout_config(of%phys_patch_id), 0 )
+          CALL set_GRIB2_additional_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                            gribout_config(of%phys_patch_id) )
+
+          ! Set ensemble keys in SECTION 4 (if applicable)
+          CALL set_GRIB2_ensemble_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                            gribout_config(of%phys_patch_id) )
+
+          ! Set local use SECTION 2
+          CALL set_GRIB2_local_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                       gribout_config(of%phys_patch_id) )
         END DO
       END DO
 
@@ -585,8 +595,16 @@ CONTAINS
           &                 grid_coord_grib2(i)%discipline) )
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys
-        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i),      &
-          &                            gribout_config(of%phys_patch_id), 0 )
+        CALL set_GRIB2_additional_keys(vlistID, of%cdi_grb2(ILATLON,i), &
+          &                            gribout_config(of%phys_patch_id) )
+
+        ! Set ensemble keys in SECTION 4 (if applicable)
+        CALL set_GRIB2_ensemble_keys(vlistID, of%cdi_grb2(ILATLON,i), &
+          &                            gribout_config(of%phys_patch_id) )
+
+        ! Set local use SECTION 2
+        CALL set_GRIB2_local_keys(vlistID, of%cdi_grb2(ILATLON,i),    &
+          &                       gribout_config(of%phys_patch_id) )
       END DO
 
     CASE DEFAULT

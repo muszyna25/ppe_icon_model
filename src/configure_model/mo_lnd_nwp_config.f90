@@ -25,13 +25,26 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,            ONLY: wp
-  USE mo_impl_constants,  ONLY: zml_soil, dzsoil
+  USE mo_impl_constants,  ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000
   USE mo_io_units,        ONLY: filename_max
+  USE mo_exception,       ONLY: finish
 
   IMPLICIT NONE
 
   PRIVATE
 
+  ! FUNCTIONS/SUBROUTINES
+  PUBLIC :: getNumberOfTiles
+  PUBLIC :: tileid_int2grib
+  PUBLIC :: configure_lnd_nwp
+  PUBLIC :: convert_luc_ICON2GRIB
+
+  ! TYPES
+  PUBLIC :: t_GRIB2_tile
+  PUBLIC :: t_GRIB2_att
+  PUBLIC :: t_tile
+
+  ! VARIABLES
   PUBLIC :: nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
@@ -41,8 +54,8 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: lstomata,   l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
+  PUBLIC :: tiles
 
-  PUBLIC :: configure_lnd_nwp
 
   !--------------------------------------------------------------------------
   ! Basic configuration setup for NWP land
@@ -98,6 +111,23 @@ MODULE mo_lnd_nwp_config
   !!
 !  TYPE(t_nwp_lnd_config) :: nwp_lnd_config(max_dom)
 
+
+   TYPE t_GRIB2_tile
+     INTEGER :: itn        ! tile identification number (1,...,numberOfTiles)
+     INTEGER :: nat        ! number of used tile attributes
+   END TYPE t_GRIB2_tile
+
+   TYPE t_GRIB2_att
+     INTEGER     :: iat        ! tile attribute identification number (1,...,nat)
+     INTEGER     :: attribute  ! tile attribute
+   END TYPE t_GRIB2_att
+
+   TYPE t_tile
+     TYPE(t_GRIB2_tile) :: GRIB2_tile
+     TYPE(t_GRIB2_att)  :: GRIB2_att
+   END TYPE t_tile
+
+   TYPE(t_tile), ALLOCATABLE :: tiles(:)
 CONTAINS
 
   !>
@@ -165,7 +195,7 @@ CONTAINS
 
 
     !
-    ! ASCII art for tile approach, showing the configuration for:
+    ! ASCII art for internal tile structure, showing the configuration for:
     ! - ntiles_lnd = 3
     ! - lsnowtile  = .TRUE.
     !
@@ -191,6 +221,279 @@ CONTAINS
     ! sea-ice tile number
     isub_seaice = ntiles_total + ntiles_water
 
+
+    ! Setup tile meta-information required for tile I/O.
+    CALL setup_tile_metainfo (tiles, ntiles_lnd, ntiles_total, ntiles_water)
+
   END SUBROUTINE configure_lnd_nwp
+
+
+  !>
+  !! Provides number of used tiles (NUT)
+  !!
+  !! Provides number of used tiles (NUT), as it is required for GRIB2 encoding.
+  !! NUT differs from the ICON internal counting rules for tiles, in that 
+  !! snowtiles and sea-ice tile are not treated as separate tiles.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-22)
+  !!
+  FUNCTION getNumberOfTiles ()  RESULT (numberOfTiles)
+
+    INTEGER :: numberOfTiles   ! number of tiles for GRIB2 encoding
+
+    ! snow tiles and sea-ice tile are not taken into account.
+    numberOfTiles = MAX(1,ntiles_lnd + ntiles_water - 1)
+
+  END FUNCTION getNumberOfTiles
+
+
+  !>
+  !! Convert internal tile id into GRIB2 tile id
+  !!
+  !! Convert internal tile id into GRIB2 tile id.
+  !! Since the ICON internal tile nomenclature and structure differes 
+  !! from the GRIB2 tile nomenclature, this function provides the GRIB2 
+  !! tile ID, given the internal tile ID (tile number) as input.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-23)
+  !!
+  FUNCTION tileid_int2grib (tileID_int)  RESULT (tileID_GRIB2)
+
+    INTEGER, INTENT(IN) :: tileID_int
+
+    TYPE(t_tile) :: tileID_GRIB2
+
+    !-----------------------------------------------------------------------
+
+    tileID_GRIB2 =  tiles(tileID_int)
+
+  END FUNCTION tileid_int2grib
+
+
+  !>
+  !! Setup tile meta-information
+  !!
+  !! Setup tile meta-information required for tile I/O. 
+  !! For each ICON-tile the following keys are defined:
+  !! - identificationNumberOfTile
+  !! - numberOfAttributes
+  !! - identificationNumberOfAttribute
+  !! - attribute
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-23)
+  !!
+  SUBROUTINE setup_tile_metainfo (tiles, ntiles_lnd, ntiles_total, ntiles_water)
+
+    TYPE(t_tile), ALLOCATABLE, INTENT(INOUT) :: tiles(:)
+    INTEGER                  , INTENT(IN)    :: ntiles_lnd 
+    INTEGER                  , INTENT(IN)    :: ntiles_total
+    INTEGER                  , INTENT(IN)    :: ntiles_water
+
+    ! Local
+    INTEGER :: i                 ! tile loop counter
+    INTEGER :: nat_lnd, nat_oce  ! number of attributes for land tiles and ocean tile
+    INTEGER :: istat             ! error flag
+
+    ! tile attributes
+    INTEGER, PARAMETER :: UNDEF = 0  ! undefined
+    INTEGER, PARAMETER :: UNMOD = 1  ! unmodified
+    INTEGER, PARAMETER :: SNOW  = 2  ! snow-covered
+    INTEGER, PARAMETER :: SEAICE= 4  ! sea ice covered
+
+    !-----------------------------------------------------------------------
+
+    ! allocate tile array
+    ALLOCATE(tiles(ntiles_total + ntiles_water), STAT=istat)
+    IF (istat /= 0) THEN
+      CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
+        &      'allocation of array tiles failed')
+    ENDIF
+
+
+    ! define number of attributes for land tiles
+    ! can be unmodified or snow covered
+    IF (lsnowtile) THEN
+      nat_lnd = 2
+    ELSE
+      nat_lnd = 1
+    ENDIF
+
+    ! define number of attributes for ocean tile
+    ! can be unmodified or sea ice covered
+    IF (ntiles_water > 0) THEN
+      nat_oce = 2
+    ELSE
+      nat_oce = 0
+    ENDIF
+
+
+    ! fill in tile meta information
+    DO i=1, SIZE(tiles)
+
+      IF (i<=ntiles_lnd) THEN  ! dominating land tiles
+  
+        tiles(i)%GRIB2_tile%itn      = i
+        tiles(i)%GRIB2_tile%nat      = nat_lnd
+        tiles(i)%GRIB2_att%iat       = 1
+        tiles(i)%GRIB2_att%attribute = MERGE(UNMOD, UNDEF, nat_lnd>1)
+  
+      ELSE IF ( (i>ntiles_lnd) .AND. (i<= ntiles_total) ) THEN ! corresponding snow tiles (if present)
+  
+        tiles(i)%GRIB2_tile%itn      = i - ntiles_lnd
+        tiles(i)%GRIB2_tile%nat      = nat_lnd
+        tiles(i)%GRIB2_att%iat       = 2
+        tiles(i)%GRIB2_att%attribute = SNOW
+  
+      ELSE IF ( i == isub_water ) THEN ! ocean tiles (unfrozen)
+  
+        tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 1
+        tiles(i)%GRIB2_tile%nat      = nat_oce
+        tiles(i)%GRIB2_att%iat       = 1
+        tiles(i)%GRIB2_att%attribute = UNMOD
+  
+      ELSE IF ( i == isub_lake ) THEN  ! lake tile
+  
+        tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 2
+        tiles(i)%GRIB2_tile%nat      = 1
+        tiles(i)%GRIB2_att%iat       = 1
+        tiles(i)%GRIB2_att%attribute = UNDEF
+  
+      ELSE IF ( i == isub_seaice ) THEN ! sea-ice tile
+  
+        tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 1
+        tiles(i)%GRIB2_tile%nat      = nat_oce
+        tiles(i)%GRIB2_att%iat       = 2
+        tiles(i)%GRIB2_att%attribute = SEAICE
+
+      ELSE
+        CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
+          &      ' failed')
+      END IF
+  
+    ENDDO
+
+  END SUBROUTINE setup_tile_metainfo
+
+
+  !>
+  !! Given the internal land use class index, provide the official GRIB2 index.
+  !!
+  !! Given the ICON-internal land use class index, provide the official GRIB2 
+  !! index according to GRIB2 table 4.2.43 (or vice versa).
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-26)
+  !!
+  FUNCTION convert_luc_ICON2GRIB(lc_datbase,iluc_in,opt_linverse)  RESULT (iluc_out)
+
+    INTEGER          , INTENT(IN) :: lc_datbase       !< landuse class database
+    INTEGER          , INTENT(IN) :: iluc_in          !< landuse class for grid point i
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_linverse     !< given the GRIB2 landsuse class, 
+                                                      !< provide the internal one
+
+    ! Local
+    LOGICAL :: linverse
+    INTEGER :: iluc_out          !< landuse class index output
+                                 !< Default: according to GRIB2 table 4.243
+
+    INTEGER :: iluc_GLOBCOVER2009(23)  ! num_lcc
+    INTEGER :: iluc_GLC2000(23)        ! num_lcc
+    !
+    ! maps GLOBCOVER2009 landuse classes onto tile class table 4.243
+    DATA iluc_GLOBCOVER2009 / 24, &  ! 1 :irrigated croplands
+                            & 25, &  ! 2 :rainfed croplands 
+                            & 26, &  ! 3 :mosaic cropland (50-70%) - vegetation (20-50%)
+                            & 27, &  ! 4 :mosaic vegetation (50-70%) - cropland (20-50%)
+                            & 28, &  ! 5 :closed broadleaved evergreen forest           
+                            & 2 , &  ! 6 :closed broadleaved deciduous forest           
+                            & 3 , &  ! 7 :open broadleaved deciduous forest             
+                            & 29, &  ! 8 :closed needleleaved evergreen forest          
+                            & 30, &  ! 9 :open needleleaved deciduous forest            
+                            & 31, &  ! 10:mixed broadleaved and needleleaved forest     
+                            & 32, &  ! 11:mosaic shrubland (50-70%) - grassland (20-50%)
+                            & 33, &  ! 12:mosaic grassland (50-70%) - shrubland (20-50%)
+                            & 34, &  ! 13:closed to open shrubland                      
+                            & 25, &  ! 14:closed to open herbaceous vegetation          
+                            & 35, &  ! 15:sparse vegetation                             
+                            & 36, &  ! 16:closed to open forest regularly flooded        
+                            & 37, &  ! 17:closed forest or shrubland permanently flooded
+                            & 38, &  ! 18:closed to open grassland regularly flooded    
+                            & 22, &  ! 19:artificial surfaces                           
+                            & 19, &  ! 20:bare areas                                     
+                            & 20, &  ! 21:water bodies                                   
+                            & 21, &  ! 22:permanent snow and ice                         
+                            & 39  /  ! 23:undefined
+    !
+    ! maps GLC2000 landuse classes onto tile class table 4.243
+    DATA iluc_GLC2000       / 1 , &  ! 1 :evergreen broadleaf forest
+                            & 2 , &  ! 2 :deciduous broadleaf closed forest 
+                            & 3 , &  ! 3 :deciduous broadleaf open forest
+                            & 4 , &  ! 4 :evergreen needleleaf forest
+                            & 5 , &  ! 5 :deciduous needleleaf forest           
+                            & 6 , &  ! 6 :mixed leaf trees           
+                            & 7 , &  ! 7 :fresh water flooded trees             
+                            & 8 , &  ! 8 :saline water flooded trees          
+                            & 9 , &  ! 9 :mosaic tree / natural vegetation            
+                            & 10, &  ! 10:burnt tree cover     
+                            & 11, &  ! 11:evergreen shrubs closed-open
+                            & 12, &  ! 12:decidous shrubs closed-open
+                            & 13, &  ! 13:herbaceous vegetation closed-open                      
+                            & 14, &  ! 14:sparse herbaceous or grass          
+                            & 15, &  ! 15:flooded shrubs or herbaceous                             
+                            & 16, &  ! 16:cultivated & managed areas        
+                            & 17, &  ! 17:mosaic crop / tree / natural vegetation
+                            & 18, &  ! 18:mosaic crop / shrub / grass    
+                            & 19, &  ! 19:bare areas                    
+                            & 20, &  ! 20:water                                     
+                            & 21, &  ! 21:snow & ice                                   
+                            & 22, &  ! 22:artificial surface                         
+                            & 39  /  ! 23:undefined
+    !-----------------------------------------------------------------------
+
+    IF (PRESENT(opt_linverse)) THEN
+      linverse = opt_linverse
+    ELSE
+      linverse = .FALSE.
+    ENDIF
+
+
+    ! Special treatment for undefined points
+    IF (iluc_in == -1) THEN
+      iluc_out = iluc_in
+      RETURN
+    ENDIF
+    IF (iluc_in == 0) THEN
+      iluc_out = -9999       ! warning
+      RETURN
+    ENDIF
+
+
+    SELECT CASE(lc_datbase)
+    CASE(GLOBCOVER2009)
+      IF (.NOT. linverse) THEN
+        ! internal to GRIB2
+        iluc_out = iluc_GLOBCOVER2009(iluc_in)
+      ELSE
+        ! GRIB2 to internal
+!!$        iluc_out = find_loc(iluc_in,iluc_GLOBCOVER2009)
+      ENDIF
+
+    CASE(GLC2000)
+
+      IF (.NOT. linverse) THEN
+        ! internal to GRIB2
+        iluc_out = iluc_GLC2000(iluc_in)
+      ELSE
+        ! GRIB2 to internal
+!!$        iluc_out = find_loc(iluc_in,iluc_GLC2000)
+      ENDIF
+
+    END SELECT 
+
+
+  END FUNCTION convert_luc_ICON2GRIB
 
 END MODULE mo_lnd_nwp_config

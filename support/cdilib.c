@@ -32756,7 +32756,9 @@ int gribapiDefDateTimeRel(int editionNumber, grib_handle *gh, int rdate, int rti
 
       // printf(">>>>> tsteptype %d  startStep %ld  endStep %ld\n", tsteptype, startStep, endStep);
 
-      if ( proDefTempNum == 0 ) startStep = endStep;
+      //      if ( proDefTempNum == 0 ) startStep = endStep;
+      /* DR: Extension for Ensemble and tile templates */
+      if ( proDefTempNum == 0 || proDefTempNum == 1 || proDefTempNum == 40055 || proDefTempNum == 40056 ) { startStep = endStep; }
 
       if ( editionNumber > 1 ) GRIB_CHECK(my_grib_set_long(gh, "forecastTime", startStep), 0);
       GRIB_CHECK(my_grib_set_long(gh, "endStep", endStep), 0);
