@@ -177,7 +177,7 @@ CONTAINS
       ! get start counter for time loop from restart file:
       CALL get_restart_attribute("jstep", jstep0)
     END IF
-    IF (is_restart_run() .AND. nold(jg) /=1 ) THEN
+    IF (is_restart_run() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF

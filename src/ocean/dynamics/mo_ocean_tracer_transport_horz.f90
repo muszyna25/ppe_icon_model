@@ -1882,12 +1882,12 @@ CONTAINS
 !       r_m             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
 !       r_p             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
 !     ENDIF
-
+#ifdef NAGFOR
     z_tracer_max(:,:,:) = 0.0_wp
     z_tracer_min(:,:,:) = 0.0_wp
     r_m(:,:,:)          = 0.0_wp
     r_p(:,:,:)          = 0.0_wp
-
+#endif
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
