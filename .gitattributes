@@ -770,8 +770,8 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityC
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
-run/checksuite.ocean_internal/technical/exp.check_restart_1x4days -text
-run/checksuite.ocean_internal/technical/exp.check_restart_2x2days -text
+run/checksuite.ocean_internal/technical/exp.check_restart_1x2days -text
+run/checksuite.ocean_internal/technical/exp.check_restart_2x1days -text
 run/checksuite.ocean_internal/technical/exp.oce_omip_performance -text
 run/checksuite.ocean_internal/technical/exp.ocean_accumulation_daily -text
 run/checksuite.ocean_internal/technical/exp.ocean_accumulation_hourly -text
