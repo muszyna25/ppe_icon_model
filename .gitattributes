@@ -734,6 +734,7 @@ run/checksuite.ocean_internal/omip/exp.oce_omip_ref -text
 run/checksuite.ocean_internal/omip/exp.oce_omip_testSurface -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_short -text
+run/checksuite.ocean_internal/omip/exp.ocean_omip_testbed -text
 run/checksuite.ocean_internal/operators/exp.oce_testbed_coriolis -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km_cell_WindTempForcing -text
@@ -770,6 +771,7 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityC
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
+run/checksuite.ocean_internal/sea-ice/exp.ice_testbed -text
 run/checksuite.ocean_internal/technical/exp.check_restart_1x2days -text
 run/checksuite.ocean_internal/technical/exp.check_restart_2x1days -text
 run/checksuite.ocean_internal/technical/exp.oce_omip_performance -text
