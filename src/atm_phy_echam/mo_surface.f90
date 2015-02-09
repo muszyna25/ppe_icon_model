@@ -323,12 +323,11 @@ CONTAINS
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.
     !
+    zca(1:kproma,:) = 1._wp
+    zcs(1:kproma,:) = 1._wp
     IF (idx_lnd <= ksfc_type) THEN
       zca(1:kproma,idx_lnd) = pcair(1:kproma)
       zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
-    ELSE
-      zca(1:kproma,:) = 1._wp
-      zcs(1:kproma,:) = 1._wp
     END IF
 
     ! CALL sea_ice_thermodynamics ?
