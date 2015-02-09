@@ -196,8 +196,8 @@ CONTAINS
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
 
-    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1), is_restart_run())
+     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
+       & ocean_state(1), ext_data(1), is_restart_run(), solverCoefficients_sp)
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
@@ -345,7 +345,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
-    CHARACTER(LEN=32)               :: datestring
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
     INTEGER :: ist
     INTEGER :: error_status
@@ -446,13 +445,34 @@ CONTAINS
     CALL init_ocean_bathymetry(patch_3d=ocean_patch_3d,  &
       & cells_bathymetry=ext_data(1)%oce%bathymetry_c(:,:))
 
+    !---------------------------------------------------------------------
     ! Prepare time integration
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
       & v_params, p_as, atmos_fluxes, v_sea_ice,operators_coefficients, solverCoefficients_sp)!,p_int_state(1:))
 
-    CALL datetime_to_string(datestring, start_datetime)
-    IF (diagnostics_level == 1) &
-      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
+    !---------------------------------------------------------------------
+    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(ocean_patch_3D)
+    
+
+    ! initialize ocean indices for debug output (including 3-dim lsm)
+    CALL init_oce_index(ocean_patch_3d%p_patch_2d,ocean_patch_3d, ocean_state, ext_data )
+
+    CALL init_ho_params(ocean_patch_3d, v_params)
+
+!    IF (.not. is_restart_run()) &
+    CALL apply_initial_conditions(ocean_patch_3d, ocean_state(1), ext_data(1), operators_coefficients)
+      
+    ! initialize forcing after the initial conditions, since it may require knowledge
+    ! of the initial conditions
+    CALL init_ocean_forcing(ocean_patch_3d%p_patch_2d(1),  &
+      &                     ocean_patch_3d,                &
+      &                     ocean_state(1),         &
+      &                     atmos_fluxes,            &
+      &                     p_as%fu10)
+      
+    IF (i_sea_ice >= 1) &
+      &   CALL ice_init(ocean_patch_3D, ocean_state(1), v_sea_ice, atmos_fluxes%cellThicknessUnderIce)
+
 
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------
@@ -480,8 +500,8 @@ CONTAINS
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     ! local variables
+    CHARACTER(LEN=32)               :: datestring
     INTEGER, PARAMETER :: kice = 1
-    INTEGER :: jg
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_ocean_model:construct_ocean_states'
 
@@ -493,7 +513,6 @@ CONTAINS
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(method_name), ' N_DOM > 1 is not allowed')
     END IF
-    jg = n_dom
 
     !------------------------------------------------------------------
     ! construct ocean state and physics
@@ -501,17 +520,17 @@ CONTAINS
     CALL init_oce_config
 
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
-    CALL init_dbg_index(patch_3d%p_patch_2d(jg))!(patch_2D(jg))
+    CALL init_dbg_index(patch_3d%p_patch_2d(1))!(patch_2D(1))
 
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
 
     CALL construct_patch_3d(patch_3d)
 
-    CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(jg), v_base)
-    CALL init_ho_base     (patch_3d%p_patch_2d(jg), external_data(jg), v_base)
-    CALL init_ho_basins   (patch_3d%p_patch_2d(jg),                 v_base)
-    CALL init_coriolis_oce(patch_3d%p_patch_2d(jg) )
-    CALL init_patch_3d    (patch_3d,                external_data(jg), v_base)
+    CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
+    CALL init_ho_base     (patch_3d%p_patch_2d(1), external_data(1), v_base)
+    CALL init_ho_basins   (patch_3d%p_patch_2d(1),                 v_base)
+    CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
+    CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
 
     CALL construct_operators_coefficients     ( patch_3d, operators_coefficients, solverCoeff_sp, ocean_default_list)
@@ -523,42 +542,25 @@ CONTAINS
     CALL construct_hydro_ocean_state(patch_3d%p_patch_2d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
-    CALL construct_ho_params(patch_3d%p_patch_2d(jg), p_phys_param, ocean_restart_list)
+    CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 
     !------------------------------------------------------------------
     ! construct ocean initial conditions and forcing
     !------------------------------------------------------------------
 
     CALL construct_sea_ice(patch_3d, p_ice, kice)
-    CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(jg), p_as)
-    CALL construct_atmos_fluxes(patch_3d%p_patch_2d(jg), atmos_fluxes, kice)
+    CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(1), p_as)
+    CALL construct_atmos_fluxes(patch_3d%p_patch_2d(1), atmos_fluxes, kice)
 
-    CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
+    CALL construct_ocean_forcing(patch_3d%p_patch_2d(1),p_sfc_flx, ocean_default_list)
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
+    CALL datetime_to_string(datestring, start_datetime)
+    IF (diagnostics_level == 1) &
+      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
-    ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, ocean_state, external_data )
-
-    CALL init_ho_params(patch_3d, p_phys_param)
-
-!    IF (.not. is_restart_run()) &
-    CALL apply_initial_conditions(patch_3d, ocean_state(jg), external_data(jg), operators_coefficients)
-      
-    ! initialize forcing after the initial conditions, since it may require knowledge
-    ! of the initial conditions
-    CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &
-      &                     patch_3d,                &
-      &                     ocean_state(jg),         &
-      &                     atmos_fluxes,            &
-      &                     p_as%fu10)
-      
-    IF (i_sea_ice >= 1) &
-      &   CALL ice_init(patch_3D, ocean_state(jg), p_ice, atmos_fluxes%cellThicknessUnderIce)
-
-    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
-
+    !------------------------------------------------------------------
     CALL message (TRIM(method_name),'end')
 
   END SUBROUTINE construct_ocean_states

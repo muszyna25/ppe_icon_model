@@ -198,6 +198,11 @@ CONTAINS
 !ICON_OMP_END_DO_PARALLEL 
     !--------------------------------------------------------------    
     
+    CALL dbg_print('veloc_3d: vn_e',         vn_e                    ,str_module,3, &
+          patch_2D%edges%owned )
+    CALL dbg_print('veloc_3d: kin energy'   ,p_diag%kin              ,str_module,3, &
+          patch_2D%cells%owned )
+          
   END SUBROUTINE calc_scalar_product_veloc_3d
   !-------------------------------------------------------------------------
   

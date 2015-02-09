@@ -66,7 +66,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & map_edges2edges_viacell_2D_constZ_sp, &
     & map_edges2edges_viacell_2D_per_level
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, calculate_thickness, &
+    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, &
     & div_oce_2d_sp, grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
     & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp
   USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic

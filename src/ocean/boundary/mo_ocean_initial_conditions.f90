@@ -35,9 +35,9 @@ MODULE mo_ocean_initial_conditions
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,            &
     & basin_center_lat, basin_center_lon, basin_height_deg,  basin_width_deg,         &
     & initial_temperature_bottom, initial_temperature_top, initial_temperature_shift, &
-    & initial_temperature_north, initial_temperature_south,                           &
-    & initial_temperature_scale_depth,                                                &
-    & discretization_scheme, use_file_initialConditions,                              &
+    & initial_temperature_north, initial_temperature_south,                            &
+    & initial_temperature_scale_depth,                                                 &
+    & use_file_initialConditions,                                                        &
     & initial_salinity_top, initial_salinity_bottom, &
     & topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
@@ -166,7 +166,7 @@ CONTAINS
 !    END IF
     !---------------------------------------------------------------------
 
-    CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
+    ! CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
     ! CALL fill_tracer_x_height(patch_3d, ocean_state)
 
   END SUBROUTINE apply_initial_conditions
@@ -268,38 +268,6 @@ CONTAINS
     CALL sync_patch_array(sync_c, patch_2D, variable)
     
   END SUBROUTINE init_2D_variable_fromFile
-  !-------------------------------------------------------------------------
-
- !-------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
-    TYPE(t_patch), TARGET, INTENT(in)         :: patch_2d
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET         :: ocean_state
-    TYPE(t_operator_coeff)                    :: operators_coeff
-
-    IF(discretization_scheme == 1)THEN
-
-      IF (is_restart_run()) CALL update_time_indices(1)
-
-      CALL calc_scalar_product_veloc_3d( patch_3d,&
-        & ocean_state%p_prog(nold(1))%vn,&
-        & ocean_state%p_diag,            &
-        & operators_coeff)
-      
-      IF (is_restart_run()) CALL update_time_indices(1)
-
-    ENDIF
-    
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('recon_fields: p_vn%x(1)'        ,ocean_state%p_diag%p_vn%x(1),module_name,idt_src, &
-      & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    !---------------------------------------------------------------------
-    
-    !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( patch_2D, ocean_state, operators_coeff)
-    
-  END SUBROUTINE initialize_diagnostic_fields
   !-------------------------------------------------------------------------
 
 

@@ -158,7 +158,7 @@ cat > ${ocean_namelist} << EOF
   k_tracer_dianeutral_parameter   =   1.0E-5  !
 /
 &ocean_physics_nml
-  i_sea_ice                       =   0       ! 0 = no sea ice; 1 = sea ice model on
+  i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
 ! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3

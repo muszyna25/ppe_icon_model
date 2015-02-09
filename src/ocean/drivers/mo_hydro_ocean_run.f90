@@ -84,31 +84,36 @@ MODULE mo_hydro_ocean_run
 CONTAINS
 
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, is_restart)
+  !<Optimize:inUse>
+  SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, ext_data, is_restart, &
+    & solvercoeff_sp)
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_operator_coeff)            :: operators_coefficients
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-!   TYPE (t_ho_params)                :: p_phys_param
+    TYPE(t_external_data), TARGET, INTENT(in) :: ext_data
+! !   TYPE (t_ho_params)                :: p_phys_param
     LOGICAL, INTENT(in)               :: is_restart
-
-    IF (is_restart) THEN
-      ! Prepare ocean_state%p_prog, since it is needed by the sea ice model (e.g. wind stress computation)
-      IF ( i_sea_ice > 0 )         &
-        & CALL calc_scalar_product_veloc_3d( patch_3d,  &
-        & ocean_state%p_prog(nnew(1))%vn,             &
-        & ocean_state%p_diag,                         &
-        & operators_coefficients)
-    ELSE
-    ENDIF
-
-    !    CALL update_diffusion_matrices( patch_3d,         &
-    !      & p_phys_param,                 &
-    !      & operators_coefficients%matrix_vert_diff_e,&
-    !      & operators_coefficients%matrix_vert_diff_c)
-
-    CALL init_ho_lhs_fields_mimetic   ( patch_3d )
-
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+! 
+!     IF (is_restart) THEN
+!       ! Prepare ocean_state%p_prog, since it is needed by the sea ice model (e.g. wind stress computation)
+!       IF ( i_sea_ice > 0 )         &
+!       CALL calculate_thickness( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
+!       
+!       CALL calc_scalar_product_veloc_3d( patch_3d,  &
+!         & ocean_state%p_prog(nold(1))%vn,         &
+!         & ocean_state%p_diag,                     &
+!         & operators_coefficients)
+!     ELSE
+!     ENDIF
+! 
+!     !    CALL update_diffusion_matrices( patch_3d,         &
+!     !      & p_phys_param,                 &
+!     !      & operators_coefficients%matrix_vert_diff_e,&
+!     !      & operators_coefficients%matrix_vert_diff_c)
+! 
+     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
+! 
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
 
@@ -167,7 +172,7 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(jg)
 
-    CALL datetime_to_string(datestring, datetime)
+    ! CALL datetime_to_string(datestring, datetime)
 
     time_config%sim_time(:) = 0.0_wp
 
@@ -192,7 +197,18 @@ CONTAINS
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
-
+      
+      IF (timers_level > 2)  CALL timer_start(timer_extra22)
+      CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
+      IF (timers_level > 2)  CALL timer_stop(timer_extra22)
+      
+      IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
+      CALL calc_scalar_product_veloc_3d( patch_3d,  &
+        & ocean_state(jg)%p_prog(nold(1))%vn,         &
+        & ocean_state(jg)%p_diag,                     &
+        & operators_coefficients)
+      IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)
+      
       !In case of a time-varying forcing:
       IF (ltimer) CALL timer_start(timer_upd_flx)
       CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
@@ -200,19 +216,17 @@ CONTAINS
       ! update_sfcflx has changed p_prog(nold(1))%h
       IF (ltimer) CALL timer_stop(timer_upd_flx)
 
-
       IF (timers_level > 2)  CALL timer_start(timer_extra22)
       CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
       IF (timers_level > 2)  CALL timer_stop(timer_extra22)
 
-      IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
-      CALL calc_scalar_product_veloc_3d( patch_3d,  &
-        & ocean_state(jg)%p_prog(nold(1))%vn,         &
-        & ocean_state(jg)%p_diag,                     &
-        & operators_coefficients)
-      IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)
+!       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
+!       CALL calc_scalar_product_veloc_3d( patch_3d,  &
+!         & ocean_state(jg)%p_prog(nold(1))%vn,         &
+!         & ocean_state(jg)%p_diag,                     &
+!         & operators_coefficients)
+!       IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)
 
-      ! activate for calc_scalar_product_veloc_3D
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('on entry: h-old'           ,ocean_state(jg)%p_prog(nold(1))%h ,str_module,idt_src, &
