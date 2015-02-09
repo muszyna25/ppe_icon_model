@@ -534,8 +534,9 @@ CONTAINS
     !Additional diagnostic for idealized LES runs
     IF(is_sampling_time)THEN
       CALL levels_horizontal_mean(z_dtemp, p_patch%cells%area, p_patch%cells%owned, outvar)
-      prm_diag%turb_diag_1dvar(1:nlev,idx_dt_t_gsp) =  &
-          prm_diag%turb_diag_1dvar(1:nlev,idx_dt_t_gsp) + outvar(1:nlev)/tcall_gscp_jg
+      prm_diag%turb_diag_1dvar(kstart_moist(jg):nlev,idx_dt_t_gsp) =      &
+          prm_diag%turb_diag_1dvar(kstart_moist(jg):nlev,idx_dt_t_gsp) +  &
+          outvar(kstart_moist(jg):nlev)/tcall_gscp_jg
     END IF
      
   END SUBROUTINE nwp_microphysics
