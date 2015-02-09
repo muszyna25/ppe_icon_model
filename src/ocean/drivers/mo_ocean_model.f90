@@ -196,8 +196,8 @@ CONTAINS
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
 
-     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-       & ocean_state(1), ext_data(1), is_restart_run(), solverCoefficients_sp)
+    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
+      & ocean_state(1), ext_data(1), is_restart_run(), solverCoefficients_sp)
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
