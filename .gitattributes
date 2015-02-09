@@ -878,8 +878,6 @@ run/exp.test_atm_icoles_nested -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
-run/exp.test_nh35_tri_jws -text
-run/exp.test_nh3_tri_tracer_solid_body -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_oce_testbed_read -text
@@ -890,6 +888,8 @@ run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
+run/post.nh35_tri_jws -text
+run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.oce_longrun -text
@@ -897,8 +897,6 @@ run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
-run/post.test_nh35_tri_jws -text
-run/post.test_nh3_tri_tracer_solid_body -text
 run/post.test_oce_default -text
 run/post.test_oce_numeric -text
 run/post.test_oce_numeric_tracerconservation -text

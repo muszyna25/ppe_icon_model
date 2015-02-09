@@ -461,12 +461,12 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (datetime)
+  SUBROUTINE perform_nh_timeloop (datetime_current)
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime
+  TYPE(t_datetime), INTENT(INOUT)      :: datetime_current
 
   INTEGER                              :: jg
   INTEGER                              :: ierr
@@ -512,7 +512,7 @@ MODULE mo_nh_stepping
     jstep_shift = 0
   ENDIF
   
-  datetime_old = datetime
+  datetime_old = datetime_current
   
   IF (use_async_restart_output) THEN
     CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
@@ -557,7 +557,7 @@ MODULE mo_nh_stepping
       ENDIF
     ENDDO
 
-    CALL add_time(dtime,0,0,0,datetime)
+    CALL add_time(dtime,0,0,0,datetime_current)
 
     ! store state of output files for restarting purposes
     IF (output_mode%l_nml .AND. jstep>=0 ) THEN
@@ -571,7 +571,7 @@ MODULE mo_nh_stepping
 
     ! read boundary data if necessary
     IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
-      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime)
+      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime_current)
 
     IF (msg_level > 2) THEN
       lprint_timestep = .TRUE.
@@ -612,17 +612,17 @@ MODULE mo_nh_stepping
     ! - SST, fr_seaice (depending on sstice_mode)
     ! - MODIS albedo fields alb_dif, albuv_dif, albni_dif
     ! 
-    IF ( check_newday(datetime_old,datetime) ) THEN
+    IF ( check_newday(datetime_old,datetime_current) ) THEN
 
       WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', datetime_old%day, &
-                &                 'day: ', datetime%day
+                &                 'day: ', datetime_current%day
       CALL message(TRIM(routine),message_text)
 
       !Update ndvi normalized differential vegetation index
       IF (itopo == 1 .AND. iforcing == inwp .AND.                  &
         & ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
         DO jg=1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), datetime,          &! in
+          CALL interpol_monthly_mean(p_patch(jg), datetime_current,  &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,  &! in
             &                        ext_data(jg)%atm%ndviratio      )! out
         ENDDO
@@ -635,7 +635,7 @@ MODULE mo_nh_stepping
       !Check if the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
       IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
 
-        CALL set_actual_td_ext_data (.FALSE., datetime,datetime_old,sstice_mode,  &
+        CALL set_actual_td_ext_data (.FALSE., datetime_current,datetime_old,sstice_mode,  &
                                   &  p_patch(1:), ext_data, p_lnd_state)
 
         CALL update_sstice( p_patch(1:),           &
@@ -649,21 +649,21 @@ MODULE mo_nh_stepping
         ! Note that here only an update of the external parameter fields is 
         ! performed. The actual update happens in mo_albedo.
         DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+          CALL interpol_monthly_mean(p_patch(jg), datetime_current,    &! in
             &                        ext_data(jg)%atm_td%alb_dif,      &! in
             &                        ext_data(jg)%atm%alb_dif          )! out
 
-          CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+          CALL interpol_monthly_mean(p_patch(jg), datetime_current,    &! in
             &                        ext_data(jg)%atm_td%albuv_dif,    &! in
             &                        ext_data(jg)%atm%albuv_dif        )! out
 
-          CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+          CALL interpol_monthly_mean(p_patch(jg), datetime_current,    &! in
             &                        ext_data(jg)%atm_td%albni_dif,    &! in
             &                        ext_data(jg)%atm%albni_dif        )! out
         ENDDO
       ENDIF
 
-      datetime_old = datetime
+      datetime_old = datetime_current
 
     END IF ! end update of surface parameter fields 
 
@@ -707,7 +707,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime, 1, jstep-jstep_shift, dtime, 1)
+    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, dtime, 1)
 
 
     ! Compute diagnostics for output if necessary
@@ -779,7 +779,7 @@ MODULE mo_nh_stepping
     DO jg = 1, n_dom
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
-        CALL meteogram_sample_vars(jg, jstep, datetime, ierr)
+        CALL meteogram_sample_vars(jg, jstep, datetime_current, ierr)
         IF (ierr /= SUCCESS) THEN
           CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
         ENDIF
@@ -841,11 +841,11 @@ MODULE mo_nh_stepping
             & opt_ndom                   = n_dom,                      &
             & opt_output_jfile           = output_jfile )
         ENDDO
-        CALL write_async_restart(datetime, jstep)
+        CALL write_async_restart(datetime_current, jstep)
       ELSE
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
+          CALL create_restart_file( patch= p_patch(jg),datetime= datetime_current,           &
                                   & jstep                      = jstep,                      &
                                   & model_type                 = "atm",                      &
                                   & opt_t_elapsed_phy          = t_elapsed_phy,              &
@@ -874,7 +874,7 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-       CALL prefetch_input( datetime, p_patch(1), p_int_state(1), p_nh_state(1))
+       CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
   ENDDO TIME_LOOP

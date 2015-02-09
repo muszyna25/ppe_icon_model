@@ -428,8 +428,8 @@ create_restart test_oce_acc
 # this includes the restart in the exp.test_nh35_tri_jws_restart
 #
 #queue="default"
-cpu_time="03:00:00"
-create_restart test_nh35_tri_jws
+#cpu_time="03:00:00"
+#create_restart test_nh35_tri_jws
 #==============================================================================
 
 #==============================================================================
