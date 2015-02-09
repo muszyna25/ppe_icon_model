@@ -51,5 +51,4 @@ refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
 
 directoryDiff ${refDir} .
 
-exit
-
+check_error $? "DIFFCHECK for exp: ${EXPNAME}"
