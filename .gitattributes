@@ -897,9 +897,9 @@ run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
-run/post.test_oce_default -text
 run/post.test_oce_numeric -text
 run/post.test_oce_numeric_tracerconservation -text
+run/post.test_ocean_omip_10days -text
 run/postFunx.sh -text
 run/run_ICOHAM_R2B4_APE -text
 run/run_ICONAM_ECMWF -text
