@@ -866,11 +866,6 @@ run/exp.nh_rce -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
-run/exp.oce_Earth_10km_zonalWind_TemperatureRelax -text
-run/exp.oce_default -text
-run/exp.oce_omip_0160km -text
-run/exp.oce_omip_cell -text
-run/exp.oce_test_parallel -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
 run/exp.pure_adv -text
