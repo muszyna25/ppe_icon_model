@@ -2017,7 +2017,7 @@ CONTAINS
 
    CASE(2)
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+! !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
   ! DO jb = 1,p_patch%nblks_c
   !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
   !   DO jc = i_startidx_c,i_endidx_c
@@ -2031,7 +2031,7 @@ CONTAINS
   !     ENDDO
   !   ENDDO
   ! END DO
-!ICON_OMP_END_PARALLEL_DO
+! !ICON_OMP_END_PARALLEL_DO
 
     CASE (3)
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
