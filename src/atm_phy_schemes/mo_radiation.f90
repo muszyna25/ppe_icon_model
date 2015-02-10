@@ -488,10 +488,9 @@ CONTAINS
   !!
   !! @remarks This routine organises the input/output for the radiation
   !! computation.  The state of radiatively active constituents is set as the
-  !! input. Output are flux transmissivities and emissivities at all the half
-  !! levels of the grid (respectively ratio solar flux/solar input and ratio
-  !! thermal flux/local black-body flux). This output will be used in radheat
-  !! at all time steps until the next full radiation time step.
+  !! input. Output are flux transmissivities (ratio solar flux/solar input) 
+  !! and thermal fluxes at all the half levels of the grid. This output will be 
+  !! used in radheat at all time steps until the next full radiation time step.
   !
   SUBROUTINE radiation(                                                    &
     ! input
@@ -507,7 +506,7 @@ CONTAINS
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
     ! output
     & ,cld_cvr                                                             &
-    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all     &
+    & ,flx_lw_net_clr    ,trsol_net_clr  ,flx_lw_net       ,trsol_net      &
     & ,opt_halo_cosmu0  )
 
     ! input
@@ -554,12 +553,12 @@ CONTAINS
     ! output
     ! ------
     !
-    REAL(wp), INTENT(inout) ::      &
-      &  cld_cvr(kbdim),          & !< Cloud cover in a column
-      &  emter_clr(kbdim,klevp1), & !< Surface terrestrial emissivity
-      &  trsol_clr(kbdim,klevp1), & !< Surface solar transmissivity
-      &  emter_all(kbdim,klevp1), & !< Terrestrial emissivity
-      &  trsol_all(kbdim,klevp1)    !< Solar transmissivity
+    REAL(wp), INTENT(out) ::           &
+      &  cld_cvr(kbdim),               & !< Cloud cover in a column
+      &  flx_lw_net_clr(kbdim,klevp1), & !< Net clear-sky longwave radiative flux [W/m**2] (positive downward)
+      &  trsol_net_clr(kbdim,klevp1),  & !< Net clear-sky solar transmissivity (= net clear-sky shortwave radiative flux normalized by irradiance)
+      &  flx_lw_net(kbdim,klevp1),     & !< Net longwave radiative flux [W/m**2] (positive downward)
+      &  trsol_net(kbdim,klevp1)         !< Net solar transmissivity (= net shortwave radiative flux normalized by irradiance)
 
 
     INTEGER  :: jk, jl
@@ -568,28 +567,26 @@ CONTAINS
     &    cos_mu0_halo,              & !< cos(zenith angle) value delimiting the halo
     &    cos_mu0_mod(kbdim)           !< modified cos(zenith angle)
 
-    REAL(wp) ::                     &
-      &  pp_sfc(kbdim),             & !< surface pressure [Pa}
-      &  tk_hl(kbdim,klevp1),       & !< Tempeature at half levels [Pa]
-      &  xq_vap(kbdim,klev),        & !< Water vapor mixing ratio
-      &  xq_liq(kbdim,klev),        & !< Liquid water mixing ratio
-      &  xq_ice(kbdim,klev),        & !< Ice mixing ratio
-      &  cld_frc_sec(kbdim,klev),   & !< secure cloud fraction [m2/m2]
-      &  xm_co2(kbdim,klev),        & !< CO2 mixing ratio
-      &  qm_o3(kbdim,klev),         & !< Ozone mixing ratio
-      &  xm_o2(kbdim,klev),         & !< O2 mixing ratio
-      &  xm_ch4(kbdim,klev),        & !< Methane mixing ratio
-      &  xm_n2o(kbdim,klev),        & !< Nitrous Oxide mixing ratio
-      &  xm_cfc11(kbdim,klev),      & !< CFC 11 mixing ratio
-      &  xm_cfc12(kbdim,klev),      & !< CFC 12 mixing ratio
-      &  flx_uplw_sfc(kbdim),       & !< Srfc upward lw flux  [Wm2]
-      &  flx_upsw_sfc(kbdim),       & !< Srfc upward sw flux  [Wm2]
-      &  flx_uplw_clr_sfc(kbdim),   & !< Srfc upward lw flux (clear sky) [Wm2]
-      &  flx_upsw_clr_sfc(kbdim),   & !< Srfc upward sw flux (clear sky) [Wm2]
-      &  flx_dnlw(kbdim,klevp1),    & !< Net dwnwrd LW flux [Wm2]
-      &  flx_dnsw(kbdim,klevp1),    & !< Net dwnwrd SW flux [Wm2]
-      &  flx_dnlw_clr(kbdim,klevp1),& !< Net dn LW flux (clear sky) [Wm2]
-      &  flx_dnsw_clr(kbdim,klevp1)   !< Net dn SW flux (clear sky) [Wm2]
+    REAL(wp) ::                       &
+      &  pp_sfc(kbdim),               & !< surface pressure [Pa}
+      &  tk_hl(kbdim,klevp1),         & !< Tempeature at half levels [Pa]
+      &  xq_vap(kbdim,klev),          & !< Water vapor mixing ratio
+      &  xq_liq(kbdim,klev),          & !< Liquid water mixing ratio
+      &  xq_ice(kbdim,klev),          & !< Ice mixing ratio
+      &  cld_frc_sec(kbdim,klev),     & !< secure cloud fraction [m2/m2]
+      &  xm_co2(kbdim,klev),          & !< CO2 mixing ratio
+      &  qm_o3(kbdim,klev),           & !< Ozone mixing ratio
+      &  xm_o2(kbdim,klev),           & !< O2 mixing ratio
+      &  xm_ch4(kbdim,klev),          & !< Methane mixing ratio
+      &  xm_n2o(kbdim,klev),          & !< Nitrous Oxide mixing ratio
+      &  xm_cfc11(kbdim,klev),        & !< CFC 11 mixing ratio
+      &  xm_cfc12(kbdim,klev),        & !< CFC 12 mixing ratio
+      &  flx_uplw_sfc(kbdim),         & !< Srfc upward lw flux  [Wm2]
+      &  flx_upsw_sfc(kbdim),         & !< Srfc upward sw flux  [Wm2]
+      &  flx_uplw_clr_sfc(kbdim),     & !< Srfc upward lw flux (clear sky) [Wm2]
+      &  flx_upsw_clr_sfc(kbdim),     & !< Srfc upward sw flux (clear sky) [Wm2]
+      &  flx_sw_net(kbdim,klevp1),    & !< Net SW flux [Wm2] (positive down)
+      &  flx_sw_net_clr(kbdim,klevp1)   !< Net SW flux (clear sky) [Wm2] (positive down)
 
     LOGICAL :: l_halo_cosmu0
 
@@ -676,6 +673,7 @@ CONTAINS
       END DO
     END DO
 
+    cld_cvr(:) = 0._wp
     cld_cvr(1:jce) = 1.0_wp - cld_frc_sec(1:jce,1)
     DO jk = 2, klev
       cld_cvr(1:jce) = cld_cvr(1:jce)                                                &
@@ -734,21 +732,21 @@ CONTAINS
       & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5                                      ,&
       ! output
-      & flx_dnlw        ,flx_dnsw        ,flx_dnlw_clr    ,flx_dnsw_clr    ,&
+      & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc )
 
     !
-    ! 3.0 Diagnostics
+    ! 3.0 Additional diagnostics
     ! ---------------
     !
-    ! --- Total fluxes
-    emter_all (1:jce,1:klevp1) = flx_dnlw (1:jce,1:klevp1)
-    trsol_all (1:jce,1:klevp1) = flx_dnsw (1:jce,1:klevp1)                           &
+    ! --- Net solar transmissivity
+    trsol_net (:,:) = 0._wp
+    trsol_net (1:jce,1:klevp1) = flx_sw_net (1:jce,1:klevp1)                        &
       &                          / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
     !
-    ! --- Clear sky fluxes
-    emter_clr(1:jce,1:klevp1) = flx_dnlw_clr(1:jce,1:klevp1)
-    trsol_clr(1:jce,1:klevp1) = flx_dnsw_clr(1:jce,1:klevp1)                        &
+    ! --- Net clear-sky solar transmissivity
+    trsol_net_clr(:,:) = 0._wp
+    trsol_net_clr(1:jce,1:klevp1) = flx_sw_net_clr(1:jce,1:klevp1)                      &
       &                         / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
 
     IF (ltimer) CALL timer_stop(timer_radiation)
@@ -1230,6 +1228,19 @@ CONTAINS
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
 
     CHARACTER(LEN=3)     :: c_irad_aero
+
+    ! Initialize output variables
+    flx_lw_net(:,:)     = 0._wp
+    flx_lw_net_clr(:,:) = 0._wp
+    flx_sw_net(:,:)     = 0._wp
+    flx_sw_net_clr(:,:) = 0._wp
+    flx_uplw_sfc(:)     = 0._wp
+    flx_uplw_sfc_clr(:) = 0._wp
+    flx_upsw_sfc(:)     = 0._wp
+    flx_upsw_sfc_clr(:) = 0._wp
+    IF (PRESENT(flx_dnsw_diff_sfc)) flx_dnsw_diff_sfc(:) = 0._wp
+    IF (PRESENT(flx_upsw_toa))      flx_upsw_toa(:)      = 0._wp
+    IF (PRESENT(flx_par_sfc))       flx_par_sfc(:)       = 0._wp
 
     !
     ! 1.0 Constituent properties

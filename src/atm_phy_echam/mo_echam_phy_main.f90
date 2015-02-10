@@ -595,11 +595,11 @@ CONTAINS
 !!$          & field% pardffsfc(:,jb)   ,&!< out    diffuse fraction in PAR net downw. flux
           !
           ! atmospheric profiles
-          & emter_clr  =field% emterclr(:,:,jb)  ,&!< out    terrestrial emissivity, clear sky, net downward
-          & trsol_clr  =field% trsolclr(:,:,jb)  ,&!< out    solar transmissivity  , clear sky, net downward
+          & flx_lw_net_clr =field% lwflxclr(:,:,jb)  ,&!< out    net longwave flux, clear sky (positive downward)
+          & trsol_net_clr  =field% trsolclr(:,:,jb)  ,&!< out    net solar transmissivity, clear sky (positive downward)
           !
-          & emter_all  =field% emterall(:,:,jb)  ,&!< out    terrestrial flux      , all   sky, net downward
-          & trsol_all  =field% trsolall(:,:,jb)   )!< out    solar transmissivity  , all   sky, net downward
+          & flx_lw_net     =field% lwflxall(:,:,jb)  ,&!< out    net longwave flux, all-sky (positive downward)
+          & trsol_net      =field% trsolall(:,:,jb)   )!< out    net solar transmissivity, all-sky, (positive downward)
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -640,7 +640,7 @@ CONTAINS
         & ptsfc      = field%tsfc_eff (:,jb)          ,&! in    eff. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
-        & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
+        & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !
         ! output
         ! ------

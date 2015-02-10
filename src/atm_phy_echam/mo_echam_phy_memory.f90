@@ -168,12 +168,12 @@ MODULE mo_echam_phy_memory
       & pardffsfc   (:,  :),  &!< [ ]    diffuse fraction in PAR net downw. flux (?)
       !
       ! shortwave net transmissivity
-      & trsolclr    (:,:,:),  &!< [ ]    solar transmissivity  , clear sky, net downward
-      & trsolall    (:,:,:),  &!< [ ]    solar transmissivity  , all   sky, net downward
+      & trsolclr    (:,:,:),  &!< [ ]    net solar transmissivity  , clear sky, positive downward
+      & trsolall    (:,:,:),  &!< [ ]    net solar transmissivity  , all   sky, positive downward
       !
       ! longwave net fluxes
-      & emterclr    (:,:,:),  &!< [W/m2] terrestrial emissivity, clear sky, net downward
-      & emterall    (:,:,:),  & !< [W/m2] terrestrial emissivity, all   sky, net downward
+      & lwflxclr    (:,:,:),  &!< [W/m2] net longwave flux, clear sky, positive downward
+      & lwflxall    (:,:,:),  & !< [W/m2] net longwave flux, all   sky, positive downward
       & o3          (:,:,:)     !< temporary set ozone mass mixing ratio  
     ! aerosol optical properties
     REAL(wp), POINTER ::      &
@@ -1119,20 +1119,20 @@ CONTAINS
 
     !---- 3D variables defined at layer interfaces ----
 
-    ! &       field% emterclr  (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('emterclr', '', '', DATATYPE_FLT32)
+    ! &       field% lwflxclr  (nproma,nlevp1,nblks),          &
+    cf_desc    = t_cf_var('lwflxclr', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'emterclr', field%emterclr,               &
+    CALL add_var( field_list, prefix//'lwflxclr', field%lwflxclr,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
                 & ldims=shape3d_layer_interfaces,                               &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
-    ! &       field% emterall  (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('emterall', '', '', DATATYPE_FLT32)
+    ! &       field% lwflxall  (nproma,nlevp1,nblks),          &
+    cf_desc    = t_cf_var('lwflxall', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'emterall', field%emterall,               &
+    CALL add_var( field_list, prefix//'lwflxall', field%lwflxall,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
                 & ldims=shape3d_layer_interfaces,                               &
                 & vert_interp=create_vert_interp_metadata(                      &
