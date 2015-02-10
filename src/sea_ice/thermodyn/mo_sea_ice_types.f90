@@ -261,6 +261,7 @@ MODULE mo_sea_ice_types
       & surfmelt   (:,:,:)       ,   & ! surface melt water running into ocean         [m]
       & surfmeltT  (:,:,:)       ,   & ! Mean temperature of surface melt water        [C]
       & evapwi     (:,:,:)       ,   & ! amount of evaporated water if no ice left     [kg/m2]
+      & draft      (:,:,:)       ,   & ! Water equivalent of ice and snow over ice covered area [m]
       & conc       (:,:,:)             ! ice concentration in each ice class
 
     REAL(wp), POINTER :: &
@@ -272,7 +273,8 @@ MODULE mo_sea_ice_types
       & concSum(:,:)    ,      & ! Total ice concentration within a grid cell
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
       & totalsnowfall(:,:),    & ! Total snow fall on ice-covered part of cell   [m]
-      & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
+      & draftave     (:,:),    & ! Averaged water equivalent of ice and snow over grid area [m]
+      & zUnderIce    (:,:)       ! water in upper ocean grid cell below ice      [m]
 
     INTEGER ::  kice           ! Number of ice-thickness classes
 

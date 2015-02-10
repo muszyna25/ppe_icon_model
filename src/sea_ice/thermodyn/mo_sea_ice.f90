@@ -44,7 +44,7 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
-    &                               i_Qio_type , &
+    &                               i_Qio_type, use_constant_tfreez, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -66,6 +66,7 @@ MODULE mo_sea_ice
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, init_fem_wgts, destruct_fem_wgts,             &
     &                               ice_fem_grid_init, ice_fem_grid_post, ice_advection,        &
     &                               ice_ocean_stress
@@ -100,11 +101,13 @@ MODULE mo_sea_ice
 !  PUBLIC :: ave_fluxes
   PUBLIC :: ice_fast
   PUBLIC :: ice_slow
+  PUBLIC :: ice_slow_slo
 !  PUBLIC :: upper_ocean_TS
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   PUBLIC :: salt_content_in_surface
+  PUBLIC :: energy_content_in_surface
 
   !to be put into namelist
   !  INTEGER :: i_no_ice_thick_class = 1
@@ -233,7 +236,12 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"),&
       &          lrestart_cont=.TRUE.)
-
+ !  CALL add_var(ocean_restart_list, 'Qcond', p_ice%Qcond ,&
+ !    &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+ !    &          t_cf_var('Qcond', 'W/m^2', 'Conductive heat flux through ice at bottom', DATATYPE_FLT32),&
+ !    &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+ !    &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"),&
+ !    &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'heatocei', p_ice%heatocei ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('heatocei', 'J', 'Energy to ocean when all ice is melted', &
@@ -241,6 +249,7 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"),&
       &          lrestart_cont=.TRUE.)
+
     CALL add_var(ocean_restart_list, 'snow_to_ice', p_ice%snow_to_ice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice', &
@@ -275,6 +284,13 @@ CONTAINS
     CALL add_var(ocean_restart_list, 'conc', p_ice%conc ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"),&
+      &          lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list, 'draft', p_ice%draft ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('draft', 'm', 'water equivalent of ice and snow on ice covered area', &
+      &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"),&
       &          lrestart_cont=.TRUE.)
@@ -334,6 +350,13 @@ CONTAINS
       CALL add_var(ocean_restart_list, 'zUnderIce', p_ice%zUnderIce ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('zUnderIce', 'm', 'water in upper ocean grid cell below ice', &
+      &                   DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"),&
+      &          lrestart_cont=.TRUE.)
+      CALL add_var(ocean_restart_list, 'draftave', p_ice%draftave ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('draftave', 'm', 'averaged water equivalent of ice and snow on grid area', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"),&
@@ -894,22 +917,22 @@ CONTAINS
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_HeatFlux_Relax', 'W/m2', 'atmos_fluxes_HeatFlux_Relax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'atmos_fluxes_FrshFlux_Relax', atmos_fluxes%FrshFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_FrshFlux_Relax', 'm/s', 'atmos_fluxes_FrshFlux_Relax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'atmos_fluxes_TempFlux_Relax', atmos_fluxes%TempFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_TempFlux_Relax', 'K/s', 'atmos_fluxes_TempFlux_Relax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'atmos_fluxes_SaltFlux_Relax', atmos_fluxes%SaltFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_SaltFlux_Relax', 'psu/s', 'atmos_fluxes_SaltFlux_Relax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     ! }}}
 
     ! surface short wave heat flux                              [W/m2]
@@ -992,6 +1015,12 @@ CONTAINS
     CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeIce', atmos_fluxes%FrshFlux_VolumeIce, &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('atmos_fluxes_FrshFlux_VolumeIce', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeIce', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    !  atmos_fluxes%FrshFlux_VolumeTotal is zero due to disassociated pointer in ocean_bulk
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeTotal', atmos_fluxes%FrshFlux_VolumeTotal, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_VolumeTotal', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeTotal', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
    CALL add_var(ocean_default_list,'atmos_flux_cellThicknessUnderIce', atmos_fluxes%cellThicknessUnderIce, &
@@ -1128,7 +1157,6 @@ CONTAINS
     !local variables
     REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
       & Tinterface, & ! temperature at snow-ice interface
-      & draft,      & ! position of ice-ocean interface below sea level
       & Tfw           ! Ocean freezing temperature [C]
 
     TYPE(t_patch), POINTER                :: p_patch
@@ -1153,19 +1181,18 @@ CONTAINS
     ! END FORALL
 
     ! LL Note: this needs to be rewritten using subsets !
-    IF ( no_tracer >= 2 ) THEN
+    IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
+      Tfw(:,:,:) = Tf
+    ELSE
       DO k=1,ice%kice
         Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
       ENDDO
-    ELSE
-      Tfw(:,:,:) = Tf
     ENDIF
 
     ice% Tsurf(:,:,:)  = Tf
     ice% T1   (:,:,:)  = Tf
     ice% T2   (:,:,:)  = Tf
     ice% conc (:,:,:)  = 0.0_wp
-    draft     (:,:,:)  = 0.0_wp
 
     ! Stupid initialisation trick for Levitus initialisation
     IF (use_IceInitialization_fromTemperature) THEN
@@ -1176,9 +1203,11 @@ CONTAINS
       ENDWHERE
     ! or constant initialization for ice, snow and concentration
     ELSE
-      ice%hi(:,1,:)    = init_analytic_hi_param
-      ice%hs(:,1,:)    = init_analytic_hs_param
-      ice%conc(:,1,:)  = init_analytic_conc_param
+      WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
+        ice%hi(:,1,:)    = init_analytic_hi_param
+        ice%hs(:,1,:)    = init_analytic_hs_param
+        ice%conc(:,1,:)  = init_analytic_conc_param
+      ENDWHERE
     ENDIF
 
     WHERE(ice% hi(:,:,:) > 0.0_wp)
@@ -1190,11 +1219,12 @@ CONTAINS
       ice% conc  (:,:,:) = ice%conc(:,:,:)/REAL(ice%kice,wp)
       ice% T1    (:,:,:) = Tfw(:,:,:) + 2._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       ice% T2    (:,:,:) = Tfw(:,:,:) + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
-      draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
+      ice% draft (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     END WHERE
 
-    ice%zUnderIce (:,:) = p_patch_vert%prism_thick_flat_sfc_c(:,1,:) +  p_os%p_prog(nold(1))%h(:,:) &
-      &                 - sum(draft(:,:,:) * ice%conc(:,:,:),2)
+    ice%concSum(:,:)   = SUM(ice%conc(:,:,:), 2)
+    ice%draftave (:,:) = sum(ice%draft(:,:,:) * ice%conc(:,:,:),2)
+    ice%zUnderIce(:,:) = p_patch_vert%prism_thick_flat_sfc_c(:,1,:) +  p_os%p_prog(nold(1))%h(:,:) - ice%draftave(:,:)
 
     cellThicknessUnderIce (:,:) = ice%zUnderIce(:,:)
 
@@ -1205,14 +1235,14 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('IceInit: hi       ' ,ice%hi       ,str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceInit: hs       ' ,ice%hs       ,str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceInit: conc     ' ,ice%conc     ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    idt_src=4  ! output print level (1-5, fix)        
-    CALL dbg_print('IceInit: Tfw      ' ,Tfw          ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceInit: draft    ' ,draft        ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: draft    ' ,ice%draft    ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: draftave ' ,ice%draftave ,str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceInit: zUnderIce' ,ice%zUnderIce,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: Tfw      ' ,Tfw          ,str_module, idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
       
     CALL message(TRIM(routine), 'end' )
@@ -1352,6 +1382,10 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     !INTEGER :: jb, jc, i_startidx_c, i_endidx_c
 
+    REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: energyCheck, sst, zuipsnowf
+    REAL(wp), POINTER             :: flat(:,:)
+    INTEGER                       :: jb, jc, i_startidx_c, i_endidx_c
+
     !-------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_slow)
@@ -1360,6 +1394,10 @@ CONTAINS
     p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
     ! subset range pointer
     all_cells => p_patch%cells%all 
+    flat      => p_patch_vert%prism_thick_flat_sfc_c(:,1,:)
+
+    sst(:,:)        = 0.0_wp
+    zuipsnowf(:,:)  = 0.0_wp
 
     CALL ice_zero       (ice)
 
@@ -1373,17 +1411,113 @@ CONTAINS
       CALL ice_growth_zerolayer (p_patch, p_os, ice, atmos_fluxes%rpreci)
     END IF
 
+    sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    !---  energy  -----------------------------------------------------------
+    ! updates should be moved to respective routine ice_growth - done later in upperOceTS
+    !  - 2015-01-19: ice growth/melt must not change zunderice yet
+ !  ice%draftave (:,:) = (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+ !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) - ice%draftave(:,:)
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT GROWTH')
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('IceSlow: hi after growth'   ,ice%hi   ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc. after growth',ice%conc ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_ice%u bef. dyn'  ,ice%u_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
-    CALL dbg_print('IceSlow: p_ice%v bef. dyn'  ,ice%v_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: hi after growth'   ,ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. after growth',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ice%u bef. dyn'    ,ice%u_prog   ,str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: ice%v bef. dyn'    ,ice%v_prog   ,str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: zUnderIce aft.gr',  ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: heatOceI aftgrowth',ice%heatOceI ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: SST    aft. growth',sst          ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft. growth',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
-    CALL dbg_print('IceSlow: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    ! #slo# 2014-12: now use melt/growth energy heatOceI from below to change SST
+    !  heatOceI=heatOceI*conc - was done later in upperOceTS - generates inconsistency
+    !IF (i_Qio_type < 3) ice%heatOceI(:,1,:) = ice%heatOceI(:,1,:)*ice%conc(:,1,:)
+    ! wrong - ice covered part only is used for heat exchange with ocean
+    !IF (i_Qio_type == 3) ice%heatOceI(:,1,:) = ice%heatOceI(:,1,:)*ice%conc(:,1,:) 
+    ice%heatOceI(:,1,:) = ice%heatOceI(:,1,:)*ice%conc(:,1,:)
+    CALL dbg_print('IceSlow: heatOceI aftConCor',ice%heatOceI ,str_module, 4, in_subset=p_patch%cells%owned)
+
+    ! #slo# 2015-01: now move sst-change back to surface module (mo_ocean_bulk)
+  ! DO jb = all_cells%start_block, all_cells%end_block
+  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  !   DO jc = i_startidx_c, i_endidx_c
+  !     IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+  !       sst(jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+  !       sst(jc,jb) = sst(jc,jb) + ice%heatOceI(jc,1,jb)*dtime/(clw*rho_ref*ice%zUnderIce(jc,jb))
+  !       ! set new sst; heatOceI to zero
+  !       p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = sst(jc,jb)
+  !       ice%heatOceI(jc,1,jb)                  = 0.0_wp
+  !     ENDIF
+  !   ENDDO
+  ! ENDDO
+
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT UPGROW')
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IceSlow: heatOceI aftupGrow',ice%heatOceI ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: SST    aft. upGrow',sst          ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft. upGrow',energyCheck  ,str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+    ! Ocean Heat Flux
     CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
+
+    sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)  !  add corresponding flux or calculate zUnderIce
+ !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+ !    &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT UOCETS')
+    CALL dbg_print('IceSlow: zUnderIce aft.UPTS',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft.OceanTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+
+    ! #slo# 2014-12: now use energy atmos_fluxes%HeatFlux_Total from upperOceTS to change SST
+    ! #slo# 2015-01: now move sst-change back to surface module (mo_ocean_bulk) using HeatFlux_Total
+  ! DO jb = all_cells%start_block, all_cells%end_block
+  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  !   DO jc = i_startidx_c, i_endidx_c
+  !     IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+  !       sst(jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+  !       sst(jc,jb) = sst(jc,jb) + atmos_fluxes%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*ice%zUnderIce(jc,jb))
+  !       ! set new sst; HeatFlux_Total to zero
+  !       p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = sst(jc,jb)
+  !       atmos_fluxes%HeatFlux_Total(jc,jb)     = 0.0_wp
+  !     ENDIF
+  !   ENDDO
+  ! ENDDO
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT UPUPTS')
+    CALL dbg_print('IceSlow: HeatTotal aft.UPTS',atmos_fluxes%HeatFlux_Total,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: SST    aft. upUPTS',sst          ,str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft. upUPTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+
+    ! Ice Concentration Change
     CALL ice_conc_change(p_patch,ice,p_os)
+
+    ! #slo# 2015-01 - Test: update draft, zunderice now includes totalsnowfall as in ocets, inconsistent with h
+    !               - update of draft/zunderice should be done whenever draft is changed
+ !  ice%draft       (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
+ !  ice%draftave    (:,:)   = sum(ice%draft(:,:,:) * ice%conc(:,:,:),2)
+ !  ice%zUnderIce   (:,:)   = p_patch_vert%prism_thick_flat_sfc_c(:,1,:) &
+ !    &                            + p_os%p_prog(nold(1))%h(:,:) &
+ !    &                            - ice%draftave(:,:)& 
+ !    &                            + ice%totalsnowfall(:,:)
+    ! - Test: update zunderice only, includes totalsnowfall
+    zuipsnowf    (:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+      &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref &
+      &                            + ice%totalsnowfall(:,:)
+
+
+    sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)  !  add corresponding flux or calculate zUnderIce
+    ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+      &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT CONCCH')
+
+    CALL dbg_print('IceSlow: energy aft. ConcCh',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: zUnderIce a.ConcCh',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
 
     CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
@@ -1406,16 +1540,16 @@ CONTAINS
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module,2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: hs endOf slow'     ,ice%hs,                 str_module,2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module,2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc.  EndOf slow', ice%conc,               str_module,2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module,2, in_subset=p_patch%verts%owned)
-    CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module,2, in_subset=p_patch%verts%owned)
-    CALL dbg_print('IceSlow: p_os%prog(nold)%vn',p_os%p_prog(nold(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%diag%v'       ,p_os%p_diag%v,          str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs endOf slow'     ,ice%hs,                 str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc.  EndOf slow', ice%conc,               str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nold)%vn',p_os%p_prog(nold(1))%vn,str_module, 5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module, 5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%v'       ,p_os%p_diag%v,          str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,atmos_fluxes%topBoundCond_windStress_u,str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,atmos_fluxes%topBoundCond_windStress_v,str_module,4,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
@@ -1423,6 +1557,510 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_ice_slow)
 
   END SUBROUTINE ice_slow
+
+  !-------------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! !  ice_slow_slo: Ice routines for ocean time step. Calculates average of atmospheric
+  ! !           time steps, ice velocity, ice growth rates and updates ice structure
+  ! !           accordingly
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
+  !! Dirk Notz, following MPI-OM. Code transfered to ICON.
+  !! Update and rewrite by Stephan Loreny, MPI-M (2015-01).
+  !!
+  SUBROUTINE ice_slow_slo(p_patch_3D, p_os, ice, atmos_fluxes, p_op_coeff)
+    TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+    TYPE(t_sea_ice),          INTENT(INOUT) :: ice
+    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
+    TYPE(t_operator_coeff),   INTENT(IN)    :: p_op_coeff
+
+    TYPE(t_patch),      POINTER :: p_patch
+    TYPE(t_patch_vert), POINTER :: p_patch_vert
+    TYPE(t_subset_range), POINTER :: all_cells
+
+   !!Local variables
+    REAL(wp), DIMENSION (nproma,ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: Tfw ! Ocean freezing temperature [C]
+    REAL(wp), DIMENSION (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: energyCheck, sst, zuipsnowf
+    REAL(wp), POINTER             :: flat(:,:)
+    INTEGER                       :: k, jb, jc, i_startidx_c, i_endidx_c
+
+    !-------------------------------------------------------------------------------
+
+    IF (ltimer) CALL timer_start(timer_ice_slow)
+
+    p_patch      => p_patch_3D%p_patch_2D(n_dom)
+    p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
+    ! subset range pointer
+    all_cells => p_patch%cells%all 
+    flat      => p_patch_vert%prism_thick_flat_sfc_c(:,1,:)
+
+    sst(:,:)        = 0.0_wp
+    zuipsnowf(:,:)  = 0.0_wp
+
+    CALL ice_zero       (ice)
+
+    ! Save ice thickness at previous time step for calculation of heat and salt
+    ! flux into ocean in subroutine upper_ocean_TS
+    ice % hiold (:,:,:) = ice%hi(:,:,:)
+    ice % hsold (:,:,:) = ice%hs(:,:,:)
+
+    CALL dbg_print('IceSlow: hi before growth' ,ice%hi ,str_module,4, in_subset=p_patch%cells%owned)
+
+    ! needs central variable ice%Tfw and calculation once in ice_slow
+    ! freezing temperature of uppermost sea water
+    IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
+      Tfw(:,:,:) = Tf
+    ELSE
+      DO k=1,ice%kice
+        Tfw(:,k,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      ENDDO
+    ENDIF
+
+!---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('GrowZero: heatOceI bef.grow' , ice%heatOceI   , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Qtop bef. growth'  , ice%Qtop       , str_module, 5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Qbot bef. growth'  , ice%Qbot       , str_module, 5, in_subset=p_patch%cells%owned)
+!---------------------------------------------------------------------
+    
+    IF (i_ice_therm /= 3 ) THEN
+      ! Heat flux from ocean into ice
+      CALL oce_ice_heatflx_slo (p_patch, p_os,ice,Tfw,ice%zHeatOceI)
+!!$    ELSE IF ( i_ice_therm == 3) THEN
+      ! for i_ice_therm == 3, no ocean-ice heatflx is included!
+    END IF
+
+    CALL ice_growth_zero_slo (p_patch, p_os, ice, atmos_fluxes%rpreci)
+
+    sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    !---  energy  -----------------------------------------------------------
+    ! updates should be moved to respective routine ice_growth - done later in upperOceTS
+    !  - 2015-01-19: ice growth/melt must not change zunderice yet
+ !  ice%draftave (:,:) = (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+ !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) - ice%draftave(:,:)
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT GROWTH')
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IceSlow: hi after growth'   ,ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. after growth',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ice%u bef. dyn'    ,ice%u_prog   ,str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: ice%v bef. dyn'    ,ice%v_prog   ,str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: zUnderIce aft.gr',  ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: heatOceI aftgrowth',ice%heatOceI ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: SST    aft. growth',sst          ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft. growth',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+    ! #slo# 2014-12: now use melt/growth energy heatOceI from below to change SST
+    !  heatOceI=heatOceI*conc - was done later in upperOceTS - generates inconsistency
+    !IF (i_Qio_type < 3) ice%heatOceI(:,1,:) = ice%heatOceI(:,1,:)*ice%conc(:,1,:)
+    ! wrong - ice covered part only is used for heat exchange with ocean
+    !IF (i_Qio_type == 3) ice%heatOceI(:,1,:) = ice%heatOceI(:,1,:)*ice%conc(:,1,:) 
+    ice%heatOceI(:,1,:) = ice%heatOceI(:,1,:)*ice%conc(:,1,:)
+    CALL dbg_print('IceSlow: heatOceI aftConCor',ice%heatOceI ,str_module, 4, in_subset=p_patch%cells%owned)
+
+    ! #slo# 2015-01: now move sst-change back to surface module (mo_ocean_bulk)
+  ! DO jb = all_cells%start_block, all_cells%end_block
+  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  !   DO jc = i_startidx_c, i_endidx_c
+  !     IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+  !       sst(jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+  !       sst(jc,jb) = sst(jc,jb) + ice%heatOceI(jc,1,jb)*dtime/(clw*rho_ref*ice%zUnderIce(jc,jb))
+  !       ! set new sst; heatOceI to zero
+  !       p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = sst(jc,jb)
+  !       ice%heatOceI(jc,1,jb)                  = 0.0_wp
+  !     ENDIF
+  !   ENDDO
+  ! ENDDO
+
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT UPGROW')
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IceSlow: heatOceI aftupGrow',ice%heatOceI ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: SST    aft. upGrow',sst          ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft. upGrow',energyCheck  ,str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+    ! Ocean Heat Flux
+    CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
+
+    sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)  !  add corresponding flux or calculate zUnderIce
+ !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+ !    &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT UOCETS')
+    CALL dbg_print('IceSlow: zUnderIce aft.UPTS',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft.OceanTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+
+    ! #slo# 2014-12: now use energy atmos_fluxes%HeatFlux_Total from upperOceTS to change SST
+    ! #slo# 2015-01: now move sst-change back to surface module (mo_ocean_bulk) using HeatFlux_Total
+  ! DO jb = all_cells%start_block, all_cells%end_block
+  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  !   DO jc = i_startidx_c, i_endidx_c
+  !     IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+  !       sst(jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+  !       sst(jc,jb) = sst(jc,jb) + atmos_fluxes%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*ice%zUnderIce(jc,jb))
+  !       ! set new sst; HeatFlux_Total to zero
+  !       p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = sst(jc,jb)
+  !       atmos_fluxes%HeatFlux_Total(jc,jb)     = 0.0_wp
+  !     ENDIF
+  !   ENDDO
+  ! ENDDO
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT UPUPTS')
+    CALL dbg_print('IceSlow: HeatTotal aft.UPTS',atmos_fluxes%HeatFlux_Total,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: SST    aft. upUPTS',sst          ,str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: energy aft. upUPTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+
+    ! Ice Concentration Change
+    CALL ice_conc_change(p_patch,ice,p_os)
+
+    ! #slo# 2015-01 - Test: update draft, zunderice now includes totalsnowfall as in ocets, inconsistent with h
+    !               - update of draft/zunderice should be done whenever draft is changed
+ !  ice%draft       (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
+ !  ice%draftave    (:,:)   = sum(ice%draft(:,:,:) * ice%conc(:,:,:),2)
+ !  ice%zUnderIce   (:,:)   = p_patch_vert%prism_thick_flat_sfc_c(:,1,:) &
+ !    &                            + p_os%p_prog(nold(1))%h(:,:) &
+ !    &                            - ice%draftave(:,:)& 
+ !    &                            + ice%totalsnowfall(:,:)
+    ! - Test: update zunderice only, includes totalsnowfall
+    zuipsnowf    (:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+      &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref &
+      &                            + ice%totalsnowfall(:,:)
+
+
+    sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)  !  add corresponding flux or calculate zUnderIce
+    ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+      &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT CONCCH')
+
+    CALL dbg_print('IceSlow: energy aft. ConcCh',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: zUnderIce a.ConcCh',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
+
+    CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
+
+    IF ( i_ice_dyn >= 1 ) THEN
+      ! AWI FEM model wrapper
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
+      CALL ice_advection( p_patch_3D, p_op_coeff, ice )
+    ELSE
+      ice%u = 0._wp
+      ice%v = 0._wp
+    ENDIF
+
+    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+
+    !CALL ice_advection  (ice)
+    !CALL write_ice      (ice,atmos_fluxes,1,ie,je)
+    !CALL ice_zero       (ice, atmos_fluxes)
+    !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
+    !sicomo = ice%conc (:,:,1)
+    !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs endOf slow'     ,ice%hs,                 str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc.  EndOf slow', ice%conc,               str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module, 4, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nold)%vn',p_os%p_prog(nold(1))%vn,str_module, 5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module, 5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%v'       ,p_os%p_diag%v,          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,atmos_fluxes%topBoundCond_windStress_u,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,atmos_fluxes%topBoundCond_windStress_v,str_module,4,in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+    IF (ltimer) CALL timer_stop(timer_ice_slow)
+
+  END SUBROUTINE ice_slow_slo
+
+  !-------------------------------------------------------------------------------
+  !  
+  !>
+  !! ! ice_growth_zero_slo - change ice and snow thickness (Semtner 1976, Appendix)
+  !! This function changes:
+  !! --- currently not fully --- ice % hs       new snow thickness for each ice category                [m]
+  !! ice % hi       new ice  thickness for each ice category                [m]
+  !! --- not currently --- ice % evapwi   amount of evaporated water from the mixed layer
+  !!                in previously ice covered areas if all ice is gone      [kg/m^3]
+  !! ice % heatOceI to contain the energy that is available to the mixed layer
+  !!                in previously ice covered areas if all ice is gone      [J]
+  !
+  ! The counterpart to the  ice_growth subroutine in MPIOM
+  !
+  !!
+  !! @par Revision History
+  !! Initial release by Achim Randelhoff
+  !! Update and rewrite by Stephan Loreny, MPI-M (2015-01).
+  !!
+ 
+ SUBROUTINE ice_growth_zero_slo(p_patch, p_os, ice, rpreci)
+   TYPE(t_patch),             INTENT(IN), TARGET    :: p_patch 
+   TYPE(t_hydro_ocean_state), INTENT(IN)            :: p_os
+   TYPE (t_sea_ice),          INTENT(INOUT)         :: ice
+   REAL(wp),                  INTENT(IN)            :: rpreci(:,:) 
+                                   ! water equiv. solid precipitation rate [m/s] DIMENSION (ie,je)
+
+   !!Local variables
+    REAL(wp), DIMENSION (nproma,ice%kice, p_patch%alloc_cell_blocks) ::         &
+      & Tfw,         & ! Ocean freezing temperature [C]
+      & Q_surplus   ! energy surplus during ice growth
+    
+    REAL(wp) ::      &
+      & below_water, & ! Thickness of snow layer below water line           [m]
+      & draft          ! depth of ice-ocean interface below sea level       [m]
+
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
+    
+    all_cells            => p_patch%cells%all
+    Q_surplus(:,:,:)     =  0.0_wp
+    Tfw(:,:,:)           =  0.0_wp
+
+    ! freezing temperature of uppermost sea water
+    IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
+      Tfw(:,:,:) = Tf
+    ELSE
+      DO k=1,ice%kice
+        Tfw(:,k,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      ENDDO
+    ENDIF
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc, draft, below_water) SCHEDULE(dynamic)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO k=1,ice%kice
+        DO jc = i_startidx_c,i_endidx_c
+          IF (ice%hi(jc,k,jb) > 0._wp) THEN
+
+            ! Add oceanic heat flux to energy available at the bottom of the ice.
+            ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + ice%zHeatOceI(jc,k,jb)
+
+            ! Add snowfall to snow depth
+            ! #slo# 2015-01: bugfix: rpreci is rate of snowfall over ice covered area
+            ice%hs(jc,k,jb) = ice%hs(jc,k,jb) + rpreci(jc,jb)*dtime*rho_ref/rhos
+            ! #slo# 2015-01: bugfix: rpreci is over whole grid-area
+            !ice%hs(jc,k,jb) = ice%hs(jc,k,jb) + rpreci(jc,jb)*ice%conc(jc,k,jb)*dtime*rho_ref/rhos
+      
+            ! for energy flux surplus
+            IF ( ice%Qtop(jc,k,jb) > 0.0_wp ) THEN 
+              IF  ( ice%hs(jc,k,jb) > 0.0_wp )  THEN ! melt snow where there's snow
+                
+                ice%hs (jc,k,jb) =  ice%hs(jc,k,jb) - ice%Qtop(jc,k,jb) * dtime / (alf*rhos) 
+                ! put remaining heat, if any, into melting ice below
+                IF (ice%hs(jc,k,jb) < 0.0_wp) THEN
+                  ice%hi(jc,k,jb) = ice%hi(jc,k,jb) + ice%hs(jc,k,jb) * (rhos/rhoi) ! snow thickness loss in ice equivalents
+                  ice%hs(jc,k,jb) = 0.0_wp
+                ENDIF
+                
+              ELSE   ! where there's no snow
+                ice%hi(jc,k,jb) = ice%hi(jc,k,jb) - ice%Qtop(jc,k,jb) * dtime / (alf*rhoi) 
+              ENDIF
+            ENDIF
+            
+            ! bottom melt/freeze
+            ice%hi(jc,k,jb) = ice%hi(jc,k,jb) - ice%Qbot(jc,k,jb) * dtime / (alf*rhoi )
+            
+            ! heat to remove from water
+            !  - heatOceI - positive into ocean - positive=downward i.e. same sign convention as HeatFlux_Total into ocean
+            !  - zHeatOceI - positive into ice, i.e. positive=upward - melting energy coming from below, from the ocean
+            ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - ice%zHeatOceI(jc,k,jb)
+            
+            ! hi<0 if melting energy (Qbot+zHeatOceI) is larger than needed to melt all ice and snow, see above
+            IF (ice%hi (jc,k,jb) <= 0.0_wp) THEN
+
+              ! remove surplus energy of ice thickness from water
+              !  - hi<0, if all ice and snow is already melted
+              !  - calculate surplus of heatOceI>0 available for heating of ocean after complete melting
+              ! #slo# 2014-11: 3. bugfix: sign error in hi for heatOceI
+              !ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) + ice%hi(jc,k,jb)*alf*rhoi/dtime
+              ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - ice%hi(jc,k,jb)*alf*rhoi/dtime
+
+              ! remove latent heat of snow from water
+              ! #slo# 2014-11: if there is snow on top of melted ice, hs>0, then heatOceI is reduced by latent heat of snow
+              ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - ice%hs(jc,k,jb)*alf*rhos/dtime
+              ! #slo# 2014-11: Attention: if heatOceI is not enough to melt whole snow,
+              !                then energy budget is not closed! TODO: check and correct (later, little energy)
+              ! IF ( ice%heatOceI(jc,k,jb) >0 ) THEN
+              !  - snow is set to rest of ice, since no snow without water is possible
+              !   ice%hi(jc,k,jb) = ice%heatOceI(jc,k,jb) * dtime / (alf * rhoi )
+              !   ice%heatOceI(jc,k,jb) = 0.0_wp
+              ! ELSE  ! melting energy was enough to melt all snow and ice
+              
+              ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
+              !ice%conc (jc,k,jb) = 0.0_wp  !  do not change concentration here, but in ice_conc_change only
+              ice%hi   (jc,k,jb) = 0.0_wp
+              ice%hs   (jc,k,jb) = 0.0_wp
+
+              ! ENDIF ! ( ice%heatOceI(jc,k,jb) >0 )
+
+            ENDIF
+
+            ! #slo# 2014-11: 2. bugfix: calculation moved down to below recalculaton of hi
+            ! #slo# 2015-01: could we update ice%draft here or not?
+            draft           = ( rhoi*ice%hi(jc,k,jb) + rhos*ice%hs(jc,k,jb) )/rho_ref
+            below_water     = draft - ice%hi(jc,k,jb)  !  thickness to be converted to ice
+            
+            ! snow -> ice conversion for snow below waterlevel
+            ! Currently not quite physical: Snow is pushed together to form new ice, hence snow thickness
+            ! decreases more than ice thickness by rhoi/rhos ( analogue to old growth.f90 sea-ice model )
+            ! Salt content of snow ice is equal to that of normal ice, salt is removed from the ocean
+            ! Temperature of new upper ice is calculated as described in the paragraph below 
+            ! Eq. 36
+            IF ( below_water > 0.0_wp ) THEN
+              ice%snow_to_ice(jc,k,jb) = below_water*rhoi/rhos     ! Thickness of snow that is converted into ice
+              ice%hs         (jc,k,jb) = ice%hs(jc,k,jb) - ice%snow_to_ice(jc,k,jb)
+              ice%hi         (jc,k,jb) = ice%hi(jc,k,jb) + below_water
+            END IF
+
+            IF (ice%hs (jc,k,jb) < 0.0_wp) THEN
+               ice % hs(jc,k,jb) = 0.0_wp
+               ice % hi(jc,k,jb) = ice%hi(jc,k,jb) + ice%hs(jc,k,jb) * (rhos/rhoi) ! snow thickness loss in ice equivalents
+            ENDIF
+            
+            ! check energy conservation
+            ! surplus energy = entering - leaving - latent heat
+            !!! what's up with the energy that's put into the ocean?
+            ! #slo# 2015-01: snowfall changes energy input - not yet considered
+            Q_surplus(jc,k,jb) = &!0.0_wp
+              &                   ice%Qbot(jc,k,jb) + ice%Qtop(jc,k,jb) &
+              &                   + (ice%hi(jc,k,jb)-ice%hiold(jc,k,jb)) *alf*rhoi/dtime&
+              &                   + (ice%hs(jc,k,jb)-ice%hsold(jc,k,jb)) *alf*rhos/dtime
+
+          ELSE  !  hi<=0
+            ! #slo# 2014-12: check - heatOceI is set in case of no ice - negative ice possible?
+            ice%heatOceI(jc,k,jb) = ice%Qtop(jc,k,jb) + ice%Qbot(jc,k,jb)
+            ice%Tsurf(jc,k,jb) =  Tfw(jc,k,jb)
+            ice%conc (jc,k,jb) = 0.0_wp
+            ice%hi   (jc,k,jb) = 0.0_wp
+            ice%hs   (jc,k,jb) = 0.0_wp
+          ENDIF
+
+          ! #slo# 2014-12: update zUnderIce better here than in ice_slow?
+       !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
+       !    &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('GrowZero: snow_to_ice', ice%snow_to_ice, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: hi'         , ice%hi         , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: hs'         , ice%hs         , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: zHeatOceI'  , ice%zHeatOceI  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: heatOceI '  , ice%heatOceI   , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Q_surplus'  , Q_surplus      , str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Qtop'       , ice%Qtop       , str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Qbot'       , ice%Qbot       , str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: Tsurf'      , ice%Tsurf      , str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+ 
+  END SUBROUTINE ice_growth_zero_slo
+
+  !-------------------------------------
+  !
+  ! oce_ice_heatflx_slo
+  !
+  ! Calculates the heat flux from the uppermost water layer into the ice.
+  !
+  ! Currently (as in growth.f90): all energy available in upper ocean grid cell 
+  ! is supplied to the ice and the upper ocean temperature is held at the 
+  ! freezing point. This is not very physical.
+  !
+  ! Positive flux upwards.
+ 
+  
+  SUBROUTINE oce_ice_heatflx_slo (p_patch, p_os, ice, Tfw, zHeatOceI)
+    TYPE(t_patch)            , INTENT(IN), TARGET    :: p_patch
+    TYPE(t_hydro_ocean_state), INTENT(IN)  :: p_os
+    TYPE(t_sea_ice)          , INTENT(IN)  :: ice
+    REAL(wp)                 , INTENT(IN)  :: Tfw(:,:,:)      ! freezing temperature
+    REAL(wp)                 , INTENT(OUT) :: zHeatOceI(:,:,:)
+
+    ! Local
+    INTEGER :: jb, k, jc, i_startidx_c, i_endidx_c
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: u_star
+    REAL(wp), POINTER  :: sst(:,:)
+
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice_shared_sr:oce_ice_heatflx'
+    
+    all_cells => p_patch%cells%all 
+    zHeatOceI(:,:,:) = 0.0_wp
+    sst => p_os%p_prog(nold(1))%tracer(:,1,:,1)
+
+    ! calculate heat flux from ocean to ice  (zHeatOceI) 
+    SELECT CASE ( i_Qio_type )
+    CASE (1)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+      DO jb = 1,p_patch%nblks_c
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c,i_endidx_c
+          DO k=1,ice%kice
+            IF (ice%hi(jc,k,jb) > 0._wp) THEN
+              ! energy of warm water below ice covered part of grid area only is used for melting
+              zHeatOceI(jc,k,jb) = ( sst(jc,jb) - Tfw(jc,k,jb) ) * ice%zUnderIce(jc,jb) * clw*rho_ref/dtime
+            ENDIF
+          ENDDO
+        ENDDO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+   CASE(2)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+  ! DO jb = 1,p_patch%nblks_c
+  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  !   DO jc = i_startidx_c,i_endidx_c
+  !     DO k=1,ice%kice
+  !       IF (ice%hi(jc,k,jb) > 0._wp) THEN
+  !         ! melting energy depends on velocity difference between water and ice, bulk formulation
+  !           u_star = SQRT(Cd_io*( (p_os%p_diag%u(jc,1,jb)-ice%u(jc,jb))**2 + &
+  !             &         (p_os%p_diag%v(jc,1,jb)-ice%v(jc,jb))**2 ))
+  !           zHeatOceI(jc,k,jb) = ( sst(jc,jb) - Tfw(jc,k,jb) ) *rho_ref*clw*Ch_io*u_star
+  !       ENDIF
+  !     ENDDO
+  !   ENDDO
+  ! END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    CASE (3)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+      DO jb = 1,p_patch%nblks_c
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c,i_endidx_c
+          DO k=1,ice%kice
+            IF (ice%hi(jc,k,jb) > 0._wp) THEN
+              ! ALL energy of warm water over the whole grid area is used for melting ice - divide by concentration
+              ! SLO/EO 2014-04-11 - this is wrong, must be accompanied by correction elsewhere,
+              !                     since open part of water is still losing heat
+              zHeatOceI(jc,k,jb) = ( sst(jc,jb) - Tfw(jc,k,jb) )*ice%zUnderIce(jc,jb)*clw*rho_ref/(dtime*ice%conc(jc,k,jb))
+            ENDIF
+          ENDDO
+        ENDDO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    
+    CASE DEFAULT
+      CALL finish(TRIM(routine), 'Invalid i_Qio_type')
+    END SELECT
+    
+    CALL dbg_print('o-i-heat: SST'       ,sst          ,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('o-i-heat: Tfw'       ,Tfw          ,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('o-i-heat: zUnderIce' ,ice%zUnderIce,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('o-i-heat: zHeatOceI' ,zHeatOceI    ,str_module,3, in_subset=p_patch%cells%owned)
+    
+  END SUBROUTINE oce_ice_heatflx_slo
 
   !-------------------------------------------------------------------------
   !
@@ -1448,9 +2086,7 @@ CONTAINS
     INTEGER                                                                  :: k, jb, jc, i_startidx_c, i_endidx_c
     ! Sea surface salinity
     REAL(wp), DIMENSION (nproma, p_patch_3d%p_patch_2D(1)%alloc_cell_blocks) :: sss
-    REAL(wp)                                                                 :: draftave
     REAL(wp)                                                                 :: z_smax
-    REAL(wp), DIMENSION (p_ice%kice)                                         :: draft
 
     ! subset range pointer
     p_patch      => p_patch_3D%p_patch_2D(1)
@@ -1493,38 +2129,47 @@ CONTAINS
             p_ice%vols(jc,k,jb) = 0._wp
           ENDIF
     ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
-  IF (limit_seaice) THEN
-    z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
-          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
-            ! Tracer flux due to removal
-            atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
-              & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
-            ! Heat flux due to removal
-            atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
-              & + (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime           ! Ice
-            p_ice%hi  (jc,k,jb) = z_smax
-            p_ice%vol (jc,k,jb) = p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*p_patch%cells%area(jc,jb)
-          ENDIF
-  END IF
-          draft(k)               = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb)) / rho_ref
+          IF (limit_seaice) THEN
+            z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
+                  IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
+                    ! Tracer flux due to removal
+                    atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
+                      & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
+                    ! Heat flux due to removal
+                    !  #slo# 2015-02: - this heat did not come from the ocean, but from atmosphere, heating ocean is wrong
+                    !                 - check if conc must enter here as well, check energy for coupling
+                    atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
+                      & + (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime           ! Ice
+                    p_ice%hi  (jc,k,jb) = z_smax
+                    p_ice%vol (jc,k,jb) = p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*p_patch%cells%area(jc,jb)
+                  ENDIF
+          END IF
+          p_ice%draft(jc,k,jb)   = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb)) / rho_ref
         ENDDO
-          draftave               = sum(draft(:) * p_ice%conc(jc,:,jb))
-          p_ice%zUnderIce(jc,jb) = p_patch_vert%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) - draftave&
-                                   + p_ice%totalsnowfall(jc,jb)
-!          &                            + atmos_fluxes%rpreci(jc,jb)*p_ice%conc(jc,1,jb)*dtime
+        p_ice%draftave (jc,jb) = sum(p_ice%draft(jc,:,jb) * p_ice%conc(jc,:,jb))
+        p_ice%zUnderIce(jc,jb) = p_patch_vert%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
+          &                      - p_ice%draftave(jc,jb)  + p_ice%totalsnowfall(jc,jb)
+        !  #slo# 2015-01: totalsnowfall is needed for correct salt update (in surface module)
+        !                 since draft was increased by snowfall but water below ice is not effected by snowfall
+        !                 snow to ice conversion does not effect draft
       ENDDO
     ENDDO
-  
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('UpdSfc: hi aft. limiter'     ,p_ice%hi       ,str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: hs aft. limiter'     ,p_ice%hs       ,str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: Conc. aft. limiter'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: ConcSum aft. limit ' ,p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('ice_clean_up: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
-    !---------------------------------------------------------------------
 
     p_ice%concSum                           = SUM(p_ice%conc, 2)
     atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
+  
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('iceClUp: hi aft. limiter'     ,p_ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('iceClUp: hs aft. limiter'     ,p_ice%hs       ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('iceClUp: Conc. aft. limiter'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('iceClUp: ConcSum aft. limit ' ,p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: HeatTotal a. limit',  atmos_fluxes%HeatFlux_Total   ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: TotalIce  a. limit',  atmos_fluxes%FrshFlux_TotalIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: draft    '           ,p_ice%draft    ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: draftave '           ,p_ice%draftave ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: zUnderIce'           ,p_ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('iceClUp: h-old'               ,p_os%p_prog(nold(1))%h,str_module,4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE ice_clean_up
 
@@ -1793,11 +2438,7 @@ CONTAINS
     TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
 
     !Local Variables
-    ! position of ice-ocean interface below sea level                       [m]
-    REAL(wp) :: draft(nproma,ice%kice, p_patch%alloc_cell_blocks)
-
     REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) ::   &
-      & draftave,      &! average draft of sea ice within a grid cell             [m]
       & zUnderIceOld,  &! water in upper ocean grid cell below ice (prev. time)   [m]
       & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
       & heatOceW,      &! heat flux into ocean through open water areas           [W/m^2]
@@ -1805,26 +2446,44 @@ CONTAINS
       & Delhsnow,      &! average change in snow thickness within a grid cell     [m]
       & snowiceave,    &! average snow to ice conversion within a grid cell       [m]
       & Tfw,           &! sea surface freezing temperature                        [C]
-      & sst,           &! sea surface temperature - approx. after cooling         [C]
-      & sss,           &! sea surface salinity                                    [psu]
+      & csst,          &! sea surface temperature - approx. after cooling (input) [C]
+      & sss,           &! sea surface salinity (input only)                       [psu]
       & preci,         &! solid precipitation rate                                [m/s]
       & precw           ! liquid precipitation rate                               [m/s]
       !& evap,          &! evaporated water                                       [psu]
 
+    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) :: h1,h2,h3,snowmelted,xheat,xnewice
+
     TYPE(t_subset_range), POINTER :: subset
     INTEGER :: block, cell, cellStart,cellEnd
-    ! Needs work with FB_BGC_OCE etc.
-    !REAL(wp)         :: swsum
-    !REAL(wp),POINTER :: sao_top(:,:)
-    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks)  :: tmp
+
+    zUnderIceOld(:,:) = 0.0_wp
+    heatOceI    (:,:) = 0.0_wp
+    heatOceW    (:,:) = 0.0_wp
+    Delhice     (:,:) = 0.0_wp
+    Delhsnow    (:,:) = 0.0_wp
+    snowiceave  (:,:) = 0.0_wp
+    Tfw         (:,:) = 0.0_wp
+    csst        (:,:) = 0.0_wp
+    sss         (:,:) = 0.0_wp
+    preci       (:,:) = 0.0_wp
+    precw       (:,:) = 0.0_wp
+    h1          (:,:) = 0.0_wp
+    h2          (:,:) = 0.0_wp
+    h3          (:,:) = 0.0_wp
+    snowmelted  (:,:) = 0.0_wp
+    xheat       (:,:) = 0.0_wp
+    xnewice     (:,:) = 0.0_wp
+
     !-------------------------------------------------------------------------------
-    CALL dbg_print('UpperOcTS: zUnderIce', ice%zUnderIce,                  str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: hs',   ice%hs,                              str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: hi',   ice%hi,                              str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: conc', ice%conc,                            str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: h',    p_os%p_prog(nold(1))%h,              str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: sst',  p_os%p_prog(nold(1))%tracer(:,1,:,1),str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS: sss',  p_os%p_prog(nold(1))%tracer(:,1,:,2),str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: hi',   ice%hi,                              str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: hs',   ice%hs,                              str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: conc', ice%conc,                            str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: zUnderIce', ice%zUnderIce,                  str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: h',    p_os%p_prog(nold(1))%h,              str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: SST',  p_os%p_prog(nold(1))%tracer(:,1,:,1),str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS beg: SSS',  p_os%p_prog(nold(1))%tracer(:,1,:,2),str_module, 4, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
 
     !TODOram: openmp
     subset => p_patch%cells%all
@@ -1847,62 +2506,104 @@ CONTAINS
         !  &                       sum(ice%evapwi(cell,1,block) * ice% conc(cell,1,block), 2)) /rho_ref
 
         ! Calculate the sea surface freezing temperature                        [C]
-        if ( no_tracer >= 2 ) then
-          Tfw(cell,block) = -mu*sss(cell,block)
-        else
+        IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
           Tfw(cell,block) = Tf
-        endif
+        ELSE
+          Tfw(cell,block) = -mu*sss(cell,block)
+        ENDIF
 
         ! TODO: No temperature change due to precip yet. Should not be done here
 
-        ! Calculate average draft and thickness of water underneath ice in upper ocean
-        ! grid box
-        zUnderIceOld    (cell,block)   = ice%zUnderIce(cell,block)
-        draft           (cell,:,block) = (rhos * ice%hs(cell,:,block) + rhoi * ice%hi(cell,:,block)) / rho_ref
-        draftave        (cell,block)   = sum(draft(cell,:,block) * ice%conc(cell,:,block))
+        ! Calculate average draft and thickness of water underneath ice in upper ocean grid box
+        !  - changes in hi and hs from sbrt ice_growth are included here
+        zUnderIceOld    (cell,block)   = ice%zUnderIce(cell,block)   !  not needed anymore
+      ! ice%draft       (cell,:,block) = (rhos * ice%hs(cell,:,block) + rhoi * ice%hi(cell,:,block)) / rho_ref
+      ! ice%draftave    (cell,block)   = sum(ice%draft(cell,:,block) * ice%conc(cell,:,block))
         ice%totalsnowfall(cell,block) =  atmos_fluxes%rpreci(cell,block)*dtime*ice%conc(cell,1,block)
-        ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
-          &                            + p_os%p_prog(nold(1))%h(cell,block) &
-          &                            - draftave(cell,block)& 
-          &                            + ice%totalsnowfall(cell,block)
+      ! ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
+      !   &                            + p_os%p_prog(nold(1))%h(cell,block)                &
+      !   &                            - ice%draftave(cell,block)
+        !  #slo# 2015-01: bugfix - totalsnowfall was added to zunderice - inconsistent to zui=h-draftave
+        ! &                            + ice%totalsnowfall(cell,block)
 
-        ! Calculate average change in ice thickness and the snow-to-ice conversion
+        ! Calculate average change in ice thickness and the snow-to-ice conversion with respect to whole grid area
+        ! #slo# 2015-01: could be expressed as water equivalent here
         Delhice   (cell,block) = SUM( ( ice%hi(cell,:,block) - ice%hiold(cell,:,block) )*ice%conc(cell,:,block))
         Delhsnow  (cell,block) = SUM( ( ice%hs(cell,:,block) - ice%hsold(cell,:,block) )*ice%conc(cell,:,block))
-        snowiceave(cell,block) = SUM( ice%snow_to_ice(cell,:,block)*ice% conc(cell,:,block))
+
+        ! snowiceave in averaged ice thickness (m)
+        !snowiceave(cell,block) = SUM( ice%snow_to_ice(cell,:,block)*ice% conc(cell,:,block))
+        ! snowiceave now in water equivalent, snow_to_ice has snow density
+        snowiceave(cell,block) = SUM( ice%snow_to_ice(cell,:,block)*ice% conc(cell,:,block))*rhos/rho_ref
+
         ! Adjust change in snow and ice thickness for snow-ice formation, which is dealt with separately in the fresh-water balance
         !!Delhsnow  (cell,block) = Delhsnow(cell, block) + snowiceave (cell, block)  
 
         ! Calculate heat input through formerly ice covered and through open water areas
-        IF (3 == i_Qio_type) THEN
-          ! If the whole heat from the ice is used to melt the ice, the scaling
-          ! with the ice concentration has to be skipped here
-          heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block))
-        ELSE
-          heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block) * ice% conc(cell,:,block))
-        END IF
-        heatOceW(cell,block) = ( atmos_fluxes%SWnetw(cell,block)                       &
-          &         + atmos_fluxes%LWnetw(cell,block) + atmos_fluxes%sensw(cell,block)+     &
-          &                 atmos_fluxes%latw(cell,block) )*(1.0_wp-sum(ice%conc(cell,:,block)))
+        ! #slo# 2014-12: bugfix for qio3: heatOceI is for the whole grid area
+        !                heat needs scaling with concentration to be valid for whole area in all cases
+      ! IF (3 == i_Qio_type) THEN
+      !   ! If the whole heat from the ice is used to melt the ice, the scaling
+      !   ! with the ice concentration has to be skipped here
+      !   heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block))
+      ! ELSE
+      !   heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block) * ice% conc(cell,:,block))
+      ! END IF
+        ! #slo# 2014-12: rescaling of melting/growing energy with concentration is done before
+        !                in ice_slow to use energy for SST change
+        heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block))
+        heatOceW(cell,block) = ( atmos_fluxes%SWnetw(cell,block) &
+          &                    + atmos_fluxes%LWnetw(cell,block) &
+          &                    + atmos_fluxes%sensw(cell,block)  &
+          &                    + atmos_fluxes%latw(cell,block) ) &
+                               *(1.0_wp-sum(ice%conc(cell,:,block)))
 
-        ! Calculate possible super-cooling of the surface layer
-        sst = p_os%p_prog(nold(1))%tracer(cell,1,block,1) + dtime*heatOceW(cell,block)/( clw*rho_ref*ice%zUnderIce(cell,block) )
+        ! Calculate possible super-cooling of the surface layer by heatOceW
+        !  #slo# 2014-12-11: heatOceW is part of heat flux over open water, supercooled sst is calculated over whole grid area
+        xheat(cell,block)= heatocew(cell,block)
+        csst(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,1) &
+          &                + dtime*heatOceW(cell,block)/( clw*rho_ref*ice%zUnderIce(cell,block) )
 
-        ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature, form new ice
-         IF ( sst(cell,block) < Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
+        ! #slo# 2015-01: control calculation of newice directly from heat flux heatOceW
+        !  - check effect of supercooling is required
+        !  - newice is in ice thickness
+      ! IF (p_os%p_prog(nold(1))%tracer(cell,1,block,1)< Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
+      !   xnewice(cell,block) = - heatOceW(cell,block)*dtime/(alf*rhoi)
+      !   heatOceW(cell,block) = 0.0_wp
+      ! ELSE
+      !   xnewice(cell,block) = 0.0_wp
+      ! ENDIF
+
+        ! #slo# 2014-11: wrong comment, energy not yet added to SST, but must be added to heatOceW or heatOceI
+        !                part of heatOceW used for forming newice is added here
+        ! Add energy for new-ice formation due to supercooled ocean to ocean temperature, form new ice
+        IF ( csst(cell,block) < Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
           ! New ice forming over open water due to super cooling
-          ! Fixed 2. April - newice is now the volume of ice formed over open water
-           ice%newice(cell,block) = (1._wp-ice%concSum(cell,block))*( Tfw(cell,block) - sst(cell,block) )*       &
-              &                                             ice%zUnderIce(cell,block)*clw*rho_ref/( alf*rhoi )
-          ! Flux required to cool the ocean to the freezing point
-           heatOceW(cell,block)   = ( Tfw(cell,block) - p_os%p_prog(nold(1))%tracer(cell,1,block,1) )     &
-             &     *ice%zUnderIce(cell,block)*(1.0_wp-ice%concSum(cell,block))*clw*rho_ref/dtime
-         ! #slo# 2014-11: bugfix: value of newice was kept from last timestep!
-         ELSE
-           ice%newice(cell,block) = 0.0_wp
-         ENDIF
+          ! Fixed 2. April (2014) - newice is now the volume of ice formed over open water
+          ! #slo# 2014-12: bugfix: heatOceW is already reduced to (1-conc)*heat,
+          !                        therefore newice is value for whole grid area, not multiplied by 1-conc
+          !                        results in larger sea ice growth
+          !  Attention: in ice_concentration_change as well, newice must not be multiplied by 1-conc
+          !ice%newice(cell,block) = (1._wp-ice%concSum(cell,block))*( Tfw(cell,block) - csst(cell,block) ) &
+          ice%newice(cell,block) = ( Tfw(cell,block) - csst(cell,block) ) &
+             &                     * ice%zUnderIce(cell,block)*clw*rho_ref/( alf*rhoi )
+          ! Flux required to warm the ocean to the freezing point
+          ! #slo# 2015-01: bugfix for supercooled ocean: whole grid area is cooled below freezing point,
+          !                no multiplication by 1-conc is required to calculate the part of heatOceW due to supercooling
+          !                but check: doubled supercooling, since it is already taken into account in oce_ice_heatflx?
+          heatOceW(cell,block)   = ( Tfw(cell,block) - p_os%p_prog(nold(1))%tracer(cell,1,block,1) )     &
+            &                      *ice%zUnderIce(cell,block)*clw*rho_ref/dtime
+         !  &                      *ice%zUnderIce(cell,block)*(1.0_wp-ice%concSum(cell,block))*clw*rho_ref/dtime
 
-        ! Diagnosis: collect the 4 parts of heat fluxes into the atmos_fluxes cariables - no flux under ice:
+          ! #slo# 2014-11: bugfix: value of newice was kept from last timestep!
+        ELSE
+          ice%newice(cell,block) = 0.0_wp
+        ENDIF
+
+        ! test
+      ! ice%newice(cell,block) = xnewice(cell,block)
+
+        ! Diagnosis: collect the 4 parts of heat fluxes into the atmos_fluxes variables - no flux under ice:
         atmos_fluxes%HeatFlux_ShortWave(cell,block) = atmos_fluxes%SWnetw(cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
         atmos_fluxes%HeatFlux_LongWave (cell,block) = atmos_fluxes%LWnetw(cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
         atmos_fluxes%HeatFlux_Sensible (cell,block) = atmos_fluxes%sensw (cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
@@ -1948,10 +2649,10 @@ CONTAINS
 
         ! Tracer flux
         ! Fixed 27. March
-        ! -->> snow growth (Delhsnow > 0) does NOT change tracers, but snow melt doews
-        ! -->> rain is only include in the volumeice, totalice now only contains
-        ! fluxes that do not change the total fresh-water volume in the grid
-        ! cell
+        ! -->> snow growth (Delhsnow > 0) does NOT change tracers, but snow melt does
+        ! -->> rain is only included in the volumeice, totalice now only contains
+        !      fluxes that do not change the total fresh-water volume in the grid cell
+        !  #slo# 2015-01: better reformulate with ice-change, snowmelt, snoiceave - assign variables in sbrt icegrowth!
         IF (v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
           atmos_fluxes%FrshFlux_TotalIce(cell,block) = &
         &        - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt and growth
@@ -1959,7 +2660,28 @@ CONTAINS
         &         (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime), &
         &         0.0_wp, &
         &         Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) &  ! snow melt ONLY
-        &        - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! New-ice formation
+        &        - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! new ice formation over open water
+
+          ! divide three processes:
+          ! ice melt and growth including snow_to_ice conversion proportional to salt difference of water and ice
+          h1(cell,block)= - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)
+          ! snow melt only, without snow_to_ice conversion, in m water equivalent
+          snowmelted(cell,block) = (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/rho_ref &
+            &                      + snowiceave(cell,block)
+          ! snow melt only, without snow_to_ice conversion, in m water equivalent
+          IF (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) THEN
+            h2(cell,block) = -(Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime)
+          !IF (snowmelted(cell,block) < 0.0_wp) THEN
+          !  h2(cell,block) = -snowmelted(cell,block)/dtime
+          ELSE
+            h2(cell,block) = 0.0_wp
+          ENDIF
+          ! new ice formation
+          h3(cell,block) =-(1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)
+          
+          ! test the new total ice flux:
+          !atmos_fluxes%FrshFlux_TotalIce(cell,block) = h1(cell,block) + h2(cell,block) + h3(cell,block)
+
         ENDIF
 
         !heatabs         (cell,block)   = swsum * atmos_fluxes% SWin(cell,block) * (1 - ice%concsum)
@@ -1976,16 +2698,41 @@ CONTAINS
       END DO
     END DO
 
+    CALL dbg_print('UpperOceTS: hi       ', ice%hi       ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: hiold    ', ice%hiold    ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: hs       ', ice%hs       ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: hsold    ', ice%hsold    ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: Delhice  ', Delhice      ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: Delhsnow ', Delhsnow     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: draft    ', draft        ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: draftave ', draftave     ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: draft    ', ice%draft    ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: draftave ', ice%draftave ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: zUndIceOld',zUnderIceOld, str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: SST      ', sst          ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: csst-cooled', csst       ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: SSS      ', sss          ,str_module, 5, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: xnewice  ', xnewice      ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: FwBcIce  ', atmos_fluxes%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: snowiceave', snowiceave, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: OceW beg ', xheat        ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: heatOceI ', heatOceI     ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: SnIceAveWE', snowiceave  ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: totalsnowfall',ice%totalsnowfall           , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: snowmelted'   ,snowmelted                  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: SWnetw   ', atmos_fluxes%SWnetw            , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: LWnetw   ', atmos_fluxes%LWnetw            , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: sensw    ', atmos_fluxes%sensw             , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: latw     ', atmos_fluxes%latw              , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: ShortWave', atmos_fluxes%HeatFlux_ShortWave, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: LongWave ', atmos_fluxes%HeatFlux_LongWave , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: Sensible ', atmos_fluxes%HeatFlux_Sensible , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: Latent   ', atmos_fluxes%HeatFlux_Latent   , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: TotalHeat', atmos_fluxes%HeatFlux_Total    , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: TotalIce ', atmos_fluxes%FrshFlux_TotalIce , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: VolumeIce', atmos_fluxes%FrshFlux_VolumeIce, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: h1       ', h1                             , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: h2       ', h2                             , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: h3       ', h3                             , str_module, 4, in_subset=p_patch%cells%owned)
+
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
   !
@@ -2011,13 +2758,13 @@ CONTAINS
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
     CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceConcCh: vol  at beg' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
 
-    if ( no_tracer >= 2 ) then
-      Tfw(:,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    else
+    ! Calculate the sea surface freezing temperature                        [C]
+    IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
       Tfw(:,:) = Tf
-    endif
+    ELSE
+      Tfw(:,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
+    ENDIF
 
     ! This should not be needed
     ! TODO ram - remove all instances of p_patch%cells%area(:,:) and test
@@ -2027,18 +2774,22 @@ CONTAINS
       ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
     ENDDO
 
+    CALL dbg_print('IceConcCh: vol  at beg' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: vols at beg' ,ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
+
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE 
     ! Concentration change due to new ice formation
     WHERE ( ice%newice(:,:) > 0._wp .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
       ! New volume - we just preserve volume:
-      ! Fixed 27. March
+      ! #slo# 2014-12-11: newice is grown over open ocean but already averaged over whole grid area
+      !                   newice must not be multiplied by 1-conc
       ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
 
       ! Hibler's way to change the concentration 
       !  - the formulation here uses the default values of leadclose parameters 2 and 3 in MPIOM:
       !    1 and 0 respectively
-      ! Fixed 2. April - we don't need to multiply with 1-A here, like Hibler does, because it's
+      ! Fixed 2. April (2014) - we don't need to multiply with 1-A here, like Hibler does, because it's
       ! already included in newice (we use volume, but Hibler growth rate)
       ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
 
@@ -2171,12 +2922,12 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:calc_bulk_flux_ice'
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:calc_bulk_flux_ice'
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
-    tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
-    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
+    tafoK(:,:)  = p_as%tafo(:,:)  + tmelt  ! Change units of tafo  to Kelvin
+    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt  ! Change units of ftdew to C
 
     ! subset range pointer
     all_cells => p_patch%cells%all
@@ -2387,7 +3138,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:calc_bulk_flux_oce
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'sea_ice:calc_bulk_flux_oce
     !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start' )
 
@@ -2517,12 +3268,15 @@ CONTAINS
     CALL dbg_print('CalcBulkO:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:tafoK'              , tafoK                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:tafo'               , p_as%tafo             , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:sphumida'           , sphumida              , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:sphumidw'           , sphumidw              , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:rhoair'             , rhoair                , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:dragl'              , dragl                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:fu10'               , p_as%fu10             , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:fu10lim'            , fu10lim               , str_module, idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5          , fix)
     CALL dbg_print('CalcBulkO:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:Tsurf ocean (nnew)' , p_os%p_prog(nnew(1))%tracer(:,1,:,1), &
-      &                                                                     str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:atmos_fluxes%LWnetw', atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:atmos_fluxes%sensw' , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:atmos_fluxes%latw'  , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)
@@ -2590,6 +3344,9 @@ CONTAINS
 
     salinityDiff = 0.0_wp
     salt         = 0.0_wp
+
+    ! exit if actual debug-level is < 2
+    IF (idbg_mxmn < 2 .AND. idbg_val < 2) RETURN
 
     CALL assign_if_present(my_computation_type, computation_type)
     CALL assign_if_present(my_info, info)
@@ -2698,4 +3455,82 @@ CONTAINS
     !
     ! compute liquid volume in the first layer incl. water prepresentative of sea ice
   END FUNCTION salt_content_in_surface
+
+  ! compute the energy content in the upper most layer based on the liquid water height from the ice model: zUnderIce
+  FUNCTION energy_content_in_surface(p_patch, thickness, hold, p_ice, sst, computation_type, info) &
+    & RESULT(energy)
+
+    TYPE(t_patch),POINTER                                 :: p_patch
+    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks), INTENT(IN) :: thickness, hold, sst
+    TYPE (t_sea_ice), INTENT(IN)                          :: p_ice
+    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
+    CHARACTER(len=*) , OPTIONAL                           :: info
+
+    ! locals
+    REAL(wp), DIMENSION(nproma,p_patch%alloc_cell_blocks) :: energy
+    INTEGER                                               :: my_computation_type
+    CHARACTER(len=20)                                     :: my_info
+    TYPE(t_subset_range), POINTER                         :: subset
+    INTEGER                                               :: block, cell, cellStart,cellEnd
+    REAL(wp)                                              :: t_base, zui
+
+    my_computation_type = 0
+    my_info             = 'BEFORE'
+    energy              = 0.0_wp
+  ! t_base              = Tf
+  ! t_base              = -5.0_wp
+    t_base              = t_heat_base  !  arbitrary temperature basis for calculation of surface heat content
+
+    ! exit if actual debug-level is < 2
+    IF (idbg_mxmn < 2 .AND. idbg_val < 2) RETURN
+
+    CALL assign_if_present(my_computation_type, computation_type)
+    CALL assign_if_present(my_info, info)
+
+    subset => p_patch%cells%owned
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, cellStart, cellEnd)
+      DO cell = cellStart, cellEnd
+        IF (subset%vertical_levels(cell,block) < 1) CYCLE
+        SELECT CASE (my_computation_type)
+        CASE (0)
+          ! compute energy content of surface layer plus melting energy of ice and snow water equivalent
+          !  - relative to arbitrary temperature t_base (e.g. -5C for mostly positive values)
+          !  - omit multiplication with area, calculation per unit area, units in Joule/m2
+          !  - constant freezing temperature Tf, ice-temperature set to Tf
+          !  - use zUnderIce+draftave
+          !  = (sst-t_base)*zUnderIce*rhow*clw - draftave*rhow*alf + (Tf-t_base)*(hi*rhoi+hs*rhos)*rhow*clw
+          energy(cell,block) = (sst(cell,block) - t_base) * p_ice%zUnderIce(cell,block)*rho_ref*clw &
+            &                - (p_ice%draftave(cell,block)*rho_ref*alf) &
+            &                + (Tf - t_base)*p_ice%draftave(cell,block)*rho_ref*clw
+        CASE (1)
+          !  compute energy content - use zUnderIce and hi, hs
+          !  = (sst-t_base)*zUnderIce*rhow*clw - (hi*rhoi+hs*rhos)*alf*conc + (Tf-t_base)*(hi*rhoi+hs*rhos)*conc*clw
+          energy(cell,block) = (sst(cell,block) - t_base) * p_ice%zUnderIce(cell,block)*rho_ref*clw &
+            &                - ((p_ice%hi(cell,1,block)*rhoi + p_ice%hs(cell,1,block)*rhos)*p_ice%conc(cell,1,block)*alf) &
+            &                + (Tf - t_base)*(p_ice%hi(cell,1,block)*rhoi + p_ice%hs(cell,1,block)*rhos) &
+            &                                *p_ice%conc(cell,1,block)*clw
+        CASE (2)
+          !  compute energy content - use hi, hs only, compute local zUnderIce
+          !  = (sst-t_base)*zUnderIce*rhow*clw - (hi*rhoi+hs*rhos)*alf*conc + (Tf-t_base)*(hi*rhoi+hs*rhos)*conc*clw
+          zui                = thickness(cell,block)+hold(cell,block) &
+            &                - (rhos * p_ice%hs(cell,1,block) + rhoi * p_ice%hi(cell,1,block)) * p_ice%conc(cell,1,block) / rho_ref
+          energy(cell,block) = (sst(cell,block) - t_base) *zui*rho_ref*clw &
+            &                - ((p_ice%hi(cell,1,block)*rhoi + p_ice%hs(cell,1,block)*rhos)*p_ice%conc(cell,1,block)*alf) &
+            &                + (Tf - t_base)*(p_ice%hi(cell,1,block)*rhoi + p_ice%hs(cell,1,block)*rhos) &
+            &                               *p_ice%conc(cell,1,block)*clw
+          CONTINUE
+        CASE (3)
+          write(0,*) " Nothing computed"
+        CASE DEFAULT
+          CALL finish ('mo_sea_ice:computation_type','option not supported')
+        END SELECT
+        !salt(cell,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
+      END DO
+    END DO
+
+    CALL dbg_print('enContSurf: energy '//TRIM(info),energy,str_module, 5, in_subset=p_patch%cells%owned)
+
+  END FUNCTION energy_content_in_surface
+
 END MODULE mo_sea_ice

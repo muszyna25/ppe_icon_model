@@ -213,8 +213,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
   REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity  
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
@@ -465,7 +465,8 @@ MODULE mo_ocean_nml
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
   LOGICAL  :: forcing_enable_freshwater            = .TRUE.    ! .TRUE.: apply freshwater forcing boundary condition
-  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
+  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.   ! .TRUE.: set river runoff to zero for comparion to MPIOM
+  LOGICAL  :: zero_freshwater_flux                 = .FALSE.   ! .TRUE.: zero freshwater fluxes but salt-change possible
   LOGICAL  :: use_new_forcing                      = .FALSE.
   ! _type variables range
   !    0    : not used
@@ -496,11 +497,23 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
                                                               ! for temperature forcing (degrees)
+  INTEGER  :: atmos_flux_analytical_type           = 0        ! type of atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_SWnet_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_LWnet_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_lat_const                      = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_sens_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_SWnetw_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_LWnetw_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_latw_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_sensw_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_precip_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  REAL(wp) :: atmos_evap_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
                                                               
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
+    &                 zero_freshwater_flux                , &
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
@@ -535,6 +548,17 @@ MODULE mo_ocean_nml
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
+    &                 atmos_flux_analytical_type          , &
+    &                 atmos_SWnet_const                   , &
+    &                 atmos_LWnet_const                   , &
+    &                 atmos_lat_const                     , &
+    &                 atmos_sens_const                    , &
+    &                 atmos_SWnetw_const                  , &
+    &                 atmos_LWnetw_const                  , &
+    &                 atmos_latw_const                    , &
+    &                 atmos_sensw_const                   , &
+    &                 atmos_precip_const                  , &
+    &                 atmos_evap_const                    , &
     &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
     &                 use_new_forcing                    

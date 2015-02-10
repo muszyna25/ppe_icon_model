@@ -25,7 +25,9 @@ MODULE mo_ocean_testbed_modules
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
-  USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,Cartesian_Mixing
+  USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
+    &                                  atmos_flux_analytical_type
+  USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
   USE mo_exception,              ONLY: message, message_text, finish
@@ -40,10 +42,11 @@ MODULE mo_ocean_testbed_modules
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_ocean_bulk,               ONLY: update_surface_flux
-  USE mo_sea_ice,                ONLY: salt_content_in_surface
+  USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
+  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref, clw, alf, Tf
+  USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_ocean_GM_Redi,            ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func,&
   &                                    prepare_ocean_physics,calc_ocean_physics
@@ -67,7 +70,7 @@ MODULE mo_ocean_testbed_modules
 
   PUBLIC :: ocean_test_modules
   
-  CHARACTER(len=12)           :: debug_string = 'testbed     '  ! Output of module for 1 line debug
+  CHARACTER(len=12)           :: debug_string = 'testbedMod  '  ! Output of module for 1 line debug
   
   !-------------------------------------------------------------------------
 CONTAINS
@@ -106,6 +109,11 @@ CONTAINS
 
       CASE (4)
         CALL test_surface_flux( patch_3d, ocean_state,  &
+          & datetime, surface_fluxes,             &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
+
+      CASE (41)
+        CALL test_surface_flux_slo( patch_3d, ocean_state,  &
           & datetime, surface_fluxes,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
@@ -485,11 +493,15 @@ ENDIF
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: jstep0,computation_type
+    REAL(wp) :: delta_z
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
+
+    ! IF (ltimer) CALL timer_start(timer_total)
+    CALL timer_start(timer_total)
 
     CALL datetime_to_string(datestring, datetime)
 
@@ -560,6 +572,7 @@ ENDIF
 
       !------------------------------------------------------------------------
       ! computation_type = test_param
+      computation_type = 5  ! #slo# merging ocean_sea-ice-thermodyn r208xx
       ! BEFOR : {{{
       zUnderIceBefore = p_ice%zUnderIce
       !salinity
@@ -568,8 +581,7 @@ ENDIF
       saltBefore      = salt_content_in_surface(patch_2D, &
         &                                       patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
         &                                       p_ice, p_os(n_dom),surface_fluxes,zUnderIceBefore,&
-!         &                                       computation_type=computation_type,info='BEFORE')
-        &                                       info='BEFORE')
+        &                                       computation_type=computation_type,info='BEFORE')
       ! liquid water height
       !}}}
 
@@ -579,6 +591,20 @@ ENDIF
         &  operators_coefficients)
       CALL dbg_print('IceBudget: saltinity  AFTER' ,&
         &             p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2),debug_string,4,in_subset=patch_2D%cells%owned)
+
+      ! simplified update of old temperature with surface forcing
+      subset => patch_2D%cells%owned
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, cellStart, cellEnd)
+        DO cell = cellStart, cellEnd
+          IF (subset%vertical_levels(cell,block) < 1) CYCLE
+          delta_z = patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(cell,1,block)+p_os(n_dom)%p_prog(nold(1))%h(cell,block)
+            p_os(n_dom)%p_prog(nold(1))%tracer(cell,1,block,1) = p_os(n_dom)%p_prog(nold(1))%tracer(cell,1,block,1) + &
+              & (dtime/delta_z ) * surface_fluxes%topBoundCond_Temp_vdiff(cell,block)
+        END DO
+      END DO
+      CALL dbg_print('sfcflx: trac_new ' ,p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1),debug_string, 4, &
+        &  in_subset=patch_3d%p_patch_2D(1)%cells%owned)
 
       !------------------------------------------------------------------------
       ! AFTER {{{
@@ -653,7 +679,300 @@ ENDIF
       CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_2D%cells%owned)
     END DO
     
+    CALL timer_stop(timer_total)
+    
   END SUBROUTINE test_surface_flux
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE test_surface_flux_slo( patch_3d, p_os, &
+    & datetime, surface_fluxes,         &
+    & p_as, atmos_fluxes, p_ice, operators_coefficients)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
+    TYPE(t_datetime),         INTENT(inout)          :: datetime
+    TYPE(t_sfc_flx),          INTENT(inout)          :: surface_fluxes
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
+    TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    
+    ! local variables
+    REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
+      &                           :: energyCheck, energyCh2, energySav, energyDiff, energyDits, &
+      &                              sstCheck, hCheck, meltdraft, conc_old, sst_old, fwfcheck,  &
+      &                              saltBefore, saltAfter, saltBudget
+    REAL(wp), POINTER             :: sst(:,:), sss(:,:), flat(:,:)
+    REAL(wp)                      :: delta_z, t_base, sst_flux, ice_conc
+    INTEGER                       :: jstep, jstep0, jc, jb, jk, start_cell_index, end_cell_index
+    INTEGER                       :: budget_type_salt, budget_type_energy
+    CHARACTER(LEN=32)             :: datestring
+    TYPE(t_patch),        POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
+    !------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain
+
+    flat            => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)
+
+    ! IF (ltimer) CALL timer_start(timer_total)
+    CALL timer_start(timer_total)
+
+    !t_base = Tf
+    !t_base = -5.0_wp
+    t_base = t_heat_base
+    energyCheck(:,:) = 0.0_wp
+    energySav  (:,:) = 0.0_wp
+    energyDiff (:,:) = 0.0_wp
+    energyDits (:,:) = 0.0_wp
+    conc_old   (:,:) = 0.0_wp
+    sst_old    (:,:) = 0.0_wp
+    fwfcheck   (:,:) = 0.0_wp
+
+    ! sst after init:
+    sstCheck(:,:) = p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1)
+
+    ! constant thickness for check: initial h; hi, hs in water equivalent to be added to dz+h
+  ! hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) &
+  !   &              + (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos) *p_ice%conc(:,1,:)/rho_ref
+
+    ! constant thickness for check: initial h, hi, hs in water equivalent are part of initial water height
+  ! hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:)
+
+    ! initialized thickness for check: zUnderIce; hi, hs in water equivalent to be subtracted from dz+h
+    hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) &
+      &              - (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)/rho_ref
+
+    ! initial energyCh2 - same as energyCheck 
+    ! meltdraft: energy content of ice and snow: ((Tf-t_base)*clw-alf) * draftave
+  ! energyCh2 = energy_content_in_surface(patch_2d, flat(:,:), p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+  !   &         p_ice, sstCheck(:,:), computation_type=computation_type, info='INITIAL')
+  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+    meltdraft(:,:) = ((Tf-t_base)*clw - alf) * (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)
+    energyCh2(:,:) = (sstCheck(:,:) - t_base) * hCheck(:,:)*rho_ref*clw + meltdraft(:,:)
+
+    CALL dbg_print('TB.SfcFlux: heightCH2 INI' ,hCheck         (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('TB.SfcFlux: energyCh2 INI' ,energyCh2      (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('TB.SfcFlux: meltdraft INI' ,meltdraft      (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+
+    !  test for draftave, calculated in ice_init
+    hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) - p_ice%draftave(:,:)
+    CALL dbg_print('TB.SfcFlux: heightCH2 tst' ,hCheck         (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+
+    CALL datetime_to_string(datestring, datetime)
+
+    time_config%sim_time(:) = 0.0_wp
+    jstep0 = 0
+    !------------------------------------------------------------------
+
+    DO jstep = (jstep0+1), (jstep0+nsteps)
+
+      ! update pointer every timestep due to changing nold
+      sst             => p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1)
+      sss             => p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2)
+
+      ! p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
+
+      CALL datetime_to_string(datestring, datetime)
+      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+      CALL message (TRIM(method_name), message_text)
+
+      ! Set model time.
+      CALL add_time(dtime,0,0,0,datetime)
+
+      budget_type_salt   = 5  ! #slo# merging ocean_sea-ice-thermodyn r208xx
+      budget_type_energy = 0
+
+      !---  energy  -----------------------------------------------------------
+      energyCheck = energy_content_in_surface(patch_2d, flat(:,:), p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+        &             p_ice, sst(:,:), computation_type=budget_type_energy, info='BEFORE')
+
+      energysav(:,:) = energyDiff(:,:)
+
+      !---  salt    -----------------------------------------------------------
+      saltBefore  = salt_content_in_surface(patch_2D, flat(:,:),p_ice, p_os(n_dom),surface_fluxes, &
+        &            p_ice%zUnderIce,computation_type=budget_type_salt,info='BEFORE')
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('TB.SfcFlux: hi        BEF' ,p_ice%hi     (:,:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: hs        BEF' ,p_ice%hs     (:,:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: conc      BEF' ,p_ice%conc   (:,:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: zUnderIce BEF' ,p_ice%zUnderIce(:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sst       BEF' ,sst            (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energy    BEF' ,energyCheck    (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sstCheck  BEF' ,sstCheck       (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energyCh2 BEF' ,energyCh2      (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energyDiffBEF' ,energyDiff     (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: trac_old  BEF' ,p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1),debug_string, 5, &
+        &  in_subset=patch_3d%p_patch_2D(1)%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sss       BEF' ,sss            (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: saltBefore   ' ,saltBefore     (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      !---------------------------------------------------------------------
+
+      conc_old(:,:) = p_ice%conc(:,1,:)
+      sst_old (:,:) = sst(:,:)
+
+      !-----------------------------------------------------------------------------------------------------------------
+      ! call component
+      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+        &  operators_coefficients)
+      !-----------------------------------------------------------------------------------------------------------------
+
+      !---  energy  -----------------------------------------------------------
+      energyCheck = energy_content_in_surface(patch_2d, flat(:,:), p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+        &             p_ice, sst(:,:), computation_type=budget_type_energy, info='UpdFlux')
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('TB.SfcFlux: energy  UpdFl' ,energyCheck    (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sst AFT UpdFl' ,sst            (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: trc AFT UpdFl' ,p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1), &
+        &  debug_string, 5, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: Flx AFT UpdFl' ,surface_fluxes%topBoundCond_Temp_vdiff(:,:), &
+        &  debug_string, 5, in_subset=patch_2D%cells%owned)
+      !---------------------------------------------------------------------
+
+      ! simplified update of old temperature with surface forcing
+    ! DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    !   CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+    !   DO jc = start_cell_index, end_cell_index
+    !     delta_z     = patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os(n_dom)%p_prog(nold(1))%h(jc,jb)
+    !     ! now correct delta_z: use zunderIce
+    !     delta_z     = p_ice%zUnderIce(jc,jb)
+    !     DO jk = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+    !       p_os(n_dom)%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os(n_dom)%p_prog(nold(1))%tracer(jc,jk,jb,1) + &
+    !         & (dtime/delta_z ) * surface_fluxes%topBoundCond_Temp_vdiff(jc,jb)
+    !       sst(jc,jb) = sst(jc,jb) + (dtime/delta_z ) * surface_fluxes%topBoundCond_Temp_vdiff(jc,jb)
+    !     END DO
+    !   END DO
+    ! END DO
+
+      !---  energy  -----------------------------------------------------------
+      energyCheck = energy_content_in_surface(patch_2d, flat(:,:), p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+        &             p_ice, sst(:,:), computation_type=budget_type_energy, info='UpdSST')
+
+      ! check energy input via atmospheric fluxes into surface layer - all atmos_fluxes enter, no flux leaves
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          DO jk = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+  !         SELECT CASE (atmos_flux_analytical_type)
+  !         CASE(101,103)
+  !           IF (use_ice_concCh) ice_conc = conc_old(jc,jb)
+              !  shortwave flux on ice and ocean - whole flux enters the system, no ice concentration matters
+              sst_flux = atmos_fluxes%swnetw(jc,jb)+atmos_fluxes%lwnetw(jc,jb) &
+                       + atmos_fluxes%latw  (jc,jb)+atmos_fluxes%sensw (jc,jb)
+  !  old adjustments, not corrected
+  !           IF ( atmos_fluxes%swnetw(jc,jb) == atmos_fluxes%swnet(jc,1,jb) ) THEN
+  !             sst_flux = atmos_fluxes%swnetw(jc,jb)
+  !             sst_flux = (p_ice%Qtop(jc,1,jb)+p_ice%Qbot(jc,1,jb))*ice_conc + (1.0_wp-ice_conc)*atmos_fluxes%swnetw(jc,jb)
+  !           ENDIF
+              !  shortwave flux on ice only (Qtop and Qbot calculated)
+  !           IF ( atmos_fluxes%swnetw(jc,jb) == 0.0_wp ) THEN
+  !             sst_flux = (p_ice%Qtop(jc,1,jb)+p_ice%Qbot(jc,1,jb))*ice_conc
+  !           ENDIF
+  !         CASE(102)
+  !           ! constant initial ice concentration:
+  !           ice_conc=init_analytic_conc_param
+  !           ! with change in concentration - check with concentration at begin of timestep
+  !     !     IF (use_ice_concCh) ice_conc = p_ice%conc(jc,1,jb)
+  !           IF (use_ice_concCh) ice_conc = conc_old(jc,jb)
+  !           sst_flux = p_ice%Qtop(jc,1,jb)*ice_conc
+  !         END SELECT
+
+            ! precipitation: add heat content minus latent heat of frozen rpreci to meltdraft 
+            meltdraft(jc,jb) = meltdraft(jc,jb) + ((Tf-t_base)*clw - alf)*atmos_fluxes%rpreci(jc,jb)*dtime*conc_old(jc,jb)*rho_ref
+
+            ! heat: add energy due to fluxes, using old height
+            sstCheck(jc,jb)  = sstCheck(jc,jb) + sst_flux*dtime/(clw*rho_ref*hCheck(jc,jb))
+            ! add energy due to additional water column: precip over open water + precip through ice (rprecw) with sst_old
+            fwfcheck(jc,jb)  = p_as%FrshFlux_Precipitation(jc,jb)*(1.0_wp-conc_old(jc,jb))*dtime &
+              &                + atmos_fluxes%rprecw(jc,jb)*dtime*conc_old(jc,jb)
+
+            ! calculate theoretical energy for comparison
+            !  - energy to check using SST/energy of previous timestep + energy from flux on SST
+            !  - additonal freshwater flux yields old SST
+            !  - additonal freshwater flux yields new original SST
+            !  - when SST and zunderice are changed in one step, a tiny correction term due to meltwater entering
+            !    at new SST and not at Tf should be considered here using delhice aus upper_ocean_TS:
+            !    T_meltcorr = Delhice*rhoi/rho_ref*conc*(sst-tf)*rho_ref*clw
+            energyCh2(jc,jb) = (sstCheck(jc,jb) - t_base) * hCheck(jc,jb)*rho_ref*clw   &  ! new SST with old height
+          !   &              + (sst_old (jc,jb) - t_base) * fwfcheck(jc,jb)*rho_ref*clw &  ! old SST with added height
+              &              + (sst     (jc,jb) - t_base) * fwfcheck(jc,jb)*rho_ref*clw &  ! added height receives real SST
+          !   &              + (sst     (jc,jb) - t_base) * Delhice*rhoi/rho_ref*clw &  ! added height receives real SST
+              &              + meltdraft(jc,jb)
+
+            ! needs update of theoretical height and sst for next timestep:
+            sstCheck(jc,jb)  = (sstCheck(jc,jb)*hCheck(jc,jb) + sst(jc,jb)*fwfCheck(jc,jb))/(hCheck(jc,jb)+fwfCheck(jc,jb))
+            hCheck(jc,jb)    = hCheck(jc,jb) + fwfCheck(jc,jb)  !  update height
+
+          END DO
+        END DO
+      END DO
+
+      energyDiff(:,:) = energyCheck(:,:) - energyCh2(:,:)
+      energyDits(:,:) = energyDiff(:,:)  - energySav(:,:)
+
+      !---  salt    -----------------------------------------------------------
+      saltAfter   = salt_content_in_surface(patch_2D, flat(:,:),p_ice, p_os(n_dom),surface_fluxes, &
+        &            p_ice%zUnderIce,computation_type=budget_type_salt,info='AFTER')
+
+      ! compute budget
+      saltBudget     = saltAfter - saltBefore        ! this discribes the saltbudget in kg, which has to be zero
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('TB.SfcFlux: saltAfter    ' ,saltAfter      (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: saltBudget   ' ,saltBudget     (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sss      uSST' ,sss            (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sst      uSST' ,sst            (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: zUnderIc uSST' ,p_ice%zUnderIce(:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: conc_old uSST' ,conc_old       (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energy   uSST' ,energyCheck    (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: sstCheck uSST' ,sstCheck       (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energyCh2uSST' ,energyCh2      (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energyDifuSST' ,energyDiff     (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: heightCH2uSST' ,hCheck         (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: fwfcheck uSST' ,fwfcheck       (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: meltdraftuSST' ,meltdraft      (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energySavuSST' ,energySav      (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: energyDitsSST' ,energyDits     (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: trac_old uSST' ,p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1),debug_string, 5, &
+        &  in_subset=patch_3d%p_patch_2D(1)%cells%owned)
+      !---------------------------------------------------------------------
+
+      ! hack for writing energy/salt budgets on ice%u/v:
+      p_ice%u(:,:) = energyDits(:,:)
+      p_ice%v(:,:) = saltBudget(:,:)
+      CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+
+      time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
+      p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
+      p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
+      p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
+      p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
+      p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
+
+      CALL output_ocean( patch_3D,   &
+        &                p_os(n_dom),&
+        &                datetime,   &
+        &                surface_fluxes,  &
+        &                p_ice,      &
+        &                jstep, jstep0)
+
+      CALL update_time_indices(n_dom)
+
+    END DO
+
+    CALL timer_stop(timer_total)
+    
+  END SUBROUTINE test_surface_flux_slo
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
