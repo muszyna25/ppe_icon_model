@@ -148,17 +148,19 @@ cat > ${ocean_namelist} << EOF
   k_tracer_dianeutral_parameter   =   1.0E-5  !
 /
 &ocean_physics_nml
-  i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on
+! i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3
+  bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3
   physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
   use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
-  i_ice_therm                     =   1       ! 0: not allowed, 1=zero-layer, 2=Winton
-  i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+! i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
+! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
+! use_constant_tfreez             = .TRUE.    ! default: true
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! ocean forcing
@@ -173,14 +175,16 @@ cat > ${ocean_namelist} << EOF
                                               ! this value is divided by number of seconds per month (=30*24*3600)
   type_surfRelax_Salt             =   1       ! 2-dim relaxation of salinity - see temperature relaxation for type values
   para_surfRelax_Salt             =   3.0     ! strength of 2-dim relaxation for salinity (months)
-  forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
-  forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
-  seaice_limit                    =   0.4     ! maximum of 8m (0.4*dz) for both, ice and snow
+! forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+! forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM; default: false
+! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
+! limit_seaice                    = .TRUE.    ! default: true
+  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
 /                                    
 &ocean_initialConditions_nml
-  use_file_initialConditions = $use_file_initialConditions  ! read ocean initialization file, see above
-! itestcase_oce                   =  50        ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type           = 1         ! read from file
+  initial_temperature_type        = 1         ! read from file
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1
