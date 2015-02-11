@@ -167,7 +167,6 @@ CONTAINS
     TYPE(t_list_element), POINTER       :: element
     TYPE(t_var_action)  , POINTER       :: action_list
     CHARACTER(LEN=2)                    :: str_actionID
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_ref_datetime ! ISO_8601
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
@@ -176,10 +175,6 @@ CONTAINS
     nvars = 0
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
-
-    ! create model ini_datetime in ISO_8601 format. Will be used 
-    ! as reference date for setting up events. 
-    CALL get_datetime_string(iso8601_ref_datetime, time_config%ini_datetime)
 
 
     ! store actionID
@@ -220,7 +215,7 @@ CONTAINS
             event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(action_list%action(iact)%intvl)
             act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
               &                                    TRIM(event_name),                    &
-              &                                    TRIM(iso8601_ref_datetime),          &
+              &                                    TRIM(action_list%action(iact)%ref),  &
               &                                    TRIM(action_list%action(iact)%start),&
               &                                    TRIM(action_list%action(iact)%end  ),&
               &                                    TRIM(action_list%action(iact)%intvl))
@@ -256,7 +251,7 @@ CONTAINS
       CALL message('',message_text)
 
       IF(my_process_is_stdio()) THEN
-        CALL action_setup_print (act_obj)
+        CALL action_print_setup (act_obj)
       ENDIF
     ENDIF
 
@@ -272,7 +267,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-06)
   !!
-  SUBROUTINE action_setup_print (act_obj)
+  SUBROUTINE action_print_setup (act_obj)
 
     CLASS(t_action_obj)         :: act_obj  !< action for which setup will be printed
     TYPE(t_table)               :: table
@@ -287,6 +282,7 @@ CONTAINS
     CALL initialize_table(table)
     ! the latter is no longer mandatory
     CALL add_table_column(table, "VarName")
+    CALL add_table_column(table, "Ref date")
     CALL add_table_column(table, "Start date")
     CALL add_table_column(table, "End date")
     CALL add_table_column(table, "Interval")
@@ -298,6 +294,8 @@ CONTAINS
 
       irow = irow + 1 
       CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
+      CALL set_table_entry(table,irow,"Ref date", &
+        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%ref))
       CALL set_table_entry(table,irow,"Start date", &
         &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%start))
       CALL set_table_entry(table,irow,"End date", &
@@ -310,7 +308,7 @@ CONTAINS
     CALL finalize_table(table)
 
     WRITE (0,*) " " ! newline
-  END SUBROUTINE action_setup_print
+  END SUBROUTINE action_print_setup
 
 
 
