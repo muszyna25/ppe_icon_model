@@ -64,7 +64,8 @@ CLEAN.include('*.run')
 #    ['exp.oce_omip_testSurface','mpi_procs_pernode=4'],
   ],
   :oceanPerformanceBliz   => [
-    [],
+    ['exp.oc_notthere'],
+    ['exp.oc_notthere','foobar=4'],
   ],
   :oceanBasicConservation => %w[exp.oce_omip_testSurface],
   :oceanLong              => [['exp.oce_omip_long','no_of_nodes=8']],
@@ -316,6 +317,8 @@ task :showSuites, :name do |t,args|
     puts name.to_s
     experimentList.each {|experiment|
       puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
+      templateName = experiment.kind_of?(String) ? experiment : experiment[0]
+      warn "WARNING: Could not find template #{templateName}" unless @allTemplates.include?(templateName)
     }
   }
   puts '='*LINEWIDTH
