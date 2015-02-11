@@ -52,18 +52,24 @@ CLEAN.include('*.run')
     ['exp.oce_omip_performance','mpi_procs_pernode=1'],
     ['exp.oce_omip_performance','mpi_procs_pernode=2'],
     ['exp.oce_omip_performance','mpi_procs_pernode=4'],
-#   ['exp.oce_omip_performance','mpi_procs_pernode=8'],
-#   ['exp.oce_omip_performance','mpi_procs_pernode=16'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=8'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=16'],
     ['exp.oce_omip_performance','no_of_nodes=1'],
     ['exp.oce_omip_performance','no_of_nodes=2'],
     ['exp.oce_omip_performance','no_of_nodes=3'],
     ['exp.oce_omip_performance','no_of_nodes=4'],
 #   ['exp.oce_omip_performance','no_of_nodes=8'],
-#    ['exp.oce_omip_testSurface','mpi_procs_pernode=1'],
-#    ['exp.oce_omip_testSurface','mpi_procs_pernode=2'],
-#    ['exp.oce_omip_testSurface','mpi_procs_pernode=4'],
   ],
-  :oceanPerformanceBliz   => %w[exp.oc_notthere],
+  :oceanPerformanceBliz   => [
+    ['exp.oce_omip_performance','mpi_procs_pernode=1'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=2'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=4'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=8'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=16'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=32'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=64'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=32','no_of_nodes=2'],
+  ],
   :oceanBasicConservation => %w[exp.oce_omip_testSurface],
   :oceanLong              => [['exp.ocean_omip_long','no_of_nodes=8']],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
@@ -263,9 +269,8 @@ def processTestsuitesTemplates(componentTemplates, testSuites,allTemplates)
         })
         # get real path name for the template
         templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
-        if templateRealPath.nil? and not templateCheck(template,@allTemplates,@testSuites.keys.map(&:to_s),name)
-          next
-        end
+        next if templateRealPath.nil? and not templateCheck(template,@allTemplates,@testSuites.keys.map(&:to_s),name)
+
         templateWithSetup = getTemplateNameWithSetup(template,setup)
         scriptWithSetup   = getScriptNameWithSetup(template,setup)
 
