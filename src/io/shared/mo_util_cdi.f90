@@ -38,10 +38,16 @@ MODULE mo_util_cdi
     &                              deallocateTimedelta, deallocateDatetime, &
     &                              MAX_DATETIME_STR_LEN
   USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
+  USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
+    &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
+    &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
+    &                              zaxisInqNlevRef, vlistInqVarGrid, gridInqSize,           &
+    &                              zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32,            &
+    &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
+    &                              TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis,      &
+    &                              taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR
 
   IMPLICIT NONE
-  INCLUDE 'cdi.inc'
-
   PRIVATE
 
   PUBLIC :: has_filetype_netcdf

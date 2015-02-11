@@ -30,12 +30,13 @@ MODULE mo_bc_sst_sic
   USE mo_run_config,         ONLY: dtime
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_cdi_constants,      ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
+    &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
+    &                              vlistInqVarGrid
 
   IMPLICIT NONE
 
   PRIVATE
-
-  INCLUDE 'cdi.inc'
   
   REAL(dp), POINTER :: sst(:,:,:) => NULL()
   REAL(dp), POINTER :: sic(:,:,:) => NULL()

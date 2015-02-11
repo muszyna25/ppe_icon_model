@@ -35,8 +35,6 @@ MODULE mo_icon_cpl_restart
 
   PRIVATE
  
-  INCLUDE 'cdi.inc'
-
   TYPE(t_grid), POINTER      :: gptr ! pointer to grid struct
   TYPE(t_cpl_field), POINTER :: fptr ! pointer to field struct
 
