@@ -67,7 +67,7 @@ end
     [],
   ],
   :oceanBasicConservation => %w[exp.oce_omip_testSurface],
-  :oceanLong              => [['exp.oce_omip_long'],['no_of_nodes=8']],
+  :oceanLong              => [['exp.oce_omip_long','no_of_nodes=8']],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
   :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
@@ -232,13 +232,18 @@ templatesWithRealPath = @componentTemplates.values.map(&:values).flatten.delete_
 @testSuites.each {|name,experimentList|
   testSuiteRunscripts = []
   experimentList.each {|experimentDescription|
+    dbg(experimentDescription)
     # handle ONLY tests WITH parameter settings - all other are alreade covered by (A) and (B)
     if experimentDescription.kind_of?(Array) then
+      next if experimentDescription.empty?
+
       template, setup = experimentDescription[0],experimentDescription[1..-1]
 
       dbg( {
         template: template,
         setup: setup,
+      })
+      dbg( {
         setupHash: setup.map {|v| v.split('=')}.to_h,
       })
       # get real path name for the template
