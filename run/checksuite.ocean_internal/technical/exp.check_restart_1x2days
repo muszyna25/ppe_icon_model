@@ -17,7 +17,7 @@ start_date="2001-01-01T00:00:00Z"
 (( dt_data       = 6   * 3600 ))
 (( dt_file       = 9990    * 86400 ))
 (( dt_checkpoint = 9999  * 86400 ))
-(( restartDays   = 4 ))
+(( restartDays   = 2 ))
 (( dt_restart    =  restartDays * 86400 ))
 (( steps_per_file = 99999 ))
 #
