@@ -8,6 +8,9 @@ rescue
   warn "Could not find 'facets'"
 end
 
+$DEBUG = ENV.has_key?('DEBUG')
+$QUIET = ENV.has_key?('QUIET')
+
 CLEAN.include('*.run')
 #==============================================================================
 # EXAMPLES:
@@ -90,9 +93,7 @@ CLEAN.include('*.run')
 #==============================================================================
 # HELPER METHODS {{{ ==========================================================
 def dbg(item)
-  if ENV.has_key?('DEBUG')
-    pp item
-  end
+  pp item if $DEBUG
 end
 def checkFiles4Presence(*files)
   files.each {|file|
@@ -241,8 +242,8 @@ def templateCheck(name,allTemplates,allSuites,suite=nil)
     msg = "WARNING: Count not find template '#{name}' "
     msg << "from suite '#{name}'" unless suite.nil?
     msg << "!!!"
-    warn msg
-    exit(1) if ENV.has_key?('DEBUG')
+    warn msg unless $QUIET
+    exit(1) if $DEBUG
     return false
   end
   return true
@@ -623,7 +624,7 @@ task :checkTimeMean, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do
   checkFile4Variables(meanFile,meanVar)
 
   # delte first timestep, if it is the initial one
-  Cdo.debug = ENV.has_key?('DEBUG')
+  Cdo.debug = $DEBUG
   tempFile = {}
   [spotFile,meanFile].each_with_index {|f,i|
     tag               = %w[spot mean][i]
