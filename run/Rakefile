@@ -44,9 +44,9 @@ CLEAN.include('*.run')
     ['exp.oce_omip_performance','nproma=64'],
     ['exp.oce_omip_testSurface','nproma=16']],
   :oceanMpiCheck          => [
-    ['exp.oce_omip_short','no_of_nodes=1'],
-    ['exp.oce_omip_short','no_of_nodes=2'],
-    ['exp.oce_omip_short','no_of_nodes=1','mpi_procs_pernode=7'],
+    ['exp.ocean_omip_short','no_of_nodes=1'],
+    ['exp.ocean_omip_short','no_of_nodes=2'],
+    ['exp.ocean_omip_short','no_of_nodes=1','mpi_procs_pernode=7'],
   ],
   :oceanPerformance       => [
     ['exp.oce_omip_performance','mpi_procs_pernode=1'],
@@ -63,12 +63,12 @@ CLEAN.include('*.run')
 #    ['exp.oce_omip_testSurface','mpi_procs_pernode=2'],
 #    ['exp.oce_omip_testSurface','mpi_procs_pernode=4'],
   ],
-  :oceanPerformanceBliz   => [
-    ['exp.oc_notthere'],
-    ['exp.oc_notthere','foobar=4'],
-  ],
+# :oceanPerformanceBliz   => [
+#   ['exp.oc_notthere'],
+#   ['exp.oc_notthere','foobar=4'],
+# ],
   :oceanBasicConservation => %w[exp.oce_omip_testSurface],
-  :oceanLong              => [['exp.oce_omip_long','no_of_nodes=8']],
+  :oceanLong              => [['exp.ocean_omip_long','no_of_nodes=8']],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
   :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
@@ -245,23 +245,28 @@ def processTestsuitesTemplates(componentTemplates, testSuites)
 
         template, setup = experimentDescription[0],experimentDescription[1..-1]
 
-        #     dbg( {
-        #       template: template,
-        #       setup: setup,
-        #     })
-        #     dbg( {
-        #       setupHash: setup.map {|v| v.split('=')}.to_h,
-        #     })
+        dbg( {
+          template: template,
+          setup: setup,
+        })
+        dbg( {
+          setupHash: setup.map {|v| v.split('=')}.to_h,
+        })
         # get real path name for the template
         templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
-          templateWithSetup = getTemplateNameWithSetup(template,setup)
+        if templateRealPath.nil?
+          warn "WARNING: Count not find template '#{template}' from suite '#{name}'!!!"
+          exit
+          next
+        end
+        templateWithSetup = getTemplateNameWithSetup(template,setup)
         scriptWithSetup   = getScriptNameWithSetup(template,setup)
 
-        #     dbg( {
-        #       templatesWithRealPath: templateRealPath,
-        #       templateWithSetup: templateWithSetup,
-        #       scriptWithSetup: scriptWithSetup,
-        #     })
+        dbg( {
+          templatesWithRealPath: templateRealPath,
+          templateWithSetup: templateWithSetup,
+          scriptWithSetup: scriptWithSetup,
+        })
 
         makeLinkTarget(templateRealPath,templateWithSetup)
         makeRunTarget(template,setup)
