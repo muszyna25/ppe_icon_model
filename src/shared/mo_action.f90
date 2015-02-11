@@ -107,6 +107,7 @@ MODULE mo_action
 
     PROCEDURE :: initialize => action_collect_vars  ! initialize action object
     PROCEDURE :: execute    => action_execute       ! execute action object
+    PROCEDURE :: print_setup=> action_print_setup   ! Screen print out of action object setup
     !
     ! deferred routine for action specific kernel (to be defined in extended type)
     PROCEDURE(kernel), deferred :: kernel
@@ -251,7 +252,7 @@ CONTAINS
       CALL message('',message_text)
 
       IF(my_process_is_stdio()) THEN
-        CALL action_print_setup (act_obj)
+        CALL act_obj%print_setup()
       ENDIF
     ENDIF
 
@@ -269,13 +270,13 @@ CONTAINS
   !!
   SUBROUTINE action_print_setup (act_obj)
 
-    CLASS(t_action_obj)         :: act_obj  !< action for which setup will be printed
-    TYPE(t_table)               :: table
+    CLASS(t_action_obj)  :: act_obj  !< action for which setup will be printed
 
     ! local variables
-    INTEGER  :: ivar            ! loop counter
-    INTEGER  :: irow            ! row to fill
-    INTEGER  :: var_action_idx  ! index of current action in variable-specific action list
+    TYPE(t_table) :: table
+    INTEGER       :: ivar            ! loop counter
+    INTEGER       :: irow            ! row to fill
+    INTEGER       :: var_action_idx  ! index of current action in variable-specific action list
     !--------------------------------------------------------------------------
 
     ! table-based output

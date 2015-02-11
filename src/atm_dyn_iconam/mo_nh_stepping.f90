@@ -809,9 +809,6 @@ MODULE mo_nh_stepping
 
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
-    ! Reset is only allowed at (after) advection/Physics time steps, since output is  
-    ! synchronized with advection/physics steps. Triggering the re-set action at non-advection 
-    ! timesteps may lead to zero-fields in the output. 
     !
 !DR      CALL reset_act%execute(slack=dtime)
 !DR Workaround for gfortran 4.5 (and potentially others)
