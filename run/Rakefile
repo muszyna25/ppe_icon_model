@@ -8,7 +8,7 @@ rescue
   warn "Could not find 'facets'"
 end
 
-
+CLEAN.include('*.run')
 #==============================================================================
 # EXAMPLES:
 # 1. Create a runscrtipt from an existing template
@@ -80,7 +80,7 @@ end
   :oceanTracers           => %w[exp.oce_test_numeric_tracerconservation],
   :oceanBuildbot          => %w[exp.test_ocean_omip_parallel exp.test_ocean_omip_10days exp.test_ocean_omip_technical],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
-  :atmTimeMean            => %w[exp.atm_amip_acc exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
+  :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
 }
 # }}}
 #==============================================================================
@@ -189,84 +189,95 @@ def getAllGivenTests(args, environment)
   testsGiven = args.name.nil? ? (environment.has_key?('TESTS') ? environment['TESTS'].split(',') : nil ) : [args.name]
   testsGiven
 end
-def getExpNameFromScript(scriptName)
+# Create link target for templates from given subdirectories
+def processComponents
+  componentTemplates = {}
+  # collect templates from know component subdirs
+  {
+    :ocean          => {:subDirPattern => 'ocean_internal/**/*'},
+    :coupled        => {:subDirPattern => 'coupled/*'},
+    :iconStableMpim => {:subDirPattern => 'icon-stable.mpim/**/*'},
+    :iconDev        => {:subDirPattern => 'icon-dev/check.atm*'},
+    :atmDev         => {:subDirPattern => 'icon-dev/technical/exp.atm*'},
+  }.each {|component,componentExperiments|
+    componentTemplates[component] = {}
+    Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
+      template = File.basename(item)
+      if not File.directory?(item) and (['exp','post','check'].include?(template.split('.').first)) then
+        componentTemplates[component][template] = item
+        CLEAN.include(template)
+      end
+    }
+    unless componentTemplates[component].keys.empty? then
+      desc "all tests of '#{component}'"
+      task component.to_sym => componentTemplates[component].keys.map {|template| getScriptNameWithSetup(template,{})}
+    end
+  }
+  # create link target for found templates
+  componentTemplates.each {|component, componentsTests|
+    componentsTests.each {|template,source| makeLinkTarget(source, template) }
+  }
+  return componentTemplates
+end
+# Collect top level templates from the disk
+def getTopLevelTemplates
+  return Dir.glob("{post,exp}.*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
+end
+# create targets for .run files from all available templates
+def processPlainTemplates(componentTemplates,toplevelTemplates)
+  allTemplates = toplevelTemplates
+  componentTemplates.each_value {|v| allTemplates << v.keys}
+  allTemplates.flatten!
+  allTemplates.each {|template| makeRunTarget(template) }
+  return allTemplates
+end
+# define targets for all testsuite targetes WITH special parameters
+def processTestsuitesTemplates(componentTemplates, testSuites)
+  templatesWithRealPath = componentTemplates.values.map(&:values).flatten.delete_if {|v| v.empty?}
+  testSuites.each {|name,experimentList|
+    testSuiteRunscripts = []
+    experimentList.each {|experimentDescription|
+      dbg(experimentDescription)
+      # handle ONLY tests WITH parameter settings - all other are alreade covered by (A) and (B)
+      if experimentDescription.kind_of?(Array) then
+        next if experimentDescription.empty?
+
+        template, setup = experimentDescription[0],experimentDescription[1..-1]
+
+        #     dbg( {
+        #       template: template,
+        #       setup: setup,
+        #     })
+        #     dbg( {
+        #       setupHash: setup.map {|v| v.split('=')}.to_h,
+        #     })
+        # get real path name for the template
+        templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
+          templateWithSetup = getTemplateNameWithSetup(template,setup)
+        scriptWithSetup   = getScriptNameWithSetup(template,setup)
+
+        #     dbg( {
+        #       templatesWithRealPath: templateRealPath,
+        #       templateWithSetup: templateWithSetup,
+        #       scriptWithSetup: scriptWithSetup,
+        #     })
+
+        makeLinkTarget(templateRealPath,templateWithSetup)
+        makeRunTarget(template,setup)
+
+        testSuiteRunscripts << scriptWithSetup
+      else
+        testSuiteRunscripts << experimentDescription+".run"
+      end
+    }
+    file name => testSuiteRunscripts
+  }
 end
 # }}}
 # BASIC TEMPLATE PROCESSING {{{ ===============================================
-@componentTemplates = {}
-{
-  :ocean          => {:subDirPattern => 'ocean_internal/**/*'},
-  :coupled        => {:subDirPattern => 'coupled/*'},
-  :iconStableMpim => {:subDirPattern => 'icon-stable.mpim/**/*'},
-  :iconDev        => {:subDirPattern => 'icon-dev/check.atm*'},
-  :atmDev         => {:subDirPattern => 'icon-dev/technical/exp.atm*'},
-}.each {|component,componentExperiments|
-  @componentTemplates[component] = {}
-  Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
-    template = File.basename(item)
-    if not File.directory?(item) and (['exp','post','check'].include?(template.split('.').first)) then
-      @componentTemplates[component][template] = item
-      CLEAN.include(template)
-    end
-  }
-    unless @componentTemplates[component].keys.empty? then
-      desc "all tests of '#{component}'"
-      task component.to_sym => @componentTemplates[component].keys.map {|template| getScriptNameWithSetup(template,{})}
-    end
-}
-# collect ALL TESTS -----------------------------------------------------------
-#  available top level tests
-@allTemplates = Dir.glob("{post,exp}*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
-#  templates from ckecksuites
-@componentTemplates.each_value {|v| @allTemplates << v.keys}
-@allTemplates.flatten!
-CLEAN.include('*.run')
-#  (A) define rule for create .run files for toplevel and plain component templates
-@allTemplates.each {|template| makeRunTarget(template) }
-#  (B) define symlink rule for checksuite items
-@componentTemplates.each {|component, componentsTests|
-  componentsTests.each {|template,source| makeLinkTarget(source, template) }
-}
-#  (C) define targets for all testsuite targetes WITH special parameters
-templatesWithRealPath = @componentTemplates.values.map(&:values).flatten.delete_if {|v| v.empty?}
-@testSuites.each {|name,experimentList|
-  testSuiteRunscripts = []
-  experimentList.each {|experimentDescription|
-    dbg(experimentDescription)
-    # handle ONLY tests WITH parameter settings - all other are alreade covered by (A) and (B)
-    if experimentDescription.kind_of?(Array) then
-      next if experimentDescription.empty?
-
-      template, setup = experimentDescription[0],experimentDescription[1..-1]
-
-      dbg( {
-        template: template,
-        setup: setup,
-      })
-      dbg( {
-        setupHash: setup.map {|v| v.split('=')}.to_h,
-      })
-      # get real path name for the template
-      templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
-      templateWithSetup = getTemplateNameWithSetup(template,setup)
-      scriptWithSetup   = getScriptNameWithSetup(template,setup)
-
-      dbg( {
-        templatesWithRealPath: templateRealPath,
-        templateWithSetup: templateWithSetup,
-        scriptWithSetup: scriptWithSetup,
-      })
-
-      makeLinkTarget(templateRealPath,templateWithSetup)
-      makeRunTarget(template,setup)
-
-      testSuiteRunscripts << scriptWithSetup
-    else
-      testSuiteRunscripts << experimentDescription+".run"
-    end
-  }
-  file name => testSuiteRunscripts
-}
+@componentTemplates = processComponents
+@allTemplates       = processPlainTemplates(@componentTemplates,getTopLevelTemplates)
+processTestsuitesTemplates(@componentTemplates, @testSuites)
 # }}}
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
@@ -631,6 +642,17 @@ task :selfCheck do
     puts t.name
     t.invoke unless %w[check clean clobber].include?(t.name)
   }
+end
+desc "Check if all testsuite templates are really there"
+task :checkSuiteTemplates do
+  # collect template names
+# templateNames = []
+# @testSuites.keys.each {|suiteName|
+#       experimentList << getExperimentsFromTestSuite(suiteName.to_sym)
+#     else
+#       experimentList << test if @allTemplates.include?(test)
+#     end
+  # check of the files can be found
 end
 task :showSubmit do
   require 'pp'
