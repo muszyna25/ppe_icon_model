@@ -28,7 +28,7 @@ CLEAN.include('*.run')
   :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
   :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
   :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
-  :oceanTechnical         => %w[exp.ocean_omip_ptest exp.oce_test_numeric_tracerconservation exp.test_ocean_numeric],
+  :oceanTechnical         => %w[exp.ocean_omip_ptest exp.test_ocean_numeric_tracerconservation],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanRestart           => [
     ['exp.check_restart_2x1days','queue=mpi-develop'],
@@ -63,10 +63,7 @@ CLEAN.include('*.run')
 #    ['exp.oce_omip_testSurface','mpi_procs_pernode=2'],
 #    ['exp.oce_omip_testSurface','mpi_procs_pernode=4'],
   ],
-# :oceanPerformanceBliz   => [
-#   ['exp.oc_notthere'],
-#   ['exp.oc_notthere','foobar=4'],
-# ],
+  :oceanPerformanceBliz   => %w[exp.oc_notthere],
   :oceanBasicConservation => %w[exp.oce_omip_testSurface],
   :oceanLong              => [['exp.ocean_omip_long','no_of_nodes=8']],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
@@ -78,7 +75,7 @@ CLEAN.include('*.run')
     %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
     %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
   ],
-  :oceanTracers           => %w[exp.oce_test_numeric_tracerconservation],
+  :oceanTracers           => %w[exp.test_ocean_numeric_tracerconservation],
   :oceanBuildbot          => %w[exp.test_ocean_omip_parallel exp.test_ocean_omip_10days exp.test_ocean_omip_technical],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
   :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
@@ -222,7 +219,7 @@ def processComponents
 end
 # Collect top level templates from the disk
 def getTopLevelTemplates
-  return Dir.glob("{post,exp}.*").delete_if {|f| File.extname(f) == '.run' or File.symlink?(f) }
+  return Dir.glob("{post,exp}.*").delete_if {|f| File.extname(f) == '.run'}
 end
 # create targets for .run files from all available templates
 def processPlainTemplates(componentTemplates,toplevelTemplates)
@@ -232,8 +229,20 @@ def processPlainTemplates(componentTemplates,toplevelTemplates)
   allTemplates.each {|template| makeRunTarget(template) }
   return allTemplates
 end
+def templateCheck(name,allTemplates,allSuites,suite=nil)
+  return true if allSuites.include?(name)
+  unless allTemplates.include?(name)
+    msg = "WARNING: Count not find template '#{name}' "
+    msg << "from suite '#{name}'" unless suite.nil?
+    msg << "!!!"
+    warn msg
+    exit(1) if ENV.has_key?('DEBUG')
+    return false
+  end
+  return true
+end
 # define targets for all testsuite targetes WITH special parameters
-def processTestsuitesTemplates(componentTemplates, testSuites)
+def processTestsuitesTemplates(componentTemplates, testSuites,allTemplates)
   templatesWithRealPath = componentTemplates.values.map(&:values).flatten.delete_if {|v| v.empty?}
   testSuites.each {|name,experimentList|
     testSuiteRunscripts = []
@@ -254,9 +263,7 @@ def processTestsuitesTemplates(componentTemplates, testSuites)
         })
         # get real path name for the template
         templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
-        if templateRealPath.nil?
-          warn "WARNING: Count not find template '#{template}' from suite '#{name}'!!!"
-          exit
+        if templateRealPath.nil? and not templateCheck(template,@allTemplates,@testSuites.keys.map(&:to_s),name)
           next
         end
         templateWithSetup = getTemplateNameWithSetup(template,setup)
@@ -273,6 +280,7 @@ def processTestsuitesTemplates(componentTemplates, testSuites)
 
         testSuiteRunscripts << scriptWithSetup
       else
+        next if templateCheck(experimentDescription,@allTemplates,@testSuites.keys.map(&:to_s))
         testSuiteRunscripts << experimentDescription+".run"
       end
     }
@@ -283,7 +291,7 @@ end
 # BASIC TEMPLATE PROCESSING {{{ ===============================================
 @componentTemplates = processComponents
 @allTemplates       = processPlainTemplates(@componentTemplates,getTopLevelTemplates)
-processTestsuitesTemplates(@componentTemplates, @testSuites)
+processTestsuitesTemplates(@componentTemplates, @testSuites,@allTemplates)
 # }}}
 # BASIC FOMATING SETUP {{{ ====================================================
 LINEWIDTH = 80
@@ -323,7 +331,9 @@ task :showSuites, :name do |t,args|
     experimentList.each {|experiment|
       puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
       templateName = experiment.kind_of?(String) ? experiment : experiment[0]
-      warn "WARNING: Could not find template #{templateName}" unless @allTemplates.include?(templateName)
+      unless @testSuites.keys.include?(templateName.to_sym) then
+        warn "WARNING: Could not find template #{templateName}" if not @allTemplates.include?(templateName)
+      end
     }
   }
   puts '='*LINEWIDTH
