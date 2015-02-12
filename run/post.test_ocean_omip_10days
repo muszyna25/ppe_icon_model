@@ -47,11 +47,11 @@ check_error $? "oce_numeric: $nclCaller"
 
 # check for identical results compared to the reference
 slave=${BB_SLAVE:-thunder_gcc}
-case `hostname` in 
+case ${slave} in  
   thunder*)
     refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
     ;;
-  *)
+  bliz*)
     refDir=/work/mh0287/reference/${slave}/${EXPNAME}
     ;;
 esac
