@@ -958,6 +958,14 @@ ENDIF
       p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
       p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
+      
+      ! update accumulated vars
+      CALL update_ocean_statistics(p_os(n_dom), &
+        & surface_fluxes,                       &
+        & patch_2D%cells%owned,                 &
+        & patch_2D%edges%owned,                 &
+        & patch_2D%verts%owned,                 &
+        & n_zlev)
 
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
