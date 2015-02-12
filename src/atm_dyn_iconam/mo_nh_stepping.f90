@@ -925,7 +925,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now_grf, n_now, n_new, n_save
+    INTEGER :: n_now_grf, n_now, n_save
     INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
   
     INTEGER :: jstep, jgp, jgc, jn
