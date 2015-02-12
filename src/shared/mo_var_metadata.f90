@@ -517,22 +517,23 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2014-12-03)
   !! - add optional start and end time arguments
   !!
-  FUNCTION new_action(actionID, intvl, opt_start, opt_end) RESULT(var_action)
+  FUNCTION new_action(actionID, intvl, opt_start, opt_end, opt_ref) RESULT(var_action)
 
     INTEGER                   , INTENT(IN) :: actionID  ! action ID
     CHARACTER(LEN=*)          , INTENT(IN) :: intvl     ! action interval [ISO_8601]
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_start ! action start time [ISO_8601]
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_end   ! action end time [ISO_8601]
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_ref   ! action reference time [ISO_8601]
 
     ! local variables
-    TYPE(timedelta), POINTER              :: start_offset, end_offset
-    TYPE(datetime), TARGET                :: startdatetime, enddatetime
+    TYPE(timedelta), POINTER              :: start_offset, end_offset, ref_offset
+    TYPE(datetime), TARGET                :: startdatetime, enddatetime, refdatetime
     TYPE(datetime), POINTER               :: dummy_ptr
     TYPE(t_var_action_element)            :: var_action
     TYPE(datetime), POINTER               :: inidatetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end           ! start and end time
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end, ref      ! start, end, and reference time
                                                                   ! in ISO_8601 format
     !---------------------------------------------------------------------------------
 
@@ -545,6 +546,9 @@ CONTAINS
     start = TRIM(iso8601_ini_datetime)
     ! default end time = model end time
     end = TRIM(iso8601_end_datetime)
+    ! default reference time = model initialization time
+    ref = TRIM(iso8601_ini_datetime)
+
 
     ! assign modified start time if offset opt_start is present
     IF (PRESENT(opt_start)) THEN
@@ -585,12 +589,33 @@ CONTAINS
       CALL deallocateTimeDelta(end_offset)
     ENDIF
 
+    ! assign modified reference time if offset opt_ref is present
+    IF (PRESENT(opt_ref)) THEN
+      !
+      ! convert model ini datetime from ISO_8601 format to type datetime
+      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
+      !
+      ! convert ref offset from ISO_8601 to TYPE timedelta
+      ref_offset => newTimedelta(TRIM(opt_ref))
+      !
+      ! add ref offset to model ini date
+      refdatetime = inidatetime + ref_offset
+      ! transform back from TYPE datetime to ISO_8601
+      dummy_ptr => refdatetime
+      CALL dateTimeToString(dummy_ptr, ref)
+      ! cleanup
+      CALL deallocateDatetime(inidatetime)
+      CALL deallocateTimeDelta(ref_offset)
+    ENDIF
+
+
 
     ! define var_action
     var_action%actionID   = actionID
     var_action%intvl      = TRIM(intvl)                ! interval
     var_action%start      = TRIM(start)                ! start
     var_action%end        = TRIM(end)                  ! end
+    var_action%ref        = TRIM(ref)                  ! ref date
     var_action%lastActive = TRIM(start)                ! arbitrary init
 
     !

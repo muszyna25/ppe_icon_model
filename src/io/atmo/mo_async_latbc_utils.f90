@@ -87,14 +87,12 @@
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
     USE mo_mtime_extensions,    ONLY: get_duration_string_real, getTimeDeltaFromDateTime
-    USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+      &                               streamOpenRead
     USE mo_master_nml,          ONLY: lrestart
     USE mo_run_config,          ONLY: nsteps, dtime
 
     IMPLICIT NONE
-
-    ! required for reading cdi files
-    INCLUDE 'cdi.inc'
 
     PRIVATE
 

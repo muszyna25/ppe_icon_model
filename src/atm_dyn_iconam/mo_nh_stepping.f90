@@ -125,7 +125,7 @@ MODULE mo_nh_stepping
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
     &                                    interval_avg_fg, is_avgFG_time
-  USE mo_initicon_utils,           ONLY: average_first_guess
+  USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
   USE mo_sync_latbc,               ONLY: prepare_latbc_data , read_latbc_data, &
@@ -809,13 +809,16 @@ MODULE mo_nh_stepping
 
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
-    ! Reset is only allowed at (after) advection/Physics time steps, since output is  
-    ! synchronized with advection/physics steps. Triggering the re-set action at non-advection 
-    ! timesteps may lead to zero-fields in the output. 
     !
 !DR      CALL reset_act%execute(slack=dtime)
 !DR Workaround for gfortran 4.5 (and potentially others)
     CALL reset_action(dtime)
+    !
+    ! re-initialization for FG-averaging. Ensures that average is centered in time.
+    IF (is_avgFG_time(datetime_current) .AND. (p_nh_state(1)%diag%nsteps_avg(1) == 0)) THEN
+      CALL reinit_average_first_guess(p_patch(1), p_nh_state(1)%diag, p_nh_state(1)%prog(nnow_rcf(1)))
+    ENDIF
+
 
     !--------------------------------------------------------------------------
     ! Write restart file
@@ -922,7 +925,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now_grf, n_now, n_new, n_save
+    INTEGER :: n_now_grf, n_now, n_save
     INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
   
     INTEGER :: jstep, jgp, jgc, jn

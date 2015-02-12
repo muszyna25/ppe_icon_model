@@ -39,10 +39,17 @@ MODULE mo_util_cdi
     &                              deallocateTimedelta, deallocateDatetime, &
     &                              MAX_DATETIME_STR_LEN
   USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
+  USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
+    &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
+    &                              vlistInqVarTypeOfGeneratingProcess,                      &
+    &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
+    &                              zaxisInqNlevRef, vlistInqVarGrid, gridInqSize,           &
+    &                              zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32,            &
+    &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
+    &                              TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis,      &
+    &                              taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR
 
   IMPLICIT NONE
-  INCLUDE 'cdi.inc'
-
   PRIVATE
 
   PUBLIC :: has_filetype_netcdf
@@ -363,6 +370,26 @@ CONTAINS
 
 
   !---------------------------------------------------------------------------------------------------------------------------------
+  !> small helper message to output the speed of an individual input operation
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE writeSpeedMessage(routineName, bytes, duration)
+    CHARACTER(len=*), INTENT(IN) :: routineName
+    INTEGER(i8), VALUE :: bytes
+    REAL(dp), VALUE :: duration
+
+    IF(msg_level >= 15) THEN
+        IF(duration /= 0.0) THEN
+            WRITE(0,*) routineName, ": Read ", bytes, " bytes in ", duration, " seconds (", &
+                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
+        ELSE
+            WRITE(0,*) routineName, ": Read ", bytes, " bytes in no time. ", &
+                &      "Failure to measure time may be due to compilation without MPI."
+        END IF
+    END IF
+  END SUBROUTINE
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
   !> wrapper for streamReadVarSlice() that measures the time
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE timeStreamReadVarSlice(parameters, varID, level, buffer, nmiss)
@@ -384,10 +411,7 @@ CONTAINS
         bytes = INT(SIZE(buffer, 1), i8) * 8_i8
         parameters%readDuration = parameters%readDuration + duration
         parameters%readBytes = parameters%readBytes + bytes
-        IF(msg_level >= 15) then
-            WRITE(0,*) routine, ": Read ", bytes, " bytes in ", duration, " seconds (", &
-                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
-        END IF
+        CALL writeSpeedMessage(routine, bytes, duration)
     END IF
   END SUBROUTINE timeStreamReadVarSlice
 
@@ -414,10 +438,7 @@ CONTAINS
         bytes = INT(SIZE(buffer, 1), i8) * 8_i8
         parameters%readDuration = parameters%readDuration + duration
         parameters%readBytes = parameters%readBytes + bytes
-        IF(msg_level >= 15) then
-            WRITE(0,*) routine, ": Read ", bytes, " bytes in ", duration, " seconds (", &
-                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
-        END IF
+        CALL writeSpeedMessage(routine, bytes, duration)
     END IF
   END SUBROUTINE timeStreamReadVarSliceF
 
