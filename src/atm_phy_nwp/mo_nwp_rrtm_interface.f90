@@ -1346,9 +1346,9 @@ CONTAINS
                                 !
           & cld_cvr        = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
           & flx_lw_net_clr = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-          & trsol_net_clr  = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+          & trm_sw_net_clr = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
           & flx_lw_net     = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-          & trsol_net      = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+          & trm_sw_net     = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
 
       ENDDO ! blocks
@@ -1471,9 +1471,9 @@ CONTAINS
                               !
         & cld_cvr        = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
         & flx_lw_net_clr = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-        & trsol_net_clr  = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & trm_sw_net_clr = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
         & flx_lw_net     = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-        & trsol_net      = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & trm_sw_net     = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
         & opt_halo_cosmu0 = .FALSE. )
     ENDDO
 !$OMP END DO NOWAIT

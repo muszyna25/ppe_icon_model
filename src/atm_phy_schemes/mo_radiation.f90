@@ -506,7 +506,7 @@ CONTAINS
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
     ! output
     & ,cld_cvr                                                             &
-    & ,flx_lw_net_clr    ,trsol_net_clr  ,flx_lw_net       ,trsol_net      &
+    & ,flx_lw_net_clr    ,trm_sw_net_clr  ,flx_lw_net       ,trm_sw_net    &
     & ,opt_halo_cosmu0  )
 
     ! input
@@ -556,9 +556,9 @@ CONTAINS
     REAL(wp), INTENT(out) ::           &
       &  cld_cvr(kbdim),               & !< Cloud cover in a column
       &  flx_lw_net_clr(kbdim,klevp1), & !< Net clear-sky longwave radiative flux [W/m**2] (positive downward)
-      &  trsol_net_clr(kbdim,klevp1),  & !< Net clear-sky solar transmissivity (= net clear-sky shortwave radiative flux normalized by irradiance)
+      &  trm_sw_net_clr(kbdim,klevp1), & !< Net clear-sky solar transmissivity (= net clear-sky shortwave radiative flux normalized by irradiance)
       &  flx_lw_net(kbdim,klevp1),     & !< Net longwave radiative flux [W/m**2] (positive downward)
-      &  trsol_net(kbdim,klevp1)         !< Net solar transmissivity (= net shortwave radiative flux normalized by irradiance)
+      &  trm_sw_net(kbdim,klevp1)        !< Net solar transmissivity (= net shortwave radiative flux normalized by irradiance)
 
 
     INTEGER  :: jk, jl
@@ -740,13 +740,13 @@ CONTAINS
     ! ---------------
     !
     ! --- Net solar transmissivity
-    trsol_net (:,:) = 0._wp
-    trsol_net (1:jce,1:klevp1) = flx_sw_net (1:jce,1:klevp1)                        &
+    trm_sw_net (:,:) = 0._wp
+    trm_sw_net (1:jce,1:klevp1) = flx_sw_net (1:jce,1:klevp1)                       &
       &                          / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
     !
     ! --- Net clear-sky solar transmissivity
-    trsol_net_clr(:,:) = 0._wp
-    trsol_net_clr(1:jce,1:klevp1) = flx_sw_net_clr(1:jce,1:klevp1)                      &
+    trm_sw_net_clr(:,:) = 0._wp
+    trm_sw_net_clr(1:jce,1:klevp1) = flx_sw_net_clr(1:jce,1:klevp1)                 &
       &                         / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
 
     IF (ltimer) CALL timer_stop(timer_radiation)

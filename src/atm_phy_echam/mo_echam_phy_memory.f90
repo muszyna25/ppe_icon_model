@@ -168,22 +168,22 @@ MODULE mo_echam_phy_memory
       & pardffsfc   (:,  :),  &!< [ ]    diffuse fraction in PAR net downw. flux (?)
       !
       ! shortwave net transmissivity
-      & trsolclr    (:,:,:),  &!< [ ]    net solar transmissivity  , clear sky, positive downward
-      & trsolall    (:,:,:),  &!< [ ]    net solar transmissivity  , all   sky, positive downward
+      & swtrmclr    (:,:,:),  &!< [ ]    net solar transmissivity  , clear sky, positive downward
+      & swtrmall    (:,:,:),  &!< [ ]    net solar transmissivity  , all   sky, positive downward
       !
       ! longwave net fluxes
       & lwflxclr    (:,:,:),  &!< [W/m2] net longwave flux, clear sky, positive downward
-      & lwflxall    (:,:,:),  & !< [W/m2] net longwave flux, all   sky, positive downward
-      & o3          (:,:,:)     !< temporary set ozone mass mixing ratio  
+      & lwflxall    (:,:,:),  &!< [W/m2] net longwave flux, all   sky, positive downward
+      & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
     ! aerosol optical properties
     REAL(wp), POINTER ::      &
-      & aer_aod_533 (:,:,:),  & !< aerosol optical depth at 533 nm
-      & aer_ssa_533 (:,:,:),  & !< aerosol single scattering albedo at 533 nm
-      & aer_asy_533 (:,:,:),  & !< aerosol asymmetry factor at 533 nm
-      & aer_aod_2325(:,:,:),  & !< aerosol optical depth at 2325 nm
-      & aer_ssa_2325(:,:,:),  & !< aerosol single scattering albedo at 2325 nm
-      & aer_asy_2325(:,:,:),  & !< aerosol asymmetry factor at 2325 nm
-      & aer_aod_9731(:,:,:)       !< effective aerosol optical depth at 9731 nm
+      & aer_aod_533 (:,:,:),  &!< aerosol optical depth at 533 nm
+      & aer_ssa_533 (:,:,:),  &!< aerosol single scattering albedo at 533 nm
+      & aer_asy_533 (:,:,:),  &!< aerosol asymmetry factor at 533 nm
+      & aer_aod_2325(:,:,:),  &!< aerosol optical depth at 2325 nm
+      & aer_ssa_2325(:,:,:),  &!< aerosol single scattering albedo at 2325 nm
+      & aer_asy_2325(:,:,:),  &!< aerosol asymmetry factor at 2325 nm
+      & aer_aod_9731(:,:,:)    !< effective aerosol optical depth at 9731 nm
             !< the last quantity is in the thermal wavelength ranch, 
             !< the first lie in the solar spectrum
     ! Cloud and precipitation
@@ -1120,7 +1120,7 @@ CONTAINS
     !---- 3D variables defined at layer interfaces ----
 
     ! &       field% lwflxclr  (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('lwflxclr', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('lwflxclr', 'W/m2', 'net longwave flux, clear-sky, positive downward', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'lwflxclr', field%lwflxclr,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
@@ -1130,7 +1130,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! &       field% lwflxall  (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('lwflxall', '', '', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('lwflxall', 'W/m2', 'net longwave flux, all-sky, positive downward', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'lwflxall', field%lwflxall,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
@@ -1139,20 +1139,20 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
-    ! &       field% trsolclr  (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('trsolclr', '', '', DATATYPE_FLT32)
+    ! &       field% swtrmclr  (nproma,nlevp1,nblks),          &
+    cf_desc    = t_cf_var('swtrmclr', '', 'shortwave transmissivity, clear-sky', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'trsolclr', field%trsolclr,               &
+    CALL add_var( field_list, prefix//'swtrmclr', field%swtrmclr,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
                 & ldims=shape3d_layer_interfaces,                               &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
-    ! &       field% trsolall  (nproma,nlevp1,nblks),          &
-    cf_desc    = t_cf_var('trsolall', '', '', DATATYPE_FLT32)
+    ! &       field% swtrmall  (nproma,nlevp1,nblks),          &
+    cf_desc    = t_cf_var('swtrmall', '', 'shortwave transmissivity, all-sky', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'trsolall', field%trsolall,               &
+    CALL add_var( field_list, prefix//'swtrmall', field%swtrmall,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
                 & ldims=shape3d_layer_interfaces,                               &
                 & vert_interp=create_vert_interp_metadata(                      &
