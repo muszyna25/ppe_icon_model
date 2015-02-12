@@ -54,6 +54,10 @@ case ${slave} in
   bliz*)
     refDir=/work/mh0287/reference/${slave}/${EXPNAME}
     ;;
+  *)
+    echo "Unknown slave: ${slave}!"
+    exit 1
+    ;;
 esac
 
 directoryDiff ${refDir} .
