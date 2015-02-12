@@ -46,6 +46,8 @@ MODULE mo_art_nml
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
+  INTEGER :: iart_init_aero          !< Initialization of aerosol species
+  INTEGER :: iart_init_gas           !< Initialization of gaseous species
     
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
@@ -77,7 +79,7 @@ MODULE mo_art_nml
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
-   &                lart_conv, lart_turb, iart_ntracer
+   &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -113,6 +115,8 @@ CONTAINS
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_folder         = './art/'
     iart_ntracer        = 0
+    iart_init_aero      = 0
+    iart_init_gas       = 0
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem           = .FALSE.
@@ -184,7 +188,9 @@ CONTAINS
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_folder         = TRIM(cart_folder)
       art_config(jg)%iart_ntracer        = iart_ntracer
-    
+      art_config(jg)%iart_init_aero      = iart_init_aero
+      art_config(jg)%iart_init_gas       = iart_init_gas
+      
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem           = lart_chem
       art_config(jg)%iart_chem_mechanism = iart_chem_mechanism

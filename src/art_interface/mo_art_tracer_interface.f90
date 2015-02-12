@@ -103,7 +103,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
         & tlev_source) 
         
       IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
-        CALL art_init(jg,this_list)
+        CALL art_init(jg,this_list,tracer=p_prog%tracer)
       ENDIF
     ELSE !defcase is diag
       CALL art_create_diagnostics(jg, this_list)
