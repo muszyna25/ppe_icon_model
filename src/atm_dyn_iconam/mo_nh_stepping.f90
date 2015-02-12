@@ -815,8 +815,10 @@ MODULE mo_nh_stepping
     CALL reset_action(dtime)
     !
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
-    IF (is_avgFG_time(datetime_current) .AND. (p_nh_state(1)%diag%nsteps_avg(1) == 0)) THEN
-      CALL reinit_average_first_guess(p_patch(1), p_nh_state(1)%diag, p_nh_state(1)%prog(nnow_rcf(1)))
+    IF (is_avgFG_time(datetime_current)) THEN
+      IF (p_nh_state(1)%diag%nsteps_avg(1) == 0) THEN
+        CALL reinit_average_first_guess(p_patch(1), p_nh_state(1)%diag, p_nh_state(1)%prog(nnow_rcf(1)))
+      END IF
     ENDIF
 
 
