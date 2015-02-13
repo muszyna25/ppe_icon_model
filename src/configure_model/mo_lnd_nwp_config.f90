@@ -200,7 +200,7 @@ CONTAINS
     ! - lsnowtile  = .TRUE.
     !
     !------------------------------------------------------------------!
-    !      |      |      ||      |      |      ||      |      |        !
+    !   1  |   2  |   3  ||   4  |   5  |   6  ||   7  |   8  |    9   !
     ! land | land | land || snow | snow | snow || open | lake | seaice !
     !      |      |      ||      |      |      || sea  |      |        !
     !------------------------------------------------------------------!
@@ -211,6 +211,18 @@ CONTAINS
     !
     !<---------------- ntiles_total + ntiles_water ------------------->
     !
+
+    ! ASCII art for corresponding GRIB2 tile structure:
+    !
+    !-----------------------------------------------------------------!
+    !    land    |    land    |    land    |     oce    |    lake     !
+    !      1     |      2     |      3     |      4     |     5       !  <- GRIB2 Tile ID
+    !     / \    |     / \    |     / \    |     / \    |     |       !
+    !*** /***\***|****/***\***|****/***\***|****/***\***|*****|*******!  *******************
+    ! umod | snw | umod | snw | umod | snw | umod | ice |   undef     !  <- Attribute
+    !  1   |  4  |   2  |  5  |   3  |  6  |   7  |  9  |     8       !  <- Internal Tile ID
+    !-----------------------------------------------------------------!     
+
 
     ! (open) water points tile number
     isub_water  = MAX(1,ntiles_total + ntiles_water - 2)
@@ -233,7 +245,7 @@ CONTAINS
   !!
   !! Provides number of used tiles (NUT), as it is required for GRIB2 encoding.
   !! NUT differs from the ICON internal counting rules for tiles, in that 
-  !! snowtiles and sea-ice tile are not treated as separate tiles.
+  !! snowtiles and the sea-ice tile are not treated as separate tiles.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-22)
@@ -246,30 +258,6 @@ CONTAINS
     numberOfTiles = MAX(1,ntiles_lnd + ntiles_water - 1)
 
   END FUNCTION getNumberOfTiles
-
-
-  !>
-  !! Convert internal tile id into GRIB2 tile id
-  !!
-  !! Convert internal tile id into GRIB2 tile id.
-  !! Since the ICON internal tile nomenclature and structure differes 
-  !! from the GRIB2 tile nomenclature, this function provides the GRIB2 
-  !! tile ID, given the internal tile ID (tile number) as input.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-01-23)
-  !!
-  FUNCTION tileid_int2grib (tileID_int)  RESULT (tileID_GRIB2)
-
-    INTEGER, INTENT(IN) :: tileID_int
-
-    TYPE(t_tile) :: tileID_GRIB2
-
-    !-----------------------------------------------------------------------
-
-    tileID_GRIB2 =  tiles(tileID_int)
-
-  END FUNCTION tileid_int2grib
 
 
   !>
@@ -376,6 +364,30 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE setup_tile_metainfo
+
+
+  !>
+  !! Convert internal tile ID into GRIB2 tile ID
+  !!
+  !! Convert internal tile ID into GRIB2 tile ID.
+  !! Since the ICON internal tile nomenclature and structure differes 
+  !! from the GRIB2 tile nomenclature, this function provides the GRIB2 
+  !! tile ID, given the internal tile ID (tile number) as input.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-01-23)
+  !!
+  FUNCTION tileid_int2grib (tileID_int)  RESULT (tileID_GRIB2)
+
+    INTEGER, INTENT(IN) :: tileID_int
+
+    TYPE(t_tile) :: tileID_GRIB2
+
+    !-----------------------------------------------------------------------
+
+    tileID_GRIB2 =  tiles(tileID_int)
+
+  END FUNCTION tileid_int2grib
 
 
   !>

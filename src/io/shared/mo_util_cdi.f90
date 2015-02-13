@@ -985,6 +985,8 @@ CONTAINS
     ! - identificationNumberOfTile
     ! - numberOfAttributes
     ! - identificationNumberOfAttribute
+    !
+    ! Convert internal tile ID into GRIB2 tile ID
     tileID = tileid_int2grib(info%ncontained)
 
     ! Set tile index
