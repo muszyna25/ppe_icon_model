@@ -134,9 +134,9 @@ PROGRAM icon
 #endif
 
   !-------------------------------------------------------------------
-  ! Print VCS version
   IF (my_process_is_global_root()) THEN
 
+    ! print VCS version
     nlen = 256
     call util_repository_url(repository, nlen)
     nlen = 256
@@ -158,8 +158,14 @@ PROGRAM icon
         &                                    grb_revision_version
       CALL message('',message_text)
     END IF
-    CALL message('','')
 
+    ! Cray compiler: print compiler version in use:
+#ifdef _CRAYFTN
+    WRITE(message_text,'(a,a)') 'Compiler  : ', _RELEASE_STRING
+    CALL message('',message_text)
+#endif
+
+    CALL message('','')
   END IF
 
   !-------------------------------------------------------------------

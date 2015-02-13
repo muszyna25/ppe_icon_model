@@ -388,16 +388,16 @@ case "$ac_sitename" in
                 esac
                 ;;
             oflws*)             # Linux workstations with gfortran
-                NETCDFROOT  = /usr
-                NETCDFLIBPATH = /usr/lib64
-                IB_LIBS    = -ldl -Wl,--export-dynamic -lutil -lm -ldl
-# Temporary solution for missing OpenMPI:
-                MPIROOT    = /uwork1/hanlauf/opt/gfortran45/openmpi-1.4
-                MPI_LIB    = -WL,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" -Wl,-R\$(MPIROOT)/lib
-                config_target=oflws
-                make_command="make" "-j8"
-                submit="qsub"
-                sync_submit=qsub -sync y
+                NETCDFROOT            = /usr
+                NETCDFLIBPATH         = /usr/lib64
+                IB_LIBS               = -ldl -Wl,--export-dynamic -lutil -lm -ldl
+                CC                    = mpicc
+                FC                    = mpif90
+                MPI_INCLUDE           = /usr/lib64/mpi/gcc/openmpi/include
+                config_target         = oflws
+                make_command          = "make" "-j8"
+                submit                = "qsub"
+                sync_submit           = qsub -sync y
                 ;;
             *)                  # hpc
                 NETCDFROOT  = /usr/local/pkg
