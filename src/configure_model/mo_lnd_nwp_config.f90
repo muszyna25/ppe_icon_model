@@ -24,10 +24,11 @@
 !!
 MODULE mo_lnd_nwp_config
 
-  USE mo_kind,            ONLY: wp
-  USE mo_impl_constants,  ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000
-  USE mo_io_units,        ONLY: filename_max
-  USE mo_exception,       ONLY: finish
+  USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000
+  USE mo_var_metadata_types, ONLY: CLASS_TILE, CLASS_TILE_LAND
+  USE mo_io_units,           ONLY: filename_max
+  USE mo_exception,          ONLY: finish
 
   IMPLICIT NONE
 
@@ -218,7 +219,7 @@ CONTAINS
     !    land    |    land    |    land    |     oce    |    lake     !
     !      1     |      2     |      3     |      4     |     5       !  <- GRIB2 Tile ID
     !     / \    |     / \    |     / \    |     / \    |     |       !
-    !*** /***\***|****/***\***|****/***\***|****/***\***|*****|*******!  *******************
+    !****/***\***|****/***\***|****/***\***|****/***\***|*****|*******!  *******************
     ! umod | snw | umod | snw | umod | snw | umod | ice |   undef     !  <- Attribute
     !  1   |  4  |   2  |  5  |   3  |  6  |   7  |  9  |     8       !  <- Internal Tile ID
     !-----------------------------------------------------------------!     
@@ -250,12 +251,25 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-22)
   !!
-  FUNCTION getNumberOfTiles ()  RESULT (numberOfTiles)
+  FUNCTION getNumberOfTiles (class)  RESULT (numberOfTiles)
 
-    INTEGER :: numberOfTiles   ! number of tiles for GRIB2 encoding
+    INTEGER, INTENT(IN) :: class           ! CLASS_TILE
+                                           !   variable contains land and water tiles 
+                                           ! CLASS_TILE_LAND
+                                           !   variable contains only land tiles
+    INTEGER             :: numberOfTiles   ! number of tiles for GRIB2 encoding
 
-    ! snow tiles and sea-ice tile are not taken into account.
-    numberOfTiles = MAX(1,ntiles_lnd + ntiles_water - 1)
+    SELECT CASE(class)
+    CASE(CLASS_TILE)
+      ! snow tiles and sea-ice tile are not taken into account.
+      numberOfTiles = MAX(1,ntiles_lnd + ntiles_water - 1)
+    CASE(CLASS_TILE_LAND)
+      ! water tiles, snow tiles and sea-ice tile are not taken into account.
+      numberOfTiles = ntiles_lnd
+    CASE DEFAULT
+      CALL finish( 'mo_lnd_nwp_config:getNumberOfTiles', 'class not supported' )
+
+    END SELECT
 
   END FUNCTION getNumberOfTiles
 

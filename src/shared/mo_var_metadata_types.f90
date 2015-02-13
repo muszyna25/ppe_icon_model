@@ -108,7 +108,8 @@ MODULE mo_var_metadata_types
   ! list of available variable classes
   INTEGER, PARAMETER, PUBLIC :: CLASS_DEFAULT       = 0
   INTEGER, PARAMETER, PUBLIC :: CLASS_TILE          = 1   !< variable contains tile-specific information
-
+  INTEGER, PARAMETER, PUBLIC :: CLASS_TILE_LAND     = 2   !< variable contains tile-specific information
+                                                          !< but is restricted to land-tiles only
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS

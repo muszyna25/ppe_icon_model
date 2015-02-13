@@ -33,7 +33,8 @@ MODULE mo_var_list
     &                            MAX_GROUPS,                        &
     &                            VINTP_TYPE_LIST,                   &
     &                            t_post_op_meta,                    &
-    &                            CLASS_DEFAULT, CLASS_TILE
+    &                            CLASS_DEFAULT, CLASS_TILE,         &
+    &                            CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_tracer_metadata,            &
     &                            create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
@@ -3053,7 +3054,7 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
-    IF (PRESENT(var_class) .AND. (var_class==CLASS_TILE)) THEN
+    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
       ! automatically add tile to its variable specific tile-group
       CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
       !
@@ -3224,7 +3225,7 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
-    IF (PRESENT(var_class) .AND. (var_class==CLASS_TILE)) THEN
+    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
       ! automatically add tile to its variable specific tile-group
       CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
       !
@@ -3394,7 +3395,7 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
-    IF (PRESENT(var_class) .AND. (var_class==CLASS_TILE)) THEN
+    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
       ! automatically add tile to its variable specific tile-group
       CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
       !

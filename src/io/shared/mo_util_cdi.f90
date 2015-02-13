@@ -31,7 +31,7 @@ MODULE mo_util_cdi
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, tileid_int2grib, t_tile
-  USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE
+  USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_TILE_LAND
   USE mo_action,             ONLY: ACTION_RESET
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
@@ -959,8 +959,7 @@ CONTAINS
   !----------------------------------------------------------------
 
     ! Skip inapplicable fields
-    IF (info%var_class /= CLASS_TILE) RETURN
-
+    IF ( ALL((/CLASS_TILE,CLASS_TILE_LAND/) /= info%var_class) ) RETURN
 
     typeOfGeneratingProcess = vlistInqVarTypeOfGeneratingProcess(vlistID, varID)
 
@@ -979,7 +978,8 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "tileClassification" , i_lctype)
 
     ! Set number of used tiles
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTiles" , getNumberOfTiles())
+    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTiles" , &
+      &                    getNumberOfTiles(class=info%var_class))
 
     ! get the following attributes:
     ! - identificationNumberOfTile
