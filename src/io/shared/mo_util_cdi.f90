@@ -996,7 +996,9 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "numberOfAttributes" , tileID%GRIB2_tile%nat)
 
     ! Set attribute index
-    CALL vlistDefVarIntKey(vlistID, varID, "identificationNumberOfAttribute" , tileID%GRIB2_att%iat)
+!!$    CALL vlistDefVarIntKey(vlistID, varID, "identificationNumberOfAttribute" , tileID%GRIB2_att%iat)
+    ! misuse identificationNumberOfAttribute for storing the total number of records.
+    CALL vlistDefVarIntKey(vlistID, varID, "identificationNumberOfAttribute" , info%maxcontained)
 
     ! Set attribute
     CALL vlistDefVarIntKey(vlistID, varID, "attribute" , tileID%GRIB2_att%attribute)

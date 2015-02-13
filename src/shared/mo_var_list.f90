@@ -589,6 +589,7 @@ CONTAINS
     this_info%lcontainer          = .FALSE.
     this_info%lcontained          = .FALSE.
     this_info%ncontained          = 0
+    this_info%maxcontained        = 0
     !
     this_info%hgrid               = -1
     this_info%vgrid               = -1
@@ -3069,6 +3070,8 @@ CONTAINS
       ref_info%lcontained = .TRUE.
       ref_info%used_dimensions(4) = 1
       !
+      ref_info%maxcontained = SIZE(target_ptr4d,4)
+      !
       IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
         ptr => target_element%field%r_ptr(:,:,:,ref_idx,1)
@@ -3240,6 +3243,8 @@ CONTAINS
       ref_info%lcontained = .TRUE.
       ref_info%used_dimensions(3) = 1
       !
+      ref_info%maxcontained = SIZE(target_ptr3d,3)
+      !
       IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
         ptr => target_element%field%r_ptr(:,:,ref_idx,1,1)
@@ -3409,6 +3414,8 @@ CONTAINS
     IF (target_info%lcontainer) THEN
       ref_info%lcontained = .TRUE.
       ref_info%used_dimensions(3) = 1
+      !
+      ref_info%maxcontained = SIZE(target_ptr3d,3)
       !
       IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx

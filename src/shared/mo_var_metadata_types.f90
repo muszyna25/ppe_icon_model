@@ -194,7 +194,7 @@ MODULE mo_var_metadata_types
     INTEGER                    :: key                   ! hash value of name
     CHARACTER(len=VARNAME_LEN) :: name                  ! variable name
     INTEGER                    :: var_class             ! variable type
-    !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE 
+    !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information
@@ -216,7 +216,8 @@ MODULE mo_var_metadata_types
     !     
     LOGICAL                    :: lcontainer            ! true, if this is a container
     LOGICAL                    :: lcontained            ! true, if this is in a container
-    INTEGER                    :: ncontained            ! index in container   
+    INTEGER                    :: ncontained            ! index in container
+    INTEGER                    :: maxcontained          ! container size   
     !
     INTEGER                    :: hgrid                 ! CDI horizontal grid type
     INTEGER                    :: vgrid                 ! CDI vertical grid type
