@@ -624,7 +624,7 @@ task :checkTimeMean, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do
   checkFile4Variables(meanFile,meanVar)
 
   # delte first timestep, if it is the initial one
-  Cdo.debug = $DEBUG
+  Cdo.debug = true
   tempFile = {}
   [spotFile,meanFile].each_with_index {|f,i|
     tag               = %w[spot mean][i]
@@ -636,7 +636,7 @@ task :checkTimeMean, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do
   }
 
   # compare the single timestep of the mean file with the timmean of the spotfile
-  Cdo.diff(:input => "-timmean -selname,#{spotVar} #{tempFile['spot']} -selname,#{meanVar} #{tempFile['mean']}")
+  pp Cdo.diff(:input => "-timmean -selname,#{spotVar} #{tempFile['spot']} -selname,#{meanVar} #{tempFile['mean']}")
 
 end
 

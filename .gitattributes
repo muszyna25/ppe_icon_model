@@ -1116,6 +1116,7 @@ scripts/postprocessing/testcases/hom_lsm_postpro_driver.bash -text
 scripts/postprocessing/testcases/icoham_ape_postpro.ksh -text
 scripts/postprocessing/testcases/iconam_ape_postpro.ksh -text
 scripts/postprocessing/testcases/oce_parallel_postpro_driver.bash -text
+scripts/postprocessing/tools/.hluresfile -text
 scripts/postprocessing/tools/MRW_mountain/MRW_mountain_R2B04.nc -text
 scripts/postprocessing/tools/NH_scripts/gravity_wave.ncl -text
 scripts/postprocessing/tools/PLOT_examples/README -text
@@ -1127,10 +1128,12 @@ scripts/postprocessing/tools/Rakefile -text
 scripts/postprocessing/tools/analyze_io_files.py -text
 scripts/postprocessing/tools/angle-dist.rb -text
 scripts/postprocessing/tools/archive_oce.py -text
+scripts/postprocessing/tools/calc_moc.ksh -text
 scripts/postprocessing/tools/calc_moc_oce_icon.ksh -text
 scripts/postprocessing/tools/calc_psi.fort.ksh -text
 scripts/postprocessing/tools/calc_psi.py -text
 scripts/postprocessing/tools/calc_psi_atlbox.ksh -text
+scripts/postprocessing/tools/calc_psi_oce_icon.ksh -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
 scripts/postprocessing/tools/dcmip_setgattr.sh -text
 scripts/postprocessing/tools/findPath.rb -text
