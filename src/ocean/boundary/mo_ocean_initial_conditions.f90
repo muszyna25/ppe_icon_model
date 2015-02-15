@@ -1934,9 +1934,13 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-
-        linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / & 
-          & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
+        
+        IF (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1) /= 0.0_wp) THEN
+          linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / & 
+            & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
+        ELSE
+          linear_increase = 0.0_wp
+        ENDIF
 
         DO jk = top_level, bottom_level!patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &

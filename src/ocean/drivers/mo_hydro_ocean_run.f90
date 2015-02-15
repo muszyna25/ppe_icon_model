@@ -193,6 +193,7 @@ CONTAINS
     CALL timer_start(timer_total)
 
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
+      ! write(0,*) "nold nnew=", nold(1), nnew(1)
 
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring

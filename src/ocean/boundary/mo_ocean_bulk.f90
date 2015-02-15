@@ -144,15 +144,20 @@ CONTAINS
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
 
+    IF (iforc_oce == No_Forcing) RETURN
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
     cells_in_domain => p_patch%cells%in_domain
     !-----------------------------------------------------------------------
-
-    t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    s_top => p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    s_top_inter(:,:)  = s_top(:,:)
+    s_top => NULL()
+    IF (no_tracer>=1) t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    IF (no_tracer>=2) THEN 
+      s_top => p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      s_top_inter(:,:)  = s_top(:,:)
+    ELSE
+      s_top_inter(:,:)  = 0.0_wp
+    ENDIF
     zUnderIceOld(:,:) = 0.0_wp
     zUnderIceIni(:,:) = 0.0_wp
     zUnderIcetst(:,:) = 0.0_wp
@@ -979,7 +984,8 @@ CONTAINS
     CALL dbg_print('UpdSfcEnd: zUnderIcetsx',zUnderIcetsx,                   str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEnd: zUnderIce  ' ,p_ice%zUnderIce,                str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEnd: s_top_inter' ,s_top_inter,                    str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: SSS'         ,s_top,                          str_module, 2, in_subset=p_patch%cells%owned)
+    IF (no_tracer>=2) &
+      & CALL dbg_print('UpdSfcEnd: SSS'         ,s_top,                          str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEnd: SST'         ,t_top,                          str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
