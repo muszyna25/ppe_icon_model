@@ -675,111 +675,136 @@ CONTAINS
 
     alloc_cell_blocks = p_patch%alloc_cell_blocks
 
-    ALLOCATE(atmos_fluxes%sens(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for sens failed')
-    END IF
+    ! TODO: cleanup unused fluxes, sort in ice_diag
+    ! Variables with 3 dimensions: fluxes over ice-covered part, second dimension is ice class
 
-    ALLOCATE(atmos_fluxes%lat(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for lat failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_lat', atmos_fluxes%lat,                            &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_lat', 'W/m2', 'atmos_fluxes_lat', DATATYPE_FLT32),            &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%LWout(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for LWout failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_sens', atmos_fluxes%sens,                          &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_sens', 'W/m2', 'atmos_fluxes_sens', DATATYPE_FLT32),          &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%LWnet(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for LWnet failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_LWout', atmos_fluxes%LWout,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_LWout', 'W/m2', 'atmos_fluxes_LWout', DATATYPE_FLT32),        &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%SWnet(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for SWnet failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_LWnet', atmos_fluxes%LWnet,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_LWnet', 'W/m2', 'atmos_fluxes_LWnet', DATATYPE_FLT32),        &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%bot(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for sens failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_SWnet', atmos_fluxes%SWnet,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_SWnet', 'W/m2', 'atmos_fluxes_SWnet', DATATYPE_FLT32),        &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%dsensdT(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for dsensdT failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_bot', atmos_fluxes%bot,                            &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_bot', 'W/m2', 'atmos_fluxes_bot', DATATYPE_FLT32),            &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%dlatdT(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for sens failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_dsensdT', atmos_fluxes%dsensdT,                    &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_dsensdT', 'W/m2/K', 'atmos_fluxes_dsensdT', DATATYPE_FLT32),  &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%dLWdT(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for dLWdT failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_dlatdT', atmos_fluxes%dlatdT,                      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_dlatdT', 'W/m2/K', 'atmos_fluxes_dlatdT', DATATYPE_FLT32),    &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%stress_x(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for stress_x failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_dLWdT', atmos_fluxes%dLWdT,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_dLWdT', 'W/m2/K', 'atmos_fluxes_dLWdT', DATATYPE_FLT32),      &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%stress_y(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for stress_y failed')
-    END IF
+    ! Variables with 2 dimensions: fluxes over icefree part in sea ice model
 
-    ALLOCATE(atmos_fluxes%rprecw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for rprecw failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_latw', atmos_fluxes%latw,                          &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_latw', 'W/m2', 'atmos_fluxes_latw', DATATYPE_FLT32),          &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%rpreci(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for rpreci failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_sensw', atmos_fluxes%sensw,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_sensw', 'W/m2', 'atmos_fluxes_sensw', DATATYPE_FLT32),        &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%sensw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for sensw failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_LWoutw', atmos_fluxes%LWoutw,                      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_LWoutw', 'W/m2', 'atmos_fluxes_LWoutw', DATATYPE_FLT32),      &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%latw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for latw failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_LWnetw', atmos_fluxes%LWnetw,                      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_LWnetw', 'W/m2', 'atmos_fluxes_LWnetw', DATATYPE_FLT32),      &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
+    CALL add_var(ocean_default_list, 'atmos_fluxes_SWnetw', atmos_fluxes%SWnetw,                      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_SWnetw', 'W/m2', 'atmos_fluxes_SWnetw', DATATYPE_FLT32),      &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%LWoutw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for LWoutw failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_LWin', atmos_fluxes%LWin,                          &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_LWin', 'W/m2', 'atmos_fluxes_LWin', DATATYPE_FLT32),          &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%LWnetw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for LWnetw failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_rprecw', atmos_fluxes%rprecw,                      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_rprecw', 'm/s', 'atmos_fluxes_rprecw', DATATYPE_FLT32),       &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%SWnetw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for SWnetw failed')
-    END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_rpreci', atmos_fluxes%rpreci,                      &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_rpreci', 'm/s', 'atmos_fluxes_rpreci', DATATYPE_FLT32),       &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%LWin(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for LWin failed')
-     END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_stress_x', atmos_fluxes%stress_x,                  &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_stress_x', 'Pa',   'atmos_fluxes_stress_x', DATATYPE_FLT32),  &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%stress_xw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for stress_xw failed')
-     END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_stress_y', atmos_fluxes%stress_y,                  &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_stress_y', 'Pa',   'atmos_fluxes_stress_y', DATATYPE_FLT32),  &
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ALLOCATE(atmos_fluxes%stress_yw(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for stress_yw failed')
-     END IF
+    CALL add_var(ocean_default_list, 'atmos_fluxes_stress_xw', atmos_fluxes%stress_xw,                &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_stress_xw', 'Pa',   'atmos_fluxes_stress_xw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    CALL add_var(ocean_default_list, 'atmos_fluxes_stress_yw', atmos_fluxes%stress_yw,                &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
+      &          t_cf_var('atmos_fluxes_stress_yw', 'Pa',   'atmos_fluxes_stress_yw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),              &
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     !albedos need to go into the restart
     CALL add_var(ocean_restart_list, 'albvisdirw', atmos_fluxes%albvisdirw ,&
@@ -838,28 +863,9 @@ CONTAINS
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"),&
       &          lrestart_cont=.TRUE.)
 
+    ! Initialize with zero
+    atmos_fluxes%counter = 0.0_wp
 
-    ! Initialise everything with zero
-    atmos_fluxes%sens   (:,:,:) = 0.0_wp
-    atmos_fluxes%lat    (:,:,:) = 0.0_wp
-    atmos_fluxes%LWout  (:,:,:) = 0.0_wp
-    atmos_fluxes%LWnet  (:,:,:) = 0.0_wp
-    atmos_fluxes%bot    (:,:,:) = 0.0_wp
-    atmos_fluxes%dsensdT(:,:,:) = 0.0_wp
-    atmos_fluxes%dlatdT (:,:,:) = 0.0_wp
-    atmos_fluxes%dLWdT  (:,:,:) = 0.0_wp
-    atmos_fluxes%rprecw (:,:)   = 0.0_wp
-    atmos_fluxes%rpreci (:,:)   = 0.0_wp
-    atmos_fluxes%sensw  (:,:)   = 0.0_wp
-    atmos_fluxes%latw   (:,:)   = 0.0_wp
-    atmos_fluxes%LWoutw (:,:)   = 0.0_wp
-    atmos_fluxes%LWnetw (:,:)   = 0.0_wp
-    atmos_fluxes%SWnetw (:,:)   = 0.0_wp
-    atmos_fluxes%SWnet  (:,:,:) = 0.0_wp
-    atmos_fluxes%LWin   (:,:)   = 0.0_wp
-    atmos_fluxes%counter        = 0
-    atmos_fluxes%stress_xw(:,:) = 0.0_wp
-    atmos_fluxes%stress_yw(:,:) = 0.0_wp
     ! Initialise the albedos sensibly
     atmos_fluxes%albvisdir (:,:,:) = albi
     atmos_fluxes%albvisdif (:,:,:) = albi
@@ -916,22 +922,22 @@ CONTAINS
     CALL add_var(ocean_default_list, 'atmos_fluxes_HeatFlux_Relax', atmos_fluxes%HeatFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_HeatFlux_Relax', 'W/m2', 'atmos_fluxes_HeatFlux_Relax', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'atmos_fluxes_FrshFlux_Relax', atmos_fluxes%FrshFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_FrshFlux_Relax', 'm/s', 'atmos_fluxes_FrshFlux_Relax', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'atmos_fluxes_TempFlux_Relax', atmos_fluxes%TempFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_TempFlux_Relax', 'K/s', 'atmos_fluxes_TempFlux_Relax', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'atmos_fluxes_SaltFlux_Relax', atmos_fluxes%SaltFlux_Relax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('atmos_fluxes_SaltFlux_Relax', 'psu/s', 'atmos_fluxes_SaltFlux_Relax', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          t_grib2_var(255, 255, 255, ibits          , GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
     ! }}}
 
@@ -1046,96 +1052,12 @@ CONTAINS
     INTEGER :: ist
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:destruct_atmos_fluxes'
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
+    !CALL message(TRIM(routine), 'start' )
 
+    !  nothing to do anymore
+    CONTINUE
 
-    DEALLOCATE(p_atm_f%sens, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for sens failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%lat, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for lat failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%LWout, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for LWout failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%LWnet, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for LWnet failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%SWnet, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for SWnet failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%bot, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for sens failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%dsensdT, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for dsensdT failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%dlatdT, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for sens failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%dLWdT, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for dLWdT failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%rprecw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for rprecw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%rpreci, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for rpreci failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%sensw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for sensw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%latw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for latw failed')
-    END IF
-
-
-    DEALLOCATE(p_atm_f%LWoutw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for LWoutw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%LWnetw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for LWnetw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%SWnetw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for SWnetw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%LWin, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for LWin failed')
-    END IF
-
-    CALL message(TRIM(routine), 'end' )
+    !CALL message(TRIM(routine), 'end' )
 
   END SUBROUTINE destruct_atmos_fluxes
 
