@@ -35,14 +35,14 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,             &
-    &                               rho_incr_filter_wgt, lread_ana,         &
-    &                               lp2cintp_incr
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
+    &                               rho_incr_filter_wgt, lread_ana,               &
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA, MODE_ICONVREMAP, &
     &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,           &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
-  USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
+  USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
@@ -58,7 +58,7 @@ MODULE mo_initicon
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_initicon_utils,      ONLY: create_input_groups,                         &
+  USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points,                        &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
@@ -281,8 +281,9 @@ MODULE mo_initicon
               &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &  ! in
               &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &  ! in
               &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &  ! in
-                ! here, a proper estimate of the sea surface temperature is required
-              &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,isub_lake),&  ! in
+              ! here, a proper estimate of the lake surface temperature is required; 
+              ! as neither GME nor COSMO-DE data have tiles, T_SO(0) is the best estimate
+              &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&  ! in
               &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
               &   h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
               &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
@@ -500,6 +501,12 @@ MODULE mo_initicon
     ! read DWD first guess and analysis for surface/land
     ! 
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
+    ! from neighboring grid points where possible
+    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data)
+    ENDIF
 
     IF(lread_ana) &   
       CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
@@ -1231,8 +1238,8 @@ MODULE mo_initicon
 
       ! 2) compute vn increments (w increment neglected)
       !
-      IF (jg == 1 .OR. .NOT. lp2cintp_incr(jg)) THEN ! If increments were interpolated from the parent domain,
-                                                     ! they have already been converted into vn increments
+      IF (.NOT. lp2cintp_incr(jg)) THEN ! If increments were interpolated from the parent domain,
+                                        ! they have already been converted into vn increments
 
         ! include boundary interpolation zone of nested domains and the halo edges as far as possible
         rl_start = 2
@@ -1273,7 +1280,7 @@ MODULE mo_initicon
 
       ! required to avoid crash in nabla4_vec (in case of interpolation from the parent domain,
       !                                        the sync has already been done)
-      IF (jg == 1 .OR. .NOT. lp2cintp_incr(jg)) THEN
+      IF (.NOT. lp2cintp_incr(jg)) THEN
         CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
       ENDIF
 
@@ -1498,8 +1505,15 @@ MODULE mo_initicon
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
-              lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt)  &
-                 &                              + initicon(jg)%sfc_inc%w_so(jc,jk,jb)
+              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND.  &
+                  cporv(ext_data(jg)%atm%soiltyp(jc,jb)) > 1.e-9_wp) THEN
+                ! This should only happen for a tile coldstart; in this case, 
+                ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
+              ELSE ! add w_so increment from SMA
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt)  &
+                   &                              + initicon(jg)%sfc_inc%w_so(jc,jk,jb)
+              ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
               SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
@@ -1572,13 +1586,14 @@ MODULE mo_initicon
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, jgch          ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(wp):: missval
     INTEGER :: rl_start, rl_end 
     INTEGER :: i_startidx, i_endidx
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
+    LOGICAL :: lp_mask(nproma)
   !-------------------------------------------------------------------------
 
     ! get CDImissval
@@ -1596,11 +1611,15 @@ MODULE mo_initicon
 
 
       ! check, whether t_so is read from analysis
-      lanaread_tso = ( one_of('t_so', initicon(jg)%grp_vars_ana(1:initicon(jg)%ngrp_vars_ana)) /= -1)
-
+      IF (lp2cintp_sfcana(jg)) THEN
+        jgch = p_patch(jg)%parent_id
+      ELSE
+        jgch = jg
+      ENDIF
+      lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
 
 !$OMP PARALLEL 
-!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
@@ -1623,46 +1642,39 @@ MODULE mo_initicon
            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
           END DO
 
+          ! Compute mask field for land points
+          lp_mask(:) = .FALSE.
+          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
+            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+            lp_mask(jc) = .TRUE.
+          ENDDO
 
-          ! Fill T_SO(0) over open water points with new SST analysis
-          !
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%spw_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_spw(ic,jb)
-            p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,isub_water) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-          END DO
-          !
-          ! Fill T_SO(0) below seaice points with T_SO(0) from analysis
-          !
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%spi_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_spi(ic,jb)
-            p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,isub_seaice) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-          END DO
-          !
-          ! Fill T_SO(0) over lake points with T_SO(0) from analysis
-          !
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-            p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,isub_lake) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-          END DO
+          ! Fill T_SO with SST analysis over pure water points
+          DO jt = 1, ntiles_total
+            DO jk = 1, nlev_soil
+              DO jc = i_startidx, i_endidx
+                IF (.NOT. lp_mask(jc)) THEN
+                  p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = initicon(jg)%sfc%sst(jc,jb)
+                ENDIF
+              ENDDO
+            ENDDO
+          ENDDO
 
         ELSE  ! SST (T_SO(0)) is not read from the analysis
           !
-          ! get SST from first guess T_SO (for sea and lake points)
+          ! get SST from first guess T_G (for sea and lake points)
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  & ! nproma,nlev_soil+1,nblks,ntiles_total
-                                     & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
+              & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
           END DO
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%fp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
-                                     & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = &
+              & MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
           END DO
 
         ENDIF  ! lanaread_t_so
@@ -1718,7 +1730,8 @@ MODULE mo_initicon
                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = 0._wp
                ENDIF
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) == missval)) THEN
-                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = 0._wp
+                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = & ! 0._wp
+                   p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
                ENDIF
 
             ENDDO  ! jc
@@ -1740,7 +1753,7 @@ MODULE mo_initicon
             p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp
           ENDIF
           IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) == missval) THEN
-            p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = 0._wp
+            p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = tf_salt
           ENDIF
         ENDDO  ! jc
 

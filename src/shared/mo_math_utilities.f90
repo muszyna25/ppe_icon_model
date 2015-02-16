@@ -954,7 +954,7 @@ CONTAINS
     !  Local variables:
     TYPE(t_cartesian_coordinates) :: e1, e2 ! edges of the underlying planar triangle:
     ! v1-v0 ands v2-v0, respectively
-    TYPE(t_cartesian_coordinates) :: cu     ! dot product of center:  e1 x e2
+    TYPE(t_cartesian_coordinates) :: cu     ! vector product of center:  e1 x e2
     REAL(wp) :: z_cnorm                     ! norm of cu
 
     !-----------------------------------------------------------------------

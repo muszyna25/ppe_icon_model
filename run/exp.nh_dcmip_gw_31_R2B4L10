@@ -116,7 +116,6 @@ cat > ${atmo_namelist} << EOF
 &nonhydrostatic_nml
  iadv_rhotheta  = 2
  igradp_method  = 3  !new default
- iadv_rcf       = 1  ! reset to 1 for matching output times
  ivctype        = 1  ! Gal-Chen hybrid
  vwind_offctr   = 0.05  ! default: 0.15
  lhdiff_rcf     =.TRUE.

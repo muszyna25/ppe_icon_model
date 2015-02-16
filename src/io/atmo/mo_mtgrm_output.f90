@@ -513,6 +513,8 @@ CONTAINS
       &              jg, prm_diag%v_10m(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
+      &              jg, prm_diag%lwflxall(:,1,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBS", "W m-2", "shortwave net flux at surface", &
       &              jg, prm_diag%swflxsfc(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "THBS", "W m-2", "longwave net flux at surface", &
@@ -1109,20 +1111,17 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step, &
-    &                               jsteps_adv_ntsteps, iadv_rcf)
+  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step)
     LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
-    INTEGER,          INTENT(IN)  :: jsteps_adv_ntsteps, iadv_rcf
 
     meteogram_is_sample_step = &
       &  meteogram_output_config%lenabled               .AND. &
       &  (cur_step >= meteogram_output_config%n0_mtgrm) .AND. &
       &  (MOD((cur_step - meteogram_output_config%n0_mtgrm),  &
-      &       meteogram_output_config%ninc_mtgrm) == 0) .AND. &
-      &  (MOD(jsteps_adv_ntsteps,iadv_rcf)==0)
+      &       meteogram_output_config%ninc_mtgrm) == 0)
     
   END FUNCTION meteogram_is_sample_step
 

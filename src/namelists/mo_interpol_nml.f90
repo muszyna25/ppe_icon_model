@@ -23,26 +23,27 @@ MODULE mo_interpol_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
-  USE mo_interpol_config,     ONLY: config_llsq_lin_consv    => llsq_lin_consv    , &
-                                  & config_llsq_high_consv   => llsq_high_consv   , &
-                                  & config_lsq_high_ord      => lsq_high_ord      , &
-                                  & config_rbf_vec_kern_c    => rbf_vec_kern_c    , &
-                                  & config_rbf_vec_scale_c   => rbf_vec_scale_c   , &
-                                  & config_rbf_vec_kern_v    => rbf_vec_kern_v    , &
-                                  & config_rbf_vec_scale_v   => rbf_vec_scale_v   , &
-                                  & config_rbf_vec_kern_e    => rbf_vec_kern_e    , &
-                                  & config_rbf_vec_scale_e   => rbf_vec_scale_e   , &
-                                  & config_rbf_vec_kern_ll   => rbf_vec_kern_ll   , &
-                                  & config_rbf_vec_scale_ll  => rbf_vec_scale_ll  , &
-                                  & config_i_cori_method     => i_cori_method     , &
-                                  & config_nudge_max_coeff   => nudge_max_coeff   , &
-                                  & config_nudge_efold_width => nudge_efold_width , &
-                                  & config_nudge_zone_width  => nudge_zone_width  , &
-                                  & config_l_corner_vort     => l_corner_vort     , &
-                                  & config_l_intp_c2l        => l_intp_c2l        , &
-                                  & config_rbf_dim_c2l       => rbf_dim_c2l       , &
-                                  & config_l_mono_c2l        => l_mono_c2l        , &
-                                  & config_rbf_scale_mode_ll => rbf_scale_mode_ll
+  USE mo_interpol_config,     ONLY: config_llsq_lin_consv       => llsq_lin_consv       , &
+                                  & config_llsq_high_consv      => llsq_high_consv      , &
+                                  & config_lsq_high_ord         => lsq_high_ord         , &
+                                  & config_rbf_vec_kern_c       => rbf_vec_kern_c       , &
+                                  & config_rbf_vec_scale_c      => rbf_vec_scale_c      , &
+                                  & config_rbf_vec_kern_v       => rbf_vec_kern_v       , &
+                                  & config_rbf_vec_scale_v      => rbf_vec_scale_v      , &
+                                  & config_rbf_vec_kern_e       => rbf_vec_kern_e       , &
+                                  & config_rbf_vec_scale_e      => rbf_vec_scale_e      , &
+                                  & config_rbf_vec_kern_ll      => rbf_vec_kern_ll      , &
+                                  & config_rbf_vec_scale_ll     => rbf_vec_scale_ll     , &
+                                  & config_i_cori_method        => i_cori_method        , &
+                                  & config_nudge_max_coeff      => nudge_max_coeff      , &
+                                  & config_nudge_efold_width    => nudge_efold_width    , &
+                                  & config_nudge_zone_width     => nudge_zone_width     , &
+                                  & config_l_corner_vort        => l_corner_vort        , &
+                                  & config_l_intp_c2l           => l_intp_c2l           , &
+                                  & config_rbf_dim_c2l          => rbf_dim_c2l          , &
+                                  & config_l_mono_c2l           => l_mono_c2l           , &
+                                  & config_rbf_scale_mode_ll    => rbf_scale_mode_ll    , &
+                                  & config_support_baryctr_intp => support_baryctr_intp
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -117,6 +118,10 @@ MODULE mo_interpol_nml
   !
   INTEGER :: rbf_scale_mode_ll
 
+  ! Flag. If .FALSE. barycentric interpolation is replaced by a
+  ! fallback interpolation.
+  LOGICAL :: support_baryctr_intp
+
   NAMELIST/interpol_nml/ llsq_lin_consv,    llsq_high_consv,     &
                        & lsq_high_ord,      rbf_vec_kern_c,      &
                        & rbf_vec_scale_c,   rbf_vec_kern_v,      &
@@ -125,7 +130,8 @@ MODULE mo_interpol_nml
                        & nudge_max_coeff,   nudge_efold_width,   &
                        & nudge_zone_width,  l_corner_vort,       &
                        & l_intp_c2l, rbf_dim_c2l, l_mono_c2l,    &
-                       & rbf_vec_kern_ll,   rbf_scale_mode_ll
+                       & rbf_vec_kern_ll,   rbf_scale_mode_ll,   &
+                       & support_baryctr_intp
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -196,6 +202,9 @@ CONTAINS
     rbf_dim_c2l  = 10
     ! no monotonicity cutoff by default:
     l_mono_c2l   = .TRUE.
+
+    ! no barycentric interpolation available by default:
+    support_baryctr_intp = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -275,6 +284,8 @@ CONTAINS
     config_l_intp_c2l          = l_intp_c2l
     config_rbf_dim_c2l         = rbf_dim_c2l
     config_l_mono_c2l          = l_mono_c2l
+
+    config_support_baryctr_intp = support_baryctr_intp
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

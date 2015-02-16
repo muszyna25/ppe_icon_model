@@ -829,8 +829,6 @@ run/exp.test_atm_icoles_nested -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
-run/exp.test_nh35_tri_jws -text
-run/exp.test_nh3_tri_tracer_solid_body -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_oce_acc -text
@@ -844,6 +842,8 @@ run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
+run/post.nh35_tri_jws -text
+run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.oce_AquaAtlanticBox_0079km -text
@@ -853,8 +853,6 @@ run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
-run/post.test_nh35_tri_jws -text
-run/post.test_nh3_tri_tracer_solid_body -text
 run/post.test_oce_acc -text
 run/post.test_oce_default -text
 run/post.test_oce_numeric -text
@@ -1696,6 +1694,7 @@ src/shared/mo_math_utilities.f90 -text
 src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_mtime_extensions.f90 -text
 src/shared/mo_namelist.f90 -text
+src/shared/mo_octree.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
@@ -1727,6 +1726,8 @@ src/shared/mo_var_metadata_types.f90 -text
 src/shared/mo_vertical_coord_table.f90 -text
 src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
+src/shr_horizontal/mo_delaunay.f90 -text
+src/shr_horizontal/mo_delaunay_types.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text

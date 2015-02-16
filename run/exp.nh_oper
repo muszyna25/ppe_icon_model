@@ -44,7 +44,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=72  # 72 sec for R2B6, 24 sec for R3B7
+dtime=360  # 360 sec for R2B6, 120 sec for R3B7
 ndays=7
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 
@@ -221,7 +221,6 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr   = 0.2
  damp_height    = 50000.
  rayleigh_coeff = 0.10
- iadv_rcf       = 5
  lhdiff_rcf     = .true.
  divdamp_order  = 24    ! for data assimilation runs, '2' provides extra-strong filtering of gravity waves 
  divdamp_type   = 32    !!! optional: 2 for assimilation cycle if very strong gravity-wave filtering is desired

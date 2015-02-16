@@ -538,6 +538,8 @@ END TYPE t_int_state
 !> onto lon-lat grid.
 TYPE t_lon_lat_intp
 
+  ! --- Radial Basis Function (RBF) interpolation
+
   REAL(wp), ALLOCATABLE :: rbf_vec_coeff(:,:,:,:)     ! array containing the
                                                       ! coefficients used for
                                                       ! vector rbf interpolation
@@ -577,7 +579,22 @@ TYPE t_lon_lat_intp
 
   INTEGER, ALLOCATABLE  :: rbf_c2grad_blk(:,:,:)      ! ... dito for the blocks
 
-  ! direct interpolation from cell centers to lon-lat points:
+
+  ! --- barycentric interpolation
+
+  INTEGER,  ALLOCATABLE  :: baryctr_idx(:,:,:)        ! index array defining the
+                                                      ! stencil for barycentric interpolation
+                                                      ! (3,nproma,nblks_lonlat)
+
+  INTEGER,  ALLOCATABLE  :: baryctr_blk(:,:,:)        ! ... dito for the blocks
+
+  REAL(wp), ALLOCATABLE  :: baryctr_coeff(:,:,:)      ! array containing barycentric interpolation 
+                                                      ! weights
+                                                      ! (3,nproma,nblks_lonlat)
+
+
+  ! --- direct RBF interpolation from cell centers to lon-lat points:
+
   INTEGER, ALLOCATABLE  :: rbf_c2l_idx(:,:,:)         ! (rbf_dim_c2l, nproma, nblks_c)
   INTEGER, ALLOCATABLE  :: rbf_c2l_blk(:,:,:)         ! (rbf_dim_c2l, nproma, nblks_c)
   INTEGER, ALLOCATABLE  :: rbf_c2lr_idx(:,:,:)        ! (rbf_dim_c2l, nproma, nblks_lonlat)
@@ -585,12 +602,16 @@ TYPE t_lon_lat_intp
   INTEGER, ALLOCATABLE  :: rbf_c2l_stencil(:,:)       ! (nproma, nblks_c)
   INTEGER, ALLOCATABLE  :: rbf_c2lr_stencil(:,:)      ! (nproma, nblks_lonlat)
 
+  ! --- other data fields
+
   ! distances from cell center to lon-lat grid point
   REAL(wp), ALLOCATABLE :: rdist(:,:,:)   ! 2, nproma, nblks_lonlat
   ! distances from cell center to vertices; needed for gradient limiter
   REAL(wp), ALLOCATABLE :: cell_vert_dist(:,:,:,:)   ! (nproma,3,2,nblks_lonlat)
   ! list of triangles containing lon-lat grid points (first dim: index and block)
   INTEGER, ALLOCATABLE  :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
+  ! coordinates of the lon-lat points (nproma,nb nblks_lonlat)
+  TYPE(t_geographical_coordinates), ALLOCATABLE :: ll_coord(:,:)
 
   ! data fields for distributed computations (available on all PEs)
   INTEGER               :: nthis_local_pts  ! number of points local to this PE

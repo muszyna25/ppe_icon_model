@@ -27,27 +27,29 @@ MODULE mo_initicon_utils
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_types,      ONLY: t_nh_state
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_diag, t_nh_prog
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
     &                               timeshift,                                          &
     &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
-    &                               lconsistency_checks
+    &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
-    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS
+    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS,&
+    &                               min_rlcell_int, grf_bdywidth_c
+  USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text, warning
   USE mo_grid_config,         ONLY: n_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake,            &
-    &                               isub_lake
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
+    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld, nlev_snow
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -68,6 +70,9 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: newDatetime, datetime, OPERATOR(==), OPERATOR(+), &
     &                               deallocateDatetime
+  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
+  USE mo_statistics,          ONLY: time_avg
 
   IMPLICIT NONE
 
@@ -88,7 +93,8 @@ MODULE mo_initicon_utils
   PUBLIC :: deallocate_initicon
   PUBLIC :: deallocate_extana_atm 
   PUBLIC :: deallocate_extana_sfc
-
+  PUBLIC :: average_first_guess
+  PUBLIC :: fill_tile_points
 
   CONTAINS
 
@@ -400,8 +406,8 @@ MODULE mo_initicon_utils
 
     ! local variables
     INTEGER                    :: jg                              ! patch id
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(100)           ! ana-file inventory group
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(100)            ! fg-file inventory group
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(200)           ! ana-file inventory group
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(200)            ! fg-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_name                        ! group name
     INTEGER :: ivar, mpi_comm
     INTEGER :: index, is_one_of
@@ -420,8 +426,8 @@ MODULE mo_initicon_utils
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_grib2(SIZE(grp_vars_ana))
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: ana_default_txt, ana_this_txt
 
-    CHARACTER(LEN=100) :: buffer_miss_ana   ! buffer for names of missing mandatory analysis fields
-    CHARACTER(LEN=100) :: buffer_miss_fg    ! buffer for names of missing mandatory first guess fields
+    CHARACTER(LEN=200) :: buffer_miss_ana   ! buffer for names of missing mandatory analysis fields
+    CHARACTER(LEN=200) :: buffer_miss_fg    ! buffer for names of missing mandatory first guess fields
     LOGICAL :: lmiss_ana                    ! True, if there are missing mandatory analysis fields
     LOGICAL :: lmiss_fg                     ! True, if there are missing mandatory first guess fields
 
@@ -508,13 +514,29 @@ MODULE mo_initicon_utils
           ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
           ! the reading stuff
           !
-          ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
-          !
-          grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-          grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-          ngrp_vars_fg  = ngrp_vars_fg_default
-          ngrp_vars_ana = ngrp_vars_ana_default
+          IF (.NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
+            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
 
+            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+            ngrp_vars_fg  = ngrp_vars_fg_default
+            ngrp_vars_ana = ngrp_vars_ana_default
+          ELSE
+            ! lump together grp_vars_fg_default and grp_vars_ana_default
+            !
+            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
+            ngrp_vars_fg = 0
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
+              &              ngrp_vars_fg_default)
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
+              &              ngrp_vars_ana_default)
+
+            ! Remove fields 'u', 'v', 'temp', 'pres'
+            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
+
+            ! grp_vars_ana = --
+            ngrp_vars_ana = 0
+          ENDIF
         CASE(MODE_COMBINED,MODE_COSMODE)
 
           IF (init_mode == MODE_COMBINED) THEN
@@ -580,7 +602,7 @@ MODULE mo_initicon_utils
       ! Translation to internal names has already been performed in
       ! complete_inventory_list
       !
-      IF (lread_ana) THEN  ! skip, when starting from first guess, only
+      IF (lread_ana .AND. .NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN  ! skip, when starting from first guess, only
         nelement = 0
         current_element => inventory_list_ana(jg)%p%first_list_element
         DO WHILE (ASSOCIATED(current_element))
@@ -615,7 +637,7 @@ MODULE mo_initicon_utils
       ! 'grp_vars_ana' and issue a warning. The missing field is added to the group 'grp_vars_fg' 
       ! and thus the model tries to read it from the FG-File as fall back.
       !
-      IF (lread_ana) THEN
+      IF (lread_ana .AND. .NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
         DO ivar=1,ngrp_vars_ana_default
           index = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
 
@@ -774,6 +796,217 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE create_input_groups
 
+  !>
+  !! SUBROUTINE fill_tile_points
+  !! Used in the case of a tile coldstart, i.e. initializing a run with tiles with first guess
+  !! data not containing tiles (or only tile-averaged variables)
+  !! Specifically, this routine fills sub-grid scale (previously nonexistent) land and water points
+  !! with appropriate data from neighboring grid points where possible
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2015-01-16)
+  !!
+  !!
+  SUBROUTINE fill_tile_points(p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    TYPE(t_lnd_prog),  POINTER :: lnd_prog
+    TYPE(t_lnd_diag),  POINTER :: lnd_diag
+    TYPE(t_wtr_prog),  POINTER :: wtr_prog
+
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+    INTEGER :: jg, jb, jk, jc, jt, ji
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+
+    REAL(wp), DIMENSION(nproma,10) :: lpmask, fpmask, spmask
+    REAL(wp), DIMENSION(nproma)    :: lpcount, fpcount, spcount
+    REAL(wp) :: wgt(10), fr_lnd, fr_lk, fr_sea, th_notile
+
+    !-------------------------------------------------------------------------
+
+    th_notile = 0.5_wp
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+      wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
+
+      iidx     => p_int_state(jg)%rbf_c2grad_idx
+      iblk     => p_int_state(jg)%rbf_c2grad_blk
+
+      i_startblk = p_patch(jg)%cells%start_block(grf_bdywidth_c+1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell_int)
+
+      DO ji = 2, 10
+        SELECT CASE (ji)
+        CASE(2,5,8) ! direct neighbors
+          wgt(ji) = 1._wp
+        CASE DEFAULT ! indirect neighbors
+          wgt(ji) = 0.5_wp
+        END SELECT
+      ENDDO
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(ji,jb,jk,jc,jt,i_startidx,i_endidx,lpmask,fpmask,spmask,lpcount,fpcount,spcount,fr_lnd,fr_lk,fr_sea)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
+
+        lpmask(:,:) = 0._wp
+        fpmask(:,:) = 0._wp
+        spmask(:,:) = 0._wp
+
+        lpcount(:) = 0._wp
+        fpcount(:) = 0._wp
+        spcount(:) = 0._wp
+
+        ! Prepare control variables to determine for which grid points neighbor filling is possible
+        DO jc = i_startidx, i_endidx
+
+          fr_lnd = ext_data(jg)%atm%fr_land(jc,jb)
+          IF (fr_lnd > frlnd_thrhld .AND. fr_lnd < th_notile) THEN
+            lpmask(jc,1) = 1._wp
+            DO ji = 2,10
+              fr_lnd = ext_data(jg)%atm%fr_land(iidx(ji,jc,jb),iblk(ji,jc,jb))
+              IF (fr_lnd > th_notile) THEN
+                lpmask(jc,ji) = wgt(ji)
+                lpcount(jc) = lpcount(jc)+wgt(ji)
+              ENDIF
+            ENDDO
+            IF (lpcount(jc) == 0._wp) lpmask(jc,1) = 0._wp
+          ENDIF
+
+          fr_lk = ext_data(jg)%atm%fr_lake(jc,jb)
+          IF (fr_lk > frlake_thrhld .AND. fr_lk < th_notile) THEN
+            fpmask(jc,1) = 1._wp
+            DO ji = 2,10
+              fr_lk = ext_data(jg)%atm%fr_lake(iidx(ji,jc,jb),iblk(ji,jc,jb))
+              IF (fr_lk > th_notile) THEN
+                fpmask(jc,ji) = wgt(ji)
+                fpcount(jc) = fpcount(jc)+wgt(ji)
+              ENDIF
+            ENDDO
+            IF (fpcount(jc) == 0._wp) fpmask(jc,1) = 0._wp
+          ENDIF
+
+          fr_sea = 1._wp - (ext_data(jg)%atm%fr_lake(jc,jb)+ext_data(jg)%atm%fr_land(jc,jb))
+          IF (fr_sea > frsea_thrhld .AND. fr_sea < th_notile) THEN
+            spmask(jc,1) = 1._wp
+            DO ji = 2,10
+              fr_sea = 1._wp - (ext_data(jg)%atm%fr_lake(iidx(ji,jc,jb),iblk(ji,jc,jb)) + &
+                                ext_data(jg)%atm%fr_land(iidx(ji,jc,jb),iblk(ji,jc,jb))   )
+              IF (fr_sea > th_notile) THEN
+                spmask(jc,ji) = wgt(ji)
+                spcount(jc) = spcount(jc)+wgt(ji)
+              ENDIF
+            ENDDO
+            IF (spcount(jc) == 0._wp) spmask(jc,1) = 0._wp
+          ENDIF
+
+        ENDDO
+
+        ! Apply neighbor filling
+        DO jc = i_startidx, i_endidx
+
+          ! a) ocean points
+          IF (spmask(jc,1) == 1._wp) THEN
+            CALL ngb_search(lnd_diag%fr_seaice, iidx, iblk, spmask, spcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_ice, iidx, iblk, spmask, spcount, jc, jb)
+            CALL ngb_search(wtr_prog%h_ice, iidx, iblk, spmask, spcount, jc, jb)
+          ENDIF
+
+          ! b) lake points
+          IF (fpmask(jc,1) == 1._wp) THEN
+            CALL ngb_search(wtr_prog%t_mnw_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_wml_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%h_ml_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_bot_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%c_t_lk,   iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%t_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+            CALL ngb_search(wtr_prog%h_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+          ENDIF
+        ENDDO
+
+        ! c) land points
+        DO jt = 1, ntiles_total
+
+          ! single-layer fields
+          DO jc = i_startidx, i_endidx
+            IF (lpmask(jc,1) == 1._wp) THEN
+              CALL ngb_search(lnd_diag%freshsnow_t(:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%w_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%w_i_t      (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_diag%h_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%t_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              CALL ngb_search(lnd_prog%rho_snow_t (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+
+              CALL ngb_search(lnd_prog%t_so_t(:,nlev_soil+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+            ENDIF
+          ENDDO
+
+          ! soil fields
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+              IF (lpmask(jc,1) == 1._wp) THEN
+                CALL ngb_search(lnd_prog%t_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%w_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%w_so_ice_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              ENDIF
+            ENDDO
+          ENDDO
+
+          IF (lmulti_snow) THEN ! multi-layer snow fields
+            DO jk = 1, nlev_snow
+              DO jc = i_startidx, i_endidx
+                IF (lpmask(jc,1) == 1._wp) THEN
+                  CALL ngb_search(lnd_prog%t_snow_mult_t(:,jk,:,jt),   iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%rho_snow_mult_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%wtot_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%wliq_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%dzh_snow_t(:,jk,:,jt),      iidx, iblk, lpmask, lpcount, jc, jb)
+
+                  IF (jk == 1) CALL ngb_search(lnd_prog%t_snow_mult_t(:,nlev_snow+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                ENDIF
+              ENDDO
+            ENDDO
+          ENDIF
+
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDDO  ! jg
+
+    CONTAINS
+
+    SUBROUTINE ngb_search (fld, iidx, iblk, mask, cnt, jc, jb)
+
+      REAL(wp), INTENT(INOUT) :: fld(:,:)
+      REAL(wp), INTENT(IN)    :: mask(:,:), cnt(:)
+      INTEGER,  INTENT(IN)    :: iidx(:,:,:), iblk(:,:,:), jc, jb
+
+      INTEGER :: ji
+
+      fld(jc,jb) = 0._wp
+      DO ji = 2, 10
+        fld(jc,jb) = fld(jc,jb) + fld(iidx(ji,jc,jb),iblk(ji,jc,jb))*mask(jc,ji)
+      ENDDO
+      fld(jc,jb) = fld(jc,jb)/cnt(jc)
+
+    END SUBROUTINE ngb_search
+
+  END SUBROUTINE fill_tile_points
 
 
   !>
@@ -905,7 +1138,167 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE copy_initicon2prog_atm
 
+!!$  !> !!!!!!! OBSOLETE !!!!!!!!
+!!$  !! SUBROUTINE average_first_guess_obsolete
+!!$  !! Averages atmospheric variables needed as first guess for data assimilation 
+!!$  !!
+!!$  !!
+!!$  !! @par Revision History
+!!$  !! Initial version by Guenther Zaengl, DWD(2014-11-24)
+!!$  !!
+!!$  !!
+!!$  SUBROUTINE average_first_guess_obsolete(p_patch, p_int, p_diag, p_prog_dyn, p_prog, lreset, lfinalize)
+!!$
+!!$    TYPE(t_patch),          INTENT(IN) :: p_patch
+!!$    TYPE(t_int_state),      INTENT(IN) :: p_int
+!!$
+!!$    TYPE(t_nh_diag),     INTENT(INOUT) :: p_diag
+!!$    TYPE(t_nh_prog),     INTENT(INOUT) :: p_prog_dyn, p_prog
+!!$
+!!$    LOGICAL, INTENT(IN)  :: lreset, lfinalize
+!!$
+!!$    INTEGER :: jb, jk, jc
+!!$    INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+!!$    REAL(wp) :: r_nsteps
+!!$
+!!$    CALL rbf_vec_interpol_cell(p_prog_dyn%vn, p_patch, p_int, p_diag%u, p_diag%v, &
+!!$                               opt_rlend=min_rlcell_int)
+!!$
+!!$    nlev = p_patch%nlev
+!!$
+!!$    rl_start = 1
+!!$    rl_end   = min_rlcell_int
+!!$
+!!$    i_startblk = p_patch%cells%start_block(rl_start)
+!!$    i_endblk   = p_patch%cells%end_block(rl_end)
+!!$
+!!$!$OMP PARALLEL
+!!$!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,r_nsteps)
+!!$    DO jb = i_startblk, i_endblk
+!!$
+!!$      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+!!$
+!!$      IF (lreset) THEN ! to be called immediately after writing averaged output
+!!$        DO jk = 1, nlev
+!!$          DO jc = i_startidx, i_endidx
+!!$            p_diag%u_avg(jc,jk,jb)    = 0._wp
+!!$            p_diag%v_avg(jc,jk,jb)    = 0._wp
+!!$            p_diag%temp_avg(jc,jk,jb) = 0._wp
+!!$            p_diag%pres_avg(jc,jk,jb) = 0._wp
+!!$            p_diag%qv_avg(jc,jk,jb)   = 0._wp
+!!$          ENDDO
+!!$        ENDDO
+!!$      ENDIF
+!!$
+!!$      IF (lfinalize) THEN ! divide accumulated fields by number of time steps - 
+!!$                          ! to be called immediately before writing output
+!!$        r_nsteps = 1._wp/REAL(p_diag%nsteps_avg,wp)
+!!$        DO jk = 1, nlev
+!!$          DO jc = i_startidx, i_endidx
+!!$            p_diag%u_avg(jc,jk,jb)    = r_nsteps*p_diag%u_avg(jc,jk,jb)
+!!$            p_diag%v_avg(jc,jk,jb)    = r_nsteps*p_diag%v_avg(jc,jk,jb)
+!!$            p_diag%temp_avg(jc,jk,jb) = r_nsteps*p_diag%temp_avg(jc,jk,jb)
+!!$            p_diag%pres_avg(jc,jk,jb) = r_nsteps*p_diag%pres_avg(jc,jk,jb)
+!!$            p_diag%qv_avg(jc,jk,jb)   = r_nsteps*p_diag%qv_avg(jc,jk,jb)
+!!$          ENDDO
+!!$        ENDDO
+!!$      ELSE   ! accumulate variables - to be called after physics interface
+!!$        DO jk = 1, nlev
+!!$          DO jc = i_startidx, i_endidx
+!!$            p_diag%u_avg(jc,jk,jb)    = p_diag%u_avg(jc,jk,jb)    + p_diag%u(jc,jk,jb)
+!!$            p_diag%v_avg(jc,jk,jb)    = p_diag%v_avg(jc,jk,jb)    + p_diag%v(jc,jk,jb) 
+!!$            p_diag%temp_avg(jc,jk,jb) = p_diag%temp_avg(jc,jk,jb) + p_diag%temp(jc,jk,jb)
+!!$            p_diag%pres_avg(jc,jk,jb) = p_diag%pres_avg(jc,jk,jb) + p_diag%pres(jc,jk,jb)
+!!$            p_diag%qv_avg(jc,jk,jb)   = p_diag%qv_avg(jc,jk,jb)   + p_prog%tracer(jc,jk,jb,iqv)
+!!$          ENDDO
+!!$        ENDDO
+!!$      ENDIF
+!!$
+!!$    ENDDO
+!!$!$OMP END DO
+!!$!$OMP END PARALLEL
+!!$
+!!$    IF (lreset) p_diag%nsteps_avg = 0
+!!$    IF (.NOT. lfinalize) p_diag%nsteps_avg = p_diag%nsteps_avg + 1
+!!$
+!!$  END SUBROUTINE average_first_guess_obsolete
 
+
+  !>
+  !! SUBROUTINE average_first_guess
+  !! Averages atmospheric variables needed as first guess for data assimilation 
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2014-11-24)
+  !! Modification by Daniel Reinert, DWD (2014-12-17)
+  !! - make use of time_avg function, which makes finalize-option obsolete
+  !!
+  !!
+  SUBROUTINE average_first_guess(p_patch, p_int, p_diag, p_prog_dyn, p_prog)
+
+    TYPE(t_patch),          INTENT(IN) :: p_patch
+    TYPE(t_int_state),      INTENT(IN) :: p_int
+
+    TYPE(t_nh_diag),     INTENT(INOUT) :: p_diag
+    TYPE(t_nh_prog),     INTENT(INOUT) :: p_prog_dyn, p_prog
+
+    INTEGER :: jb, jk, jc
+    INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    REAL(wp):: wgt                     ! time average weight
+
+    !------------------------------------------------------------------------------
+
+
+    CALL rbf_vec_interpol_cell(p_prog_dyn%vn, p_patch, p_int, p_diag%u, p_diag%v, &
+                               opt_rlend=min_rlcell_int)
+
+    nlev = p_patch%nlev
+
+    rl_start = 1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
+
+
+    p_diag%nsteps_avg = p_diag%nsteps_avg + 1
+
+
+    ! compute weight
+    wgt = 1._wp/REAL(p_diag%nsteps_avg(1),wp)
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          p_diag%u_avg(jc,jk,jb)    = time_avg(p_diag%u_avg(jc,jk,jb)   , &
+            &                                  p_diag%u(jc,jk,jb)       , &
+            &                                  wgt)
+          p_diag%v_avg(jc,jk,jb)    = time_avg(p_diag%v_avg(jc,jk,jb)   , &
+            &                                  p_diag%v(jc,jk,jb)       , &
+            &                                  wgt)
+          p_diag%temp_avg(jc,jk,jb) = time_avg(p_diag%temp_avg(jc,jk,jb), &
+            &                                  p_diag%temp(jc,jk,jb)    , &
+            &                                  wgt)
+          p_diag%pres_avg(jc,jk,jb) = time_avg(p_diag%pres_avg(jc,jk,jb), &
+            &                                  p_diag%pres(jc,jk,jb)    , &
+            &                                  wgt)
+          p_diag%qv_avg(jc,jk,jb)   = time_avg(p_diag%qv_avg(jc,jk,jb)  , &
+            &                                  p_prog%tracer(jc,jk,jb,iqv), &
+            &                                  wgt)
+        ENDDO
+      ENDDO
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE average_first_guess
 
 
   !-------------
@@ -1197,10 +1590,10 @@ MODULE mo_initicon_utils
                initicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
                initicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
       ! allocate groups for list of fields that must be read during initialization
-      ALLOCATE(initicon(jg)%grp_vars_fg (100)        , &
-               initicon(jg)%grp_vars_ana(100)        , &
-               initicon(jg)%grp_vars_fg_default (100), &
-               initicon(jg)%grp_vars_ana_default(100)  )
+      ALLOCATE(initicon(jg)%grp_vars_fg (200)        , &
+               initicon(jg)%grp_vars_ana(200)        , &
+               initicon(jg)%grp_vars_fg_default (200), &
+               initicon(jg)%grp_vars_ana_default(200)  )
 
       ! Allocate atmospheric output data
       IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED, MODE_ICONVREMAP/)==init_mode) ) THEN
@@ -1230,6 +1623,9 @@ MODULE mo_initicon_utils
       ! always allocate sst (to be on the safe side)
       ALLOCATE(initicon(jg)%sfc%sst(nproma,nblks_c))
 
+      ! initialize with 0 in order to avoid checks in the parent-to-child interpolation
+      ! routine
+      initicon(jg)%sfc%sst(:,:) = 0._wp
 
       IF ( init_mode == MODE_IFSANA ) THEN
         ALLOCATE(initicon(jg)%sfc%tskin    (nproma,nblks_c             ), &

@@ -1781,6 +1781,11 @@ END SUBROUTINE message
         ! temperature-dependent aging timescale: 3 days at freezing point, 28 days below -5 deg C
         ztau_snow = 86400._ireals*MIN(28.0_ireals,3._ireals+5._ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
+        ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
+        ! an offset is added in order to ensure moderate aging for low snow depths
+        zuv = MIN(300._ireals, u(i)**2 + v(i)**2 + 12._ireals )
+        ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow(i))/zuv))
+
         ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
         zdsn_old   = zdt/ztau_snow + zdt*zrain_rate*0.1_ireals
 

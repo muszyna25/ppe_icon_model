@@ -58,7 +58,8 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, ihs_ocean
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
+    &                                     ihs_ocean
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi_constants              ! We need all
   ! utility functions
@@ -161,16 +162,18 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)       :: filename
+    CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
 
     ! open file:
     filename = TRIM(get_current_filename(of%out_event))
     of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
-      WRITE(message_text,'(a)') cdiStringError(of%cdiFileID)
+      CALL cdiGetStringError(of%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('',message_text,all_print=.TRUE.)
       CALL finish (routine, 'open failed on '//TRIM(filename))
-    ELSE
+    ELSE IF (msg_level >= 8) THEN
       CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)
     END IF
 
@@ -359,7 +362,7 @@ CONTAINS
       ! -------------------------------------------------
 
       ! Notify user
-      IF (output_file(i)%io_proc_id == p_pe) THEN
+      IF ((output_file(i)%io_proc_id == p_pe) .AND. (msg_level >= 8)) THEN
         WRITE(text,'(a,a,a,a,a,i0)') &
           & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
           & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
@@ -406,7 +409,9 @@ CONTAINS
       IF (check_close_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
         CALL close_output_file(output_file(i))
-        CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
+        IF (msg_level >= 8) THEN
+          CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
+        END IF
       END IF
 
       ! -------------------------------------------------
@@ -1222,7 +1227,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
 
     CALL date_and_time(TIME=ctime)
-    WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    IF (msg_level >= 8) THEN
+      WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    END IF
     CALL interval_start(TRIM(get_current_filename(of%out_event)))
 
     t_get   = 0.d0
@@ -1477,7 +1484,9 @@ CONTAINS
     !-- timing report
     !
     CALL date_and_time(TIME=ctime)
-    WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
+    IF (msg_level >= 8) THEN
+      WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
+    END IF
     CALL interval_end(TRIM(get_current_filename(of%out_event)))
 
     ! Convert mb_get/mb_wr to MB

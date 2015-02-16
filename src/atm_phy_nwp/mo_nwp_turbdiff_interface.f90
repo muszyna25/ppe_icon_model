@@ -246,7 +246,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  dp0=p_diag%dpres_mc(:,:,jb),                                               & !in
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
         &  h_ice=wtr_prog_now%h_ice(:,jb), ps=p_diag%pres_sfc(:,jb),                  & !in
-        &  sai=ext_data%atm%sai(:,jb), &
+        &  sai=ext_data%atm%sai(:,jb), d_pat = ext_data%atm%sso_stdh_raw(:,jb),       &
         &  t_g=lnd_prog_now%t_g(:,jb),                                                & !in
         &  qv_s=lnd_diag%qv_s(:,jb),                                                  & !in
         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                & !in

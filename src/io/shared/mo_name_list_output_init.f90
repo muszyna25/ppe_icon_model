@@ -51,7 +51,7 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list
+    &                                             sort_and_compress_list, one_of
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
@@ -73,7 +73,11 @@ MODULE mo_name_list_output_init
   USE mo_time_config,                       ONLY: time_config
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_dynamics_config,                   ONLY: iequations
+
+#ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
+#endif
+
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -103,7 +107,7 @@ MODULE mo_name_list_output_init
     &                                             level_type_il
   ! lon-lat interpolation
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
-    &                                             compute_lonlat_specs
+    &                                             compute_lonlat_specs, threshold_delta_or_intvls
   USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
     &                                             lonlat_grid_list, n_lonlat_grids,               &
@@ -299,6 +303,7 @@ CONTAINS
     ! level ordering: zlevels, plevels, ilevels must be ordered from
     ! TOA to bottom:
     !
+#ifndef __NO_ICON_ATMO__
     DO jg = 1, max_dom
       ! pressure levels:
       nh_pzlev_config(jg)%plevels%sort_smallest_first = .TRUE.
@@ -307,6 +312,7 @@ CONTAINS
       ! isentropic levels
       nh_pzlev_config(jg)%ilevels%sort_smallest_first = .FALSE.
     END DO
+#endif
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -598,6 +604,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER     :: p_onl
     INTEGER :: n_dom_out, jp, log_patch_id, nlevs
 
+#ifndef __NO_ICON_ATMO__
     ! Loop over the output namelists and create a union set of
     ! all requested vertical levels (per domain):
     p_onl => first_output_name_list
@@ -661,6 +668,7 @@ CONTAINS
       p_onl => p_onl%next
 
     END DO ! p_onl
+#endif
 
   END SUBROUTINE collect_requested_ipz_levels
 
@@ -1122,7 +1130,7 @@ CONTAINS
         END IF
       END DO
 
-      !--- consistency check: do not allow output intervals < dtime*iadv_rcf:
+      !--- consistency check: do not allow output intervals < dtime:
 
       ! there may be multiple "output_bounds" intervals, consider all:        
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
@@ -1137,19 +1145,19 @@ CONTAINS
             mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
             
             !Special case for very small time steps
-            IF(sim_step_info%dtime*sim_step_info%iadv_rcf.LT.1._wp)THEN
-              CALL get_duration_string_real(REAL(sim_step_info%dtime*sim_step_info%iadv_rcf), &
-                     &                      lower_bound_str)
+            IF(sim_step_info%dtime .LT. 1._wp)THEN
+              CALL get_duration_string_real(REAL(sim_step_info%dtime), &
+                &                           lower_bound_str)
               idummy = 0
             ELSE  
-              CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+              CALL get_duration_string(INT(sim_step_info%dtime), &
                 &                      lower_bound_str, idummy)
             END IF
 
             IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
             mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
             IF (mtime_output_interval < mtime_lower_bound) THEN
-              CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime*iadv_rcf !")
+              CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
             END IF
             CALL deallocateTimedelta(mtime_output_interval)
             CALL deallocateTimedelta(mtime_lower_bound)
@@ -2210,16 +2218,28 @@ CONTAINS
       CALL gridDefYunits(of%cdiLonLatGridID, 'degrees_north')
 
       ALLOCATE(p_lonlat(ll_dim(1)))
-      DO k=1,ll_dim(1)
-        p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
-      END DO
+      IF (lonlat%grid%reg_lon_def(2) <= threshold_delta_or_intvls) THEN
+        DO k=1,ll_dim(1)
+          p_lonlat(k) = lonlat%grid%reg_lon_def(1) + REAL(k-1,wp)*lonlat%grid%reg_lon_def(2)
+        END DO
+      ELSE
+        DO k=1,ll_dim(1)
+          p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
+        END DO
+      END IF
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim(2)))
-      DO k=1,ll_dim(2)
-        p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
-      END DO
+      IF (lonlat%grid%reg_lat_def(2) <= threshold_delta_or_intvls) THEN
+        DO k=1,ll_dim(2)
+          p_lonlat(k) = lonlat%grid%reg_lat_def(1) + REAL(k-1,wp)*lonlat%grid%reg_lat_def(2)
+        END DO
+      ELSE
+        DO k=1,ll_dim(2)
+          p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
+        END DO
+      END IF
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 #endif
@@ -2526,9 +2546,9 @@ CONTAINS
         ! CLCL    : typeOfSecondFixedSurface = 1
         ! C_T_LK  : typeOfSecondFixedSurface = 162
         ! H_B1_LK : typeOfSecondFixedSurface = 165
-        IF ( get_id(TRIM(info%name),sfs_name_list) /= -1 ) THEN
+        IF ( one_of(TRIM(info%name),sfs_name_list) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
-            &                    second_tos(get_id(TRIM(info%name),sfs_name_list)))
+            &                    second_tos(one_of(TRIM(info%name),sfs_name_list)))
         ENDIF
 
         ! Re-Set "typeOfFirstFixedSurface" for the following set of variables
@@ -2540,9 +2560,9 @@ CONTAINS
         ! T_WML_LK: typeOfFirstFixedSurface = 1
         ! H_ML_LK : typeOfFirstFixedSurface = 1
         !
-        IF ( get_id(TRIM(info%name),ffs_name_list) /= -1 ) THEN
+        IF ( one_of(TRIM(info%name),ffs_name_list) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", &
-            &                    first_tos(get_id(TRIM(info%name),ffs_name_list)))
+            &                    first_tos(one_of(TRIM(info%name),ffs_name_list)))
         ENDIF
 
 
@@ -2563,53 +2583,6 @@ CONTAINS
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
-
-
-!!$  !------------------------------------------------------------------------------------------------
-!!$  !> FUNCTION get_id:
-!!$  !  Search for name in String-Array sfs_name_list containing all variables for which
-!!$  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine
-!!$  !  the proper typeOfSecondFixedSurface from second_tos.
-!!$  !  If no match is found, get_id is set to -1.
-!!$  !
-!!$  !
-!!$  FUNCTION get_id(in_str)
-!!$    INTEGER                      :: get_id, iname
-!!$    CHARACTER(LEN=*), INTENT(IN) :: in_str
-!!$    CHARACTER(*), PARAMETER :: routine = modname//"::get_id"
-!!$
-!!$    get_id = -1
-!!$    LOOP_GROUPS : DO iname=1,SIZE(sfs_name_list)
-!!$      IF (toupper(TRIM(in_str)) == toupper(TRIM(sfs_name_list(iname)))) THEN
-!!$        get_id = iname
-!!$        EXIT LOOP_GROUPS
-!!$      END IF
-!!$    END DO LOOP_GROUPS
-!!$  END FUNCTION get_id
-
-
-  !------------------------------------------------------------------------------------------------
-  !> FUNCTION get_id:
-  !  Search for name in String-Array name_list containing all variables for which
-  !  typeOfSecondFixedSurface or typeOfFirstFixedSurface must be re-set. Returns variable-ID
-  !  which is used to determine the proper typeOfSecondFixedSurface/typeOfFirstFixedSurface
-  !  from second_tos/first_tos. If no match is found, get_id is set to -1.
-  !
-  !
-  FUNCTION get_id(in_str, name_list)
-    INTEGER                       :: get_id, iname
-    CHARACTER(LEN=*) , INTENT(IN) :: in_str
-    CHARACTER(LEN=12), INTENT(IN) :: name_list(:)
-    CHARACTER(*), PARAMETER :: routine = modname//"::get_id"
-
-    get_id = -1
-    LOOP_GROUPS : DO iname=1,SIZE(name_list)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(name_list(iname)))) THEN
-        get_id = iname
-        EXIT LOOP_GROUPS
-      END IF
-    END DO LOOP_GROUPS
-  END FUNCTION get_id
 
 
   !------------------------------------------------------------------------------------------------

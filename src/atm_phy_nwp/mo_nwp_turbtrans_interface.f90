@@ -567,24 +567,23 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%gz0_t   (jc,jb,jt) = gz0_t(ic,jt)    ! input for turbtran at n+1
                                                           ! over land
 
-
-!MR: tke, tkvm, tkvh tilespezifisch speichern
             prm_diag%tvs_s_t (jc,jb,jt) = tvs_t(ic,3,1,jt)! needed as input for turbtran
             prm_diag%tkvm_s_t(jc,jb,jt) = tkvm_t(ic,2,jt) ! needed as input for turbtran
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
 
-            ! dynamic gusts (maximum over tiles)
-            prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust (prm_diag%u_10m_t(jc,jb,jt),   &
-              &                                           prm_diag%v_10m_t(jc,jb,jt),   &
-              &                                           prm_diag%tcm_t  (jc,jb,jt),   &
-              &                                           p_diag%u      (jc,nlev,jb),   &
-              &                                           p_diag%v      (jc,nlev,jb),   &
-              &                                           p_diag%u(jc,jk_gust(jc),jb),  &
-              &                                           p_diag%v(jc,jk_gust(jc),jb)), &
-              &                              prm_diag%dyn_gust(jc,jb) )
-
           ENDDO
 
+        ENDDO
+
+        ! Dynamic gusts are diagnosed from averaged values in order to avoid artifacts along coastlines
+        DO jc = i_startidx, i_endidx
+          prm_diag%dyn_gust(jc,jb) =  nwp_dyn_gust (prm_diag%u_10m(jc,jb),      &
+            &                                       prm_diag%v_10m(jc,jb),      &
+            &                                       prm_diag%tcm  (jc,jb),      &
+            &                                       p_diag%u      (jc,nlev,jb), &
+            &                                       p_diag%v      (jc,nlev,jb), &
+            &                                       p_diag%u(jc,jk_gust(jc),jb),&
+            &                                       p_diag%v(jc,jk_gust(jc),jb))
         ENDDO
 
       ENDIF ! tiles / no tiles

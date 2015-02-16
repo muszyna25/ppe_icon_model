@@ -143,7 +143,7 @@ MODULE mo_atm_phy_nwp_config
 
 CONTAINS
 
-  SUBROUTINE configure_atm_phy_nwp( n_dom, p_patch, dtime_adv )
+  SUBROUTINE configure_atm_phy_nwp( n_dom, p_patch, dtime )
     !-------------------------------------------------------------------------
     !
     !>
@@ -158,7 +158,7 @@ CONTAINS
   
     TYPE(t_patch), TARGET,INTENT(IN) :: p_patch(:)
     INTEGER, INTENT(IN) :: n_dom
-    REAL(wp),INTENT(IN) :: dtime_adv
+    REAL(wp),INTENT(IN) :: dtime
   
     INTEGER :: jg, jk, jk_shift
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -167,7 +167,7 @@ CONTAINS
 
 
     DO jg = 1,n_dom
-      atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(p_patch(jg)%level &
+      atm_phy_nwp_config(jg)%dt_fastphy = (dtime/2._wp**(p_patch(jg)%level &
           &                            -  p_patch(1)%level))            !seconds
     ENDDO
 
@@ -255,15 +255,15 @@ CONTAINS
         ! issue a warning, if advective and convective timesteps are not synchronized
         !
         ! so far, only for Domain 1
-        IF( MOD(atm_phy_nwp_config(jg)%dt_conv,dtime_adv) > 10._wp*dbl_eps )  THEN
+        IF( MOD(atm_phy_nwp_config(jg)%dt_conv,dtime) > 10._wp*dbl_eps )  THEN
           WRITE(message_text,'(a,2F8.1)') &
             &'WARNING: convective timestep is not a multiple of advective timestep: ', &
-            & dt_phy(jg,itconv), dtime_adv
+            & dt_phy(jg,itconv), dtime
           CALL message(TRIM(routine), TRIM(message_text))
           WRITE(message_text,'(a,F8.1)') &
             &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &
-            & REAL((FLOOR(atm_phy_nwp_config(jg)%dt_conv/dtime_adv) + 1),wp) &
-            & * dtime_adv
+            & REAL((FLOOR(atm_phy_nwp_config(jg)%dt_conv/dtime) + 1),wp) &
+            & * dtime
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
       ENDIF  ! jg=1
@@ -279,7 +279,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
     
       IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
-        CALL configure_les(jg,dtime_adv)
+        CALL configure_les(jg,dtime)
         atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
       END IF 
     
@@ -303,19 +303,19 @@ CONTAINS
  
  
       ! Round up dt_rad to nearest advection timestep
-      IF( MOD(dt_phy(jg,itrad),dtime_adv)>10._wp*dbl_eps .AND. atm_phy_nwp_config(jg)%is_les_phy)THEN
+      IF( MOD(dt_phy(jg,itrad),dtime)>10._wp*dbl_eps .AND. atm_phy_nwp_config(jg)%is_les_phy)THEN
         ! write warning only for global domain
         IF (jg==1) THEN
           WRITE(message_text,'(a,2F8.1)') &
             &'WARNING: radiation timestep is not a multiple of fastphy timestep: ', &
-            & dt_phy(jg,itrad), dtime_adv
+            & dt_phy(jg,itrad), dtime
           CALL message(TRIM(routine), TRIM(message_text))
           WRITE(message_text,'(a,F8.1)') &
             &'radiation time step is rounded up to next multiple: dt_rad !=!', &
-            & REAL((FLOOR(dt_phy(jg,itrad)/dtime_adv) + 1),wp) * dtime_adv
+            & REAL((FLOOR(dt_phy(jg,itrad)/dtime) + 1),wp) * dtime
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
-        dt_phy(jg,itrad) = REAL((FLOOR(dt_phy(jg,itrad)/dtime_adv) + 1),wp) * dtime_adv
+        dt_phy(jg,itrad) = REAL((FLOOR(dt_phy(jg,itrad)/dtime) + 1),wp) * dtime
       ENDIF
 
     END DO !ndom

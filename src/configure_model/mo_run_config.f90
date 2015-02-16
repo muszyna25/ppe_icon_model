@@ -30,7 +30,7 @@ MODULE mo_run_config
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
-  PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime, dtime_adv
+  PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
@@ -180,8 +180,6 @@ MODULE mo_run_config
     INTEGER :: iTR1         !< chemical tracer in ICON-ART
                             !< RR JS
 
-    REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
-
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevm1             !< number of half levels for each domain without boundaries
     INTEGER :: nlevp1             !< number of half levels for each domain with    boundaries
@@ -209,21 +207,10 @@ CONTAINS
   !! Exceptions: grid_generatingCenter, grid_generatingSubcenter and number_of_grid_used 
   !!             are set in mo_model_domimp_patches/read_basic_patch 
   !!
-  SUBROUTINE configure_run( opt_iadv_rcf )
-
-    INTEGER, OPTIONAL, INTENT(IN) :: opt_iadv_rcf  !< reduced calling freq. for advection
+  SUBROUTINE configure_run( )
 
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
     
-    !----------------------------
-    ! advective timestep on global patch
-    IF ( PRESENT(opt_iadv_rcf) ) THEN
-      dtime_adv = REAL(opt_iadv_rcf,wp) * dtime  ! NH-atm
-    ELSE
-      dtime_adv = dtime  ! oce, H-atm
-      WRITE(0,*) routine, ': dtime_adv initialized with', dtime
-    ENDIF
-
 
     !----------------------------
     ! Number of vertical levels

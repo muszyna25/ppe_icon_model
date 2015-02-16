@@ -56,7 +56,7 @@ CONTAINS
 !! 
 !!
   SUBROUTINE add_slowphys(p_nh, p_patch, p_int, nnow, nnew, dtime, &
-                          lstep_adv, nnow_rcf, nnew_rcf)
+                          nnow_rcf, nnew_rcf)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
@@ -66,7 +66,6 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nnow, nnew, nnow_rcf, nnew_rcf
     ! Time step
     REAL(wp),                  INTENT(IN)    :: dtime
-    LOGICAL,                   INTENT(IN)    :: lstep_adv
 
     INTEGER :: nlev                  ! number of vertical (full) levels
 
@@ -122,16 +121,14 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF ( lstep_adv ) THEN
-        DO jt = 1, ntracer
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              ! tracer (simply copy)
-              p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) = p_nh%prog(nnow_rcf)%tracer(jc,jk,jb,jt)
-            ENDDO
+      DO jt = 1, ntracer
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            ! tracer (simply copy)
+            p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) = p_nh%prog(nnow_rcf)%tracer(jc,jk,jb,jt)
           ENDDO
         ENDDO
-      ENDIF
+      ENDDO
     ENDDO
 !$OMP ENDDO NOWAIT
 

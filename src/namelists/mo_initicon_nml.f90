@@ -42,6 +42,11 @@ MODULE mo_initicon_nml
     & config_dwdana_filename     => dwdana_filename,     &
     & config_l_coarse2fine_mode  => l_coarse2fine_mode,  &
     & config_lp2cintp_incr       => lp2cintp_incr,       &
+    & config_lp2cintp_sfcana     => lp2cintp_sfcana,     &
+    & config_ltile_coldstart     => ltile_coldstart,     &
+    & config_start_time_avg_fg   => start_time_avg_fg,   &
+    & config_end_time_avg_fg     => end_time_avg_fg,     &
+    & config_interval_avg_fg     => interval_avg_fg,     &
     & config_filetype            => filetype,            &
     & config_dt_iau              => dt_iau,              &
     & config_timeshift           => timeshift,           &
@@ -79,6 +84,15 @@ MODULE mo_initicon_nml
                                            ! to fine resolutions over mountainous terrain
   LOGICAL  :: lp2cintp_incr(max_dom) ! If true, perform parent-to-child interpolation of atmospheric data
                                      ! assimilation increments
+  LOGICAL  :: lp2cintp_sfcana(max_dom) ! If true, perform parent-to-child interpolation of
+                                       ! surface analysis data
+  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess without tiles
+
+  ! Variables controlling computation of temporally averaged first guess fields for DA
+  ! The calculation is switched on by setting end_time > start_time
+  REAL(wp) :: start_time_avg_fg   ! start time [s]
+  REAL(wp) :: end_time_avg_fg     ! end time [s]
+  REAL(wp) :: interval_avg_fg     ! averaging interval [s]
 
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
@@ -119,12 +133,13 @@ MODULE mo_initicon_nml
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
-                          lconsistency_checks,                              &
+                          lconsistency_checks, rho_incr_filter_wgt,         &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          rho_incr_filter_wgt, lp2cintp_incr,               &
-                          latbc_varnames_map_file
+                          lp2cintp_incr, lp2cintp_sfcana,                   &
+                          latbc_varnames_map_file, start_time_avg_fg,       &
+                          end_time_avg_fg, interval_avg_fg, ltile_coldstart
                           
 CONTAINS
 
@@ -181,7 +196,12 @@ CONTAINS
   dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
   lp2cintp_incr(:)      = .FALSE. ! true: perform parent-to-child interpolation of atmospheric data assimilation increments
+  lp2cintp_sfcana(:)    = .FALSE. ! true: perform parent-to-child interpolation of surface analysis data
+  ltile_coldstart       = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
 
+  start_time_avg_fg = 0._wp
+  end_time_avg_fg   = 0._wp
+  interval_avg_fg   = 0._wp
 
   !------------------------------------------------------------
   ! 3.0 Read the initicon namelist.
@@ -241,12 +261,30 @@ CONTAINS
     CALL message(TRIM(routine),message_text)
   ENDIF
 
-  ! Setting the first entry of lp2cintp_incr to true activates parent-to-child interpolation
-  ! of DA increments for all domains
+  ! Setting the first entry of lp2cintp_incr / lp2cintp_sfcana to true activates parent-to-child interpolation
+  ! of DA increments / surface analysis for all domains
   IF (lp2cintp_incr(1)) THEN
     lp2cintp_incr(2:max_dom) = .TRUE.
   ENDIF
+  IF (lp2cintp_sfcana(1)) THEN
+    lp2cintp_sfcana(2:max_dom) = .TRUE.
+  ENDIF
+  ! To simplify runtime flow control, set the switches for the global domain to false
+  lp2cintp_incr(1)   = .FALSE.
+  lp2cintp_sfcana(1) = .FALSE.
 
+  ! Check if settings for temporally averaged first guess output make sense
+  IF (end_time_avg_fg > start_time_avg_fg) THEN
+    IF (interval_avg_fg < 1.e-10_wp) THEN
+      WRITE(message_text,'(a,f8.2,a)') 'averaging interval for first guess output must be positive'
+      CALL finish(TRIM(routine),message_text)
+    ENDIF
+    IF (end_time_avg_fg < start_time_avg_fg + interval_avg_fg) THEN
+      WRITE(message_text,'(a,f8.2,a)') &
+        'averaging period for first guess output must be larger than averaging interval'
+      CALL finish(TRIM(routine),message_text)
+    ENDIF
+  ENDIF
 
   ! make sure that dt_shift is negative or 0.
   IF ( dt_shift > 0._wp ) THEN
@@ -272,6 +310,11 @@ CONTAINS
   config_dwdana_filename     = dwdana_filename
   config_l_coarse2fine_mode  = l_coarse2fine_mode
   config_lp2cintp_incr       = lp2cintp_incr
+  config_lp2cintp_sfcana     = lp2cintp_sfcana
+  config_ltile_coldstart     = ltile_coldstart
+  config_start_time_avg_fg   = start_time_avg_fg
+  config_end_time_avg_fg     = end_time_avg_fg
+  config_interval_avg_fg     = interval_avg_fg
   config_filetype            = filetype
   config_dt_iau              = dt_iau
   config_timeshift%dt_shift  = dt_shift

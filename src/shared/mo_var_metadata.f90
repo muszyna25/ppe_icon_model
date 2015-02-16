@@ -63,19 +63,21 @@ CONTAINS
   ! Quasi-constructor for horizontal interpolation meta data
   !
   ! Fills data structure with default values (unless set otherwise).
-  FUNCTION create_hor_interp_metadata(hor_intp_type, lonlat_id)    &
+  FUNCTION create_hor_interp_metadata(hor_intp_type, fallback_type, lonlat_id)    &
     RESULT(hor_interp_meta)
 
     TYPE(t_hor_interp_meta) :: hor_interp_meta
     INTEGER, INTENT(IN), OPTIONAL      :: &
-      &  hor_intp_type, lonlat_id
+      &  hor_intp_type, fallback_type, lonlat_id
 
     ! set default values
     hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT_RBF
+    hor_interp_meta%fallback_type    = HINTP_TYPE_LONLAT_RBF
     hor_interp_meta%lonlat_id        = 0 ! invalid ID
 
     ! supersede with user definitions
     CALL assign_if_present(hor_interp_meta%hor_intp_type, hor_intp_type)
+    CALL assign_if_present(hor_interp_meta%fallback_type, fallback_type)
     CALL assign_if_present(hor_interp_meta%lonlat_id,     lonlat_id)
 
   END FUNCTION create_hor_interp_metadata
@@ -420,14 +422,15 @@ CONTAINS
   !!
   FUNCTION new_action(actionID, intvl, opt_start, opt_end) RESULT(var_action)
 
-    INTEGER                                      , INTENT(IN) :: actionID  ! action ID
-    CHARACTER(LEN=*), INTENT(IN) :: intvl     ! action interval [ISO_8601]
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN), OPTIONAL, INTENT(IN) :: opt_start ! action start time [ISO_8601]
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN), OPTIONAL, INTENT(IN) :: opt_end   ! action end time [ISO_8601]
+    INTEGER                   , INTENT(IN) :: actionID  ! action ID
+    CHARACTER(LEN=*)          , INTENT(IN) :: intvl     ! action interval [ISO_8601]
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_start ! action start time [ISO_8601]
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_end   ! action end time [ISO_8601]
 
     ! local variables
     TYPE(timedelta), POINTER              :: start_offset, end_offset
-    TYPE(datetime), POINTER               :: startdatetime, enddatetime
+    TYPE(datetime), TARGET                :: startdatetime, enddatetime
+    TYPE(datetime), POINTER               :: dummy_ptr
     TYPE(t_var_action_element)            :: var_action
     TYPE(datetime), POINTER               :: inidatetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
@@ -441,7 +444,12 @@ CONTAINS
     ! create model end_datetime in ISO_8601 format
     CALL get_datetime_string(iso8601_end_datetime, time_config%end_datetime)
 
-    ! assign start time if present
+    ! default start time = model initialization time
+    start = TRIM(iso8601_ini_datetime)
+    ! default end time = model end time
+    end = TRIM(iso8601_end_datetime)
+
+    ! assign modified start time if offset opt_start is present
     IF (PRESENT(opt_start)) THEN
       !
       ! convert model ini datetime from ISO_8601 format to type datetime
@@ -453,16 +461,15 @@ CONTAINS
       ! add start offset to model ini date
       startdatetime = inidatetime + start_offset
       ! transform back from TYPE datetime to ISO_8601
-      CALL dateTimeToString(startdatetime, start)
+      dummy_ptr => startdatetime
+      CALL dateTimeToString(dummy_ptr, start)
       ! cleanup
+      CALL deallocateDatetime(inidatetime)
       CALL deallocateTimeDelta(start_offset)
-    ELSE
-      ! default start time = model initialization time
-      start = TRIM(iso8601_ini_datetime)
     ENDIF
 
 
-    ! assign end time if present
+    ! assign modified end time if offset opt_end is present
     IF (PRESENT(opt_end)) THEN
       !
       ! convert model ini datetime from ISO_8601 format to type datetime
@@ -474,12 +481,11 @@ CONTAINS
       ! add end offset to model ini date
       enddatetime = inidatetime + end_offset
       ! transform back from TYPE datetime to ISO_8601
-      CALL dateTimeToString(enddatetime, end)
+      dummy_ptr => enddatetime
+      CALL dateTimeToString(dummy_ptr, end)
       ! cleanup
+      CALL deallocateDatetime(inidatetime)
       CALL deallocateTimeDelta(end_offset)
-    ELSE
-      ! default end time = model end time
-      end = TRIM(iso8601_end_datetime)
     ENDIF
 
 
@@ -489,13 +495,14 @@ CONTAINS
     var_action%start      = TRIM(start)                ! start
     var_action%end        = TRIM(end)                  ! end
     var_action%lastActive = TRIM(start)                ! arbitrary init
+
     !
     ! convert start datetime from ISO_8601 format to type datetime
-    startdatetime  => newDatetime(TRIM(start))
-    var_Action%EventLastTriggerDate = startdatetime    ! arbitrary init
+    dummy_ptr => newDatetime(TRIM(start))
+    var_Action%EventLastTriggerDate = dummy_ptr    ! arbitrary init
 
     ! cleanup
-    CALL deallocateDatetime(startdatetime)
+    CALL deallocateDatetime(dummy_ptr)
 
   END FUNCTION new_action
 
