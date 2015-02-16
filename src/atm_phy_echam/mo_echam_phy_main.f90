@@ -596,10 +596,10 @@ CONTAINS
           !
           ! atmospheric profiles
           & flx_lw_net_clr =field% lwflxclr(:,:,jb)  ,&!< out    net longwave flux, clear sky (positive downward)
-          & trm_sw_net_clr =field% swtrmclr(:,:,jb)  ,&!< out    net solar transmissivity, clear sky (positive downward)
+          & trm_sw_net_clr =field% swtrmclr(:,:,jb)  ,&!< out    net shortwave transmissivity, clear sky (positive downward)
           !
           & flx_lw_net     =field% lwflxall(:,:,jb)  ,&!< out    net longwave flux, all-sky (positive downward)
-          & trm_sw_net     =field% swtrmall(:,:,jb)   )!< out    net solar transmissivity, all-sky, (positive downward)
+          & trm_sw_net     =field% swtrmall(:,:,jb)   )!< out    net shortwave transmissivity, all-sky, (positive downward)
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 

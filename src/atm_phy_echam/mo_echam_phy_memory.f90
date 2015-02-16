@@ -168,8 +168,8 @@ MODULE mo_echam_phy_memory
       & pardffsfc   (:,  :),  &!< [ ]    diffuse fraction in PAR net downw. flux (?)
       !
       ! shortwave net transmissivity
-      & swtrmclr    (:,:,:),  &!< [ ]    net solar transmissivity  , clear sky, positive downward
-      & swtrmall    (:,:,:),  &!< [ ]    net solar transmissivity  , all   sky, positive downward
+      & swtrmclr    (:,:,:),  &!< [ ]    net shortwave transmissivity  , clear-sky, positive downward
+      & swtrmall    (:,:,:),  &!< [ ]    net shortwave transmissivity  , all-sky,   positive downward
       !
       ! longwave net fluxes
       & lwflxclr    (:,:,:),  &!< [W/m2] net longwave flux, clear sky, positive downward
