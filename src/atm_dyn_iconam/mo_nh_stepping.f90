@@ -84,7 +84,7 @@ MODULE mo_nh_stepping
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
+    &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
     &                                    MODE_DWDANA_INC, MODE_IAU, MODIS !, icosmo
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
@@ -146,7 +146,6 @@ MODULE mo_nh_stepping
   USE mo_async_latbc,              ONLY: prefetch_input
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
-  USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_fortran_tools,            ONLY: swap
   USE mtime,                       ONLY: mtime_datetime => datetime, newDatetime,                  &
