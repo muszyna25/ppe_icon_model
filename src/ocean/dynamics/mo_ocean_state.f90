@@ -1657,7 +1657,6 @@ CONTAINS
       & t_cf_var('depth_CellInterface','m','depth at cell interfaces', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
-    patch_3d%p_patch_1d(n_dom)%depth_CellInterface(:,:,:) = 0.0_wp
      
   END SUBROUTINE construct_patch_3d
   

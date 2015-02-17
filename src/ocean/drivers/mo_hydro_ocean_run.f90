@@ -406,23 +406,28 @@ CONTAINS
     ! in general nml output is writen based on the nnew status of the
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
-    ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
     ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
-      ! copy old tracer values to spot value fields for propper initial timestep
-      ! output
+    ! copy old tracer values to spot value fields for propper initial timestep
+    ! output
     IF(no_tracer>=1)THEN
       ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+      ! in general nml output is writen based on the nnew status of the
+      ! prognostics variables. Unfortunately, the initialization has to be written
+      ! to the nold state. That's why the following manual copying is nec.
+      ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
     ENDIF
     IF(no_tracer>=2)THEN
       ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
     ENDIF
     ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-    CALL calc_potential_density( patch_3d,                     &
-      & ocean_state%p_prog(nold(1))%tracer,&
-      & ocean_state%p_diag%rhopot )
-    CALL calculate_density( patch_3d,                        &
-      & ocean_state%p_prog(nold(1))%tracer, &
-      & ocean_state%p_diag%rho )
+    IF(no_tracer>=1)THEN
+      CALL calc_potential_density( patch_3d,                     &
+        & ocean_state%p_prog(nold(1))%tracer,&
+        & ocean_state%p_diag%rhopot )
+      CALL calculate_density( patch_3d,                        &
+        & ocean_state%p_prog(nold(1))%tracer, &
+        & ocean_state%p_diag%rho )
+    ENDIF
 
     CALL update_ocean_statistics( &
       & ocean_state,            &

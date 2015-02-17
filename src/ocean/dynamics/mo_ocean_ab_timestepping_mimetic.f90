@@ -754,7 +754,7 @@ CONTAINS
           & op_coeffs,                                     &
           & start_edge_index, end_edge_index, blockNo)
         
-      ELSE !( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
+      ELSE !( iswm_oce == 1) THEN
         CALL calculate_explicit_vn_pred_2D_onBlock( patch_3d, ocean_state, z_gradh_e(:), &
         & start_edge_index, end_edge_index, blockNo) 
       ENDIF
