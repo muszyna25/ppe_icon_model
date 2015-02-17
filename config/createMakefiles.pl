@@ -71,6 +71,15 @@ if ( -d "externals/mtime/include" ) {
     }
 }
 
+if ( -d "externals/yac/include" ) {
+    opendir(DIR, "externals/yac/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "externals/yac/include/${inc}", "${build_path}/yac/${inc}" );
+    }
+}
+
 #__________________________________________________________________________________________________________________________________
 # scan dependencies (recursive)
 
@@ -165,6 +174,8 @@ foreach my $dir ( @directories ) {
     if (($dir =~ m/^externals/) && ($target =~ /^sx/)) {
 	print MAKEFILE "\n";
 	print MAKEFILE "%.o: %.f90\n";
+	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
+	print MAKEFILE "%.o: %.F90\n";
 	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
 	print MAKEFILE "\n\n";
     } else {	
