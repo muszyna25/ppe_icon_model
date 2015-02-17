@@ -26,8 +26,8 @@ MODULE mo_sea_ice_winton
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,&
     &                               mu,mus,ci, alf, I_0
   USE mo_ocean_nml,           ONLY: no_tracer 
-  USE mo_sea_ice_nml,         ONLY: hci_layer
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state
+  USE mo_sea_ice_nml,         ONLY: hci_layer, use_constant_tfreez
+  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
@@ -260,18 +260,18 @@ CONTAINS
     all_cells => p_patch%cells%all 
 
     ! freezing temperature of uppermost sea water
-    IF ( no_tracer >= 2 ) THEN
-      DO k=1,ice%kice
-        Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      ENDDO
-    ELSE
+    IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
       Tfw(:,:,:) = Tf
+    ELSE
+      DO k=1,ice%kice
+        Tfw(:,k,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      ENDDO
     ENDIF
 
     ! Heat flux from ocean into ice
     CALL oce_ice_heatflx(p_patch, p_os,ice,Tfw,zHeatOceI)
-  CALL dbg_print('GrowWinton: Tfw', Tfw, 'ice_growth_winton',5)
-  CALL dbg_print('GrowWinton: zHeatOceI', zHeatOceI, 'ice_growth_winton',5)
+    CALL dbg_print('GrowWinton: Tfw', Tfw, 'ice_growth_winton',4)
+    CALL dbg_print('GrowWinton: zHeatOceI', zHeatOceI, 'ice_growth_winton',4)
 
     !-------------------------------------------------------------------------------
     DO jb = 1,p_patch%nblks_c
