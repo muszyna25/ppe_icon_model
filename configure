@@ -649,6 +649,9 @@ MPIROOT
 SCT_INCLUDE
 SCT_LIB
 SCTROOT
+XML2_INCLUDE
+XML2_LIB
+XML2ROOT
 ZLIB_INCLUDE
 ZLIB_LIB
 ZLIBROOT
@@ -741,10 +744,12 @@ enable_option_checking
 with_fortran
 with_openmp
 with_setup
+with_yac
 with_mtime
 with_messy
 with_flags
 with_ocean
+with_xml2
 with_lapack
 with_zlib
 with_szip
@@ -1383,11 +1388,13 @@ Optional Packages:
   --with-fortran=COMPILER select_available compiler (see README.compiler)
   --with-openmp           enable OpenMP, if available for selected compiler
   --with-setup=<name>     use user specific setup (mh_setup)
+  --with-yac              enable use of yac
   --without-mtime         disable use of mtime
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
   --with-ocean=no         compile without ocean
+  --with-xml2=DIR         Required libxml2
   --with-lapack=DIR       Alternative vendor optimized LAPACK and BLAS library
   --with-zlib=DIR         Required I/O package
   --with-szip=DIR         Required I/O package
@@ -2340,6 +2347,19 @@ if test x$with_setup != x ; then
   mh_setup=$with_setup
 else
   mh_setup=""
+fi
+
+
+# Check whether --with-yac was given.
+if test "${with_yac+set}" = set; then :
+  withval=$with_yac;
+fi
+
+
+if test "x$with_yac" = "xyes"; then :
+  use_yac="yes"
+else
+  use_yac="no"
 fi
 
 
@@ -3539,6 +3559,51 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 fi
 
 
+XML2_LIB=""
+XML2_INCLUDE=""
+
+
+# Check whether --with-xml2 was given.
+if test "${with_xml2+set}" = set; then :
+  withval=$with_xml2;
+else
+  withval=yes
+fi
+
+
+if test x$withval = xyes; then
+  if test x$with_xml2 != x; then
+    XML2ROOT=$with_xml2
+  fi
+fi
+
+if test -n "$XML2ROOT" ; then
+
+  if test -r "$XML2ROOT/lib/libxml2.a" ; then
+     XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+  else
+     echo "cannot read $XML2ROOT/lib/libxml2.a"
+     exit 1
+  fi
+
+  if test -d "$XML2ROOT/include/libxml2" ; then
+     XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
+  else
+     echo "cannot find $XML2ROOT/include/libxml2"
+     exit 1
+  fi
+
+  FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
+  CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
+
+else
+
+  echo "Warning: the variable XML2ROOT is not set in $host_frag"
+  echo "         set XML2ROOT to the xml2 root directory"
+fi
+
+
+
 
 # Check whether --with-lapack was given.
 if test "${with_lapack+set}" = set; then :
@@ -3785,7 +3850,7 @@ if test -n "$NETCDFROOT" ; then
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB="-L$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
+         NETCDF_LIB="-Lmake$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -5924,6 +5989,15 @@ if [ "x$LAPACKROOT" = xlocal ] ; then
     LAPACKROOT=""
 fi
 
+if [ "x$use_yac" = xyes ] ; then
+    my_srcdirs="externals/yac/src ${my_srcdirs}"
+    FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
+    CFLAGS="${CFLAGS} -I`pwd`/${exec_prefix}/include"
+    if test "x$with_mpi" != "xno" ; then
+        FFLAGS="${FFLAGS} ${DEFOPT}USE_MPI"
+        CFLAGS="${CFLAGS} ${DEFCOPT}USE_MPI"
+    fi
+fi
 
 if [ "x$use_mtime" = xyes ] ; then
     my_srcdirs="externals/mtime/src ${my_srcdirs}"
@@ -5985,6 +6059,10 @@ if test x$with_flags = x; then
     use_flags_group="std"
 else
     use_flags_group=$with_flags
+fi
+
+if [ "x$use_yac" = xyes ] ; then
+   ac_libs="$ac_libs -lyac"
 fi
 
 if [ "x$use_mtime" = xyes ] ; then
@@ -6070,6 +6148,13 @@ ZLIBROOT=$ZLIBROOT
 ZLIB_LIB=$ZLIB_LIB
 
 ZLIB_INCLUDE=$ZLIB_INCLUDE
+
+
+XML2ROOT=$XML2ROOT
+
+XML2_LIB=$XML2_LIB
+
+XML2_INCLUDE=$XML2_INCLUDE
 
 
 SCTROOT=$SCTROOT
@@ -7564,6 +7649,13 @@ else
 zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -d"\"")
 echo "    ZLIB   : zlib-${zlib_version}"
 echo "             installation  ${ZLIBROOT}"
+fi
+if test x$XML2ROOT = x; then
+echo "    XML2   : none (error)"
+else
+xml2_version=$(grep "define LIBXML_DOTTED_VERSION" ${XML2ROOT}/include/libxml2/libxml/xmlversion.h | cut -f2 -d "\"")
+echo "    XML2   : xml2-${xml2_version}"
+echo "             installation  ${XML2ROOT}"
 fi
 if test x$SCTROOT = x; then
 echo "    SCT    : none"
