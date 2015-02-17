@@ -73,7 +73,8 @@ CONTAINS
     &                              patch        ,&! in
     &                              dtadv_loc    ,&! in
     &                              ltrig_rad    ,&! out
-    &                              time_radtran ) ! out
+    &                              time_radtran ,&! out
+    &                              datetime_radtran) ! out
 
     ! Arguments
 
@@ -83,10 +84,11 @@ CONTAINS
     REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
     LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
     REAL(wp)                 ,INTENT(out)   :: time_radtran  !< time of day (in radian) at which radiative transfer is computed
+    TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
 
     ! Local variables
 
-    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
+!!$    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
     REAL(wp)         :: dsec              !< [s] time increment of datetime_radtran wrt. datetime
 
 !!$    LOGICAL          :: is_initial_datetime

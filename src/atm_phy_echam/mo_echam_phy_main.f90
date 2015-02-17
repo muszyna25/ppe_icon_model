@@ -26,7 +26,7 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
@@ -55,6 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
+  USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
@@ -77,7 +78,8 @@ CONTAINS
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
     &                        datetime,pdtime,psteplen, &
-    &                        ltrig_rad,ptime_radtran )
+    &                        ltrig_rad,ptime_radtran,  &
+    &                        datetime_radtran          )
 
     INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
     INTEGER         ,INTENT(IN) :: jb             !< block index
@@ -91,6 +93,7 @@ CONTAINS
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
     REAL(wp)        ,INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
                                                   !< computation, scaled into radians
+    TYPE(t_datetime),INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
 
     ! Local variables
 
@@ -454,6 +457,7 @@ CONTAINS
           ! to do (for implementing seasonal cycle):
           ! - compute orbit position at ptime_radtran
 
+        IF(irad_type==1 .OR. irad_type==2) THEN
           SELECT CASE(izenith)
 
           CASE(0)
@@ -525,7 +529,7 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
 
           END SELECT
-
+        END IF
 
           SELECT CASE(irad_o3)
             CASE default
@@ -569,9 +573,9 @@ CONTAINS
 
         SELECT CASE (irad_type)
           CASE (1)
-            CALL finish('radiation','irad_type=1, default radiation')
+            CALL message('radiation','irad_type=1, default radiation')
           CASE (2) 
-            CALL finish('radiation','irad_type=2, psrad radiation')
+            CALL message('radiation','irad_type=2, psrad radiation')
           CASE DEFAULT
             CALL finish('radiation','irad_type neither 1 nor 2, not supported')
         END SELECT
@@ -648,7 +652,7 @@ CONTAINS
 
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 
-         END IF ! ltrig_rad
+      END IF ! ltrig_rad
 
       ! 4.2 RADIATIVE HEATING
       !----------------------

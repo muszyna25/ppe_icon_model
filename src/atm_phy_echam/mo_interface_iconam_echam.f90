@@ -164,6 +164,7 @@ CONTAINS
 
     LOGICAL  :: ltrig_rad
     REAL(wp) :: time_radtran
+    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
 
@@ -381,7 +382,8 @@ CONTAINS
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
-      &                        time_radtran ) ! out
+      &                        time_radtran ,&! out
+      &                        datetime_radtran) ! out
     !
     !=====================================================================================
 
@@ -419,7 +421,8 @@ CONTAINS
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
-        &                  time_radtran ) ! in
+        &                  time_radtran ,&! in
+        &                  datetime_radtran) ! in
 
     END DO
 !$OMP END DO NOWAIT
