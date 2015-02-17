@@ -7,7 +7,9 @@
 !! headers of the routines.
 MODULE mo_coupling_config
 
+#ifndef YAC_coupling
   USE mo_master_control,  ONLY: are_multiple_models
+#endif
 
   IMPLICIT NONE
   PUBLIC
@@ -19,6 +21,7 @@ MODULE mo_coupling_config
 !! - time_operation (average / accumate / none )
 !! - couping_freq coupling frequency in seconds
 !!
+
   TYPE t_cpl_field_nml
      CHARACTER(len=132) :: name
      INTEGER            :: lag
@@ -35,12 +38,20 @@ MODULE mo_coupling_config
   INTEGER :: number_of_coupled_variables
   INTEGER :: config_debug_coupler_level
 
+#ifdef YAC_coupling
+  LOGICAL :: config_coupled_mode
+#endif
+
 CONTAINS
 
   !------------------------------------------------------------------------
   LOGICAL FUNCTION is_coupled_run()
 
+#ifdef YAC_coupling
+    is_coupled_run = config_coupled_mode
+#else
     is_coupled_run = (number_of_coupled_variables > 0) .AND. are_multiple_models()
+#endif
 
   END FUNCTION is_coupled_run
   !------------------------------------------------------------------------
