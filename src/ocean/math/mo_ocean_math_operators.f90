@@ -1294,38 +1294,38 @@ CONTAINS
     ENDIF
     IF ( iswm_oce /= 1 ) THEN  !  3D case      
 !ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc, level) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
-      DO jc = cell_StartIndex, cell_EndIndex
-        IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
-          
-          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
-            & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
-          
-          patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
-            & patch_2D%cells%area(jc,blockNo)
-          
-          inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
-          
-          inv_prisms_center_distance(jc,2,blockNo) = &
-            & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo)
-          
-          ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + patch_3D%column_thick_c(jc,blockNo)
-          
-          patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * 0.5_wp
-          patch_3D%p_patch_1d(1)%depth_cellinterface(jc,2,blockNo) = cell_thickness(jc,1,blockNo)
-          
-        ENDIF
-        
-        DO level=2, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-          patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,level,blockNo) = &
-            & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo) * 0.5_wp
-          patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level+1,blockNo) = &
-            & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo)
-        ENDDO
-        
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
+        DO jc = cell_StartIndex, cell_EndIndex
+          IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
+
+            patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
+              & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
+
+            patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
+              & patch_2D%cells%area(jc,blockNo)
+
+            inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
+
+            inv_prisms_center_distance(jc,2,blockNo) = &
+              & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo)
+
+            ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + patch_3D%column_thick_c(jc,blockNo)
+
+            patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * 0.5_wp
+            patch_3D%p_patch_1d(1)%depth_cellinterface(jc,2,blockNo) = cell_thickness(jc,1,blockNo)
+
+          ENDIF
+
+          DO level=2, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+            patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,level,blockNo) = &
+              & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo) * 0.5_wp
+            patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level+1,blockNo) = &
+              & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo)
+          ENDDO
+
+        END DO
       END DO
-    END DO
 !ICON_OMP_END_DO
     ENDIF
     !----------------------------------------------------------------------------------------

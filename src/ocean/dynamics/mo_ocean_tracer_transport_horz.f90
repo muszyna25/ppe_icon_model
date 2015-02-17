@@ -926,11 +926,12 @@ CONTAINS
             DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
             z_adv_flux_high(edge_index,level,blockNo) =  z_adv_flux_high(edge_index,level,blockNo)    &
-              &          +0.5_wp*p_os%p_diag%vn_time_weighted(edge_index,level,blockNo)&
-              &          *p_os%p_diag%vn_time_weighted(edge_index,level,blockNo)*dtime&
-              &          * patch_2d%edges%inv_dual_edge_length(edge_index,blockNo)   &
-              &        *( trac_old(iilc(edge_index,blockNo,2),level,iibc(edge_index,blockNo,2))      &
-              &          -trac_old(iilc(edge_index,blockNo,1),level,iibc(edge_index,blockNo,1)))
+              & + 0.5_wp * p_os%p_diag%vn_time_weighted(edge_index,level,blockNo)                     &
+              &          * p_os%p_diag%vn_time_weighted(edge_index,level,blockNo) * dtime             &
+              &          * patch_2d%edges%inv_dual_edge_length(edge_index,blockNo)                    &
+              &          * ( trac_old(iilc(edge_index,blockNo,2),level,iibc(edge_index,blockNo,2))    &
+              &              -trac_old(iilc(edge_index,blockNo,1),level,iibc(edge_index,blockNo,1)))
+              
             END DO  ! end loop over edges
           END DO  ! end loop over levels
         END DO  ! end loop over blocks
@@ -1888,7 +1889,7 @@ CONTAINS
     r_m(:,:,:)          = 0.0_wp
     r_p(:,:,:)          = 0.0_wp
 #endif
-
+    
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -1972,12 +1973,12 @@ CONTAINS
 !      write(0,*) blockNo, ":", z_tracer_min(start_index:end_index,start_level:end_level,blockNo)
     ENDDO
 !ICON_OMP_END_DO NOWAIT
-!ICON_OMP_END_PARALLEL
+
+!ICON_OMP_MASTER
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
-    
+!ICON_OMP_END_MASTER    
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.    
-!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, level, inv_prism_thick_new, &
 !ICON_OMP z_mflx_anti, z_max, z_min, cell_connect, p_p, p_m) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
@@ -2066,10 +2067,11 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_DO NOWAIT
-!ICON_OMP_END_PARALLEL
     
+!ICON_OMP_MASTER
     ! Synchronize r_m and r_p
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, r_m, r_p)
+!ICON_OMP_END_MASTER
     
     ! 5. Now loop over all edges and determine the minimum fraction which must
     !    multiply the antidiffusive flux at the edge.
