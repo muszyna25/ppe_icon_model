@@ -1,5 +1,5 @@
 \svnInfo $Id$
-\chapter{Available output fields: Forecast runs}
+\chapter[Available output fields: Forecast runs]{Available output fields:\\ Forecast runs}
 
 ICON output fields are exclusively available in GRIB2 format (\textbf{GRI}dded \textbf{B}inary Edition \textbf{2}), with the exception of 
 meteogram data (NetCDF). GRIB is a bit-oriented data storage format which was developed by WMO to facilitate the exchange of large volumes of 
@@ -259,18 +259,33 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 
 \newcommand{\pressurelevelsTriangular}{$1000$, $950$, $850$, $700$, $500$, $300$ $\mathrm{hPa}$}
 
-\newcommand{\pressurelevelsRegular}{$1000$, $950$, $925$, $900$, $850$, $800$, $700$, $600$, $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
-$70$, $50$, $30$, \textcolor{red}{$20$}, $10$, \textcolor{red}{$7$}, $5$, \textcolor{red}{$3$}, \textcolor{red}{$2$}, \textcolor{red}{$1$}, 
-\textcolor{red}{$0.3$}, \textcolor{red}{$0.1$} $\mathrm{hPa}$}
+\newcommand{\new}[1]{\textcolor{red}{#1}}
+\newcommand{\pressurelevelsRegular}{$1000$, \new{$975$}, $950$, $925$, $900$, 
+                                    $875$, $850$, \new{$825$}, $800$, 
+                                    \new{$775$}, $750$, \new{$725$}, $700$, $600$, 
+                                    $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
+                                    $70$, $50$, $30$, \new{$20$}, $10$, 
+                                    \new{$7$}, $5$, \new{$3$}, 
+                                    \new{$2$}, \new{$1$}, 
+                                     \new{$0.3$}, \new{$0.1$} $\mathrm{hPa}$}
 
-For regular grid output the following pressure levels are available: \pressurelevelsRegular. 
+For regular grid output the following pressure levels are available: 
+\begin{center}
+\begin{minipage}{0.5\linewidth}
+\pressurelevelsRegular. 
+\end{minipage}
+\end{center}
+
+
 Newly available pressure levels (as compared to GME) are highlighted in red. 
 The output fields are listed in Table~\ref{table:output_pressurelevels_regular}.
 I.e.\ note that all $17$ WMO standard pressure levels are included.
 
 \begin{table}
+\renewcommand{\new}[1]{#1}
 \caption{Regular grid output:
-         Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels \pressurelevelsRegular.}
+         Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
+         interpolated to pressure levels \pressurelevelsRegular.}
  \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
   \toprule
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
@@ -303,7 +318,12 @@ I.e.\ note that all $17$ WMO standard pressure levels are included.
 \label{table:output_pressurelevels_triangular}%
 \end{table}
 
-On the native (triangular) grid, output is generated for levels \pressurelevelsTriangular.
+On the native (triangular) grid, output is generated for levels
+\begin{center}
+\begin{minipage}{0.5\linewidth}
+ \pressurelevelsTriangular.
+\end{minipage}
+\end{center}
 The output fields are listed in Table~\ref{table:output_pressurelevels_triangular}.
 
 
