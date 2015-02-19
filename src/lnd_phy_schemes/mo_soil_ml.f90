@@ -1783,7 +1783,7 @@ END SUBROUTINE message
 
         ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
         ! an offset is added in order to ensure moderate aging for low snow depths
-        zuv = MIN(300._ireals, u(i)**2 + v(i)**2 + 12._ireals )
+        zuv = MIN(300._ireals, u_10m(i)**2 + v_10m(i)**2 + 12._ireals )
         ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow(i))/zuv))
 
         ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
