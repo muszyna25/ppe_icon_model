@@ -288,7 +288,7 @@ CONTAINS
         zfox=zlhh(jl,jk)/(rd*ztmitte(jl,jk))    ! L/(Rd*T)
         zmult1=1._wp+vtmpc1*zqtmit              ! (1+0.61*qt) = A in clear sky
         zmult2=zfux*zmult1-zrvrd
-        zmult3=zrdrv*zfox*zqsatm(jl,jk)             &
+        zmult3=zrdrv*zfox*zqsatm(jl,jk)                                 &
                /(1._wp+zrdrv*zfux*zfox*zqsatm(jl,jk))
         zmult5=zmult1-zmult2*zmult3             ! A in cloud
         zmult4=zfux*zmult5-1._wp                ! D in cloud
@@ -298,7 +298,7 @@ CONTAINS
         zthvirdif=(zthetav(jl,jk)-zthetav(jl,jk+1))/zdgh(jl,jk)*grav    ! d theta_v
         zdqtot=(pqm1(jl,jk)+pxm1(jl,jk))-(pqm1(jl,jk+1)+pxm1(jl,jk+1))  ! d qt
         zqddif=zdqtot/zdgh(jl,jk)*grav                                  ! (d qt)/(d z)
-        zbuoy  = (zteldif*zdus1+zthetah(jl,jk)*zdus2*zqddif)  &
+        zbuoy  = (zteldif*zdus1+zthetah(jl,jk)*zdus2*zqddif)            &
                 *grav/zthetavh(jl,jk)
         zdusq  = (pum1(jl,jk)-pum1(jl,jk+1))**2
         zdvsq  = (pvm1(jl,jk)-pvm1(jl,jk+1))**2
