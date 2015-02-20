@@ -7,17 +7,11 @@ ocean_namelist=NAMELIST_${EXPNAME}
 # global timing
 start_date="2001-01-01T00:00:00Z"
   end_date="2001-01-10T00:00:00Z"
-# restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 (( years_checkpoint  = 50 ))    # write restart file interval [days]
 (( years_restart = 50 ))    # stop model for restart [days]
-(( days_data     = 1 ))    # ocean model output interval hours [hours] - for test runs
-#
-#-----------------------------------------------------------------------------
-# calculate model timesteps using $days_data
 output_interval="PT06H"
-(( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
 (( dt_checkpoint  = years_checkpoint  * year ))
 (( dt_restart     = years_restart * year ))
 steps_per_file=610   # output intervals per file interval
@@ -64,7 +58,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials'
+  ml_varlist       = 'h_acc', 'u_acc', 'v_acc', 't_acc'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -85,10 +79,8 @@ cat > ${ocean_namelist} << EOF
 ! l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   select_solver      = 2              !  1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance = .true.
-  solver_tolerance   = 1.0E-13           !
+  solver_tolerance   = 1.0E-14           !
   solver_max_iter_per_restart   = 26     !
-  solver_tolerance_sp   = 1.0E-13        !
-  solver_max_iter_per_restart_sp   = 26  !
   solver_max_restart_iterations = 100     !  outer (restart solver)
   fast_performance_level        = 200      !  performance level 12: for cell-based; 5: default
   use_continuity_correction=.true.        !  height adjustment according to vertical velocity in dynamics
