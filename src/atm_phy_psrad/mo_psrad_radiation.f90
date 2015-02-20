@@ -55,6 +55,7 @@
 MODULE mo_psrad_radiation
 
   USE mo_kind,            ONLY: wp
+  USE mo_model_domain,    ONLY: t_patch
   USE mo_physical_constants,       ONLY: vtmpc1, rae,           &
        &                        amco2, amch4, amn2o, amo2, amd
 !  USE mo_control,         ONLY: lcouple, lmidatm
@@ -80,7 +81,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_orbit,     ONLY: cecc, cobld, clonp, &
                               & orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
-
+  USE mo_psrad_radiation_parameters, ONLY: solar_parameters
 ! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
 !  USE mo_solar_irradiance,ONLY: get_solar_irradiance, set_solar_irradiance, &
 !                                get_solar_irradiance_m, set_solar_irradiance_m
@@ -134,24 +135,26 @@ MODULE mo_psrad_radiation
 
   CONTAINS
 
-  SUBROUTINE pre_psrad_radiation(datetime_radiation,ltrig_rad)
+  SUBROUTINE pre_psrad_radiation(p_patch,datetime_radiation,ltrig_rad,amu0_x,rdayl_x)
   !-----------------------------------------------------------------------------
   !>
   !! @brief Prepares information for radiation call
   !
 
+    TYPE(t_patch), INTENT(IN)        :: p_patch
     TYPE(t_datetime), INTENT(IN)     :: datetime_radiation !< date and time of radiative transfer calculation
     LOGICAL         , INTENT(IN)     :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
+    REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:)
 
     LOGICAL  :: l_rad_call, l_write_solar
     INTEGER  :: icurrentyear, icurrentmonth, iprevmonth, i
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
-    REAL(wp) :: solcm, orbit_date
+    REAL(wp) :: solcm, orbit_date, flx_ratio_cur
     LOGICAL  :: l_orbvsop87
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
-    l_rad_call = .FALSE.
+!!$    l_rad_call = .FALSE.
     CALL get_orbit_times(datetime_radiation, time_of_day, &
          &               orbit_date)
 
@@ -161,10 +164,11 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
-!!$    CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
+    CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$         &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-!!$         &                flx_ratio_cur, amu0_x, rdayl_x)
-!!$
+         &                p_patch,                         &
+         &                flx_ratio_cur, amu0_x, rdayl_x)
+
 !!$    IF (lrad) THEN
 !!$
 !!$      SELECT CASE (isolrad)
@@ -193,18 +197,19 @@ MODULE mo_psrad_radiation
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-    IF (phy_config%lrad .AND. ltrig_rad) THEN
-      l_rad_call = .TRUE.
-      CALL get_orbit_times(datetime_radiation, time_of_day , &
-           &               orbit_date)
-
-      IF ( l_orbvsop87 ) THEN 
-        CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
-      ELSE
-        CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
-      END IF
+!!$    IF (phy_config%lrad .AND. ltrig_rad) THEN
+!!$      l_rad_call = .TRUE.
+!!$      CALL get_orbit_times(datetime_radiation, time_of_day , &
+!!$           &               orbit_date)
+!!$
+!!$      IF ( l_orbvsop87 ) THEN 
+!!$        CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
+!!$      ELSE
+!!$        CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
+!!$      END IF
 !!$      CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
+!!$           &                p_patch,                         &
 !!$           &                flx_ratio_rad ,amu0m_x, rdaylm_x)
 !!$      !
 !!$      ! consider curvature of the atmosphere for high zenith angles
@@ -295,8 +300,8 @@ MODULE mo_psrad_radiation
 !!$        END DO
 !!$      END IF
 !!$      !--jsr&hs
-
-    END IF ! lrad .AND. l_trigrad
+!!$
+!!$    END IF ! lrad .AND. l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
 
