@@ -324,6 +324,10 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
+      CALL dbg_print('stepin: sfcflx HFLat_acc',p_sfc_flx%HeatFlux_Latent_acc     ,str_module,5,in_subset=patch_2d%cells%owned)
+      CALL dbg_print('stepin: sfcflx Evapo_acc',p_sfc_flx%FrshFlux_Evaporation_acc,str_module,5,in_subset=patch_2d%cells%owned)
+      CALL dbg_print('stepin: sfcflx HFTot_acc',p_sfc_flx%HeatFlux_Total_acc      ,str_module,5,in_subset=patch_2d%cells%owned)
+
 !       dolic           => patch_3d%p_patch_1d(1)%dolic_c
 !       prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
 
