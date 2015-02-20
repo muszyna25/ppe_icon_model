@@ -2077,7 +2077,6 @@ CONTAINS
     !    multiply the antidiffusive flux at the edge.
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that flx_tracer_high now denotes the LIMITED flux.
-!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, edge_index, level, z_signum, r_frac) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
