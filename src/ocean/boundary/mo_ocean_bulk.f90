@@ -2335,8 +2335,6 @@ CONTAINS
     ! CALL dbg_print('ReadFc: NCEP: runoff'      ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
-      ! slo-test
-
       idt_src=2  ! output print level (1-5, fix)
       IF (idbg_mxmn >= idt_src) &
         & CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
