@@ -755,7 +755,7 @@ CONTAINS
             IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
               & (of%level_selection%global_idx(jk) > (info%used_dimensions(2)+1))) THEN
               var_ignore_level_selection = .TRUE.
-              IF (my_process_is_stdio()) &
+              IF (my_process_is_stdio() .AND. (msg_level >= 15)) &
                 &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
               nlevs = info%used_dimensions(2)
               EXIT CHECK_LOOP
