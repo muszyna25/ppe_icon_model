@@ -324,10 +324,6 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
-      CALL dbg_print('stepin: sfcflx HFLat_acc',p_sfc_flx%HeatFlux_Latent_acc     ,str_module,5,in_subset=patch_2d%cells%owned)
-      CALL dbg_print('stepin: sfcflx Evapo_acc',p_sfc_flx%FrshFlux_Evaporation_acc,str_module,5,in_subset=patch_2d%cells%owned)
-      CALL dbg_print('stepin: sfcflx HFTot_acc',p_sfc_flx%HeatFlux_Total_acc      ,str_module,5,in_subset=patch_2d%cells%owned)
-
 !       dolic           => patch_3d%p_patch_1d(1)%dolic_c
 !       prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
 
@@ -410,23 +406,32 @@ CONTAINS
     ! in general nml output is writen based on the nnew status of the
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
-    ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
     ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
-      ! copy old tracer values to spot value fields for propper initial timestep
-      ! output
+    
+    ! ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
+    ! CALL calculate_thickness( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
+    
+    ! copy old tracer values to spot value fields for propper initial timestep
+    ! output
     IF(no_tracer>=1)THEN
       ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+      ! in general nml output is writen based on the nnew status of the
+      ! prognostics variables. Unfortunately, the initialization has to be written
+      ! to the nold state. That's why the following manual copying is nec.
+      ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
     ENDIF
     IF(no_tracer>=2)THEN
       ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
     ENDIF
     ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-    CALL calc_potential_density( patch_3d,                     &
-      & ocean_state%p_prog(nold(1))%tracer,&
-      & ocean_state%p_diag%rhopot )
-    CALL calculate_density( patch_3d,                        &
-      & ocean_state%p_prog(nold(1))%tracer, &
-      & ocean_state%p_diag%rho )
+    IF(no_tracer>=1)THEN
+      CALL calc_potential_density( patch_3d,                     &
+        & ocean_state%p_prog(nold(1))%tracer,&
+        & ocean_state%p_diag%rhopot )
+      CALL calculate_density( patch_3d,                        &
+        & ocean_state%p_prog(nold(1))%tracer, &
+        & ocean_state%p_diag%rho )
+    ENDIF
 
     CALL update_ocean_statistics( &
       & ocean_state,            &

@@ -137,13 +137,8 @@ CONTAINS
           !TODO [ram] nsteps_since_last_output =
           !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
         
-       !  write(0,*) 'NSTEPS_SINCE_LAST_OUTPUT = ', nsteps_since_last_output
           CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
           CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
-
-    CALL dbg_print('out: sfcflx HFLat_acc' , p_sfc_flx%HeatFlux_Latent_acc      , 'ocean_output', 5, in_subset=patch_2d%cells%owned)
-    CALL dbg_print('out: sfcflx Evapo_acc' , p_sfc_flx%FrshFlux_Evaporation_acc , 'ocean_output', 5, in_subset=patch_2d%cells%owned)
-    CALL dbg_print('out: sfcflx HFTot_acc' , p_sfc_flx%HeatFlux_Total_acc       , 'ocean_output', 5, in_subset=patch_2d%cells%owned)
         
           ! set the output variable pointer to the correct timelevel
           CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))

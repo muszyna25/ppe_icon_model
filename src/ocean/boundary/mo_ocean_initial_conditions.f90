@@ -2507,7 +2507,7 @@ stop
 
         !Local hot perturbation
         IF(distan<=perturbation_width)THEN
-          temperature = (1.0_wp+COS(pi*distan/perturbation_width))/2.0_wp +2.0_wp
+          temperature = (1.0_wp+COS(pi*distan/perturbation_width)) * 0.5_wp +2.0_wp
         ELSE
           temperature = 0.0_wp
         ENDIF
@@ -2518,6 +2518,7 @@ stop
 
       END DO
     END DO
+    
   END SUBROUTINE temperature_circularLonLatPerturbation
   !-------------------------------------------------------------------------------
 
