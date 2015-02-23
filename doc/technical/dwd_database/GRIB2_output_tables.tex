@@ -9,15 +9,16 @@ makes use of the ECMWF GRIB API. The current operational version at DWD is $1.12
 In GRIB2, a product (i.e.\ a variable/field) is identified by a set of three parameters
 % variable is uniquely defined by the following set of metadata:
 \begin{itemize}
- \item \emph{Discipline} (see GRIB2 code table 4.2)
- \item \emph{ParameterCategory} (see GRIB2 code table 4.2)
+ \item \emph{Discipline} (see GRIB2 code table 0.0)
+ \item \emph{ParameterCategory} (see GRIB2 code table 4.1)
  \item \emph{ParameterNumber} (see GRIB2 code table 4.2), 
 \end{itemize}
 augmented by a large number of additional metadata in order to uniquely describe the nature of the data. Noteworthy examples 
 of additional metadata are 
 \begin{itemize}
   \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
-  \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
+  \item \emph{typeOfStatisticalProcessing}, former known as \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots), describes 
+        the statistical process used to calculate the field
  \end{itemize}
 just to name a few.
 
