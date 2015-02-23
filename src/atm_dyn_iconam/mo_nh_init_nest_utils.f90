@@ -632,6 +632,8 @@ MODULE mo_nh_init_nest_utils
             p_child_lprog%t_snow_t(jc,jb,jt) = lndvars_chi(jc,jk1+3,jb) + tsfc_ref_c(jc,jb)
             p_child_lprog%w_snow_t(jc,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+4,jb))
             p_child_lprog%rho_snow_t(jc,jb,jt) = lndvars_chi(jc,jk1+5,jb)
+            IF (p_child_lprog%rho_snow_t(jc,jb,jt) < 0.75_wp*crhosminf .OR. &
+                p_child_lprog%w_snow_t(jc,jb,jt) < 1.e-6_wp) p_child_lprog%rho_snow_t(jc,jb,jt) = 250._wp
             p_child_lprog%w_i_t(jc,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+6,jb))
             p_child_ldiag%freshsnow_t(jc,jb,jt) = MAX(0._wp,MIN(1._wp,lndvars_chi(jc,jk1+7,jb)))
             p_child_ldiag%t_seasfc(jc,jb) = lndvars_chi(jc,jk1+8,jb)
