@@ -33,9 +33,10 @@ MODULE mo_ice_fem_utils
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum
 !    &                               timer_ice_advection, timer_ice_interp
   USE mo_grid_config,         ONLY: n_dom
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec
   USE mo_exception,           ONLY: message
@@ -78,6 +79,9 @@ MODULE mo_ice_fem_utils
   ! These values put the north pole on the Indonesian/Malasian island Kalimantan and the south pole
   ! in north-west Brazil, near the border to Venezuela and Colombia.
   REAL(wp), PARAMETER, PRIVATE :: pollon = 114._wp*deg2rad, pollat = 0._wp
+
+  CHARACTER(len=12)           :: str_module    = 'IceFem'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1         ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -352,6 +356,11 @@ CONTAINS
 
 !    IF (ltimer) CALL timer_stop(timer_ice_interp)
     IF (ltimer) CALL timer_stop(timer_ice_momentum)
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('femIWrap: ice_u' , p_ice%u, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('femIWrap: ice_v' , p_ice%v, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE fem_ice_wrap
 
@@ -1175,6 +1184,14 @@ CONTAINS
 !     & atmos_fluxes%topBoundCond_windStress_v(:,:))
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IO-stress: stress_u' , atmos_fluxes%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-stress: stress_xw', atmos_fluxes%stress_xw,                 str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-stress: ice%u'    , p_ice%u,                                str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-stress: ice%concS', p_ice%concSum,                          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-stress: diag%u'   , p_os%p_diag%u,                          str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE ice_ocean_stress
 

@@ -200,6 +200,11 @@ CONTAINS
     IF (hci_layer < 0) THEN
       CALL message(TRIM(routine), 'hci_layer < 0, setting it equal to zero')
     ENDIF
+      
+  ! IF (i_ice_dyn == 1 ) THEN
+  !   i_ice_dyn = 0
+  !   CALL warning(method_name,"Disable sea-ice dynamics. It does not work.")
+  ! ENDIF
 
     !------------------------------------------------------------------
     ! Store the namelist for restart

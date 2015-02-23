@@ -32,7 +32,6 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_io_config,         ONLY: dt_checkpoint
   USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
   USE mo_ocean_nml
-  USE mo_sea_ice_nml,       ONLY: i_ice_dyn
 
   IMPLICIT NONE
 
@@ -203,11 +202,6 @@ CONTAINS
     IF (use_duplicated_connectivity) THEN
       use_duplicated_connectivity = .FALSE.
       CALL message(method_name, "Set use_duplicated_connectivity to FALSE")
-    ENDIF
-      
-    IF (i_ice_dyn == 1 ) THEN
-      i_ice_dyn = 0
-      CALL warning(method_name,"Disable sea-icea dynamics. It does not work.")
     ENDIF
     
 
