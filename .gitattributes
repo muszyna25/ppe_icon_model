@@ -211,6 +211,7 @@ doc/technical/dwd_database/radiation_variables.pdf -text
 doc/technical/dwd_database/radiation_variables.tex -text
 doc/technical/dwd_database/title_toc.tex -text
 doc/technical/dwd_database/versionhistory.tex -text
+doc/technical/dwd_database/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/vertical_levels_i.txt -text
 doc/technical/dwd_database/vertical_levels_i_small.txt -text
 doc/technical/flux_diagram-crop.pdf -text
