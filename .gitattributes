@@ -200,6 +200,8 @@ doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/IAU_scheme_2.png -text
 doc/technical/dwd_database/pics/analysis_drips.png -text
 doc/technical/dwd_database/pics/bisection.png -text
+doc/technical/dwd_database/pics/forecast_length.png -text svneol=unset#image/png
+doc/technical/dwd_database/pics/forecast_length.svg -text svneol=unset#image/svg%2Bxml
 doc/technical/dwd_database/pics/icon_grid_R2B00.png -text
 doc/technical/dwd_database/pics/icon_grid_R2B02.png -text
 doc/technical/dwd_database/pics/icon_with_nest.png -text
