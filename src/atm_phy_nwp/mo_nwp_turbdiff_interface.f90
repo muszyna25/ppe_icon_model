@@ -41,7 +41,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_phy_state,          ONLY: phy_params 
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
-  USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqtke
+  USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqtke
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,  ONLY: kstart_moist
   USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
@@ -144,7 +144,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
   
-!DR  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
   IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
@@ -152,7 +151,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs)  &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs,ptr)  &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -226,9 +225,16 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       prm_nwp_tend%ddt_temp_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
-      
+      prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0._wp
+
+      ! register cloud ice for turbulent diffusion
+      ptr(1)%av => p_prog_rcf%tracer(:,:,jb,iqi)
+      ptr(1)%at => prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)
+      ptr(1)%sv => NULL()
+!!$      ptr(1)%fc =  .TRUE.
 
       CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
+        &                          ncloud_offset=1, &
         &                          ptr=ptr(:), &
         &                          p_metrics=p_metrics, p_diag=p_diag, prm_diag=prm_diag, &
         &                          jb=jb )
@@ -255,7 +261,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb),                          & !in
         &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),        & !in
         &  gz0=prm_diag%gz0(:,jb),                                                    & !inout 
-        &  ptr=ptr(:), opt_ntrac=art_config(jg)%nturb_tracer, &  ! diffusion of additional tracer variables!
+!DR        &  ptr=ptr(:), opt_ntrac=art_config(jg)%nturb_tracer, &  ! diffusion of additional tracer variables!
+        &  ptr=ptr(:), opt_ntrac=art_config(jg)%nturb_tracer+1, &  ! diffusion of additional tracer variables!
         &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                            & !inout
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),    & !inout
         &  tke=z_tvs(:,:,:),                                                          & !inout
@@ -282,6 +289,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       END IF
 
       CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
+        &                          ncloud_offset=1, &
         &                          ptr=ptr(:), &
         &                          i_st=i_startidx, i_en=i_endidx, dt=tcall_turb_jg )
 
