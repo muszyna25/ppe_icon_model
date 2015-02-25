@@ -42,7 +42,7 @@ MODULE mo_ocean_coupling
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_yac_interface,       ONLY: yac_finit, yac_fdef_comp,                    &
+  USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp,                    &
     &                               yac_fdef_datetime,                           &
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
@@ -186,7 +186,7 @@ CONTAINS
       &                      INT(time_config%dt_restart))
     CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
 
-    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start ) &
+    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start, &
       &                      end_datetime   = sim_step_info%sim_end   )
 
     ! Announce one subdomain (patch) to the coupler

@@ -76,7 +76,7 @@ if ( -d "externals/yac/include" ) {
     @incs = grep /\.(inc|h)/, readdir(DIR);
     closedir(DIR);
     foreach my $inc ( @incs ) {
-	copy ( "externals/yac/include/${inc}", "${build_path}/yac/${inc}" );
+	copy ( "externals/yac/include/${inc}", "${build_path}/include/${inc}" );
     }
 }
 
@@ -175,15 +175,18 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "\n";
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
-	print MAKEFILE "%.o: %.F90\n";
-	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
-	print MAKEFILE "\n\n";
     } else {	
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 	print MAKEFILE "\n";
     }
-
+    
+    if ($dir =~ m/^externals/) {
+	print MAKEFILE "%.o: %.F90\n";
+	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
+	print MAKEFILE "\n\n";
+    }
+    
 #     print MAKEFILE "%.obj: %.f90\n";
 #     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 #     print MAKEFILE "\n";
@@ -261,6 +264,11 @@ foreach my $dir ( @directories ) {
 	    my $include_dir = $dir;
 	    $include_dir =~ s/src/include/;
             print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+	    if ( $dir =~ m/yac/) {
+		$include_dir =~ s/include/src/;
+		print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+		print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
+	    }
             print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
             print MAKEFILE "\n\n";
 	} else {

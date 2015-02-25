@@ -32,7 +32,7 @@ MODULE mo_interface_echam_ocean
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
 #ifdef YAC_coupling
   USE mo_exception           ,ONLY: finish
-  USE mo_yac_interface       ,ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+  USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
 #else
   USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_def_field  ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids

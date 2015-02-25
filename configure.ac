@@ -73,16 +73,6 @@ AS_IF([test "x$with_yac" = "xyes"],
       [use_yac="yes"],
       [use_yac="no"])
 
-AC_ARG_WITH([mtime],
-  [AS_HELP_STRING([--without-mtime],
-    [disable use of mtime])],
-    [],
-    [])
-
-AS_IF([test "x$with_mtime" != "xno"],
-      [use_mtime="yes"],
-      [use_mtime="no"])
-
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
     [enable Modular Earth Submodel System (MESSy) interface])],
@@ -679,7 +669,7 @@ else
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
     case $host in
     *-*-darwin*)
-      MPI_LIB='-L$(MPIROOT)/lib/mpich-mp '$MPI_LIB
+      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
       ;;    
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
@@ -788,10 +778,6 @@ if [[ "x$use_yac" = xyes ]] ; then
     fi
 fi
 
-if [[ "x$use_mtime" = xyes ]] ; then
-    my_srcdirs="externals/mtime/src ${my_srcdirs}"
-fi
-
 if [[ "x$use_messy" = xyes ]] ; then
     rm -f src/messy_interface
     ln -s -t src/ ../externals/messy_interface
@@ -852,10 +838,6 @@ fi
 
 if [[ "x$use_yac" = xyes ]] ; then
    ac_libs="$ac_libs -lyac"
-fi
-
-if [[ "x$use_mtime" = xyes ]] ; then
-   ac_libs="$ac_libs -lmtime"
 fi
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS

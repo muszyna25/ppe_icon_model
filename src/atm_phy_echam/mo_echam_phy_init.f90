@@ -85,7 +85,7 @@ MODULE mo_echam_phy_init
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
 #ifdef YAC_coupling
-  USE mo_yac_interface,        ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+  USE mo_yac_finterface,       ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
 #else
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids

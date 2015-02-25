@@ -745,7 +745,6 @@ with_fortran
 with_openmp
 with_setup
 with_yac
-with_mtime
 with_messy
 with_flags
 with_ocean
@@ -1389,7 +1388,6 @@ Optional Packages:
   --with-openmp           enable OpenMP, if available for selected compiler
   --with-setup=<name>     use user specific setup (mh_setup)
   --with-yac              enable use of yac
-  --without-mtime         disable use of mtime
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
@@ -2360,19 +2358,6 @@ if test "x$with_yac" = "xyes"; then :
   use_yac="yes"
 else
   use_yac="no"
-fi
-
-
-# Check whether --with-mtime was given.
-if test "${with_mtime+set}" = set; then :
-  withval=$with_mtime;
-fi
-
-
-if test "x$with_mtime" != "xno"; then :
-  use_mtime="yes"
-else
-  use_mtime="no"
 fi
 
 
@@ -4211,7 +4196,7 @@ fi
 
     case $host in
     *-*-darwin*)
-      MPI_LIB='-L$(MPIROOT)/lib/mpich-mp '$MPI_LIB
+      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
       ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
@@ -5999,10 +5984,6 @@ if [ "x$use_yac" = xyes ] ; then
     fi
 fi
 
-if [ "x$use_mtime" = xyes ] ; then
-    my_srcdirs="externals/mtime/src ${my_srcdirs}"
-fi
-
 if [ "x$use_messy" = xyes ] ; then
     rm -f src/messy_interface
     ln -s -t src/ ../externals/messy_interface
@@ -6063,10 +6044,6 @@ fi
 
 if [ "x$use_yac" = xyes ] ; then
    ac_libs="$ac_libs -lyac"
-fi
-
-if [ "x$use_mtime" = xyes ] ; then
-   ac_libs="$ac_libs -lmtime"
 fi
 
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :

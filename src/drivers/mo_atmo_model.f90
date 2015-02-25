@@ -74,7 +74,7 @@ MODULE mo_atmo_model
   USE mo_loopindices,             ONLY: get_indices_c
   USE mo_parallel_config,         ONLY: nproma
   USE mo_grid_subset,             ONLY: t_subset_range, get_index_range
-  USE mo_yac_interface,           ONLY: yac_finit, yac_fdef_comp,                    &
+  USE mo_yac_finterface,          ONLY: yac_finit, yac_fdef_comp,                    &
     &                                   yac_fdef_datetime,                           &
     &                                   yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                                   yac_fdef_elements, yac_fdef_points,          &
@@ -135,7 +135,11 @@ MODULE mo_atmo_model
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: setCalendar, PROLEPTIC_GREGORIAN
+  USE mtime,                      ONLY: setCalendar,          &
+# ifdef YAC_coupling
+       &                                MAX_DATETIME_STR_LEN, &
+#endif
+       &                                PROLEPTIC_GREGORIAN
 
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
@@ -692,7 +696,7 @@ CONTAINS
     CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
     CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
 
-    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start ) &
+    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start,  &
       &                      end_datetime   = sim_step_info%sim_end   )
 
     ! Announce one subdomain (patch) to the coupler
