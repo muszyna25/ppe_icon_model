@@ -2,10 +2,11 @@
 from twisted.application import service
 from buildbot.master import BuildMaster
 
-basedir = r'/scratch/local1/m211098/master_ICON'
-configfile = r'ICON.cfg'
-rotateLength = 2000000
-maxRotatedFiles = None
+basedir = r'/srv/buildbot/icon'
+configfile = r'master.cfg'
+rotateLength = 1000000
+umask = 002
+maxRotatedFiles = 50
 
 application = service.Application('buildmaster')
 try:

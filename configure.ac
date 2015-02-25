@@ -768,6 +768,8 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
+my_srcdirs="externals/mtime/src ${my_srcdirs}"
+
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
     FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
@@ -932,6 +934,8 @@ AC_SUBST(CFLAGS,$CFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
+
+ac_libs="${ac_libs} -lmtime"
 
 AC_SUBST(LIB,$ac_libs)
 

@@ -5974,6 +5974,8 @@ if [ "x$LAPACKROOT" = xlocal ] ; then
     LAPACKROOT=""
 fi
 
+my_srcdirs="externals/mtime/src ${my_srcdirs}"
+
 if [ "x$use_yac" = xyes ] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
     FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
@@ -6189,6 +6191,8 @@ FlibFLAGS=$FlibFLAGS
 
 F77FLAGS=$F77FLAGS
 
+
+ac_libs="${ac_libs} -lmtime"
 
 LIB=$ac_libs
 
