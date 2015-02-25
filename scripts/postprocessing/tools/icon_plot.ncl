@@ -142,6 +142,7 @@
     print("; hovCut        : plot hovmoeller diagram, input is 'levIndex' and 'hovLC' 'hovRC'")
     print("; hovLC, hovRC  : start and end point of a section for hovCut - currently same longitude allowed only,")
     print(";                 the Northern and Southern values are used as plotting boundaries; switches to hovCut")
+    print("; makeYLinear   : enforce to linearize the yaxis of section and hovmoeller plots (default:False)")
     print("; mapLine       : (logical) draws continent lines on the plot (foreground/transparent)")
     print("; maskName      : variable to mask with. maskName is expected NOT to have time dimension")
     print(";                  'maskName=" + dq + "none" + dq + "' is same as default (no mask variable)")
@@ -161,6 +162,7 @@
     print("; markCells     : mark cell centers with dots")
     print("; showNcd       : display NDC Grid to find Normalized Device Coordinates on the plot")
     print("; k2c           : if True, perform Kelvin2Celsius shift (default:True)")
+    print("; remapOperator : interpolation operator for internal lonlat representation of icon grid (remapnn,remapcon[default])")
     print(";")
     print("; ATMOSPHERE STUFF:")
     print("; atmLev        : chooses vertical plot levels for atmosphere input (h: height,p:pressure,m:modellevel,default:p)")
@@ -231,6 +233,7 @@
   if (.not. isvar("withLines"))      withLines      = True            end if
   if (.not. isvar("withLineLabels")) withLineLabels = False           end if
   if (.not. isvar("k2c"))            k2c            = True            end if
+  if (.not. isvar("remapOperator"))  remapOperator  = "remapcon"      end if
   if (.not. isvar("isIcon"))         isIcon         = False           end if
 
   if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
@@ -244,6 +247,7 @@
   if (.not.isvar("centerLon"))    centerLon    = -30.            end if
   if (.not.isvar("centerLat"))    centerLat    =  20.            end if
   if (.not.isvar("satDist"))      satDist      =  20.            end if
+  if (.not.isvar("makeYLinear"))  makeYLinear  = False            end if
   if (.not.isvar("mapLine"))      mapLine      = True            end if
   if (.not.isvar("resolution"))   resolution   = "r90x45"        end if
   if (.not.isvar("vecRefLength")) vecRefLength = 8.0             end if
@@ -399,14 +403,12 @@
     else
       ; perform some remapping to a regular grid because ncl cannot draw vector
       ; from unstructured grids
-      ; TODO addVars=(/ "PS","PHIS"/)
-      operator = "remapnn"
-      remapFilename = setRemapFilename(iFile,iType,resolution,atmLev,operator)
+      remapFilename = setRemapFilename(iFile,iType,resolution,atmLev,remapOperator)
       print("remapFilename:"+remapFilename)
       if (.not. checkRemappedFile(iFile,remapFilename,ivarname,iType,atmLev,atmPLevs,atmHLevs) ) then
         addVars=(/""/)
-        print("PERFORM remapnn again!")
-        remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars,operator)
+        print("PERFORM "+remapOperator+" again!")
+        remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars,remapOperator)
       end if
       rFile = addfile( remapFilename+".nc", "r" )
     end if
@@ -570,7 +572,7 @@
     drawNDCGrid(wks)
   end if
 
-  ResC = setDefaultResource(True,withLines,withLineLabels,fillMode,mapType)
+  ResC = setDefaultResource(True,withLines,withLineLabels,fillMode,mapType,makeYLinear)
 
   if (.not. userColors) setDefaultColors(ResC,minVar,maxVar,DEBUG) end if
 
@@ -747,7 +749,7 @@
     end if
     points   = ispan(0,secPoints-1,1)*1.0
 
-    res  = setDefaultSectionResource(points,secPoints,secLC,secRC,withLines,withLineLabels)
+    res  = setDefaultSectionResource(points,secPoints,secLC,secRC,withLines,withLineLabels,makeYLinear)
     setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev,k2c)
     setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
     setSectionVertLabel(res,iType,atmLev)
