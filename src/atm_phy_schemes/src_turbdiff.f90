@@ -5044,14 +5044,14 @@ SUBROUTINE turbdiff
             END IF
 
             IF (n.EQ.tem) THEN !temperature needs to be transformed
-               DO k=1,ke1
+               DO k=1,ke
 !DIR$ IVDEP
                   DO i=istart,iend
                      cur_prof(i,k)=cur_prof(i,k)/exner(i,k) !potential temperature
                   END DO
                END DO      
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
-                  DO k=1,ke1
+                  DO k=1,ke
 !DIR$ IVDEP
                      DO i=istart,iend
                         dicke(i,k)=dicke(i,k)/exner(i,k)
