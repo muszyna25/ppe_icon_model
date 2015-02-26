@@ -86,7 +86,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE ocean_restart_gmres( x,lhs,        &
-    & h_e, thickness_c, old_h, p_patch_3d,      &
+    & h_e, thickness_c, old_h, patch_3D,      &
     & p_op_coeff, b,                            &
     & absolute_tolerance,  relative_tolerance,  &
     & m, maxiterex,niter,res,                   &
@@ -103,7 +103,7 @@ CONTAINS
     REAL(wp), INTENT(in) :: old_h(:,:)
     ! patch info needed for calculating lhs
     !TYPE(t_patch), INTENT(IN) :: patch_2D
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     ! index defining the "active" region of the arrays
     ! parameter used in calculating the lhs
     ! REAL(wp), INTENT(in) :: coeff
@@ -126,14 +126,14 @@ CONTAINS
     REAL(wp), INTENT(inout) :: res(:) ! (m)
     
     INTERFACE   ! left-hand-side: A*x
-      FUNCTION lhs(x,old_h, p_patch_3d, h_e, thickness_c, p_op_coeff) result(ax)
+      FUNCTION lhs(x,old_h, patch_3D, h_e, thickness_c, p_op_coeff) result(ax)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
         REAL(wp), INTENT(in) :: old_h(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         ! REAL(wp),    INTENT(in) :: coeff
         REAL(wp),    INTENT(in) :: h_e(:,:)
         REAL(wp),    INTENT(in) :: thickness_c(:,:)
@@ -144,13 +144,13 @@ CONTAINS
     END INTERFACE
     
     INTERFACE   ! preconditioner
-      SUBROUTINE preconditioner(r, p_patch_3d, p_op_coeff,h_e)
+      SUBROUTINE preconditioner(r, patch_3D, p_op_coeff,h_e)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp), INTENT(inout)           :: r(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
         REAL(wp),    INTENT(in)           :: h_e(:,:)
       END SUBROUTINE preconditioner
@@ -185,7 +185,7 @@ CONTAINS
     INTEGER :: no_of_blocks, pad_nproma, end_nproma
     INTEGER :: my_mpi_work_communicator
     
-    REAL(wp) :: sum_aux(p_patch_3d%p_patch_2d(1)%cells%in_domain%end_block)
+    REAL(wp) :: sum_aux(patch_3D%p_patch_2d(1)%cells%in_domain%end_block)
     !   REAL(wp) :: sum_x(0:7), sum_w, sum_v
     ! #else
     !   REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
@@ -199,7 +199,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     !  write(0,*) "--------------- gmres --------------------------"
     
-    patch_2d =>  p_patch_3d%p_patch_2d(1)
+    patch_2d =>  patch_3D%p_patch_2d(1)
     my_mpi_work_communicator = get_my_mpi_work_communicator()
     ! 0) set module variables and initialize maxiterex
     no_of_blocks    = patch_2d%cells%in_domain%end_block
@@ -216,11 +216,11 @@ CONTAINS
  !   x(:, :) = 0.0_wp
     
     ! 1) compute the preconditioned residual
-    IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
-    IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3d,p_op_coeff,h_e)
+    IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),patch_3D,p_op_coeff,h_e)
+    IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),patch_3D,p_op_coeff,h_e)
     
     
-    w(:, :) = lhs(x(:,:),old_h, p_patch_3d, h_e, thickness_c, p_op_coeff)
+    w(:, :) = lhs(x(:,:),old_h, patch_3D, h_e, thickness_c, p_op_coeff)
 
     ! w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
     x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
@@ -242,7 +242,7 @@ CONTAINS
     ENDDO
 ! !ICON_OMP_END_DO
     
-!     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
+!     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),patch_3D,p_op_coeff,h_e)
     
 ! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
@@ -308,7 +308,7 @@ CONTAINS
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       ! write(*,*)  get_my_global_mpi_id(), 'before lhs v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
-      w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, h_e, thickness_c, p_op_coeff )
+      w(:,:) = lhs( v(:,:,i), old_h, patch_3D, h_e, thickness_c, p_op_coeff )
       ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
       v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
       
@@ -319,7 +319,7 @@ CONTAINS
       ! 4.2) Gram-Schmidt orthogonalization
       
       
-      IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
+      IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),patch_3D,p_op_coeff,h_e)
       
       gs_orth: DO k = 1, i
         
@@ -474,7 +474,7 @@ CONTAINS
   !! restart functionality and optimization L.Linardakis, MPIM, 2013
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE ocean_restart_gmres_singlePrecesicion( x,lhs, old_h, p_patch_3d, &
+  SUBROUTINE ocean_restart_gmres_singlePrecesicion( x,lhs, old_h, patch_3D, &
     & solverCoefficients, b,                      &
     & tolerance,abstol,m,maxiterex,niter,res)
     !
@@ -487,7 +487,7 @@ CONTAINS
     REAL(sp), INTENT(in) :: old_h(:,:)
     ! patch info needed for calculating lhs
     !TYPE(t_patch), INTENT(IN) :: patch_2D
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     ! index defining the "active" region of the arrays
     ! parameter used in calculating the lhs
 !    REAL(sp), INTENT(in) :: coeff
@@ -510,14 +510,14 @@ CONTAINS
     REAL(sp), INTENT(inout) :: res(:) ! (m)
 
     INTERFACE   ! left-hand-side: A*x
-      FUNCTION lhs(x,old_h, p_patch_3d, sovlerCoeff) result(ax)
+      FUNCTION lhs(x,old_h, patch_3D, sovlerCoeff) result(ax)
         USE mo_kind, ONLY: sp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_ocean_types, ONLY: t_solverCoeff_singlePrecision
         REAL(sp),    INTENT(inout) :: x(:,:)  ! inout for sync
         REAL(sp), INTENT(in) :: old_h(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
 !        REAL(sp),    INTENT(in) :: coeff
         TYPE(t_solverCoeff_singlePrecision),INTENT(in)  :: sovlerCoeff
         REAL(sp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
@@ -550,7 +550,7 @@ CONTAINS
     INTEGER :: no_of_blocks, pad_nproma, end_nproma
     INTEGER :: my_mpi_work_communicator
 
-    REAL(sp) :: sum_aux(p_patch_3d%p_patch_2d(1)%cells%in_domain%end_block)
+    REAL(sp) :: sum_aux(patch_3D%p_patch_2d(1)%cells%in_domain%end_block)
 
     INTEGER :: mythreadno
     TYPE(t_patch), POINTER :: patch_2d
@@ -560,7 +560,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     !  write(0,*) "--------------- gmres --------------------------"
 
-    patch_2d =>  p_patch_3d%p_patch_2d(1)
+    patch_2d =>  patch_3D%p_patch_2d(1)
     my_mpi_work_communicator = get_my_mpi_work_communicator()
     ! 0) set module variables and initialize maxiterex
     no_of_blocks    = patch_2d%cells%in_domain%end_block
@@ -574,11 +574,11 @@ CONTAINS
     b(pad_nproma:nproma, no_of_blocks) = 0.0_sp
 
     ! 1) compute the preconditioned residual
-    ! IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
-    ! IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3d,p_op_coeff,h_e)
+    ! IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),patch_3D,p_op_coeff,h_e)
+    ! IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),patch_3D,p_op_coeff,h_e)
 
 
-    w(:, :) = lhs(x(:,:),old_h, p_patch_3d, solverCoefficients)
+    w(:, :) = lhs(x(:,:),old_h, patch_3D, solverCoefficients)
 
     x(pad_nproma:nproma, no_of_blocks) = 0.0_sp
 
@@ -599,7 +599,7 @@ CONTAINS
     ENDDO
 ! !ICON_OMP_END_DO
 
-    ! IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
+    ! IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),patch_3D,p_op_coeff,h_e)
 
 ! !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
@@ -664,7 +664,7 @@ CONTAINS
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       ! write(*,*)  get_my_global_mpi_id(), 'before lhs v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
-      w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, solverCoefficients )
+      w(:,:) = lhs( v(:,:,i), old_h, patch_3D, solverCoefficients )
       ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_sp
       v(pad_nproma:nproma, no_of_blocks,i) = 0.0_sp
 
@@ -675,7 +675,7 @@ CONTAINS
       ! 4.2) Gram-Schmidt orthogonalization
 
 
-      ! IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
+      ! IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),patch_3D,p_op_coeff,h_e)
 
       gs_orth: DO k = 1, i
 
@@ -830,7 +830,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE ocean_restart_gmres_e2e( x,lhs,        &
-    & p_patch_3d,  &
+    & patch_3D,  &
     & p_op_coeff, level,b,                            &
     & absolute_tolerance,  relative_tolerance,  &
     & m, maxiterex,niter,res,                   &
@@ -842,13 +842,12 @@ CONTAINS
     !   +, -, dot_product
     !
     REAL(wp), INTENT(inout) :: x(:,:)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
     INTEGER                                :: level
     REAL(wp), INTENT(inout)                :: b(:,:) ! same size as x
     REAL(wp), INTENT(inout)                :: absolute_tolerance
     REAL(wp), INTENT(in)                   :: relative_tolerance ! (relative or absolute) relative_tolerance
-    ! .false. for relative relative_tolerance
     INTEGER,  INTENT(in)                   :: m         ! maximum number of iterations
     LOGICAL,  INTENT(out)                  :: maxiterex ! true if reached m iterations
     INTEGER,  INTENT(out)                  :: niter    ! number of iterations (defined
@@ -859,12 +858,12 @@ CONTAINS
     REAL(wp), INTENT(inout)                   :: res(:) ! (m)
     
     INTERFACE   ! left-hand-side: A*x
-      FUNCTION lhs(x,p_patch_3d, p_op_coeff, level) result(ax)
+      FUNCTION lhs(x,patch_3D, p_op_coeff, level) result(ax)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp),    INTENT(inout)             :: x(:,:)  ! inout for sync
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         TYPE(t_operator_coeff),INTENT(in)      :: p_op_coeff
         INTEGER                                :: level
         REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
@@ -872,13 +871,13 @@ CONTAINS
     END INTERFACE
     
     INTERFACE   ! preconditioner
-      SUBROUTINE preconditioner(r, p_patch_3d, p_op_coeff,h_e)
+      SUBROUTINE preconditioner(r, patch_3D, p_op_coeff,h_e)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp), INTENT(inout)           :: r(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
         REAL(wp),    INTENT(in)           :: h_e(:,:)
       END SUBROUTINE preconditioner
@@ -913,7 +912,7 @@ CONTAINS
     INTEGER :: no_of_blocks, pad_nproma, end_nproma
     INTEGER :: my_mpi_work_communicator
     
-    REAL(wp) :: sum_aux(p_patch_3d%p_patch_2d(1)%edges%in_domain%end_block)
+    REAL(wp) :: sum_aux(patch_3D%p_patch_2d(1)%edges%in_domain%end_block)
     INTEGER :: mythreadno
     TYPE(t_patch), POINTER :: patch_2d
     CHARACTER(len=*), PARAMETER :: method_name='ocean_restart_gmres_e2e'
@@ -922,7 +921,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     !  write(0,*) "--------------- gmres --------------------------"
     
-    patch_2d =>  p_patch_3d%p_patch_2d(1)
+    patch_2d =>  patch_3D%p_patch_2d(1)
     my_mpi_work_communicator = get_my_mpi_work_communicator()
     ! 0) set module variables and initialize maxiterex
     no_of_blocks    = patch_2d%edges%in_domain%end_block
@@ -939,12 +938,12 @@ CONTAINS
  !   x(:, :) = 0.0_wp
     
     ! 1) compute the preconditioned residual
-    !IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
-    !IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3d,p_op_coeff,h_e)
+    !IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),patch_3D,p_op_coeff,h_e)
+    !IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),patch_3D,p_op_coeff,h_e)
     
     
-    !w(:, :) = lhs(x(:,:),old_h, p_patch_3d, h_e, thickness_c, p_op_coeff)
-    w(:, :) =lhs(x,p_patch_3d, p_op_coeff, level)
+    !w(:, :) = lhs(x(:,:),old_h, patch_3D, h_e, thickness_c, p_op_coeff)
+    w(:, :) =lhs(x,patch_3D, p_op_coeff, level)
 
     ! w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
     x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
@@ -966,7 +965,7 @@ CONTAINS
     ENDDO
 ! !ICON_OMP_END_DO
     
-!     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
+!     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),patch_3D,p_op_coeff,h_e)
     
 ! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
@@ -1032,8 +1031,8 @@ CONTAINS
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       ! write(*,*)  get_my_global_mpi_id(), 'before lhs v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
-      !w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, h_e, thickness_c, p_op_coeff )
-      w(:, :) =lhs(v(:,:,i),p_patch_3d, p_op_coeff, level)
+      !w(:,:) = lhs( v(:,:,i), old_h, patch_3D, h_e, thickness_c, p_op_coeff )
+      w(:, :) =lhs(v(:,:,i),patch_3D, p_op_coeff, level)
 
       ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
       v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
@@ -1045,7 +1044,7 @@ CONTAINS
       ! 4.2) Gram-Schmidt orthogonalization
       
       
-      !IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
+      !IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),patch_3D,p_op_coeff,h_e)
       
       gs_orth: DO k = 1, i
         
@@ -1212,7 +1211,7 @@ CONTAINS
   !! inital guess, overwritten with the solution
   !!
   !-----------------------------------------------------------------
-  SUBROUTINE gmres_oce_old( x,lhs,h_e, thickness_c, old_h, p_patch_3d, &
+  SUBROUTINE gmres_oce_old( x,lhs,h_e, thickness_c, old_h, patch_3D, &
     & p_op_coeff, b,                      &
     & tolerance,abstol,m,maxiterex,niter,res,    &
     & preconditioner)
@@ -1228,7 +1227,7 @@ CONTAINS
     REAL(wp), INTENT(in) :: old_h(:,:)
     ! patch info needed for calculating lhs
     !TYPE(t_patch), INTENT(IN) :: patch_2D
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     ! index defining the "active" region of the arrays
     ! parameter used in calculating the lhs
 !    REAL(wp), INTENT(in) :: coeff
@@ -1251,14 +1250,14 @@ CONTAINS
     REAL(wp), INTENT(inout) :: res(:) ! (m)
     
     INTERFACE   ! left-hand-side: A*x
-      FUNCTION lhs(x,old_h, p_patch_3d, h_e, thickness_c, p_op_coeff) result(ax)
+      FUNCTION lhs(x,old_h, patch_3D, h_e, thickness_c, p_op_coeff) result(ax)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
         REAL(wp), INTENT(in) :: old_h(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
 !        REAL(wp),    INTENT(in) :: coeff
         REAL(wp),    INTENT(in) :: h_e(:,:)
         REAL(wp),    INTENT(in) :: thickness_c(:,:)
@@ -1269,13 +1268,13 @@ CONTAINS
     END INTERFACE
     
     INTERFACE   ! preconditioner
-      SUBROUTINE preconditioner(r, p_patch_3d, p_op_coeff,h_e)
+      SUBROUTINE preconditioner(r, patch_3D, p_op_coeff,h_e)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp), INTENT(inout)           :: r(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
         REAL(wp),    INTENT(in)           :: h_e(:,:)
       END SUBROUTINE preconditioner
@@ -1308,18 +1307,14 @@ CONTAINS
     
     INTEGER :: no_of_blocks, end_nproma
     
-#ifdef NOMPI_DISABLED
-    REAL(wp) :: sum_aux(patch_2d%cells%in_domain%end_block)
-#else
     REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
-#endif
     
     INTEGER :: mythreadno
     TYPE(t_patch), POINTER :: patch_2d
     CHARACTER(len=*), PARAMETER :: method_name='gmres_oce_old'
     !$ INTEGER OMP_GET_THREAD_NUM
     !-------------------------------------------------------------------------
-    patch_2d =>  p_patch_3d%p_patch_2d(1)
+    patch_2d =>  patch_3D%p_patch_2d(1)
     
     ! 0) set module variables and initialize maxiterex
     !>
@@ -1329,20 +1324,15 @@ CONTAINS
     
     maxiterex = .FALSE.
     
-#ifndef NOMPI_DISABLED
-    z(:,:) = 0._wp
-#endif
     v(:,:,:)  = 0.0_wp
     r(:,:)    = 0.0_wp
     
     ! 1) compute the preconditioned residual
-    IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
-    IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3d,p_op_coeff,h_e)
-    w(:,:) = lhs(x(:,:),old_h, p_patch_3d, h_e, thickness_c, p_op_coeff)
+    IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),patch_3D,p_op_coeff,h_e)
+    IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),patch_3D,p_op_coeff,h_e)
+    w(:,:) = lhs(x(:,:),old_h, patch_3D, h_e, thickness_c, p_op_coeff)
     
-#ifndef __SX__
     IF (ltimer) CALL timer_start(timer_gmres)
-#endif
     
     mythreadno = 0
 ! !ICON_OMP_PARALLEL PRIVATE(rn2_aux, rrn2, myThreadNo)
@@ -1361,21 +1351,8 @@ CONTAINS
     ENDDO
 ! !ICON_OMP_END_DO
     
-    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
+    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),patch_3D,p_op_coeff,h_e)
     
-#ifdef NOMPI_DISABLED
-! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, no_of_blocks
-      IF (jb /= no_of_blocks) THEN
-        sum_aux(jb) = SUM(r(:,jb)*r(:,jb))
-      ELSE
-        sum_aux(jb) = SUM( r(1:end_nproma,jb)*r(1:end_nproma,jb) )
-      ENDIF
-    ENDDO
-! !ICON_OMP_END_DO
-    
-    rn2_aux = SQRT(SUM(sum_aux))
-#else
 ! !ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       IF (jb /= no_of_blocks) THEN
@@ -1388,11 +1365,8 @@ CONTAINS
 ! !ICON_OMP_END_DO
     
     rn2_aux = SQRT(omp_global_sum_array(z(:,1:no_of_blocks)))
-#endif
-    
     
     IF (mythreadno == 0) rn2(1) = rn2_aux
-    
     
     ! 2) compute the first vector of the Krylov space
     IF (rn2_aux /= 0.0_wp) THEN
@@ -1415,9 +1389,7 @@ CONTAINS
       niter = 0
       !     niter = 1
       res(1) = ABS(rn2(1))
-#ifndef __SX__
       IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
       RETURN
     ENDIF
     
@@ -1432,30 +1404,17 @@ CONTAINS
     ! 4) Arnoldi loop
     arnoldi: DO i = 1, m-1
       ! 4.1) compute the next (i.e. i+1) Krylov vector
-      w(:, :) = lhs( v(:,:,i),old_h,p_patch_3d,h_e, thickness_c, p_op_coeff )
+      w(:, :) = lhs( v(:,:,i),old_h,patch_3D,h_e, thickness_c, p_op_coeff )
       
       ! 4.2) Gram-Schmidt orthogonalization
       
 ! !ICON_OMP_PARALLEL PRIVATE(rh, h_aux, myThreadNo, k)
       !$   myThreadNo = OMP_GET_THREAD_NUM()
       
-      IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
+      IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),patch_3D,p_op_coeff,h_e)
       
       gs_orth: DO k = 1, i
         
-#ifdef NOMPI_DISABLED
-! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1, no_of_blocks
-          IF (jb /= no_of_blocks) THEN
-            sum_aux(jb) = SUM(w(:,jb)*v(:,jb,k))
-          ELSE
-            sum_aux(jb) = SUM( w(1:end_nproma,jb)*v(1:end_nproma,jb,k) )
-          ENDIF
-        ENDDO
-! !ICON_OMP_END_DO
-        
-        h_aux = SUM(sum_aux)
-#else
 ! !ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           IF (jb /= no_of_blocks) THEN
@@ -1467,7 +1426,6 @@ CONTAINS
         ENDDO
 ! !ICON_OMP_END_DO
         h_aux = omp_global_sum_array(z)
-#endif
 !        CALL dbg_print('anroldi: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
 !        CALL dbg_print('anroldi: v', v, method_name, 3, in_subset=patch_2d%cells%owned)
 !        write(0,*) "h_aux:", h_aux
@@ -1490,19 +1448,6 @@ CONTAINS
       
       ! 4.3) new element for h
       
-#ifdef NOMPI_DISABLED
-! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1, no_of_blocks
-        IF (jb /= no_of_blocks) THEN
-          sum_aux(jb) = SUM(w(:,jb)*w(:,jb))
-        ELSE
-          sum_aux(jb) = SUM( w(1:end_nproma,jb)*w(1:end_nproma,jb) )
-        ENDIF
-      ENDDO
-! !ICON_OMP_END_DO
-      
-      h_aux = SQRT(SUM(sum_aux))
-#else
 ! !ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         IF (jb /= no_of_blocks) THEN
@@ -1515,7 +1460,6 @@ CONTAINS
 ! !ICON_OMP_END_DO
       
       h_aux = SQRT(omp_global_sum_array(z))
-#endif
       
       IF (mythreadno == 0) h(i+1,i) = h_aux
       
@@ -1596,9 +1540,7 @@ CONTAINS
     ENDDO
 ! !ICON_OMP_END_DO NOWAIT
 ! !ICON_OMP_END_PARALLEL
-#ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
     
     res(1:niter) = ABS(rn2(1:niter))
     
@@ -1621,8 +1563,10 @@ CONTAINS
   !! @par
   !! inital guess, overwritten with the solution
   !!
-  SUBROUTINE gmres_oce_e2e( x,lhs,h_e, lev, patch_2d,p_patch_3d, &
-    & coeff, p_op_coeff, b,                      &
+  SUBROUTINE gmres_oce_e2e( x,lhs, &
+    & patch_3D,                  &
+    & level,                         &
+    & p_op_coeff, b,               &
     & tolerance,abstol,m,maxiterex,niter,res,    &
     & preconditioner)
     !
@@ -1632,16 +1576,11 @@ CONTAINS
     !   +, -, dot_product
     !
     REAL(wp), INTENT(inout) :: x(:,:)
-    REAL(wp), INTENT(in) :: h_e(:,:)
-    INTEGER,     INTENT(in) :: lev
+    INTEGER,     INTENT(in) :: level
     ! REAL(wp), INTENT(IN) :: thickness_c(:,:)
     ! REAL(wp), INTENT(IN) :: old_h(:,:)
     ! patch info needed for calculating lhs
-    TYPE(t_patch), INTENT(in) :: patch_2d
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-    ! index defining the "active" region of the arrays
-    ! parameter used in calculating the lhs
-    REAL(wp), INTENT(in) :: coeff
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     ! right-hand side: same shape as x
     REAL(wp), INTENT(inout) :: b(:,:) ! same size as x
@@ -1660,8 +1599,6 @@ CONTAINS
     ! dimension at least m is required
     REAL(wp), INTENT(inout) :: res(:) ! (m)
     
-    INTERFACE   ! left-hand-side: A*x
-      
       ! !   FUNCTION lhs(x,old_h, patch_2D,p_patch_3D,coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
       ! !     USE mo_kind, ONLY: wp
       ! !     USE mo_model_domain, ONLY: t_patch, t_patch_3D
@@ -1676,32 +1613,27 @@ CONTAINS
       ! !     TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
       ! !     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
       ! !   ENDFUNCTION lhs
-      FUNCTION lhs(x, patch_2d, p_patch_3d, p_op_coeff, lev,coeff, h_e) result(ax)
+    INTERFACE   ! left-hand-side: A*x
+      FUNCTION lhs(x,patch_3D, p_op_coeff, level) result(ax)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-        TYPE(t_patch),TARGET, INTENT(in):: patch_2d
-        TYPE(t_patch_3d ),TARGET, INTENT(in) :: p_patch_3d
-        TYPE(t_operator_coeff),INTENT(in)  :: p_op_coeff
-        
-        REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,patch_2D%nblks_e)
-        INTEGER,     INTENT(in) :: lev
-        REAL(wp),    INTENT(in) :: coeff
-        REAL(wp), OPTIONAL,    INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)!(nproma,patch_2D%nblks_e)
-        REAL(wp) :: ax(SIZE(x,1), SIZE(x,2))!(nproma,patch_2D%nblks_e) ! same as x
-      ENDFUNCTION lhs
-      
-      
+        REAL(wp),    INTENT(inout)             :: x(:,:)  ! inout for sync
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
+        TYPE(t_operator_coeff),INTENT(in)      :: p_op_coeff
+        INTEGER                                :: level
+        REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
+      END FUNCTION lhs
     END INTERFACE
     
     INTERFACE   ! preconditioner
-      SUBROUTINE preconditioner(r,patch_2d, p_patch_3d, p_op_coeff,h_e)
+      SUBROUTINE preconditioner(r,patch_2d, patch_3D, p_op_coeff,h_e)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp), INTENT(inout)           :: r(:,:)
         TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
-        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+        TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
         REAL(wp),    INTENT(in)           :: h_e(:,:)
       END SUBROUTINE preconditioner
@@ -1711,6 +1643,7 @@ CONTAINS
     
     ! !LOCAL VARIABLES
     
+    TYPE(t_patch), POINTER :: patch_2d
     LOGICAL :: done
     INTEGER ::     &
       & i,           & ! index for the Arnoldi loop
@@ -1733,15 +1666,12 @@ CONTAINS
     
     INTEGER :: no_of_blocks, end_nproma
     
-#ifdef NOMPI_DISABLED
-    REAL(wp) :: sum_aux(patch_2d%cells%in_domain%end_block)
-#else
     REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
-#endif
     
     INTEGER :: mythreadno
     !$ INTEGER OMP_GET_THREAD_NUM
     !-------------------------------------------------------------------------
+    patch_2d =>  patch_3D%p_patch_2d(1)
     
     
     ! 0) set module variables and initialize maxiterex
@@ -1753,27 +1683,22 @@ CONTAINS
     
     maxiterex = .FALSE.
     
-#ifndef NOMPI_DISABLED
-    z(:,:) = 0._wp
-#endif
     v(:,:,:)  = 0.0_wp
     r(:,:)    = 0.0_wp
     
     ! 1) compute the preconditioned residual
     
     !w(:,:) = lhs(x(:,:),old_h, patch_2D, p_patch_3D,coeff, h_e, thickness_c, p_op_coeff)
-    w(:,:) = lhs(x, patch_2d, p_patch_3d, p_op_coeff, lev,coeff, h_e)
+    w(:, :) =lhs(x,patch_3D, p_op_coeff, level)
     
-#ifndef __SX__
     IF (ltimer) CALL timer_start(timer_gmres)
-#endif
     
     mythreadno = 0
-!ICON_OMP_PARALLEL PRIVATE(rn2_aux, rrn2, myThreadNo)
+! !ICON_OMP_PARALLEL PRIVATE(rn2_aux, rrn2, myThreadNo)
     !$ myThreadNo = OMP_GET_THREAD_NUM()
     
     
-!ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       IF (jb /= no_of_blocks) THEN
         nlen = nproma
@@ -1783,23 +1708,10 @@ CONTAINS
       ENDIF
       r(1:nlen,jb) = b(1:nlen,jb)-w(1:nlen,jb)
     ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
     
-#ifdef NOMPI_DISABLED
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, no_of_blocks
-      IF (jb /= no_of_blocks) THEN
-        sum_aux(jb) = SUM(r(:,jb)*r(:,jb))
-      ELSE
-        sum_aux(jb) = SUM( r(1:end_nproma,jb)*r(1:end_nproma,jb) )
-      ENDIF
-    ENDDO
-!ICON_OMP_END_DO
-    
-    rn2_aux = SQRT(SUM(sum_aux))
-#else
-!ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       IF (jb /= no_of_blocks) THEN
         z(:,jb) = r(:,jb)*r(:,jb)
@@ -1808,26 +1720,24 @@ CONTAINS
       ENDIF
       WHERE(.NOT.patch_2d%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
     ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
     rn2_aux = SQRT(omp_global_sum_array(z(:,1:no_of_blocks)))
-#endif
     
     
     IF (mythreadno == 0) rn2(1) = rn2_aux
     
-    
     ! 2) compute the first vector of the Krylov space
     IF (rn2_aux /= 0.0_wp) THEN
       rrn2 = 1.0_wp/rn2_aux
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         v(:,jb,1) = r(:,jb)*rrn2
       ENDDO
-!ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_DO NOWAIT
     ENDIF
     
-!ICON_OMP_END_PARALLEL
+! !ICON_OMP_END_PARALLEL
     
     IF (rn2(1) == 0.0_wp) THEN ! already done
       !    print*,' gmres: rn2(1)=0.0 '
@@ -1835,9 +1745,7 @@ CONTAINS
       niter = 0
       !     niter = 1
       res(1) = ABS(rn2(1))
-#ifndef __SX__
       IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
       RETURN
     ENDIF
     
@@ -1853,30 +1761,17 @@ CONTAINS
     arnoldi: DO i = 1, m-1
       ! 4.1) compute the next (i.e. i+1) Krylov vector
       !w(:,:) = lhs( v(:,:,i),old_h, patch_2D,p_patch_3D,coeff,h_e, thickness_c, p_op_coeff )
-      w(:,:) =lhs( v(:,:,i), patch_2d, p_patch_3d, p_op_coeff, lev,coeff, h_e)
-      
+       w(:, :) =lhs(v(:,:,i),patch_3D, p_op_coeff, level)
+    
       ! 4.2) Gram-Schmidt orthogonalization
       
-!ICON_OMP_PARALLEL PRIVATE(rh, h_aux, myThreadNo, k)
+! !ICON_OMP_PARALLEL PRIVATE(rh, h_aux, myThreadNo, k)
       !$   myThreadNo = OMP_GET_THREAD_NUM()
       
       
       gs_orth: DO k = 1, i
         
-#ifdef NOMPI_DISABLED
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1, no_of_blocks
-          IF (jb /= no_of_blocks) THEN
-            sum_aux(jb) = SUM(w(:,jb)*v(:,jb,k))
-          ELSE
-            sum_aux(jb) = SUM( w(1:end_nproma,jb)*v(1:end_nproma,jb,k) )
-          ENDIF
-        ENDDO
-!ICON_OMP_END_DO
-        
-        h_aux = SUM(sum_aux)
-#else
-!ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           IF (jb /= no_of_blocks) THEN
             z(:,jb) = w(:,jb)*v(:,jb,k)
@@ -1885,13 +1780,12 @@ CONTAINS
           ENDIF
           WHERE(.NOT.patch_2d%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
         ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
         h_aux = omp_global_sum_array(z)
-#endif
         
         IF (mythreadno == 0) h(k,i) = h_aux
         
-!ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           IF (jb /= no_of_blocks) THEN
             nlen = nproma
@@ -1901,26 +1795,12 @@ CONTAINS
           ENDIF
           w(1:nlen,jb) = w(1:nlen,jb) - h_aux*v(1:nlen,jb,k)
         ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
         
       ENDDO gs_orth
       
       ! 4.3) new element for h
-      
-#ifdef NOMPI_DISABLED
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1, no_of_blocks
-        IF (jb /= no_of_blocks) THEN
-          sum_aux(jb) = SUM(w(:,jb)*w(:,jb))
-        ELSE
-          sum_aux(jb) = SUM( w(1:end_nproma,jb)*w(1:end_nproma,jb) )
-        ENDIF
-      ENDDO
-!ICON_OMP_END_DO
-      
-      h_aux = SQRT(SUM(sum_aux))
-#else
-!ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         IF (jb /= no_of_blocks) THEN
           z(:,jb) = w(:,jb) * w(:,jb)
@@ -1929,10 +1809,9 @@ CONTAINS
         ENDIF
         WHERE(.NOT.patch_2d%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
       ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
       
       h_aux = SQRT(omp_global_sum_array(z))
-#endif
       
       IF (mythreadno == 0) h(i+1,i) = h_aux
       
@@ -1945,14 +1824,14 @@ CONTAINS
       ! 4.4) if w is independent from v, add v(:,:,:,i+1)
       IF (.NOT. done) THEN
         rh = 1.0_wp/h_aux
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           v(:,jb,i+1) = w(:,jb)*rh
         ENDDO
-!ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_DO NOWAIT
       ENDIF
       
-!ICON_OMP_END_PARALLEL
+! !ICON_OMP_END_PARALLEL
       
       ! 4.5) apply the rotation matrices
       rotation: DO k = 1, i-1
@@ -2004,18 +1883,17 @@ CONTAINS
     ENDDO krylov
     
     ! 7) evaluate the Krylov expansion
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb, i) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_PARALLEL
+! !ICON_OMP_DO PRIVATE(jb, i) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       DO i = 1, nkry
         x(:,jb) = x(:,jb) + c(i)*v(:,jb,i)
       ENDDO
     ENDDO
-!ICON_OMP_END_DO NOWAIT
-!ICON_OMP_END_PARALLEL
-#ifndef __SX__
+! !ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_PARALLEL
+
     IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
     
     res(1:niter) = ABS(rn2(1:niter))
     

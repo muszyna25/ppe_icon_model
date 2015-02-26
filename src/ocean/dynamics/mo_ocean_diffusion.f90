@@ -737,7 +737,7 @@ CONTAINS
             
             nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)* &    
               & k_h(edge_index,level,blockNo) * (                                &
-              & patch_2D%edges%system_orientation(edge_index,blockNo) *        &
+              & -patch_2D%edges%system_orientation(edge_index,blockNo) *        &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
               & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
               & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)    &
@@ -761,7 +761,7 @@ CONTAINS
           
             nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)*&
               & (   &
-              & patch_2D%edges%system_orientation(edge_index,blockNo) *     &
+              & -patch_2D%edges%system_orientation(edge_index,blockNo) *     &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))     &
               & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )   &
               & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo) &
@@ -894,7 +894,7 @@ CONTAINS
         DO level = start_level, end_level
           
           nabla4_vec_e(edge_index,level,blockNo) =  &
-            & patch_3D%wet_e(edge_index,level,blockNo)&
+            & -patch_3D%wet_e(edge_index,level,blockNo)&
             &* k_h(edge_index,level,blockNo)  &
             & *(patch_2D%edges%system_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
