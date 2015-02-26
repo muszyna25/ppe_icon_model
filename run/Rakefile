@@ -2,6 +2,7 @@ require 'rake/clean'
 require 'logger'
 require 'pp'
 require 'cdo'
+require 'colorize'
 begin
   require 'facets'
 rescue
@@ -87,7 +88,9 @@ CLEAN.include('*.run')
   :oceanTracers           => %w[exp.test_ocean_numeric_tracerconservation],
   :oceanBuildbot          => %w[exp.test_ocean_omip_parallel exp.test_ocean_omip_10days exp.test_ocean_omip_technical],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
-  :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
+  :atmTimeMeanSmall       => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
+  :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
+  :atmTimeMeanX           => %w[exp.test_nh_moist_cbl],
 }
 # }}}
 #==============================================================================
@@ -106,11 +109,21 @@ end
 def checkFile4Variables(*args)
   file = args.shift
   varnamesInFile = Cdo.showname(:input => file)[0].split
-  args.each {|varname|
-    unless varnamesInFile.include?(varname) then
-      warn "Could not find variable '#{varname} in '#{file}'"
-      exit(1)
-    end
+  retval = {true => [],false => []}
+  args.each {|varname| retval[varnamesInFile.include?(varname)] << varname }
+  return retval
+end
+def printHashManyKeys(hash,tag)
+  hash.each {|k,v| puts "#{k.to_s.ljust(15,' ')}:#{v ? '   ' : 'NOT'.colorize(:red)} #{tag.to_s}" }
+end
+def printHashManyValues(hash,tag)
+  hash.each {|k,v| puts "#{k ? '   ' : 'NOT'.colorize(:red)} #{tag.to_s}: #{v.join(' ')}" }
+end
+def checkFiles4Variables(*args)
+  varlist = args.shift
+  args.each {|file|
+    puts "# #{file} ".ljust(80,'-').colorize(:blue)
+    printHashManyValues(checkFile4Variables(file,*varlist),'found')
   }
 end
 def getExperimentsFromTestSuite(suite)
@@ -604,7 +617,7 @@ task :checkPerformance, :expname do |t,args|
 end
 
 desc "check timeMeanOutput of given variables"
-task :checkTimeMean, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do |t,args|
+task :checkTimeMeanIdentity, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do |t,args|
   spotFile, meanFile, spotVar, meanVar, initTimestamp = args.values_at(:spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp )
   dbg({:spotFile => spotFile, :meanFile => meanFile, :spotVar => spotVar,:meanVar => meanVar, :initTimestamp => initTimestamp })
   # set default value
@@ -637,9 +650,93 @@ task :checkTimeMean, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do
 
   # compare the single timestep of the mean file with the timmean of the spotfile
   pp Cdo.diff(:input => "-timmean -selname,#{spotVar} #{tempFile['spot']} -selname,#{meanVar} #{tempFile['mean']}")
-
 end
 
+desc "check timemean output for single and twp dtime output"
+task :checkTimeMean, :pattern, :referenceExp do |t,args|
+  varlist = {
+    :tracer => %w[qc qv qi],
+    :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
+    :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress],
+  }.each {|k,v| v.map {|item| item << '_acc'}}
+
+  dbg(varlist)
+  dbg(args.pattern)
+
+  # check for accumulated variables
+  files    = Dir.glob('./'+args.pattern)
+  refFiles = Dir.glob("../#{args.referenceExp}/#{args.pattern}")
+  checkFiles4Variables(varlist.values.flatten,*([refFiles,files].flatten))
+
+  # check, if the accumulation is correct
+#Cdo.debug = true
+  [
+    { :refTimesteps => '2,3', :accTimesteps => 2},
+    { :refTimesteps => '4,5', :accTimesteps => 3},
+#   { :refTimesteps => '6,7', :accTimesteps => 4},
+  ].each {|accConfig|
+    puts accConfig.to_s.colorize(:yellow)
+    refFiles.each_with_index {|refile,i|
+      expfile = files[i]
+      varlist.each {|group, varnames|
+        puts 
+        puts group.to_s.upcase.colorize(:green)
+        varnames.each {|varname|
+          diff = Cdo.diffv(input: [
+                    "-timmean -seltimestep,#{accConfig[:refTimesteps]} -selname,#{varname} #{refile}",
+                    "         -seltimestep,#{accConfig[:accTimesteps]} -selname,#{varname} #{expfile}"
+          ].join(' '),:options => '-s')
+          unless diff.empty? then
+            puts varname.colorize(:red)
+            print "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow)
+            puts "\t"
+          else
+            print "#{varname} ".colorize(:green)
+          end
+
+        }
+        puts
+      }
+    }
+  }
+end
+
+desc "check single precission output of dtime output"
+task :checkTimeMeanSP, :pattern do |t,args|
+  #tightly connected to the current dictionary
+  varlist = {
+    :tracer => %w[qc qv qi],
+    :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
+    :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress]
+  }.each {|k,v| v.map {|item| item << '_acc'}}
+  reflist = {
+    :tracer => %w[clw hus cli],
+    :prog   => %w[ua va ta ps psl zg rho], 
+    :echam  => %w[cosmu0 rsdt clt prlr prcr prls prcs pr prw cllvi clivi rsns rsnt rlns rlnt ts evspsbl hfls hfss tauu tauv]
+  }
+#Cdo.debug = true
+  ifiles = Dir.glob("./#{args.pattern}")
+  if ifiles.empty? then
+    warn "Could not find input file #{args.pattern}"
+    exit(1)
+  end
+  ifile = ifiles[0]
+  checkFiles4Variables([varlist.values,reflist.values].flatten,ifile)
+  
+# Cdo.debug = true
+  varlist.each {|area,vlist|
+    vlist.each_index {|i|
+      varname, refname = vlist[i], reflist[area][i]
+      diff = Cdo.diffv(input: "-selname,#{varname} #{ifile} -selname,#{refname} #{ifile}")
+      if diff.empty? then
+        puts [varname,refname].join(' ').colorize(:green)
+      else
+        puts [varname,refname].join(' ').colorize(:red)
+        pp diff if $DEBUG
+      end
+    }
+  }
+end
 desc "Check status of given of all experiments"
 task :stat, :expname do |t,args|
   expname = args.expname.nil? ? '' : args.expname
