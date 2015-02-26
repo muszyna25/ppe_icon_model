@@ -119,7 +119,7 @@ CONTAINS
     hci_layer   = 0.10_wp
     leadclose_1 = 0.5_wp
 
-    ramp_wind   = 10._wp
+    ramp_wind   = 0._wp
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
