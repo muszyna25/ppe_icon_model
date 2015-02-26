@@ -15934,7 +15934,6 @@ void vlistDefVarIntKey(int vlistID, int varID, const char *name, int value)
   vlist_t *vlistptr = vlist_to_pointer(vlistID);
   int idx;
 
-  Message("vlistID = %d  varID = %d  name = %s", vlistID, varID, name);
   if ( vlistptr->locked )
     Error("User defined vlist object (vlistID=%d) isn't allowed!\n"
           "Need a CDI internal vlist object from streamInqVlist(streamID).", vlistID);

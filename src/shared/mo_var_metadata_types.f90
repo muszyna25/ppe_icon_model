@@ -43,7 +43,7 @@ MODULE mo_var_metadata_types
   !
   ! New groups can be added by extending the VAR_GROUPS list.
   !
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(37) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(38) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -62,6 +62,7 @@ MODULE mo_var_metadata_types
     &  "SNOW_VARS             ",  &
     &  "DWD_FG_ATM_VARS       ",  &  ! DWD First Guess (atmosphere) 
     &  "DWD_FG_SFC_VARS       ",  &  ! DWD First Guess (surface/soil)
+    &  "DWD_FG_SFC_VARS_T     ",  &  ! DWD First Guess (surface/soil) tiles
     &  "MODE_DWD_FG_IN        ",  &  ! Input first guess fields for MODE_DWD
     &  "MODE_DWD_ANA_IN       ",  &  ! Input analysis fields for MODE_DWD
     &  "MODE_IAU_FG_IN        ",  &  ! First guess input for IAU
