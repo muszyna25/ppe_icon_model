@@ -276,7 +276,7 @@ CONTAINS
             length_scale(je,jb) = &
             & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))         
 
-            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale(je,jb)**3
+            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale(je,jb)**2
 !             k_veloc_factor = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
 !             p_phys_param%k_veloc_h(je,:,jb) = &
 !               & p_phys_param%k_veloc_h_back * k_veloc_factor**3

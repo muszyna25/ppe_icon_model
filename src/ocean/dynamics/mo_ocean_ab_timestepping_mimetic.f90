@@ -42,7 +42,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & select_restart_mixedPrecision_gmres,                &
     & solver_max_iter_per_restart_sp,                     &
     & solver_tolerance_sp, l_partial_cells,               &
-    & MASS_MATRIX_INVERSION_TYPE,NO_INVERSION,MASS_MATRIX_INVERSION,BUREAUCRATIC_MASS_MATRIX_INVERSION
+    & MASS_MATRIX_INVERSION_TYPE,NO_INVERSION,MASS_MATRIX_INVERSION_ADVECTION,&
+    &MASS_MATRIX_INVERSION_ALLTERMS
   
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -655,8 +656,8 @@ CONTAINS
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
     CALL timer_start(timer_extra4)
-    IF (   MASS_MATRIX_INVERSION_TYPE == BUREAUCRATIC_MASS_MATRIX_INVERSION&
-      &.OR.MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION) THEN
+    IF (   MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ALLTERMS&
+      &.OR.MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ADVECTION) THEN
     
       CALL explicit_vn_pred_invert_mass_matrix( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep)
 
@@ -785,7 +786,7 @@ CONTAINS
     patch_2D        => patch_3d%p_patch_2d(n_dom)
     edges_in_domain => patch_3d%p_patch_2d(n_dom)%edges%in_domain
 
-      IF(MASS_MATRIX_INVERSION_TYPE== MASS_MATRIX_INVERSION)THEN
+      IF(MASS_MATRIX_INVERSION_TYPE== MASS_MATRIX_INVERSION_ADVECTION)THEN
        !Here the inversion of the mass matrix is already carried out        
        
        z_e=ocean_state%p_diag%veloc_adv_horz+ocean_state%p_diag%veloc_adv_vert
@@ -845,7 +846,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    IF(MASS_MATRIX_INVERSION_TYPE == BUREAUCRATIC_MASS_MATRIX_INVERSION )THEN
+    IF(MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ALLTERMS )THEN
       !Here the inversion is just prepared
       Write(0,*)'vn_pred before:',&
       &maxval(ocean_state%p_diag%vn_pred(:,1,:)),& 
@@ -982,7 +983,7 @@ CONTAINS
 
     INTEGER :: je, jk
     !-----------------------------------------------------------------------
-    IF(MASS_MATRIX_INVERSION_TYPE/=MASS_MATRIX_INVERSION)THEN    
+    IF(MASS_MATRIX_INVERSION_TYPE/=MASS_MATRIX_INVERSION_ADVECTION)THEN    
     
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -996,7 +997,7 @@ CONTAINS
         END DO
       END DO
       
-    ELSEIF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION)THEN    
+    ELSEIF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION_ADVECTION)THEN    
    
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -1538,7 +1539,7 @@ CONTAINS
         & op_coeffs%grad_coeff(:,1,:),                            &
         & z_grad_h(:,:))         
         
-      IF(MASS_MATRIX_INVERSION_TYPE==BUREAUCRATIC_MASS_MATRIX_INVERSION)THEN
+      IF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION_ALLTERMS)THEN
 !        write(0,*)'New height grad before',&
 !         &maxval(z_grad_h),minval(z_grad_h)
 !         !CALL map_edges2edges_viacell_3d_const_z( patch_3D, z_grad_h, op_coeffs, z_grad_h)
