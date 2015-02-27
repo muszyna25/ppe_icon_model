@@ -2385,7 +2385,7 @@ stream_t;
 
 
 /* Length of optional keyword/value pair list */
-#define MAX_OPT_GRIB_ENTRIES 50
+#define MAX_OPT_GRIB_ENTRIES 500
 
 
 #if  defined  (HAVE_LIBGRIB_API)
@@ -12012,7 +12012,13 @@ void varDefOptGribInt(int varID, int tile_index, long lval, const char *keyword)
     {
       idx = vartable[varID].opt_grib_nentries;
       vartable[varID].opt_grib_nentries++;
-      if ( idx >= MAX_OPT_GRIB_ENTRIES ) Error("Too many optional keyword/value pairs!");
+      if ( idx >= MAX_OPT_GRIB_ENTRIES ) {
+	for (int j=0; j<MAX_OPT_GRIB_ENTRIES; j++)
+	  fprintf(stderr, "key = %s, value = %ld\n", 
+		  vartable[varID].opt_grib_kvpair[j].keyword,
+		  vartable[varID].opt_grib_kvpair[j].int_val);
+	Error("Too many optional keyword/value pairs!");
+      }
     }
   else
     {
@@ -15951,7 +15957,13 @@ void vlistDefVarIntKey(int vlistID, int varID, const char *name, int value)
     {
       idx = vlistptr->vars[varID].opt_grib_nentries;
       vlistptr->vars[varID].opt_grib_nentries++;
-      if ( idx >= MAX_OPT_GRIB_ENTRIES ) Error("Too many optional keyword/integer value pairs!");
+      if ( idx >= MAX_OPT_GRIB_ENTRIES ) {
+	for (int j=0; j<MAX_OPT_GRIB_ENTRIES; j++)
+	  fprintf(stderr, "key = %s, value = %d\n", 
+		  vlistptr->vars[varID].opt_grib_kvpair[j].keyword,
+		  vlistptr->vars[varID].opt_grib_kvpair[j].int_val);
+	Error("Too many optional keyword/integer value pairs!");
+      }
       vlistptr->vars[varID].opt_grib_kvpair[idx].data_type   = t_int;
       vlistptr->vars[varID].opt_grib_kvpair[idx].int_val     = value;
       vlistptr->vars[varID].opt_grib_kvpair[idx].update      = TRUE;
