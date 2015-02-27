@@ -2375,8 +2375,14 @@
 
 
       INTEGER         vlistInqVarSubtype
+      EXTERNAL        vlistInqVarSubtype
+
       INTEGER         subtypeInqTile
+      EXTERNAL        subtypeInqTile
+
       INTEGER         subtypeInqSize
+      EXTERNAL        subtypeInqSize
+
       INTEGER         subtypeInqActiveIndex
       EXTERNAL        subtypeDefActiveIndex
 
