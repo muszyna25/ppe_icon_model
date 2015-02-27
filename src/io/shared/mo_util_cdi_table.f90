@@ -295,6 +295,8 @@ CONTAINS
       ntiles = subtypeInqSize(subtypeID)
       IF (ntiles > 1) THEN
         WRITE (entry_str, "(i"//trim(wdth)//")") ntiles
+      ELSE
+        WRITE (entry_str, "(a"//trim(wdth)//")") "-"
       ENDIF
       IF (PRESENT(opt_list_element)) opt_list_element%field%ntiles = ntiles
       !
