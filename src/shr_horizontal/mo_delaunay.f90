@@ -414,13 +414,14 @@ CONTAINS
 !$omp do reduction(+:new_ninvalid,new_ndiscard) 
       DO j=j0,(ntri-1)
         jtri => tri%a(j)
-        ! test if triangle remains on "discard" list
-        IF (ipoint%ps > jtri%rdiscard) THEN
-          new_ndiscard  = new_ndiscard-1
-          jtri%rdiscard = 1._wp
-        END IF
 
         IF (jtri%complete == 0) THEN
+          ! test if triangle remains on "discard" list
+          IF (ipoint%ps > jtri%rdiscard) THEN
+            new_ndiscard  = new_ndiscard-1
+            jtri%rdiscard = 1._wp
+          END IF
+
           oedge = jtri%oedge
           jmin0 = jmin
           IF (jmin == ntri)  jmin = j

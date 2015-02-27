@@ -89,7 +89,6 @@ CONTAINS
                   t_g_ex           , & ! weighted surface temperature                  (  K  )
                   qv_s_ex          , & ! specific humidity at the surface              (kg/kg)
                   w_snow_ex        , & ! water content of snow                         (m H2O)
-                  w_snow_eff_ex    , & ! water content of snow, effective              (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   rho_snow_mult_ex , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height                                   (  m  )
@@ -174,7 +173,6 @@ CONTAINS
                   t_snow_ex        , & ! temperature of the snow-surface (K)
                   t_s_ex           , & ! temperature of the ground surface             (  K  )
                   w_snow_ex        , & ! water content of snow                         (m H2O)
-                  w_snow_eff_ex    , & ! water content of snow                         (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height
                   w_i_ex           , & ! water content of interception water           (m H2O)
@@ -973,10 +971,6 @@ endif
 !CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
-
-             ! snow depth per surface unit -> snow depth per fraction
-             w_snow_eff_ex(jc,isubs_snow) = &
-               w_snow_ex(jc,isubs_snow)/MAX(snowfrac_lc_ex(jc,isubs_snow),small)
 
              ! reset field for actual snow-cover for grid points / land-cover classes for which there
              ! are seperate snow-free and snow-covered tiles

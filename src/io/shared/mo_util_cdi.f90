@@ -46,8 +46,9 @@ MODULE mo_util_cdi
     &                              zaxisInqNlevRef, vlistInqVarGrid, gridInqSize,           &
     &                              zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32,            &
     &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
-    &                              TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis,      &
-    &                              taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR
+    &                              TSTEP_INSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
+    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,                 &
+    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR
 
   IMPLICIT NONE
   PRIVATE
@@ -802,6 +803,15 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
+
+    IF (ANY((/TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN/) == steptype)) THEN
+      ! Always set
+      !   typeOfTimeIncrement = 2 
+      !   "Successive times processed have same start time of forecast, 
+      !    forecast time is incremented"
+      ! since this is the only type of time processing available in ICON
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfTimeIncrement", 2)
+    ENDIF
 
     IF (grib_conf%lspecialdate_invar) THEN
       ! Use special date for invariant and climatological fields

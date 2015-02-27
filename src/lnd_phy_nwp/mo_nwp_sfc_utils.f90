@@ -338,6 +338,9 @@ CONTAINS
 
         ! Preliminary diagnosis of snow-cover fraction for initialization of split tile index list
 
+! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
+! the snow cover fraction must be restored from the tile fractions instead of being diagnosed here!
+
 ! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
 ! a segmentation fault otherwise
 !CDIR NOIEXPAND
@@ -382,12 +385,6 @@ CONTAINS
                                    snowtile_flag_snow = ext_data%atm%snowtile_flag_t(:,jb,isubs_snow), &
                                    snowfrac           = p_lnd_diag%snowfrac_lc_t(:,jb,isubs)           )
 
-          ! Set w_snow to zero for grid points having a snow-tile counterpart
-          DO ic = 1, ext_data%atm%lp_count_t(jb,isubs)
-            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-            IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) > 0 ) p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
-          END DO
-
         END DO
       END IF
 
@@ -420,6 +417,11 @@ CONTAINS
         &  wliq_snow_now     = wliq_snow_now_t(:,:,jb,isubs)    , & ! liquid water content in the snow  (m H2O)
         &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow (m H2O)
         &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       ) ! layer thickness between half levels in snow  (  m  )
+
+! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
+! w_snow_now_t must be multiplied with the snow cover fraction before entering the following computation!
+! Alternatively, the diagnosis may be skipped in this case because the snow cover fraction has already
+! been restored from the tile fractions
 
 ! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
 ! a segmentation fault otherwise
@@ -461,6 +463,19 @@ CONTAINS
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)
           ENDDO
+
+! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
+! the following computatation must not be executed! In this case, w_snow and h_snow are already rescaled
+! to the partial tile fraction
+
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+            p_prog_lnd_now%w_snow_t(jc,jb,isubs) = p_prog_lnd_now%w_snow_t(jc,jb,isubs)/            &
+                                                   MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+            p_lnd_diag%h_snow_t(jc,jb,isubs)     = p_lnd_diag%h_snow_t(jc,jb,isubs)/                &
+                                                   MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+          ENDDO
+
         ENDIF
 
         IMSNOWO: IF(lmulti_snow) THEN
@@ -474,16 +489,32 @@ CONTAINS
             ENDDO
           ENDDO
 
+! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
+! the following computatation must not be executed! In this case, w_snow and h_snow are already rescaled
+! to the partial tile fraction
+
 !CDIR UNROLL=nlsnow
           DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, i_count
-              jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-              p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
-              p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)
-              p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
-              p_prog_lnd_now%dzh_snow_t(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)
-            ENDDO
+            IF (lsnowtile .AND. isubs > ntiles_lnd) THEN
+              DO ic = 1, i_count
+                jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+                p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
+                p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)/ &
+                                             MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+                p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)/ &
+                                             MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+                p_prog_lnd_now%dzh_snow_t(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)/ &
+                                            MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+              ENDDO
+            ELSE
+              DO ic = 1, i_count
+                jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+                p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
+                p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)
+                p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
+                p_prog_lnd_now%dzh_snow_t(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)
+              ENDDO
+            ENDIF
           ENDDO
 
         END IF  IMSNOWO
@@ -870,16 +901,16 @@ CONTAINS
           DO ic = 1, i_count_snow
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-            ! snow depth per surface unit -> snow depth per fraction
-            p_lnd_diag%w_snow_eff_t(jc,jb,isubs_snow) = &
-              p_prog_lnd_now%w_snow_t(jc,jb,isubs_snow)/MAX(p_lnd_diag%snowfrac_lc_t(jc,jb,isubs_snow),small)
-
             ! reset field for actual snow-cover for grid points / land-cover classes for which there
             ! are seperate snow-free and snow-covered tiles
             p_lnd_diag%snowfrac_t(jc,jb,isubs)   = 0._wp
             p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
+            p_lnd_diag%h_snow_t(jc,jb,isubs)     = 0._wp
             p_prog_lnd_now%t_snow_t(jc,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
             p_prog_lnd_now%t_g_t(jc,jb,isubs)    = p_prog_lnd_now%t_s_t(jc,jb,isubs)
+
+            ! copy rho_snow in order to get the right tile average of snow density
+            p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = p_prog_lnd_now%rho_snow_t(jc,jb,isubs_snow)
 
             ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
             ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
@@ -1582,7 +1613,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
-    & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g)
+    & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g, t_2m)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
@@ -1590,19 +1621,29 @@ CONTAINS
     INTEGER, INTENT (IN) :: i_lc_urban   ! land-cover class index for urban / artificial surface
     REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
       freshsnow, sso_sigma, tai
+    REAL(wp), DIMENSION(:), INTENT(IN), OPTIONAL :: t_2m
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
 
     INTEGER  :: ic
-    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit
+    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit, tai_mod(iend)
 
-    IF (idiag_snowfrac == 1) THEN ! old parameterization depending on SWE only
+    ! Modified tai that is increased in urban areas
+    DO ic = istart, iend
+      IF (lc_class(ic) == i_lc_urban) THEN
+        tai_mod(ic) = MAX(3._wp,tai(ic))
+      ELSE
+        tai_mod(ic) = tai(ic)
+      ENDIF
+    ENDDO
+
+    SELECT CASE (idiag_snowfrac)
+    CASE (1) ! old parameterization depending on SWE only
       DO ic = istart, iend
         snowfrac(ic) = MIN(1.0_wp, w_snow(ic)/cf_snow)
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE IF (idiag_snowfrac == 2) THEN ! more advanced parameterization depending on snow depth,
-                                       ! accounts also for vegetation and SSO
+    CASE (2, 20) ! more advanced parameterization depending on snow depth, accounts also for vegetation and SSO
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1610,7 +1651,7 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(2.5_wp*tai(ic)))
+          lc_fac   = MAX(1._wp,SQRT(2.5_wp*tai_mod(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.875_wp ! this accounts for the effect of human activities on snow cover
           ELSE
@@ -1620,7 +1661,7 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE IF (idiag_snowfrac == 3) THEN   ! similar to option 2, but somewhat less snow cover and limit over high vegetation
+    CASE (3, 30)  ! similar to option 2, but somewhat less snow cover and limit over high vegetation
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1628,17 +1669,17 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai(ic)))
+          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai_mod(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
           ELSE
-            lc_limit = MAX(0.925_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai(ic))**0.125_wp))
+            lc_limit = MAX(0.925_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai_mod(ic))**0.125_wp))
           ENDIF
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE IF (idiag_snowfrac == 4) THEN   ! same as option 3, but even more restrictive snow cover limit over high vegetation
+    CASE (4, 40)  ! same as option 3, but even more restrictive snow cover limit over high vegetation
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1646,17 +1687,17 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai(ic)))
+          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai_mod(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
           ELSE
-            lc_limit = MAX(0.85_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai(ic))**0.125_wp))
+            lc_limit = MAX(0.85_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai_mod(ic))**0.125_wp))
           ENDIF
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ENDIF
+    END SELECT
 
     ! For the single-layer scheme, t_soiltop represents the weighted average between the snow-covered
     ! part and the snow-free part in the case of melting snow concurrent with above-freezing soil temperatures
@@ -1665,6 +1706,24 @@ CONTAINS
         IF (t_soiltop(ic) > tmelt .AND. t_snow(ic) >= tmelt - dbl_eps) t_g(ic) = t_soiltop(ic)
       ENDDO
     ENDIF
+
+    SELECT CASE (idiag_snowfrac)
+    CASE (20, 30, 40)
+      ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
+      ! cold bias in such situations
+      IF (PRESENT(t_2m)) THEN
+        DO ic = istart, iend
+          IF (t_2m(ic) > tmelt .AND. tai_mod(ic) > 0.1_wp) THEN
+            snowfrac(ic) = MIN(snowfrac(ic),MAX(0.25_wp,1._wp-0.2_wp*SQRT(tai_mod(ic))*(t_2m(ic)-tmelt)))
+          ENDIF
+        ENDDO
+      ENDIF
+      DO ic = istart, iend
+        IF (t_soiltop(ic) > tmelt .AND. t_snow(ic) >= tmelt - dbl_eps .AND. tai_mod(ic) > 0.1_wp) THEN
+          snowfrac(ic) = MIN(snowfrac(ic),MAX(0.25_wp,1._wp-0.2_wp*SQRT(tai_mod(ic))*(t_soiltop(ic)-tmelt)))
+        ENDIF
+      ENDDO
+    END SELECT
 
   END SUBROUTINE diag_snowfrac_tg
 

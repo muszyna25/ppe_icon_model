@@ -2392,7 +2392,8 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
 idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis:\\ 
 1 = based on SWE only\\
-2--4 = more advanced experimental methods &
+2--4 = more advanced experimental methods \\ 
+20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow&
 \tabularnewline
 
 %\hline
@@ -4848,6 +4849,12 @@ using the profile values of the lowest main level instead of the mean value of t
 lnonloc &
 L                &     .FALSE.      & &
 nonlocal calculation of vertical gradients used for turbul. diff. & 
+\tabularnewline
+
+%\hline
+lfreeslip &
+L                &     .FALSE.      & &
+.TRUE.: use a free-slip lower boundary condition, i.e. neither momentum nor heat/moisture fluxes (use for idealized runs only!) & 
 \tabularnewline
 
 %\hline
