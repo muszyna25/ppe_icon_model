@@ -1097,7 +1097,8 @@ MODULE mo_nwp_lnd_state
              & t_cf_var('qv_s_t_'//csfc, '', '', DATATYPE_FLT32),            &
              & t_grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
              & var_class=CLASS_TILE,                                         &
-             & ldims=shape2d, in_group=groups("land_tile_vars") )
+             & ldims=shape2d,                                                &
+             & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
 

@@ -2074,7 +2074,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & t_cf_var('gz0_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
              & t_grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL),    &
              & var_class=CLASS_TILE,                                      &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,            &
+             & in_group=groups("dwd_fg_sfc_vars_t") )
         ENDDO
 
 
