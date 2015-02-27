@@ -734,10 +734,12 @@ CONTAINS
             !              write(0,*)  "8",  z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1))
             !              write(0,*)  "9",  patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
             !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
-            
-            nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)* &    
-              & k_h(edge_index,level,blockNo) * (                                &
-              & -patch_2D%edges%system_orientation(edge_index,blockNo) *        &
+
+            ! Check if the two vertex vorticities should be added
+            nabla2_vec_e(edge_index,level,blockNo) = &
+              & patch_3D%wet_e(edge_index,level,blockNo)*                                     &
+              & k_h(edge_index,level,blockNo) * (                                             &
+              & -patch_2D%edges%system_orientation(edge_index,blockNo) *                      &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
               & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
               & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)    &

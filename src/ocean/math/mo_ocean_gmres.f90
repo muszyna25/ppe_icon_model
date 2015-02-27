@@ -1323,7 +1323,7 @@ CONTAINS
     end_nproma   = patch_2d%cells%in_domain%end_index
     
     maxiterex = .FALSE.
-    
+    z(:,:)    = 0._wp 
     v(:,:,:)  = 0.0_wp
     r(:,:)    = 0.0_wp
     
@@ -1549,8 +1549,6 @@ CONTAINS
   
   
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !!
   !! @par Revision History
@@ -1675,14 +1673,11 @@ CONTAINS
     
     
     ! 0) set module variables and initialize maxiterex
-    
-    !>
-    !!
-    no_of_blocks    = patch_2d%edges%in_domain%end_block
+    no_of_blocks = patch_2d%edges%in_domain%end_block
     end_nproma   = patch_2d%edges%in_domain%end_index
     
     maxiterex = .FALSE.
-    
+    z(:,:) = 0._wp
     v(:,:,:)  = 0.0_wp
     r(:,:)    = 0.0_wp
     

@@ -792,8 +792,8 @@ CONTAINS
        !Here the inversion of the mass matrix is already carried out        
        
        z_e=ocean_state%p_diag%veloc_adv_horz+ocean_state%p_diag%veloc_adv_vert
-       Write(0,*)'Horiz ADV before:',&
-       &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
+!        Write(0,*)'Horiz ADV before:',&
+!        &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
             
        ocean_state%p_diag%veloc_adv_horz = invert_mass_matrix(patch_3d, ocean_state, op_coeffs, z_e)
 
@@ -1901,7 +1901,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     
-    tolerance                = 1.0e-2_wp  ! solver_tolerance
+    tolerance                = 1.0e-6_wp  ! solver_tolerance
     inv_flip_flop_e(:,:,:)   = 0.0_wp
     use_absolute_solver_tolerance=.true.
     DO jk=1, n_zlev
@@ -1987,6 +1987,15 @@ CONTAINS
             gmres_restart_iterations = gmres_restart_iterations + 1
 
           END DO ! WHILE(tolerance >= solver_tolerance)
+          
+          idt_src=1
+          IF (idbg_mxmn >= idt_src) THEN
+            WRITE(string,'(a,i4,a,e28.20)') &
+              & 'ocean_restart_gmres iteration =', iter_sum,', residual =', residual_norm
+            CALL message('invert_mass_matrix',TRIM(string))
+          ENDIF
+
+            gmres_restart_iterations = gmres_restart_iterations + 1
         !-----------------------------------------------------------------------------------------
         END SELECT
        
@@ -2010,10 +2019,11 @@ CONTAINS
     !CALL finish("lhs_primal_flip_flop", "not implemented")
     
     !llhs(:,:) = 0.5_wp*x(:,:)
+    CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(1), x )
     
-     CALL map_edges2edges_viacell_2D_per_level( patch_3d, &
-     & x(:,:), &
-     & op_coeffs, llhs(:,:), jk)  
+    CALL map_edges2edges_viacell_2D_per_level( patch_3d, &
+      & x(:,:), &
+      & op_coeffs, llhs(:,:), jk)  
     !write(*,*)'max/min v:PTPv:', maxval(x(:,:)),minval(x(:,:)),maxval(llhs(:,:)),minval(llhs(:,:))
     
   END FUNCTION lhs_primal_flip_flop
