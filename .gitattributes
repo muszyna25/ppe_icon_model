@@ -73,7 +73,6 @@ config/icon_components -text
 config/install-sh -text
 config/make_target_runscript -text
 config/mh-aix -text
-config/mh-cygwin -text
 config/mh-darwin -text
 config/mh-linux -text
 config/mh-nec -text
