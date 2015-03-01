@@ -36,8 +36,8 @@ MODULE mo_util_cdi
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
     &                              deallocateTimedelta, deallocateDatetime, &
-    &                              MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
+    &                              MAX_DATETIME_STR_LEN,                    &
+    &                              OPERATOR(-)
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -973,7 +973,7 @@ CONTAINS
       mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
       !
       ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-      CALL getTimeDeltaFromDateTime(mtime_cur, statProc_startDateTime, mtime_lengthOfTimeRange)
+      mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
 
 
       ! time interval over which statistical process has been performed (in secs)    
@@ -994,7 +994,7 @@ CONTAINS
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(statProc_startDateTime, mtime_start, forecast_delta)
+    forecast_delta = statProc_startDateTime - mtime_start
 
     ! forecast time in seconds
     forecast_secs =    forecast_delta%second    +   &

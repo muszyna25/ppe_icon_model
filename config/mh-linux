@@ -516,6 +516,7 @@ case "$ac_sitename" in
                 HDF5ROOT    = $software_tree/hdf5-1.8.7-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr
+                XML2ROOT    = /usr
                 CFLAGS   = $CFLAGS -DHAVE_NETCDF4
                 SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
                 IB_LIBS  = -lrdmacm -libverbs
@@ -572,18 +573,18 @@ case "$ac_sitename" in
                            MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                            case "$fortran_compiler" in
                                default|gcc)
-                                   load_modules="gcc/4.7.2" "${load_modules}"
+                                   load_modules="gcc/4.8.2" "${load_modules}"
                                    ;;
                                nag)
-                                   load_modules="gcc/4.7.2" "nag/5.3.951" "${load_modules}"
+                                   load_modules="gcc/4.8.2" "nag/5.3.951" "${load_modules}"
                                    ;;
                                pgi)
-                                   load_modules= "gcc/4.7.2" "pgi/14.7" "${load_modules}"
+                                   load_modules= "gcc/4.8.2" "pgi/14.7" "${load_modules}"
                                    ;;
                                intel)
                                    # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                                    HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                   load_modules="gcc/4.7.2" "intel/14.0.2" "${load_modules}"
+                                   load_modules="gcc/4.8.2" "intel/14.0.2" "${load_modules}"
                                    ;;
                            esac
                            ;;
