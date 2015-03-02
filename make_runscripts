@@ -76,7 +76,7 @@ case $param in
     grid_list=""
     exp_list=`ls exp.*`
     post_list=`ls post.*`
-    define_grids_folder='grids_folder="/pool/data/ICON/grids/buildbot"'
+    # define_grids_folder='grids_folder="/pool/data/ICON/grids/buildbot"'
     ;;
   post_test)  # create _all_ post-processing scripts for buildbot
     make_restart_post="true"
