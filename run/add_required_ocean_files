@@ -53,7 +53,7 @@
   fi
 
   #--------------------------------------------------
-  if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
+  if [[ "x$iforc" = "x12" ]] ; then
     use_file_initialConditions=".true."
   fi
   if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
