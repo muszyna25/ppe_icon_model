@@ -140,6 +140,7 @@ CONTAINS
     REAL(wp) :: rho_snow_new_t (nproma)
 
     REAL(wp) :: h_snow_t (nproma)
+    REAL(wp) :: meltrate (nproma)
 
     REAL(wp) :: w_i_now_t (nproma)
     REAL(wp) :: w_i_new_t (nproma)
@@ -152,7 +153,6 @@ CONTAINS
 
     REAL(wp) :: u_10m_t    (nproma)
     REAL(wp) :: v_10m_t    (nproma)
-    REAL(wp) :: t_2m_t     (nproma)
     REAL(wp) :: freshsnow_t(nproma)
     REAL(wp) :: snowfrac_t (nproma)
 
@@ -279,7 +279,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   t_2m_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -422,7 +422,6 @@ CONTAINS
           runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
           v_10m_t(ic)               =  prm_diag%v_10m_t(jc,jb,isubs)  
-          t_2m_t(ic)                =  prm_diag%t_2m(jc,jb)  
           tch_t(ic)                 =  prm_diag%tch_t(jc,jb,isubs)
           tcm_t(ic)                 =  prm_diag%tcm_t(jc,jb,isubs)
           tfv_t(ic)                 =  prm_diag%tfv_t(jc,jb,isubs)
@@ -531,6 +530,7 @@ CONTAINS
         &  rho_snow_mult_new = rho_snow_mult_new_t, & !OUT snow density                 (kg/m**3) 
 !
         &  h_snow        = h_snow_t              , & !INOUT snow height
+        &  meltrate      = meltrate              , & !OUT snow melting rate
 !
         &  w_i_now       = w_i_now_t             , & !INOUT water content of interception water(m H2O)
         &  w_i_new       = w_i_new_t             , & !OUT water content of interception water(m H2O)
@@ -599,6 +599,7 @@ CONTAINS
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             w_snow_now_t(ic) = w_snow_new_t(ic)*MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)
+            meltrate(ic) = meltrate(ic)*MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)
           ENDDO
         ELSE
           DO ic = 1, i_count
@@ -612,10 +613,10 @@ CONTAINS
           &  i_lc_urban = ext_data%atm%i_lc_urban  , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_new_t      , & ! snow temp
           &  t_soiltop = t_s_new_t         , & ! soil top temp
-          &  t_2m      = t_2m_t            , & ! 2 m air temp
           &  w_snow    = w_snow_now_t      , & ! snow WE
           &  rho_snow  = rho_snow_new_t    , & ! snow density
           &  freshsnow = freshsnow_t       , & ! fresh snow fraction
+          &  meltrate  = meltrate          , & ! snow melting rate
           &  sso_sigma = sso_sigma_t       , & ! sso stdev
           &  tai       = tai_t             , & ! effective leaf area index
           &  snowfrac  = snowfrac_t        , & ! OUT: snow cover fraction

@@ -507,6 +507,7 @@ END SUBROUTINE message
                   rho_snow_mult_new, & ! snow density                                  (kg/m**3)
 !
                   h_snow           , & ! snow height                                   (  m  )
+                  meltrate         , & ! snow melting rate                             (kg/(m**2*s))
 !
                   w_i_now          , & ! water content of interception water           (m H2O)
                   w_i_new          , & ! water content of interception water           (m H2O)
@@ -641,6 +642,8 @@ END SUBROUTINE message
                   rho_snow_mult_new    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   h_snow               ! snow height  
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  meltrate             ! snow melting rate  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_i_now              ! water content of interception water           (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
@@ -1374,6 +1377,7 @@ END SUBROUTINE message
   soil_list(:)    =0
   rockice_list(:) =0
   melt_list(:)    =0
+  meltrate(:)     = 0._ireals
 
 
   DO i = istarts, iends
@@ -4086,6 +4090,7 @@ ENDIF
                                (.5_ireals* (zts(i) - (t0_melt - zepsi)) - lh_f/chc_i)
               zdwsnm(i)    = zdwsnm(i)*z1d2dt*rho_w 
               zdwsndt(i)   = zdwsndt (i) + zdwsnm(i)
+              meltrate(i)  = - zdwsnm(i)
               ztsnownew    = t0_melt - zepsi
               zdtsnowdt(i) = zdtsnowdt(i) + (ztsnownew - ztsnown(i))*z1d2dt
               runoff_s (i) = runoff_s(i) - zdwsnm(i)*zroffdt
@@ -4118,6 +4123,7 @@ ENDIF
                 ! a reduction factor which controls additional run-off
                 zdwsnm(i)   = zfr_melt*zwsnew(i)*z1d2dt*rho_w  ! available water
                 zdwsndt(i)  = zdwsndt (i) - zdwsnm(i)
+                meltrate(i) = meltrate(i) + zdwsnm(i)
                 zdwgme        = zdwsnm(i)*zrock(i)             ! contribution to w_so
                 zro           = (1._ireals - zrock(i))*zdwsnm(i)      ! surface runoff
                 zredfu        = MAX( 0.0_ireals,  MIN( 1.0_ireals, (zw_fr(i,1) -  &
