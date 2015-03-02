@@ -35,10 +35,6 @@
   ocean_relax_filename=${ocean_relax_filename:=${relax_DataType}-${grid_name}.nc}
   ocean_relax_InputFilename=${ocean_relax_folder}/${ocean_relax_filename}
 
-  echo "forcing from:"$ocean_forcing_InputFilename
-  echo "initial state from:"$ocean_initialState_InputFilename
-  echo "relaxation from:"$ocean_relax_InputFilename
-  
   #=======================================================
   # re-naming of the input files when copying to the experiment folder
   ocean_forcing_outputFilename="ocean-flux.nc"
@@ -78,4 +74,3 @@
   fi
 
   #===============================================================================================
-  exit
