@@ -90,7 +90,7 @@ CLEAN.include('*.run')
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
   :atmTimeMeanSmall       => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
   :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
-  :atmTimeMeanX           => %w[exp.test_nh_moist_cbl],
+  :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
 }
 # }}}
 #==============================================================================
@@ -723,16 +723,18 @@ task :checkTimeMeanSP, :pattern do |t,args|
   ifile = ifiles[0]
   checkFiles4Variables([varlist.values,reflist.values].flatten,ifile)
   
-# Cdo.debug = true
+#Cdo.debug = true
+  avoidFirst = lambda {|ifile| "-seltimestep,2/#{Cdo.ntime(input: ifile)[0]}" }
   varlist.each {|area,vlist|
     vlist.each_index {|i|
       varname, refname = vlist[i], reflist[area][i]
-      diff = Cdo.diffv(input: "-selname,#{varname} #{ifile} -selname,#{refname} #{ifile}")
+      sel = avoidFirst.call(ifile)
+      diff = Cdo.diffv(input: "-selname,#{varname} #{sel} #{ifile} -selname,#{refname} #{sel} #{ifile}")
       if diff.empty? then
         puts [varname,refname].join(' ').colorize(:green)
       else
         puts [varname,refname].join(' ').colorize(:red)
-        pp diff if $DEBUG
+#       pp diff
       end
     }
   }
