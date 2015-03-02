@@ -913,10 +913,10 @@ CONTAINS
       END DO
     END DO
 
-      DO level=1,n_zlev
-       write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
-       &minval(nabla4_vec_e(:,level,:))
-      END DO
+    !  DO level=1,n_zlev
+    !   write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
+    !   &minval(nabla4_vec_e(:,level,:))
+    !  END DO
 
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl
