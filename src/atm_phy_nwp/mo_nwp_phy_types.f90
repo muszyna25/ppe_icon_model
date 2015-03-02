@@ -347,6 +347,10 @@ MODULE mo_nwp_phy_types
     REAL(wp), POINTER ::  &
       rh(:,:,:)               !> relative humidity
 
+    ! Buffer field needed when vertical nesting is combined with a reduced radiation
+    ! grid and processor splitting
+    REAL(wp), POINTER :: buffer_rrg(:,:,:)
+
     !> Special 1D and 0D diagnostics for LES runs
     REAL(wp), ALLOCATABLE :: &
       turb_diag_1dvar(:,:), turb_diag_0dvar(:)  

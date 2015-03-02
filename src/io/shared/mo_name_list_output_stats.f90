@@ -488,7 +488,12 @@ CONTAINS
     np = p_comm_size(mpi_comm)
     ALLOCATE(nentries(np), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! handle the case that this PE did not have any output work:
+    IF (.NOT. ALLOCATED(list%intvl))  list%nentries = 0
+
     CALL p_gather(list%nentries, nentries, iroot, mpi_comm)
+
     max_size(1) = list%nentries
     IF (this_pe == iroot) THEN
       max_size = MAXVAL(nentries)
@@ -512,7 +517,7 @@ CONTAINS
         istart = iend + 1
         iend   = istart+nentries(pe+1)-1
         tot_list%start_idx(pe+1) = istart
-
+        IF (nentries(pe+1) == 0) CYCLE
         IF (pe == this_pe) THEN
           ! local copy 
           tot_list%list%intvl(istart:iend) = list%intvl(1:list%nentries)
@@ -527,7 +532,7 @@ CONTAINS
           tot_list%list%intvl(istart:iend)%annotation = char_buf(1:nentries(pe+1))
         END IF
       END DO
-    ELSE
+    ELSE IF (list%nentries > 0) THEN
       ! WRITE (0,*) "Send ", list%nentries, " entries to iroot"
       ! send data
       real_buf(1:list%nentries) = list%intvl(1:list%nentries)%sec_start
@@ -581,7 +586,7 @@ CONTAINS
         ! loop over all intervals for PE "i":
         start_idx = global_list%start_idx(j)
         end_idx   = global_list%list%nentries
-        IF (j<SIZE(global_list%pe_names))  end_idx = global_list%start_idx(j+1)
+        IF (j<SIZE(global_list%pe_names))  end_idx = global_list%start_idx(j+1)-1
         DO i=start_idx,end_idx
           CALL ps_define_interval(psfile, TRIM(global_list%list%intvl(i)%annotation), &
             &                     global_list%list%intvl(i)%sec_start,           &
