@@ -30,6 +30,8 @@ revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
 source /sw/share/Modules/init/bash
 
 module load python/2.7-ve2
+
+module rm cdo
 module load cdo/1.6.4
 
 export HOME=/scratch/mpi/CC/mh0287/users/$USER
