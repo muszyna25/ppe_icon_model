@@ -54,6 +54,9 @@
 
   #--------------------------------------------------
   if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
+    use_file_initialConditions=".true."
+  fi
+  if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
     ls -l $ocean_initialState_InputFilename
     if [ $? -eq 0 ]; then
       add_required_file ${ocean_initialState_InputFilename}          $ocean_initialState_outputFilename

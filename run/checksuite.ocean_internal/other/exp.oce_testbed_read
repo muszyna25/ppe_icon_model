@@ -22,9 +22,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #-----------------------------------------------------------------------------
 # model parameters
 ocean_model_equations=-1 # equation system: -1=hydrost. ocean
-#
 #-----------------------------------------------------------------------------
-grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 ocean_vertical_levels=20
 #-----------------------------------------------------------------------------

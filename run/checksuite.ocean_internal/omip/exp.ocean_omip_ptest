@@ -28,15 +28,9 @@ output_interval="P$leading_zero${days_data}D"     # ocean model output interval 
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-use_file_initialConditions=".true."
-external_interpolation_type="mpiom"
-use_gridfile_for_grabbing_externale_data='true'
 init_relax=1
 ocean_vertical_levels=40
-init_rel_suff='surf.nc'
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
-LOC="POOL"
-#LOC="OTHR"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
