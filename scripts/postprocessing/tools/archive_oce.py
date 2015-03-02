@@ -45,7 +45,7 @@ def parseOptions():
               'FORCE'       : False,                       # recomputation of verything is switched off by default
                               # the psi processor/plotter
               'CALCPSI'     : '../../scripts/postprocessing/tools/calc_psi.py',
-              'TAG'         : 'r1xxxx',                    # addition revision information
+              'TAG'         : '',                          # addition revision information
               'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools -remapOperator=remapycon',
               'PROCS'       : 8,                           # number of threads/procs to be used for parallel operations
               'JOBISRUNNING': True,                        # avoid the last output file/result year by default
