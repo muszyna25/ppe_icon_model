@@ -734,10 +734,11 @@ CONTAINS
             !              write(0,*)  "8",  z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1))
             !              write(0,*)  "9",  patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
             !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
-            
-            nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)* &    
-              & k_h(edge_index,level,blockNo) * (                                &
-              & -patch_2D%edges%system_orientation(edge_index,blockNo) *        &
+
+            nabla2_vec_e(edge_index,level,blockNo) = &
+              & patch_3D%wet_e(edge_index,level,blockNo)*                                     &
+              & k_h(edge_index,level,blockNo) * (                                             &
+              & patch_2D%edges%system_orientation(edge_index,blockNo) *                      &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
               & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
               & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)    &
@@ -761,7 +762,7 @@ CONTAINS
           
             nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)*&
               & (   &
-              & -patch_2D%edges%system_orientation(edge_index,blockNo) *     &
+              & patch_2D%edges%system_orientation(edge_index,blockNo) *     &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))     &
               & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )   &
               & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo) &
@@ -894,7 +895,7 @@ CONTAINS
         DO level = start_level, end_level
           
           nabla4_vec_e(edge_index,level,blockNo) =  &
-            & -patch_3D%wet_e(edge_index,level,blockNo)&
+            & patch_3D%wet_e(edge_index,level,blockNo)&
             &* k_h(edge_index,level,blockNo)  &
             & *(patch_2D%edges%system_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
@@ -912,10 +913,10 @@ CONTAINS
       END DO
     END DO
 
-      DO level=1,n_zlev
-       write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
-       &minval(nabla4_vec_e(:,level,:))
-      END DO
+    !  DO level=1,n_zlev
+    !   write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
+    !   &minval(nabla4_vec_e(:,level,:))
+    !  END DO
 
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl

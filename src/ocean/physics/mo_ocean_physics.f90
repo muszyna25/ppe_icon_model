@@ -1172,8 +1172,8 @@ CONTAINS
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             ! TODO: the following expect equally sized cells
             ! compute density gradient at edges
-            density_grad_e = 0.5_wp * &
-              & (z_vert_density_grad_c(ilc1,jk,ibc1) + z_vert_density_grad_c(ilc2,jk,ibc2))
+!            density_grad_e = 0.5_wp * &
+!              & (z_vert_density_grad_c(ilc1,jk,ibc1) + z_vert_density_grad_c(ilc2,jk,ibc2))
 
             !! density gradient smaller then threshold ('semi-stable'): use background value
             ! note if density_grad_e == z_threshold should be considered

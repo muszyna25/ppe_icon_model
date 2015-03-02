@@ -170,13 +170,18 @@ CONTAINS
     CALL resize_ocean_simulation_length()
     CALL init_grid_configuration
 
+    IF (p_test_run .AND. l_fast_sum ) THEN
+       CALL warning(method_name, "p_test_run sets l_fast_sum=.false.")
+       l_fast_sum = .false.
+    ENDIF
+    
     SELECT CASE (select_solver)
       CASE (select_gmres)
 
       CASE (select_restart_gmres, select_restart_mixedPrecision_gmres)
 
         IF (p_test_run .OR. .NOT. l_fast_sum ) THEN
-           CALL message(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
+           CALL warning(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
            CALL message(method_name, "Using the standard gmres solver")
            select_solver = select_gmres
 !        ELSE
@@ -187,7 +192,8 @@ CONTAINS
         CALL finish(method_name, "Unknown solver")
 
     END SELECT
-
+    
+    
     IF (no_tracer < 1) THEN
       CALL warning("ocean_crosscheck", "no_tracer < 1, use_constant_mixing")
       physics_parameters_type = physics_parameters_Constant_type
