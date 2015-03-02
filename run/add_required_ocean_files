@@ -1,121 +1,81 @@
-#!/bin/ksh
-   # =======================================================
-   #
-   # Main pool directories to provide ocean input data:
-   #   all files for ocean init/forcing from pool will be copied to $HGRIDDIR
-   #
-   # use add_required_file ${in_path_file} ./${new_name} 
-   # --------------------------------------------------
-   pool_icon_folder=/pool/data/ICON
-   # local_grid_folder=${ICON_BASE_PATH}/grids
-   local_grid_folder=${grids_folder:=${ICON_BASE_PATH}/grids}
+#!/bin/bash
+  #=======================================================
+  # input folders
+  icon_data_MainFolder=${icon_data_MainFolder:=/pool/data/ICON/buildbot}
+  ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_MainFolder}/oes}
+  grid_name=${ocean_grids%.nc}
+  ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}/${grid_name}}
+  grids_folder=${grids_folder:=${ocean_data_InputFolder}}
+  
+  ocean_forcing_folder=${ocean_forcing_folder:=${ocean_data_InputFolder}}
+  ocean_init_folder=${ocean_init_folder:=${ocean_data_InputFolder}}
+  ocean_relax_folder=${ocean_relax_folder:=${ocean_data_InputFolder}}
 
-   # if not defined, get them from the pool
-   if [ "x${LOC}" = 'xPOOL' ] ; then
-     grids_folder=${pool_icon_folder}/ocean_data/ocean_grid
-     ocean_forcing_folder=${pool_icon_folder}/ocean_data/ocean_forcing
-     ocean_init_folder=${pool_icon_folder}/ocean_data/ocean_init
-   else
-     # grids_folder=${local_grid_folder}
-     ocean_forcing_folder=${local_grid_folder}
-     ocean_init_folder=${local_grid_folder}
-   fi
-          ocean_forcing_folder=${ocean_forcing_folder:=${pool_icon_folder}/ocean_data/ocean_forcing}
-             ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
-            #   ocean_grid_desc=R${R}B0${B}
-  # if [[ "x${use_gridfile_for_grabbing_externale_data}" = 'xtrue' ]] ; then
-     ocean_grid_desc=${ocean_grid_desc:=$(basename ${ocean_grids} .nc)}
-  # fi
-   external_interpolation_type=${external_interpolation_type:=conservative}
-   case "${external_interpolation_type}" in
-     conservative)
-           omip_prefix=omip4icon-
-          omip_postfix=''
-           init_prefix=ts_phc_
-        init_grid_desc="-icon${ocean_grid_desc}-"
-          relax_prefix=ts_surf_
-       relax_grid_desc=$init_grid_desc
-       ;;
-     mpiom)
-           omip_prefix=omip_icon_
-          omip_postfix='_forcing'
-           init_prefix=ts_phc3.0_
-        init_grid_desc="_icon_${ocean_grid_desc}_"
-          relax_prefix=$init_prefix
-       relax_grid_desc=$init_grid_desc
-       ;;
-     *)
-       echo "please choose an allowed values fro external_interpolation_type: conservative, mpiom"
-       exit 1
-       ;;
-     esac
-   # =======================================================
-   #
-   # provide netcdf file for reading ocean forcing fluxes
-   # ----------------------------------------------------
-   if [[ "x$iforc" = "x12" ]] ; then
-     # filename on EXPDIR read by ocean model
-     ocean_flux_filename=ocean-flux.nc
+  #=======================================================
+  # input file names  
+  #pre/postfixes of input files
+  file_vertical_levels="${ocean_vertical_levels}levels"
+  init_DataType=${init_DataType:="omipInitialState-AnnualAverage"}
+  relax_DataType=${relax_DataType:="omipRelaxSurface"}
+  forcing_DataType=${forcing_DataType:="omipForcing-mpiom"}
+  if [[ "x$forcing_timescale" = "x1" ]] ; then
+    forcing_FileFrequence=${forcing_FileFrequence:="Annual"}
+  elif [[ "x$forcing_timescale" = "x12" ]] ; then
+    forcing_FileFrequence=${forcing_FileFrequence:="MonthlyMean"}
+  elif [[ "x$forcing_timescale" = "x365" ]] ; then
+    forcing_FileFrequence=${forcing_FileFrequence:="Daily"}
+  fi
+ 
+  ocean_forcing_filename=${ocean_forcing_filename:=${forcing_DataType}${forcing_FileFrequence}-${grid_name}.nc}
+  ocean_forcing_InputFilename=${ocean_forcing_folder}/${ocean_forcing_filename}
 
-     # general filename: OMIP annual file
-     if [[ "x$forcing_timescale" = "x1" ]] ; then
-       ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-annual.nc
-     # filename for OMIP 12 sets of monthly means
-     elif [[ "x$forcing_timescale" = "x12" ]] ; then
-       ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-monmean.nc
-       # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
-       if [[ "x$iforc_type" = "x5" ]] ; then
-         ocean_force_filename=ncep4icon_${ocean_grid_desc}.nc
-       fi
-     # filename for OMIP 365 sets of daily data
-     elif [[ "x$forcing_timescale" = "x365" ]] ; then
-       ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-daily.nc
-     fi
+  ocean_initialState_filename=${ocean_initialState_filename:=${init_DataType}-${grid_name}-${file_vertical_levels}.nc}
+  ocean_initialState_InputFilename=${ocean_init_folder}/${ocean_initialState_filename}
 
-     # copy file from pool to grids directory $HGRIDDIR
-     ocean_flux_file=${ocean_forcing_folder}/$ocean_force_filename     
-     ls -l $ocean_flux_file
-     if [ $? -eq 0 ]; then
-       add_required_file ${ocean_flux_file}          $ocean_flux_filename
-     else
-       echo "WARNING: $ocean_flux_file does not exist - proceed from local disk"
-     fi
-   fi
+  ocean_relax_filename=${ocean_relax_filename:=${relax_DataType}-${grid_name}.nc}
+  ocean_relax_InputFilename=${ocean_relax_folder}/${ocean_relax_filename}
 
-   # =======================================================
-   # provide netcdf file for initialization of ocean prognostic variables
-   # --------------------------------------------------------------------
-   if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
+  echo "forcing from:"$ocean_forcing_InputFilename
+  echo "initial state from:"$ocean_initialState_InputFilename
+  echo "relaxation from:"$ocean_relax_InputFilename
+  
+  #=======================================================
+  # re-naming of the input files when copying to the experiment folder
+  ocean_forcing_outputFilename="ocean-flux.nc"
+  ocean_initialState_outputFilename="initial_state.nc"
+  ocean_relax_outputFilename="ocean-relax.nc"
+   
+  #=======================================================
+  # add required files
+  if [[ "x$iforc" = "x12" ]] ; then
+    ls -l $ocean_forcing_InputFilename
+    if [ $? -eq 0 ]; then
+      add_required_file ${ocean_forcing_InputFilename}     $ocean_forcing_outputFilename
+    else
+      echo "WARNING: $ocean_forcing_InputFilename does not exist - proceed from local disk"
+    fi
+  fi
 
-     # ocean_prog_filename=iconR${R}B0${B}-prog.nc
-     ocean_prog_filename="initial_state.nc"
-     ocean_oini_filename=${init_prefix}annual${init_grid_desc}${init_oce_suff}
+  #--------------------------------------------------
+  if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
+    ls -l $ocean_initialState_InputFilename
+    if [ $? -eq 0 ]; then
+      add_required_file ${ocean_initialState_InputFilename}          $ocean_initialState_outputFilename
+    else
+      echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
+    fi
+  fi
 
-     ocean_init_filename=${ocean_init_folder}/$ocean_oini_filename
-     ls -l $ocean_init_filename
-     if [ $? -eq 0 ]; then
-       add_required_file ${ocean_init_filename}          ./$ocean_prog_filename
-     else
-       echo "WARNING: $ocean_init_filename does not exist - proceed from local disk"
-     fi
-   fi
+  #--------------------------------------------------
+  if [[ "x$init_relax" = "x1" ]] ; then
+    ls -l $ocean_relax_InputFilename
+    if [ $? -eq 0 ]; then
+      add_required_file ${ocean_relax_InputFilename} $ocean_relax_outputFilename
+    else
+      echo "WARNING: Cannot find restart file: ${ocean_relax_InputFilename}"
+    fi
 
-     # link to fixed restart file for buildbot:
-   # =======================================================
-   # provide netcdf file for initialization of temperature/salinity relaxation
-   # -------------------------------------------------------------------------
-   if [[ "x$init_relax" = "x1" ]] ; then
+  fi
 
-     ocean_relax_filename=ocean-relax.nc
-     ocean_orel_filename=${relax_prefix}annual${relax_grid_desc}${init_rel_suff}
-
-     ocean_orel_file=${ocean_init_folder}/$ocean_orel_filename
-     ls -l $ocean_orel_file
-     if [ $? -eq 0 ]; then
-       add_required_file ${ocean_orel_file} ./$ocean_relax_filename
-     else
-       echo "WARNING: Cannot find restart file: ${ocean_orel_file}"     
-     fi
-          
-   fi
-#-----------------------------------------------------------------------------
+  #===============================================================================================
+  exit
