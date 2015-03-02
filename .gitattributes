@@ -209,11 +209,14 @@ doc/technical/dwd_database/pics/icosahedron.png -text
 doc/technical/dwd_database/pics/icosahedron_spherical.png -text
 doc/technical/dwd_database/pics/lon-lat-grid.png -text
 doc/technical/dwd_database/pics/nsection.png -text
+doc/technical/dwd_database/plot_maxhsurf.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/radiation_variables.pdf -text
 doc/technical/dwd_database/radiation_variables.tex -text
 doc/technical/dwd_database/title_toc.tex -text
 doc/technical/dwd_database/versionhistory.tex -text
 doc/technical/dwd_database/vertical_full_levels_i.txt -text
+doc/technical/dwd_database/vertical_full_levels_maxheight_i.txt -text
+doc/technical/dwd_database/vertical_half_levels_maxheight_i.txt -text
 doc/technical/dwd_database/vertical_levels_i.txt -text
 doc/technical/dwd_database/vertical_levels_i_small.txt -text
 doc/technical/flux_diagram-crop.pdf -text
