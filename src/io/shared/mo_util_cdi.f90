@@ -48,7 +48,9 @@ MODULE mo_util_cdi
     &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
     &                              TSTEP_INSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
     &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,                 &
-    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR
+    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR,                  &
+    &                              vlistInqVarSubtype, subtypeInqSize,                      &
+    &                              subtypeDefActiveIndex, CDI_UNDEFID
 
   IMPLICIT NONE
   PRIVATE
@@ -78,6 +80,11 @@ MODULE mo_util_cdi
     MODULE PROCEDURE read_cdi_3d_real
   END INTERFACE
 
+  TYPE t_tileinfo
+    INTEGER, ALLOCATABLE :: tileIdx(:)  !< variable specific tile indices
+    INTEGER, ALLOCATABLE :: tileAtt(:)  !< variable specific tile attributes
+  END TYPE t_tileinfo
+
   ! This is a small type that serves two functions:
   ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
   ! 2. It allows some information about the file to be distributed to the non-I/O PEs in a single broadcast that would otherwise
@@ -93,7 +100,10 @@ MODULE mo_util_cdi
     LOGICAL :: have_dict    !< whether `dict` is used or not
     CHARACTER(LEN=MAX_CHAR_LENGTH), ALLOCATABLE :: variableNames(:) !< the names of the variables
     INTEGER, ALLOCATABLE :: variableDatatype(:) !< the datatypes that are used by the file to store the variables
+    TYPE(t_tileinfo), ALLOCATABLE :: variableTileinfo(:) !< variable specific tile meta info
+
     INTEGER, ALLOCATABLE :: variableTileIdx(:)  !< tile indices of the variables
+
     REAL(dp) :: readDuration    !< statistic on how long we took to read the data
     INTEGER(i8) :: readBytes    !< statistic on how much data we read from the file
 
@@ -132,6 +142,14 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':makeInputParameters'
     INTEGER :: vlistId, variableCount, i, ierrstat
+    INTEGER :: subtypeID
+    INTEGER :: ientry
+
+    INTEGER :: cnt
+    INTEGER, ALLOCATABLE :: tileIdx_container(:)
+    INTEGER, ALLOCATABLE :: tileAtt_container(:)
+    INTEGER, ALLOCATABLE :: subtypeSize(:)
+
 
     !first forward the arguments to the object we are building
     me%streamId = streamId
@@ -152,34 +170,121 @@ CONTAINS
         variableCount = vlistNvars(vlistId)
     END IF
     CALL p_bcast(variableCount, p_io, distribution%communicator)
+
     ALLOCATE(me%variableNames(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ALLOCATE(me%variableDatatype(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ALLOCATE(me%variableTileIdx(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ALLOCATE(me%variableTileinfo(variableCount), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+    ! local arrays
+    ALLOCATE(subtypeSize(variableCount), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
     IF(my_process_is_stdio()) THEN
+        subtypeSize(1:variableCount) = 0
         do i = 1, variableCount
             CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
             me%variableDatatype(i) = vlistInqVarDatatype(vlistId, i-1)
+
+            ! inqiure information about tiles
             me%variableTileIdx(i) = vlistInqVarIntKey(vlistId, i-1, "localInformationNumber")
+
+            subtypeID   = vlistInqVarSubtype(vlistID,i-1)
+!!$write(0,*) "name, subtypeID, CDI_UNDEFID: ", TRIM(me%variableNames(i)), subtypeID, CDI_UNDEFID
+            IF (subtypeID /= CDI_UNDEFID) THEN
+              subtypeSize(i) = subtypeInqSize(subtypeID)
+              !
+              ALLOCATE(me%variableTileinfo(i)%tileIdx(subtypeSize(i)), &
+                &      me%variableTileinfo(i)%tileAtt(subtypeSize(i)), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+              ! Remember to adapt name after GRIB2 template update!
+              IF (vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute") <= 0) THEN
+                ! not a tile variable
+                me%variableTileinfo(i)%tileIdx(:) = -99
+                me%variableTileinfo(i)%tileAtt(:) = -99
+              ELSE
+                DO ientry=1, subtypeSize(i)
+                  CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
+                  me%variableTileinfo(i)%tileIdx(ientry) = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile")
+                  me%variableTileinfo(i)%tileAtt(ientry) = vlistInqVarIntKey(vlistId, i-1, "attribute")
+                  ! reset active index
+                  CALL subtypeDefActiveIndex(subtypeID,0)
+                END DO
+              ENDIF  ! 
+!!$write(0,*) "name, subtypeID, total: ", TRIM(me%variableNames(i)), subtypeID,  &
+!!$  &  vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute")
+            ENDIF
         END do
+
     END IF
+
+    CALL p_bcast(subtypeSize, p_io, distribution%communicator)
+
+    ! local arrays
+    ALLOCATE(tileIdx_container(SUM(subtypeSize(1:variableCount))), &
+      &      tileAtt_container(SUM(subtypeSize(1:variableCount))), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+
+    ! put tile info into 1D array, for broadcasting
+    ! what if arrays are not allocated (netcdf???)
+    IF(my_process_is_stdio()) THEN
+      cnt = 0
+      DO i=1, variableCount
+        tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tileIdx(1:subtypeSize(i))
+        tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tileAtt(1:subtypeSize(i))
+        cnt = cnt + subtypeSize(i)
+      END DO
+!!$write(0,*) "tileIdx_container: ", tileIdx_container
+!!$write(0,*) "subtypeSize: ", subtypeSize, SUM(subtypeSize)
+    ENDIF
+
     CALL p_bcast(me%variableNames, p_io, distribution%communicator)
     CALL p_bcast(me%variableDatatype, p_io, distribution%communicator)
     CALL p_bcast(me%variableTileIdx, p_io, distribution%communicator)
+    CALL p_bcast(tileIdx_container, p_io, distribution%communicator)
+    CALL p_bcast(tileAtt_container, p_io, distribution%communicator)
+
+    ! read tile info from broadcasted 1D array and store in array of TYPE t_tileinfo
+    IF (.NOT. my_process_is_stdio()) THEN
+      cnt = 0
+      DO i=1, variableCount
+        IF (subtypeSize(i) > 0) THEN
+          ALLOCATE(me%variableTileinfo(i)%tileIdx(subtypeSize(i)), &
+            &      me%variableTileinfo(i)%tileAtt(subtypeSize(i)), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+          me%variableTileinfo(i)%tileIdx(1:subtypeSize(i)) = tileIdx_container(cnt+1:cnt+subtypeSize(i))
+          me%variableTileinfo(i)%tileAtt(1:subtypeSize(i)) = tileAtt_container(cnt+1:cnt+subtypeSize(i))
+          cnt = cnt + subtypeSize(i)
+write(0,*) "name, subtypeSize,  variableCount: ", TRIM(me%variableNames(i)), me%variableTileinfo(i)%tileIdx(1), variableCount
+        ENDIF
+      ENDDO
+    ENDIF
+
     me%readDuration = 0.0_dp
     me%readBytes = 0_i8
+
+    ! cleanup
+    DEALLOCATE(tileIdx_container, tileAtt_container, subtypeSize, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
   END FUNCTION makeInputParameters
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
   !---------------------------------------------------------------------------------------------------------------------------------
   INTEGER FUNCTION inputParametersFindVarId(me, name, opt_tileidx) RESULT(result)
+!!$  INTEGER FUNCTION inputParametersFindVarId(me, name, opt_tileinfo) RESULT(result)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN) :: me
     CHARACTER(len=*), INTENT(IN) :: name
     INTEGER, INTENT(IN), OPTIONAL :: opt_tileidx
+!!$    TYPE(t_tileinfo), INTENT(IN), OPTIONAL :: opt_tileinfo
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
     CHARACTER(len=DICT_MAX_STRLEN) :: mapped_name
@@ -194,11 +299,14 @@ CONTAINS
 
     result = -1
     do i = 1, size(me%variableNames)
-        IF(present(opt_tileidx)) THEN
-            !can't be the variable we are looking for if it's got the wrong tile number
-            IF(me%variableTileIdx(i) /= opt_tileidx) cycle
-        END IF
+!!$        IF(present(opt_tileidx)) THEN
+!!$            !can't be the variable we are looking for if it's got the wrong tile number
+!!$            IF(me%variableTileIdx(i) /= opt_tileidx) cycle
+!!$        END IF
         IF(trim(tolower(trim(me%variableNames(i)))) == trim(mapped_name)) THEN
+!!$            IF (PRESENT(opt_tileinfo)) THEN
+!!$              CALL me%findMatchingTile(i-1,opt_tileinfo)
+!!$            ENDIF
             result = i-1
             exit
         END IF
@@ -235,6 +343,21 @@ CONTAINS
 
     result = me%lookupDatatype(me%findVarId(name, opt_tileidx))
   END FUNCTION inputParametersFindVarDatatype
+
+
+!!$  INTEGER FUNCTION inputParametersFindMatchingTile(me, varId, tileinfo )
+!!$    IMPLICIT NONE
+!!$    CLASS(t_inputParameters), INTENT(IN) :: me
+!!$    INTEGER                 , INTENT(IN) :: varId
+!!$    TYPE(t_tileinfo)        , INTENT(IN) :: tileinfo
+!!$
+!!$    INTEGER :: i
+!!$
+!!$    result = -1
+!!$
+!!$    DO i=1, SIZE(me%)
+!!$
+!!$  END FUNCTION inputParametersFindMatchingTile
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Destroys a t_inputParameters object
