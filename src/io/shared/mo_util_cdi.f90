@@ -144,8 +144,8 @@ CONTAINS
     INTEGER :: vlistId, variableCount, i, ierrstat
     INTEGER :: subtypeID
     INTEGER :: ientry
-
     INTEGER :: cnt
+
     INTEGER, ALLOCATABLE :: tileIdx_container(:)
     INTEGER, ALLOCATABLE :: tileAtt_container(:)
     INTEGER, ALLOCATABLE :: subtypeSize(:)
@@ -190,49 +190,42 @@ CONTAINS
             CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
             me%variableDatatype(i) = vlistInqVarDatatype(vlistId, i-1)
 
-            ! inqiure information about tiles
+            ! inquire information about tiles
             me%variableTileIdx(i) = vlistInqVarIntKey(vlistId, i-1, "localInformationNumber")
 
-            subtypeID   = vlistInqVarSubtype(vlistID,i-1)
-!!$write(0,*) "name, subtypeID, CDI_UNDEFID: ", TRIM(me%variableNames(i)), subtypeID, CDI_UNDEFID
-            IF (subtypeID /= CDI_UNDEFID) THEN
-              subtypeSize(i) = subtypeInqSize(subtypeID)
-              !
-              ALLOCATE(me%variableTileinfo(i)%tileIdx(subtypeSize(i)), &
-                &      me%variableTileinfo(i)%tileAtt(subtypeSize(i)), STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+            subtypeID = vlistInqVarSubtype(vlistID,i-1)
+            subtypeSize(i) = subtypeInqSize(subtypeID)
+            !
+            ALLOCATE(me%variableTileinfo(i)%tileIdx(subtypeSize(i)), &
+              &      me%variableTileinfo(i)%tileAtt(subtypeSize(i)), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-              ! Remember to adapt name after GRIB2 template update!
-              IF (vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute") <= 0) THEN
-                ! not a tile variable
-                me%variableTileinfo(i)%tileIdx(:) = -99
-                me%variableTileinfo(i)%tileAtt(:) = -99
-              ELSE
-                DO ientry=1, subtypeSize(i)
-                  CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
-                  me%variableTileinfo(i)%tileIdx(ientry) = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile")
-                  me%variableTileinfo(i)%tileAtt(ientry) = vlistInqVarIntKey(vlistId, i-1, "attribute")
-                  ! reset active index
-                  CALL subtypeDefActiveIndex(subtypeID,0)
-                END DO
-              ENDIF  ! 
-!!$write(0,*) "name, subtypeID, total: ", TRIM(me%variableNames(i)), subtypeID,  &
-!!$  &  vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute")
-            ENDIF
+            ! Remember to adapt name after GRIB2 template update!
+            IF (vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute") <= 0) THEN
+              ! not a tile variable
+              me%variableTileinfo(i)%tileIdx(:) = -99
+              me%variableTileinfo(i)%tileAtt(:) = -99
+            ELSE
+              DO ientry=1, subtypeSize(i)
+                CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
+                me%variableTileinfo(i)%tileIdx(ientry) = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile")
+                me%variableTileinfo(i)%tileAtt(ientry) = vlistInqVarIntKey(vlistId, i-1, "attribute")
+                ! reset active index
+                CALL subtypeDefActiveIndex(subtypeID,0)
+              END DO
+            ENDIF  ! identificationNumberOfAttribute <= 0
         END do
 
     END IF
 
     CALL p_bcast(subtypeSize, p_io, distribution%communicator)
 
-    ! local arrays
+    ! put tile info into local 1D arrays, for broadcasting
+    ! currently direct bradcast of variable variableTileinfo not possible
     ALLOCATE(tileIdx_container(SUM(subtypeSize(1:variableCount))), &
       &      tileAtt_container(SUM(subtypeSize(1:variableCount))), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-
-    ! put tile info into 1D array, for broadcasting
-    ! what if arrays are not allocated (netcdf???)
     IF(my_process_is_stdio()) THEN
       cnt = 0
       DO i=1, variableCount
@@ -240,8 +233,6 @@ CONTAINS
         tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tileAtt(1:subtypeSize(i))
         cnt = cnt + subtypeSize(i)
       END DO
-!!$write(0,*) "tileIdx_container: ", tileIdx_container
-!!$write(0,*) "subtypeSize: ", subtypeSize, SUM(subtypeSize)
     ENDIF
 
     CALL p_bcast(me%variableNames, p_io, distribution%communicator)
@@ -250,7 +241,7 @@ CONTAINS
     CALL p_bcast(tileIdx_container, p_io, distribution%communicator)
     CALL p_bcast(tileAtt_container, p_io, distribution%communicator)
 
-    ! read tile info from broadcasted 1D array and store in array of TYPE t_tileinfo
+    ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
     IF (.NOT. my_process_is_stdio()) THEN
       cnt = 0
       DO i=1, variableCount
@@ -261,7 +252,6 @@ CONTAINS
           me%variableTileinfo(i)%tileIdx(1:subtypeSize(i)) = tileIdx_container(cnt+1:cnt+subtypeSize(i))
           me%variableTileinfo(i)%tileAtt(1:subtypeSize(i)) = tileAtt_container(cnt+1:cnt+subtypeSize(i))
           cnt = cnt + subtypeSize(i)
-write(0,*) "name, subtypeSize,  variableCount: ", TRIM(me%variableNames(i)), me%variableTileinfo(i)%tileIdx(1), variableCount
         ENDIF
       ENDDO
     ENDIF
@@ -380,6 +370,7 @@ write(0,*) "name, subtypeSize,  variableCount: ", TRIM(me%variableNames(i)), me%
     DEALLOCATE(me%variableNames)
     DEALLOCATE(me%variableDatatype)
     DEALLOCATE(me%variableTileIdx)
+    DEALLOCATE(me%variableTileinfo)
   END SUBROUTINE deleteInputParameters
 
   !-------------------------------------------------------------------------
