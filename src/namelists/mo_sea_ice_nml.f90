@@ -72,6 +72,7 @@ MODULE mo_sea_ice_nml
                                                          !  heat content in energy calculations
   LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
   LOGICAL, PUBLIC :: use_constant_tfreez = .TRUE.   !  constant freezing temperature for ocean water (=Tf)
+  LOGICAL, PUBLIC :: calc_ocean_stress   = .TRUE.   !  calculate ocean stress instead of reading from OMIP
 
   INTEGER         :: iunit
 
@@ -90,6 +91,7 @@ MODULE mo_sea_ice_nml
     &  t_heat_base, &
     &  use_IceInitialization_fromTemperature, &
     &  use_constant_tfreez, &
+    &  calc_ocean_stress,  &
     &  init_analytic_conc_param , &
     &  init_analytic_hi_param, &
     &  init_analytic_hs_param

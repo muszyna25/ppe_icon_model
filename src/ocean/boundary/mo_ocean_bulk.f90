@@ -1251,6 +1251,22 @@ CONTAINS
           &                              rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
       ENDIF
 
+ !    ! for test only - introduced temporarily
+ !    p_as%tafo(:,:)  = 292.9_wp
+ !    !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+ !    p_as%tafo(:,:)  = p_as%tafo(:,:) - 273.15
+ !    p_as%ftdew(:,:) = 289.877
+ !    p_as%fu10(:,:)  = 7.84831
+ !    p_as%fclou(:,:) = 0.897972
+ !    p_as%fswr(:,:)  = 289.489
+ !    p_as%u(:,:)     = 0.0_wp
+ !    p_as%v(:,:)     = 0.0_wp
+ !    p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
+ !    p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
+ !    p_as%FrshFlux_Precipitation(:,:) = 1.04634e-8
+ !    p_as%FrshFlux_Runoff(:,:) = 0.0_wp
+ !    p_as%pao(:,:)   = 101300.0_wp
+
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)

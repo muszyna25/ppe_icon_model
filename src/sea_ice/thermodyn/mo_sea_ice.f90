@@ -44,7 +44,7 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
-    &                               i_Qio_type, use_constant_tfreez, t_heat_base, &
+    &                               i_Qio_type, use_constant_tfreez, calc_ocean_stress, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -93,7 +93,6 @@ MODULE mo_sea_ice
   PUBLIC :: construct_atmos_for_ocean
   PUBLIC :: construct_atmos_fluxes
   PUBLIC :: destruct_atmos_for_ocean
-  PUBLIC :: destruct_atmos_fluxes
 
   PUBLIC :: ice_init
 !  PUBLIC :: set_ice_albedo
@@ -1037,29 +1036,6 @@ CONTAINS
 
     CALL message(TRIM(routine), 'end' )
   END SUBROUTINE construct_atmos_fluxes
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Destructor of atmos fluxes for hydrostatic ocean
-  !!
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011)
-  !
-  SUBROUTINE destruct_atmos_fluxes(p_atm_f)
-    !
-    TYPE(t_atmos_fluxes )       :: p_atm_f
-    ! Local variables
-    INTEGER :: ist
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:destruct_atmos_fluxes'
-    !-------------------------------------------------------------------------
-    !CALL message(TRIM(routine), 'start' )
-
-    !  nothing to do anymore
-    CONTINUE
-
-    !CALL message(TRIM(routine), 'end' )
-
-  END SUBROUTINE destruct_atmos_fluxes
 
   !-------------------------------------------------------------------------
   !
@@ -1441,10 +1417,11 @@ CONTAINS
     CALL dbg_print('IceSlow: zUnderIce a.ConcCh',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
 
-    IF ( i_ice_dyn >= 1 ) THEN
+    ! ocean stress below sea ice calculated independent of dynamics
+    IF (calc_ocean_stress) &
+      & CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
-      ! ocean stress below sea ice calculated with dynamics only
-      CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
+    IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
       CALL ice_advection( p_patch_3D, p_op_coeff, ice )
