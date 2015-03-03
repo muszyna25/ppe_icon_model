@@ -396,7 +396,7 @@ MODULE mo_surface_les
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
-!$OMP            RIB,tcn_mom,tcn_heat,rhos,diff,itr,shfl,lhfl,bflx1,ustar,    &
+!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,    &
 !$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -433,9 +433,7 @@ MODULE mo_surface_les
              prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
            END IF
 
-           diff = 1._wp
-           itr  = 0
-           DO WHILE (diff > 1._wp-4 .AND. itr < 5)
+           DO itr = 1 , 5
               shfl = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
               lhfl = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
               bflx1= shfl + vtmpc1 * theta_sfc * lhfl
@@ -447,9 +445,6 @@ MODULE mo_surface_les
               prm_diag%tch(jc,jb) = inv_bus_mom / businger_heat(zrough,z_mc,obukhov_length)
 
               prm_diag%tcm(jc,jb) = inv_bus_mom * inv_bus_mom
- 
-              diff = ABS(1._wp-SQRT(prm_diag%tcm(jc,jb))*mwind/ustar)
-              itr  = itr + 1
            END DO
 
            !Get surface fluxes

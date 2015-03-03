@@ -38,7 +38,7 @@ MODULE mo_meteogram_nml
 
   TYPE t_list_of_stations
     REAL(wp)              :: lat, lon
-    CHARACTER (LEN=30)    :: zname
+    CHARACTER (LEN=48)    :: zname
   END TYPE t_list_of_stations
 
   LOGICAL                         :: lmeteogram_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
