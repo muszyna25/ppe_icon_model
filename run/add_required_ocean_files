@@ -1,6 +1,8 @@
 #!/bin/bash
   #=======================================================
   # input folders
+  icon_data_MainFolder=/scratch/local1/icon/local_pool/buildbot
+  
   icon_data_MainFolder=${icon_data_MainFolder:=/pool/data/ICON/buildbot}
   ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_MainFolder}/oes}
   grid_name=${ocean_grids%.nc}
@@ -42,38 +44,47 @@
   ocean_relax_outputFilename="ocean-relax.nc"
    
   #=======================================================
-  # add required files
-  if [[ "x$iforc" = "x12" ]] ; then
-    ls -l $ocean_forcing_InputFilename
-    if [ $? -eq 0 ]; then
-      add_required_file ${ocean_forcing_InputFilename}     $ocean_forcing_outputFilename
-    else
-      echo "WARNING: $ocean_forcing_InputFilename does not exist - proceed from local disk"
-    fi
-  fi
+  # add required files if this is not post processing
+  case "x$RUNSCRIPT_NAME" in
+    *post*)
+      # for postprocessing we do not need files
+    ;;
+    #-------------------------------------------------
+    *)
+      # add files for runing the ocean  
+      if [[ "x$iforc" = "x12" ]] ; then
+        ls -l $ocean_forcing_InputFilename
+        if [ $? -eq 0 ]; then
+          add_required_file ${ocean_forcing_InputFilename}     $ocean_forcing_outputFilename
+        else
+          echo "WARNING: $ocean_forcing_InputFilename does not exist - proceed from local disk"
+        fi
+      fi
 
-  #--------------------------------------------------
-  if [[ "x$iforc" = "x12" ]] ; then
-    use_file_initialConditions=".true."
-  fi
-  if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
-    ls -l $ocean_initialState_InputFilename
-    if [ $? -eq 0 ]; then
-      add_required_file ${ocean_initialState_InputFilename}          $ocean_initialState_outputFilename
-    else
-      echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
-    fi
-  fi
+      #--------------------------------------------------
+      if [[ "x$iforc" = "x12" ]] ; then
+        use_file_initialConditions=".true."
+      fi
+      if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
+        ls -l $ocean_initialState_InputFilename
+        if [ $? -eq 0 ]; then
+          add_required_file ${ocean_initialState_InputFilename}          $ocean_initialState_outputFilename
+        else
+          echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
+        fi
+      fi
 
-  #--------------------------------------------------
-  if [[ "x$init_relax" = "x1" ]] ; then
-    ls -l $ocean_relax_InputFilename
-    if [ $? -eq 0 ]; then
-      add_required_file ${ocean_relax_InputFilename} $ocean_relax_outputFilename
-    else
-      echo "WARNING: Cannot find restart file: ${ocean_relax_InputFilename}"
-    fi
+      #--------------------------------------------------
+      if [[ "x$init_relax" = "x1" ]] ; then
+        ls -l $ocean_relax_InputFilename
+        if [ $? -eq 0 ]; then
+          add_required_file ${ocean_relax_InputFilename} $ocean_relax_outputFilename
+        else
+          echo "WARNING: Cannot find restart file: ${ocean_relax_InputFilename}"
+        fi
 
-  fi
+      fi
+    ;;
+  esac
 
   #===============================================================================================
