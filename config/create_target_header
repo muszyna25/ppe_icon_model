@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/usr/bin/env ksh
 #==============================================================================
 #
 # Sets the parameters for various machine use_compiler configurations

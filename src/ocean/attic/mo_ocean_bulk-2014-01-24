@@ -20,7 +20,7 @@
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
   REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
-  CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
+  CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_ho_sfcflx'
   !-------------------------------------------------------------------------
   TYPE(t_subset_range), POINTER :: all_cells
   TYPE(t_patch), POINTER :: p_patch
@@ -30,7 +30,7 @@
   all_cells => p_patch%cells%all
 
 
- ! #slo#  Stationary forcing is moved to mo_oce_forcing:init_ho_forcing
+ ! #slo#  Stationary forcing is moved to mo_ocean_forcing:init_ho_forcing
 
     SELECT CASE (itestcase_oce)
 
