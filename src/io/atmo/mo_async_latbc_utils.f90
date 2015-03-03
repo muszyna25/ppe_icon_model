@@ -75,7 +75,7 @@
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN, OPERATOR(>=)
+         &                            MAX_TIMEDELTA_STR_LEN, OPERATOR(>)
     USE mo_mtime_extensions,    ONLY: get_datetime_string
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
@@ -88,7 +88,7 @@
          &                            operator(+)
     USE mo_mtime_extensions,    ONLY: get_duration_string_real, getTimeDeltaFromDateTime
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-      &                               streamOpenRead
+                                      streamOpenRead
     USE mo_master_nml,          ONLY: lrestart
     USE mo_run_config,          ONLY: nsteps, dtime
 
@@ -523,7 +523,7 @@
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
+      IF(mtime_read > mtime_end) &
            RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -829,13 +829,11 @@
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
+      IF(mtime_read > mtime_end) &
            RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
-      WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
-      CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
