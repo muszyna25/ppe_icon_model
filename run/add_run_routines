@@ -119,7 +119,7 @@ RUNSCRIPT_NAME=`basename $0`
 # set default data paths
 # can be overwritten by the experiment, or by the add_required_ocean_files,
 # add_required_atmo_files, etc
-#icon_data_MainFolder=/pool/data/ICON/buildbot
+icon_data_MainFolder=/pool/data/ICON/buildbot
 
 #-----------------------------------------------------------------------------
 second=1                                 # [s] 1 second
