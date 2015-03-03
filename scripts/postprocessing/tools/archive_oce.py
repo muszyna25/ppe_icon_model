@@ -88,8 +88,9 @@ def dbg(obj):
 
 """ save internal log """
 def dumpLog():
-  with open(LOGFILE,"w") as f:
-    f.write(json.dumps(LOG))
+  if 0 < len(LOG):
+    with open(LOGFILE,"w") as f:
+      f.write(json.dumps(LOG))
 
 """ save internal log and exit """
 def doExit(value=0):
