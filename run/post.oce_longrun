@@ -1,11 +1,12 @@
 # technical stuff
 basePath=${ICON_BASE_PATH}
-dataPath="${baseBath}../experiments/${EXPNAME}/"
+dataPath="../experiments/${EXPNAME}/"
 scriptPath="/pool/data/ICON/tools"
 postProcPath="${basePath}/scripts/postprocessing/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 archiver="${postProcPath}/archive_oce.py"
+nclConfig="${postProcPath}/.hluresfile"
 # set the CDO path for the dwd to a local installation
 case "$(hostname -d)" in
   dwd.de)
@@ -27,14 +28,17 @@ fi
 
 revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
 
-source /sw/share/Modules/init/bash
+[[ -d /sw/share/Modules/init/bash ]] && source /sw/share/Modules/init/bash
 
 module load python/2.7-ve2
 
 module rm cdo
 module load cdo/1.6.4
 
+# make matplotlib work without x11/$DISPLAY
 export HOME=/scratch/mpi/CC/mh0287/users/$USER
+# disable ':' to be a special character in ncl - this makes it plotable
+export NCARG_USRRESFILE=${nclConfig}
 
 $archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true # FORCE=1
 
