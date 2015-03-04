@@ -89,18 +89,17 @@ MODULE mo_util_cdi
   TYPE t_tileinfo_elt
     INTEGER :: idx  !< variable specific tile index
     INTEGER :: att  !< variable specific tile attribute
-
-    !> CDI internal, one-dimensional index for the list of (idx/att)
-    !> pairs:
-    INTEGER :: tile_index 
   END TYPE t_tileinfo_elt
 
   TYPE t_tileinfo
-    TYPE(t_tileinfo_elt), ALLOCATABLE :: tile(:)  !< variable specific tile indices
+    TYPE(t_tileinfo_elt), ALLOCATABLE :: tile(:)  !< variable specific
+    !tile indices > CDI internal, one-dimensional index for the list
+    !of (idx/att) > pairs:
+    INTEGER,              ALLOCATABLE :: tile_index(:)
   END TYPE t_tileinfo
 
   ! trivial tile information, denoting a "no-tile" field:
-  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx=-99, att=-99, tile_index=-99)
+  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx=-99, att=-99)
 
   ! This is a small type that serves two functions:
   ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
@@ -224,7 +223,8 @@ CONTAINS
                 att        = vlistInqVarIntKey(vlistId, i-1, "attribute")
                 tile_index = ientry-1
 
-                me%variableTileinfo(i)%tile(ientry) = t_tileinfo_elt( idx, att, tile_index)
+                me%variableTileinfo(i)%tile(ientry)       = t_tileinfo_elt( idx, att )
+                me%variableTileinfo(i)%tile_index(ientry) = tile_index
                 ! reset active index
                 CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
@@ -248,7 +248,7 @@ CONTAINS
       DO i=1, variableCount
         tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
         tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
-        tileTid_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%tile_index
+        tileTid_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile_index(1:subtypeSize(i))
         cnt = cnt + subtypeSize(i)
       END DO
     ENDIF
@@ -270,7 +270,7 @@ CONTAINS
             &      tileIdx_container(cnt+1:cnt+subtypeSize(i))
           me%variableTileinfo(i)%tile(1:subtypeSize(i))%att        = &
             &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%tile_index = &
+          me%variableTileinfo(i)%tile_index(1:subtypeSize(i))      = &
             &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
           cnt = cnt + subtypeSize(i)
         ENDIF
@@ -308,14 +308,14 @@ CONTAINS
     mapped_name = tolower(trim(mapped_name))
 
     varID      = -1
-    tile_index = trivial_tileinfo%tile_index
+    tile_index = -1
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
         IF ((TRIM(tolower(TRIM(me%variableNames(i)))) == TRIM(mapped_name)) .AND.  & 
           & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx)            .AND.  &
           & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)) THEN
           varID      = i-1
-          tile_index = me%variableTileinfo(i)%tile(i)%tile_index
+          tile_index = me%variableTileinfo(i)%tile_index(i)
           EXIT
         END IF
       END DO
