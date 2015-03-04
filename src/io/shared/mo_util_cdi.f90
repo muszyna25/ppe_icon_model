@@ -695,7 +695,7 @@ CONTAINS
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
 
-    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_real'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_real_tiles'
     INTEGER :: vlistId, varId, zaxisId, gridId, levelDimension, subtypeID, tile_index
     LOGICAL :: lvalue_add
 
@@ -706,6 +706,11 @@ CONTAINS
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
+    
+    IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
+      CALL finish(routine, "Requested tile not found!")
+    END IF
+
     IF(my_process_is_mpi_workroot()) THEN
       ! set active tile index, if this is a tile-based variable
       vlistId = streamInqVlist(parameters%streamId)
@@ -828,10 +833,15 @@ CONTAINS
     TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
 
     ! local variables:
-    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_real'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_real_tiles'
     INTEGER       :: varId, vlistId, gridId, subtypeID, tile_index
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
+
+    IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
+      CALL finish(routine, "Requested tile not found!")
+    END IF
+
     IF (my_process_is_mpi_workroot()) THEN
       ! set active tile index, if this is a tile-based variable
       vlistId   = streamInqVlist(parameters%streamId)
@@ -937,10 +947,16 @@ CONTAINS
     TYPE(t_tileinfo_elt),    INTENT(IN)     :: tileinfo
 
     ! local variables:
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_time_tiles'
     INTEGER :: jt, nrecs, varId, subtypeID, tile_index, vlistID
 
     ! Get var ID
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
+
+    IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
+      CALL finish(routine, "Requested tile not found!")
+    END IF
+
     DO jt = 1, ntime
       IF (my_process_is_mpi_workroot()) THEN
         ! set active tile index, if this is a tile-based variable
