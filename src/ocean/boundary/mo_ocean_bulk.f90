@@ -782,13 +782,13 @@ CONTAINS
     p_sfc_flx%cellThicknessUnderIce         => atmos_fluxes%cellThicknessUnderIce
   
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('TopBC : WS_u'         , p_sfc_flx%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('TopBC : WS_v'         , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : windStr-u'    , p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : windStr-v'    , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_ShortWave' , p_sfc_flx%HeatFlux_ShortWave       , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_LongWave'  , p_sfc_flx%HeatFlux_LongWave        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_Sensible'  , p_sfc_flx%HeatFlux_Sensible        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_Latent'    , p_sfc_flx%HeatFlux_Latent          , str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('TopBC : HF_Total'     , p_sfc_flx%HeatFlux_Total           , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : HF_Total'     , p_sfc_flx%HeatFlux_Total           , str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : Precipitation', p_sfc_flx%FrshFlux_Precipitation   , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : SnowFall'     , p_sfc_flx%FrshFlux_SnowFall        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : Evaporation'  , p_sfc_flx%FrshFlux_Evaporation     , str_module, 3, in_subset=p_patch%cells%owned)
@@ -826,13 +826,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: windStr u'       ,p_sfc_flx%topBoundCond_windStress_u      , str_module, 2, &
-        &  in_subset=p_patch%cells%owned)                                                              
-      CALL dbg_print('UpdSfc: windStr v'       ,p_sfc_flx%topBoundCond_windStress_v      , str_module, 3, &
-        &  in_subset=p_patch%cells%owned)                                                              
-      CALL dbg_print('UpdSfc: windStr cc%x(1)' ,p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 4, &
-        &  in_subset=p_patch%cells%owned)                                                              
-      CALL dbg_print('UpdSfc: windStr cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 4, &
+      CALL dbg_print('UpdSfc: windStr-cc%x(1)',p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 4, &
+        &  in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: windStr-cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 4, &
         &  in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
@@ -1268,17 +1264,17 @@ CONTAINS
  !    p_as%pao(:,:)   = 101300.0_wp
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-      CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Ext data4-ta/mon1' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-      CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Ext data4-ta/mon2' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: p_as%tafo'         ,p_as%tafo   ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: p_as%windStr-v',p_as%topBoundCond_windStress_v, str_module,4,in_subset=p_patch%cells%owned)
 
       IF (forcing_enable_freshwater) THEN
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfcFlxFil: Precipitation',p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfcFlxFil: Runoff'       ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Precipitation',p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Runoff'       ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
       ENDIF
       !---------------------------------------------------------------------
 
@@ -1957,8 +1953,8 @@ CONTAINS
              END IF
            ELSE
              atmos_fluxes%topBoundCond_windStress_cc(jc,jb)%x(:) = 0.0_wp
-             atmos_fluxes%topBoundCond_windStress_u(jc,jb)       = 0.0_wp
-             atmos_fluxes%topBoundCond_windStress_v(jc,jb)       = 0.0_wp
+!            atmos_fluxes%topBoundCond_windStress_u(jc,jb)       = 0.0_wp
+!            atmos_fluxes%topBoundCond_windStress_v(jc,jb)       = 0.0_wp
            ENDIF 
        END DO
       END DO

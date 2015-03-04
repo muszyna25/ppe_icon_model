@@ -1186,11 +1186,11 @@ CONTAINS
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('IO-stress: stress_u' , atmos_fluxes%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IO-stress: stress_xw', atmos_fluxes%stress_xw,                 str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IO-stress: ice%u'    , p_ice%u,                                str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IO-stress: ice%concS', p_ice%concSum,                          str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IO-stress: diag%u'   , p_os%p_diag%u,                          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: windStr-u', atmos_fluxes%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: stress_xw', atmos_fluxes%stress_xw,                 str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%u'    , p_ice%u,                                str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%concS', p_ice%concSum,                          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: diag%u'   , p_os%p_diag%u,                          str_module, 4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE ice_ocean_stress

@@ -44,7 +44,7 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
-    &                               i_Qio_type, use_constant_tfreez, calc_ocean_stress, t_heat_base, &
+    &                               i_Qio_type, use_constant_tfreez, calc_ocean_stress, stress_ice_zero, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -1417,7 +1417,7 @@ CONTAINS
     CALL dbg_print('IceSlow: zUnderIce a.ConcCh',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
 
-    ! ocean stress below sea ice calculated independent of dynamics
+    ! ocean stress calculated independent of ice dynamics
     IF (calc_ocean_stress) &
       & CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
@@ -1430,14 +1430,15 @@ CONTAINS
       ice%v = 0._wp
     ENDIF
 
-    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+    ! set ocean stress below sea ice to zero wrt concentration
+    !  - windStr*(1-conc) is done already in ice_ocean_stress
+    !  - a combination of stress_ice_zero=T and calc_ocean_stress=T is not recommended
+    IF (stress_ice_zero) THEN
+        atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)*(1._wp - ice%concSum(:,:))
+        atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)*(1._wp - ice%concSum(:,:))
+    ENDIF 
 
-    !CALL ice_advection  (ice)
-    !CALL write_ice      (ice,atmos_fluxes,1,ie,je)
-    !CALL ice_zero       (ice, atmos_fluxes)
-    !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
-    !sicomo = ice%conc (:,:,1)
-    !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
+    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module, 3, in_subset=p_patch%cells%owned)
