@@ -1493,7 +1493,7 @@ MODULE mo_initicon_io
       ! tile based fields
       DO jt=1, ntiles_total + ntiles_water
 
-        IF (ltile_coldstart) THEN
+        IF (.NOT. ltile_coldstart) THEN
           tileinfo%idx = tiles(jt)%GRIB2_tile%itn
           tileinfo%att = tiles(jt)%GRIB2_att%attribute
         ENDIF
@@ -1530,7 +1530,7 @@ MODULE mo_initicon_io
       !  tile based fields
       DO jt=1, ntiles_total
 
-        IF (ltile_coldstart) THEN
+        IF (.NOT. ltile_coldstart) THEN
           tileinfo%idx = tiles(jt)%GRIB2_tile%itn
           tileinfo%att = tiles(jt)%GRIB2_att%attribute
         ENDIF
@@ -1596,6 +1596,8 @@ MODULE mo_initicon_io
 
       ENDDO ! jt
 
+
+      tileinfo = trivial_tileinfo
 
       ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
       ! Instead z0 is re-initialized (see mo_nwp_phy_init)
