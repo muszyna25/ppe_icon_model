@@ -51,7 +51,7 @@ MODULE mo_util_cdi
     &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,                 &
     &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR,                  &
     &                              vlistInqVarSubtype, subtypeInqSize,                      &
-    &                              subtypeDefActiveIndex, CDI_UNDEFID
+    &                              subtypeDefActiveIndex
 
   IMPLICIT NONE
   PRIVATE

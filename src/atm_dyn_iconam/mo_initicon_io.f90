@@ -306,7 +306,7 @@ MODULE mo_initicon_io
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
                                                                           !< contained in opt_checkgroup
     ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_2d'
+    CHARACTER(len=*), PARAMETER     :: routine ='read_data_2d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
@@ -343,7 +343,11 @@ MODULE mo_initicon_io
       ! Perform CDI read operation
       !
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        IF ( (tileinfo%idx == trivial_tileinfo%idx) .AND. (tileinfo%att == trivial_tileinfo%att)) THEN
+          WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        ELSE
+          WRITE(message_text,'(a,i2,a,i2)') TRIM(filetyp_read)//' '//TRIM(mapped_name)//', Tile:',tileinfo%idx,', Att:',tileinfo%att
+        ENDIF
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
 
@@ -373,7 +377,7 @@ MODULE mo_initicon_io
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
                                                                           !< contained in opt_checkgroup
     ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_3d'
+    CHARACTER(len=*), PARAMETER     :: routine = 'read_data_3d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
@@ -410,7 +414,11 @@ MODULE mo_initicon_io
       ! Perform CDI read operation
       !
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        IF ( (tileinfo%idx == trivial_tileinfo%idx) .AND. (tileinfo%att == trivial_tileinfo%att)) THEN
+          WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        ELSE
+          WRITE(message_text,'(a,i2,a,i2)') TRIM(filetyp_read)//' '//TRIM(mapped_name)//', Tile:',tileinfo%idx,', Att:',tileinfo%att
+        ENDIF
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
 
