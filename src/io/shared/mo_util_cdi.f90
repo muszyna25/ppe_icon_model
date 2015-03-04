@@ -67,6 +67,7 @@ MODULE mo_util_cdi
   PUBLIC :: set_GRIB2_timedep_keys
   PUBLIC :: set_GRIB2_timedep_local_keys
   PUBLIC :: t_inputParameters, makeInputParameters, deleteInputParameters
+  PUBLIC :: t_tileinfo_elt, trivial_tileinfo
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
@@ -74,16 +75,27 @@ MODULE mo_util_cdi
     MODULE PROCEDURE read_cdi_2d_real
     MODULE PROCEDURE read_cdi_2d_int
     MODULE PROCEDURE read_cdi_2d_time
+    MODULE PROCEDURE read_cdi_2d_real_tiles
+    MODULE PROCEDURE read_cdi_2d_int_tiles
+    MODULE PROCEDURE read_cdi_2d_time_tiles
   END INTERFACE
 
   INTERFACE read_cdi_3d
     MODULE PROCEDURE read_cdi_3d_real
+    MODULE PROCEDURE read_cdi_3d_real_tiles
   END INTERFACE
 
+  TYPE t_tileinfo_elt
+    INTEGER :: idx  !< variable specific tile index
+    INTEGER :: att  !< variable specific tile attribute
+  END TYPE t_tileinfo_elt
+
   TYPE t_tileinfo
-    INTEGER, ALLOCATABLE :: tileIdx(:)  !< variable specific tile indices
-    INTEGER, ALLOCATABLE :: tileAtt(:)  !< variable specific tile attributes
+    TYPE(t_tileinfo_elt), ALLOCATABLE :: tile(:)  !< variable specific tile indices
   END TYPE t_tileinfo
+
+  ! trivial tile information, denoting a "no-tile" field:
+  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx=-99, att=-99)
 
   ! This is a small type that serves two functions:
   ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
@@ -196,20 +208,19 @@ CONTAINS
             subtypeID = vlistInqVarSubtype(vlistID,i-1)
             subtypeSize(i) = subtypeInqSize(subtypeID)
             !
-            ALLOCATE(me%variableTileinfo(i)%tileIdx(subtypeSize(i)), &
-              &      me%variableTileinfo(i)%tileAtt(subtypeSize(i)), STAT=ierrstat)
+            ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
             ! Remember to adapt name after GRIB2 template update!
             IF (vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute") <= 0) THEN
               ! not a tile variable
-              me%variableTileinfo(i)%tileIdx(:) = -99
-              me%variableTileinfo(i)%tileAtt(:) = -99
+              me%variableTileinfo(i)%tile(:) = trivial_tileinfo
             ELSE
               DO ientry=1, subtypeSize(i)
                 CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
-                me%variableTileinfo(i)%tileIdx(ientry) = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile")
-                me%variableTileinfo(i)%tileAtt(ientry) = vlistInqVarIntKey(vlistId, i-1, "attribute")
+                me%variableTileinfo(i)%tile(ientry) = &
+                  t_tileinfo_elt( idx = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile"), &
+                  &               att = vlistInqVarIntKey(vlistId, i-1, "attribute") )
                 ! reset active index
                 CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
@@ -229,8 +240,8 @@ CONTAINS
     IF(my_process_is_stdio()) THEN
       cnt = 0
       DO i=1, variableCount
-        tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tileIdx(1:subtypeSize(i))
-        tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tileAtt(1:subtypeSize(i))
+        tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
+        tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
         cnt = cnt + subtypeSize(i)
       END DO
     ENDIF
@@ -246,11 +257,12 @@ CONTAINS
       cnt = 0
       DO i=1, variableCount
         IF (subtypeSize(i) > 0) THEN
-          ALLOCATE(me%variableTileinfo(i)%tileIdx(subtypeSize(i)), &
-            &      me%variableTileinfo(i)%tileAtt(subtypeSize(i)), STAT=ierrstat)
+          ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-          me%variableTileinfo(i)%tileIdx(1:subtypeSize(i)) = tileIdx_container(cnt+1:cnt+subtypeSize(i))
-          me%variableTileinfo(i)%tileAtt(1:subtypeSize(i)) = tileAtt_container(cnt+1:cnt+subtypeSize(i))
+          me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx = &
+            &      tileIdx_container(cnt+1:cnt+subtypeSize(i))
+          me%variableTileinfo(i)%tile(1:subtypeSize(i))%att = &
+            &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
           cnt = cnt + subtypeSize(i)
         ENDIF
       ENDDO
@@ -268,13 +280,11 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersFindVarId(me, name, opt_tileidx) RESULT(result)
-!!$  INTEGER FUNCTION inputParametersFindVarId(me, name, opt_tileinfo) RESULT(result)
+  INTEGER FUNCTION inputParametersFindVarId(me, name, tileinfo) RESULT(result)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN) :: me
-    CHARACTER(len=*), INTENT(IN) :: name
-    INTEGER, INTENT(IN), OPTIONAL :: opt_tileidx
-!!$    TYPE(t_tileinfo), INTENT(IN), OPTIONAL :: opt_tileinfo
+    CHARACTER(len=*),         INTENT(IN) :: name
+    TYPE(t_tileinfo_elt),     INTENT(IN) :: tileinfo
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
     CHARACTER(len=DICT_MAX_STRLEN) :: mapped_name
@@ -304,9 +314,9 @@ CONTAINS
 
     !sanity check
     IF(result < 0) THEN
-        IF(present(opt_tileidx)) THEN
-            WRITE (0,*) "tileidx = ", opt_tileidx
-        END IF
+!        IF(present(opt_tileidx)) THEN
+!            WRITE (0,*) "tileidx = ", opt_tileidx
+!        END IF
         CALL finish(routine, "Variable "//trim(name)//" not found!")
     END IF
   END FUNCTION inputParametersFindVarId
@@ -325,13 +335,13 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Find a variable and determine its datatype
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, opt_tileidx) RESULT(result)
+  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, tileinfo) RESULT(result)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN) :: me
-    CHARACTER(len=*), INTENT(IN) :: name
-    INTEGER, INTENT(IN), OPTIONAL :: opt_tileidx
+    CHARACTER(len=*),         INTENT(IN) :: name
+    TYPE(t_tileinfo_elt),     INTENT(IN)    :: tileinfo
 
-    result = me%lookupDatatype(me%findVarId(name, opt_tileidx))
+    result = me%lookupDatatype(me%findVarId(name, tileinfo))
   END FUNCTION inputParametersFindVarDatatype
 
 
@@ -669,12 +679,12 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
-  SUBROUTINE read_cdi_3d_real(parameters, varname, nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_lev_dim)
+  SUBROUTINE read_cdi_3d_real_tiles(parameters, varname, nlevs, var_out, tileinfo, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
-    REAL(wp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,                 INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
+    REAL(wp),                INTENT(INOUT) :: var_out(:,:,:) !< output field
+    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
 
@@ -688,7 +698,7 @@ CONTAINS
     lvalue_add = .FALSE.
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
-    varId = parameters%findVarId(varname, opt_tileidx)
+    varId = parameters%findVarId(varname, tileinfo)
     IF(my_process_is_stdio()) THEN
         ! sanity check of the variable dimensions
         vlistId = streamInqVlist(parameters%streamId)
@@ -707,8 +717,29 @@ CONTAINS
         CASE DEFAULT
             CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
+  END SUBROUTINE read_cdi_3d_real_tiles
 
+
+  !-------------------------------------------------------------------------
+  !> Read 3D dataset from file.
+  ! 
+  !  Note: This implementation uses a 2D buffer.
+  ! 
+  !  @par Revision History
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  ! 
+  SUBROUTINE read_cdi_3d_real(parameters, varname, nlevs, var_out, opt_lvalue_add, opt_lev_dim)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,                 INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
+    REAL(wp),                INTENT(INOUT) :: var_out(:,:,:) !< output field
+    LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
+
+    CALL read_cdi_3d_real_tiles(parameters, varname, nlevs, var_out, &
+      &                         trivial_tileinfo, opt_lvalue_add, opt_lev_dim)
   END SUBROUTINE read_cdi_3d_real
+
 
 
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -775,17 +806,17 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d_real (parameters, varname, var_out, opt_tileidx)
+  SUBROUTINE read_cdi_2d_real_tiles (parameters, varname, var_out, tileinfo)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    REAL(wp),                INTENT(INOUT) :: var_out(:,:)   !< output field
+    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_real'
     INTEGER       :: varId, vlistId, gridId
 
-    varId = parameters%findVarId(varname, opt_tileidx)
+    varId = parameters%findVarId(varname, tileinfo)
     IF (my_process_is_stdio()) THEN
         !sanity check on the variable dimensions
         vlistId   = streamInqVlist(parameters%streamId)
@@ -799,6 +830,22 @@ CONTAINS
         CASE DEFAULT
             CALL read_cdi_2d_sp(parameters, varId, var_out)
     END SELECT
+  END SUBROUTINE read_cdi_2d_real_tiles
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for REAL fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_real (parameters, varname, var_out)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    REAL(wp),                INTENT(INOUT) :: var_out(:,:)   !< output field
+
+    CALL read_cdi_2d_real_tiles (parameters, varname, var_out, trivial_tileinfo)
   END SUBROUTINE read_cdi_2d_real
 
 
@@ -810,11 +857,11 @@ CONTAINS
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
-  SUBROUTINE read_cdi_2d_int(parameters, varname, var_out, opt_tileidx)
+  SUBROUTINE read_cdi_2d_int_tiles(parameters, varname, var_out, tileinfo)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(INOUT) :: var_out(:,:)   !< output field
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,                 INTENT(INOUT) :: var_out(:,:)   !< output field
+    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_int'
@@ -827,13 +874,31 @@ CONTAINS
     var_tmp(:,:) = 0._wp
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! read the field as a REAL-valued field:
-    CALL read_cdi_2d_real (parameters, varname, var_tmp, opt_tileidx)
+    CALL read_cdi_2d_real_tiles (parameters, varname, var_tmp, tileinfo )
     ! perform number conversion
     var_out(:,:) = NINT(var_tmp)
     ! clean up
     DEALLOCATE(var_tmp, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+  END SUBROUTINE read_cdi_2d_int_tiles
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for INTEGER fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+
+  SUBROUTINE read_cdi_2d_int(parameters, varname, var_out)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,                 INTENT(INOUT) :: var_out(:,:)   !< output field
+
+    CALL read_cdi_2d_int_tiles(parameters, varname, var_out, trivial_tileinfo)
   END SUBROUTINE read_cdi_2d_int
+
 
   !-------------------------------------------------------------------------
   !> Read 2D dataset from file, implementation for REAL fields
@@ -842,18 +907,18 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d_time (parameters, ntime, varname, var_out, opt_tileidx)
-    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    INTEGER,          INTENT(IN)    :: ntime          !< time levels of file
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+  SUBROUTINE read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, tileinfo)
+    TYPE(t_inputParameters), INTENT(INOUT)  :: parameters
+    INTEGER,                 INTENT(IN)     :: ntime          !< time levels of file
+    CHARACTER(len=*),        INTENT(IN)     :: varname        !< Var name of field to be read
+    REAL(wp),                INTENT(INOUT)  :: var_out(:,:,:) !< output field
+    TYPE(t_tileinfo_elt),    INTENT(IN)     :: tileinfo
 
     ! local variables:
     INTEGER :: jt, nrecs, varId
 
     ! Get var ID
-    varId = parameters%findVarId(varname, opt_tileidx)
+    varId = parameters%findVarId(varname, tileinfo)
     DO jt = 1, ntime
       IF (my_process_is_stdio()) THEN
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
@@ -866,6 +931,23 @@ CONTAINS
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO
+  END SUBROUTINE read_cdi_2d_time_tiles
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for REAL fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_time (parameters, ntime, varname, var_out)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    INTEGER,                 INTENT(IN)    :: ntime          !< time levels of file
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
+    REAL(wp),                INTENT(INOUT) :: var_out(:,:,:) !< output field
+
+    CALL read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, trivial_tileinfo)
   END SUBROUTINE read_cdi_2d_time
 
 

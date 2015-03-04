@@ -895,7 +895,6 @@ MODULE mo_nh_init_nest_utils
     ! Indices
     INTEGER :: jb, jc, jk, jk1, jt, i_chidx, i_startblk, i_endblk, &
                i_startidx, i_endidx
-    INTEGER :: rl_start, rl_end
 
     INTEGER :: num_lndvars
 
@@ -906,8 +905,6 @@ MODULE mo_nh_init_nest_utils
     ! Local arrays on the parent or child grid. These would not have to be allocatable,
     ! but the computational overhead does not matter for an initialization routine
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: lndvars_par, lndvars_chi
-
-    INTEGER :: i_count, ic
 
     LOGICAL :: l_parallel
 

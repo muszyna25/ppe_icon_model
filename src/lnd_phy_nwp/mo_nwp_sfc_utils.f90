@@ -192,8 +192,6 @@ CONTAINS
     REAL(wp) :: temp
     REAL(wp) :: zfrice_thrhld       ! fraction threshold for creating a sea-ice grid point
 
-    REAL(wp), PARAMETER :: small = 1.E-06_wp
-
   !-------------------------------------------------------------------------
 
 

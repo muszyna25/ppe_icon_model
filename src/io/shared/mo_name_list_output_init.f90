@@ -1177,7 +1177,7 @@ CONTAINS
             
             !Special case for very small time steps
             IF(sim_step_info%dtime .LT. 1._wp)THEN
-              CALL get_duration_string_real(REAL(sim_step_info%dtime), &
+              CALL get_duration_string_real(sim_step_info%dtime, &
                 &                           lower_bound_str)
               idummy = 0
             ELSE  
