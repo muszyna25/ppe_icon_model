@@ -88,6 +88,10 @@ MODULE mo_util_cdi
   TYPE t_tileinfo_elt
     INTEGER :: idx  !< variable specific tile index
     INTEGER :: att  !< variable specific tile attribute
+
+    !> CDI internal, one-dimensional index for the list of (idx/att)
+    !> pairs:
+    INTEGER :: tile_index 
   END TYPE t_tileinfo_elt
 
   TYPE t_tileinfo
@@ -95,7 +99,7 @@ MODULE mo_util_cdi
   END TYPE t_tileinfo
 
   ! trivial tile information, denoting a "no-tile" field:
-  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx=-99, att=-99)
+  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx=-99, att=-99, tile_index=-99)
 
   ! This is a small type that serves two functions:
   ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
@@ -105,16 +109,14 @@ MODULE mo_util_cdi
   ! Create this by calling makeInputParameters(), destroy with deleteInputParameters().
   TYPE :: t_inputParameters
     !PRIVATE! Don't use outside of this file!
-    INTEGER :: streamId     !< CDI stream ID
-    INTEGER :: glb_arr_len  !< global array length
-    TYPE (t_dictionary) :: dict     !< a dictionary that is used to translate variable names
-    CLASS(t_scatterPattern), POINTER :: distribution    !< a t_scatterPattern to distribute the data
-    LOGICAL :: have_dict    !< whether `dict` is used or not
+    INTEGER                                     :: streamId     !< CDI stream ID
+    INTEGER                                     :: glb_arr_len  !< global array length
+    TYPE (t_dictionary)                         :: dict     !< a dictionary that is used to translate variable names
+    CLASS(t_scatterPattern), POINTER            :: distribution    !< a t_scatterPattern to distribute the data
+    LOGICAL                                     :: have_dict    !< whether `dict` is used or not
     CHARACTER(LEN=MAX_CHAR_LENGTH), ALLOCATABLE :: variableNames(:) !< the names of the variables
-    INTEGER, ALLOCATABLE :: variableDatatype(:) !< the datatypes that are used by the file to store the variables
-    TYPE(t_tileinfo), ALLOCATABLE :: variableTileinfo(:) !< variable specific tile meta info
-
-    INTEGER, ALLOCATABLE :: variableTileIdx(:)  !< tile indices of the variables
+    INTEGER, ALLOCATABLE                        :: variableDatatype(:) !< the datatypes that are used by the file to store the variables
+    TYPE(t_tileinfo), ALLOCATABLE               :: variableTileinfo(:) !< variable specific tile meta info
 
     REAL(dp) :: readDuration    !< statistic on how long we took to read the data
     INTEGER(i8) :: readBytes    !< statistic on how much data we read from the file
@@ -160,7 +162,10 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: tileIdx_container(:)
     INTEGER, ALLOCATABLE :: tileAtt_container(:)
+    INTEGER, ALLOCATABLE :: tileTid_container(:)
     INTEGER, ALLOCATABLE :: subtypeSize(:)
+
+    INTEGER :: idx, att, tile_index
 
 
     !first forward the arguments to the object we are building
@@ -187,8 +192,6 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ALLOCATE(me%variableDatatype(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ALLOCATE(me%variableTileIdx(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ALLOCATE(me%variableTileinfo(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
@@ -201,9 +204,6 @@ CONTAINS
         do i = 1, variableCount
             CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
             me%variableDatatype(i) = vlistInqVarDatatype(vlistId, i-1)
-
-            ! inquire information about tiles
-            me%variableTileIdx(i) = vlistInqVarIntKey(vlistId, i-1, "localInformationNumber")
 
             subtypeID = vlistInqVarSubtype(vlistID,i-1)
             subtypeSize(i) = subtypeInqSize(subtypeID)
@@ -218,9 +218,12 @@ CONTAINS
             ELSE
               DO ientry=1, subtypeSize(i)
                 CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
-                me%variableTileinfo(i)%tile(ientry) = &
-                  t_tileinfo_elt( idx = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile"), &
-                  &               att = vlistInqVarIntKey(vlistId, i-1, "attribute") )
+
+                idx        = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile")
+                att        = vlistInqVarIntKey(vlistId, i-1, "attribute")
+                tile_index = ientry-1
+
+                me%variableTileinfo(i)%tile(ientry) = t_tileinfo_elt( idx, att, tile_index)
                 ! reset active index
                 CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
@@ -234,7 +237,9 @@ CONTAINS
     ! put tile info into local 1D arrays, for broadcasting
     ! currently direct bradcast of variable variableTileinfo not possible
     ALLOCATE(tileIdx_container(SUM(subtypeSize(1:variableCount))), &
-      &      tileAtt_container(SUM(subtypeSize(1:variableCount))), STAT=ierrstat)
+      &      tileAtt_container(SUM(subtypeSize(1:variableCount))), &
+      &      tileTId_container(SUM(subtypeSize(1:variableCount))), &
+      &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     IF(my_process_is_stdio()) THEN
@@ -242,15 +247,16 @@ CONTAINS
       DO i=1, variableCount
         tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
         tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
+        tileTid_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%tile_index
         cnt = cnt + subtypeSize(i)
       END DO
     ENDIF
 
     CALL p_bcast(me%variableNames, p_io, distribution%communicator)
     CALL p_bcast(me%variableDatatype, p_io, distribution%communicator)
-    CALL p_bcast(me%variableTileIdx, p_io, distribution%communicator)
     CALL p_bcast(tileIdx_container, p_io, distribution%communicator)
     CALL p_bcast(tileAtt_container, p_io, distribution%communicator)
+    CALL p_bcast(tileTid_container, p_io, distribution%communicator)
 
     ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
     IF (.NOT. my_process_is_stdio()) THEN
@@ -259,9 +265,11 @@ CONTAINS
         IF (subtypeSize(i) > 0) THEN
           ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx = &
+          me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx        = &
             &      tileIdx_container(cnt+1:cnt+subtypeSize(i))
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%att = &
+          me%variableTileinfo(i)%tile(1:subtypeSize(i))%att        = &
+            &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
+          me%variableTileinfo(i)%tile(1:subtypeSize(i))%tile_index = &
             &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
           cnt = cnt + subtypeSize(i)
         ENDIF
@@ -272,23 +280,24 @@ CONTAINS
     me%readBytes = 0_i8
 
     ! cleanup
-    DEALLOCATE(tileIdx_container, tileAtt_container, subtypeSize, STAT=ierrstat)
+    DEALLOCATE(tileIdx_container, tileAtt_container, tileTid_container, subtypeSize, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-
   END FUNCTION makeInputParameters
+
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersFindVarId(me, name, tileinfo) RESULT(result)
+  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index) 
     IMPLICIT NONE
-    CLASS(t_inputParameters), INTENT(IN) :: me
-    CHARACTER(len=*),         INTENT(IN) :: name
-    TYPE(t_tileinfo_elt),     INTENT(IN) :: tileinfo
+    CLASS(t_inputParameters), INTENT(IN)  :: me
+    CHARACTER(len=*),         INTENT(IN)  :: name
+    TYPE(t_tileinfo_elt),     INTENT(IN)  :: tileinfo
+    INTEGER,                  INTENT(OUT) :: varID, tile_index
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
     CHARACTER(len=DICT_MAX_STRLEN) :: mapped_name
-    INTEGER :: i
+    INTEGER :: i, j
 
     mapped_name = trim(name)
     IF(me%have_dict) THEN
@@ -297,29 +306,25 @@ CONTAINS
     END IF
     mapped_name = tolower(trim(mapped_name))
 
-    result = -1
-    do i = 1, size(me%variableNames)
-!!$        IF(present(opt_tileidx)) THEN
-!!$            !can't be the variable we are looking for if it's got the wrong tile number
-!!$            IF(me%variableTileIdx(i) /= opt_tileidx) cycle
-!!$        END IF
-        IF(trim(tolower(trim(me%variableNames(i)))) == trim(mapped_name)) THEN
-!!$            IF (PRESENT(opt_tileinfo)) THEN
-!!$              CALL me%findMatchingTile(i-1,opt_tileinfo)
-!!$            ENDIF
-            result = i-1
-            exit
+    varID      = -1
+    tile_index = trivial_tileinfo%tile_index
+    DO i = 1, SIZE(me%variableNames)
+      DO j = 1, SIZE(me%variableTileinfo(i)%tile)
+        IF ((TRIM(tolower(TRIM(me%variableNames(i)))) == TRIM(mapped_name)) .AND.  & 
+          & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx)            .AND.  &
+          & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)) THEN
+          varID      = i-1
+          tile_index = me%variableTileinfo(i)%tile(i)%tile_index
+          EXIT
         END IF
-    END do
+      END DO
+    END DO
 
-    !sanity check
-    IF(result < 0) THEN
-!        IF(present(opt_tileidx)) THEN
-!            WRITE (0,*) "tileidx = ", opt_tileidx
-!        END IF
-        CALL finish(routine, "Variable "//trim(name)//" not found!")
+    ! insanity check
+    IF(varID < 0) THEN
+      CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
-  END FUNCTION inputParametersFindVarId
+  END SUBROUTINE inputParametersFindVarId
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Lookup the datatype of a variable given its cdi varId
@@ -340,8 +345,10 @@ CONTAINS
     CLASS(t_inputParameters), INTENT(IN) :: me
     CHARACTER(len=*),         INTENT(IN) :: name
     TYPE(t_tileinfo_elt),     INTENT(IN)    :: tileinfo
-
-    result = me%lookupDatatype(me%findVarId(name, tileinfo))
+    ! local variables
+    INTEGER :: varID, tile_index
+    CALL me%findVarId(name, tileinfo, varID, tile_index)
+    result = me%lookupDatatype(varID)
   END FUNCTION inputParametersFindVarDatatype
 
 
@@ -366,7 +373,7 @@ CONTAINS
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(INOUT) :: me
 
-    CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':deleteInputParameters'
 
     IF(msg_level >= 5 .and. my_process_is_stdio()) then
         WRITE(0,*) routine, ": Total read statistics for stream ID ", me%streamId
@@ -379,7 +386,6 @@ CONTAINS
     IF(me%have_dict) CALL dict_finalize(me%dict)
     DEALLOCATE(me%variableNames)
     DEALLOCATE(me%variableDatatype)
-    DEALLOCATE(me%variableTileIdx)
     DEALLOCATE(me%variableTileinfo)
   END SUBROUTINE deleteInputParameters
 
@@ -689,7 +695,7 @@ CONTAINS
     INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_real'
-    INTEGER :: vlistId, varId, zaxisId, gridId, levelDimension
+    INTEGER :: vlistId, varId, zaxisId, gridId, levelDimension, subtypeID, tile_index
     LOGICAL :: lvalue_add
 
     levelDimension = 2
@@ -698,16 +704,19 @@ CONTAINS
     lvalue_add = .FALSE.
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
-    varId = parameters%findVarId(varname, tileinfo)
+    CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
     IF(my_process_is_stdio()) THEN
-        ! sanity check of the variable dimensions
-        vlistId = streamInqVlist(parameters%streamId)
-        zaxisId = vlistInqVarZaxis(vlistId, varId)
-        gridId = vlistInqVarGrid(vlistId, varId)
-        IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
-            & (zaxisInqSize(zaxisId) /= nlevs)) THEN
-            CALL finish(routine, "Incompatible dimensions!")
-        END IF
+      ! set active tile index, if this is a tile-based variable
+      vlistId = streamInqVlist(parameters%streamId)
+      subtypeID  = vlistInqVarSubtype(vlistID,varID)
+      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
+      ! sanity check of the variable dimensions
+      zaxisId = vlistInqVarZaxis(vlistId, varId)
+      gridId = vlistInqVarGrid(vlistId, varId)
+      IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
+        & (zaxisInqSize(zaxisId) /= nlevs)) THEN
+        CALL finish(routine, "Incompatible dimensions!")
+      END IF
     END IF
 
     SELECT CASE(parameters%lookupDatatype(varId))
@@ -717,6 +726,11 @@ CONTAINS
         CASE DEFAULT
             CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
+
+    IF(my_process_is_stdio()) THEN
+      ! reset tile index
+      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
+    END IF
   END SUBROUTINE read_cdi_3d_real_tiles
 
 
@@ -814,14 +828,16 @@ CONTAINS
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_real'
-    INTEGER       :: varId, vlistId, gridId
+    INTEGER       :: varId, vlistId, gridId, subtypeID, tile_index
 
-    varId = parameters%findVarId(varname, tileinfo)
+    CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
     IF (my_process_is_stdio()) THEN
-        !sanity check on the variable dimensions
-        vlistId   = streamInqVlist(parameters%streamId)
-        gridId    = vlistInqVarGrid(vlistId, varId)
-        IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!")
+      ! set active tile index, if this is a tile-based variable
+      vlistId   = streamInqVlist(parameters%streamId)
+      subtypeID  = vlistInqVarSubtype(vlistID,varID)
+      !sanity check on the variable dimensions
+      gridId    = vlistInqVarGrid(vlistId, varId)
+      IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!")
     END IF
     SELECT CASE(parameters%lookupDatatype(varId))
         CASE(DATATYPE_FLT64, DATATYPE_INT32)
@@ -830,6 +846,11 @@ CONTAINS
         CASE DEFAULT
             CALL read_cdi_2d_sp(parameters, varId, var_out)
     END SELECT
+
+    IF(my_process_is_stdio()) THEN
+      ! reset tile index
+      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
+    END IF
   END SUBROUTINE read_cdi_2d_real_tiles
 
 
@@ -915,12 +936,16 @@ CONTAINS
     TYPE(t_tileinfo_elt),    INTENT(IN)     :: tileinfo
 
     ! local variables:
-    INTEGER :: jt, nrecs, varId
+    INTEGER :: jt, nrecs, varId, subtypeID, tile_index, vlistID
 
     ! Get var ID
-    varId = parameters%findVarId(varname, tileinfo)
+    CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
     DO jt = 1, ntime
       IF (my_process_is_stdio()) THEN
+        ! set active tile index, if this is a tile-based variable
+        vlistId    = streamInqVlist(parameters%streamId)
+        subtypeID  = vlistInqVarSubtype(vlistID, varID)
+
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
       SELECT CASE(parameters%lookupDatatype(varId))
@@ -931,6 +956,10 @@ CONTAINS
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO
+    IF(my_process_is_stdio()) THEN
+      ! reset tile index
+      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
+    END IF
   END SUBROUTINE read_cdi_2d_time_tiles
 
 
