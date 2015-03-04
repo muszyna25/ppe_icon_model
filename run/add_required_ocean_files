@@ -2,18 +2,18 @@
   #=======================================================
   # input folders
   ocean_location="fluent"
-  case "x$ocean_location" in
-    xfluent)
+
+  if [[ "x$ocean_location" != "x" ]] ; then
       case "$target" in
         thunder)
-          ocean_data_MainFolder=/scratch/mpi/CC/mh0287/oes/fluent
+          ocean_data_MainFolder=/scratch/mpi/CC/mh0287/oes/${ocean_location}
+        ;;
+       blizzard) 
+          ocean_data_MainFolder=/work/mh0287/oes/${ocean_location}
         ;;
       esac
-    ;;
-  esac
+  fi 
    
-  ocean_data_MainFolder=/scratch/mpi/CC/mh0287/oes/fluent
-  
   ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_MainFolder}/oes}
   grid_name=${ocean_grids%.nc}
   ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}/${grid_name}}
