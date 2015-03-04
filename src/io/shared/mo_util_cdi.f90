@@ -25,7 +25,8 @@ MODULE mo_util_cdi
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_comm_work, p_comm_work_test,  &
-    &                              p_io, my_process_is_stdio, p_mpi_wtime
+    &                              p_io, my_process_is_stdio, p_mpi_wtime,  &
+    &                              my_process_is_mpi_workroot
   USE mo_util_string,        ONLY: tolower, toupper, one_of
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
@@ -182,7 +183,7 @@ CONTAINS
     CALL me%distribution%resetStatistics()
 
     !now the interesting part: introspect the file and broadcast the variable info needed to avoid broadcasting it later.
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
         vlistId = streamInqVlist(streamId)
         variableCount = vlistNvars(vlistId)
     END IF
@@ -199,7 +200,7 @@ CONTAINS
     ALLOCATE(subtypeSize(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
         subtypeSize(1:variableCount) = 0
         do i = 1, variableCount
             CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
@@ -242,7 +243,7 @@ CONTAINS
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
       cnt = 0
       DO i=1, variableCount
         tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
@@ -259,7 +260,7 @@ CONTAINS
     CALL p_bcast(tileTid_container, p_io, distribution%communicator)
 
     ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
-    IF (.NOT. my_process_is_stdio()) THEN
+    IF (.NOT. my_process_is_mpi_workroot()) THEN
       cnt = 0
       DO i=1, variableCount
         IF (subtypeSize(i) > 0) THEN
@@ -588,7 +589,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ELSE
@@ -604,7 +605,7 @@ CONTAINS
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_stdio()) THEN
+      IF(my_process_is_mpi_workroot()) THEN
         ! read record as 1D field
         CALL timeStreamReadVarSlice(parameters, varID, jk-1, tmp_buf(:), nmiss)
       END IF
@@ -640,7 +641,7 @@ CONTAINS
     REAL(sp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     ELSE
@@ -656,7 +657,7 @@ CONTAINS
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_stdio()) THEN
+      IF(my_process_is_mpi_workroot()) THEN
         ! read record as 1D field
         CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
       END IF
@@ -705,7 +706,7 @@ CONTAINS
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
       ! set active tile index, if this is a tile-based variable
       vlistId = streamInqVlist(parameters%streamId)
       subtypeID  = vlistInqVarSubtype(vlistID,varID)
@@ -727,7 +728,7 @@ CONTAINS
             CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
 
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
       ! reset tile index
       IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
@@ -768,7 +769,7 @@ CONTAINS
     INTEGER :: nmiss, ierrstat
     REAL(sp), ALLOCATABLE :: tmp_buf(:)
 
-    IF (my_process_is_stdio()) THEN
+    IF (my_process_is_mpi_workroot()) THEN
         ! read record as 1D field
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -796,7 +797,7 @@ CONTAINS
     INTEGER :: nmiss, ierrstat
     REAL(wp), ALLOCATABLE :: tmp_buf(:)
 
-    IF (my_process_is_stdio()) THEN
+    IF (my_process_is_mpi_workroot()) THEN
         ! read record as 1D field
         ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -831,7 +832,7 @@ CONTAINS
     INTEGER       :: varId, vlistId, gridId, subtypeID, tile_index
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
-    IF (my_process_is_stdio()) THEN
+    IF (my_process_is_mpi_workroot()) THEN
       ! set active tile index, if this is a tile-based variable
       vlistId   = streamInqVlist(parameters%streamId)
       subtypeID  = vlistInqVarSubtype(vlistID,varID)
@@ -847,7 +848,7 @@ CONTAINS
             CALL read_cdi_2d_sp(parameters, varId, var_out)
     END SELECT
 
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
       ! reset tile index
       IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
@@ -941,7 +942,7 @@ CONTAINS
     ! Get var ID
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
     DO jt = 1, ntime
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_mpi_workroot()) THEN
         ! set active tile index, if this is a tile-based variable
         vlistId    = streamInqVlist(parameters%streamId)
         subtypeID  = vlistInqVarSubtype(vlistID, varID)
@@ -956,7 +957,7 @@ CONTAINS
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO
-    IF(my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
       ! reset tile index
       IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
