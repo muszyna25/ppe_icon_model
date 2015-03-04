@@ -59,7 +59,7 @@ MODULE mo_les_utilities
     ddxn_z_half_c
 
   PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_hor_mean
-  PUBLIC :: vertical_derivative, brunt_vaisala_freq
+  PUBLIC :: vertical_derivative, brunt_vaisala_freq, init_vertical_grid_for_les
   PUBLIC :: &
     ddxt_z_full, &
     ddxt_z_full_c, &
@@ -73,7 +73,6 @@ MODULE mo_les_utilities
     ddxn_z_half_e,&
     ddxn_z_half_c
 
-  PUBLIC :: init_vertical_grid_for_les
 
   CONTAINS
 

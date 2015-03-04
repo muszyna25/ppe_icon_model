@@ -161,6 +161,15 @@ MODULE mo_sgs_turbmetric
     ALLOCATE(          DIV_c(nproma,nlev,p_patch%nblks_c)            )
     ALLOCATE(          rho_ic(nproma,nlevp1,p_patch%nblks_c)                      )
 
+    IF(.NOT.ALLOCATED(D_11)) THEN
+      ALLOCATE( D_11(nproma, nlev, p_patch%nblks_e), &
+                D_12(nproma, nlev, p_patch%nblks_e), &
+                D_13(nproma, nlev, p_patch%nblks_e), &
+                D_23(nproma, nlev, p_patch%nblks_e), &
+                D_33(nproma, nlev, p_patch%nblks_e)  &
+              )
+    ENDIF
+
     !Initialize
 
 !$OMP PARALLEL WORKSHARE
@@ -170,9 +179,9 @@ MODULE mo_sgs_turbmetric
 !$OMP END PARALLEL WORKSHARE
 
     IF(p_test_run)THEN
-!$OMP PARALLEL WORKSHARE
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+      u_iv(:,:,:)   = 0._wp;   v_iv(:,:,:)   = 0._wp; 
+      vn_ie(:,:,:)  = 0._wp;   vt_ie(:,:,:)  = 0._wp
     END IF
 
     !Convert temperature to potential temperature: all routines within 
@@ -315,13 +324,6 @@ MODULE mo_sgs_turbmetric
     !Allocation
     ALLOCATE( mech_prod_e(nproma,nlev,p_patch%nblks_e),     &
               div_of_stress(nproma,nlev,p_patch%nblks_e) )
-
-    IF(.NOT.ALLOCATED(D_11)) &
-      ALLOCATE( D_11(nproma, nlev, p_patch%nblks_e), &
-                D_12(nproma, nlev, p_patch%nblks_e), &
-                D_13(nproma, nlev, p_patch%nblks_e), &
-                D_23(nproma, nlev, p_patch%nblks_e), &
-                D_33(nproma, nlev, p_patch%nblks_e)  )
 
     diff_smag_ic => prm_diag%tkvh
 
@@ -1678,6 +1680,7 @@ MODULE mo_sgs_turbmetric
 !$OMP END PARALLEL WORKSHARE
 
     IF(p_test_run)THEN
+      tot_tend(:,:,:) = 0._wp
       hor_tend(:,:,:) = 0._wp
     END IF
 
