@@ -391,8 +391,8 @@ case "$ac_sitename" in
                 NETCDFROOT            = /usr
                 NETCDFLIBPATH         = /usr/lib64
                 IB_LIBS               = -ldl -Wl,--export-dynamic -lutil -lm -ldl
-                CC                    = mpicc
-                FC                    = mpif90
+                CC                    = /usr/lib64/mpi/gcc/openmpi/bin/mpicc
+                FC                    = /usr/lib64/mpi/gcc/openmpi/bin/mpif90
                 MPI_INCLUDE           = /usr/lib64/mpi/gcc/openmpi/include
                 config_target         = oflws
                 make_command          = "make" "-j8"
