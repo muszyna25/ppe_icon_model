@@ -14,7 +14,7 @@
 !!
 !!
 !----------------------------
-!#include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 
 MODULE mo_ice_fem_utils
@@ -35,7 +35,7 @@ MODULE mo_ice_fem_utils
   USE mo_grid_config,         ONLY: n_dom
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec
   USE mo_exception,           ONLY: message
@@ -45,7 +45,7 @@ MODULE mo_ice_fem_utils
   USE mo_impl_constants,      ONLY: sea_boundary, sea
   USE mo_advection_utils,     ONLY: laxfr_upflux
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_ocean_math_operators,  ONLY: div_oce_3D
+  USE mo_oce_math_operators,  ONLY: div_oce_3D
   USE mo_dynamics_config,     ONLY: nold
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
@@ -624,7 +624,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !> Map vectors from vertices to edges
-  !! Based on ideas from rot_vertex_ocean_3d in oce_dyn_icohom/mo_ocean_math_operators.f90
+  !! Based on ideas from rot_vertex_ocean_3d in oce_dyn_icohom/mo_oce_math_operators.f90
   !!
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-08-05)
@@ -654,7 +654,7 @@ CONTAINS
     verts_in_domain => p_patch%verts%in_domain
 
 
-    ! Copied from oce_dyn_icohom/mo_ocean_math_operators.f90:rot_vertex_ocean_3d
+    ! Copied from oce_dyn_icohom/mo_oce_math_operators.f90:rot_vertex_ocean_3d
     ! Replaced the coefficient and sign to get normal velocity instead of tangental
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
@@ -1135,7 +1135,7 @@ CONTAINS
 
     ! Local variables
     ! Ranges
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain
 
     ! Indexing
     INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
@@ -1145,14 +1145,14 @@ CONTAINS
 
 !--------------------------------------------------------------------------------------------------
 
-    all_cells => p_patch%cells%all
+    cells_in_domain => p_patch%cells%in_domain
 
 !--------------------------------------------------------------------------------------------------
 ! Modify oceanic stress
 !--------------------------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, delu, delv, tau) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does
       ! not alter drag
@@ -1173,8 +1173,8 @@ CONTAINS
 
 !   CALL sync_patch_array_mult(SYNC_C, p_patch, 2, atmos_fluxes%topBoundCond_windStress_u(:,:), &
 !     & atmos_fluxes%topBoundCond_windStress_v(:,:))
-!   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
-!   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
 
   END SUBROUTINE ice_ocean_stress
 

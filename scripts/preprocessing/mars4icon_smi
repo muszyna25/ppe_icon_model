@@ -35,7 +35,6 @@
 #   Helmut Frank    201107  adopted from GME equivalent
 #   Martin Koehler  201108  SMI soil moisture index
 #   Helmut Frank    201309  Rewrite with several options
-#   Helmut Frank    201501  Corrections retrieving IFS forecast data
 # -------------------------------------------------------
 
 # --- argument list ---
@@ -385,7 +384,7 @@ retrieve,
         levtype  = surface
 retrieve,
         ${db_para_soil},
-        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn,
+        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn${soiltype},
         repres   = gg, 
         resol    = off, 
         levtype  = surface
@@ -414,7 +413,7 @@ retrieve,
         resol    = off,
         levtype  = surface,
         gaussian = regular,
-        param    = lsm/sr/cvl/cvh/sdor/isor/anor/slor${soiltype},
+        param    = lsm/sr/cvl/cvh/sdor/isor/anor/slor,
         fieldset = off,
         target   = "${target_file[$i_rq]}"
 MARS_IFS2ICON1_EOF
@@ -463,12 +462,12 @@ read,
 retrieve,
         type     = ${type_mars},
         step     = ${step},
-        param    = swvl1/swvl2/swvl3/swvl4,
+        param    = slt/swvl1/swvl2/swvl3/swvl4,
         gaussian = reduced,
         target   = "${slt_file}",
         fieldset = off
-retrieve,
-        typeset  = an, step=0,
+read,
+        source   = "${slt_file}",
         param    = slt,
         fieldset = slt
 	MARS_IFS2ICON2_EOF
@@ -620,13 +619,6 @@ if [ ${rc_mars} -ne 0 ]; then
     ls -l ${target_file[*]}
     rm ${mars_req[*]}
     exit ${rc_mars}
-fi
-
-if [[ -z "${Dflag}" ]]; then
-    print -- "Delete the following files:"
-    ls -l ${slt_file} ${smi_file}
-    rm -f ${slt_file} ${smi_file}
-    print
 fi
 
 print -- "\nRetrieved IFS data valid at ${cymdg_fc} = ${cymdg} + ${step} h"

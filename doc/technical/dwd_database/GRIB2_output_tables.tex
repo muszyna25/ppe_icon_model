@@ -13,8 +13,7 @@ In GRIB2, a product (i.e.\ a variable/field) is identified by a set of three par
  \item \emph{ParameterCategory} (see GRIB2 code table 4.2)
  \item \emph{ParameterNumber} (see GRIB2 code table 4.2), 
 \end{itemize}
-augmented by a large number of additional metadata in order to uniquely describe the nature of the data. Noteworthy examples 
-of additional metadata are 
+augmented by a large number of additional metadata to uniquely describe the nature of the data, like e.g.\
 \begin{itemize}
   \item \emph{typeOfFirstfixedSurface} and \emph{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
   \item \emph{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
@@ -42,7 +41,7 @@ With the launch of ICON, the following former GME output fields will no longer b
 
 \section{New output fields}\label{sec_newout}
 
-Table \ref{table_newout} contains a list of new output fields that became available with the launch of ICON (compared to GME). A more thorough description of these 
+Table \ref{table_newout} contains a list of new output fields that will become available with the launch of ICON (compared to GME). A more thorough description of these 
 fields is provided in Section \ref{sec_outfields}.
 
 \begin{longtable}{p{2.5cm}p{1.8cm}p{10.0cm}}
@@ -98,11 +97,7 @@ fields is provided in Section \ref{sec_outfields}.
 
 \section{Available output fields}\label{sec_outfields}
 
-ICON forecasts are performed $4$ times a day at $0,\, 6,\, 12,\, 18$ UTC, covering a forecast time span of $180\,\mathrm{h}$ for the 
-$0$ und $12$ UTC runs and $78\,\mathrm{h}$ for the $6$ und $18$ UTC runs. All time-dependent output fields are available hourly up to  
-$VV=78\,\mathrm{h}$ and 3-hourly for larger forecast times\footnotemark[2].
-
-Output is available on two distinct horizontal grids: The native triangular grid with an average resolution of $13\,\mathrm{km}$, 
+ICON output is available on two distinct horizontal grids: The native triangular grid with an average resolution of $13\,\mathrm{km}$, 
 and a regular latitude-longitude grid with a resolution of $\Delta \lambda = \Delta \Phi=0.25^{\circ}$. On the native grid most output 
 fields are defined on triangle cell centers, except for \texttt{VN}, which is defined on cell edges. On the lat-lon grid, all fields are 
 defined on cell centers. A single 2D GRIB2 field on the native and regular lat-lon grid contains $2949120$ and $1036800$ grid points, respectively.
@@ -111,11 +106,6 @@ Please note that for ICON fields the time unit is minutes rather than hours, and
 
 For details regarding the available fields, please see the tables below. Note that the vertical rules in the leftmost column indicate whether the field is 
 available on the native grid ($\,$\markRed$\,$), on the lat-lon grid($\,$\markBlue$\,$), or on both grids($\,$\markRed\markBlue$\,$). 
-
-For details regarding the algorithm for interpolation onto the lat-lon grid, see Secion~\ref{section:technical_details_of_the_horizontal_interpolation}
-
-\footnotetext[2]{An exception here are the lat-lon output fields \texttt{U\_10M} and \texttt{V\_10M}, which are available hourly throughout the forecast. 
-This is because \texttt{U\_10M} and \texttt{V\_10M} are needed as input by the wave models.}
 
 
 \subsection{Time-constant (external parameter) fields}
@@ -650,42 +640,3 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
                   consistent with the cloud cover variables \texttt{CLC}, \texttt{CLCT}, \texttt{CLCH}, \texttt{CLCM} and \texttt{CLCL}. 
 \end{description}
 
-
-% ------------------------------------------------------------------------------------------
-\subsection{Technical Details of the Horizontal Interpolation}
-\label{section:technical_details_of_the_horizontal_interpolation}
-% ------------------------------------------------------------------------------------------
-
-Most of the output data on regular grids is processed using an RBF-based interpolation method.
-The algorithm  approximates the input field with a linear combination of 
-radial basis functions~(RBF) located at the data sites, see, for example, \cite{Ruppert2007}.
-RBF interpolation typically produces over- and undershoots at position where the input field
-exhibits steep gradients.
-Therefore, the internal interpolation algorithm performs a cut-off by default.
-Note that RBF-based interpolation is \emph{not conservative}.\\
-
-A small number of output fields is treated differently, with a nearest-neighbor interpolation:
-\begin{tabbing}
-  \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \kill
-  RAIN\_CON  \>
-  RAIN\_GSP  \>   
-  SNOW\_CON  \\
-  SNOW\_GSP  \>
-  SOILTYP    \>
-  TOT\_PREC  \\
-  W\_SO\_ICE \>
-  WW
-\end{tabbing}
-The nearest neighbor algorithm selects the value of the nearest point and does
-not consider the values of neighboring points at all, yielding a piecewise-constant interpolant. 
-
-
-
-
-
-%  The following variables are marked as HINTP_TYPE_LONLAT_NNB in the ICON code:
-%  
-%  soiltyp        lc_class_t    w_so_t      w_so_ice_t
-%  w_so_ice       rain_gsp      snow_gsp    rain_con
-%  snow_con       tot_prec      cape        ktype
-%  k850           k950          ww

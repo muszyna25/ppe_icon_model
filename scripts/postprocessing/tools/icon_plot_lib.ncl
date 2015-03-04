@@ -907,7 +907,7 @@ end
 ;---------------------------------------------------------------
 ; Create a default NCL resource
 undef("setDefaultResource")
-function setDefaultResource(verticallabelbar,withLines,withLineLabels,fillmode,maptype,makeYLinear)
+function setDefaultResource(verticallabelbar,withLines,withLineLabels,fillmode,maptype)
 begin
   resource                          = True
   resource@gsnMaximize              = False
@@ -960,14 +960,11 @@ begin
   resource@mpGreatCircleLinesOn = True
   resource@stMinArrowSpacingF   = 0.001
 
-  ; linearize y axis if desired ===============================================
-  resource@gsnYAxisIrregular2Linear = makeYLinear
-
   return resource
 end
 ;---------------------------------------------------------------
 undef("setDefaultSectionResource")
-function setDefaultSectionResource(points,secpoints,seclc,secrc,withLines,withLineLabels,makeYLinear)
+function setDefaultSectionResource(points,secpoints,seclc,secrc,withLines,withLineLabels)
 begin
   resource                              = True;           plot mods desired
   resource@gsnFrame                     = False;                don't turn page yet
@@ -1010,10 +1007,6 @@ begin
 
 ; lines/labels inside the plot ================================================
   setLineAndLineLabels(resource,withLines,withLineLabels)
-
-  ; linearize y axis if desired ===============================================
-  resource@gsnYAxisIrregular2Linear = makeYLinear
-
   return resource
 end
 ;---------------------------------------------------------------
@@ -1038,7 +1031,7 @@ undef("setDefaultColors")
 procedure setDefaultColors(resource,minval,maxval,debug)
 begin
 ; white is color 135
-  if ((minval*maxval) .LT. 0.0) then ; data goes from positiv to negative or vs.
+  if ((minval*maxval) .LT. 0.0) then ; data goes fro positiv to negative or vs.
     if (abs(maxval) .GT. abs(minval)) then
       resource@gsnSpreadColorStart = 135  - toint(126*(abs(minval)/abs(maxval)))
       resource@gsnSpreadColorEnd   = 255
@@ -1331,10 +1324,10 @@ undef("checkMinMaxVar")
 procedure checkMinMaxVar(minvar,maxvar)
 begin
   if ( (.not. ismissing(minvar)) .and. (.not. ismissing(maxvar)) ) then
-    if ( minvar .gt. maxvar ) then
-      print("minVar has to be larger than maxVar")
-      exit
-    end if
+  if ( minvar .gt. maxvar ) then
+    print("minVar has to be larger than maxVar")
+    exit
+  end if
   end if
 end
 ;---------------------------------------------------------------
@@ -1537,7 +1530,6 @@ begin
   dist        = gc_latlon(startLat,startLon,endLat,endLon,npoints,2)
   distRes@lat = dist@gclat
   distRes@lon = dist@gclon
-
   return distRes
 end
 ;---------------------------------------------------------------
@@ -1944,7 +1936,7 @@ begin
 
   ;---All triangles inbetween levels
   do i = 1, dimsizes(levels) - 1
-    vind = ind(var .ge. levels(i-1) .and. var .lt. levels(i))
+    vind := ind(var .ge. levels(i-1) .and. var .lt. levels(i))
     if(.not.all(ismissing(vind))) then
       gscolors(vind) = colors(i)
     end if

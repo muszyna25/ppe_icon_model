@@ -70,7 +70,7 @@ MODULE mo_ocean_nml
   ! ----------------------------------------------------------------------------
   ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
-  INTEGER            :: diagnostics_level      = 1
+  INTEGER            :: diagnostics_level      = 0
 
   ! switch for ocean stream function (not yet activated):
   !                   ! 0: no output
@@ -176,11 +176,6 @@ MODULE mo_ocean_nml
                                                       ! > 10 = latest performnce optimizations
 !   LOGICAL :: use_edges2edges_viacell_fast        = .false.
 
-  INTEGER           :: MASS_MATRIX_INVERSION_TYPE =0  
-  INTEGER,PARAMETER :: NO_INVERSION               =0
-  INTEGER,PARAMETER :: MASS_MATRIX_INVERSION      =1
-  INTEGER,PARAMETER :: BUREAUCRATIC_MASS_MATRIX_INVERSION=2
-
 
   ! physical parameters for  aborting the ocean model
   REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
@@ -203,7 +198,7 @@ MODULE mo_ocean_nml
                                                  ! 3=variable coefficients satisfying Munk criterion
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
   INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
-  INTEGER  :: veloc_diffusion_form  = 1          !form of friction/diffusion operator
+  INTEGER  :: veloc_diffusion_form  = 2          !form of friction/diffusion operator
                                                  !1: Laplace=curlcurl-graddiv
                                                  !2: Laplace=div k  grad
                                                  !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
@@ -213,9 +208,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
   REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity  
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
+  REAL(wp) :: k_tracer_dianeutral   = 1.0E+3_wp  !dianeutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_isoneutral   = 1.0E-4_wp  !isoneutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_GM_kappa     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
@@ -223,8 +218,6 @@ MODULE mo_ocean_nml
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
-                                        !with option HORZ_VELOC_DIFF_TYPE=3. Constanjt has no physical meaning, just trial and error.
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure                                               
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure                                                 
   LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
@@ -266,7 +259,9 @@ MODULE mo_ocean_nml
                                                  !           false=bathy deeper mid of cell
   LOGICAL  :: l_edge_based          = .TRUE.     ! mimetic discretization based on edges (true) or cells (false)
   LOGICAL  :: l_partial_cells       = .FALSE.    ! partial bottom cells=true: local varying bottom depth
-
+  LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
+                                                 !   offset of half timestep between dynamic and thermodynamic variables;
+                                                 !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1=apply sea ice model using sea_ice_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
                                                  ! false = salinity is relaxed under sea ice completely
@@ -328,6 +323,7 @@ MODULE mo_ocean_nml
     &                 l_max_bottom                 , &
     &                 l_partial_cells              , &
     &                 l_skip_tracer                , &
+    &                 l_staggered_timestep         , &
     &                 lviscous                     , &
     &                 n_zlev                       , &
     &                 select_solver                , &
@@ -341,8 +337,7 @@ MODULE mo_ocean_nml
     &                 use_continuity_correction    , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
-    &                 fast_performance_level       , &
-    &                 MASS_MATRIX_INVERSION_TYPE
+    &                 fast_performance_level
 
 
   NAMELIST/ocean_tracer_transport_nml/&
@@ -384,12 +379,11 @@ MODULE mo_ocean_nml
     &  l_smooth_veloc_diffusion    ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
-    &  k_tracer_dianeutral_parameter,   &
-    &  k_tracer_isoneutral_parameter,   &
-    &  k_tracer_GM_kappa_parameter,     &
+    &  k_tracer_dianeutral         ,    &
+    &  k_tracer_isoneutral,             &
+    &  k_tracer_GM_kappa,               &
     &  leith_closure,                   &
-    &  leith_closure_gamma,             &
-    &  biharmonic_const
+    &  leith_closure_gamma
 
 
   !Parameters for GM-Redi configuration
@@ -417,16 +411,17 @@ MODULE mo_ocean_nml
   REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion ! coeffcient for the velocity. See usage in
-                                                 ! mo_ocean_physics.f90, update_ho_params, variable z_av0
+                                                 ! mo_oce_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
   INTEGER, PARAMETER  :: physics_parameters_ICON_PPoptimized_type    = 1
   INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
+  LOGICAL  :: physics_parameters_useWindMixing = .false.
   INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
   REAL(wp) :: lambda_wind           = 0.03_wp    !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
   REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
-  LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
+  LOGICAL  :: use_wind_mixing = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
                                  
   
@@ -464,9 +459,8 @@ MODULE mo_ocean_nml
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
-  LOGICAL  :: forcing_enable_freshwater            = .TRUE.    ! .TRUE.: apply freshwater forcing boundary condition
-  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.   ! .TRUE.: set river runoff to zero for comparion to MPIOM
-  LOGICAL  :: zero_freshwater_flux                 = .FALSE.   ! .TRUE.: zero freshwater fluxes but salt-change possible
+  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: use_new_forcing                      = .FALSE.
   ! _type variables range
   !    0    : not used
@@ -497,23 +491,11 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
                                                               ! for temperature forcing (degrees)
-  INTEGER  :: atmos_flux_analytical_type           = 0        ! type of atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_SWnet_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_LWnet_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_lat_const                      = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_sens_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_SWnetw_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_LWnetw_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_latw_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_sensw_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_precip_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  REAL(wp) :: atmos_evap_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
                                                               
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
-    &                 zero_freshwater_flux                , &
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
@@ -548,17 +530,6 @@ MODULE mo_ocean_nml
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
-    &                 atmos_flux_analytical_type          , &
-    &                 atmos_SWnet_const                   , &
-    &                 atmos_LWnet_const                   , &
-    &                 atmos_lat_const                     , &
-    &                 atmos_sens_const                    , &
-    &                 atmos_SWnetw_const                  , &
-    &                 atmos_LWnetw_const                  , &
-    &                 atmos_latw_const                    , &
-    &                 atmos_sensw_const                   , &
-    &                 atmos_precip_const                  , &
-    &                 atmos_evap_const                    , &
     &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
     &                 use_new_forcing                    
@@ -613,8 +584,7 @@ MODULE mo_ocean_nml
     & InitialState_InputFileName , &
     & smooth_initial_height_weights, &
     & smooth_initial_salinity_weights, &
-    & smooth_initial_temperature_weights, &
-    & initial_temperature_scale_depth
+    & smooth_initial_temperature_weights
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
@@ -921,7 +891,7 @@ MODULE mo_ocean_nml
 !      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
 !        IF(no_tracer == 1) THEN
 !          CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
-!          CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_ocean_state')
+!          CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_oce_state')
 !          CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
 !        ENDIF
 !        CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
@@ -933,10 +903,10 @@ MODULE mo_ocean_nml
 !       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
 !     ENDIF
 
-    !IF (forcing_enable_freshwater) THEN
-    !  !limit_elevation = .TRUE.
-    !  CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
-    !END IF
+     IF (forcing_enable_freshwater) THEN
+       limit_elevation = .TRUE.
+       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
+     END IF
 
      IF (forcing_set_runoff_to_zero) THEN
        CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
@@ -971,10 +941,10 @@ MODULE mo_ocean_nml
      ! 3-char string with marked processes to be printed out for debug purposes
      str_proc_tst =  (/  & 
        &  'all', &  ! initiate print messages in all routines
-       &  'abm', &  ! main timestepping routines       in mo_ocean_ab_timestepping (mimetic/rbf)
-       &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
-       &  'dif', &  ! diffusion                        in mo_ocean_diffusion
-       &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
+       &  'abm', &  ! main timestepping routines       in mo_oce_ab_timestepping (mimetic/rbf)
+       &  'vel', &  ! velocity advection and diffusion in mo_oce_veloc_advection
+       &  'dif', &  ! diffusion                        in mo_oce_diffusion
+       &  'trc', &  ! tracer advection and diffusion   in mo_oce_tracer_transport
        &  '   ', &  ! ...
        &  '   ', &
        &  '   ', &

@@ -31,7 +31,7 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   
-  USE mo_ocean_types
+  USE mo_oce_types
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   
   !-------------------------------------------------------------
@@ -74,13 +74,13 @@ CONTAINS
 #ifdef __NO_ICON_ATMO__
   ! ---------------------------------------------------
   ! Dummy routines for compiling without atmo
-!<Optimize:inUse>
+!<Optimize_Used>
   SUBROUTINE construct_ocean_coupling(patch_3d)
     TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
     RETURN
   END SUBROUTINE construct_ocean_coupling
   
-!<Optimize:inUse>
+!<Optimize_Used>
   SUBROUTINE destruct_ocean_coupling()
     RETURN
   END SUBROUTINE destruct_ocean_coupling
@@ -109,7 +109,7 @@ CONTAINS
   ! common to atmo and ocean. Does this make sense if the setup deviates
   ! too much in future.
   !------------------------------------------------------------------
-!<Optimize:inUse>
+!<Optimize_Used>
   SUBROUTINE construct_ocean_coupling(patch_3d)
     TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
     
@@ -358,7 +358,7 @@ CONTAINS
   
   
   !--------------------------------------------------------------------------
-!<Optimize:inUse>
+!<Optimize_Used>
   SUBROUTINE destruct_ocean_coupling()
 # ifdef YAC_coupling
     IF ( is_coupled_run() ) CALL yac_ffinalize

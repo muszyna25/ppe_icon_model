@@ -818,14 +818,12 @@ CONTAINS
 
     IF ( fptr%coupling%lag > 0 ) THEN
 
-       IF ( debug_coupler_level > 0 ) THEN
-          WRITE ( cplout , * ) 'restart check: ', &
-                               nsteps*dtime,                         &
-                               events(fptr%event_id)%elapsed_time,   &
-                               events(fptr%event_id)%restart_time +  &
-                                        events(fptr%event_id)%lag *  &
-                                        events(fptr%event_id)%time_step
-       ENDIF
+       WRITE ( cplout , * ) 'RENE restart check: ', &
+                            nsteps*dtime,                         &
+                            events(fptr%event_id)%elapsed_time,   &
+                            events(fptr%event_id)%restart_time +  &
+                                     events(fptr%event_id)%lag *  &
+                                     events(fptr%event_id)%time_step
 
        l_restart    = events(fptr%event_id)%elapsed_time == &
                       events(fptr%event_id)%restart_time +  &

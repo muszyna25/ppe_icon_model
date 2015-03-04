@@ -37,10 +37,8 @@ USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
 USE mo_nwp_phy_state,       ONLY: prm_diag
-USE mo_nonhydro_state,      ONLY: p_nh_state
-USE mo_nonhydro_types,      ONLY: t_nh_diag
-USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest
-USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1
+USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
+USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1, dtdz_standardatm
 USE mo_satad,               ONLY: qsat_rho
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
@@ -63,7 +61,6 @@ PUBLIC :: downscale_rad_output_rg  ! for Ritter-Geleyn
 PUBLIC :: interpol_phys_grf
 PUBLIC :: feedback_phys_diag
 PUBLIC :: interpol_rrg_grf
-PUBLIC :: copy_rrg_ubc
 
 CONTAINS
 
@@ -82,7 +79,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif,       &
   rg_albdif, rg_tsfc, rg_rtype, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc,   &
   rg_tot_cld, rg_clc, rg_q_o3, rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5,&
-  z_pres_ifc, z_tot_cld, buffer_rrg                                        )
+  z_pres_ifc, z_tot_cld                                                    )
 
   ! Input grid parameters
   INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
@@ -129,22 +126,19 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     p_tot_cld(:,:,:,:), p_clc(:,:,:), p_q_o3(:,:,:), p_aeq1(:,:,:),      &
     p_aeq2(:,:,:), p_aeq3(:,:,:), p_aeq4(:,:,:),p_aeq5(:,:,:)
 
-  ! Buffer for auxiliary temperature and pressure levels above the vertical nest interface
-  REAL(wp), INTENT(IN) :: buffer_rrg(:,:,:)
 
   ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
   TYPE(t_grid_cells), POINTER     :: p_gcp
   TYPE(t_gridref_state), POINTER  :: p_grf
   TYPE(t_patch),      POINTER     :: p_pp
-  TYPE(t_nh_diag),    POINTER     :: p_diag 
 
   ! Indices
   INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift, nlevp1_rg, nst, nstart, nend
-  REAL(wp) :: exdist_h, exdist_f
+  INTEGER :: nshift, nlevp1_rg, nst
+  REAL(wp) :: scalfac, exdist, rdelta_z
 
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
   REAL(wp), POINTER :: p_fbkwgt(:,:,:)
@@ -161,23 +155,10 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   nlev   = p_patch(jg)%nlev
   nlevp1 = p_patch(jg)%nlevp1
 
-  ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
-  nst = p_patch(jg)%nshift_total
-
   ! nlev_rg carries the number of model levels of the reduced grid,
   ! which may be larger than nlev
   nlevp1_rg = nlev_rg + 1
   nshift = nlev_rg - nlev ! resulting shift parameter
-
-  ! Parameters used in case of latm_above_top = .TRUE.:
-  !
-  ! start and end levels for parent to local parent copying in case of vertical nesting
-  nstart = p_patch(jgp)%nlev - nlev_rg + 1
-  nend   = p_patch(jgp)%nlev - nlev_rg + nshift
-  !
-  ! extrapolation distances for passive layer above model top (m) if there is no vertical nesting
-  exdist_h = 1.5_wp*(vct_a(nst+1)-vct_a(nst+2))
-  exdist_f = vct_a(nst+1)+0.5_wp*exdist_h - 0.5_wp*(vct_a(nst+1)+vct_a(nst+2))
 
   p_grf => p_grf_state_local_parent(jg)
   p_gcp => p_patch_local_parent(jg)%cells
@@ -191,6 +172,19 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   iblk => p_gcp%child_blk
 
   p_fbkwgt => p_grf%fbk_wgt_bln
+
+  ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
+  nst = p_patch(jg)%nshift_total
+  ! inverse height difference between layer 1 and 2
+  rdelta_z = 1._wp/(0.5_wp*(vct_a(nst+1)-vct_a(nst+3))) ! note: vct refers to half levels
+
+  ! scale factor for extrapolation to the barycenter of the passive top layer
+  ! (gives multiplied with T an estimate for the height distance between the model top
+  !  and the mass center of the passive layer)
+  scalfac = LOG(2._wp)*rd/grav
+
+  ! height distance between uppermost full and half levels
+  exdist = 0.5_wp*(vct_a(nst+1)-vct_a(nst+2))
 
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (jgp == 0) THEN
@@ -520,41 +514,25 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
       ENDDO
     ENDDO
 
-    IF (nshift > 0) THEN ! set values for extra layer(s) above the top of the computational model grid
-      !
-      ! assume zero-gradient condition for aerosols, ozone and clouds (the latter are zero anyway in practice)
-      jk1 = nshift + 1
-      DO jk = 1, nshift
-        DO jc = i_startidx, i_endidx
-          p_aeq1(jc,jk,jb) = p_aeq1(jc,jk1,jb)
-          p_aeq2(jc,jk,jb) = p_aeq2(jc,jk1,jb)
-          p_aeq3(jc,jk,jb) = p_aeq3(jc,jk1,jb)
-          p_aeq4(jc,jk,jb) = p_aeq4(jc,jk1,jb)
-          p_aeq5(jc,jk,jb) = p_aeq5(jc,jk1,jb)
-          p_acdnc(jc,jk,jb) = p_acdnc(jc,jk1,jb)
-          p_tot_cld(jc,jk,jb,1:3) = p_tot_cld(jc,jk1,jb,1:3)
-          p_clc (jc,jk,jb) = p_clc(jc,jk1,jb)
-          p_q_o3(jc,jk,jb) = p_q_o3(jc,jk1,jb)
-        ENDDO
+    IF (nshift == 1) THEN ! set values for passive top layer if present
+      DO jc = i_startidx, i_endidx
+        p_pres_ifc(jc,1,jb) = 0._wp ! TOA
+        p_pres(jc,1,jb) = 0.5_wp*p_pres_ifc(jc,2,jb)
+        ! Temperature is linearly extrapolated to the barycenter of the passive layer
+        p_temp(jc,1,jb) = p_temp(jc,2,jb) + (scalfac*p_temp(jc,2,jb)+exdist)* &
+          MIN(4.e-3_wp,MAX(dtdz_standardatm,rdelta_z*(p_temp(jc,2,jb)-p_temp(jc,3,jb))))
+        ! For ozone, aerosols and cloud fields, a no-gradient condition is assumed
+        p_q_o3(jc,1,jb) = p_q_o3(jc,2,jb)
+        p_aeq1(jc,1,jb) = p_aeq1(jc,2,jb)
+        p_aeq2(jc,1,jb) = p_aeq2(jc,2,jb)
+        p_aeq3(jc,1,jb) = p_aeq3(jc,2,jb)
+        p_aeq4(jc,1,jb) = p_aeq4(jc,2,jb)
+        p_aeq5(jc,1,jb) = p_aeq5(jc,2,jb)
+        p_acdnc(jc,1,jb) = p_acdnc(jc,2,jb)
+!CDIR EXPAND=3
+        p_tot_cld(jc,1,jb,1:3) = p_tot_cld(jc,2,jb,1:3)
+        p_clc (jc,1,jb) = p_clc(jc,2,jb)
       ENDDO
-
-      IF (jgp == 0) THEN ! settings for passive extra layer above model top for global grid (nshift=1 in this case)
-        DO jc = i_startidx, i_endidx
-          ! Temperature is extrapolated linearly assuming a vertical temperature gradient of -5.0 K/km
-          p_temp(jc,1,jb) = p_temp(jc,2,jb) - 5.0e-3_wp*exdist_f
-          p_pres_ifc(jc,1,jb) = p_pres_ifc(jc,2,jb)*EXP(-grav*exdist_h/(rd*p_temp(jc,1,jb)))
-          p_pres(jc,1,jb) = SQRT(p_pres_ifc(jc,1,jb)*p_pres_ifc(jc,2,jb))
-        ENDDO
-      ELSE ! get information from buffer field
-        DO jk = 1, nshift
-          DO jc = i_startidx, i_endidx
-            rg_pres_ifc(jc,jk,jb)   = buffer_rrg(jc,jk,jb)
-            rg_pres    (jc,jk,jb)   = buffer_rrg(jc,nshift+jk,jb)
-            rg_temp    (jc,jk,jb)   = buffer_rrg(jc,2*nshift+jk,jb)
-          ENDDO
-        ENDDO
-      ENDIF
-
     ENDIF
 
   ENDDO
@@ -2335,32 +2313,6 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
 !$OMP END PARALLEL
 
 END SUBROUTINE interpol_rrg_grf
-
-!>
-!! This routine copies additional model levels to the local parent grid if vertical nesting
-!! is combined with processor splitting and the option latm_above_top = .TRUE.
-!!
-!! @par Revision History
-!! Developed  by Guenther Zaengl, DWD, 2015-01-26
-!!
-SUBROUTINE copy_rrg_ubc (jg, jgc)
-
-  ! Input grid parameters
-  INTEGER, INTENT(in) :: jg, jgc
-
-  ! Local fields
-
-  INTEGER :: jks, jke, nshift
-
-  jks = MAX(0, p_patch(jgc)%nshift - nexlevs_rrg_vnest) + 1
-  jke = p_patch(jgc)%nshift
-  nshift = MIN(nexlevs_rrg_vnest, p_patch(jgc)%nshift)
-  CALL exchange_data_mult(p_patch_local_parent(jgc)%comm_pat_glb_to_loc_c, 3, 3*nshift,                          &
-       RECV1=prm_diag(jgc)%buffer_rrg(:,         1:  nshift,:), SEND1=p_nh_state(jg)%diag%pres_ifc(:,jks:jke,:), &
-       RECV2=prm_diag(jgc)%buffer_rrg(:,  nshift+1:2*nshift,:), SEND2=p_nh_state(jg)%diag%pres(:,jks:jke,:),     &
-       RECV3=prm_diag(jgc)%buffer_rrg(:,2*nshift+1:3*nshift,:), SEND3=p_nh_state(jg)%diag%temp(:,jks:jke,:)      )
-
-END SUBROUTINE copy_rrg_ubc
 
 
 

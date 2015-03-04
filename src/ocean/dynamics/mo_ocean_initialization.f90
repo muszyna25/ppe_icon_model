@@ -65,7 +65,7 @@ MODULE mo_ocean_initialization
   USE mo_cdi_constants
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
-  USE mo_ocean_types, ONLY: t_hydro_ocean_state, &
+  USE mo_oce_types, ONLY: t_hydro_ocean_state, &
     & t_hydro_ocean_base, &
     & t_hydro_ocean_prog, &
     & t_hydro_ocean_diag, &
@@ -77,12 +77,12 @@ MODULE mo_ocean_initialization
     & t_ocean_region_volumes, &
     & t_ocean_region_areas, &
     & t_ocean_basins
-  USE mo_ocean_state, ONLY:  ocean_restart_list, &
+  USE mo_oce_state, ONLY:  ocean_restart_list, &
     & ocean_default_list, &
     & v_base, &
     & oce_config
   
-  USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
+  USE mo_oce_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
   
   IMPLICIT NONE
   PRIVATE
@@ -1434,12 +1434,10 @@ CONTAINS
     patch_3d%p_patch_1d(1)%zlev_m             = v_base%zlev_m
     patch_3d%p_patch_1d(1)%del_zlev_i         = v_base%del_zlev_i
     patch_3d%p_patch_1d(1)%del_zlev_m         = v_base%del_zlev_m
-    patch_3d%p_patch_1d(1)%inv_del_zlev_m(:)  = 0.0_wp
     DO jk = 1,n_zlev
-      IF (v_base%del_zlev_m(jk) > 0.0_wp) &
-        & patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk) = 1.0_wp / v_base%del_zlev_m(jk)
+      patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk) = 1.0_wp / v_base%del_zlev_m(jk)
     ENDDO
-
+    
     patch_3d%p_patch_1d(1)%n_zlev            = v_base%n_zlev
     patch_3d%p_patch_1d(1)%n_zlvp            = v_base%n_zlvp
     patch_3d%p_patch_1d(1)%n_zlvm            = v_base%n_zlvm
@@ -1466,8 +1464,6 @@ CONTAINS
       WHERE (dolic_c(:,:) < min_dolic) dolic_c(:,:) = 0
       WHERE (dolic_e(:,:) < min_dolic) dolic_e(:,:) = 0
     ENDIF
-    patch_3d%p_patch_1d(1)%inv_prism_thick_c(:,:,:)       = 0.0_wp
-    patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(:,:,:) = 0.0_wp
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -1481,10 +1477,8 @@ CONTAINS
           patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,jk,jb)      = patch_3d%p_patch_1d(1)%zlev_m(jk)
           patch_3d%p_patch_1d(1)%depth_CellInterface(jc,jk,jb)   = patch_3d%p_patch_1d(1)%zlev_i(jk)
           
-          IF (v_base%del_zlev_m(jk) > 0.0_wp) &
-            & patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-          IF (v_base%del_zlev_i(jk) > 0.0_wp)  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+          patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+          patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
         END DO
         patch_3d%p_patch_1d(1)%depth_CellInterface(jc,dolic_c(jc,jb)+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(dolic_c(jc,jb)+1)
         
@@ -1536,9 +1530,7 @@ CONTAINS
         ENDIF ! MIN_DOLIC
       END DO
     END DO
-   
-    patch_3d%p_patch_1d(1)%inv_prism_thick_e(:,:,:)       = 0.0_wp
-    patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(:,:,:) = 0.0_wp 
+    
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
@@ -1547,14 +1539,15 @@ CONTAINS
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
           
-          IF (v_base%del_zlev_m(jk) > 0.0_wp) & 
-            patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-          IF (v_base%del_zlev_i(jk) > 0.0_wp) & 
-            patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+          patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+          patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
         END DO
         DO jk = dolic_e(je,jb) + 1, n_zlev
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
           patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
+
+          patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
+          patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
         ENDDO
 
         ! bottom/columns values
@@ -1741,7 +1734,7 @@ CONTAINS
   
   
   !------------------------------------------------------------------------------------
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE set_subset_ocean_vertical_layers(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1903,7 +1896,7 @@ CONTAINS
     oce_config%tracer_units(2)     = 'psu'
     oce_config%tracer_codes(2)     = 201
     oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
-  END SUBROUTINE
+  END SUBROUTINE init_oce_config
 !<Optimize:inUse>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep

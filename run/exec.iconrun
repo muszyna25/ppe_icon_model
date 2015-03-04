@@ -291,15 +291,6 @@ else
   [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
 fi
 
-#-----------------------------------------------------------------------------
-# automatic call/submission of post processing if available
-if [ "x${autoPostProcessing}" = "xtrue" ]; then
-  # check if there is a postprocessing is available
-  cd ${RUNSCRIPTDIR}
-  targetPostProcessingScript="./post.${EXPNAME}.run"
-  [[ -x $targetPostProcessingScript ]] && ${submit} ${targetPostProcessingScript}
-  cd -
-fi
 
 #-----------------------------------------------------------------------------
 # check if we test the restart mechanism

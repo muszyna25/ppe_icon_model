@@ -33,7 +33,7 @@
 !   INTEGER  :: z_dolic
 !   TYPE(t_subset_range), POINTER :: all_cells
 !   ! CHARACTER(len=max_char_length), PARAMETER :: &
-!   !        & routine = ('mo_ocean_diffusion:tracer_diffusion_impl')
+!   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
 !   !-----------------------------------------------------------------------
 !   slev    = 1
 !   !A_v    = 0.0001_wp

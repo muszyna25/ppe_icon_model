@@ -42,18 +42,13 @@ if not os.path.isfile(inputfile):
 
 # }}} ===================================================================================
 # OPTION HANDLING {{{ ===================================================================
-options = {'VAR'     : 'u_vint_acc',
-           'REMAP'   : True,
-           'PLOT'    : 'psi.png',
-           'CMAP'    : 'BrBG',
-           'LEVELS'  : [-250,-150,-100,-75,-50,-40,-30,-20,-15,-10,-5,0,5,10,15,20,30,40,50,75,100,150,250],
-           'AREA'    : 'global',
-           'SHOWMAP' : True,
-           'TITLE'   : '',
-           'DEBUG'   : False,
-           'BOX'     : '',
-           'WRITEPSI': False,
-           'ASPECT'  : 'auto'}
+options = {'VAR': 'u_vint_acc',
+           'REMAP': True,
+           'PLOT': 'psi.png',
+           'CMAP': 'jet',
+           'LEVELS': [-500,-200,-150,-100,-75,-50,-30,-20,-10,-5,0,5,10,20,30,50,75,100,150,200,500],
+           'AREA': 'global',
+           'ASPECT': 'auto'}
 
 optsGiven = sys.argv[2:]
 for optVal in optsGiven:
@@ -64,7 +59,7 @@ for optVal in optsGiven:
             value = int(value[0])
         else:
             value = map(lambda x: float(x), value)
-    if key in ['REMAP','DEBUG']:
+    if 'REMAP' == key:
         if value in ['false','False','FALSE','0']:
             value = False
 
@@ -76,7 +71,6 @@ plotfile   = options['PLOT']
 colormap   = options['CMAP']
 levels     = options['LEVELS']
 area       = options['AREA']
-showMap    = options['SHOWMAP']
 aspect     = options['ASPECT']
 # }}} ===================================================================================
 # DATA PREPARATION {{{ ==================================================================
@@ -99,12 +93,10 @@ if 'global' != area and True == remapInput:
     x_min,x_max = math.floor(x_min), math.ceil(x_max)
     y_min,y_max = math.floor(y_min), math.ceil(y_max)
 
-# remapnn  to regular 1deg grid - violated divergence-free velocity at ocean boundaries are visible
-# remapcon to regular 1deg grid - smoothing on boundary problems
+# remapcon to regular 1deg grid
 # replace missing value with zero for later summation
 if remapInput:
     ifile = cdo.setmisstoc(0.0,input = '-remapcon,r360x180 '+inputfile,options='-P 8')
-#   ifile = cdo.setmisstoc(0.0,input = '-remapnn,r360x180 '+inputfile,options='-P 8')
     if 'global' != area:
         ifile = cdo.sellonlatbox(x_min,x_max,y_min,y_max,input = ifile)
 else:
@@ -119,7 +111,7 @@ a         = map(lambda x: file_h.variables[x][:], varDims)
 #times, depth, lats, lons = a[0], a[1], a[2], a[3] # MPIOM psi input
 times, lats, lons = a[0], a[1], a[2]
 
-if options['DEBUG']:
+if 'DEBUG' in os.environ:
     print("# DEBUG ===================================================================")
     print(inputfile)
     print(varName)
@@ -156,52 +148,19 @@ dist = (pi/lats.size)*erad
 psi  = -psi * dist * 1.0e-6
 #psi  = psi * 1.0e-6 / 1025.0 # MPIOM psi input
 # }}} ===================================================================================
-# WRITE PSI {{{ ==========================================================================
-if options['WRITEPSI']:
-  # create a copy of the input data and rename the variable
-  psiFileName = cdo.chname('%s,psi'%(varName),input = ifile, output = os.path.dirname(inputfile)+'/psi_remapped.nc',force=True,options='-r')
-
-  try:
-    from netCDF4 import Dataset
-  except:
-    print("Could not load netCDF4 module!")
-
-  psiFile                  = Dataset(psiFileName,'r+')
-  psiFileVar               = psiFile.variables['psi']
-  psiFileVar.standard_name = "barotropic stream function"
-  psiFileVar.long_name     = "psi"
-  psiFileVar.units         = "Sv"
-  psiFileVar[1,:,:]        = psi[:,:]
-  psiFile.history          = psiFile.history + ' changed by calc_psi.py'
-  psiFile.close()
-# }}} ===================================================================================
 # PLOTTING {{{ ==========================================================================
 #fig = plt.figure(figsize=(10,5))
 fig = plt.figure()
 
-
-# limit area if BOX is given
-if '' != options['BOX']:
-  lonMin,lonMax,latMin,latMax = options['BOX'].split(',')
-  latMin = math.floor(float(latMin)) 
-  lonMin = math.floor(float(lonMin))
-  latMax = math.ceil( float(latMax))
-  lonMax = math.ceil( float(lonMax))
-else:
-  latMin = math.floor(lats.min()) 
-  lonMin = math.floor(lons.min())
-  latMax = math.ceil(lats.max())
-  lonMax = math.ceil(lons.max())
-
 matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
 lon2d, lat2d = np.meshgrid(lons, lats)
 mapproj = bm.Basemap(projection='cyl', 
-                     llcrnrlat=latMin, 
-                     llcrnrlon=lonMin,
-                     urcrnrlat=latMax,
-                     urcrnrlon=lonMax)
+                     llcrnrlat=math.floor(lats.min()), 
+                     llcrnrlon=math.floor(lons.min()),
+                     urcrnrlat=math.ceil(lats.max()),
+                     urcrnrlon=math.ceil(lons.max()))
 
-if 'global' == area or True == showMap:
+if 'global' == area:
     mapproj.drawcoastlines(linewidth=.2)
     mapproj.fillcontinents(color='grey',lake_color='k')
 
@@ -238,11 +197,7 @@ else:
 cbar = plt.colorbar(CS,orientation=orientation)
 cbar.set_label("Sv")
 
-if ('' == options['TITLE']):
-  title = "Bar. Streamfunction for\n"+inputfile
-else:
-  title = options['TITLE']
-plt.suptitle(title,fontsize=9)
+plt.suptitle("Bar. Streamfunction for\n"+inputfile,fontsize=9)
 plt.title("psi",fontsize=8,loc='left')
 
 fig.savefig(plotfile)

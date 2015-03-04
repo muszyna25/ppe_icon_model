@@ -2,7 +2,7 @@
 
 ================================================================================
 Info on renaming variables
-  - for forcing ocean surface in src/ocean/boundary/mo_ocean_bulk.f90
+  - for forcing ocean surface in src/ocean/boundary/mo_oce_bulk.f90
   - subroutine update_surface flux (and others)
   - most are components of type t_sfc_flx
   - also changes in namelist, runscripts, related fortran files

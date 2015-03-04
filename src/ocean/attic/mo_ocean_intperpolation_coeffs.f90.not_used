@@ -745,7 +745,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_ocean_state:init_geo_factors_oce')
+      & routine = ('mo_oce_state:init_geo_factors_oce')
     
     !-----------------------------------------------------------------------
     all_cells => ptr_patch%cells%ALL

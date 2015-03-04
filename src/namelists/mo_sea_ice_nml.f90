@@ -50,11 +50,8 @@ MODULE mo_sea_ice_nml
                                         ! 0: No dynamics
                                         ! 1: FEM dynamics (from AWI)
   INTEGER,PUBLIC :: i_Qio_type          !< Methods to calculate ice-ocean heatflux
-                                        ! 1: Proportional to temperature difference below ice-covered part only
+                                        ! 1: Proportional to ocean cell thickness (like MPI-OM)
                                         ! 2: Proportional to speed difference btwn. ice and ocean
-                                        ! 3: Proportional to temperature difference of whole grid-cell (like MPI-OM)
-
-  INTEGER ,PUBLIC :: i_therm_slo = 0    ! cleanup switch for thermodynamic model - 0: corrected model, old style; 1: cleaned model
 
   REAL(wp),PUBLIC :: hnull              !< Hibler's h_0 for new ice formation
   REAL(wp),PUBLIC :: hmin               !< Minimum ice thickness allowed in the model
@@ -65,34 +62,19 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
 
   ! some analytic initialization parameters
-  REAL(wp),PUBLIC :: init_analytic_conc_param = 0.9_wp
-  REAL(wp),PUBLIC :: init_analytic_hi_param   = 2.0_wp
-  REAL(wp),PUBLIC :: init_analytic_hs_param   = 0.2_wp
-  REAL(wp),PUBLIC :: t_heat_base              = -5.0_wp  !  arbitrary temperature used as basis for
-                                                         !  heat content in energy calculations
-  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
-  LOGICAL, PUBLIC :: use_constant_tfreez = .TRUE.   !  constant freezing temperature for ocean water (=Tf)
+  REAL(wp),PUBLIC :: init_analytic_conc_param
+  INTEGER ,PUBLIC :: init_analytic_conc_type
+  REAL(wp),PUBLIC :: init_analytic_hi_param
+  INTEGER ,PUBLIC :: init_analytic_hi_type
+  REAL(wp),PUBLIC :: init_analytic_hs_param
+  INTEGER ,PUBLIC :: init_analytic_hs_type
+
+  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .false.
 
   INTEGER         :: iunit
 
-  NAMELIST /sea_ice_nml/ &
-    &  kice, &
-    &  i_ice_therm, &
-    &  i_ice_albedo, &
-    &  i_ice_dyn, &
-    &  hnull, & 
-    &  hmin, &
-    &  ramp_wind, &
-    &  i_Qio_type, &
-    &  i_therm_slo, &
-    &  hci_layer, &
-    &  leadclose_1, &
-    &  t_heat_base, &
-    &  use_IceInitialization_fromTemperature, &
-    &  use_constant_tfreez, &
-    &  init_analytic_conc_param , &
-    &  init_analytic_hi_param, &
-    &  init_analytic_hs_param
+  NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
+    &           i_Qio_type, hci_layer, leadclose_1, use_IceInitialization_fromTemperature
 
 CONTAINS
   !>
@@ -112,7 +94,7 @@ CONTAINS
     i_ice_therm = 1
     i_ice_albedo= 1
     i_ice_dyn   = 0
-    i_Qio_type  = 3
+    i_Qio_type  = 1
 
     hnull       = 0.5_wp
     hmin        = 0.05_wp
@@ -176,13 +158,13 @@ CONTAINS
     ENDIF
 
 
-    IF (i_Qio_type < 1 .OR. i_Qio_type > 3) THEN
-      CALL finish(TRIM(routine), 'i_Qio_type must be either 1,2 or 3.')
+    IF (i_Qio_type < 1 .OR. i_Qio_type > 2) THEN
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
     END IF
 
-    IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN
-      CALL message(TRIM(routine), 'i_Qio_type set to 3 because i_ice_dyn is 0')
-      i_Qio_type = 3
+    IF (i_ice_dyn == 0 .AND. i_Qio_type /= 1) THEN
+      CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
+      i_Qio_type = 1
     ENDIF
 
     IF (hmin > hnull) THEN
