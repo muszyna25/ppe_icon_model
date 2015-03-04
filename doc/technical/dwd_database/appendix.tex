@@ -107,50 +107,111 @@ following formula:
 
 \begin{table}[p]
   \caption{Height above ground~$z_i^h(x)$ (half levels) for the grid point with maximum topography height
-           in the operational setup R03B07 (13\,km spatial resolution).}
-
+    in the operational setup R03B07, 13\,km spatial resolution.}
+  
   \vspace*{4em}
+  \begin{tikzpicture}
+    \node[draw,rectangle] (0,0) {
+      \begin{minipage}{0.96\textwidth}
+        \vspace*{4em}%
+        \begin{tabbing}     
+          \hspace*{3em}%
+          \begin{minipage}[b]{0.55\textwidth}\vspace*{0em}%
+            \underline{\textbf{Example: Height above ground \texttt{HHL} - \texttt{HSURF}}}\\[1em]
+            Location with max.\ surface height\\    
+            \begin{tabbing}
+              \texttt{CLON}/\texttt{CLAT}   \== 88.180 / 27.938          \\[0.5em]
+              \texttt{HSURF}                \>=   6425.974 m
+            \end{tabbing}
+          \end{minipage}
+          \=\hspace*{3em}%
+          \begin{minipage}[c]{0.25\textwidth}\vspace*{-8em}%
+            \includegraphics[width=\textwidth]{plot_maxhsurf.pdf}
+          \end{minipage}
+        \end{tabbing}
 
-  \begin{tabbing}
-  \begin{minipage}[b]{0.4\textwidth}\vspace*{0em}%
-    \underline{\textbf{Example:}}\\[1em]
-    Location with max.\ surface height:\\    
-    LON/LAT = 88.180 / 27.938          \\[0.5em]
-
-    \texttt{HSURF} =   6425.974 m
-  \end{minipage}
-  \=\hspace*{3em}%
-  \begin{minipage}[c]{0.25\textwidth}\vspace*{-4em}%
-    \includegraphics[width=\textwidth]{plot_maxhsurf.pdf}
-  \end{minipage}
-\end{tabbing}
-
-
-  \label{tab:half_level_heights}%
-  \addtocounter{table}{-1} % we need this because we have a nested table-longtable environment
-
-   \definecolor{bggreen}{cmyk}{0.38, 0.00, 0.25, 0.16 }
-   \renewcommand{\baselinestretch}{1.00}\normalsize%
-   \pgfkeys{/pgf/number format/set thousands separator={\,}}
-   \pgfplotstableread{vertical_half_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
-   \pgfplotstabletypeset[ 
-          begin table=\begin{longtable}, 
+        \label{tab:half_level_heights}%
+        \addtocounter{table}{-1} % we need this because we have a nested table-longtable environment
+        \definecolor{bggreen}{cmyk}{0.38, 0.00, 0.25, 0.16 }
+        \renewcommand{\baselinestretch}{1.00}\normalsize%
+        \pgfkeys{/pgf/number format/set thousands separator={\,}}
+        \pgfplotstableread{vertical_half_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
+        \pgfplotstabletypeset[ 
+        begin table=\begin{longtable}, 
           end table=\end{longtable},
-          columns={k,z,k,z,k,z,k,z},
-          every  head row/.style={after row={\hline}},
-          precision=2,
-          font=\normalsize,
-          columns/k/.style={column name=level index, column type=c, 
-                            column type/.add={>{\columncolor{bggreen!15}}}{}},
-          columns/z/.style={column name=height $[m]$, fixed,dec sep align, zerofill,precision=3},
-          display columns/0/.style={select equal part entry of={0}{4},string type},
-          display columns/1/.style={select equal part entry of={0}{4}},
-          display columns/2/.style={select equal part entry of={1}{4},string type},
-          display columns/3/.style={select equal part entry of={1}{4}},
-          display columns/4/.style={select equal part entry of={2}{4},string type},
-          display columns/5/.style={select equal part entry of={2}{4}},
-          display columns/6/.style={select equal part entry of={3}{4},string type},
-          display columns/7/.style={select equal part entry of={3}{4}},
-                        ] {\loadedtable}
+        columns={k,z,k,z,k,z,k,z},
+        every  head row/.style={after row={\hline}},
+        precision=2,
+        font=\normalsize,
+        columns/k/.style={column name=level idx., column type=c, 
+          column type/.add={>{\columncolor{bggreen!15}}}{}},
+        columns/z/.style={column name=height $[m]$, fixed,dec sep align, zerofill,precision=3},
+        display columns/0/.style={select equal part entry of={0}{4},string type},
+        display columns/1/.style={select equal part entry of={0}{4}},
+        display columns/2/.style={select equal part entry of={1}{4},string type},
+        display columns/3/.style={select equal part entry of={1}{4}},
+        display columns/4/.style={select equal part entry of={2}{4},string type},
+        display columns/5/.style={select equal part entry of={2}{4}},
+        display columns/6/.style={select equal part entry of={3}{4},string type},
+        display columns/7/.style={select equal part entry of={3}{4}},
+        ] {\loadedtable}
+      \end{minipage}
+    };
+  \end{tikzpicture}
+\end{table}
 
+
+\begin{table}[p]
+  \caption{Height above ground~$z_i^f(x)$ (full levels) for the grid point with maximum topography height
+    in the operational setup R03B07, 13\,km spatial resolution.}
+  
+  \vspace*{4em}
+  \begin{tikzpicture}
+    \node[draw,rectangle] (0,0) {
+      \begin{minipage}{0.96\textwidth}
+        \vspace*{4em}%
+        \begin{tabbing}     
+          \hspace*{3em}%
+          \begin{minipage}[b]{0.55\textwidth}\vspace*{0em}%
+            \underline{\textbf{Example: Height above ground, full levels}}\\[1em]
+            Location with max.\ surface height\\    
+            \begin{tabbing}
+              \texttt{CLON}/\texttt{CLAT}   \== 88.180 / 27.938          \\[0.5em]
+              \texttt{HSURF}                \>=   6425.974 m
+            \end{tabbing}
+          \end{minipage}
+          \=\hspace*{3em}%
+          \begin{minipage}[c]{0.25\textwidth}\vspace*{-8em}%
+            \includegraphics[width=\textwidth]{plot_maxhsurf.pdf}
+          \end{minipage}
+        \end{tabbing}
+
+        \label{tab:half_level_heights}%
+        \addtocounter{table}{-1} % we need this because we have a nested table-longtable environment
+        \definecolor{bgblue}{cmyk}{ 0.53, 0.20, 0.00, 0.27}
+        \renewcommand{\baselinestretch}{1.00}\normalsize%
+        \pgfkeys{/pgf/number format/set thousands separator={\,}}
+        \pgfplotstableread{vertical_full_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
+        \pgfplotstabletypeset[ 
+        begin table=\begin{longtable}, 
+          end table=\end{longtable},
+        columns={k,z,k,z,k,z,k,z},
+        every  head row/.style={after row={\hline}},
+        precision=2,
+        font=\normalsize,
+        columns/k/.style={column name=level idx., column type=c, 
+          column type/.add={>{\columncolor{bgblue!15}}}{}},
+        columns/z/.style={column name=height $[m]$, fixed,dec sep align, zerofill,precision=3},
+        display columns/0/.style={select equal part entry of={0}{4},string type},
+        display columns/1/.style={select equal part entry of={0}{4}},
+        display columns/2/.style={select equal part entry of={1}{4},string type},
+        display columns/3/.style={select equal part entry of={1}{4}},
+        display columns/4/.style={select equal part entry of={2}{4},string type},
+        display columns/5/.style={select equal part entry of={2}{4}},
+        display columns/6/.style={select equal part entry of={3}{4},string type},
+        display columns/7/.style={select equal part entry of={3}{4}},
+        ] {\loadedtable}
+      \end{minipage}
+    };
+  \end{tikzpicture}
 \end{table}

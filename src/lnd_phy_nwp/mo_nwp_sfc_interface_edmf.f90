@@ -278,6 +278,7 @@ CONTAINS
     REAL(wp) :: rho_snow_new_t (nproma, ntiles_total)
 
     REAL(wp) :: h_snow_t   (nproma, ntiles_total)
+    REAL(wp) :: meltrate   (nproma)
 
     REAL(wp) :: w_i_now_t  (nproma, ntiles_total)
     REAL(wp) :: w_i_new_t  (nproma, ntiles_total)
@@ -623,6 +624,7 @@ IF ( .true. ) THEN
         &  rho_snow_mult_new = rho_snow_mult_new_t(:,:,isubs), & ! snow density                      (kg/m**3)
 !
         &  h_snow        = h_snow_t(:,isubs)                 , & ! snow height
+        &  meltrate      = meltrate(:)                       , & ! snow melting rate
 !
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)
         &  w_i_new       = w_i_new_t(:,isubs)                , & ! water content of interception water (m H2O)
@@ -733,6 +735,7 @@ if (.true.) then
           &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
           &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
           &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
+          &  meltrate  = meltrate          (:),       & ! snow melting rate
           &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
           &  tai       = tai_t             (:,isubs), & ! effective leaf area index
           &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction

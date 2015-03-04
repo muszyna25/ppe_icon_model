@@ -1613,7 +1613,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
-    & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g, t_2m)
+    & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g, meltrate)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
@@ -1621,7 +1621,7 @@ CONTAINS
     INTEGER, INTENT (IN) :: i_lc_urban   ! land-cover class index for urban / artificial surface
     REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
       freshsnow, sso_sigma, tai
-    REAL(wp), DIMENSION(:), INTENT(IN), OPTIONAL :: t_2m
+    REAL(wp), DIMENSION(:), INTENT(IN), OPTIONAL :: meltrate ! snow melting rate in kg/(m**2*s)
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
 
@@ -1711,18 +1711,11 @@ CONTAINS
     CASE (20, 30, 40)
       ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
       ! cold bias in such situations
-      IF (PRESENT(t_2m)) THEN
+      IF (PRESENT(meltrate)) THEN
         DO ic = istart, iend
-          IF (t_2m(ic) > tmelt .AND. tai_mod(ic) > 0.1_wp) THEN
-            snowfrac(ic) = MIN(snowfrac(ic),MAX(0.25_wp,1._wp-0.2_wp*SQRT(tai_mod(ic))*(t_2m(ic)-tmelt)))
-          ENDIF
+          snowfrac(ic) = MIN(snowfrac(ic),MAX(0.125_wp,1._wp-9000._wp*tai_mod(ic)*meltrate(ic)))
         ENDDO
       ENDIF
-      DO ic = istart, iend
-        IF (t_soiltop(ic) > tmelt .AND. t_snow(ic) >= tmelt - dbl_eps .AND. tai_mod(ic) > 0.1_wp) THEN
-          snowfrac(ic) = MIN(snowfrac(ic),MAX(0.25_wp,1._wp-0.2_wp*SQRT(tai_mod(ic))*(t_soiltop(ic)-tmelt)))
-        ENDIF
-      ENDDO
     END SELECT
 
   END SUBROUTINE diag_snowfrac_tg

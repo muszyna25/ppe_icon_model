@@ -1606,7 +1606,7 @@ CONTAINS
     IF (PRESENT(ref_var_dim_start) .NEQV. PRESENT(ref_var_dim_end)) &
       CALL finish(method_name, "invalid arguments")
 
-    CALL nf(nf_inq_varid(file_id, variable_name, varid), method_name)
+    CALL nf(nf_inq_varid(file_id, variable_name, varid), method_name // "("//trim(variable_name)//")")
     CALL nf(nf_inq_varndims(file_id, varid, var_ndims), method_name)
     CALL nf(nf_inq_vardimid(file_id, varid, var_dimids), method_name)
     DO i = 1, var_ndims

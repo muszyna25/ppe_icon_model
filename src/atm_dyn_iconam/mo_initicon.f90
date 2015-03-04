@@ -363,7 +363,7 @@ MODULE mo_initicon
 
       ! read DWD first guess for atmosphere and store to initicon input state variables
       ! (input data are allowed to have a different number of model levels than the current model grid)
-      CALL read_dwdfg_atm_ii (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+      CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
       ! Perform vertical interpolation from input ICON grid to output ICON grid
       !
@@ -615,7 +615,7 @@ MODULE mo_initicon
 
     ! read horizontally interpolated external (currently IFS) analysis for surface/land
     ! 
-    CALL read_extana_sfc(p_patch, initicon, ext_data)
+    CALL read_extana_sfc(p_patch, initicon)
 
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
