@@ -37,7 +37,7 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_ana, lread_vn,      &
-    &                               lp2cintp_incr, lp2cintp_sfcana
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
@@ -57,7 +57,7 @@ MODULE mo_initicon_io
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
-    &                               ntiles_water, lmulti_snow
+    &                               ntiles_water, lmulti_snow, tiles
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -95,8 +95,16 @@ MODULE mo_initicon_io
   DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
 
 
-  PUBLIC :: open_init_files, close_init_files, read_data_2d, read_data_3d, read_extana_atm, read_extana_sfc, &
-            read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii
+  PUBLIC :: open_init_files
+  PUBLIC :: close_init_files
+  PUBLIC :: read_data_2d, read_data_3d
+  PUBLIC :: read_extana_atm
+  PUBLIC :: read_extana_sfc
+  PUBLIC :: read_dwdfg_atm
+  PUBLIC :: read_dwdfg_sfc
+  PUBLIC :: read_dwdana_atm
+  PUBLIC :: read_dwdana_sfc
+  PUBLIC :: read_dwdfg_atm_ii
 
 
 
@@ -1485,6 +1493,11 @@ MODULE mo_initicon_io
       ! tile based fields
       DO jt=1, ntiles_total + ntiles_water
 
+        IF (ltile_coldstart) THEN
+          tileinfo%idx = tiles(jt)%GRIB2_tile%itn
+          tileinfo%att = tiles(jt)%GRIB2_att%attribute
+        ENDIF
+
         my_ptr2d => lnd_prog%t_g_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 't_g', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
 
@@ -1516,6 +1529,11 @@ MODULE mo_initicon_io
 
       !  tile based fields
       DO jt=1, ntiles_total
+
+        IF (ltile_coldstart) THEN
+          tileinfo%idx = tiles(jt)%GRIB2_tile%itn
+          tileinfo%att = tiles(jt)%GRIB2_att%attribute
+        ENDIF
 
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )

@@ -2843,7 +2843,6 @@ CONTAINS
     ENDIF
     CALL p_bcast(tiles(:)%GRIB2_tile%itn                    , bcast_root, p_comm_work_2_io)
     CALL p_bcast(tiles(:)%GRIB2_tile%nat                    , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_att%iat                     , bcast_root, p_comm_work_2_io)
     CALL p_bcast(tiles(:)%GRIB2_att%attribute               , bcast_root, p_comm_work_2_io)
 
 

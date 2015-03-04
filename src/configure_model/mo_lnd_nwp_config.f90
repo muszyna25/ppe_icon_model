@@ -119,7 +119,6 @@ MODULE mo_lnd_nwp_config
    END TYPE t_GRIB2_tile
 
    TYPE t_GRIB2_att
-     INTEGER     :: iat        ! tile attribute identification number (1,...,nat)
      INTEGER     :: attribute  ! tile attribute
    END TYPE t_GRIB2_att
 
@@ -339,35 +338,30 @@ CONTAINS
   
         tiles(i)%GRIB2_tile%itn      = i
         tiles(i)%GRIB2_tile%nat      = nat_lnd
-        tiles(i)%GRIB2_att%iat       = 1
         tiles(i)%GRIB2_att%attribute = MERGE(UNMOD, UNDEF, nat_lnd>1)
   
       ELSE IF ( (i>ntiles_lnd) .AND. (i<= ntiles_total) ) THEN ! corresponding snow tiles (if present)
   
         tiles(i)%GRIB2_tile%itn      = i - ntiles_lnd
         tiles(i)%GRIB2_tile%nat      = nat_lnd
-        tiles(i)%GRIB2_att%iat       = 2
         tiles(i)%GRIB2_att%attribute = SNOW
   
       ELSE IF ( i == isub_water ) THEN ! ocean tiles (unfrozen)
   
         tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 1
         tiles(i)%GRIB2_tile%nat      = nat_oce
-        tiles(i)%GRIB2_att%iat       = 1
         tiles(i)%GRIB2_att%attribute = UNMOD
   
       ELSE IF ( i == isub_lake ) THEN  ! lake tile
   
         tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 2
         tiles(i)%GRIB2_tile%nat      = 1
-        tiles(i)%GRIB2_att%iat       = 1
         tiles(i)%GRIB2_att%attribute = UNDEF
   
       ELSE IF ( i == isub_seaice ) THEN ! sea-ice tile
   
         tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 1
         tiles(i)%GRIB2_tile%nat      = nat_oce
-        tiles(i)%GRIB2_att%iat       = 2
         tiles(i)%GRIB2_att%attribute = SEAICE
 
       ELSE

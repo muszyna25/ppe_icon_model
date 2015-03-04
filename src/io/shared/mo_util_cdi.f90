@@ -208,13 +208,15 @@ CONTAINS
             subtypeID = vlistInqVarSubtype(vlistID,i-1)
             subtypeSize(i) = subtypeInqSize(subtypeID)
             !
-            ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), STAT=ierrstat)
+            ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), &
+              &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
             ! Remember to adapt name after GRIB2 template update!
             IF (vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute") <= 0) THEN
               ! not a tile variable
-              me%variableTileinfo(i)%tile(:) = trivial_tileinfo
+              me%variableTileinfo(i)%tile(:)       = trivial_tileinfo
+              me%variableTileinfo(i)%tile_index(:) = -99
             ELSE
               DO ientry=1, subtypeSize(i)
                 CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
@@ -264,14 +266,15 @@ CONTAINS
       cnt = 0
       DO i=1, variableCount
         IF (subtypeSize(i) > 0) THEN
-          ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), STAT=ierrstat)
+          ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), &
+            &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
           me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx        = &
             &      tileIdx_container(cnt+1:cnt+subtypeSize(i))
           me%variableTileinfo(i)%tile(1:subtypeSize(i))%att        = &
             &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
           me%variableTileinfo(i)%tile_index(1:subtypeSize(i))      = &
-            &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
+            &      tileTid_container(cnt+1:cnt+subtypeSize(i))
           cnt = cnt + subtypeSize(i)
         ENDIF
       ENDDO
@@ -315,11 +318,12 @@ CONTAINS
           & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx)            .AND.  &
           & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)) THEN
           varID      = i-1
-          tile_index = me%variableTileinfo(i)%tile_index(i)
+          tile_index = me%variableTileinfo(i)%tile_index(j)
           EXIT
         END IF
       END DO
     END DO
+
 
     ! insanity check
     IF(varID < 0) THEN
@@ -352,20 +356,6 @@ CONTAINS
     result = me%lookupDatatype(varID)
   END FUNCTION inputParametersFindVarDatatype
 
-
-!!$  INTEGER FUNCTION inputParametersFindMatchingTile(me, varId, tileinfo )
-!!$    IMPLICIT NONE
-!!$    CLASS(t_inputParameters), INTENT(IN) :: me
-!!$    INTEGER                 , INTENT(IN) :: varId
-!!$    TYPE(t_tileinfo)        , INTENT(IN) :: tileinfo
-!!$
-!!$    INTEGER :: i
-!!$
-!!$    result = -1
-!!$
-!!$    DO i=1, SIZE(me%)
-!!$
-!!$  END FUNCTION inputParametersFindMatchingTile
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Destroys a t_inputParameters object
@@ -706,7 +696,7 @@ CONTAINS
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
-    
+
     IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
       CALL finish(routine, "Requested tile not found!")
     END IF
@@ -846,6 +836,7 @@ CONTAINS
       ! set active tile index, if this is a tile-based variable
       vlistId   = streamInqVlist(parameters%streamId)
       subtypeID  = vlistInqVarSubtype(vlistID,varID)
+      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
       !sanity check on the variable dimensions
       gridId    = vlistInqVarGrid(vlistId, varId)
       IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!")
@@ -962,7 +953,7 @@ CONTAINS
         ! set active tile index, if this is a tile-based variable
         vlistId    = streamInqVlist(parameters%streamId)
         subtypeID  = vlistInqVarSubtype(vlistID, varID)
-
+        IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
       SELECT CASE(parameters%lookupDatatype(varId))
