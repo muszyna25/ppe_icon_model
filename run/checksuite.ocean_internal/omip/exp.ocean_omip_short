@@ -71,18 +71,14 @@ cat > ${ocean_namelist} << EOF
  debug_check_level    = 1
 /
 &output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${output_interval}"
-  steps_per_file   = ${steps_per_file}                ! error with ""
-  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  include_last     = .false.
+  output_start     = "${start_date}"
+  output_end       = "${end_date}"
+  output_interval  = "PT06H"
+  steps_per_file   = 1
   output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_oceMonitor"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output

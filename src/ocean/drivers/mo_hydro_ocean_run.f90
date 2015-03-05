@@ -150,8 +150,6 @@ CONTAINS
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
-!     INTEGER, POINTER :: dolic(:,:)
-!     REAL(wp), POINTER :: prism_thickness(:,:,:)
     INTEGER :: jstep0 ! start counter for time loop
     REAL(wp) :: mean_height
 
@@ -324,8 +322,8 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
-!       dolic           => patch_3d%p_patch_1d(1)%dolic_c
-!       prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
+      !TODO
+      ocean_state(jg)%p_diag%monitor%salt_content(:) = REAL(jstep,wp)
 
       CALL calc_fast_oce_diagnostics( patch_2d,      &
         & patch_3d%p_patch_1d(1)%dolic_c, &

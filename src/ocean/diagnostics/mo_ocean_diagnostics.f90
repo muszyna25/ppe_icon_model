@@ -53,7 +53,8 @@ MODULE mo_ocean_diagnostics
   USE mo_physical_constants, ONLY: grav, rho_ref, rhos, rhoi,sice
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_ocean_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-    &                              t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
+    &                                t_ocean_regions, t_ocean_region_volumes, &
+    &                                t_ocean_region_areas, t_ocean_monitor
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
@@ -313,10 +314,10 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_salinity_budget  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_volume_budget    = 0.0_wp
     
-    DO i=0,nsteps
-      ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
-      oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
-    END DO
+  ! DO i=0,nsteps
+  !   ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
+  !   oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
+  ! END DO
     
     ! open textfile for global timeseries
     diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
@@ -584,7 +585,7 @@ CONTAINS
     REAL(wp) :: sflux
     
     TYPE(t_subset_range), POINTER :: owned_cells
-    TYPE(t_oce_monitor),  POINTER :: monitor
+    TYPE(t_ocean_monitor),  POINTER :: monitor
     CHARACTER(LEN=linecharacters) :: line, nvars
     CHARACTER(LEN=linecharacters) :: fmt_string, real_fmt
     CHARACTER(LEN=date_len)       :: datestring
@@ -595,14 +596,14 @@ CONTAINS
     p_patch        => patch_3D%p_patch_2d(1)
     owned_cells    => p_patch%cells%owned
     !-----------------------------------------------------------------------
-    monitor        => oce_ts%oce_diagnostics(timestep)
+    monitor        => p_os%p_diag%monitor
     surface_area   = 0.0_wp
     surface_height = 0.0_wp
     prism_vol      = 0.0_wp
     prism_area     = 0.0_wp
     z_w            = 0.0_wp
     CALL datetime_to_string(datestring, datetime, plain=.TRUE.)
-    
+   
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
     SELECT CASE (iswm_oce)
     CASE (1) ! shallow water mode
@@ -624,10 +625,10 @@ CONTAINS
             monitor%kin_energy = monitor%kin_energy + p_os%p_diag%kin(jc,1,jb)*prism_vol
             
             monitor%total_energy=monitor%kin_energy+monitor%pot_energy
-            DO i_no_t=1, no_tracer
-              monitor%tracer_content(i_no_t) = monitor%tracer_content(i_no_t)&
-                & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
-            END DO
+           !DO i_no_t=1, no_tracer
+           !  monitor%tracer_content(i_no_t) = monitor%tracer_content(i_no_t)&
+           !    & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
+           !END DO
           ENDIF
         END DO
       END DO
@@ -705,10 +706,10 @@ CONTAINS
             monitor%pot_energy = monitor%pot_energy + grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
             
             !Tracer content
-            DO i_no_t=1, no_tracer
-              monitor%tracer_content(i_no_t) = &
-                & monitor%tracer_content(i_no_t) + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
-            END DO
+           !DO i_no_t=1, no_tracer
+           !  monitor%tracer_content(i_no_t) = &
+           !    & monitor%tracer_content(i_no_t) + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
+           !END DO
           END DO
         END DO
       END DO
@@ -757,9 +758,6 @@ CONTAINS
       monitor%ice_extent_sh              = global_sum_array(monitor%ice_extent_sh)/1.0e6_wp
     ENDIF
 
-    DO i_no_t=1,no_tracer
-      monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
-    END DO
     CALL enable_sync_checks()
     ! fluxes through given paths
     IF (my_process_is_stdio() .AND. idbg_val > 0) &
@@ -868,9 +866,9 @@ CONTAINS
         & monitor%ice_ocean_volume_budget
 
       ! * tracers
-      DO i_no_t=1,no_tracer
-        WRITE(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
-      END DO
+     !DO i_no_t=1,no_tracer
+     !  WRITE(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
+     !END DO
 
       WRITE(diag_unit,'(a)') TRIM(line)
     END IF
