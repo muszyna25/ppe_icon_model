@@ -39,6 +39,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: tileid_int2grib
   PUBLIC :: configure_lnd_nwp
   PUBLIC :: convert_luc_ICON2GRIB
+  PUBLIC :: get_tile_suffix
 
   ! TYPES
   PUBLIC :: t_GRIB2_tile
@@ -397,6 +398,40 @@ CONTAINS
 
   END FUNCTION tileid_int2grib
 
+  !>
+  !! Convert tile/attribute pair into ICON-internal varname suffix
+  !!
+  !! Convert tile/attribute pair into ICON-internal varname suffix '_t_X'
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-03-05)
+  !!
+  FUNCTION get_tile_suffix(tileIdx, tileAtt) RESULT (tileSuffix)
+
+    INTEGER, INTENT(IN) :: tileIdx        ! GRIB2 Tile ID
+    INTEGER, INTENT(IN) :: tileAtt        ! GRIB2 Tile Attribute
+
+    INTEGER :: i
+    CHARACTER(LEN=2) :: tileIdx_str
+    CHARACTER(LEN=5) :: tileSuffix
+
+    tileSuffix =''
+
+    DO i=1, SIZE(tiles)
+      IF ( (tiles(i)%GRIB2_tile%itn == tileIdx) ) THEN
+        IF ((tiles(i)%GRIB2_att%attribute == tileAtt)) THEN
+          WRITE(tileIdx_str,'(i2)') i 
+          tileSuffix = '_t_'//TRIM(ADJUSTL(tileIdx_str))
+          RETURN
+        ENDIF
+      ENDIF
+    ENDDO
+
+    IF (tileSuffix == '') THEN
+      CALL finish( 'mo_lnd_nwp_config:get_tile_suffix', 'Invalid tile/attribute pair' )
+    ENDIF
+
+  END FUNCTION get_tile_suffix
 
   !>
   !! Given the internal land use class index, provide the official GRIB2 index.

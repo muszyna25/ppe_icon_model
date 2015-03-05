@@ -57,7 +57,7 @@ MODULE mo_initicon_io
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
-    &                               ntiles_water, lmulti_snow, tiles
+    &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -310,6 +310,7 @@ MODULE mo_initicon_io
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: full_varname   !< varname, including tile suffix, if present
 
     IF (PRESENT(opt_checkgroup)) THEN
       lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
@@ -354,9 +355,17 @@ MODULE mo_initicon_io
       CALL read_cdi_2d(parameters, mapped_name, var_out, tileinfo)
 
 
+      ! add tile suffix (if available) to varname
+      ! This is necessary, in oder to choose the right post-op
+      IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
+        full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
+      ELSE
+        full_varname = varname
+      ENDIF
+
       ! Perform inverse post_op on input field, if necessary
       !
-      CALL initicon_inverse_post_op(varname, mapped_name, optvar_out2D=var_out)
+      CALL initicon_inverse_post_op(full_varname, mapped_name, optvar_out2D=var_out)
 
     ENDIF  ! lread
 
@@ -381,7 +390,7 @@ MODULE mo_initicon_io
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
-
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: full_varname   !< varname, including tile suffix, if present
 
     IF (PRESENT(opt_checkgroup)) THEN
       lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
@@ -424,12 +433,21 @@ MODULE mo_initicon_io
 
       CALL read_cdi_3d (parameters, mapped_name, nlevs, var_out, tileinfo)
 
+
+      ! add tile suffix (if available) to varname
+      ! This is necessary, in oder to choose the right post-op
+      IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
+        full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
+      ELSE
+        full_varname = varname
+      ENDIF
+
       ! Perform inverse post_op on input field, if necessary
       !
       ! SMI is skipped manually, since it is not contained in any of the ICON variable
       ! lists, and is thus not handled correctly by the following routine.
       IF( TRIM(mapped_name)/='smi' .AND. TRIM(mapped_name)/='SMI') &
-        CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+        CALL initicon_inverse_post_op(full_varname, mapped_name, optvar_out3D=var_out)
 
     ENDIF  ! lread
 
