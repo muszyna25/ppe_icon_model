@@ -1,17 +1,30 @@
 #!/bin/bash
   #=======================================================
   # input folders
+  # define the ocean location. 
+  #  ocean_location="local" means the local grids folders
+  #  ocean_location="buildbot" means the standard buildbot oes path: ${icon_data_MainFolder}/oes} 
+  #  ocean_location="" means user defined path in ocean_data_MainFolder, or if undefined the standard buildbot oes path: ${icon_data_MainFolder}/oes} 
+  #  in other cases where 
+  #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
+  
   ocean_location="fluent"
 
-  if [[ "x$ocean_location" != "x" ]] ; then
-      case "$target" in
-        thunder)
-          ocean_data_MainFolder=/scratch/mpi/CC/mh0287/oes/${ocean_location}
-        ;;
-       blizzard) 
-          ocean_data_MainFolder=/work/mh0287/oes/${ocean_location}
-        ;;
-      esac
+
+  if [[ "x$ocean_location" = "buildbot" ]] ; then
+    ocean_data_MainFolder=${icon_data_MainFolder}/oes  
+  elif [[ "x$ocean_location" = "xlocal" ]] ; then
+    ocean_data_MainFolder=${ICON_BASE_PATH}/grids   
+  elif [[ "x$ocean_location" != "x" ]] ; then
+    case "$target" in
+      thunder|blizzard|mpipc)
+        ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
+# 	ocean_data_MainFolder=/scratch/mpi/CC/mh0287/oes/${ocean_location}
+      ;;
+#       blizzard) 
+# 	ocean_data_MainFolder=/work/mh0287/oes/${ocean_location}
+#       ;;
+    esac
   fi 
    
   ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_MainFolder}/oes}
