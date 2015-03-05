@@ -23,6 +23,9 @@ MODULE mo_name_list_output_gridinfo
     &                                             check_orientation
   USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data
   USE mo_grib2,                             ONLY: t_grib2_var
+  USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys,                &
+    &                                             set_GRIB2_ensemble_keys,                  &
+    &                                             set_GRIB2_local_keys
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_specs,     &
     &                                             rotate_latlon_grid
   USE mo_intp_data_strc,                    ONLY: lonlat_grid_list
@@ -35,10 +38,6 @@ MODULE mo_name_list_output_gridinfo
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_util_cdi,                          ONLY: set_GRIB2_additional_keys,                &
-    &                                             set_GRIB2_ensemble_keys,                  &
-    &                                             set_GRIB2_local_keys
-
   USE mo_name_list_output_types,            ONLY: t_patch_info, t_grid_info, t_output_file, &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,         &
     &                                             ILATLON, ICELL, IEDGE, IVERT, IRLAT,      &

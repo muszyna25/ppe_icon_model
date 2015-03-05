@@ -1511,6 +1511,7 @@ src/io/atmo/mo_util_vgrid.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
+src/io/shared/mo_grib2_util.f90 -text
 src/io/shared/mo_io_restart.f90 -text
 src/io/shared/mo_io_restart_attributes.f90 -text
 src/io/shared/mo_io_restart_namelist.f90 -text

@@ -45,7 +45,7 @@ MODULE mo_name_list_output_init
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
-  USE mo_util_cdi,                          ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
+  USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension

@@ -115,7 +115,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
     &                                     metainfo_get_size
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
-  USE mo_util_cdi,                  ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
+  USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
 
