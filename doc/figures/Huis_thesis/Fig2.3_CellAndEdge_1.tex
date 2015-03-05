@@ -1,0 +1,139 @@
+\documentclass[11pt]{article}
+\textwidth 20cm \oddsidemargin  0cm
+\usepackage{pstricks,pstricks-add,pst-math,pst-xkey}
+\usepackage{amssymb}
+\pagestyle{empty}
+
+\newcommand{\vtx}        {\varkappa}
+\newcommand{\V}[1]       {{\bf #1}}
+\newcommand{\hl}         {\hat{l}}
+
+\begin{document}
+\newrgbcolor{zzffzz}{0.6 1 0.6}
+\newrgbcolor{qqttzz}{0 0.2 0.6}
+\newrgbcolor{zzzzqq}{0.6 0.6 0}
+\newrgbcolor{lightpink}{0.97 0.88 0.88}
+%\newrgbcolor{parea}{0.863 0.455 0.455}
+\newrgbcolor{parea}{0.75 0 0.376}
+%\newrgbcolor{lightbrown}{0.9 0.8 0.5}
+\newrgbcolor{greenishbrown}{0.9 0.9 0.7}
+\newrgbcolor{darkgreen}{0.066 .67 0.066}
+\newrgbcolor{darkred}{0.7 0.3 0.3}
+\newrgbcolor{cczzqq}{0.7 0.7 0.4}
+\newrgbcolor{green}{0.75 0.86 0.75}
+\newrgbcolor{gray}{0.6 0.6 0.6}
+\newrgbcolor{purple}{0.61 0.387 0.668}
+\newrgbcolor{greenn}{0.59 0.4375 0.11}
+
+\psset{xunit=4.0cm,yunit=4.0cm,algebraic=true,dotstyle=*,dotsize=3pt 0,linewidth=0.8pt,arrowsize=3pt 2,arrowinset=0.25}
+
+\begin{pspicture}(-0.5,-1.578)(1,1.861)
+
+%--------- filled dual cell ----------------------------
+\pspolygon[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq,fillcolor=greenishbrown,fillstyle=solid](0,0.289)(0,-0.289)(0.5,-0.577)(1,-0.289)(1,0.289)(0.5,0.577)
+
+%------- filled triangle ---------------------------------------------------
+\pspolygon[linewidth=1.6pt,linecolor=qqttzz,fillcolor=lightpink,fillstyle=solid](0,0.866)(-0.5,0)(0.5,0)
+
+
+
+%---------  dual edges --------------
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](0,-0.289)(0,0.289)
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](0,0.289)(0,-0.289)
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](0,-0.289)(0.5,-0.577)
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](0.5,-0.577)(1,-0.289)
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](1,-0.289)(1,0.289)
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](1,0.289)(0.5,0.577)
+\psline[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](0.5,0.577)(0,0.289)
+
+%------------ primal edges -------------------------------------
+\psline[linewidth=1.6pt,linecolor=qqttzz](1,0.866)(0.5,0)
+\psline[linewidth=1.6pt,linecolor=qqttzz](-0.5,0)(0.5,0)
+\psline[linewidth=1.6pt,linecolor=qqttzz](1,0.866)(0,0.866)
+
+%------------ vertices -----------------------
+%\psdots[dotsize=4pt 0](0,0.866)
+%\psdots[dotsize=4pt 0](1,0.866)
+
+%------------ the dual edge of interest --------------------------
+
+\psline[linewidth=2.4pt,linecolor=darkgreen](0,0.289)(0.5,0.578)
+%\rput[br](0.07,0.12){\darkgreen{$\hat{l}$}}
+
+
+%\rput[bc](0,0.43){$i{\left(l,1\right)}$}
+
+%\psdots[dotsize=4pt 0,linecolor=green](0.5,0.578)\pscircle(0.5,0.578){0.07}
+%\rput[tc](0,-0.43){$i{\left(l,2\right)}$}
+
+%------------ the primal edge of interest --------------------------
+
+\psline[linewidth=2.8pt,linecolor=darkred](0,0.866)(0.5,0)
+%\rput[br](-0.15,0.03){\darkred{$l$}}
+
+%------------- cell centers -----------------------
+
+\psdots[dotsize=5pt 0,linecolor=zzzzqq](0.5,0)\pscircle(0.5,0){0.08}
+\rput[tc](0.53,-0.09){$\varkappa$}
+\rput[tc](0.5,-0.2){dual cell}
+\rput[tc](0.5,-0.32){area $A_{\varkappa}$}
+
+\psdots[dotsize=4pt 0,linecolor=lightpink](0,0.289)\pscircle(0,0.289){0.08}
+\rput[tc](-0.1,0.3){$i$}
+\rput[tc](-0.,0.17){primal cell}
+\rput[tc](-0.,0.06){area $A_i$}
+
+\psline[linewidth=2pt,linecolor=red,arrows=->,arrowsize=2.5pt
+2](-0.198,0.403)(-0.363,0.49)
+\rput[tl](-0.38,0.58){$\red{{\textbf n}_{i,\,l}}$}
+
+
+\end{pspicture}\hspace{2cm}
+%===============================================================================================
+\begin{pspicture}(-0.5,-1.578)(1,1.861)
+
+%--------- dual cell ----------------------------
+\pspolygon[linewidth=1.2pt,linestyle=dashed,dash=3pt 3pt,linecolor=gray](0,0.289)(0,-0.289)(0.5,-0.577)(1,-0.289)(1,0.289)(0.5,0.577)
+
+%------- filled triangle ---------------------------------------------------
+\pspolygon[linewidth=1.6pt,linecolor=qqttzz](0,0.866)(-0.5,0)(0.5,0)
+
+%------------ primal edges -------------------------------------
+\psline[linewidth=1.6pt,linecolor=qqttzz](1,0.866)(0.5,0)
+\psline[linewidth=1.6pt,linecolor=qqttzz](-0.5,0)(0.5,0)
+\psline[linewidth=1.6pt,linecolor=qqttzz](1,0.866)(0,0.866)
+
+%------------ the primal edge of interest --------------------------
+
+\psline[linewidth=2.8pt,linecolor=darkred](0,0.866)(0.5,0)
+\rput[bl](0.15,0.7){\darkred{primal edge}}
+\rput[bl](0.20,0.6){\darkred{$l$}}
+
+%------------- cell centers -----------------------
+\psdots[dotsize=4pt 0,linecolor=lightpink](0,0.289)\pscircle(0,0.289){0.08}
+\rput[tc](-0.15,0.27){$i(l,\,2)$}
+\psdots[dotsize=4pt 0,linecolor=lightpink](0.5,0.578)\pscircle(0.5,0.578){0.08}
+\rput[tc](0.67,0.59){$i(l,\,1)$}
+
+
+\psdots[dotsize=5pt 0,linecolor=zzzzqq](0.5,0)\pscircle(0.5,0){0.08}
+\rput[tc](0.53,-0.09){$\varkappa(l,2)$}
+\psdots[dotsize=5pt 0,linecolor=zzzzqq](0,0.866)\pscircle(0,0.866){0.08}
+\rput[bc](0,0.956){$\varkappa(l,1)$}
+
+%---------------- normal and tangential directions -----
+
+\psline[linewidth=2pt,linecolor=purple,arrows=->,arrowsize=2.5pt
+2](0.25,0.433)(0.084,0.337)
+\rput[tl](0.1,0.32){$\purple{{\textbf N}_{l}}$}
+
+\psline[linewidth=3.1pt,linecolor=white](0.25,0.433)(0.344,0.27)
+\psline[linewidth=0.7pt,doubleline=true,doublesep=0.03,linecolor=purple,arrows=->,arrowsize=2pt
+1.5,arrowinset=0.6](0.25,0.433)(0.344,0.27)
+\rput[tl](0.37,0.37){$\purple{{\textbf T}_{l}}$}
+
+\end{pspicture}
+
+
+\end{document}
+

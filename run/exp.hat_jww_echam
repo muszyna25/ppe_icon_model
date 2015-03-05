@@ -1,0 +1,145 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+# Hui Wan,         MPI-M, 2010-08-17
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=600
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 24 \* 3600  `  # int output each 24 hours
+dt_file=`expr 1 \* 86400 `   # 1 day per file
+dt_data=21600.               # write output every 6 hours
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=1 # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=31              # nlev = number of full levels
+iforcing=2      # ECHAM physics
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B04-grid.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
+!
+&dbg_index_nml
+  idbg_mxmn=4                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
+  str_mod_tst='all', 'module'     ! define modules to print out in debug mode
+  idbg_slev=28                     ! initialize MIN/MAX  debug output
+  idbg_elev=31                     ! initialize MIN/MAX  debug output
+!  idbg_idx =0                     ! initialize index number for single cell
+!  idbg_blk =0                     ! initialize block number for single cell
+/
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer     = 5            ! number of tracers
+ iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level   = 10           ! detailed report during integration 
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+/
+&ha_dyn_nml
+ ldry_dycore = .TRUE.       ! dry dynamical core
+/
+&ha_testcase_nml
+ ctest_name  = 'JWw-Moist'  ! test case identifier
+ lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa 
+/
+&transport_ctl
+ ctracer_list='vwi44'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+/
+&echam_phy_nml
+ lrad       = .TRUE.
+ dt_rad     =  3600.        ! [s] radiative transfer interval
+ lvdiff     = .TRUE.
+ lconv      = .TRUE.
+ lcond      = .TRUE.
+ lgw_hines  = .TRUE.
+ lssodrag   = .FALSE.
+ lmlo       = .FALSE.
+ lice       = .FALSE.
+ ljsbach    = .FALSE.
+ lamip      = .FALSE.
+/
+&echam_conv_nml
+/
+&radiation_nml
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o3    = 0             ! switch off o3
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+/
+EOF
+#
+#-----------------------------------------------------------------------------
+# add standard atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+#-----------------------------------------------------------------------------

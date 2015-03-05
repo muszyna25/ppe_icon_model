@@ -1,0 +1,77 @@
+# Linux AMD/Intel 32-bit addressing mode
+#
+# Compiler sets being tested:
+#
+# Intel ifort 10.1.011, December 2007
+# NAG f95 5.1 (365), April 2008
+# GCC gfortran 4.2.2, April 2008
+#
+
+case "$mh_setup" in
+jochen)
+    NETCDFROOT  = /home/jfoerstn
+    ;;
+uwe)
+    NETCDFROOT  = /sw/etch-ia32/netcdf-3.6.1
+    ;;
+*)
+    NETCDFROOT  = /usr/local
+    ;;
+esac
+
+MPIROOT     =
+MPI_LIB     =
+
+LAPACKROOT  =
+LAPACK_LIB  =
+
+LIBS        = -L../lib -lsupport
+
+# Intel 
+#CC          = gcc
+#CFLAGS      = -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DNOMPI
+#FC          = ifort
+#FFLAGS      = -O3 -fast -axO -static-libgcc -static-intel -mieee-fp -fpe0 -fpp -DNOMPI -D__ICON__
+#F77         = ifort
+#F77FLAGS    = -O3 -fast -axO -static-libgcc -static-intel -mieee-fp -fpe0 -DNOMPI
+#OMPFLAG     = -openmp
+#DEFOPT      = -D  
+#MODOPT      = -I
+#MODDIR      = -module 
+
+# NAG
+#CC          = gcc
+#CFLAGS      = -O -DNAGf90Fortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DNOMPI
+#FC          = nagf95
+#FFLAGS      = -f2003 -colour -maxcontin=99 -C=all -gline -g -nan -wmismatch=nf_put_att_double,nf_def_var -w=uep -fpp -DNOMPI
+#F77         = nagf95
+#F77FLAGS    = -colour -O -w=obs
+#OMPFLAG     = 
+#DEFOPT      = -D  
+#MODOPT      = -I
+#MODDIR      = -mdir 
+
+# Sun
+#CC          = suncc
+#CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DNOMPI
+#FC          = sunf95
+#FFLAGS      = -fast -fpp -fnonstd -openmp -DNOMPI
+#F77         = sunf95
+#F77FLAGS    = -fast -fpp -fnonstd
+#OMPFLAG     = -openmp
+#DEFOPT      = -D  
+#MODOPT      = -M
+#MODDIR      = -moddir=
+
+# GCC
+CC          = gcc
+CFLAGS      = -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DNOMPI
+FC          = gfortran
+FFLAGS      = -Wall -O -g -xf95-cpp-input -DNOMPI
+F77         = gfortran
+F77FLAGS    = -Wall -O -g -ffloat-store
+OMPFLAG     = -fopenmp
+DEFOPT      = -D  
+MODOPT      = -I
+MODDIR      = -J
+

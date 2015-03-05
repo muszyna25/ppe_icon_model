@@ -1,0 +1,41 @@
+\chapter{ICON standard half level heights}
+\label{appendix_levelheights}
+
+ICON standard half level heights $z^{h}$ are listed in Table \ref{tab:half_level_heights}. If full level heights $z^{f}$ are required, 
+these can be deduced as follows: Let $i$ denote the full level index for which the height is wanted. Then the full level 
+height $z^{f}_{i}$ is given by
+\begin{align}
+ z^{f}_{i} = 0.5 \left(z^{h}_{i} + z^{h}_{i+1}\right)
+\end{align}
+
+
+\begin{table}[hb]
+  \caption{Standard heights (i.e.\ for zero topography height) for all $91$ vertical half levels.}
+  \label{tab:half_level_heights}%
+
+   \renewcommand{\baselinestretch}{1.00}\normalsize%
+   \pgfkeys{/pgf/number format/set thousands separator={\,}}
+   \pgfplotstableread{vertical_levels_i.txt}{\loadedtable}\vspace*{0pt}%
+%   \pgfplotstabletypeset[ columns={k,z,p},every  head row/.style={after row={\hline}},
+   \pgfplotstabletypeset[ 
+          begin table=\begin{longtable}, 
+          end table=\end{longtable},
+          columns={k,z,k,z,k,z},
+          every  head row/.style={after row={\hline}},
+          precision=2,
+          font=\normalsize,
+%          columns/k/.style={column name=level index, column type=c,column type/.add={>{\columncolor[gray]{.8}}}{}},
+%          columns/z/.style={column name=height $[m]$,   fixed,dec sep align},
+%          columns/p/.style={column name=$[Pa]$, fixed,dec sep align, zerofill,precision=1},
+          columns/k/.style={column name=level index, column type=c, column type/.add={>{\columncolor[gray]{.8}}}{}},
+          columns/z/.style={column name=height $[m]$, fixed,dec, zerofill,precision=1},
+          display columns/0/.style={select equal part entry of={0}{3},string type},
+          display columns/1/.style={select equal part entry of={0}{3},string type},
+          display columns/2/.style={select equal part entry of={1}{3},string type},
+          display columns/3/.style={select equal part entry of={1}{3},string type},
+          display columns/4/.style={select equal part entry of={2}{3},string type},
+          display columns/5/.style={select equal part entry of={2}{3},string type},
+                        ] {\loadedtable}
+
+\end{table}
+
