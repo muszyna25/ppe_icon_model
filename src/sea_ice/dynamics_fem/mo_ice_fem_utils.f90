@@ -1172,6 +1172,12 @@ CONTAINS
 
       ! Should we multiply with concSum here?
       tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! #slo# - over open ocean the calculated stress_xw instead of the wind stress stored in topBoundCond_windStress_u is used
+      !         which is either OMIP/??? read from file or atmospheric fluxes in case of coupling
+      ! #slo# - since tau contains concSum, now stress is proportional to concSum**2
+      ! #slo# - TODO: test corrections
+   !  tau = density_0*C_d_io*SQRT( delu**2 + delv**2 )
+   !  atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%topBoundCond_windStress_u(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) ) &
       atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
       atmos_fluxes%topBoundCond_windStress_v(jc,jb) = atmos_fluxes%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &

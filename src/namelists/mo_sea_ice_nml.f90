@@ -72,8 +72,8 @@ MODULE mo_sea_ice_nml
                                                          !  heat content in energy calculations
   LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
   LOGICAL, PUBLIC :: use_constant_tfreez = .TRUE.   !  constant freezing temperature for ocean water (=Tf)
-  LOGICAL, PUBLIC :: calc_ocean_stress   = .TRUE.   !  calculate ocean stress instead of reading from OMIP
-  LOGICAL, PUBLIC :: stress_ice_zero     = .FALSE.  !  set stress below sea ice to zero
+  LOGICAL, PUBLIC :: calc_ocean_stress   = .FALSE.  !  calculate ocean stress instead of reading from OMIP
+  LOGICAL, PUBLIC :: stress_ice_zero     = .TRUE.   !  set stress below sea ice to zero
 
   INTEGER         :: iunit
 
@@ -173,10 +173,17 @@ CONTAINS
       CALL finish(TRIM(routine), 'i_ice_dyn must be either 0 or 1.')
     END IF
 
-    ! TODO: This can be changed when we start advecting T1 and T2
     IF (i_ice_dyn == 1 ) THEN
+      ! TODO: This can be changed when we start advecting T1 and T2
       CALL message(TRIM(routine), 'i_ice_therm set to 1 because i_ice_dyn is 1')
       i_ice_therm = 1
+
+      ! use routine ice_ocean_stress to calculate ocean stress below sea ice
+      CALL message(TRIM(routine), 'calc_ocean_stress=True because i_ice_dyn is 1')
+      calc_ocean_stress = .TRUE.
+      ! When using routine ice_ocean_stress, ice concentration is considered accordingly
+      CALL message(TRIM(routine), 'stress_ice_zero=FALSE because i_ice_dyn is 1')
+      stress_ice_zero = .TRUE.
     ENDIF
 
 
