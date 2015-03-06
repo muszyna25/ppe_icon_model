@@ -6,7 +6,7 @@ oType="eps"
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
-dataPath="${baseBath}../experiments/${EXPNAME}/"
+dataPath="../experiments/${EXPNAME}/"
 scriptPath="/pool/data/ICON/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
@@ -47,6 +47,10 @@ check_error $? "oce_numeric: $nclCaller"
 
 # check for identical results compared to the reference
 slave=${BB_SLAVE:-thunder_gcc}
+# get branch to select refernce directory
+if svn info | grep URL | cut -d ' ' -f 2 | egrep -s 'icon-oes'; then
+  slave="${slave}/oes-dev"
+fi
 case ${slave} in  
   thunder*)
     refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
