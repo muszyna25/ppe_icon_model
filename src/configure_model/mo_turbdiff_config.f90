@@ -114,6 +114,9 @@ MODULE mo_turbdiff_config
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)
 
+    LOGICAL :: &   ! turbulent diffusion of cloud ice QI
+      &  ldiff_qi  ! .TRUE.: ON
+
     !
     ! Switches controlling other physical parameterizations:
     !
