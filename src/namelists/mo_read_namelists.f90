@@ -45,6 +45,7 @@ MODULE mo_read_namelists
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
+  USE mo_psrad_radiation     ,ONLY: setup_psrad_radiation
   USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
   USe mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
@@ -137,6 +138,7 @@ CONTAINS
     CALL read_nwp_phy_namelist        (TRIM(atm_namelist_filename))
     CALL read_nwp_tuning_namelist     (TRIM(atm_namelist_filename))
     CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
+    CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
     CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
     CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))

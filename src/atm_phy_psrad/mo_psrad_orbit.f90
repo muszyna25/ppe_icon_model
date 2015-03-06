@@ -44,7 +44,7 @@ MODULE mo_psrad_orbit
   USE mo_kind,      ONLY : wp
   USE mo_math_constants, ONLY : pi
   USE mo_exception, ONLY : finish
-  USE mo_datetime,  ONLY : t_datetime
+  USE mo_datetime,  ONLY : t_datetime, print_datetime
 
   IMPLICIT NONE
   PRIVATE 
@@ -843,7 +843,7 @@ CONTAINS
 !!$    CALL get_date_components(valid_date, year=iyr, month=imo, day=idy)
 !!$    CALL TC_get(valid_date, second=jsec)
 !!$    time_of_day = (REAL(jsec, dp)/day_len())*2.0_dp*pi
-    time_of_day = valid_date%caltime*2.0_wp*pi
+    time_of_day = (valid_date%caltime-0.5_wp)*2.0_wp*pi
     !
     ! Calculate orbital model input for a real orbit, with the possibility
     ! of a perpetual year, as determined by (lyr_perp, yr_perp)

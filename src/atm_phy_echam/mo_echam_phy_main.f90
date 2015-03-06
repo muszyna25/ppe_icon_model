@@ -464,7 +464,7 @@ CONTAINS
           ! local insolation = constant = global mean insolation (ca. 340 W/m2)
           ! zenith angle = 0,
 
-            field%cosmu0(jcs:jce,jb) = 1._wp ! sun in zenith everywhere
+!!$            field%cosmu0(jcs:jce,jb) = 1._wp ! sun in zenith everywhere
 
           CASE(1)
           ! circular non-seasonal orbit,
@@ -473,7 +473,7 @@ CONTAINS
           ! local time always 12:00
           ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
 
-            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
+!!$            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
 
           CASE(2)
           ! circular non-seasonal orbit,
@@ -482,16 +482,16 @@ CONTAINS
           ! local time always  07:14:15 or 16:45:45
           ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
 
-            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
+!!$            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
 
           CASE(3)
           ! circular non-seasonal orbit,
           ! perpetual equinox,
           ! with diurnal cycle,
 
-            field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
-                                     & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-                                     &      +ptime_radtran )
+!!$            field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
+!!$                                     & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
+!!$                                     &      +ptime_radtran )
 
           CASE(4)
           ! elliptical seasonal orbit,
@@ -514,9 +514,9 @@ CONTAINS
                0.001868_wp * COS(zyearfrac) - 0.032077_wp * SIN(zyearfrac) -          &
                0.014615_wp * COS(2._wp * zyearfrac) - 0.040849_wp * SIN(2._wp * zyearfrac)
 
-            field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
-                                       COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
-                                       COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
+!!$            field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
+!!$                                       COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
+!!$                                       COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
           CASE(5)
           ! Radiative convective equilibrium
           ! circular non-seasonal orbit,
@@ -526,7 +526,7 @@ CONTAINS
           !cosmu0 = pi/4._wp ! zenith = 45 deg
           !cosmu0 = 2._wp/3._wp ! Cronin: zenith = 48.19
 
-            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
+!!$            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
 
           END SELECT
         END IF

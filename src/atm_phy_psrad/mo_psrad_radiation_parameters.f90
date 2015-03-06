@@ -270,8 +270,8 @@ contains
          cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
          daylght_frc(:,:) = daylght_frc(:,:)/nds
        END WHERE
-      END IF
-!!$    END IF
+     END IF
+!!$   END IF
 
   END SUBROUTINE solar_parameters
 

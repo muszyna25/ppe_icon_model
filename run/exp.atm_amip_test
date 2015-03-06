@@ -143,6 +143,9 @@ cat > ${atmo_namelist} << EOF
  izenith          = 4           ! 4: seasonal and diurnal cycle
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
+&psrad_nml
+rad_perm=1
+/
 &echam_conv_nml
 /
 &gw_hines_nml
@@ -427,7 +430,7 @@ if [[ "$output_phy" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'cosmu0'  , 'rsdt'    ,
+ ml_varlist       = 'cosmu0'  , 'prm_daylght_frc',      'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd',

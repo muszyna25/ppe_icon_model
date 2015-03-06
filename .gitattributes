@@ -1357,6 +1357,7 @@ src/atm_phy_nwp/mo_util_phys.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation_parameters.f90 -text
+src/atm_phy_psrad/mo_rrtm_params.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
 src/atm_phy_schemes/data_hydci_pp_ice.f90 -text
 src/atm_phy_schemes/data_turbulence.f90 -text
