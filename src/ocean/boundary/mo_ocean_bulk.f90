@@ -2071,7 +2071,7 @@ CONTAINS
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jtime, jt !, jc, jb
+    INTEGER :: jg, i_lev, no_cells, no_tst, jtime, jt !, jc, jb
     INTEGER :: ncid, dimid,mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: i_start(2),i_count(2), jcells
@@ -2094,7 +2094,6 @@ CONTAINS
       jg = 1
 
       i_lev       = p_patch%level
-      i_cell_type = p_patch%cell_type
 
       ! WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
       ncep_file='ocean-flux.nc'

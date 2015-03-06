@@ -273,7 +273,7 @@ CALL div( vec_e, ptr_patch, ptr_int, z_div_c, slev, elev, &
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
@@ -734,7 +734,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
@@ -898,7 +898,7 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
 

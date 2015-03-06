@@ -1047,7 +1047,7 @@ CONTAINS
               & patch_2D%cells%edge_orientation(cell_index,cell_block,neigbor)  / &
               & patch_2D%cells%area(cell_index,cell_block)
 
-        ENDDO !neigbor=1,patch_2D%cell_type
+        ENDDO !neigbor=1,patch_2D%num_edges
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
  
@@ -1264,7 +1264,7 @@ CONTAINS
               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
 
           ENDIF !(edge_block > 0 )
-        ENDDO !neigbor=1,patch_2D%cell_type
+        ENDDO !neigbor=1,patch_2D%num_edges
         !-------------------------------
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
@@ -1273,7 +1273,7 @@ CONTAINS
     !-------------------
     ! sync the results
     CALL sync_patch_array(SYNC_C, patch_2D, fixed_vol_norm(:,:))
-    DO neigbor=1,patch_2D%cell_type
+    DO neigbor=1,patch_2D%geometry_info%cell_type
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(1))
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(2))
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(3))
@@ -1287,7 +1287,7 @@ CONTAINS
 
        operators_coefficients%fixed_vol_norm(:,level,cell_block) = fixed_vol_norm(:,cell_block)
 
-       DO neigbor=1,patch_2D%cell_type
+       DO neigbor=1,patch_2D%geometry_info%cell_type
 
          operators_coefficients%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(1)  &
            &= edge2cell_coeff_cc(:,cell_block,neigbor)%x(1)
@@ -1301,7 +1301,7 @@ CONTAINS
          operators_coefficients%variable_vol_norm(:,level,cell_block,neigbor)  &
            &= variable_vol_norm(:,cell_block,neigbor)
 
-        ENDDO ! neigbor=1,patch_2D%cell_type
+        ENDDO ! neigbor=1,patch_2D%geometry_info%cell_type
       ENDDO  !  level = 1, n_zlev
     ENDDO ! cell_block
 ! no need for sync
@@ -1635,7 +1635,7 @@ CONTAINS
 
 !          operators_coefficients%variable_dual_vol_norm(:,level,vertex_block,neigbor)&
 !          &=variable_dual_vol_norm(:,vertex_block,neigbor)
-        ENDDO ! neigbor=1,patch_2D%cell_type
+        ENDDO ! neigbor=1,no_dual_edges
       ENDDO  !  level = 1, n_zlev
     ENDDO ! vertex_block
     DO neigbor=1,no_dual_edges
@@ -2286,7 +2286,7 @@ CONTAINS
         CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%edge2vert_coeff_cc(:,jk,:, jev)%x(3))
       ENDDO
     ENDDO
-    DO je=1,patch_2D%cell_type
+    DO je=1,patch_2D%geometry_info%cell_type
       CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%rot_coeff(:,:,:, je))
     ENDDO
 
@@ -2373,7 +2373,6 @@ CONTAINS
 
     !INTEGER :: ile, ibe!, ilc1, ibc1, ilc2, ibc2, ifac, ic, ilnc, ibnc
     !INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
-    !INTEGER, PARAMETER :: i_cell_type = 3
     !TYPE(cartesian_coordinates)::z_pn_k,z_pn_j
     !REAL(wp) :: z_lon, z_lat, z_nu, z_nv, z_proj
     !REAL(wp) :: cell_area
@@ -2471,7 +2470,7 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_2D, operators_coefficients%div_coeff(:,:,:,ie))
     END DO
 
-    DO ie = 1, no_dual_edges!9-i_cell_type
+    DO ie = 1, no_dual_edges
       CALL sync_patch_array(sync_v, patch_2D, operators_coefficients%rot_coeff(:,:,:,ie))
     END DO
 

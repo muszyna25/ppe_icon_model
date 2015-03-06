@@ -574,7 +574,7 @@ CONTAINS
         CALL init_quad_twoadjcells( patch(jg) )
         ! Initialize butterfly data structure, formed by the
         ! 4 cells sharing the 2 vertices which bound a given edge.
-        IF (patch(jg)%cell_type == 3) THEN
+        IF (patch(jg)%geometry_info%cell_type == 3) THEN
           ! not useful for hexagonal grid
           CALL init_butterfly_idx( patch(jg) )
         ENDIF

@@ -746,9 +746,9 @@ MODULE mo_model_domain
     !-------------------------------------
     !> The grid domain geometry parameters
     ! cell type =3 or 6
-    INTEGER :: cell_type
+    ! INTEGER :: cell_type
 
-    INTEGER :: geometry_type
+!     INTEGER :: geometry_type ! included in geometry_info
 
     TYPE(t_grid_geometry_info) :: geometry_info
     !-------------------------------------

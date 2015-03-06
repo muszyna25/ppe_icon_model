@@ -63,6 +63,7 @@
 !! Modification by Almut Gassmann, MPI-M, (2008-09-21)
 !!  - remove reference to mask and height files, they are never used
 !!  - use cell_type to distinguish cells as triangles or hexagons
+!!  LL: this is done by reading directly the dual grid
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Constantin Junk, MPI-M (2011-04-05)
