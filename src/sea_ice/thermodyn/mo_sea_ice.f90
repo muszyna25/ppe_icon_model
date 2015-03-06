@@ -44,7 +44,8 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
-    &                               i_Qio_type, use_constant_tfreez, calc_ocean_stress, stress_ice_zero, t_heat_base, &
+    &                               i_Qio_type, use_constant_tfreez, &
+    &                               use_calculated_ocean_stress, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -1418,8 +1419,7 @@ CONTAINS
     CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
 
     ! ocean stress calculated independent of ice dynamics
-    IF (calc_ocean_stress) &
-      & CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
+    CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
@@ -1429,14 +1429,6 @@ CONTAINS
       ice%u = 0._wp
       ice%v = 0._wp
     ENDIF
-
-    ! set ocean stress below sea ice to zero wrt concentration
-    !  - windStr*(1-conc) is done already in ice_ocean_stress
-    !  - a combination of stress_ice_zero=T and calc_ocean_stress=T is not recommended
-    IF (stress_ice_zero) THEN
-        atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)*(1._wp - ice%concSum(:,:))
-        atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)*(1._wp - ice%concSum(:,:))
-    ENDIF 
 
     CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
 
@@ -1643,6 +1635,7 @@ CONTAINS
     CALL dbg_print('IceSlow: zUnderIce a.ConcCh',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
 
+    ! ocean stress calculated independent of ice dynamics
     CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
     IF ( i_ice_dyn >= 1 ) THEN
@@ -1655,13 +1648,6 @@ CONTAINS
     ENDIF
 
     CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
-
-    !CALL ice_advection  (ice)
-    !CALL write_ice      (ice,atmos_fluxes,1,ie,je)
-    !CALL ice_zero       (ice, atmos_fluxes)
-    !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
-    !sicomo = ice%conc (:,:,1)
-    !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module, 3, in_subset=p_patch%cells%owned)
@@ -2819,7 +2805,7 @@ CONTAINS
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
     ! For wind-stress ramping
-    REAL(wp) :: ramp
+    REAL(wp) :: ramp = 1.0_wp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -2971,21 +2957,27 @@ CONTAINS
     atmos_fluxes%rpreci(:,:) = 0.0_wp
     atmos_fluxes%rprecw(:,:) = 0.0_wp
 
-    !-----------------------------------------------------------------------
-    !  Calculate ice wind stress
-    !-----------------------------------------------------------------------
-
-    wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
-    atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
-    atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
+    IF (use_calculated_ocean_stress) THEN
+      !-----------------------------------------------------------------------
+      !  Calculate ice wind stress
+      !-----------------------------------------------------------------------
+      wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
+      atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
+      atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
+    ELSE
+      ! use wind stress provided by OMIP data
+      atmos_fluxes%stress_x(:,:) = p_as%topBoundCond_windStress_u(:,:)
+      atmos_fluxes%stress_y(:,:) = p_as%topBoundCond_windStress_v(:,:)
+    ENDIF
 
     ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
-    IF ( PRESENT(datetime) ) THEN
-      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
-        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      atmos_fluxes%stress_x(:,:)  = ramp*atmos_fluxes%stress_x(:,:)
-      atmos_fluxes%stress_y(:,:)  = ramp*atmos_fluxes%stress_y(:,:)
-    ENDIF
+  ! IF ( PRESENT(datetime) ) THEN
+  !   ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
+  !     - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
+  !   IF (idbg_mxmn > 3 .OR. idbg_val>3) WRITE(0,*) ' RAMP = ',ramp
+  !   atmos_fluxes%stress_x(:,:)  = ramp*atmos_fluxes%stress_x(:,:)
+  !   atmos_fluxes%stress_y(:,:)  = ramp*atmos_fluxes%stress_y(:,:)
+  ! ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
@@ -3066,7 +3058,7 @@ CONTAINS
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
     ! For wind-stress ramping
-    REAL(wp) :: ramp
+    REAL(wp) :: ramp = 1.0_wp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -3185,24 +3177,31 @@ CONTAINS
     atmos_fluxes%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) * fr_fac &
       &               * (sphumida(:,:)-sphumidw(:,:))
 
-    !-----------------------------------------------------------------------
-    !  Calculate oceanic wind stress according to:
-    !   Gill (Atmosphere-Ocean Dynamics, 1982, Academic Press) (see also Smith, 1980, J. Phys
-    !   Oceanogr., 10, 709-726)
-    !-----------------------------------------------------------------------
+    IF (use_calculated_ocean_stress) THEN
+      !-----------------------------------------------------------------------
+      !  Calculate oceanic wind stress according to:
+      !   Gill (Atmosphere-Ocean Dynamics, 1982, Academic Press) (see also Smith, 1980, J. Phys
+      !   Oceanogr., 10, 709-726)
+      !-----------------------------------------------------------------------
 
-    wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
-    C_ao(:,:)   = MIN( 2._wp, MAX(1.1_wp, 0.61_wp+0.063_wp*wspeed ) )*1e-3_wp
-    atmos_fluxes%stress_xw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%u(:,:)
-    atmos_fluxes%stress_yw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%v(:,:)
+      wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
+      C_ao(:,:)   = MIN( 2._wp, MAX(1.1_wp, 0.61_wp+0.063_wp*wspeed ) )*1e-3_wp
+      atmos_fluxes%stress_xw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%u(:,:)
+      atmos_fluxes%stress_yw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%v(:,:)
+    ELSE
+      ! use wind stress provided by OMIP data
+      atmos_fluxes%stress_xw(:,:) = p_as%topBoundCond_windStress_u(:,:)
+      atmos_fluxes%stress_yw(:,:) = p_as%topBoundCond_windStress_v(:,:)
+    ENDIF
 
     ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
-    IF ( PRESENT(datetime) ) THEN
-      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
-        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      atmos_fluxes%stress_xw(:,:) = ramp*atmos_fluxes%stress_xw(:,:)
-      atmos_fluxes%stress_yw(:,:) = ramp*atmos_fluxes%stress_yw(:,:)
-    ENDIF
+  ! IF ( PRESENT(datetime) ) THEN
+  !   ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
+  !     - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
+  !   IF (idbg_mxmn > 3 .OR. idbg_val>3) WRITE(0,*) ' RAMP = ',ramp
+  !   atmos_fluxes%stress_xw(:,:) = ramp*atmos_fluxes%stress_xw(:,:)
+  !   atmos_fluxes%stress_yw(:,:) = ramp*atmos_fluxes%stress_yw(:,:)
+  ! ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5          , fix)
@@ -3224,6 +3223,7 @@ CONTAINS
     CALL dbg_print('CalcBulkO:fu10lim'            , fu10lim               , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5          , fix)
     CALL dbg_print('CalcBulkO:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)

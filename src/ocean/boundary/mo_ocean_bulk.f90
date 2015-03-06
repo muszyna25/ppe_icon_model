@@ -355,8 +355,15 @@ CONTAINS
       atmos_fluxes%data_SurfRelax_Temp(:,:)       = p_as%data_SurfRelax_Temp(:,:)
       !atmos_fluxes%data_SurfRelax_Salt(:,:)      = p_as%data_SurfRelax_Salt(:,:)
 
-      ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
       CALL dbg_print('UpdSfcBeg: SST',t_top,str_module, 3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module, 4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:atmflx%stress_xw',atmos_fluxes%stress_xw, str_module, 4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:atmflx%windStr-u',atmos_fluxes%topBoundCond_windStress_u, &
+        &  str_module, 4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:sfcflx%windStr-u',p_sfc_flx%topBoundCond_windStress_u, &
+        &  str_module, 4, in_subset=p_patch%cells%owned)
+
+      ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
       CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
@@ -649,10 +656,7 @@ CONTAINS
          
         ELSE   !  no sea ice
          
-          !  - apply wind stress
-          ! #slo# 2014-04-30: these lines are unclear - different results
-          ! TODO: check wind stress with/without sea ice model and with/without sea ice dynamics
-          !       is it OMIP windstress (over open water) or the calculated atmos_fluxes%stress_xw from calc_bulk_flux_oce
+          !  - apply wind stress to forcing variable since no ice_ocean_stress routine is called
           atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
           atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
          
@@ -712,6 +716,7 @@ CONTAINS
 
       ELSE
 
+        !  apply wind stress to forcing variable since no ice_ocean_stress routine is called
         atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
         atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
 

@@ -65,15 +65,15 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
 
   ! some analytic initialization parameters
-  REAL(wp),PUBLIC :: init_analytic_conc_param = 0.9_wp
-  REAL(wp),PUBLIC :: init_analytic_hi_param   = 2.0_wp
-  REAL(wp),PUBLIC :: init_analytic_hs_param   = 0.2_wp
-  REAL(wp),PUBLIC :: t_heat_base              = -5.0_wp  !  arbitrary temperature used as basis for
-                                                         !  heat content in energy calculations
+  REAL(wp),PUBLIC :: init_analytic_conc_param    = 0.9_wp
+  REAL(wp),PUBLIC :: init_analytic_hi_param      = 2.0_wp
+  REAL(wp),PUBLIC :: init_analytic_hs_param      = 0.2_wp
+  REAL(wp),PUBLIC :: t_heat_base                 = -5.0_wp  !  arbitrary temperature used as basis for
+                                                            !  heat content in energy calculations
+  LOGICAL, PUBLIC :: use_constant_tfreez         = .TRUE.   !  constant freezing temperature for ocean water (=Tf)
   LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
-  LOGICAL, PUBLIC :: use_constant_tfreez = .TRUE.   !  constant freezing temperature for ocean water (=Tf)
-  LOGICAL, PUBLIC :: calc_ocean_stress   = .FALSE.  !  calculate ocean stress instead of reading from OMIP
-  LOGICAL, PUBLIC :: stress_ice_zero     = .TRUE.   !  set stress below sea ice to zero
+  LOGICAL, PUBLIC :: stress_ice_zero             = .TRUE.   !  set stress below sea ice to zero
+  LOGICAL, PUBLIC :: use_calculated_ocean_stress = .FALSE.  !  calculate ocean stress instead of reading from OMIP
 
   INTEGER         :: iunit
 
@@ -92,8 +92,8 @@ MODULE mo_sea_ice_nml
     &  t_heat_base, &
     &  use_IceInitialization_fromTemperature, &
     &  use_constant_tfreez, &
-    &  calc_ocean_stress,  &
     &  stress_ice_zero,    &
+    &  use_calculated_ocean_stress, &
     &  init_analytic_conc_param , &
     &  init_analytic_hi_param, &
     &  init_analytic_hs_param
@@ -123,7 +123,7 @@ CONTAINS
     hci_layer   = 0.10_wp
     leadclose_1 = 0.5_wp
 
-    ramp_wind   = 0._wp
+    ramp_wind   = 1.0_wp
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -175,14 +175,11 @@ CONTAINS
 
     IF (i_ice_dyn == 1 ) THEN
       ! TODO: This can be changed when we start advecting T1 and T2
-      CALL message(TRIM(routine), 'i_ice_therm set to 1 because i_ice_dyn is 1')
+      CALL message(TRIM(routine), 'WARNING: i_ice_therm set to 1 because i_ice_dyn is 1')
       i_ice_therm = 1
 
-      ! use routine ice_ocean_stress to calculate ocean stress below sea ice
-      CALL message(TRIM(routine), 'calc_ocean_stress=True because i_ice_dyn is 1')
-      calc_ocean_stress = .TRUE.
-      ! When using routine ice_ocean_stress, ice concentration is considered accordingly
-      CALL message(TRIM(routine), 'stress_ice_zero=FALSE because i_ice_dyn is 1')
+      ! When using routine ice_ocean_stress, ocean stress below sea ice is considered accordingly
+      CALL message(TRIM(routine), 'WARNING: stress_ice_zero=FALSE because i_ice_dyn is 1')
       stress_ice_zero = .TRUE.
     ENDIF
 
