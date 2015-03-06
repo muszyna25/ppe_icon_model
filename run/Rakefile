@@ -658,7 +658,7 @@ task :checkTimeMean, :pattern, :referenceExp do |t,args|
     :tracer => %w[qc qv qi],
     :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
     :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress],
-  }.each {|k,v| v.map {|item| item << '_acc'}}
+  }.each {|k,v| v.map {|item| item << '_m'}}
 
   dbg(varlist)
   dbg(args.pattern)
@@ -708,7 +708,7 @@ task :checkTimeMeanSP, :pattern do |t,args|
     :tracer => %w[qc qv qi],
     :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
     :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress]
-  }.each {|k,v| v.map {|item| item << '_acc'}}
+  }.each {|k,v| v.map {|item| item << '_m'}}
   reflist = {
     :tracer => %w[clw hus cli],
     :prog   => %w[ua va ta ps psl zg rho], 
