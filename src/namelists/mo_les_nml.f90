@@ -59,11 +59,12 @@ MODULE mo_les_nml
   REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
   CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(44) !list of variables  
   CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
+  LOGICAL  :: les_metric
 
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
                     smag_constant, turb_prandtl, bflux, tran_coeff,   &
                     vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
-                    expname, ldiag_les_out, km_min, min_sfc_wind
+                    expname, ldiag_les_out, km_min, min_sfc_wind, les_metric
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -134,6 +135,9 @@ CONTAINS
       'lwf_sfc','precp_t','precp_r','precp_s','precp_g','precp_h',  & !13-18
       'precp_i' /)                                                    !19
 
+    ! grid metric terms in the les diffusion
+    les_metric = .FALSE.
+
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -186,6 +190,7 @@ CONTAINS
       les_config(jg)% sampl_freq_sec    =  sampl_freq_sec
       les_config(jg)% km_min            =  km_min
       les_config(jg)% min_sfc_wind      =  min_sfc_wind
+      les_config(jg)% les_metric        =  les_metric
     END DO
 
     !-----------------------------------------------------
