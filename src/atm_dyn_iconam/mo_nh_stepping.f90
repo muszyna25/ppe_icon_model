@@ -147,6 +147,7 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
   USE mo_nonhydro_types,           ONLY: t_nh_state
+  USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap
   USE mtime,                       ONLY: mtime_datetime => datetime, newDatetime,                  &
     &                                    deallocateDatetime,                                       &
@@ -206,7 +207,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE prepare_nh_integration
 !
-  INTEGER :: ntl
+  INTEGER :: ntl, jg
 
 !-----------------------------------------------------------------------
 
@@ -231,6 +232,14 @@ MODULE mo_nh_stepping
   IF (iforcing == inwp) THEN
     CALL setup_time_ctrl_physics( )
   END IF
+
+  ! init LES
+  DO jg = 1 , n_dom
+   IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
+     CALL init_les_phy_interface(jg, p_patch(jg), p_int_state(jg), &
+       p_nh_state(jg)%metrics)
+   END IF
+  END DO
 
   END SUBROUTINE prepare_nh_integration
   !-------------------------------------------------------------------------
