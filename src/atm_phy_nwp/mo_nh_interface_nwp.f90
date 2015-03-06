@@ -436,10 +436,11 @@ CONTAINS
 
           ENDDO
         ENDDO
+      ENDIF
 
-        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
-                        jb, i_startidx, i_endidx, 1, nlev)
-
+      IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
+        ! diagnose pressure for subsequent fast-physics parameterizations
+        CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
       ENDIF
 
     ENDDO ! nblks
@@ -558,7 +559,7 @@ CONTAINS
 
     ENDIF
 
-      IF (lart) THEN
+    IF (lart) THEN
 !< JS: added ext_data again, datetime, p_metrics, pt_diag_pt_prog%rho
         CALL art_reaction_interface(ext_data,                    & !> in
                   &          pt_patch,                           & !> in
@@ -576,36 +577,36 @@ CONTAINS
                   &          prm_diag,                           & !>in
                   &          pt_prog_rcf%tracer)                   !>inout
 
-      ENDIF !lart
+    ENDIF !lart
 
 
-    IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
-      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
+
+    IF (timers_level > 1) CALL timer_start(timer_fast_phys)
+
+    ! Remark: in the (unusual) case that satad is used without any other physics,
+    ! recalculation of the thermodynamic variables is duplicated here. However,
+    ! this is the easiest way to combine minimization of halo communications
+    ! with a failsafe flow control
+
+    IF (msg_level >= 15) &
+      & CALL message('mo_nh_interface_nwp:', 'recalculate thermodynamic variables')
 
 
-      ! Remark: in the (unusual) case that satad is used without any other physics,
-      ! recalculation of the thermodynamic variables is duplicated here. However,
-      ! this is the easiest way to combine minimization of halo communications
-      ! with a failsafe flow control
+    ! exclude boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-      IF (msg_level >= 15) &
-        & CALL message('mo_nh_interface_nwp:', 'recalculate thermodynamic variables')
-
-
-      ! exclude boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
 
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end )
+    DO jb = i_startblk, i_endblk
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end )
 
+      IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
         !-------------------------------------------------------------------------
         !>
         !! re-calculate scalar prognostic variables out of physics variables!
@@ -681,15 +682,19 @@ CONTAINS
           pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
         ENDIF
 
+      ENDIF ! recalculation
+
+      IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
+        ! rediagnose pressure
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
                         jb, i_startidx, i_endidx, 1, nlev)
+      ENDIF
 
-      ENDDO
+    ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
-    ENDIF ! end of fast physics part
+    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
 
     IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
