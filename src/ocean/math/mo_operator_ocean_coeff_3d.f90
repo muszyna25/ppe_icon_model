@@ -967,8 +967,8 @@ CONTAINS
             & patch_2D%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
             & patch_2D%verts%cartesian(vertex_2_index, vertex_2_block)%x
 
-            prime_edge_length(edge_index,edge_block) = &
-              & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+	  prime_edge_length(edge_index,edge_block) = &
+	    & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
           !----------------------------------------
 
           !----------------------------------------
@@ -1722,6 +1722,33 @@ CONTAINS
 
           ictr = (neigbor - 1)*no_dual_edges
 
+!           DO vert_edge=1,patch_2D%verts%num_edges(vertex_index,vertex_block)!no_dual_edges
+!             ictr=ictr+1
+!             !actual edge
+!             edge_index_cell = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
+!             edge_block_cell = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
+!             dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x
+! 
+!             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
+!             orientation = DOT_PRODUCT( dist_vector%x,                         &
+!                & patch_2D%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
+!             ! orientation should not be 0, since this would mean that the prime and dual are parallel
+!             ! overall this calculation should be derived from the verts%edge_orientation
+!             ! orientation will recieve a value -1, or 1 based on the previous,
+!             ! then multuplied by -1 if neigbor=2, otherwise unchanged
+!             orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor,wp))
+! 
+!             !The dot product is the cosine of the angle between vectors from dual cell centers
+!             !to dual cell edges 
+!             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
+!               & = orientation                                           &
+!               & * DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)        &
+!               & * patch_2D%edges%system_orientation(edge_index, edge_block)&
+!               & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
+!               &    / prime_edge_length(edge_index, edge_block))
+! 
+!           END DO
+          
           DO vert_edge=1,patch_2D%verts%num_edges(vertex_index,vertex_block)!no_dual_edges
             ictr=ictr+1
             !actual edge
@@ -1730,20 +1757,14 @@ CONTAINS
             dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x
 
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
-            orientation = DOT_PRODUCT( dist_vector%x,                         &
-               & patch_2D%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
-            ! orientation should not be 0, since this would mean that the prime and dual are parallel
-            ! overall this calculation should be derived from the verts%edge_orientation
-            ! orientation will recieve a value -1, or 1 based on the previous,
-            ! then multuplied by -1 if neigbor=2, otherwise unchanged
-            orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor,wp))
 
+            orientation = patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge) &
+              & * (3 - 2 * neigbor) * patch_2D%edges%system_orientation(edge_index, edge_block)
             !The dot product is the cosine of the angle between vectors from dual cell centers
             !to dual cell edges 
             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
               & = orientation                                           &
-              & * DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)        &
-              & * patch_2D%edges%system_orientation(edge_index, edge_block)&
+              & * ABS(DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))   &
               & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
               &    / prime_edge_length(edge_index, edge_block))
 
