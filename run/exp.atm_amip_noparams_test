@@ -411,7 +411,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
+                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
+                    'pfull'
 /
 EOF
 fi
@@ -434,7 +435,8 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
                     'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
-                    'prm_aer_aod_9731'
+                    'prm_aer_aod_9731',
+                    'pfull'
 /
 EOF
 fi
