@@ -136,7 +136,7 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 2           ! 2: horizontally and vertically constant
  irad_cfc12       = 2           ! 2: horizontally and vertically constant
- irad_aero        = 0           ! 0: no aerosol
+ irad_aero        = 15          ! 0: no aerosol
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
@@ -198,7 +198,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=/pool/data/ICON/input/r0002
+INDATA=/pool/data/ICON/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=$INDATA/../../setup
@@ -220,8 +220,8 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-year=$start_year
 datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+year=$start_year
 while [[ $year -le $end_year ]]
 do
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
@@ -229,34 +229,34 @@ do
 done
 #
 # - tropospheric aerosol
+datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
 year=$start_year
-##################################
-# Standard path to be used later:
-#datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-# Provisonal path on Blizzard:
-datadir=/work/mh0287/users/marco/icon-dev/data/external/r2b4_amip/atm/bc_aeropt_kinne
-##################################
-##while [[ $year -le $end_year ]]
-##do
-##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc          ./
-##  (( year = year+1 ))
-##done
+while [[ $year -le $end_year ]]
+do
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+  if [[ $year -le 2000 ]]
+  then
+    add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc        ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  else
+    add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_rcp45_${year}.nc  ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  fi
+  (( year = year+1 ))
+done
 #
 # - stratospheric aerosol
+datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 year=$start_year
-##################################
-# Standard path to be used later:
-#datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
-# Provisonal path on Blizzard:
-datadir=/work/mh0287/users/marco/icon-dev/data/external/r2b4_amip/atm/bc_aeropt_stenchikov
-##################################
-##while [[ $year -le $end_year ]]
-##do
-##  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./
-##  (( year = year+1 ))
-##done
+while [[ $year -le $end_year ]]
+do
+  if [[ $year -le 1999 ]]
+  then
+    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+  else
+    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+  fi
+  (( year = year+1 ))
+done
 #
 # - sst and sic
 datadir=$INDATA/r2b4_amip/oce
