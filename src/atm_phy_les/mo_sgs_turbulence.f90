@@ -56,6 +56,7 @@ MODULE mo_sgs_turbulence
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
+  USE mo_sgs_turbmetric,      ONLY: drive_subgrid_diffusion_m
 
   IMPLICIT NONE
 
@@ -124,7 +125,15 @@ MODULE mo_sgs_turbulence
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
     i_nchdom   = MAX(1,p_patch%n_childdom)
- 
+
+    ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
+    IF (les_config(jg)%les_metric) THEN
+      CALL drive_subgrid_diffusion_m(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+                                     p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
+                                     p_diag_lnd, prm_diag, prm_nwp_tend, dt)
+      RETURN
+    ENDIF
+
    
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v),           &
               v_vert(nproma,nlev,p_patch%nblks_v),           &
