@@ -252,7 +252,7 @@ CONTAINS
       
       ! vort_flux(:,:,blockNo) = 0.0_wp
       
-      edge_idx_loop: DO je =  start_edge_index, end_edge_index
+      DO je =  start_edge_index, end_edge_index
         
         this_vort_flux(:,:) = 0.0_wp
         
@@ -324,7 +324,7 @@ CONTAINS
           
         ENDDO
         
-      END DO edge_idx_loop
+      END DO
       
     END DO ! blockNo = edges_inDomain%start_block, edges_inDomain%end_block
 !ICON_OMP_END_PARALLEL_DO

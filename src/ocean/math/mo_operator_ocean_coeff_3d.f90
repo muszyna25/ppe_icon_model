@@ -1715,7 +1715,8 @@ CONTAINS
           vertex_block   = patch_2D%edges%vertex_blk(edge_index, edge_block, neigbor)
           vertex_center%x= patch_2D%verts%cartesian(vertex_index, vertex_block)%x
 
-          dist_vector_basic%x = (edge_center%x - vertex_center%x)
+          dist_vector_basic%x = (edge_center%x - vertex_center%x) &
+            & * (3 - 2 * neigbor) * patch_2D%edges%system_orientation(edge_index, edge_block)
 
           !IF(neigbor==1)ictr = 0
           !IF(neigbor==2)ictr = no_dual_edges
@@ -1754,17 +1755,15 @@ CONTAINS
             !actual edge
             edge_index_cell = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
             edge_block_cell = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
-            dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x
+            dist_vector%x  =  (dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x) &
+              & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
 
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
 
-            orientation = patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge) &
-              & * (3 - 2 * neigbor) * patch_2D%edges%system_orientation(edge_index, edge_block)
             !The dot product is the cosine of the angle between vectors from dual cell centers
             !to dual cell edges 
             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
-              & = orientation                                           &
-              & * ABS(DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))   &
+              & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))   &
               & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
               &    / prime_edge_length(edge_index, edge_block))
 
