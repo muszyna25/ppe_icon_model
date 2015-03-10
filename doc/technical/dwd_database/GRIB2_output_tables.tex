@@ -22,7 +22,12 @@ of additional metadata are
  \end{itemize}
 just to name a few.
 
-A documentation of the official WMO GRIB2 code tables can be found here: \url{http://www.wmo.int/pages/prog/www/WMOCodes/WMO306_vI2/LatestVERSION/WMO306_vI2_GRIB2_CodeFlag_en.pdf}\\
+A documentation of the official WMO GRIB2 code tables can be found here: 
+
+\begin{minipage}{\textwidth}
+\url{http://www.wmo.int/pages/prog/www/WMOCodes/WMO306_vI2/LatestVERSION/WMO306_vI2_GRIB2_CodeFlag_en.pdf}
+\end{minipage}
+
 In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurface} will be abbreviated by \emph{Lev-Typ~1/2}.
 
 
@@ -444,8 +449,8 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 \groups[tri][ll] & ASHFL\_S                       &  Sensible heat net flux at surface (average since model start)                         &               0                                   &                     0                       &                    11                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
 \groups[tri][ll] & ALHFL\_S                       &  Latent heat net flux at surface (average since model start)                           &               0                                   &                     0                       &                    10                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
 \groups[tri][ll] & FR\_ICE                        &  Sea/lake ice cover  (possible range: $[0,1]$)                                         &              10                                   &                     2                       &                     0                      &                 1/--                            &                      inst                   &        $1$  \\
-\groups[tri][ll] & T\_ICE                         &  Sea ice temperature (at ice-atm interface)                                            &              10                                   &                     2                       &                     8                      &                 1/--                            &                      inst                   &        $\mathrm{K}$  \\
-\groups[tri][ll] & H\_ICE                         &  Sea ice thickness (Max: $3\,\mathrm{m}$)                                              &              10                                   &                     2                       &                     1                      &                 1/--                            &                      inst                   &        $\mathrm{m}$  \\
+\groups[tri][ll] & T\_ICE                         &  Sea/Lake ice temperature (at ice-atm interface)                                       &              10                                   &                     2                       &                     8                      &                 1/--                            &                      inst                   &        $\mathrm{K}$  \\
+\groups[tri][ll] & H\_ICE                         &  Sea/Lake ice thickness (Max: $3\,\mathrm{m}$)                                         &              10                                   &                     2                       &                     1                      &                 1/--                            &                      inst                   &        $\mathrm{m}$  \\
 \groups[tri][]   & FRESHSNW                       &  Fresh snow factor (weighting function for albedo indicating freshness of snow)        &               0                                   &                     1                       &                   203                      &                 1/--                            &                      inst                   &        $1$  \\
 \groups[tri][ll] & RHO\_SNOW                      &  Snow density                                                                          &               0                                   &                     1                       &                    61                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-3}}$  \\
 \groups[tri][ll] & H\_SNOW                        &  Snow depth                                                                            &               0                                   &                     1                       &                    11                      &                 1/--                            &                      inst                   &        $\mathrm{m}$  \\
