@@ -47,7 +47,7 @@ MODULE mo_ocean_diagnostics
     & agulhas_longer, &
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
-    & diagnose_for_horizanatlVelocity
+    & diagnose_for_horizontalVelocity
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
@@ -277,7 +277,7 @@ CONTAINS
     CALL default_var_list_settings( ocean_diagnostics_list,            &
       & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
     !-----------------------------------------------------------------------
-    IF (diagnose_for_horizanatlVelocity) THEN
+    IF (diagnose_for_horizontalVelocity) THEN
       CALL add_var(ocean_diagnostics_list, 'veloc_adv_horz_u', veloc_adv_horz_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('veloc_adv_horz_u','m/s','velocity advection zonal', &
@@ -658,7 +658,7 @@ CONTAINS
     owned_edges    => patch_2d%edges%owned
     !-----------------------------------------------------------------------
     
-    IF (diagnose_for_horizanatlVelocity) THEN
+    IF (diagnose_for_horizontalVelocity) THEN
       DO blockNo = owned_edges%start_block,owned_edges%end_block
         CALL get_index_range(owned_edges, blockNo, start_edge_index, end_edge_index)
         DO jc =  start_edge_index, end_edge_index
