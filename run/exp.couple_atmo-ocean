@@ -1,3 +1,4 @@
+#!/bin/bash
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -25,6 +26,8 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
+grids_folder=/pool/data/ICON/grids/buildbot
+
 #
 # Number of ocean processes
 #
@@ -41,7 +44,7 @@ if [ $OMP_NUM_THREADS -gt 1 ] ; then
    check_error 0
    exit
 fi
-#
+
 #-----------------------------------------------------------------------------
 # ATMO
 #-----------------------------------------------------------------------------

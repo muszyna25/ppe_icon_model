@@ -23,26 +23,15 @@ output_interval="P$leading_zero${days_data}D"     # ocean model output interval 
 (( dt_checkpoint  = years_checkpoint  * year ))
 (( dt_restart     = years_restart     * year ))
 (( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
+autoPostProcessing="true"             #  submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-use_file_initialConditions=".true."   #  necessary for copying initial data
-autoPostProcessing="true"             #  submit postprocessing job
-external_interpolation_type="mpiom"
-use_gridfile_for_grabbing_externale_data='true'
 init_relax=1
-#init_rel_suff='20m.nc'  # 20m thickness
-init_oce_suff='L40.nc'
-init_rel_suff='surf.nc'
-R=2   # nroot
-B=4   # number of bisections applied
-grid_ext="etopo40_planet_newgeom_noinland"
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-LOC="POOL"
-#LOC="OTHR"
-#grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
+ocean_vertical_levels=40
+ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
