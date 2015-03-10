@@ -1177,6 +1177,9 @@ scripts/postprocessing/tools/mtgrm_plot_sfc.ncl -text
 scripts/postprocessing/tools/namelist_postpro.ncl -text
 scripts/postprocessing/tools/namelist_postpro_driver.bash -text
 scripts/postprocessing/tools/oceDiag.gp -text
+scripts/postprocessing/tools/ocean/create_plot_browser -text
+scripts/postprocessing/tools/ocean/mk_index_html -text
+scripts/postprocessing/tools/ocean/plot_timeser -text
 scripts/postprocessing/tools/plotIconSphereGrid.ncl -text
 scripts/postprocessing/tools/plotNestedGrids.ncl -text
 scripts/postprocessing/tools/plotOceanGrid.ncl -text
