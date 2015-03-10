@@ -98,7 +98,7 @@ cat > ${atmo_namelist} << EOF
 /
 &sleve_nml
  min_lay_thckn    = 40.         ! [m]
- top_height       = 75000.      ! [m]
+ top_height       = 83000.      ! [m]
  stretch_fac      = 0.9
  decay_scale_1    = 4000.       ! [m]
  decay_scale_2    = 2500.       ! [m]
@@ -201,8 +201,8 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 INDATA=/pool/data/ICON/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=$INDATA/../../setup
-add_link_file $datadir/prepiconR2B04_DOM01_ERA_INT_AMIP.nc              ./ifs2icon_R2B04_DOM01.nc
+datadir=/pool/data/ICON/setup/ifs_iconremap_amip
+add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
 datadir=$INDATA/r2b4_amip/lnd
