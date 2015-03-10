@@ -616,7 +616,7 @@ MODULE mo_ocean_nml
     & smooth_initial_temperature_weights, &
     & initial_temperature_scale_depth
   !----------------------------------------------------------------------------
-  LOGICAL :: diagnose_horizontal_fluxes = .false.
+  LOGICAL :: diagnose_for_horizanatlVelocity = .false.
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
     & denmark_strait, &
     & drake_passage, &
@@ -630,7 +630,7 @@ MODULE mo_ocean_nml
     & agulhas, &
     & agulhas_long, &
     & agulhas_longer, &
-    & diagnose_horizontal_fluxes
+    & diagnose_for_horizanatlVelocity
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model
