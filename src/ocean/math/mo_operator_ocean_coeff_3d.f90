@@ -71,9 +71,11 @@ MODULE mo_operator_ocean_coeff_3d
   INTEGER,PUBLIC :: no_primal_edges 
 
   ! flags for computing ocean coefficients
-  LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
-  LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
- CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
+  ! LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
+  LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .FALSE. !Please do not change this unless you are sure, you know what you do.
+  !LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
+  LOGICAL, PARAMETER :: LARC_LENGTH = .TRUE.
+  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
   CHARACTER(LEN=16)           :: str_module = 'opcoeff'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 CONTAINS
@@ -967,8 +969,8 @@ CONTAINS
             & patch_2D%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
             & patch_2D%verts%cartesian(vertex_2_index, vertex_2_block)%x
 
-	  prime_edge_length(edge_index,edge_block) = &
-	    & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+          prime_edge_length(edge_index,edge_block) = &
+            & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
           !----------------------------------------
 
           !----------------------------------------
@@ -1534,7 +1536,7 @@ CONTAINS
     !REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch_2D%nblks_e,1:no_dual_edges)
     REAL(wp)                      :: norm, orientation, length
 
-    INTEGER :: ictr,edge_block_cell, edge_index_cell
+    INTEGER :: ictr,edge_block_vertex, edge_index_vertex
     INTEGER :: vert_edge
     INTEGER :: edge_block, edge_index
     !INTEGER :: cell_index, cell_block
@@ -1753,18 +1755,18 @@ CONTAINS
           DO vert_edge=1,patch_2D%verts%num_edges(vertex_index,vertex_block)!no_dual_edges
             ictr=ictr+1
             !actual edge
-            edge_index_cell = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
-            edge_block_cell = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
-            dist_vector%x  =  (dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x) &
+            edge_index_vertex = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
+            edge_block_vertex = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
+            dist_vector%x  =  (dual_edge_middle(edge_index_vertex, edge_block_vertex)%x - vertex_center%x) &
               & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
 
-            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
+            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_vertex, edge_block_vertex))
 
             !The dot product is the cosine of the angle between vectors from dual cell centers
             !to dual cell edges 
             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
               & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))   &
-              & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
+              & * (dual_edge_length(edge_index_vertex, edge_block_vertex)   &
               &    / prime_edge_length(edge_index, edge_block))
 
           END DO

@@ -46,7 +46,8 @@ MODULE mo_ocean_diagnostics
     & agulhas_long, &
     & agulhas_longer, &
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
-    & iforc_oce, No_Forcing, i_sea_ice
+    & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
+    & diagnose_horizontal_fluxes
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
@@ -65,6 +66,18 @@ MODULE mo_ocean_diagnostics
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum
   USE mo_fortran_tools,      ONLY: assign_if_present
+  
+  USE mo_var_list,           ONLY: add_var,
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_var_list,            ONLY: add_var,                  &
+    &                               new_var_list,             &
+    &                               delete_var_list,          &
+    &                               default_var_list_settings,&
+    &                               add_ref
+  USE mo_var_metadata,        ONLY: groups
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
   
   IMPLICIT NONE
   
@@ -219,6 +232,11 @@ MODULE mo_ocean_diagnostics
   PRIVATE                           :: ocean_region_areas
 
   TYPE(t_oce_timeseries),POINTER :: oce_ts
+
+  TYPE(t_var_list) :: ocean_diagnostics_list
+  REAL(wp), POINTER :: veloc_adv_horz_u(:,:,:),  veloc_adv_horz_v(:,:,:), &
+    & laplacian_horz_u(:,:,:), laplacian_horz_v(:,:,:)
+  
   
 CONTAINS
 
@@ -243,18 +261,35 @@ CONTAINS
     INTEGER  :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
     REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
     
-    TYPE(t_patch), POINTER        :: p_patch
+    TYPE(t_patch), POINTER        :: patch_2d
     TYPE(t_subset_range), POINTER :: owned_cells
     INTEGER, POINTER              :: regions(:,:)
     TYPE(t_ocean_regions)         :: ocean_regions
     !-----------------------------------------------------------------------
-    p_patch => patch_3D%p_patch_2d(1)
+    patch_2d => patch_3D%p_patch_2d(1)
     regions => patch_3D%regio_c
     !-----------------------------------------------------------------------
-    owned_cells => p_patch%cells%owned
+    owned_cells => patch_2d%cells%owned
     !-----------------------------------------------------------------------
+    CALL delete_var_list(ocean_diagnostics_list)
+    CALL new_var_list(ocean_diagnostics_list, listname, patch_id=patch_2d%id)
+    CALL default_var_list_settings( ocean_diagnostics_list,            &
+      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+    !-----------------------------------------------------------------------
+    IF (diagnose_horizontal_fluxes == .true.) THEN
+      CALL add_var(ocean_default_list, 'veloc_adv_horz_u', veloc_adv_horz_u, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('veloc_adv_horz_u','m/s','velocity advection flux zonal', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+
+    ENDIF
     
     CALL message (TRIM(routine), 'start')
+    IF (diagnostics_level < 1) RETURN
+    
     ALLOCATE(oce_ts)
     
     ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
@@ -332,7 +367,7 @@ CONTAINS
     END DO
     WRITE(diag_unit,'(a)')TRIM(headerline)
 
-    ! CALL check_global_indexes(p_patch)
+    ! CALL check_global_indexes(patch_2d)
    
     ! open file for MOC - extraordinary at this time
     moc_fname='MOC.'//TRIM(datestring)
@@ -427,7 +462,7 @@ CONTAINS
       DO jc = start_index, end_index
         
         ! area
-        prism_area               = p_patch%cells%area(jc,jb)
+        prism_area               = patch_2d%cells%area(jc,jb)
         ocean_region_areas%total = ocean_region_areas%total + prism_area
         
         ! volume
@@ -495,6 +530,50 @@ CONTAINS
     CALL message (TRIM(routine), 'end')
   END SUBROUTINE construct_oce_diagnostics
   !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !  !The destructor of the types related to ocean diagnostics
+  !>
+  !!
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2011).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE destruct_oce_diagnostics()
+    !
+    !
+    !local variables
+    INTEGER :: i,iret
+    CHARACTER(LEN=max_char_length)  :: linkname
+    CHARACTER(LEN=max_char_length)  :: message_text
+
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
+    !-----------------------------------------------------------------------
+    CALL delete_var_list(ocean_diagnostics_list)
+
+    IF (diagnostics_level < 0) RETURN
+
+    DO i=0,nsteps
+      DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
+    END DO
+    DEALLOCATE(oce_ts%oce_diagnostics)
+    DEALLOCATE(oce_ts)
+    ! close the global diagnostics text file and the SRV MOC file
+    CLOSE(UNIT=diag_unit)
+    CLOSE(UNIT=moc_unit)
+    ! create a link to the last diagnostics file
+    linkname = 'oce_diagnostics.txt'
+    IF (util_islink(TRIM(linkname))) THEN
+      iret = util_unlink(TRIM(linkname))
+    ENDIF
+    iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
+    WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
+    CALL message('',message_text)
+
+    CALL message (TRIM(routine), 'end')
+  END SUBROUTINE destruct_oce_diagnostics
+  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
@@ -517,46 +596,6 @@ CONTAINS
   END SUBROUTINE compute_vertical_volume
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !  !The destructor of the types related to ocean diagnostics
-  !>
-  !!
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2011).
-  !!
-!<Optimize:inUse>
-  SUBROUTINE destruct_oce_diagnostics()
-    !
-    !
-    !local variables
-    INTEGER :: i,iret
-    CHARACTER(LEN=max_char_length)  :: linkname
-    CHARACTER(LEN=max_char_length)  :: message_text
-    
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
-    !-----------------------------------------------------------------------
-    DO i=0,nsteps
-      DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
-    END DO
-    DEALLOCATE(oce_ts%oce_diagnostics)
-    DEALLOCATE(oce_ts)
-    ! close the global diagnostics text file and the SRV MOC file
-    CLOSE(UNIT=diag_unit)
-    CLOSE(UNIT=moc_unit)
-    ! create a link to the last diagnostics file
-    linkname = 'oce_diagnostics.txt'
-    IF (util_islink(TRIM(linkname))) THEN
-      iret = util_unlink(TRIM(linkname))
-    ENDIF
-    iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
-    WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
-    CALL message('',message_text)
-    
-    CALL message (TRIM(routine), 'end')
-  END SUBROUTINE destruct_oce_diagnostics
-  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -580,7 +619,7 @@ CONTAINS
     INTEGER :: i_no_t, i
     REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
     INTEGER :: reference_timestep
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2d
     REAL(wp) :: sflux
     
     TYPE(t_subset_range), POINTER :: owned_cells
@@ -592,8 +631,8 @@ CONTAINS
     TYPE(t_ocean_regions)         :: ocean_regions
     
     !-----------------------------------------------------------------------
-    p_patch        => patch_3D%p_patch_2d(1)
-    owned_cells    => p_patch%cells%owned
+    patch_2d        => patch_3D%p_patch_2d(1)
+    owned_cells    => patch_2d%cells%owned
     !-----------------------------------------------------------------------
     monitor        => oce_ts%oce_diagnostics(timestep)
     surface_area   = 0.0_wp
@@ -612,9 +651,9 @@ CONTAINS
         
         DO jc =  start_cell_index, end_cell_index
           IF ( patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-            surface_area = surface_area + p_patch%cells%area(jc,jb)
+            surface_area = surface_area + patch_2d%cells%area(jc,jb)
           
-            prism_vol      = p_patch%cells%area(jc,jb)*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,jb)
+            prism_vol      = patch_2d%cells%area(jc,jb)*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,jb)
             monitor%volume = monitor%volume + prism_vol
             
             
@@ -639,7 +678,7 @@ CONTAINS
         DO jc =  start_cell_index, end_cell_index
           
           ! area
-          prism_area   = p_patch%cells%area(jc,jb)
+          prism_area   = patch_2d%cells%area(jc,jb)
           surface_area = surface_area + prism_area
           ! sum of top layer vertical velocities abolsute values
           monitor%absolute_vertical_velocity = &
@@ -665,7 +704,7 @@ CONTAINS
           monitor%SaltFlux_Relax = monitor%SaltFlux_Relax + p_sfc_flx%SaltFlux_Relax(jc,jb)*prism_area
           
           ! northern hemisphere
-          IF (p_patch%cells%center(jc,jb)%lat > equator) THEN
+          IF (patch_2d%cells%center(jc,jb)%lat > equator) THEN
             monitor%ice_volume_nh  = monitor%ice_volume_nh + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
             monitor%ice_extent_nh  = monitor%ice_extent_nh + p_ice%concsum(jc,jb)*prism_area
           ELSE
@@ -722,7 +761,7 @@ CONTAINS
     monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
     monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
     monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
-!   monitor%total_salt                 = calc_total_salt_content(p_patch, patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
+!   monitor%total_salt                 = calc_total_salt_content(patch_2d, patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
 !       &                                                        p_ice, p_os,p_sfc_flx,p_ice%zUnderIce)
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
@@ -878,8 +917,8 @@ CONTAINS
   END SUBROUTINE calc_slow_oce_diagnostics
   
 !<Optimize:inUse>
-  SUBROUTINE calc_fast_oce_diagnostics(p_patch, dolic, prism_thickness,depths, p_diag)
-    TYPE(t_patch ),TARGET :: p_patch
+  SUBROUTINE calc_fast_oce_diagnostics(patch_2d, dolic, prism_thickness,depths, p_diag)
+    TYPE(t_patch ),TARGET :: patch_2d
     INTEGER,  POINTER :: dolic(:,:)
     REAL(wp), POINTER :: prism_thickness(:,:,:)
     REAL(wp), INTENT(in)              :: depths(:)
@@ -891,7 +930,7 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: owned_cells
     !-----------------------------------------------------------------------
-    owned_cells    => p_patch%cells%owned
+    owned_cells    => patch_2d%cells%owned
     
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
     SELECT CASE (iswm_oce)
@@ -993,9 +1032,9 @@ CONTAINS
   ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
   ! TODO: calculate the 1 deg resolution meridional distance
   !!
-  SUBROUTINE calc_moc (p_patch, patch_3D, w, datetime)
+  SUBROUTINE calc_moc (patch_2d, patch_3D, w, datetime)
     
-    TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
     ! dims: (nproma,nlev+1,alloc_cell_blocks)
@@ -1033,8 +1072,8 @@ CONTAINS
     ! CALL MPI_BARRIER(0)
     
     ! with all cells no sync is necessary
-    !owned_cells => p_patch%cells%owned
-    dom_cells   => p_patch%cells%in_domain
+    !owned_cells => patch_2d%cells%owned
+    dom_cells   => patch_2d%cells%in_domain
     
     !write(81,*) 'MOC: datetime:',datetime
     
@@ -1049,19 +1088,19 @@ CONTAINS
             ! lbrei: corresponding latitude row of 1 deg extension
             !       1 south pole
             !     180 north pole
-            z_lat = p_patch%cells%center(jc,jb)%lat
+            z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lat_deg = z_lat*rad2deg
             lbrei = NINT(90.0_wp + z_lat_deg)
             lbrei = MAX(lbrei,1)
             lbrei = MIN(lbrei,180)
             
             ! get neighbor edge for scaling
-            !   il_e = p_patch%cells%edge_idx(jc,jb,1)
-            !   ib_e = p_patch%cells%edge_blk(jc,jb,1)
+            !   il_e = patch_2d%cells%edge_idx(jc,jb,1)
+            !   ib_e = patch_2d%cells%edge_blk(jc,jb,1)
             
             ! z_lat_dim: scale to 1 deg resolution
             ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-            !   z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
+            !   z_lat_dim = patch_2d%edges%primal_edge_length(il_e,ib_e) / &
             !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
             z_lat_dim = 1.0_wp
             
@@ -1075,19 +1114,19 @@ CONTAINS
               
               global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               !  multiply with wet (or loop to bottom)
-                & p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                & patch_2d%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
                 & patch_3D%wet_c(jc,jk,jb) / &
                 & REAL(2*jbrei + 1, wp)
               
               IF (patch_3D%basin_c(jc,jb) == 1) THEN         !  1: Atlantic; 0: Land
                 
                 atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
-                  & p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                  & patch_2d%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
                   & patch_3D%wet_c(jc,jk,jb) / &
                   & REAL(2*jbrei + 1, wp)
               ELSE IF (patch_3D%basin_c(jc,jb) >= 2) THEN   !  2: Indian; 4: Pacific
                 pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
-                  & p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
+                  & patch_2d%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
                   & patch_3D%wet_c(jc,jk,jb) / &
                   & REAL(2*jbrei + 1, wp)
               END IF
@@ -1405,13 +1444,13 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     
     ! (2) remapping normal velocity to zonal and meridional velocity at cell centers
-    CALL sync_patch_array(sync_e, patch_2D, vn_vint)       
+    CALL sync_patch_array(sync_e, patch_2d, vn_vint)
 
     CALL map_edges2cell_3d(patch_3D, vn_vint, op_coeff, vint_cc)
 
-    CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(1))
-    CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(2))
-    CALL sync_patch_array(sync_c, patch_2D, vint_cc(:,:,:)%x(3))
+    CALL sync_patch_array(sync_c, patch_2d, vint_cc(:,:,:)%x(1))
+    CALL sync_patch_array(sync_c, patch_2d, vint_cc(:,:,:)%x(2))
+    CALL sync_patch_array(sync_c, patch_2d, vint_cc(:,:,:)%x(3))
 
     ! calculate zonal and meridional velocity:
     DO jb = all_cells%start_block, all_cells%end_block
@@ -1423,10 +1462,10 @@ CONTAINS
 !         &            u_vint(jc,jb), v_vint(jc,jb))
       END DO
     END DO
-    !CALL sync_patch_array(sync_c, patch_2D, u_vint)       
-    !CALL sync_patch_array(sync_c, patch_2D, v_vint)       
-    CALL sync_patch_array(sync_c, patch_2D, u_2d)       
-    CALL sync_patch_array(sync_c, patch_2D, v_2d)       
+    !CALL sync_patch_array(sync_c, patch_2d, u_vint)
+    !CALL sync_patch_array(sync_c, patch_2d, v_vint)
+    CALL sync_patch_array(sync_c, patch_2d, u_2d)
+    CALL sync_patch_array(sync_c, patch_2d, v_2d)
 
     ! hack for test: calc_psy for u_vint, calc_psi_vn for v_vint - accumulated and written out
     v_vint(:,:) = u_2d(:,:)
@@ -1515,37 +1554,37 @@ CONTAINS
     
   END FUNCTION calc_mixed_layer_depth
 
-  FUNCTION calc_total_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
+  FUNCTION calc_total_salt_content(patch_2d, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
       & computation_type) RESULT(total_salt_content)
-    TYPE(t_patch),POINTER                                 :: p_patch
-    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks),INTENT(IN) :: thickness,zUnderIce
+    TYPE(t_patch),POINTER                                 :: patch_2d
+    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness,zUnderIce
     TYPE (t_sea_ice),       INTENT(IN)                    :: p_ice
     TYPE(t_hydro_ocean_state)                             :: p_os
     TYPE(t_sfc_flx)                                       :: surface_fluxes
     INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
     REAL(wp)                                              :: total_salt_content
 
-    REAL(wp), DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks) :: salt
+    REAL(wp), DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks) :: salt
 
-    salt               = calc_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, computation_type)
+    salt               = calc_salt_content(patch_2d, thickness, p_ice, p_os, surface_fluxes, zUnderIce, computation_type)
     total_salt_content = global_sum_array(salt)
   END FUNCTION calc_total_salt_content
 
-  FUNCTION calc_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
+  FUNCTION calc_salt_content(patch_2d, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
       & computation_type) &
       & RESULT(salt)
-    TYPE(t_patch),POINTER                                 :: p_patch
-    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks),INTENT(IN) :: zUnderIce
-    REAL(wp),DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks),INTENT(IN) :: thickness
+    TYPE(t_patch),POINTER                                 :: patch_2d
+    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: zUnderIce
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
     TYPE (t_sea_ice),       INTENT(IN)                    :: p_ice
     TYPE(t_hydro_ocean_state)                             :: p_os
     TYPE(t_sfc_flx)                                       :: surface_fluxes
     INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
 
     ! locals
-    REAL(wp), DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks) :: salt
+    REAL(wp), DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks) :: salt
 
-    REAL(wp), DIMENSION(nproma,p_patch%alloc_cell_blocks) :: saltInSeaice, saltInLiquidWater
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltInSeaice, saltInLiquidWater
     TYPE(t_subset_range), POINTER                         :: subset
     INTEGER                                               :: block, cell, cellStart,cellEnd, level
     INTEGER                                               :: my_computation_type
@@ -1554,7 +1593,7 @@ CONTAINS
     salt         = 0.0_wp
 
     CALL assign_if_present(my_computation_type, computation_type)
-    subset => p_patch%cells%owned
+    subset => patch_2d%cells%owned
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, cellStart, cellEnd)
       DO cell = cellStart, cellEnd
@@ -1564,7 +1603,7 @@ CONTAINS
         ! surface:
           saltInSeaice(cell,block)    = sice*rhoi &
             &                         * SUM(p_ice%hi(cell,:,block)*p_ice%conc(cell,:,block)) &
-            &                         * p_patch%cells%area(cell,block)
+            &                         * patch_2d%cells%area(cell,block)
         !!DN This is no longer needed since we now update surface salinity
         !directly
         !!DN   p_os%p_prog(nold(1))%tracer(cell,1,block,2) = (p_os%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
@@ -1574,12 +1613,12 @@ CONTAINS
         !!DN   &                                           /p_ice%zUnderIce(cell,block)
           saltInLiquidWater(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,2) &
             &                    * zUnderIce(cell,block)*rho_ref &
-            &                    * p_patch%cells%area(cell,block)
+            &                    * patch_2d%cells%area(cell,block)
         CASE (1) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
         ! surface:
           saltInSeaice(cell,block)    = sice*rhoi &
             &                         * SUM(p_ice%hi(cell,:,block)*p_ice%conc(cell,:,block)) &
-            &                         * p_patch%cells%area(cell,block)
+            &                         * patch_2d%cells%area(cell,block)
         !!DN This is no longer needed since we now update surface salinity directly
           p_os%p_prog(nold(1))%tracer(cell,1,block,2) = (p_os%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
           &                                            -   dtime &
@@ -1588,14 +1627,14 @@ CONTAINS
           &                                           /zUnderIce(cell,block)
           saltInLiquidWater(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,2) &
             &                    * zUnderIce(cell,block)*rho_ref &
-            &                    * p_patch%cells%area(cell,block)
+            &                    * patch_2d%cells%area(cell,block)
         END SELECT
 
         salt(cell,1,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
         DO level=2,subset%vertical_levels(cell,block)
           salt(cell,level,block) = p_os%p_prog(nold(1))%tracer(cell,level,block,2) &
             &                    * thickness(cell,level,block)*rho_ref &
-            &                    * p_patch%cells%area(cell,block)
+            &                    * patch_2d%cells%area(cell,block)
         END DO
 
         ! rest of the underwater world
