@@ -257,7 +257,7 @@ CONTAINS
       & routine = ('mo_ocean_diagnostics:construct_oce_diagnostics')
     !-----------------------------------------------------------------------
     CHARACTER(LEN=linecharacters) :: headerline
-    INTEGER  :: nblks_e,nblks_v,blockNo,jc,jk, region_index,start_index,end_index
+    INTEGER  :: nblks_e,blockNo,jc,jk, region_index,start_index,end_index
     REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
     
     TYPE(t_patch), POINTER        :: patch_2d
@@ -271,6 +271,7 @@ CONTAINS
     regions => patch_3D%regio_c
     !-----------------------------------------------------------------------
     owned_cells => patch_2d%cells%owned
+    nblks_e = patch_2d%nblks_e
     !-----------------------------------------------------------------------
     WRITE(listname,'(a)')  'ocean_diagnostics_list'
     CALL new_var_list(ocean_diagnostics_list, listname, patch_id=patch_2d%id)

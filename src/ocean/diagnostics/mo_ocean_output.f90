@@ -48,7 +48,6 @@ MODULE mo_ocean_output
   USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
     & destruct_oce_diagnostics, t_oce_timeseries, &
     & calc_moc, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
