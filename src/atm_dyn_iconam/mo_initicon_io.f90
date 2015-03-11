@@ -40,8 +40,8 @@ MODULE mo_initicon_io
     &                               lp2cintp_incr, lp2cintp_sfcana
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
-    &                               MODE_DWDANA_INC, MODE_IAU_OLD, MODE_IFSANA,         &
-    &                               MODE_COMBINED, MODE_COSMODE
+    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,            &
+    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
@@ -1312,7 +1312,7 @@ MODULE mo_initicon_io
 
       ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         IF (lp2cintp_incr(jg)) THEN
           ! Perform parent-to-child interpolation of atmospheric DA increments
           jgp = p_patch(jg)%parent_id
@@ -1351,7 +1351,7 @@ MODULE mo_initicon_io
       my_ptr3d => my_ptr%v
       CALL read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, opt_checkgroup=checkgrp )
 
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         my_ptr3d => my_ptr%qv
       ELSE
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
@@ -1652,7 +1652,7 @@ MODULE mo_initicon_io
       ! save some paperwork
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
-      IF (init_mode == MODE_IAU_OLD .AND. lp2cintp_sfcana(jg)) THEN
+      IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. lp2cintp_sfcana(jg)) THEN
         ! Perform parent-to-child interpolation of surface fields read from the analysis
         jgp = p_patch(jg)%parent_id
         CALL interpolate_sfcana(initicon, jgp, jg)
@@ -1706,7 +1706,7 @@ MODULE mo_initicon_io
       CALL read_data_2d (parameters, filetype, 'freshsnow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! w_so
-      IF (init_mode == MODE_IAU_OLD) THEN
+      IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
       ELSE
         my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
@@ -1717,8 +1717,8 @@ MODULE mo_initicon_io
 
       ! Fill remaining tiles for snow variables if tile approach is used
       ! Only fields that are actually read from the snow analysis are copied; 
-      ! note that MODE_IAU_OLD is mandatory when using tiles
-      IF (init_mode == MODE_IAU_OLD .AND. ntiles_total>1) THEN
+      ! note that MODE_IAU or MODE_IAU_OLD is mandatory when using tiles
+      IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. ntiles_total>1) THEN
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jt,i_endidx)
         DO jb = 1, p_patch(jg)%nblks_c

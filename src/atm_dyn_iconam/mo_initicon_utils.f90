@@ -37,8 +37,8 @@ MODULE mo_initicon_utils
     &                               timeshift,                                          &
     &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
-    &                               MODE_DWDANA_INC, MODE_IAU_OLD, MODE_IFSANA,         &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,                &
     &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS,&
     &                               min_rlcell_int, grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
@@ -366,6 +366,7 @@ MODULE mo_initicon_utils
   !! Both groups are based on two of a bunch of available ICON-internal output groups, depending on 
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
+  !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
   !! groups for MODE_IAU_OLD : mode_iau_fg_in, mode_iau_ana_in
   !! groups for MODE_COMBINED: mode_combined_in
   !! groups for MODE_COSMODE : mode_cosmode_in
@@ -499,7 +500,7 @@ MODULE mo_initicon_utils
             ngrp_vars_ana = 0
           ENDIF
 
-        CASE(MODE_IAU_OLD)
+        CASE(MODE_IAU, MODE_IAU_OLD)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_iau_fg_in' 
@@ -743,7 +744,7 @@ MODULE mo_initicon_utils
       WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
       CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ana_default_txt = "ANA_inc (expected)"
         ana_this_txt    = "ANA_inc (this run)"
       ELSE
@@ -1632,7 +1633,7 @@ MODULE mo_initicon_utils
 
 
       ! atmospheric assimilation increments
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+      IF ( ANY((/MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &
@@ -1644,7 +1645,7 @@ MODULE mo_initicon_utils
       ENDIF
 
       ! surface assimilation increments
-      IF ( (init_mode == MODE_IAU_OLD) ) THEN
+      IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ALLOCATE(initicon(jg)%sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
 
 
