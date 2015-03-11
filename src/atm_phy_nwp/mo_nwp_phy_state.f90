@@ -92,6 +92,7 @@ USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
+USE mtime,                   ONLY: MAX_DATETIME_STR_LEN
 
 IMPLICIT NONE
 PRIVATE
@@ -268,7 +269,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
     LOGICAL :: lrestart
- 
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stats_intvl ! time interval during which fields are statistically processed
+                                                       ! iso8601
+
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
     shape2d      = (/nproma,           kblks            /)
@@ -276,6 +279,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     shape3dkp1   = (/nproma, klevp1,   kblks            /)
     shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
+
+
+    ! Quick and dirty implementation of domain-specific statistics intervals
+    SELECT CASE(k_jg)
+    CASE(1)  ! global domain
+      stats_intvl = "PT03H"
+    CASE(2)  ! nesting level 1
+      stats_intvl = "PT01H"
+    CASE DEFAULT
+      stats_intvl = "PT03H"
+    END SELECT
 
     ! Register a field list and apply default settings
 
@@ -608,7 +622,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval_r=0._wp, resetval_r=0._wp,                           &
-                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
+                & action_list=actions(new_action(ACTION_RESET,TRIM(stats_intvl))) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
@@ -1800,7 +1814,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
-          & action_list=actions(new_action(ACTION_RESET,'PT03H')),            &
+          & action_list=actions(new_action(ACTION_RESET,TRIM(stats_intvl))),  &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -1811,7 +1825,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
-          & action_list=actions(new_action(ACTION_RESET,'PT03H')),            &
+          & action_list=actions(new_action(ACTION_RESET,TRIM(stats_intvl))),  &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
