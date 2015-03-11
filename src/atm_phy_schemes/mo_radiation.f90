@@ -1811,7 +1811,12 @@ CONTAINS
 
     ELSE ! hydrostatic version
 
-      ! Longwave fluxes
+      ! For ECHAM physics: Returns flux divergences in [W/m2]
+      ! instead of the heating rates in [K/s].
+      zconv(:,:) = 1._wp
+
+      ! Longwave fluxes: For now keep fluxes fixed at TOA and in atmosphere,
+      ! but adjust flux from surface to the current surface temperature.
       ! - TOA
       zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
       ! - Atmosphere
