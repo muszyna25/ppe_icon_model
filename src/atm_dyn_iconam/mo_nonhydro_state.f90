@@ -32,14 +32,14 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
-    &                                INWP, IECHAM,                       &
-    &                                VINTP_METHOD_VN,                    &
-    &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
-    &                                VINTP_METHOD_LIN,                   &
-    &                                VINTP_METHOD_LIN_NLEVP1,            &
-    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,     &
-    &                                iedmf, MODE_DWDANA_INC, MODE_IAU,   &
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,             &
+    &                                INWP, IECHAM,                         &
+    &                                VINTP_METHOD_VN,                      &
+    &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,   &
+    &                                VINTP_METHOD_LIN,                     &
+    &                                VINTP_METHOD_LIN_NLEVP1,              &
+    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
+    &                                iedmf, MODE_DWDANA_INC, MODE_IAU_OLD, &
     &                                TASK_COMPUTE_OMEGA
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
@@ -2073,7 +2073,7 @@ MODULE mo_nonhydro_state
     ENDIF  !  ntracer >0
 
 
-    IF ( (init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU)) THEN
+    IF ( (init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU_OLD)) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
       cf_desc    = t_cf_var('vn_incr', ' ',                   &
@@ -2117,7 +2117,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
 
-    ENDIF  ! init_mode = MODE_DWDANA_INC, MODE_IAU
+    ENDIF  ! init_mode = MODE_DWDANA_INC, MODE_IAU_OLD
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
       ! NOTE: the following time-averaged fields are not written into the restart file, 

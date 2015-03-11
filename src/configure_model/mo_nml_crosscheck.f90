@@ -35,7 +35,7 @@ MODULE mo_nml_crosscheck
     &                              UP3, MCYCL, MIURA_MCYCL, MIURA3_MCYCL,     &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
-    &                              iedmf, icosmo, MODE_DWDANA_INC, MODE_IAU
+    &                              iedmf, icosmo, MODE_DWDANA_INC, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -942,7 +942,7 @@ CONTAINS
     ! Realcase runs
     !--------------------------------------------------------------------
 
-    IF ( ANY((/MODE_DWDANA_INC,MODE_IAU/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
+    IF ( ANY((/MODE_DWDANA_INC,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
       ! check analysis update window
       !

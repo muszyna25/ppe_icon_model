@@ -85,7 +85,7 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
-    &                                    MODE_DWDANA_INC, MODE_IAU, MODIS !, icosmo
+    &                                    MODE_DWDANA_INC, MODE_IAU_OLD, MODIS
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -1176,7 +1176,7 @@ MODULE mo_nh_stepping
         ! For the time being, we hand over the dynamics time step and replace iadv_rcf by 
         ! ndyn_substeps (for bit-reproducibility).
         IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-            init_mode /= MODE_DWDANA_INC .AND. init_mode /= MODE_IAU) THEN
+            init_mode /= MODE_DWDANA_INC .AND. init_mode /= MODE_IAU_OLD) THEN
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
         ENDIF
@@ -1780,7 +1780,7 @@ MODULE mo_nh_stepping
         lsave_mflx = .FALSE.
       ENDIF
 
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU/)==init_mode) ) THEN ! incremental analysis mode
+      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
         cur_time = time_config%sim_time(jg)-timeshift%dt_shift+ &
          (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         CALL compute_iau_wgt(cur_time, dt_dyn, lclean_mflx)
