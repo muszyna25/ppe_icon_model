@@ -758,7 +758,10 @@ cdo             = Cdo()
 cdo.cdfMod = 'netcdf4'
 cdo.debug       = options['DEBUG']
 cdo.forceOutput = options['FORCE']
-cdo.setCdo('/sw/squeeze-x64/cdo-1.6.4/bin/cdo')
+cdo164          = ['/sw/squeeze-x64/cdo-1.6.4/bin/cdo','/sw/aix61/cdo-1.6.7/bin/cdo']
+for cdopath in cdo164:
+  if os.path.exists(cdopath):
+    cdo.setCdo(cdopath)
 # }}}
 # -----------------------------------------------------------------------------
 # INPUT HANDLING: {{{
