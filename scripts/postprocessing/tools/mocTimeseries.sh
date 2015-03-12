@@ -13,10 +13,10 @@ fi
 mocVar=var778 #AMOC
 
 # calculate the moc timeseries in 1000 depth
-# cat, yearmean, netcdf of MOC to moc.ym.nc
+# cat, yearmean, netcdf of MOC to moc.ym.nc - grid is 1x180 values, i.e. 1 deg lat-resolution
 files=$(echo $mocPattern | wc -w)
 if [[ $files -gt 1 ]]; then
-  cdo -f nc -r -yearmean -cat "${mocPattern}"  moc.ym.nc
+  cdo -f nc -r -setgrid,r1x180 -yearmean -cat "${mocPattern}"  moc.ym.nc
   mocPattern=moc.ym.nc
 fi
 
@@ -26,14 +26,20 @@ if [[ "$mocPattern" != "moc.gnuplot.dat" ]]; then
   #  select AMOC at 1000m depth and write ascii data for gnuplot
   levs=$(cdo nlevel -selvar,$mocVar $(ls -1 $mocPattern | head -n 1))
   if [[ "$levs" = "20" ]]; then
-    cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
-         -sellevel,1000 -setgrid,r1x180 $mocPattern > moc.gnuplot.dat
+    # old: 40-60N mean value
+ #  cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
+ #       -sellevel,1000 $mocPattern > moc.gnuplot.dat
+    # new: at 26N, i.e. index 90+26 
+    cdo outputkey,date,value -mulc,1.e-9 -selname,$mocVar -selindexbox,1,1,116,116 \
+         -sellevel,1000 $mocPattern > moc.gnuplot.dat
   fi
   if [[ "$levs" = "40" ]]; then
-    cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
-         -sellevel,1020 -setgrid,r1x180 $mocPattern > moc.gnuplot.dat
+    cdo outputkey,date,value -mulc,1.e-9 -selname,$mocVar -selindexbox,1,1,116,116 \
+         -sellevel,1020 $mocPattern > moc.gnuplot.dat
   fi
 # else
+#   cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
+#        -sellevel,1020 $mocPattern > moc.gnuplot.dat
 #   cdo outputkey,date,value -mulc,1.e-9 -fldmean -selname,$mocVar -sellonlatbox,0,1,40,60 \
 #        -intlevel,1000 -sellevel,900/1100 -setgrid,r1x180 $mocPattern > moc.gnuplot.dat
 # fi
@@ -51,8 +57,9 @@ set origin 0.02,0.02
 set style data lines
 set grid
 set title font "Times-Bold,16"
+set title  "Atlantic MOC (1000m depth at 26N)"
+#set title  "Atlantic MOC (1000m depth, 40-60N)"
 #set title  "Atlantic MOC"
-set title  "Atlantic MOC (1000m depth, 40-60N)"
 #set title  "Atlantic MOC ($mocPattern)"
 #set title  "N-Atlantic Meridional Overturning Circulation (MOC)"
 #set title  "N-Atlantic Meridional Overturning Circulation (MOC)" font "Helvetica-Bold,17"
