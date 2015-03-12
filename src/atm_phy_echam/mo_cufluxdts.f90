@@ -8,7 +8,7 @@
 MODULE mo_cufluxdts
 
 USE mo_kind,               ONLY: wp
-USE mo_physical_constants, ONLY: grav, alv, als, alf, tmelt, rd, cpd, vtmpc2
+USE mo_physical_constants, ONLY: grav, alv, als, alf, tmelt, cpd, vtmpc2!, rd
 !USE mo_physc2,             ONLY: cevapcu
 !USE mo_time_control,       ONLY: time_step_len
 !USE mo_submodel,           ONLY: lanysubmodel, lham    ! ### explicit submodel dependency (zcucov)
@@ -35,9 +35,9 @@ SUBROUTINE cuflx(    kproma, kbdim, klev, klevp1,                      &
            pqen,     pqsen,    ptenh,    pqenh,                        &
            ktrac,                                                      &
 !---Included for scavenging in wetdep_interface (Philip Stier, 28/03/01, UL, 2803.07):-------
-           krow,                                                       &
-           pxtte,    pxtu,     ptu,                                    &
-           pmwc,     pmrateprecip,                                     &
+!           krow,                                                       &
+!           pxtte,    pxtu,     ptu,                                    &
+!           pmwc,     pmrateprecip,                                     &
 !---End Included for scavenging-----------------------------------------
            pxtenh,   pmfuxt,   pmfdxt,                                 &
            paphp1,   pgeoh,                                            &
@@ -91,7 +91,7 @@ REAL(wp):: pxtenh(kbdim,klev,ktrac),                                   &
            pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
 !
 !
-REAL(wp) :: afac(kbdim) ! for cfmip diagnostics
+!REAL(wp) :: afac(kbdim) ! for cfmip diagnostics
 !
 INTEGER :: jl, jk, jt, ikb
 !++mgs
@@ -99,33 +99,33 @@ INTEGER :: jl, jk, jt, ikb
 !!         , zrfl, zrnew, zrmin, zrfln, zdrfl, zrsum, zdpevap,zwu
 !!REAL(wp):: zpsubcl(kbdim)
 REAL(wp):: zcons1, zcons2,         ztmelp2, zzp, zfac, zsnmlt          &
-         , zrfl, zrnew, zrmin, zrfln, zdrfl, zrsum,         zwu
-REAL(wp):: zpsubcl(kbdim), zpsubcl_sav(kbdim), zcucov(kbdim), zdpevap(kbdim)
+         , zrfl, zrnew, zrmin, zrfln, zdrfl, zrsum!,         zwu
+REAL(wp):: zpsubcl(kbdim), zcucov(kbdim), zdpevap(kbdim)!, zpsubcl_sav(kbdim)
 !--mgs
 !---Included for scavenging in wetdep_interface (Philip Stier, 28/03/01):-------
 !
-INTEGER, INTENT(IN) :: krow
-
-REAL(wp):: pxtte(kbdim,klev,ktrac), pxtu(kbdim,klev,ktrac),            &
-           ptu(kbdim,klev)
-
-REAL(wp):: zmlwc(kbdim,klev),       zmiwc(kbdim,klev),                 &
-           zmratepr(kbdim,klev),    zmrateps(kbdim,klev),              &
-           zfrain(kbdim,klev),      zfsnow(kbdim,klev),                &
-           zdpg(kbdim,klev),        zfevapr(kbdim,klev),               &
-           zfsubls(kbdim,klev),     zaclc(kbdim,klev),                 &
-           zmsnowacl(kbdim,klev),   zrhou(kbdim,klev)
-
-REAL(wp):: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
-
-REAL(wp):: ztc,         zzfac
-
-REAL(wp):: zcaa, &   !(Constants for partitioning of cloud water 
-           zcab      ! into liquid and solid part)
-
-REAL(wp):: zalpha    ! Fraction of cloud water in liquid phase
-                        ! =>  (1-zalpha)      "   in solid  phase
-
+!INTEGER, INTENT(IN) :: krow
+!
+!REAL(wp):: pxtte(kbdim,klev,ktrac), pxtu(kbdim,klev,ktrac),            &
+!           ptu(kbdim,klev)
+!
+!REAL(wp):: zmlwc(kbdim,klev),       zmiwc(kbdim,klev),                 &
+!           zmratepr(kbdim,klev),    zmrateps(kbdim,klev),              &
+!           zfrain(kbdim,klev),      zfsnow(kbdim,klev),                &
+!           zdpg(kbdim,klev),        zfevapr(kbdim,klev),               &
+!           zfsubls(kbdim,klev),     zaclc(kbdim,klev),                 &
+!           zmsnowacl(kbdim,klev),   zrhou(kbdim,klev)
+!
+!REAL(wp):: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
+!
+!REAL(wp):: ztc,         zzfac
+!
+!REAL(wp):: zcaa, &   !(Constants for partitioning of cloud water 
+!           zcab      ! into liquid and solid part)
+!
+!REAL(wp):: zalpha    ! Fraction of cloud water in liquid phase
+!                        ! =>  (1-zalpha)      "   in solid  phase
+!
 !---End Included for scavenging-----------------------------------------
 !
 !*             SPECIFY CONSTANTS
@@ -522,9 +522,9 @@ REAL(wp):: zalpha    ! Fraction of cloud water in liquid phase
 END SUBROUTINE cuflx
 
 SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
-                  krow,                                                &
-                  paphp1,   pten,     ptte,     pqte,                  &
-                  pxtte,    pxtec,    pmfuxt,   pmfdxt,                &
+!                  krow,                                                &
+                  paphp1,   pten,                                      &
+                  pxtec,    pmfuxt,   pmfdxt,                          &
                   pmfus,    pmfds,    pmfuq,    pmfdq,                 &
                   pmful,    pdmfup,   pdmfdp,   plude,                 &
                   pdpmel,   prfl,     psfl,                            &
@@ -547,17 +547,16 @@ SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
 !
 !
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
-INTEGER, INTENT (IN) :: krow
+!INTEGER, INTENT (IN) :: krow
 ! pch_concloud, pcon_dtrl, and pcon_dtri track the convective heating and 
 ! the detrained liquid and ice. All these are only for diag purposes
 REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim), pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim) ! integrated qv tendency
-REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                               
-REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+REAL(wp),INTENT(OUT) :: ptte_cnv(kbdim,klev)                               
+REAL(wp),INTENT(OUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 LOGICAL  llo1
 !
-REAL(wp) :: ptte(kbdim,klev),        pqte(kbdim,klev),                 &
-            pten(kbdim,klev),        paphp1(kbdim,klevp1),             &
+REAL(wp) :: pten(kbdim,klev),        paphp1(kbdim,klevp1),             &
             prsfc(kbdim),            pssfc(kbdim)
 REAL(wp) :: pxtecl(kbdim,klev),      pxteci(kbdim,klev)
 REAL(wp) :: pmfus(kbdim,klev),       pmfds(kbdim,klev),                &
@@ -572,17 +571,16 @@ LOGICAL  :: ldcum(kbdim)
 !
 REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev) 
 REAL(wp) :: zsheat(kbdim)
-REAL(wp) :: pxtte(kbdim,klev,ktrac), pmfuxt(kbdim,klev,ktrac),         &
-            pmfdxt(kbdim,klev,ktrac)
+REAL(wp) :: pmfuxt(kbdim,klev,ktrac), pmfdxt(kbdim,klev,ktrac)
 !
 REAL(wp) :: zrcpm ! reciprocal value of specific heat of moist air
 
 INTEGER  :: jl, jk, jt
-REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
+REAL(wp) :: zalv, zdtdt, zdqdt, zdxtdt!, zdiagt
 !
-   ptte_cnv(1:kproma,:)   = 0._wp
-   pqte_cnv(1:kproma,:)   = 0._wp
-  pxtte_cnv(1:kproma,:,:) = 0._wp
+   ptte_cnv(:,:)   = 0._wp
+   pqte_cnv(:,:)   = 0._wp
+  pxtte_cnv(:,:,:) = 0._wp
 !
 !----------------------------------------------------------------------
 !
@@ -622,7 +620,6 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                                    palvsh(jl,jk+1)*pmful(jl,jk+1)+     &
                                    palvsh(jl,jk)*pmful(jl,jk)+         &
                                    zalv*(plude(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
-              ptte(jl,jk)=ptte(jl,jk)+zdtdt
               zcpten(jl,jk)=zdtdt*pcpen(jl,jk)
               ptte_cnv(jl,jk)=zdtdt
               zdqdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*               &
@@ -631,7 +628,6 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                                    pmful(jl,jk+1)-pmful(jl,jk)-        &
                                    plude(jl,jk)-                       &
                                   (pdmfup(jl,jk)+pdmfdp(jl,jk)))
-              pqte(jl,jk)=pqte(jl,jk)+zdqdt
               pqte_cnv(jl,jk)=zdqdt
               pxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-                        &
                             paphp1(jl,jk)))*plude(jl,jk)
@@ -645,18 +641,18 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
 220     END DO
 !
 !        IF (trlist% anyconv /= 0) THEN
-!           DO 2204 jt=1,ktrac
+           DO 2204 jt=1,ktrac
 !              IF (trlist% ti(jt)% nconv == 1) THEN
-!                DO 2202 jl=1,kproma
-!                   IF(ldcum(jl)) THEN
-!                     zdxtdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))        &
-!                                 *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt) &
-!                                  +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
-!                     pxtte(jl,jk,jt)=pxtte(jl,jk,jt)+zdxtdt
-!                   ENDIF
-!2202            END DO
+                DO 2202 jl=1,kproma
+                   IF(ldcum(jl)) THEN
+                     zdxtdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))        &
+                                 *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt) &
+                                  +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
+                     pxtte_cnv(jl,jk,jt)=zdxtdt
+                   ENDIF
+2202            END DO
 !              ENDIF
-!2204       END DO
+2204       END DO
 !        ENDIF
 !
 !
@@ -670,13 +666,11 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                      (pmfus(jl,jk)+pmfds(jl,jk)+alf*pdpmel(jl,jk)-     &
                       palvsh(jl,jk)*pmful(jl,jk)-                      &
                       zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk)+plude(jl,jk)))
-              ptte(jl,jk)=ptte(jl,jk)+zdtdt
               zcpten(jl,jk)=zdtdt*pcpen(jl,jk)
               ptte_cnv(jl,jk)=zdtdt
               zdqdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*              &
                         (pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+       &
                         (pmful(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
-              pqte(jl,jk)=pqte(jl,jk)+zdqdt
               pqte_cnv(jl,jk)=zdqdt
               pxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))         &
                            *plude(jl,jk)
@@ -690,17 +684,17 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
 230     END DO
 !
 !        IF (trlist% anyconv /= 0) THEN
-!           DO 2304 jt=1,ktrac
+           DO 2304 jt=1,ktrac
 !              IF (trlist% ti(jt)% nconv == 1) THEN
-!                DO 2302 jl=1,kproma
-!                   IF(ldcum(jl)) THEN
-!                      zdxtdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))      &
-!                             *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
-!                      pxtte(jl,jk,jt)=pxtte(jl,jk,jt)+zdxtdt
-!                   ENDIF
-!2302            END DO
+                DO 2302 jl=1,kproma
+                   IF(ldcum(jl)) THEN
+                      zdxtdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))      &
+                             *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
+                      pxtte_cnv(jl,jk,jt)=zdxtdt
+                   ENDIF
+2302            END DO
 !              END IF
-!2304       END DO
+2304       END DO
 !        ENDIF
 !
      END IF
@@ -756,7 +750,7 @@ END SUBROUTINE cudtdq
 
 SUBROUTINE cududv(   kproma,   kbdim,    klev,     klevp1,             &
            ktopm2,   ktype,    kcbot,    paphp1,   ldcum,              &
-           puen,     pven,     pvom,     pvol,                         &
+           puen,     pven,                                             &
            puu,      pud,      pvu,      pvd,                          &
            pmfu,     pmfd,     pvom_cnv, pvol_cnv                      )
 !
@@ -773,10 +767,9 @@ SUBROUTINE cududv(   kproma,   kbdim,    klev,     klevp1,             &
 !
 !
 INTEGER, INTENT (IN)   :: kproma, kbdim, klev, klevp1, ktopm2
-REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)     
+REAL(wp),INTENT (OUT)  :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)     
 !
 REAL(wp):: puen(kbdim,klev),        pven(kbdim,klev),                  &
-           pvol(kbdim,klev),        pvom(kbdim,klev),                  &
            paphp1(kbdim,klevp1)
 REAL(wp):: puu(kbdim,klev),         pud(kbdim,klev),                   &
            pvu(kbdim,klev),         pvd(kbdim,klev),                   &
@@ -790,8 +783,8 @@ REAL(wp):: zmfuu(kbdim,klev),       zmfdu(kbdim,klev),                 &
 INTEGER :: jl, jk, ik, ikb
 REAL(wp):: zzp, zdudt, zdvdt
 !
-  pvom_cnv(1:kproma,:) = 0._wp
-  pvol_cnv(1:kproma,:) = 0._wp
+  pvom_cnv(:,:) = 0._wp
+  pvol_cnv(:,:) = 0._wp
 !
 !----------------------------------------------------------------------
 !
@@ -859,8 +852,6 @@ REAL(wp):: zzp, zdudt, zdvdt
               zdvdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*               &
                           (zmfuv(jl,jk+1)-zmfuv(jl,jk)+                &
                            zmfdv(jl,jk+1)-zmfdv(jl,jk))
-              pvom(jl,jk)=pvom(jl,jk)+zdudt
-              pvol(jl,jk)=pvol(jl,jk)+zdvdt
               pvom_cnv(jl,jk)=zdudt
               pvol_cnv(jl,jk)=zdvdt
            END IF
@@ -873,8 +864,6 @@ REAL(wp):: zzp, zdudt, zdvdt
                            (zmfuu(jl,jk)+zmfdu(jl,jk))
               zdvdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*              &
                            (zmfuv(jl,jk)+zmfdv(jl,jk))
-              pvom(jl,jk)=pvom(jl,jk)+zdudt
-              pvol(jl,jk)=pvol(jl,jk)+zdvdt
               pvom_cnv(jl,jk)=zdudt
               pvol_cnv(jl,jk)=zdvdt
            END IF
