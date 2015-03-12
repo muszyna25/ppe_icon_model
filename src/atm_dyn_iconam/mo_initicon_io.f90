@@ -1682,7 +1682,12 @@ MODULE mo_initicon_io
       CALL read_data_2d (parameters, filetype, 't_so', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! h_snow
-      my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
+!!$      my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
+      IF ( init_mode == MODE_IAU ) THEN
+        my_ptr2d => initicon(jg)%sfc_inc%h_snow(:,:)
+      ELSE
+        my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
+      ENDIF
       CALL read_data_2d (parameters, filetype, 'h_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! w_snow
@@ -1702,7 +1707,12 @@ MODULE mo_initicon_io
       CALL read_data_2d (parameters, filetype, 'rho_snow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! freshsnow
-      my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
+!!$      my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
+      IF ( init_mode == MODE_IAU ) THEN
+        my_ptr2d => initicon(jg)%sfc_inc%freshsnow(:,:)
+      ELSE
+        my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
+      ENDIF
       CALL read_data_2d (parameters, filetype, 'freshsnow', my_ptr2d, opt_checkgroup=checkgrp )
 
       ! w_so

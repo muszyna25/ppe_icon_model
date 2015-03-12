@@ -1795,7 +1795,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & ldims=shape2d,                                                    &
           & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,                   &
           &                 new_cf=new_cf_desc),                              &
-          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in"), &
+          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in",               &
+          &                 "mode_iau_fg_in","mode_iau_old_fg_in"),           &
           & initval_r=0.01_wp )
 
 

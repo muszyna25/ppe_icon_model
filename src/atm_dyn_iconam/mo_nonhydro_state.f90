@@ -493,7 +493,8 @@ MODULE mo_nonhydro_state
       &             l_hires_intp=.FALSE., l_restore_fricred=.FALSE.),           &
       &           ldims=shape3d_e,                                              &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",             &
-      &                           "mode_dwd_fg_in","mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+      &                           "mode_dwd_fg_in","mode_iau_fg_in",            &
+      &                           "mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
 
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity', DATATYPE_FLT32)
@@ -506,7 +507,8 @@ MODULE mo_nonhydro_state
       &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                &
       &          in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
       &                          "dwd_fg_atm_vars","mode_dwd_fg_in",           &
-      &                          "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+      &                          "mode_iau_fg_in","mode_iau_old_fg_in",        &
+      &                          "LATBC_PREFETCH_VARS") )
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', DATATYPE_FLT32)
@@ -518,7 +520,8 @@ MODULE mo_nonhydro_state
       &              vert_intp_type=vintp_types("P","Z","I"),                  &
       &              vert_intp_method=VINTP_METHOD_LIN ),                      &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",            &
-      &                           "mode_dwd_fg_in","mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+      &                           "mode_dwd_fg_in","mode_iau_fg_in",           &
+      &                           "mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
 
     ! theta_v      p_prog%theta_v(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('virtual_potential_temperature', 'K', &
@@ -528,7 +531,8 @@ MODULE mo_nonhydro_state
       &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,             &
       &           ldims=shape3d_c,                                                    &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",                   &
-      &           "mode_dwd_fg_in","mode_iau_fg_in", "LATBC_PREFETCH_VARS") )
+      &           "mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in",             &
+      &           "LATBC_PREFETCH_VARS") )
 
     ! Initialize pointers that are not always allocated to NULL
     p_prog%exner      => NULL()
@@ -584,8 +588,10 @@ MODULE mo_nonhydro_state
             &                       l_satlimit=.FALSE.,                                &
             &                       lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-            &                           "dwd_fg_atm_vars","mode_dwd_ana_in", "LATBC_PREFETCH_VARS", &
-            &                           "mode_iau_fg_in","mode_iau_ana_in") )
+            &                           "dwd_fg_atm_vars","mode_dwd_ana_in",           &
+            &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &
+            &                           "mode_iau_old_fg_in","mode_iau_ana_in",        &
+            &                           "mode_iau_old_ana_in" ) )
         END IF ! iqv 
 
         !QC
@@ -610,7 +616,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                         "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqc
         !QI
         IF ( iqi /= 0 ) THEN
@@ -633,7 +639,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                         "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqi
         !QR
         IF ( iqr /= 0 ) THEN
@@ -657,7 +663,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqr
         !QS
         IF ( iqs /= 0 ) THEN
@@ -681,7 +687,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqs
 
         !CK>
@@ -1040,7 +1046,8 @@ MODULE mo_nonhydro_state
           &             vert_intp_type=vintp_types("P","Z","I"),                  &
           &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),               &
           &           in_group=groups("atmo_ml_vars", "atmo_pl_vars",             &
-          &           "atmo_zl_vars", "dwd_fg_atm_vars", "mode_dwd_fg_in", "mode_iau_fg_in") )
+          &           "atmo_zl_vars", "dwd_fg_atm_vars", "mode_dwd_fg_in",        &
+          &           "mode_iau_fg_in","mode_iau_old_fg_in") )
         
       ELSE
 
@@ -1277,7 +1284,8 @@ MODULE mo_nonhydro_state
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
-                &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )  
+                &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
+                &                 "LATBC_PREFETCH_VARS") )  
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
     !
@@ -1292,7 +1300,8 @@ MODULE mo_nonhydro_state
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
-                &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
+                &                 "LATBC_PREFETCH_VARS") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1408,7 +1417,8 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_LIN ),              &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
-                &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
+                &                 "LATBC_PREFETCH_VARS") )
 
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
@@ -1446,7 +1456,7 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_PRES ),             &
                 & in_group=groups("atmo_ml_vars","atmo_zl_vars",                &
                 & "dwd_fg_atm_vars","mode_dwd_ana_in",                          &
-                & "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
+                & "mode_iau_ana_in","mode_iau_old_ana_in","LATBC_PREFETCH_VARS") )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
     !

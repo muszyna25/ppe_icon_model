@@ -367,7 +367,7 @@ MODULE mo_initicon_utils
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
   !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
-  !! groups for MODE_IAU_OLD : mode_iau_fg_in, mode_iau_ana_in
+  !! groups for MODE_IAU_OLD : mode_iau_old_fg_in, mode_iau_old_ana_in
   !! groups for MODE_COMBINED: mode_combined_in
   !! groups for MODE_COSMODE : mode_cosmode_in
   !!
@@ -500,7 +500,7 @@ MODULE mo_initicon_utils
             ngrp_vars_ana = 0
           ENDIF
 
-        CASE(MODE_IAU, MODE_IAU_OLD)
+        CASE(MODE_IAU)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_iau_fg_in' 
@@ -539,6 +539,47 @@ MODULE mo_initicon_utils
             ! grp_vars_ana = --
             ngrp_vars_ana = 0
           ENDIF
+
+        CASE(MODE_IAU_OLD)
+          ! Collect group 'grp_vars_fg_default' from mode_iau_old_fg_in
+          !
+          grp_name ='mode_iau_old_fg_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
+          !
+          grp_name ='mode_iau_old_ana_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! the reading stuff
+          !
+          IF (.NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
+            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
+
+            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+            ngrp_vars_fg  = ngrp_vars_fg_default
+            ngrp_vars_ana = ngrp_vars_ana_default
+          ELSE
+            ! lump together grp_vars_fg_default and grp_vars_ana_default
+            !
+            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
+            ngrp_vars_fg = 0
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
+              &              ngrp_vars_fg_default)
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
+              &              ngrp_vars_ana_default)
+
+            ! Remove fields 'u', 'v', 'temp', 'pres'
+            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
+
+            ! grp_vars_ana = --
+            ngrp_vars_ana = 0
+          ENDIF
+
         CASE(MODE_COMBINED,MODE_COSMODE)
 
           IF (init_mode == MODE_COMBINED) THEN
@@ -1648,7 +1689,6 @@ MODULE mo_initicon_utils
       IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ALLOCATE(initicon(jg)%sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
 
-
         ! initialize with 0, since some increments are only read 
         ! for specific times
 !$OMP PARALLEL WORKSHARE
@@ -1656,7 +1696,22 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL WORKSHARE
 
         initicon(jg)%sfc_inc%linitialized = .TRUE.
+
+        ! allocate additional fields for MODE_IAU
+        IF (init_mode == MODE_IAU) THEN
+          ALLOCATE(initicon(jg)%sfc_inc%h_snow    (nproma,nblks_c ), &
+            &      initicon(jg)%sfc_inc%freshsnow (nproma,nblks_c )  )
+
+        ! initialize with 0, since some increments are only read 
+        ! for specific times
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%sfc_inc%h_snow   (:,:) = 0._wp
+        initicon(jg)%sfc_inc%freshsnow(:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
+        ENDIF  ! MODE_IAU
+
       ENDIF
+
 
 
     ENDDO ! loop over model domains
@@ -1849,6 +1904,8 @@ MODULE mo_initicon_utils
       ! surface assimilation increments
       IF ( initicon(jg)%sfc_inc%linitialized ) THEN
         DEALLOCATE(initicon(jg)%sfc_inc%w_so )
+        IF (ALLOCATED(initicon(jg)%sfc_inc%h_snow))    DEALLOCATE(initicon(jg)%sfc_inc%h_snow )
+        IF (ALLOCATED(initicon(jg)%sfc_inc%freshsnow)) DEALLOCATE(initicon(jg)%sfc_inc%freshsnow )
       ENDIF
 
 

@@ -50,6 +50,7 @@ MODULE mo_nwp_soil_init
 
 
   PUBLIC  :: terra_multlay_init
+  PUBLIC  :: get_wsnow
 
 CONTAINS
 
