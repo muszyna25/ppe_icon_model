@@ -1014,6 +1014,8 @@ CONTAINS
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         idom = p_onl%dom(i)
+        ! non-existent domains are simply ignored:
+        IF(p_onl%dom(i) > n_dom_out)  CYCLE
         
         IF (p_onl%output_grid) THEN
           grid_info_mode = GRID_INFO_BCAST
@@ -1180,11 +1182,9 @@ CONTAINS
 
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
-        IF(p_onl%dom(i) > n_dom_out) THEN
-          WRITE(message_text,'(a,i6,a)') &
-            'Illegal domain number ',p_onl%dom(i),' in name list input'
-          CALL finish(routine,message_text)
-        ENDIF
+        ! non-existent domains are simply ignored:
+        IF(p_onl%dom(i) > n_dom_out)  CYCLE
+
         DO i_typ = 1, 4
           ! Check if name_list has variables of corresponding type,
           ! then increase file counter.
@@ -1234,6 +1234,8 @@ CONTAINS
       LOOP_DOM : DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         idom = p_onl%dom(i)
+        ! non-existent domains are simply ignored:
+        IF(p_onl%dom(i) > n_dom_out)  CYCLE
 
         ! Loop over model/pressure/height levels
 
