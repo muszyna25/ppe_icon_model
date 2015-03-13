@@ -422,6 +422,7 @@ CONTAINS
     surface_height = 0.0_wp
     prism_vol      = 0.0_wp
     prism_area     = 0.0_wp
+    ocean_region_areas%total = 0.0_wp
     ! compute regional ocean volumes
     DO jb = owned_cells%start_block, owned_cells%end_block
       CALL get_index_range(owned_cells, jb, start_index, end_index)
@@ -568,12 +569,12 @@ CONTAINS
   !
   SUBROUTINE calc_slow_oce_diagnostics(patch_3D, p_os, p_sfc_flx, p_ice, &
     & timestep, datetime)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)    :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_sfc_flx),    INTENT(in)          :: p_sfc_flx
-    TYPE (t_sea_ice),   INTENT(in)          :: p_ice
-    INTEGER, INTENT(in) :: timestep
-    TYPE(t_datetime), INTENT(in)            :: datetime
+    TYPE(t_patch_3d ),TARGET, INTENT(IN)    :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET       :: p_os
+    TYPE(t_sfc_flx),    INTENT(IN)          :: p_sfc_flx
+    TYPE (t_sea_ice),   INTENT(IN)          :: p_ice
+    INTEGER, INTENT(IN)                     :: timestep
+    TYPE(t_datetime), INTENT(IN)            :: datetime
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
@@ -584,13 +585,13 @@ CONTAINS
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp) :: sflux
     
-    TYPE(t_subset_range), POINTER :: owned_cells
+    TYPE(t_subset_range), POINTER   :: owned_cells
     TYPE(t_ocean_monitor),  POINTER :: monitor
-    CHARACTER(LEN=linecharacters) :: line, nvars
-    CHARACTER(LEN=linecharacters) :: fmt_string, real_fmt
-    CHARACTER(LEN=date_len)       :: datestring
-    REAL(wp), PARAMETER :: equator = 0.00001_wp
-    TYPE(t_ocean_regions)         :: ocean_regions
+    CHARACTER(LEN=linecharacters)   :: line, nvars
+    CHARACTER(LEN=linecharacters)   :: fmt_string, real_fmt
+    CHARACTER(LEN=date_len)         :: datestring
+    REAL(wp), PARAMETER             :: equator = 0.00001_wp
+    TYPE(t_ocean_regions)           :: ocean_regions
     
     !-----------------------------------------------------------------------
     p_patch        => patch_3D%p_patch_2d(1)
@@ -603,6 +604,7 @@ CONTAINS
     prism_area     = 0.0_wp
     z_w            = 0.0_wp
     CALL datetime_to_string(datestring, datetime, plain=.TRUE.)
+    CALL reset_ocean_monitor(monitor)
    
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
     SELECT CASE (iswm_oce)
@@ -1601,4 +1603,56 @@ CONTAINS
     END DO !block
   END FUNCTION calc_salt_content
 
+  SUBROUTINE reset_ocean_monitor(monitor)
+    TYPE(t_ocean_monitor) :: monitor
+    monitor%volume(:)                     = 0.0_wp
+    monitor%kin_energy(:)                 = 0.0_wp
+    monitor%pot_energy(:)                 = 0.0_wp
+    monitor%total_energy(:)               = 0.0_wp
+    monitor%total_salt(:)                 = 0.0_wp
+    monitor%salt_content(:)               = 0.0_wp
+    monitor%vorticity(:)                  = 0.0_wp
+    monitor%enstrophy(:)                  = 0.0_wp
+    monitor%potential_enstrophy(:)        = 0.0_wp
+    monitor%absolute_vertical_velocity(:) = 0.0_wp
+    monitor%HeatFlux_ShortWave(:)         = 0.0_wp
+    monitor%HeatFlux_LongWave(:)          = 0.0_wp
+    monitor%HeatFlux_Sensible(:)          = 0.0_wp
+    monitor%HeatFlux_Latent(:)            = 0.0_wp
+    monitor%HeatFlux_Total(:)             = 0.0_wp
+    monitor%FrshFlux_Precipitation(:)     = 0.0_wp
+    monitor%FrshFlux_SnowFall(:)          = 0.0_wp
+    monitor%FrshFlux_Evaporation(:)       = 0.0_wp
+    monitor%FrshFlux_Runoff(:)            = 0.0_wp
+    monitor%FrshFlux_TotalSalt(:)         = 0.0_wp
+    monitor%FrshFlux_TotalOcean(:)        = 0.0_wp
+    monitor%FrshFlux_TotalIce(:)          = 0.0_wp
+    monitor%FrshFlux_VolumeIce(:)         = 0.0_wp
+    monitor%FrshFlux_VolumeTotal(:)       = 0.0_wp
+    monitor%HeatFlux_Relax(:)             = 0.0_wp
+    monitor%FrshFlux_Relax(:)             = 0.0_wp
+    monitor%TempFlux_Relax(:)             = 0.0_wp
+    monitor%SaltFlux_Relax(:)             = 0.0_wp
+    monitor%ice_volume_nh(:)              = 0.0_wp
+    monitor%ice_volume_sh(:)              = 0.0_wp
+    monitor%ice_extent_nh(:)              = 0.0_wp
+    monitor%ice_extent_sh(:)              = 0.0_wp
+    monitor%gibraltar(:)                  = 0.0_wp
+    monitor%denmark_strait(:)             = 0.0_wp
+    monitor%drake_passage(:)              = 0.0_wp
+    monitor%indonesian_throughflow(:)     = 0.0_wp
+    monitor%scotland_iceland(:)           = 0.0_wp
+    monitor%mozambique(:)                 = 0.0_wp
+    monitor%framStrait(:)                 = 0.0_wp
+    monitor%beringStrait(:)               = 0.0_wp
+    monitor%barentsOpening(:)             = 0.0_wp
+    monitor%agulhas(:)                    = 0.0_wp
+    monitor%agulhas_long(:)               = 0.0_wp
+    monitor%agulhas_longer(:)             = 0.0_wp
+    monitor%t_mean_na_200m(:)             = 0.0_wp
+    monitor%t_mean_na_800m(:)             = 0.0_wp
+    monitor%ice_ocean_heat_budget(:)      = 0.0_wp
+    monitor%ice_ocean_salinity_budget(:)  = 0.0_wp
+    monitor%ice_ocean_volume_budget(:)    = 0.0_wp
+  END SUBROUTINE reset_ocean_monitor
 END MODULE mo_ocean_diagnostics

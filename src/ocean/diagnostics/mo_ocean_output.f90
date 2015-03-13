@@ -48,8 +48,6 @@ MODULE mo_ocean_output
   USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
-    & destruct_oce_diagnostics, t_oce_timeseries, &
     & calc_moc, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
@@ -101,7 +99,6 @@ CONTAINS
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
-!    TYPE(t_oce_timeseries), POINTER :: oce_ts
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER, POINTER :: dolic(:,:)
@@ -126,8 +123,7 @@ CONTAINS
               &                             p_sfc_flx      , &
               &                             p_ice          , &
               &                             jstep-jstep0   , &
-              &                             datetime) !    , &
-            ! &                             oce_ts)
+              &                             datetime) 
             IF (no_tracer>=2) THEN
               CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
             ENDIF

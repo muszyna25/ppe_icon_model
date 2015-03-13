@@ -35,7 +35,7 @@ export NCARG_USRRESFILE=${nclConfig}
 for file in $(ls ${EXPNAME}*oceanMonitor*.nc*); do
   echo "processing file: $file"
   cd plots;
-  cdo -r copy ../$file relativeTimeAxis_$file;
+  cdo -r delete,timestep=1 ../$file relativeTimeAxis_$file;
   ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file};
   ${convert2png} MANIFEST > index.html;
   cd -;

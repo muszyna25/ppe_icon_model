@@ -493,7 +493,6 @@ CONTAINS
     nblks_e = patch_2d%nblks_e
     nblks_v = patch_2d%nblks_v
     
-    
     ! add monitoring 
     CALL add_var(ocean_default_list, 'salt_content', ocean_state_diag%monitor%salt_content , &
       &          GRID_LONLAT, ZA_SURFACE, &
@@ -503,7 +502,7 @@ CONTAINS
 
     CALL add_var(ocean_default_list, 'volume_Global', ocean_state_diag%monitor%volume , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('volume', 'M', 'volume', DATATYPE_FLT32),&
+      & t_cf_var('volume', 'm^3', 'volume', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
@@ -551,241 +550,241 @@ CONTAINS
 
     CALL add_var(ocean_default_list, 'absolute_vertical_velocity_Global', ocean_state_diag%monitor%absolute_vertical_velocity , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('absolute_vertical_velocity', 'M', 'absolute_vertical_velocity', DATATYPE_FLT32),&
+      & t_cf_var('absolute_vertical_velocity', 'm/s', 'absolute_vertical_velocity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'HeatFlux_ShortWave_Global', ocean_state_diag%monitor%HeatFlux_ShortWave , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_ShortWave', 'M', 'HeatFlux_ShortWave', DATATYPE_FLT32),&
+      & t_cf_var('HeatFlux_ShortWave', 'W/m2', 'HeatFlux_ShortWave', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'HeatFlux_LongWave_Global', ocean_state_diag%monitor%HeatFlux_LongWave , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_LongWave', 'M', 'HeatFlux_LongWave_Global', DATATYPE_FLT32),&
+      & t_cf_var('HeatFlux_LongWave', 'W/m2', 'HeatFlux_LongWave_Global', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'HeatFlux_Sensible_Global', ocean_state_diag%monitor%HeatFlux_Sensible , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_Sensible', 'M', 'HeatFlux_Sensible', DATATYPE_FLT32),&
+      & t_cf_var('HeatFlux_Sensible', 'W/m2', 'HeatFlux_Sensible', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'HeatFlux_Latent_Global', ocean_state_diag%monitor%HeatFlux_Latent , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_Latent', 'M', 'HeatFlux_Latent', DATATYPE_FLT32),&
+      & t_cf_var('HeatFlux_Latent', 'W/m2', 'HeatFlux_Latent', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'HeatFlux_Total_Global', ocean_state_diag%monitor%HeatFlux_Total , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_Total', 'M', 'HeatFlux_Total', DATATYPE_FLT32),&
+      & t_cf_var('HeatFlux_Total', 'W/m2', 'HeatFlux_Total', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_Precipitation_Global', ocean_state_diag%monitor%FrshFlux_Precipitation , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_Precipitation', 'M', 'FrshFlux_Precipitation', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_Precipitation', 'm/s', 'FrshFlux_Precipitation', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_SnowFall_Global', ocean_state_diag%monitor%FrshFlux_SnowFall , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_SnowFall', 'M', 'FrshFlux_SnowFall_Global', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall_Global', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_Evaporation_Global', ocean_state_diag%monitor%FrshFlux_Evaporation , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_Evaporation', 'M', 'FrshFlux_Evaporation_Global', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation_Global', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_Runoff_Global', ocean_state_diag%monitor%FrshFlux_Runoff , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_Runoff', 'M', 'FrshFlux_Runoff', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_TotalSalt_Global', ocean_state_diag%monitor%FrshFlux_TotalSalt , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_TotalSalt', 'M', 'FrshFlux_TotalSalt', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_TotalOcean_Global', ocean_state_diag%monitor%FrshFlux_TotalOcean , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_TotalOcean', 'M', 'FrshFlux_TotalOcean', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_TotalIce_Global', ocean_state_diag%monitor%FrshFlux_TotalIce , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_TotalIce', 'M', 'FrshFlux_TotalIce', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_VolumeIce_Global', ocean_state_diag%monitor%FrshFlux_VolumeIce , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_VolumeIce', 'M', 'FrshFlux_VolumeIce', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal_Global', ocean_state_diag%monitor%FrshFlux_VolumeTotal , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_VolumeTotal', 'M', 'FrshFlux_VolumeTotal', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'HeatFlux_Relax_Global', ocean_state_diag%monitor%HeatFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_Relax', 'M', 'HeatFlux_Relax', DATATYPE_FLT32),&
+      & t_cf_var('HeatFlux_Relax', 'W/m2', 'HeatFlux_Relax', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_Relax_Global', ocean_state_diag%monitor%FrshFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_Relax', 'M', 'FrshFlux_Relax', DATATYPE_FLT32),&
+      & t_cf_var('FrshFlux_Relax', 'm/m', 'FrshFlux_Relax', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'TempFlux_Relax_Global', ocean_state_diag%monitor%TempFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('TempFlux_Relax', 'M', 'TempFlux_Relax', DATATYPE_FLT32),&
+      & t_cf_var('TempFlux_Relax', 'T/s', 'TempFlux_Relax', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'SaltFlux_Relax_Global', ocean_state_diag%monitor%SaltFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('SaltFlux_Relax', 'M', 'SaltFlux_Relax', DATATYPE_FLT32),&
+      & t_cf_var('SaltFlux_Relax', 'psu/s', 'SaltFlux_Relax', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_volume_nh', ocean_state_diag%monitor%ice_volume_nh , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_volume_nh', 'M', 'ice_volume_nh', DATATYPE_FLT32),&
+      & t_cf_var('ice_volume_nh', 'km^3', 'ice_volume_nh', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_volume_sh', ocean_state_diag%monitor%ice_volume_sh , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_volume_sh', 'M', 'ice_volume_sh', DATATYPE_FLT32),&
+      & t_cf_var('ice_volume_sh', 'km^3', 'ice_volume_sh', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_extent_nh', ocean_state_diag%monitor%ice_extent_nh , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_extent_nh', 'M', 'ice_extent_nh', DATATYPE_FLT32),&
+      & t_cf_var('ice_extent_nh', 'km^2', 'ice_extent_nh', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_extent_sh', ocean_state_diag%monitor%ice_extent_sh , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_extent_sh', 'M', 'ice_extent_sh', DATATYPE_FLT32),&
+      & t_cf_var('ice_extent_sh', 'km^2', 'ice_extent_sh', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'gibraltar', ocean_state_diag%monitor%gibraltar , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('gibraltar', 'M', 'gibraltar', DATATYPE_FLT32),&
+      & t_cf_var('gibraltar', 'Sv', 'gibraltar', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'denmark_strait', ocean_state_diag%monitor%denmark_strait , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('denmark_strait', 'M', 'denmark_strait', DATATYPE_FLT32),&
+      & t_cf_var('denmark_strait', 'Sv', 'denmark_strait', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'drake_passage', ocean_state_diag%monitor%drake_passage , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('drake_passage', 'M', 'drake_passage', DATATYPE_FLT32),&
+      & t_cf_var('drake_passage', 'Sv', 'drake_passage', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'indonesian_throughflow', ocean_state_diag%monitor%indonesian_throughflow , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('indonesian_throughflow', 'M', 'indonesian_throughflow', DATATYPE_FLT32),&
+      & t_cf_var('indonesian_throughflow', 'Sv', 'indonesian_throughflow', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'scotland_iceland', ocean_state_diag%monitor%scotland_iceland , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('scotland_iceland', 'M', 'scotland_iceland', DATATYPE_FLT32),&
+      & t_cf_var('scotland_iceland', 'Sv', 'scotland_iceland', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'mozambique', ocean_state_diag%monitor%mozambique , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('mozambique', 'M', 'mozambique', DATATYPE_FLT32),&
+      & t_cf_var('mozambique', 'Sv', 'mozambique', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'framStrait', ocean_state_diag%monitor%framStrait , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('framStrait', 'M', 'framStrait', DATATYPE_FLT32),&
+      & t_cf_var('framStrait', 'Sv', 'framStrait', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'beringStrait', ocean_state_diag%monitor%beringStrait , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('beringStrait', 'M', 'beringStrait', DATATYPE_FLT32),&
+      & t_cf_var('beringStrait', 'Sv', 'beringStrait', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'barentsOpening', ocean_state_diag%monitor%barentsOpening , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('barentsOpening', 'M', 'barentsOpening', DATATYPE_FLT32),&
+      & t_cf_var('barentsOpening', 'Sv', 'barentsOpening', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'agulhas', ocean_state_diag%monitor%agulhas , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('agulhas', 'M', 'agulhas', DATATYPE_FLT32),&
+      & t_cf_var('agulhas', 'Sv', 'agulhas', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'agulhas_long', ocean_state_diag%monitor%agulhas_long , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('agulhas_long', 'M', 'agulhas_long', DATATYPE_FLT32),&
+      & t_cf_var('agulhas_long', 'Sv', 'agulhas_long', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'agulhas_longer', ocean_state_diag%monitor%agulhas_longer , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('agulhas_longer', 'M', 'agulhas_longer', DATATYPE_FLT32),&
+      & t_cf_var('agulhas_longer', 'Sv', 'agulhas_longer', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 't_mean_na_200m', ocean_state_diag%monitor%t_mean_na_200m , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('t_mean_na_200m', 'M', 't_mean_na_200m', DATATYPE_FLT32),&
+      & t_cf_var('t_mean_na_200m', 'degC', 't_mean_na_200m', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 't_mean_na_800m', ocean_state_diag%monitor%t_mean_na_800m , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('t_mean_na_800m', 'M', 't_mean_na_800m', DATATYPE_FLT32),&
+      & t_cf_var('t_mean_na_800m', 'degC', 't_mean_na_800m', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_ocean_heat_budget', ocean_state_diag%monitor%ice_ocean_heat_budget , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_ocean_heat_budget', 'M', 'ice_ocean_heat_budget', DATATYPE_FLT32),&
+      & t_cf_var('ice_ocean_heat_budget', '', 'ice_ocean_heat_budget', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_ocean_salinity_budget', ocean_state_diag%monitor%ice_ocean_salinity_budget , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_ocean_salinity_budget', 'M', 'ice_ocean_salinity_budget', DATATYPE_FLT32),&
+      & t_cf_var('ice_ocean_salinity_budget', '', 'ice_ocean_salinity_budget', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'ice_ocean_volume_budget', ocean_state_diag%monitor%ice_ocean_volume_budget , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('ice_ocean_volume_budget', 'M', 'ice_ocean_volume_budget', DATATYPE_FLT32),&
+      & t_cf_var('ice_ocean_volume_budget', '', 'ice_ocean_volume_budget', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
