@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-02-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
@@ -73,7 +73,7 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "PT02H"
+  output_interval  = "${output_interval}"
   steps_per_file   = 999991
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceanMonitor"
@@ -81,7 +81,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
