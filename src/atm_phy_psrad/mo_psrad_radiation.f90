@@ -124,7 +124,7 @@ MODULE mo_psrad_radiation
 ! new to icon
 !  USE mo_srtm_setup,    ONLY : ssi_default, ssi_preind, ssi_amip,           &
 !                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
-!!$  USE mo_psrad_interface,ONLY : setup_psrad
+  USE mo_psrad_interface,ONLY : setup_psrad
 !, psrad_interface, &
 !                                lw_strat, sw_strat
 !  USE mo_spec_sampling, ONLY : spec_sampling_strategy, &
@@ -358,7 +358,7 @@ MODULE mo_psrad_radiation
     ! --------------------------------
     IF (phy_config%lrad) THEN
 
-!!$      CALL setup_psrad
+      CALL setup_psrad
 !!$      nb_sw = nbndsw
 !!$      !
 !!$      ! --- Spectral sampling strategy
