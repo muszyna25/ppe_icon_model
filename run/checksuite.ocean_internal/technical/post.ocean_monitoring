@@ -32,7 +32,15 @@ export HOME=/scratch/mpi/CC/mh0287/users/$USER
 # disable ':' to be a special character in ncl - this makes it plotable
 export NCARG_USRRESFILE=${nclConfig}
 
-
+for file in $(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1); do
+  echo "processing file: $file"
+  cdo -r copy $file relativeTimeAxis_$file
+  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file}
+  ${convert2png} MANIFEST > index.html
+done
 
 exit
+
+
+# vim:ft=sh
 
