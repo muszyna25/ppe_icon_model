@@ -634,7 +634,7 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
                   of $2\,\%$.  
 \end{description}
 
-From \texttt{ASWDIFD\_S} and \texttt{ASWDIR\_S} the time averaged global radiation at the surface \texttt{GLOB} can easily computed as follows:
+From \texttt{ASWDIFD\_S} and \texttt{ASWDIR\_S} the time averaged global radiation at the surface \texttt{GLOB} can easily be computed as follows:
 \begin{align*}
  \texttt{GLOB} = \texttt{ASWDIFD\_S} + \texttt{ASWDIR\_S}
 \end{align*}
@@ -644,9 +644,9 @@ and the albedo \texttt{ALB\_RAD}:
  \texttt{GLOB} = \frac{\texttt{ASOB\_S}}{1-0.01\,\texttt{ALB\_RAD}} 
 \end{align*}
 However be aware that this is only approximately true, because \texttt{ALB\_RAD} is an instantaneous field, and it  
-only describes the albedo for the diffuse component of the incoming solar radiation (``white sky'' albedo). However, 
-\texttt{ASOB\_S} contains both diffuse and direct components. As a consequence, the reflection of the direct component of 
-the incoming radiation, which is dependent on the solar zenith angle (and described by the so called ``black sky'' albedo), 
+is only the albedo for the diffuse component of the incoming solar radiation (``white sky'' albedo). However, 
+\texttt{ASOB\_S} contains both diffuse and direct components. As a consequence, the reflection of the incoming direct 
+radiation, which is dependent on the solar zenith angle (and described by the so called ``black sky'' albedo), 
 is not correctly taken into account. 
 
 
