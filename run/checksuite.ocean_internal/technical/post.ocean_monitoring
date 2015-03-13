@@ -23,20 +23,22 @@ revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
 
 
 
-module rm cdo
-module load cdo/1.6.4
-module load ncl
+module switch cdo cdo/1.6.4
+module switch ncl ncl/6.2.0-precompiled
+module list
 
 # make matplotlib work without x11/$DISPLAY
 export HOME=/scratch/mpi/CC/mh0287/users/$USER
 # disable ':' to be a special character in ncl - this makes it plotable
 export NCARG_USRRESFILE=${nclConfig}
-
-for file in $(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1); do
+[[ ! -d plots ]] && mkdir plots
+for file in $(ls ${EXPNAME}*oceanMonitor*.nc*); do
   echo "processing file: $file"
-  cdo -r copy $file relativeTimeAxis_$file
-  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file}
-  ${convert2png} MANIFEST > index.html
+  cd plots;
+  cdo -r copy ../$file relativeTimeAxis_$file;
+  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file};
+  ${convert2png} MANIFEST > index.html;
+  cd -;
 done
 
 exit
