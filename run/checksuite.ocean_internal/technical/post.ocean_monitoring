@@ -1,0 +1,38 @@
+# technical stuff
+    basePath=${ICON_BASE_PATH}
+    dataPath="../experiments/${EXPNAME}/"
+postProcPath="${basePath}/scripts/postprocessing/tools"
+   nclConfig="${postProcPath}/.hluresfile"
+      plotTS="${postProcPath}/ocean/plot_timeser"
+ convert2png="${postProcPath}/ocean/create_plot_browser"
+convert2html="${postProcPath}/ocean/mk_index_html"
+# ================================================================================
+# plotting
+## find the last input file
+cd ${dataPath}
+iFile=$(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1)
+if [[ ! -f ${iFile} ]]; then
+  echo "Could not find the input file '${iFile}'"
+  echo "Give up!"
+  exit 1
+fi
+
+revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
+
+[[ -d /sw/share/Modules/init/bash ]] && source /sw/share/Modules/init/bash
+
+
+
+module rm cdo
+module load cdo/1.6.4
+module load ncl
+
+# make matplotlib work without x11/$DISPLAY
+export HOME=/scratch/mpi/CC/mh0287/users/$USER
+# disable ':' to be a special character in ncl - this makes it plotable
+export NCARG_USRRESFILE=${nclConfig}
+
+
+
+exit
+
