@@ -68,8 +68,6 @@ cat > ${ocean_namelist} << EOF
  timers_level         = 10
  debug_check_level    = 1
  test_mode            = 4
- test_param           = 5
-
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
@@ -182,10 +180,10 @@ cat > ${ocean_namelist} << EOF
   limit_elevation                 = .FALSE.
 /                                    
 &ocean_initialConditions_nml
-  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+  !use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
   ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
-  !initial_salinity_type      = 402
-  !initial_temperature_type   = 202
+  initial_salinity_type      = 1
+  initial_temperature_type   = 1
   !initial_temperature_top    = 30.0 
   !initial_temperature_bottom = 30.0
 /
