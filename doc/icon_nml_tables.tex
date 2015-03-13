@@ -1609,14 +1609,14 @@ the number of model levels does not yet work)\\
 dt\_iau&
 R & 10800 & s &
 Time interval during which an incremental analysis update (IAU) is performed &
-init\_mode=5,6
+init\_mode=5,6,8
 \tabularnewline
 
 dt\_shift&
 R & 0 & s &
 Time by which the actual model start time is shifted ahead of the nominal date.
 Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
-init\_mode=5,6
+init\_mode=5,6,8
 \tabularnewline
 
 start\_time\_avg\_fg&
@@ -1638,14 +1638,14 @@ Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_
 rho\_incr\_filter\_wgt &
 R & 0 &  &
 Vertical filtering weight on density increments &
-init\_mode=5,6
+init\_mode=5,6,8
 \tabularnewline
 
 wgtfac\_geobal &
 R & 0 &  &
 Weighting factor for artificial geostrophic balancing of meridional gradients of DA pressure increments in the tropical stratosphere.
 Use with caution! According to preliminary experience, the weight should not be much larger than 0.1 &
-init\_mode=5,6
+init\_mode=5,6,8
 \tabularnewline
 
 %\hline
@@ -1654,7 +1654,7 @@ I & 1 &  &
 Weighting function for performing IAU\\
 1: Top-Hat\\
 2: SIN2 &
-init\_mode=5,6
+init\_mode=5,6,8
 \tabularnewline
 
 %\hline
@@ -1697,7 +1697,7 @@ lconsistency\_checks&
 L & .TRUE.& &
 If .FALSE., consistency checks for Analysis and First Guess fields are skipped. On default, checks are performed for 
 \emph{uuidOfHGrid} and \emph{validity time}. &
-init\_mode=1,3,4,5,6
+init\_mode=1,3,4,5,6,8
 \tabularnewline
 
 %\hline
@@ -1711,7 +1711,7 @@ lp2cintp\_incr&
 L(n\_dom) & .FALSE.& &
 If true, interpolate atmospheric data assimilation increments from parent domain. \\
 Can be specified separately for each nested domain; setting the first (global) entry to true activates
-the interpolation for all nested domains. & init\_mode=5,6
+the interpolation for all nested domains. & init\_mode=5,6,8
 \tabularnewline
 
 %\hline
@@ -1719,7 +1719,7 @@ lp2cintp\_sfcana&
 L(n\_dom) & .FALSE.& &
 If true, interpolate atmospheric surface analysis data from parent domain. \\
 Can be specified separately for each nested domain; setting the first (global) entry to true activates
-the interpolation for all nested domains. & init\_mode=6
+the interpolation for all nested domains. & init\_mode=5,6,8
 \tabularnewline
 
 %\hline
@@ -1727,7 +1727,7 @@ ltile\_coldstart&
 L & .FALSE.& &
 If true, tiled surface fields are initialized with tile-averaged fields (or first-guess fields from a no-tile run). \\
 Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
-land or water points with reasonable values. & init\_mode=6
+land or water points with reasonable values. & init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1751,7 +1751,7 @@ Filename of DWD first-guess input file, default
 ''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
+and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6,8
 \tabularnewline
 
 %\hline
@@ -1764,7 +1764,7 @@ Filename of DWD analysis input file, default
 <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
+and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6,8
 \tabularnewline
 
 %\hline
@@ -1782,7 +1782,7 @@ If this parameter has not been set, we try to determine the file type by its ext
 C& & &
 List of mandatory analysis fields that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
-& init\_mode=1,5,6
+& init\_mode=1,5,6,8
 \tabularnewline
 
 
@@ -3259,6 +3259,7 @@ Terminal fall velocity of ice&
 run\_nml:iforcing = inwp
 \tabularnewline
 
+
 \hline
 \hline
 \multicolumn{6}{|l|}{\textbf{Misc}} 
@@ -3274,6 +3275,21 @@ MODIS albedo tuning\\
 1: dimmed sahara&
 run\_nml:iforcing = inwp\\
 albedo\_type=2
+\tabularnewline
+
+
+\hline
+\hline
+\multicolumn{6}{|l|}{\textbf{IAU}} 
+\tabularnewline
+
+\hline
+max\_freshsnow\_inc&
+R&
+0.025&
+&
+Maximum allowed freshsnow increment per analysis cycle&
+init\_mode=5 (MODE\_IAU)
 \tabularnewline
 \end{longtab}
 
