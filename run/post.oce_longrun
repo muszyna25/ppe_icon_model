@@ -32,13 +32,35 @@ revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
 
 module load python/2.7-ve2
 
-module rm cdo
-module load cdo/1.6.4
+module switch cdo cdo/1.6.4
+module switch ncl ncl/6.2.0-precompiled
+module list
 
 # make matplotlib work without x11/$DISPLAY
 export HOME=/scratch/mpi/CC/mh0287/users/$USER
 # disable ':' to be a special character in ncl - this makes it plotable
 export NCARG_USRRESFILE=${nclConfig}
+
+[[ ! -d plots ]] && mkdir plots
+
+iFile=$(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1)
+if [[ ! -f ${iFile} ]]; then
+  echo "Could not find the input file '${iFile}'"
+  echo "Give up!"
+  exit 1
+else
+# join them
+  oceanMonitorComplete="Monitor_${EXPNAME}.nc"
+  [[ -f ${oceanMonitorComplete} ]] && rm -f ${oceanMonitorComplete}
+  cdo -r -cat ${EXPNAME}*oceanMonitor*.nc* ${oceanMonitorComplete}
+  cd plots;
+  cdo -r -yearmean -delete,timestep=1 ../${oceanMonitorComplete}
+  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file};
+  ${convert2png} MANIFEST > index.html;
+  cd -;
+fi
+
+
 
 $archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true # FORCE=1
 
