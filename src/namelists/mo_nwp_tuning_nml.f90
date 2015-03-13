@@ -36,7 +36,8 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_zceff_min => tune_zceff_min, &
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
-    &                               config_itune_albedo   => itune_albedo  
+    &                               config_itune_albedo   => itune_albedo,   &
+    &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
   PRIVATE
@@ -70,9 +71,12 @@ MODULE mo_nwp_tuning_nml
     &  itune_albedo                ! 0: no tuning
                                    ! 1: dimmed sahara
 
+  REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
+    &  max_freshsnow_inc
+
   NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun, &
     &                      tune_zceff_min, tune_v0snow, tune_zvz0i,  &
-    &                      itune_albedo
+    &                      itune_albedo, max_freshsnow_inc
 
 
 CONTAINS
@@ -127,6 +131,9 @@ CONTAINS
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29 
 
     itune_albedo    = 0            ! original (measured) albedo
+    !
+    ! IAU increment tuning
+    max_freshsnow_inc = 0.025_wp   ! maximum allowed positive freshsnow increment
 
 
     !------------------------------------------------------------------
@@ -171,13 +178,14 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      config_tune_gkwake    = tune_gkwake
-      config_tune_gkdrag    = tune_gkdrag
-      config_tune_gfluxlaun = tune_gfluxlaun
-      config_tune_zceff_min = tune_zceff_min 
-      config_tune_v0snow    = tune_v0snow
-      config_tune_zvz0i     = tune_zvz0i
-      config_itune_albedo   = itune_albedo
+      config_tune_gkwake       = tune_gkwake
+      config_tune_gkdrag       = tune_gkdrag
+      config_tune_gfluxlaun    = tune_gfluxlaun
+      config_tune_zceff_min    = tune_zceff_min 
+      config_tune_v0snow       = tune_v0snow
+      config_tune_zvz0i        = tune_zvz0i
+      config_itune_albedo      = itune_albedo
+      config_max_freshsnow_inc = max_freshsnow_inc
     ENDDO
 
 

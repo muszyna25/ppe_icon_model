@@ -32,10 +32,10 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_v0snow
   PUBLIC :: tune_zvz0i
   PUBLIC :: itune_albedo
+  PUBLIC :: max_freshsnow_inc
 
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for tracer advection
-  !!--------------------------------------------------------------------------
+
+
 !  TYPE :: t_nwp_tuning_config
 
     ! namelist variables
@@ -59,6 +59,10 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed sahara
+
+  REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
+    &  max_freshsnow_inc
+
 !  END TYPE t_nwp_tuning_config
 
 

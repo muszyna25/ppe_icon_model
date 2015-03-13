@@ -38,6 +38,7 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, wgtfac_geobal,    &
     &                               rho_incr_filter_wgt, lread_ana,               &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
+  USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,        &
     &                               MODE_IFSANA, MODE_ICONVREMAP, MODE_COMBINED,    &
@@ -1620,7 +1621,7 @@ MODULE mo_initicon
         IF (init_mode == MODE_IAU) THEN
 
           ! store a copy of FG field for subsequent consistency checks
-          h_snow_t_fg   (:,:) = lnd_diag%h_snow_t(:,jb,:)
+          h_snow_t_fg(:,:) = lnd_diag%h_snow_t(:,jb,:)
 
           ! add h_snow and freshsnow increments onto respective first guess fields
           DO jt = 1, ntiles_total
@@ -1631,7 +1632,8 @@ MODULE mo_initicon
               ! minimum height: 0m; maximum height: 40m
               lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) + initicon(jg)%sfc_inc%h_snow(jc,jb)))
               ! maximum freshsnow factor: 1
-              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) + initicon(jg)%sfc_inc%freshsnow(jc,jb))
+              ! maximum positive freshsnow increment is limited to max_freshsnow_inc (tuning parameter)
+              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) + MIN(max_freshsnow_inc,initicon(jg)%sfc_inc%freshsnow(jc,jb)))
             ENDDO  ! ic
           ENDDO  ! jt
 
