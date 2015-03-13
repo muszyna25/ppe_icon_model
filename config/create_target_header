@@ -468,6 +468,9 @@ set_run_target_thunder()
         add_free_var KMP_KMP_SETTINGS "1"
         add_free_var OMP_WAIT_POLICY "active"
       ;;
+    "_gcc" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+      ;;
   esac
   # create header
   start_header
