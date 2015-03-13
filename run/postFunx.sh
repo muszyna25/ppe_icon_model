@@ -27,7 +27,8 @@ function directoryDiff {
   refDir=$1
   expDir=$2
 
-  for refFile in ${refDir}/*; do 
+  refList=`ls ${refDir}/*`
+  for refFile in ${refList}; do 
     refFileBasename=$(basename ${refFile})
     case "${refFileBasename}" in
       *.nc*)

@@ -2105,7 +2105,7 @@ CONTAINS
 
     !CALL message (TRIM(routine), 'start')
 
-    IF (iforc_oce == 12) THEN
+    IF (iforc_oce == OMIP_FluxFromFile) THEN
 
     !DO jg = 1,n_dom
       jg = 1
@@ -2356,7 +2356,7 @@ CONTAINS
       IF (idbg_mxmn >= idt_src) &
         & CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
 
-    END IF ! iforc_oce=12
+    END IF ! iforc_oce=OMIP_FluxFromFile
 
   END SUBROUTINE read_forc_data_oce
   !-------------------------------------------------------------------------

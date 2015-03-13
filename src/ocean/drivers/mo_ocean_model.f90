@@ -42,7 +42,7 @@ MODULE mo_ocean_model
     & grid_generatingcenter,  & ! grid generating center
     & grid_generatingsubcenter  ! grid generating subcenter
 
-  USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
+  USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
   USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, diagnostics_level
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
@@ -360,7 +360,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
-    CALL oce_crosscheck()
+    CALL ocean_crosscheck()
 
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.

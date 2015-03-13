@@ -45,7 +45,8 @@ MODULE mo_ocean_diagnostics
     & agulhas, &
     & agulhas_long, &
     & agulhas_longer, &
-    & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme
+    & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
+    & iforc_oce, No_Forcing, i_sea_ice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
@@ -611,6 +612,8 @@ CONTAINS
         
         DO jc =  start_cell_index, end_cell_index
           IF ( patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+            surface_area = surface_area + p_patch%cells%area(jc,jb)
+          
             prism_vol      = p_patch%cells%area(jc,jb)*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,jb)
             monitor%volume = monitor%volume + prism_vol
             
@@ -725,28 +728,35 @@ CONTAINS
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
-    monitor%HeatFlux_ShortWave         = global_sum_array(monitor%HeatFlux_ShortWave)/surface_area
-    monitor%HeatFlux_LongWave          = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
-    monitor%HeatFlux_Sensible          = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
-    monitor%HeatFlux_Latent            = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
-    monitor%HeatFlux_Total             = global_sum_array(monitor%HeatFlux_Total    )/surface_area
-    monitor%FrshFlux_Precipitation     = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
-    monitor%FrshFlux_SnowFall          = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
-    monitor%FrshFlux_Evaporation       = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
-    monitor%FrshFlux_Runoff            = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
-    monitor%FrshFlux_TotalSalt         = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
-    monitor%FrshFlux_TotalOcean        = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
-    monitor%FrshFlux_TotalIce          = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
-    monitor%FrshFlux_VolumeIce         = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
-    monitor%FrshFlux_VolumeTotal       = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
-    monitor%HeatFlux_Relax             = global_sum_array(monitor%HeatFlux_Relax)/surface_area
-    monitor%FrshFlux_Relax             = global_sum_array(monitor%FrshFlux_Relax)/surface_area
-    monitor%SaltFlux_Relax             = global_sum_array(monitor%SaltFlux_Relax)/surface_area
-    monitor%TempFlux_Relax             = global_sum_array(monitor%TempFlux_Relax)/surface_area
-    monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
-    monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
-    monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
-    monitor%ice_extent_sh              = global_sum_array(monitor%ice_extent_sh)/1.0e6_wp
+    
+    IF (iforc_oce > No_Forcing) THEN
+      monitor%HeatFlux_ShortWave         = global_sum_array(monitor%HeatFlux_ShortWave)/surface_area
+      monitor%HeatFlux_LongWave          = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
+      monitor%HeatFlux_Sensible          = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
+      monitor%HeatFlux_Latent            = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
+      monitor%HeatFlux_Total             = global_sum_array(monitor%HeatFlux_Total    )/surface_area
+      monitor%FrshFlux_Precipitation     = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
+      monitor%FrshFlux_SnowFall          = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
+      monitor%FrshFlux_Evaporation       = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
+      monitor%FrshFlux_Runoff            = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
+      monitor%FrshFlux_TotalSalt         = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
+      monitor%FrshFlux_TotalOcean        = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
+      monitor%FrshFlux_TotalIce          = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
+      monitor%FrshFlux_VolumeIce         = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
+      monitor%FrshFlux_VolumeTotal       = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
+      monitor%HeatFlux_Relax             = global_sum_array(monitor%HeatFlux_Relax)/surface_area
+      monitor%FrshFlux_Relax             = global_sum_array(monitor%FrshFlux_Relax)/surface_area
+      monitor%SaltFlux_Relax             = global_sum_array(monitor%SaltFlux_Relax)/surface_area
+      monitor%TempFlux_Relax             = global_sum_array(monitor%TempFlux_Relax)/surface_area
+    ENDIF
+    
+    IF (i_sea_ice >= 1) THEN
+      monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
+      monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
+      monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
+      monitor%ice_extent_sh              = global_sum_array(monitor%ice_extent_sh)/1.0e6_wp
+    ENDIF
+
     DO i_no_t=1,no_tracer
       monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
     END DO
