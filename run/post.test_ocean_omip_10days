@@ -1,3 +1,8 @@
+
+#-----------------------------------------------------------------------------
+. ${thisdir}/add_required_ocean_files
+#-----------------------------------------------------------------------------
+
 varNames2D="h_acc"
 varNames3D="t_acc s_acc rhopot_acc"
 varNames="${varNames2D} ${varNames3D}"
@@ -47,18 +52,19 @@ check_error $? "oce_numeric: $nclCaller"
 
 # check for identical results compared to the reference
 slave=${BB_SLAVE:-thunder_gcc}
-case ${slave} in  
-  thunder*)
-    refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
-    ;;
-  bliz*)
-    refDir=/work/mh0287/reference/${slave}/${EXPNAME}
-    ;;
-  *)
-    echo "Unknown slave: ${slave}!"
-    exit 1
-    ;;
-esac
+refDir=${ocean_data_MainFolder}/reference/${slave}/${EXPNAME}
+#case ${slave} in  
+#  thunder*)
+#    refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
+#    ;;
+#  bliz*)
+#    refDir=/work/mh0287/reference/${slave}/${EXPNAME}
+#    ;;
+#  *)
+#    echo "Unknown slave: ${slave}!"
+#    exit 1
+#    ;;
+#esac
 
 directoryDiff ${refDir} .
 

@@ -1,3 +1,4 @@
+#!/bin/bash
 #-----------------------------------------------------------------------------
 check_error()
 {
@@ -96,6 +97,7 @@ link_required_files()
   i=0
   while [ $i -lt $number_of_linked_files ]
   do
+    rm ${output_linked_file[${i}]}   # remove in order to replace the link if necessary
     ln -sf ${input_linked_file[${i}]} ${output_linked_file[${i}]}
    (( i=i+1 ))
   done    
@@ -112,7 +114,14 @@ basedir=${thisdir%/*}                   # determine base directory
 MODEL_BASE_PATH=$basedir
 ICON_BASE_PATH=$basedir
 export ICON_BASE_PATH
+RUNSCRIPT_NAME=`basename $0`
 # ICON_RUN_PATH=$ICON_BASE_PATH/run
+#-----------------------------------------------------------------------------
+# set default data paths
+# can be overwritten by the experiment, or by the add_required_ocean_files,
+# add_required_atmo_files, etc
+icon_data_MainFolder=/pool/data/ICON/buildbot
+
 #-----------------------------------------------------------------------------
 second=1                                 # [s] 1 second
 minute=60                                # [s] 1 minute
