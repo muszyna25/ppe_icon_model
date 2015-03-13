@@ -241,6 +241,7 @@ CONTAINS
       CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       prm_tend(jg)% temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
       prm_tend(jg)%    q(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
+      prm_tend(jg)%q_dyn(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
