@@ -34,6 +34,7 @@ CLEAN.include('*.run')
   :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
   :oceanTechnical         => %w[exp.ocean_omip_ptest exp.test_ocean_numeric_tracerconservation],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
+  :oceanMonitor           => %w[exp.ocean_monitoring post.ocean_monitoring],
   :oceanRestart           => [
     ['exp.check_restart_2x1days','queue=mpi-develop'],
     ['exp.check_restart_1x2days','queue=mpi-develop']],
@@ -94,6 +95,7 @@ CLEAN.include('*.run')
 }
 # }}}
 #==============================================================================
+RUNSCRIPT_KEYS = %w[with_mpi with_openmp cpu_time mpi_procs_pernode nproma openmp_threads omp_stacksize resources memory_model memory node_usage no_of_nodes queue out_script in_script job_name in_folder out_folder]
 # HELPER METHODS {{{ ==========================================================
 def dbg(item)
   pp item if $DEBUG
@@ -170,7 +172,7 @@ def makeRunTarget(sourceTemplate,setup={})
   # command line arguments may overwrite internal defaults
   # but dont change the resulting runscript name
   setupByEnv = {}
-  %w[with_mpi with_openmp cpu_time mpi_procs_pernode nproma openmp_threads omp_stacksize resources memory_model memory node_usage no_of_nodes queue out_script in_script job_name in_folder out_folder].each {|environmentKey| 
+  RUNSCRIPT_KEYS.each {|environmentKey| 
     setupByEnv[environmentKey] = ENV[environmentKey] if ENV.has_key?(environmentKey)
   }
   if setup.empty? 
@@ -748,6 +750,10 @@ task :stat, :expname do |t,args|
   finished  = IO.popen("find ../experiments/#{expname} -name finish.status").readlines.map(&:chomp).map {|item| item.split('/')[-2]}.sort
   started.each {|exp|  puts  just[12,"STARTED:",exp]}
   finished.each {|exp| puts  just[12,"FINISHED:",exp]}
+end
+desc "Show runscript generator keys"
+task :showRunscriptKeys do
+  puts RUNSCRIPT_KEYS.join(' ')
 end
 # }}}
 # HELP {{{ ====================================================================
