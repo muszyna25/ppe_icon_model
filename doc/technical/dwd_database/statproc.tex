@@ -1,7 +1,7 @@
 \section{Statistically processed output fields}
 \label{sec_statproc_fields}
 
-\subsection{Time averaged fields}
+\subsection{Time-averaged fields}
 
 The quantities
 \begin{note}
@@ -28,29 +28,32 @@ contain averages for the elapsed time interval $[t_{0}, t_{i}]$.
 
 Let $\Psi$ denote the instantaneous value of one of the above fields. The time average $\overline{\Psi}$ at time $t$ stored in the 
 database is given as
-\begin{align}
- \overline{\Psi}(t) = \frac{1}{t}\int_{0}^{t} \Psi\, \mathrm{d}t  \quad \text{, for } t>0
-\end{align}
+\begin{align*}
+ \overline{\Psi}(t) = \frac{1}{t}\int_{0}^{t} \Psi\, \mathrm{d}t  \quad \text{, for } t>0.
+\end{align*}
 For $t=0$, the average $\overline{\Psi}$ is equal to 0. 
 If time averages are required for other time intervals $[t_{1},t_{2}]$, with $t_{1}>0$, these can be computed as follows:
-\begin{align}
+\begin{align*}
  \overline{\Psi}(t_{2}-t_{1}) &= \frac{1}{t_{2}-t_{1}}\int_{t_{1}}^{t_{2}} \Psi\,\mathrm{d}t \\
                               &= \frac{1}{t_{2}-t_{1}} \left[\int_{0}^{t_{2}} \Psi\,\mathrm{d}t  - \int_{0}^{t_{1}} \Psi\,\mathrm{d}t \right] \\
                               &= \frac{1}{t_{2}-t_{1}} \left[ t_{2}\overline{\Psi}(t_{2}) - t_{1}\overline{\Psi}(t_{1}) \right]
-\end{align}
+\end{align*}
 For this equation to work, it is of course necessary that the fields $\overline{\Psi}(t_{1})$ and $\overline{\Psi}(t_{2})$ are available from the database.
 
 
 
-The averaging process is fully reflected in the field's GRIB2 metainfo. In order to check, whether a field contains the desired time average, it is 
-advisable to check the content of the GRIB2-keys listed in Table \ref{tab_GRIB2avg}.
+The averaging process is fully reflected by the field's GRIB2 metainfo. In order to check whether a field contains the desired time average, it is 
+advisable to check the content of the GRIB2 keys listed in Table~\ref{tab_GRIB2avg}.
 I.e.\ \texttt{productDefinitionTemplateNumber=8} indicates that the field in question is statistically processed. The statistical process itself 
 is specified by the key \texttt{typeOfStatisticalProcessing}. The averaging interval (relative to the start of the forecast) is given by 
-$[\texttt{forecastTime},\texttt{forecastTime+lengthOfTimeRange}]$. Since the averaging process starts at $t=0$, the key \texttt{forecastTime} 
+\begin{center}
+$[\texttt{forecastTime}, \texttt{forecastTime+lengthOfTimeRange}]$. 
+\end{center}
+Since the averaging process starts at $t=0$, the key \texttt{forecastTime} 
 is set to 0. 
 
 \begin{longtable}{p{1.2cm}p{5.5cm}p{1.0cm}p{6.0cm}}
-\caption[]{List of GRIB2 keys which provide information about the \textbf{averaging} process}\label{tab_GRIB2avg}\\
+\caption[]{List of GRIB2 keys which provide information about the \emph{averaging} process}\label{tab_GRIB2avg}\\
   \toprule
 \multicolumn{1}{c}{\textbf{Octet(s)}}  &  \multicolumn{1}{c}{\textbf{Key}}  & \multicolumn{1}{c}{\textbf{Value}} & \multicolumn{1}{c}{\textbf{Meaning}} \\
 \midrule
@@ -61,10 +64,10 @@ is set to 0.
 \hline \multicolumn{4}{r}{\textit{Continued on next page}} \\
 \endfoot
 \endlastfoot
- 8-9        &  productDefinitionTemplateNumber             &     8               &    Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval   \\
- 19-22      &  forecastTime                                &     0               &    Starting time of the averaging process relative to the reference time. \\
- 47         &  typeOfStatisticalProcessing                 &     0               &    Average                                  \\
- 50-53      &  lengthOfTimeRange                           &    variable         &    Time range over which statistical processing is done \\
+ 8-9        &  \texttt{productDefinitionTemplateNumber}             &     8               &    Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval   \\
+ 19-22      &  \texttt{forecastTime}                                &     0               &    Starting time of the averaging process relative to the reference time. \\
+ 47         &  \texttt{typeOfStatisticalProcessing}                 &     0               &    Average                                  \\
+ 50-53      &  \texttt{lengthOfTimeRange}                           &    \emph{variable}  &    Time range over which statistical processing is done \\
 \bottomrule
 \end{longtable}
 
@@ -91,26 +94,29 @@ are accumulated for the elapsed time interval $[t_{0}, t_{i}]$.
 
 Let $\Psi$ denote the instantaneous value of one of the above fields. The accumulation $\hat{\Psi}$ at time $t$ stored in the 
 database is given as
-\begin{align}
- \hat{\Psi}(t) = \int_{0}^{t} \Psi\, \mathrm{d}t  \quad \text{, for } t>0
-\end{align}
+\begin{align*}
+ \hat{\Psi}(t) = \int_{0}^{t} \Psi\, \mathrm{d}t  \quad \text{, for } t>0.
+\end{align*}
 For $t=0$, the accumulation $\hat{\Psi}$ is equal to 0. 
 If accumulations are required for other time intervals $[t_{1},t_{2}]$, with $t_{1}>0$, these can be computed as follows:
-\begin{align}
+\begin{align*}
  \hat{\Psi}(t_{2}-t_{1}) &= \int_{t_{1}}^{t_{2}} \Psi\,\mathrm{d}t \\
                          &= \int_{0}^{t_{2}} \Psi\,\mathrm{d}t  - \int_{0}^{t_{1}} \Psi\,\mathrm{d}t \\
                          &= \hat{\Psi}(t_{2}) - \hat{\Psi}(t_{1})
-\end{align}
+\end{align*}
 For this equation to work, it is of course necessary that the fields $\hat{\Psi}(t_{1})$ and $\hat{\Psi}(t_{2})$ are available from the database.
 
-The accumulation process is fully reflected in the field's GRIB2 metainfo. In order to check, whether a field contains the desired accumulation, 
-it is advisable to check the content of the GRIB2-keys listed in Table \ref{tab_GRIB2acc}.
+The accumulation process is fully reflected by the field's GRIB2 metainfo. In order to check whether a field contains the desired accumulation, 
+it is advisable to check the content of the GRIB2 keys listed in Table~\ref{tab_GRIB2acc}.
 I.e.\ \texttt{productDefinitionTemplateNumber=8} indicates that the field in question is statistically processed. The statistical process itself 
 is specified by the key \texttt{typeOfStatisticalProcessing}. The accumulation interval (relative to the start of the forecast) is given by 
-$[\texttt{forecastTime},\texttt{forecastTime+lengthOfTimeRange}]$. Since the accumulation process starts at $t=0$, the key \texttt{forecastTime} 
+\begin{center}
+$[\texttt{forecastTime},\texttt{forecastTime+lengthOfTimeRange}]$. 
+\end{center}
+Since the accumulation process starts at $t=0$, the key \texttt{forecastTime} 
 is set to 0. 
 \begin{longtable}{p{1.2cm}p{5.5cm}p{1.0cm}p{6.0cm}}
-\caption[]{List of GRIB2 keys which provide information about the \textbf{accumulation} process}\label{tab_GRIB2acc}\\
+\caption[]{List of GRIB2 keys which provide information about the \emph{accumulation} process}\label{tab_GRIB2acc}\\
   \toprule
 \multicolumn{1}{c}{\textbf{Octet(s)}}  &  \multicolumn{1}{c}{\textbf{Key}}  & \multicolumn{1}{c}{\textbf{Value}} & \multicolumn{1}{c}{\textbf{Meaning}} \\
 \midrule
@@ -121,10 +127,10 @@ is set to 0.
 \hline \multicolumn{4}{r}{\textit{Continued on next page}} \\
 \endfoot
 \endlastfoot
- 8-9        &  productDefinitionTemplateNumber             &     8               &    Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval   \\
- 19-22      &  forecastTime                                &     0               &    Starting time of the accumulation process relative to the reference time. \\
- 47         &  typeOfStatisticalProcessing                 &     1               &    Accumulation                                  \\
- 50-53      &  lengthOfTimeRange                           &    variable         &    Time range over which statistical processing is done \\
+ 8-9        &  \texttt{productDefinitionTemplateNumber}             &     8               &    Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval   \\
+ 19-22      &  \texttt{forecastTime}                                &     0               &    Starting time of the accumulation process relative to the reference time. \\
+ 47         &  \texttt{typeOfStatisticalProcessing}                 &     1               &    Accumulation                                  \\
+ 50-53      &  \texttt{lengthOfTimeRange}                           &    variable         &    Time range over which statistical processing is done \\
 \bottomrule
 \end{longtable}
 
@@ -166,7 +172,7 @@ extreme value collection was performed is given by $[\texttt{forecastTime},\text
 Since the collection precess is restarted every $3$ hours, the key \texttt{forecastTime} can differ from 0. 
 
 \begin{longtable}{p{1.2cm}p{5.5cm}p{1.0cm}p{6.0cm}}
-\caption[]{List of GRIB2 keys which provide information about the \textbf{extreme value} process}\label{tab_GRIB2extreme}\\
+\caption[]{List of GRIB2 keys which provide information about the \emph{extreme value} process}\label{tab_GRIB2extreme}\\
   \toprule
 \multicolumn{1}{c}{\textbf{Octet(s)}}  &  \multicolumn{1}{c}{\textbf{Key}}  & \multicolumn{1}{c}{\textbf{Value}} & \multicolumn{1}{c}{\textbf{Meaning}} \\
 \midrule
@@ -177,10 +183,10 @@ Since the collection precess is restarted every $3$ hours, the key \texttt{forec
 \hline \multicolumn{4}{r}{\textit{Continued on next page}} \\
 \endfoot
 \endlastfoot
- 8-9        &  productDefinitionTemplateNumber             &     8               &    Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval   \\
- 19-22      &  forecastTime                                &    \emph{variable}  &    Starting time of the statistical process relative to the reference time. \\
- 47         &  typeOfStatisticalProcessing                 &     2,3             &    Maximum/Minimum                                  \\
- 50-53      &  lengthOfTimeRange                           &    \emph{variable}  &    Time range over which statistical processing is done \\
+ 8-9        &  \texttt{productDefinitionTemplateNumber}             &     8               &    Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval   \\
+ 19-22      &  \texttt{forecastTime}                                &    \emph{variable}  &    Starting time of the statistical process relative to the reference time. \\
+ 47         &  \texttt{typeOfStatisticalProcessing}                 &     2,3             &    Maximum/Minimum                                  \\
+ 50-53      &  \texttt{lengthOfTimeRange}                           &    \emph{variable}  &    Time range over which statistical processing is done \\
 \bottomrule
 \end{longtable}
 
