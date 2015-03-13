@@ -250,7 +250,7 @@ end ; push_with_parameter
 undef("hack_calendar_attribute")
 procedure hack_calendar_attribute(time)
 begin
-  if(any((/"6.1.0", "6.1.2", "6.2.0"/) .eq. get_ncl_version())) then
+  if(any((/"6.1.0", "6.1.2", "6.2.0", "6.2.1"/) .eq. get_ncl_version())) then
     if(time@calendar .eq. "proleptic_gregorian") then
         print("Hey: work-around for a bug in NCL version " + get_ncl_version())
         print("Hey: replacing Proleptic Gregorian calendar by Gregorian calendar")
