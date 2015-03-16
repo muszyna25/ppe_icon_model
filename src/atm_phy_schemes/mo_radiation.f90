@@ -506,7 +506,11 @@ CONTAINS
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
     ! output
     & ,cld_cvr                                                             &
-    & ,flx_lw_net_clr    ,trm_sw_net_clr  ,flx_lw_net       ,trm_sw_net    &
+    & ,flx_lw_net_clr    ,trm_sw_net_clr  ,flx_lw_net,       trm_sw_net    &
+    ! optional output
+    & ,flx_lw_up_sfc     ,trm_par_dn_sfc                                   &
+    & ,vis_frc_sfc       ,nir_dff_frc_sfc ,vis_dff_frc_sfc,  par_dff_frc_sfc &
+    ! optional input
     & ,opt_halo_cosmu0  )
 
     ! input
@@ -559,7 +563,13 @@ CONTAINS
       &  trm_sw_net_clr(kbdim,klevp1), & !< Net clear-sky solar transmissivity (= net clear-sky shortwave radiative flux normalized by irradiance)
       &  flx_lw_net(kbdim,klevp1),     & !< Net longwave radiative flux [W/m**2] (positive downward)
       &  trm_sw_net(kbdim,klevp1)        !< Net solar transmissivity (= net shortwave radiative flux normalized by irradiance)
-
+    REAL(wp), OPTIONAL, INTENT(out) :: &
+      &  flx_lw_up_sfc(kbdim),         & !< Upward longwave radiative flux at surface [W/m**2] (positive upward)
+      &  trm_par_dn_sfc(kbdim),        & !< Downward surface PAR transmissivity
+      &  vis_frc_sfc(kbdim),           & !< Visible fraction of net surface radiation
+      &  nir_dff_frc_sfc(kbdim),       & !< Diffuse fraction of downward surface near-infrared radiation
+      &  vis_dff_frc_sfc(kbdim),       & !< Diffuse fraction of downward surface visible radiation
+      &  par_dff_frc_sfc(kbdim)          !< Diffuse fraction of downward surface PAR
 
     INTEGER  :: jk, jl
 
@@ -586,7 +596,8 @@ CONTAINS
       &  flx_uplw_clr_sfc(kbdim),     & !< Srfc upward lw flux (clear sky) [Wm2]
       &  flx_upsw_clr_sfc(kbdim),     & !< Srfc upward sw flux (clear sky) [Wm2]
       &  flx_sw_net(kbdim,klevp1),    & !< Net SW flux [Wm2] (positive down)
-      &  flx_sw_net_clr(kbdim,klevp1)   !< Net SW flux (clear sky) [Wm2] (positive down)
+      &  flx_sw_net_clr(kbdim,klevp1),& !< Net SW flux (clear sky) [Wm2] (positive down)
+      &  flx_dnpar_sfc(kbdim)           !< Downward PAR flux at surface [Wm2]
 
     LOGICAL :: l_halo_cosmu0
 
@@ -716,7 +727,7 @@ CONTAINS
     ! --------------------------------------
     !
     CALL rrtm_interface(                                                    &
-      ! input
+                                ! input
       & jg              ,jb                                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
@@ -731,9 +742,18 @@ CONTAINS
       & qm_o3           ,xm_co2          ,xm_ch4                           ,&
       & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5                                      ,&
-      ! output
+                                ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
-      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc )
+      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc,&
+                                ! optional output
+      & flx_dnpar_sfc=flx_dnpar_sfc,                                        &
+      & vis_frc_sfc=vis_frc_sfc,                                            &
+      & nir_dff_frc_sfc=nir_dff_frc_sfc,                                    &
+      & vis_dff_frc_sfc=vis_dff_frc_sfc,                                    &
+      & par_dff_frc_sfc=par_dff_frc_sfc                                     )
+
+    IF (PRESENT(flx_lw_up_sfc)) flx_lw_up_sfc(:) = flx_uplw_sfc(:)
+    IF (PRESENT(trm_par_dn_sfc)) trm_par_dn_sfc(1:jce) = flx_dnpar_sfc(1:jce) / ( cos_mu0_mod(1:jce)*tsi_radt )
 
     !
     ! 3.0 Additional diagnostics
@@ -970,7 +990,8 @@ CONTAINS
       ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-      & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_par_sfc                       )
+      & flx_dnsw_diff_sfc=flx_dnsw_diff_sfc                                ,&
+      & flx_upsw_toa=flx_upsw_toa  ,flx_dnpar_sfc=flx_par_sfc               )
 
 
     !
@@ -1116,7 +1137,9 @@ CONTAINS
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-    & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_par_sfc                       )
+    ! optional output
+    & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_dnpar_sfc                    ,&
+    & vis_frc_sfc     ,nir_dff_frc_sfc ,vis_dff_frc_sfc ,par_dff_frc_sfc  )
 
     INTEGER,INTENT(in)  ::                &
       &  jg,                              & !< domain index
@@ -1176,7 +1199,11 @@ CONTAINS
     REAL(wp), INTENT(out), OPTIONAL ::    &
       &  flx_dnsw_diff_sfc(kbdim),        & !< sfc SW diffuse downward flux,
       &  flx_upsw_toa(kbdim),             & !< TOA SW upward flux,
-      &  flx_par_sfc(kbdim)                 !< PAR downward sfc flux
+      &  flx_dnpar_sfc(kbdim),            & !< PAR downward sfc flux
+      &  vis_frc_sfc(kbdim),              & !< Visible fraction of net surface SW radiation
+      &  nir_dff_frc_sfc(kbdim),          & !< Diffuse fraction of downward surface near-infrared radiation at surface
+      &  vis_dff_frc_sfc(kbdim),          & !< Diffuse fraction of downward surface visible radiation at surface
+      &  par_dff_frc_sfc(kbdim)             !< Diffuse fraction of downward surface PAR
 
     INTEGER  :: jk, jl, jp, jkb, jspec,   & !< loop indicies
       &  icldlyr(kbdim,klev)                !< index for clear or cloudy
@@ -1240,7 +1267,11 @@ CONTAINS
     flx_upsw_sfc_clr(:) = 0._wp
     IF (PRESENT(flx_dnsw_diff_sfc)) flx_dnsw_diff_sfc(:) = 0._wp
     IF (PRESENT(flx_upsw_toa))      flx_upsw_toa(:)      = 0._wp
-    IF (PRESENT(flx_par_sfc))       flx_par_sfc(:)       = 0._wp
+    IF (PRESENT(flx_dnpar_sfc))     flx_dnpar_sfc(:)     = 0._wp
+    IF (PRESENT(vis_frc_sfc))       vis_frc_sfc(:)       = 0._wp
+    IF (PRESENT(nir_dff_frc_sfc))   nir_dff_frc_sfc(:)   = 0._wp
+    IF (PRESENT(vis_dff_frc_sfc))   vis_dff_frc_sfc(:)   = 0._wp
+    IF (PRESENT(par_dff_frc_sfc))   par_dff_frc_sfc(:)   = 0._wp
 
     !
     ! 1.0 Constituent properties
@@ -1474,7 +1505,13 @@ CONTAINS
       &    ssi_radt        ,z_mc                                             ,&
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
-      &    flx_dnsw_diff_sfc ,flx_par_sfc                                     )
+      !    optional output
+      &    flxd_dff_sfc=flx_dnsw_diff_sfc ,                                   &
+      &    flxd_par_sfc    = flx_dnpar_sfc,                                   &
+      &    vis_frc_sfc     = vis_frc_sfc,                                     &
+      &    nir_dff_frc_sfc = nir_dff_frc_sfc,                                 &
+      &    vis_dff_frc_sfc = vis_dff_frc_sfc,                                 &
+      &    par_dff_frc_sfc = par_dff_frc_sfc                                  )
 
 
     ! 5.0 Post Processing
@@ -1572,15 +1609,15 @@ CONTAINS
       &     jcs, jce, kbdim,    &
       &     klev,   klevp1, ntiles, ntiles_wtr
 
-    REAL(wp), INTENT(in)  ::         &
-      &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
-      &     pqv        (kbdim,klev), & ! specific humidity at t-dt                [kg/kg]
-      &     pcd,                     & ! specific heat of dry air                 [J/kg/K]
-      &     pcv,                     & ! specific heat of vapor                   [J/kg/K]
-      &     pi0        (kbdim),      & ! local solar incoming flux at TOA         [W/m2]
-      &     pemiss     (kbdim),      & ! lw sfc emissivity
-      &     ptsfc      (kbdim),      & ! surface temperature at t                 [K]
-      &     ptsfctrad  (kbdim),      & ! surface temperature at trad              [K]
+    REAL(wp), INTENT(in)  ::           &
+      &     pmair      (kbdim,klev),   & ! mass of air in layer                     [kg/m2]
+      &     pqv        (kbdim,klev),   & ! specific humidity at t-dt                [kg/kg]
+      &     pcd,                       & ! specific heat of dry air                 [J/kg/K]
+      &     pcv,                       & ! specific heat of vapor                   [J/kg/K]
+      &     pi0        (kbdim),        & ! local solar incoming flux at TOA         [W/m2]
+      &     pemiss     (kbdim),        & ! lw sfc emissivity
+      &     ptsfc      (kbdim),        & ! surface temperature at t                 [K]
+      &     ptsfctrad  (kbdim),        & ! surface temperature at trad              [K]
       &     ptrmsw     (kbdim,klevp1), & ! shortwave transmissivity at trad         []
       &     pflxlw     (kbdim,klevp1)    ! longwave net flux at trad                [W/m2]
 
@@ -1820,7 +1857,7 @@ CONTAINS
       ENDIF ! ntiles
 
 
-    ELSE ! hydrostatic version
+    ELSE ! ECHAM version
 
       ! For ECHAM physics: Returns flux divergences in [W/m2]
       ! instead of the heating rates in [K/s].
@@ -1834,12 +1871,20 @@ CONTAINS
       zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
       
       ! - Surface
-      !   Adjust for changed surface temperature (ptsfc) with respect to the
+      !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
       !   surface temperature used for the longwave flux computation (ptsfctrad).
       !   --> modifies heating in lowermost layer only (is this smart?)
-      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
-        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
-        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
+      !   upward and net sfc longwave radiation are updated between radiation time steps
+      dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
+      IF (PRESENT(lwflx_up_sfc)) &
+        & lwflx_up_sfc(jcs:jce) = lwflx_up_sfc_rs(jcs:jce)                 & ! Upward longwave sfc rad at radiation time step
+        &   + dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))   ! Correction for new sfc temp between radiation time steps
+      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      & ! Net longwave sfc rad at radiation time step
+        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))     ! Correction for new sfc temp between radiation time steps
+!!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
+!!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
+!!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
 
 
     ENDIF

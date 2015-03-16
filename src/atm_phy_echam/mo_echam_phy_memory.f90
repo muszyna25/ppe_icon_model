@@ -153,27 +153,26 @@ MODULE mo_echam_phy_memory
       & cosmu0      (:,  :),  &!< [ ]    cos of zenith angle mu0 for radiative heating  calculation
       & flxdwswtoa  (:,  :),  &!< [W/m2] downward shortwave flux at TOA
       !
-      ! shortwave surface albedo
-      & albvisdir   (:,  :),  &!< [ ]    surface albedo for visible range, direct
-      & albvisdif   (:,  :),  &!< [ ]    surface albedo for visible range, diffuse
-      & albnirdir   (:,  :),  &!< [ ]    surface albedo for near IR range, direct
-      & albnirdif   (:,  :),  &!< [ ]    surface albedo for near IR range, diffuse
+      ! shortwave surface fluxes (updated every time step)
+      & vissfc      (:,  :),  &!< [ ]    net shortwave radiation in VIS (positive downward)
+      & nirsfc      (:,  :),  &!< [ ]    net shortwave radiation in NIR (positive downward)
+      & parsfcdn    (:,  :),  &!< [ ]    downward shortwave radiation in PAR
       !
-      ! shortwave net surface fluxes
-      & vissfc      (:,  :),  &!< [ ]    solar transmissivity in VIS, net downward
-      & visdffsfc   (:,  :),  &!< [ ]    diffuse fraction in VIS net downw. flux (?)
-      & nirsfc      (:,  :),  &!< [ ]    solar transmissivity in NIR, net downward
-      & nirdffsfc   (:,  :),  &!< [ ]    diffuse fraction in NIR net downw. flux (?)
-      & parsfc      (:,  :),  &!< [ ]    solar transmissivity in PAR, downward
-      & pardffsfc   (:,  :),  &!< [ ]    diffuse fraction in PAR net downw. flux (?)
-      !
-      ! shortwave net transmissivity
+      ! fractions of diffuse shortwave surface radiation (updated every radiation time step)
+      & visdffsfc   (:,  :),  &!< [ ]    diffuse fraction in VIS downward flux
+      & nirdffsfc   (:,  :),  &!< [ ]    diffuse fraction in NIR downward flux
+      & pardffsfc   (:,  :),  &!< [ ]    diffuse fraction in PAR downward flux
+
+      ! shortwave net transmissivity (updated at radiation time steps)
       & swtrmclr    (:,:,:),  &!< [ ]    net shortwave transmissivity  , clear-sky, positive downward
       & swtrmall    (:,:,:),  &!< [ ]    net shortwave transmissivity  , all-sky,   positive downward
+      & partrmdnsfc (:,  :),  &!< [ ]    downward shortwave transmissivity in PAR, all-sky
       !
-      ! longwave net fluxes
-      & lwflxclr    (:,:,:),  &!< [W/m2] net longwave flux, clear sky, positive downward
-      & lwflxall    (:,:,:),  &!< [W/m2] net longwave flux, all   sky, positive downward
+      ! longwave net fluxes (updated at radiation time steps)
+      & lwflxclr    (:,:,:),  &!< [W/m2] net longwave flux,            clear-sky, positive downward
+      & lwflxall    (:,:,:),  &!< [W/m2] net longwave flux,            all-sky,   positive downward
+      & lwflxupsfc  (:,  :),  &!< [W/m2] upward longwave flux at surface, all-sky
+      !
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
     ! aerosol optical properties
     REAL(wp), POINTER ::      &
@@ -264,11 +263,7 @@ MODULE mo_echam_phy_memory
       & albvisdir_ice(:,:,:),   & ! Ice surface albedo for visible range, direct
       & albvisdif_ice(:,:,:),   & ! Ice surface albedo for visible range, diffuse
       & albnirdir_ice(:,:,:),   & ! Ice surface albedo for near IR range, direct
-      & albnirdif_ice(:,:,:),   & ! Ice surface albedo for near IR range, diffuse
-      & albvisdir_wtr(:,  :),   & ! Ocean surface albedo for visible range, direct
-      & albvisdif_wtr(:,  :),   & ! Ocean surface albedo for visible range, diffuse
-      & albnirdir_wtr(:,  :),   & ! Ocean surface albedo for near IR range, direct
-      & albnirdif_wtr(:,  :)      ! Ocean surface albedo for near IR range, diffuse
+      & albnirdif_ice(:,:,:)      ! Ice surface albedo for near IR range, diffuse
 
     ! Orographic wave drag (ssodrag)
 
@@ -318,13 +313,14 @@ MODULE mo_echam_phy_memory
       !
     REAL(wp),POINTER ::     &
       ! net fluxes at TOA and surface
-      & swflxsfc    (:,:),  &!< [ W/m2] shortwave net flux at surface
+      & swflxsfc    (:,:),     &!< [ W/m2] shortwave net flux at surface
       & swflxsfc_tile(:,:,:),  &!< [ W/m2] shortwave net flux at surface
-      & lwflxsfc    (:,:),  &!< [ W/m2] longwave net flux at surface
+      & lwflxsfc    (:,:),     &!< [ W/m2] longwave net flux at surface
+      & lwupflxsfc    (:,:),   &!< [ W/m2] longwave upward flux at surface
       & lwflxsfc_tile(:,:,:),  &!< [ W/m2] longwave net flux at surface
-      & dlwflxsfc_dT(:,:),  &!< [ W/m2/K] longwave net flux temp tend at surface
-      & swflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA 
-      & lwflxtoa    (:,:)    !< [ W/m2] shortwave net flux at TOA
+      & dlwflxsfc_dT(:,:),     &!< [ W/m2/K] longwave net flux temp tend at surface
+      & swflxtoa    (:,:),     &!< [ W/m2] shortwave net flux at TOA 
+      & lwflxtoa    (:,:)       !< [ W/m2] shortwave net flux at TOA
 
     TYPE(t_ptr2d),ALLOCATABLE :: swflxsfc_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
@@ -350,6 +346,22 @@ MODULE mo_echam_phy_memory
 
     TYPE(t_ptr2d),ALLOCATABLE ::   tsfc_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
+
+    ! Surface albedo
+    REAL(wp),POINTER :: &
+      & albvisdir_tile (:,:,:),  &!< [ ] surface albedo over tiles for visible range, direct
+      & albvisdif_tile (:,:,:),  &!< [ ] surface albedo over tiles for visible range, diffuse
+      & albnirdir_tile (:,:,:),  &!< [ ] surface albedo over tiles for near-IR range, direct
+      & albnirdif_tile (:,:,:),  &!< [ ] surface albedo over tiles for near-IR range, diffuse
+      & albedo_tile    (:,:,:),  &!< [ ] surface albedo over tiles
+      & albvisdir      (:,:  ),  &!< [ ] surface albedo for visible range, direct, grid-box mean
+      & albvisdif      (:,:  ),  &!< [ ] surface albedo for visible range, diffuse, grid-box mean
+      & albnirdir      (:,:  ),  &!< [ ] surface albedo for near-IR range, direct, grid-box mean
+      & albnirdif      (:,:  ),  &!< [ ] surface albedo for near-IR range, diffuse, grid-box mean
+      & albedo         (:,:  )    !< [ ] surface albedo, grid-box mean
+
+    TYPE(t_ptr2d),ALLOCATABLE :: albvisdir_tile_ptr(:), albvisdif_tile_ptr(:), &
+      & albnirdir_tile_ptr(:), albnirdif_tile_ptr(:), albedo_tile_ptr(:)
 
     REAL(wp),POINTER :: &
       & lhflx     (:,  :),    &!< grid box mean latent   heat flux at surface 
@@ -446,7 +458,8 @@ MODULE mo_echam_phy_memory
       ! radiation
       !
       & temp_rsw (:,:,:)  , & !< temperature tendency from radiation
-      & temp_rlw (:,:,:)      !< temperature tendency from radiation
+      & temp_rlw (:,:,:)  , & !< temperature tendency from radiation
+      & temp_rlw_sfc(:,:)     !< temperature tendency in bottom layer due to updated surface temperatures after vdiff
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
@@ -865,30 +878,6 @@ CONTAINS
     CALL add_var( field_list, prefix//'flxdwswtoa', field%flxdwswtoa,           &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% albvisdir (nproma,       nblks),          &
-    cf_desc    = t_cf_var('albvisdir', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'albvisdir', field%albvisdir,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% albvisdif (nproma,       nblks),          &
-    cf_desc    = t_cf_var('albvisdif', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'albvisdif', field%albvisdif,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% albnirdir (nproma,       nblks),          &
-    cf_desc    = t_cf_var('albnirdir', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'albnirdir', field%albnirdir,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% albnirdif (nproma,       nblks),          &
-    cf_desc    = t_cf_var('albnirdif', '', '', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'albnirdif', field%albnirdif,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
     ! &       field% vissfc    (nproma,       nblks),          &
     cf_desc    = t_cf_var('vissfc', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -913,16 +902,22 @@ CONTAINS
     CALL add_var( field_list, prefix//'nirdffsfc', field%nirdffsfc,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% parsfc    (nproma,       nblks),          &
-    cf_desc    = t_cf_var('parsfc', '', '', DATATYPE_FLT32)
+    ! &       field% parsfcdn    (nproma,       nblks),          &
+    cf_desc    = t_cf_var('parsfcdn', 'W m-2', 'downward surface PAR radiation', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'parsfc', field%parsfc,                   &
+    CALL add_var( field_list, prefix//'parsfcdn', field%parsfcdn,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% pardffsfc (nproma,       nblks),          &
     cf_desc    = t_cf_var('pardffsfc', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'pardffsfc', field%pardffsfc,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    ! &       field% partrmdnsfc (nproma,       nblks),        &
+    cf_desc    = t_cf_var('partrmdnsfc', 'W m-2', 'downward sfc. shortwave transmissivity in PAR', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'partrmdnsfc', field%partrmdnsfc,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('swflxsfc', 'W m-2', ' shortwave net flux at surface', DATATYPE_FLT32)
@@ -946,6 +941,24 @@ CONTAINS
     cf_desc    = t_cf_var('lwflxsfc', 'W m-2', 'longwave net flux at surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    cf_desc    = t_cf_var('lwupflxsfc', 'W m-2', 'longwave upward flux at surface', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lwupflxsfc', field%lwupflxsfc,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    cf_desc    = t_cf_var('lwflxupsfc', 'W m-2', 'longwave upward flux at surface (at t_rad)', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lwflxupsfc', field%lwflxupsfc,&
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
@@ -1483,7 +1496,7 @@ CONTAINS
       CALL add_var( field_list, prefix//'cfm', field%cfm,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
-      ! &       field% cfm_tile(nproma,nsfc_type,nblks), &
+      ! &       field% cfm_tile(nproma,nblks,nsfc_type), &
       CALL add_var( field_list, prefix//'cfm_tile', field%cfm_tile,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('turb_exchng_coeff_momentum', '', '', DATATYPE_FLT32), &
@@ -1509,7 +1522,7 @@ CONTAINS
       CALL add_var( field_list, prefix//'cfh', field%cfh,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
-      ! &       field% cfh_tile(nproma,nsfc_type,nblks), &
+      ! &       field% cfh_tile(nproma,nblks,nsfc_type), &
       CALL add_var( field_list, prefix//'cfh_tile', field%cfh_tile,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('turb_exchng_coeff_heat', '', '', DATATYPE_FLT32),  &
@@ -1567,7 +1580,7 @@ CONTAINS
       CALL add_var( field_list, prefix//'z0m', field%z0m,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-      ! &       field% z0m_tile(nproma,nsfc_type,nblks), &
+      ! &       field% z0m_tile(nproma,nblks,nsfc_type), &
       CALL add_var( field_list, prefix//'z0m_tile', field%z0m_tile,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('z0m_tile', '', 'aerodynamic roughness length', DATATYPE_FLT32),&
@@ -1618,30 +1631,6 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, iextbits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, prefix//'ocv', field%ocv,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-      ! &       field% albvisdir_wtr (nproma,       nblks),          &
-      cf_desc    = t_cf_var('albvisdir_wtr', '', 'ocean albedo VIS direct', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, prefix//'albvisdir_wtr', field%albvisdir_wtr,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-      ! &       field% albvisdif_wtr (nproma,       nblks),          &
-      cf_desc    = t_cf_var('albvisdif_wtr', '', 'ocean albedo VIS diffuse', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, prefix//'albvisdif_wtr', field%albvisdif_wtr,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-      ! &       field% albnirdir_wtr (nproma,       nblks),          &
-      cf_desc    = t_cf_var('albnirdir_wtr', '', 'ocean albedo NIR direct', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, prefix//'albnirdir_wtr', field%albnirdir_wtr,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-      ! &       field% albnirdif_wtr (nproma,       nblks),          &
-      cf_desc    = t_cf_var('albnirdif_wtr', '', 'ocean albedo NIR direct', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, prefix//'albnirdif_wtr', field%albnirdif_wtr,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     !-----------------------
     ! Surface
@@ -1704,7 +1693,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'tsfc', field%tsfc,                     &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% tsfc_tile(nproma,nsfc_type,nblks), &
+    ! &       field% tsfc_tile(nproma,nblks,nsfc_type), &
     CALL add_var( field_list, prefix//'tsfc_tile', field%tsfc_tile,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var('tsfc_tile', '', 'skin temperature', DATATYPE_FLT32), &
@@ -1725,7 +1714,7 @@ CONTAINS
     END DO
     !-----------------------------------
 
-    ! &       field% qs_sfc_tile (nproma,nsfc_type, nblks), &
+    ! &       field% qs_sfc_tile (nproma,nblks,nsfc_type), &
     CALL add_var( field_list, prefix//'qs_sfc_tile', field%qs_sfc_tile,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var('qs_sfc_tile', '', '', DATATYPE_FLT32),             &
@@ -1741,6 +1730,110 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('qs_sfc_tile_'//csfc, '', '', DATATYPE_FLT32),      &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=shape2d )
+    END DO
+
+    !-----------------------------------
+    ! &       field% albedo (nproma,nblks),          &
+    cf_desc    = t_cf_var('albedo', '', 'surface albedo', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albedo', field%albedo,                            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    ! &       field% albvisdir (nproma,nblks),          &
+    cf_desc    = t_cf_var('albvisdir', '', 'albedo VIS direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albvisdir', field%albvisdir,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d  )
+
+    ! &       field% albvisdif (nproma,nblks),          &
+    cf_desc    = t_cf_var('albvisdif', '', 'albedo VIS diffuse', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albvisdif', field%albvisdif,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d  )
+
+    ! &       field% albnirdir (nproma,nblks),          &
+    cf_desc    = t_cf_var('albnirdir', '', 'albedo NIR direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albnirdir', field%albnirdir,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d  )
+
+    ! &       field% albnirdif (nproma,nblks),          &
+    cf_desc    = t_cf_var('albnirdif', '', 'albedo NIR diffuse', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albnirdif', field%albnirdif,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d  )
+
+    ! &       field% albvisdir_tile (nproma,nblks,nsfc_type),          &
+    cf_desc    = t_cf_var('albvisdir_tile', '', 'albedo VIS direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albvisdir_tile', field%albvisdir_tile,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
+                & lcontainer=.TRUE., lrestart=.FALSE.         )
+
+    ! &       field% albvisdif_tile (nproma,nblks,nsfc_type),          &
+    cf_desc    = t_cf_var('albvisdif_tile', '', 'albedo VIS diffuse', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albvisdif_tile', field%albvisdif_tile,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
+                & lcontainer=.TRUE., lrestart=.FALSE.         )
+
+    ! &       field% albnirdir_tile (nproma,nblks,nsfc_type),          &
+    cf_desc    = t_cf_var('albnirdir_tile', '', 'albedo NIR direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albnirdir_tile', field%albnirdir_tile,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
+                & lcontainer=.TRUE., lrestart=.FALSE.         )
+
+    ! &       field% albnirdif_tile (nproma,nblks,nsfc_type),          &
+    cf_desc    = t_cf_var('albnirdif_tile', '', 'albedo NIR diffuse', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albnirdif_tile', field%albnirdif_tile,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
+                & lcontainer=.TRUE., lrestart=.FALSE.         )
+
+    ! &       field% albedo_tile (nproma,nblks,nsfc_type),          &
+    cf_desc    = t_cf_var('albedo_tile', '', 'albedo', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albedo_tile', field%albedo_tile,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
+                & lcontainer=.TRUE., lrestart=.FALSE.         )
+
+    ALLOCATE(field%albvisdir_tile_ptr(ksfc_type), field%albvisdif_tile_ptr(ksfc_type), &
+             field%albnirdir_tile_ptr(ksfc_type), field%albnirdif_tile_ptr(ksfc_type), &
+             field%albedo_tile_ptr(ksfc_type)                                          )
+
+    DO jsfc = 1,ksfc_type
+      WRITE(csfc,'(i1)') jsfc 
+      CALL add_ref( field_list, prefix//'albvisdir_tile',                              &
+                  & prefix//'albvisdir_tile_'//csfc, field%albvisdir_tile_ptr(jsfc)%p, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+                  & t_cf_var('albvisdir_tile_'//csfc, '', '', DATATYPE_FLT32),         &
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),      &
+                  & ldims=shape2d )
+      CALL add_ref( field_list, prefix//'albvisdif_tile',                              &
+                  & prefix//'albvisdif_tile_'//csfc, field%albvisdif_tile_ptr(jsfc)%p, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+                  & t_cf_var('albvisdif_tile_'//csfc, '', '', DATATYPE_FLT32),         &
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),      &
+                  & ldims=shape2d )
+      CALL add_ref( field_list, prefix//'albnirdir_tile',                              &
+                  & prefix//'albnirdir_tile_'//csfc, field%albnirdir_tile_ptr(jsfc)%p, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+                  & t_cf_var('albnirdir_tile_'//csfc, '', '', DATATYPE_FLT32),         &
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),      &
+                  & ldims=shape2d )
+      CALL add_ref( field_list, prefix//'albnirdif_tile',                              &
+                  & prefix//'albnirdif_tile_'//csfc, field%albnirdif_tile_ptr(jsfc)%p, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+                  & t_cf_var('albnirdif_tile_'//csfc, '', '', DATATYPE_FLT32),         &
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),      &
+                  & ldims=shape2d )
+      CALL add_ref( field_list, prefix//'albedo_tile',                                 &
+                  & prefix//'albedo_tile_'//csfc, field%albedo_tile_ptr(jsfc)%p,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+                  & t_cf_var('albedo_tile_'//csfc, '', '', DATATYPE_FLT32),            &
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),      &
                   & ldims=shape2d )
     END DO
 
@@ -2022,6 +2115,13 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
+
+    ! &       tend% temp_rlw_sfc(nproma,nblks),             &
+    cf_desc    = t_cf_var('temperature_tendency_rlw_sfc', 'K s-1', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'temp_rlw_sfc', tend%temp_rlw_sfc,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
+                & ldims=(/kproma,kblks/))
 
     ! &       tend% temp_cld  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_cloud', 'K s-1', '', DATATYPE_FLT32)

@@ -78,7 +78,26 @@
   ts_ice             prm_tsfc_tile_2
   ts_lnd             prm_tsfc_tile_3
 #
-  alb                prm_albvisdir
+  albvisdir          prm_albvisdir
+  albvisdif          prm_albvisdif
+  albnirdir          prm_albnirdir
+  albnirdif          prm_albnirdif
+  albvisdir_wtr      prm_albvisdir_tile_1
+  albvisdir_ice      prm_albvisdir_tile_2
+  albvisdir_lnd      prm_albvisdir_tile_3
+  albvisdif_wtr      prm_albvisdif_tile_1
+  albvisdif_ice      prm_albvisdif_tile_2
+  albvisdif_lnd      prm_albvisdif_tile_3
+  albnirdir_wtr      prm_albnirdir_tile_1
+  albnirdir_ice      prm_albnirdir_tile_2
+  albnirdir_lnd      prm_albnirdir_tile_3
+  albnirdif_wtr      prm_albnirdif_tile_1
+  albnirdif_ice      prm_albnirdif_tile_2
+  albnirdif_lnd      prm_albnirdif_tile_3
+  albedo             prm_albedo
+  albedo_wtr         prm_albedo_tile_1
+  albedo_ice         prm_albedo_tile_2
+  albedo_lnd         prm_albedo_tile_3
 #
   prlr               prm_rsfl
   prcr               prm_rsfc
