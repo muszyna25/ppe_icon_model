@@ -23,6 +23,8 @@
   tro3               prm_o3
 #
   ts                 prm_tsfc
+  ts_eff             prm_tsfc_eff
+  ts_rad             prm_tsfc_rad
 #
   sic                prm_seaice
   sit                prm_siced
@@ -100,39 +102,43 @@
 # ---------------------------------------------------
 #
 # temperature:
-  tend_temp          prm_tend_temp
-  tend_temp_phy      prm_tend_temp_phy
-  tend_temp_radlw    prm_tend_temp_radlw
-  tend_temp_radsw    prm_tend_temp_radsw
-  tend_temp_cld      prm_tend_temp_cld
-  tend_temp_cnv      prm_tend_temp_cnv
-  tend_temp_vdf      prm_tend_temp_vdf
-  tend_temp_gwh      prm_tend_temp_gwh
-  tend_temp_sso      prm_tend_temp_sso
+  tend_ta            prm_tend_temp
+  tend_ta_dyn        prm_tend_temp_dyn
+  tend_ta_phy        prm_tend_temp_phy
+  tend_ta_rlw        prm_tend_temp_rlw
+  tend_ta_rsw        prm_tend_temp_rsw
+  tend_ta_cld        prm_tend_temp_cld
+  tend_ta_cnv        prm_tend_temp_cnv
+  tend_ta_vdf        prm_tend_temp_vdf
+  tend_ta_gwh        prm_tend_temp_gwh
+  tend_ta_sso        prm_tend_temp_sso
 #
 # u-wind:
-  tend_u             prm_tend_u
-  tend_u_phy         prm_tend_u_phy
-  tend_u_cnv         prm_tend_u_cnv
-  tend_u_vdf         prm_tend_u_vdf
-  tend_u_gwh         prm_tend_u_gwh
-  tend_u_sso         prm_tend_u_sso
+  tend_ua            prm_tend_u
+  tend_ua_dyn        prm_tend_u_dyn
+  tend_ua_phy        prm_tend_u_phy
+  tend_ua_cnv        prm_tend_u_cnv
+  tend_ua_vdf        prm_tend_u_vdf
+  tend_ua_gwh        prm_tend_u_gwh
+  tend_ua_sso        prm_tend_u_sso
 #
 # v-wind:
-  tend_v             prm_tend_v
-  tend_v_phy         prm_tend_v_phy
-  tend_v_cnv         prm_tend_v_cnv
-  tend_v_vdf         prm_tend_v_vdf
-  tend_v_gwh         prm_tend_v_gwh
-  tend_v_sso         prm_tend_v_sso
+  tend_va            prm_tend_v
+  tend_va_dyn        prm_tend_v_dyn
+  tend_va_phy        prm_tend_v_phy
+  tend_va_cnv        prm_tend_v_cnv
+  tend_va_vdf        prm_tend_v_vdf
+  tend_va_gwh        prm_tend_v_gwh
+  tend_va_sso        prm_tend_v_sso
 #
-# qv
-  tend_qv            prm_tend_qv
-  tend_qv_phy        prm_tend_qv_phy
-  tend_qv_cld        prm_tend_qv_cld
-  tend_qv_cnv        prm_tend_qv_cnv
-  tend_qv_vdf        prm_tend_qv_vdf
+# specific humidity
+  tend_hus           prm_tend_qv
+  tend_hus_dyn       prm_tend_qv_dyn
+  tend_hus_phy       prm_tend_qv_phy
+  tend_hus_cld       prm_tend_qv_cld
+  tend_hus_cnv       prm_tend_qv_cnv
+  tend_hus_vdf       prm_tend_qv_vdf
 #
 # xl and xi
-  tend_xl_dtr        prm_tend_xl_dtr
-  tend_xi_dtr        prm_tend_xi_dtr
+  tend_clw_dtr       prm_tend_xl_dtr
+  tend_cli_dtr       prm_tend_xi_dtr

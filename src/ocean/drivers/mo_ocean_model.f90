@@ -80,7 +80,7 @@ MODULE mo_ocean_model
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
-    & destruct_atmos_for_ocean, destruct_atmos_fluxes, destruct_sea_ice
+    & destruct_atmos_for_ocean, destruct_sea_ice
 
   USE mo_ocean_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, success
@@ -297,7 +297,7 @@ CONTAINS
     IF(no_tracer>0) CALL destruct_ocean_forcing(v_sfc_flx)
     CALL destruct_sea_ice(v_sea_ice)
     CALL destruct_atmos_for_ocean(p_as)
-    CALL destruct_atmos_fluxes(atmos_fluxes)
+    !CALL destruct_atmos_fluxes(atmos_fluxes)
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
