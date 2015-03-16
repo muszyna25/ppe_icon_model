@@ -304,7 +304,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       END IF
 
       CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
-        &                          ncloud_offset=1, &
+        &                          ncloud_offset=ncloud_offset, &
         &                          ptr=ptr(:), &
         &                          i_st=i_startidx, i_en=i_endidx, dt=tcall_turb_jg )
 
