@@ -215,7 +215,7 @@ CONTAINS
       & zswvisdif_down(kbdim), zswvisdir_down(kbdim), zswnirdif_down(kbdim), zswnirdir_down(kbdim), &
       & zalbvis(kbdim), zalbnir(kbdim)
 
-    REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), ztsfc(kbdim)
+    REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim)
 
     REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
@@ -323,7 +323,7 @@ CONTAINS
         & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0.5_wp),  & ! in
         & cos_zenith_angle = pcosmu0(1:kproma),                                         & ! in
         & t_srf            = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
-        & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for radheat)
+        & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
         & qsat_srf         = sat_surface_specific_humidity(1:kproma),                   & ! out
         & s_srf            = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vertical diffusion scheme)
         & fact_q_air       = pcair(1:kproma),                                           & ! out
@@ -332,6 +332,7 @@ CONTAINS
         & latent_hflx      = plhflx_tile(1:kproma, idx_lnd),                            & ! out
         & sensible_hflx    = pshflx_tile(1:kproma, idx_lnd),                            & ! out
         & grnd_hflx        = zgrnd_hflx(1:kproma, idx_lnd),                             & ! out
+        & grnd_hcap        = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
         & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
         & rough_m_srf      = z0m_lnd(1:kproma),                                         & ! out
         & tte_corr         = tte_corr(1:kproma),                                        & ! out
