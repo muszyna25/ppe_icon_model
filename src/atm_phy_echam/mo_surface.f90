@@ -624,6 +624,7 @@ CONTAINS
     ENDDO
     ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma)**0.25_wp
 
+    ! Compute lw and sw surface radiation fluxes on tiles
     DO jsfc=1,ksfc_type
       IF (jsfc == idx_lnd) THEN
         plwflx_tile(1:kproma,jsfc) = zemiss_def * (plw_down(1:kproma) - stbo * ztsfc_lnd_eff(1:kproma)**4)
@@ -641,8 +642,8 @@ CONTAINS
     END DO
 
     ! Merge sw and lw surface fluxes
-    plw(:) = 0._wp
-    psw(:) = 0._wp
+    ! This includes the update of the lw flux on land due to the new surface temperature where only part
+    ! of the net radiation was used (due to the Taylor truncation in the surface energy balance)
     DO jsfc=1,ksfc_type
       plw(1:kproma) = plw(1:kproma) + pfrc(1:kproma,jsfc) * plwflx_tile(1:kproma,jsfc)
       psw(1:kproma) = psw(1:kproma) + pfrc(1:kproma,jsfc) * pswflx_tile(1:kproma,jsfc)
