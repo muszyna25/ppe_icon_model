@@ -18,7 +18,7 @@ module mo_psrad_interface
 !!$  USE mo_aero_volc_tab,   ONLY: add_aop_volc_ham, add_aop_volc_crow
   USE mo_lrtm_setup,      ONLY: lrtm_setup
 !!$  USE mo_lrtm_setup,      ONLY: setup_lrtm
-  USE mo_srtm_setup,      ONLY: setup_srtm ! here, the new name is chosen to 
+  USE mo_psrad_srtm_setup,ONLY: setup_srtm ! here, the new name is chosen to 
                              ! distinguish it from lrtm_setup in the "old"
                              ! version
 !!$  USE mo_lrtm_driver,     ONLY: lrtm

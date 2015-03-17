@@ -5,11 +5,11 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE mo_srtm_setup
+MODULE mo_psrad_srtm_setup
 
-  USE mo_kind, ONLY : wp
-  USE mo_rrtm_params, ONLY : nbndsw, mg, ngptsw, jpb1, jpb2
-  USE mo_srtm_netcdf, ONLY : srtm_read
+  USE mo_kind,                 ONLY : wp
+  USE mo_rrtm_params,          ONLY : nbndsw, mg, ngptsw, jpb1, jpb2
+  USE mo_psrad_srtm_netcdf,    ONLY : srtm_read
 !!$  USE mo_rad_fastmath,ONLY : setup_rad_fastmath
 
   IMPLICIT NONE
@@ -1272,6 +1272,6 @@ CONTAINS
 !!$
 !!$  END SUBROUTINE cmbgb29
 
-END MODULE mo_srtm_setup
+END MODULE mo_psrad_srtm_setup
 
 

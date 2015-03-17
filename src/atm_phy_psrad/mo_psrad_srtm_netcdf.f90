@@ -5,7 +5,7 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE mo_srtm_netcdf
+MODULE mo_psrad_srtm_netcdf
 
   USE mo_kind, ONLY : wp
 !!$  USE mo_mpi,       ONLY: p_parallel_io, p_io, p_bcast
@@ -115,7 +115,7 @@ CONTAINS
 
     nf_status = p_nf_open('rrtmg_sw.nc', nf_read, fileid)
     IF (nf_status /= nf_noerr) THEN
-      CALL finish('mo_srtm_netcdf/srtm_read', 'File rrtmg_sw.nc cannot be opened')
+      CALL finish('mo_psrad_srtm_netcdf/srtm_read', 'File rrtmg_sw.nc cannot be opened')
     END IF
 
       CALL sw_kgb16  ! molecular absorption coefficients
@@ -881,5 +881,5 @@ CONTAINS
   END SUBROUTINE sw_kgb29
   !*******************************************************************************
 
-END MODULE mo_srtm_netcdf
+END MODULE mo_psrad_srtm_netcdf
 

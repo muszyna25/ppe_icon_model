@@ -122,7 +122,7 @@ MODULE mo_psrad_radiation
 ! must be introduced to icon
 !  USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
-!  USE mo_srtm_setup,    ONLY : ssi_default, ssi_preind, ssi_amip,           &
+!  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
 !                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
   USE mo_psrad_interface,ONLY : setup_psrad
 !, psrad_interface, &
