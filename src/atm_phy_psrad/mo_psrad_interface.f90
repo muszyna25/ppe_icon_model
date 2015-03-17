@@ -29,17 +29,17 @@ module mo_psrad_interface
 !!$  USE mo_cosp_simulator,  ONLY: cosp_reffl, cosp_reffi,      &
 !!$                                locosp, cosp_f3d, Lisccp_sim,&
 !!$                                cisccp_cldtau3d, cisccp_cldemi3d
-!!$  USE mo_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
-!!$  USE mo_random_numbers,  ONLY: seed_size_random
+  USE mo_psrad_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
+  USE mo_random_numbers,  ONLY: seed_size_random
 
   IMPLICIT NONE
-  PUBLIC :: setup_psrad
+  PUBLIC :: setup_psrad, &
 !!$, psrad_interface, & 
-!!$            lw_strat, sw_strat
-!!$  
-!!$  TYPE(spec_sampling_strategy), SAVE &
-!!$    &                   :: lw_strat, sw_strat !< Spectral sampling strategies for longwave, shortwave
-!!$  INTEGER, PARAMETER    :: rng_seed_size = 4
+            lw_strat, sw_strat
+  
+  TYPE(spec_sampling_strategy), SAVE &
+    &                   :: lw_strat, sw_strat !< Spectral sampling strategies for longwave, shortwave
+  INTEGER, PARAMETER    :: rng_seed_size = 4
 CONTAINS
   !---------------------------------------------------------------------------
   !>

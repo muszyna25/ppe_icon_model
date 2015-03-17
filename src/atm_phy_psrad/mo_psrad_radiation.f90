@@ -101,6 +101,7 @@ MODULE mo_psrad_radiation
 !  USE mo_memory_cfdiag,   ONLY: locfdiag, &
 !                              irlu, srsu, irld, srsd, irlucs, srsucs, irldcs, srsdcs
 ! namelist parameters. Reorganize reading
+  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
 !!$  USE mo_radiation_parameters, ONLY: ldiur, lradforcing,                          &
 !!$                                     l_interp_rad_in_time, zepzen,                &
 !!$                                     lyr_perp, yr_perp, nmonth, isolrad, nb_sw,   &
@@ -119,16 +120,15 @@ MODULE mo_psrad_radiation
 ! following module for diagnostic of radiative forcing only
 !  USE mo_radiation_forcing,ONLY: prepare_forcing
 
-! must be introduced to icon
-!  USE mo_rrtm_params,   ONLY : nbndsw
+  USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
 !  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
 !                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
-  USE mo_psrad_interface,ONLY : setup_psrad
+  USE mo_psrad_interface,ONLY : setup_psrad, &
 !, psrad_interface, &
-!                                lw_strat, sw_strat
-!  USE mo_spec_sampling, ONLY : spec_sampling_strategy, &
-!                             & set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+                                lw_strat, sw_strat
+  USE mo_psrad_spec_sampling, ONLY : spec_sampling_strategy, &
+                             & set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
 
   IMPLICIT NONE
   
@@ -359,22 +359,22 @@ MODULE mo_psrad_radiation
     IF (phy_config%lrad) THEN
 
       CALL setup_psrad
-!!$      nb_sw = nbndsw
-!!$      !
-!!$      ! --- Spectral sampling strategy
-!!$      !
-!!$      lw_strat = set_spec_sampling_lw(lw_spec_samp, num_gpts_ts=lw_gpts_ts) 
-!!$      sw_strat = set_spec_sampling_sw(sw_spec_samp, num_gpts_ts=sw_gpts_ts) 
-!!$      WRITE (message_text, '("LW sampling strategy: ", i2, " using ", i3, " g-points per time step")') &
-!!$                 lw_spec_samp, get_num_gpoints(lw_strat)
-!!$      CALL message('',message_text)
-!!$      WRITE (message_text, '("SW sampling strategy: ", i2, " using ", i3, " g-points per time step")') &
-!!$                 sw_spec_samp, get_num_gpoints(sw_strat)
-!!$      CALL message('',message_text)
-!!$
-!!$      !
-!!$      CALL message('','lrad = .TRUE.  --> Doing radiation radiation')
-!!$      !
+      nb_sw = nbndsw
+      !
+      ! --- Spectral sampling strategy
+      !
+      lw_strat = set_spec_sampling_lw(lw_spec_samp, num_gpts_ts=lw_gpts_ts) 
+      sw_strat = set_spec_sampling_sw(sw_spec_samp, num_gpts_ts=sw_gpts_ts) 
+      WRITE (message_text, '("LW sampling strategy: ", i2, " using ", i3, " g-points per time step")') &
+                 lw_spec_samp, get_num_gpoints(lw_strat)
+      CALL message('',message_text)
+      WRITE (message_text, '("SW sampling strategy: ", i2, " using ", i3, " g-points per time step")') &
+                 sw_spec_samp, get_num_gpoints(sw_strat)
+      CALL message('',message_text)
+
+      !
+      CALL message('','lrad = .TRUE.  --> Doing radiation radiation')
+      !
 !!$      ! --- Check  H2O
 !!$      !
 !!$      SELECT CASE (ih2o)

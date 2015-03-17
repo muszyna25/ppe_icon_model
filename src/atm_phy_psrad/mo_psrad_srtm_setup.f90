@@ -10,7 +10,7 @@ MODULE mo_psrad_srtm_setup
   USE mo_kind,                 ONLY : wp
   USE mo_rrtm_params,          ONLY : nbndsw, mg, ngptsw, jpb1, jpb2
   USE mo_psrad_srtm_netcdf,    ONLY : srtm_read
-!!$  USE mo_rad_fastmath,ONLY : setup_rad_fastmath
+  USE mo_psrad_fastmath,       ONLY : setup_psrad_fastmath
 
   IMPLICIT NONE
 
@@ -174,1103 +174,1103 @@ CONTAINS
     ! Initialize model data
 
     CALL srtm_read
-!!$    CALL setup_rad_fastmath
-!!$
-!!$    ! Perform g-point reduction from 16 per band (224 total points) to
-!!$    ! a band dependent number (112 total points) for all absorption
-!!$    ! coefficient input data and Planck fraction input data.
-!!$    ! Compute relative weighting for new g-point combinations.
-!!$
-!!$    igcsm = 0
-!!$    DO ibnd = 1,nbndsw
-!!$      iprsm = 0
-!!$      IF (ngc(ibnd).LT.mg) THEN
-!!$        DO igc = 1,ngc(ibnd)
-!!$          igcsm = igcsm + 1
-!!$          wtsum = 0.
-!!$          DO ipr = 1, ngn(igcsm)
-!!$            iprsm = iprsm + 1
-!!$            wtsum = wtsum + wt(iprsm)
-!!$          ENDDO
-!!$          wtsm(igc) = wtsum
-!!$        ENDDO
-!!$        DO ig = 1, ng(ibnd+15)
-!!$          ind = (ibnd-1)*mg + ig
-!!$          rwgt(ind) = wt(ig)/wtsm(ngm(ind))
-!!$        ENDDO
-!!$      ELSE
-!!$        DO ig = 1, ng(ibnd+15)
-!!$          igcsm = igcsm + 1
-!!$          ind = (ibnd-1)*mg + ig
-!!$          rwgt(ind) = 1.0_wp
-!!$        ENDDO
-!!$      ENDIF
-!!$    ENDDO
-!!$
-!!$    ! Reduce g-points for absorption coefficient data in each LW spectral band.
-!!$
-!!$    CALL cmbgb16s
-!!$    CALL cmbgb17
-!!$    CALL cmbgb18
-!!$    CALL cmbgb19
-!!$    CALL cmbgb20
-!!$    CALL cmbgb21
-!!$    CALL cmbgb22
-!!$    CALL cmbgb23
-!!$    CALL cmbgb24
-!!$    CALL cmbgb25
-!!$    CALL cmbgb26
-!!$    CALL cmbgb27
-!!$    CALL cmbgb28
-!!$    CALL cmbgb29
+    CALL setup_psrad_fastmath
+
+    ! Perform g-point reduction from 16 per band (224 total points) to
+    ! a band dependent number (112 total points) for all absorption
+    ! coefficient input data and Planck fraction input data.
+    ! Compute relative weighting for new g-point combinations.
+
+    igcsm = 0
+    DO ibnd = 1,nbndsw
+      iprsm = 0
+      IF (ngc(ibnd).LT.mg) THEN
+        DO igc = 1,ngc(ibnd)
+          igcsm = igcsm + 1
+          wtsum = 0.
+          DO ipr = 1, ngn(igcsm)
+            iprsm = iprsm + 1
+            wtsum = wtsum + wt(iprsm)
+          ENDDO
+          wtsm(igc) = wtsum
+        ENDDO
+        DO ig = 1, ng(ibnd+15)
+          ind = (ibnd-1)*mg + ig
+          rwgt(ind) = wt(ig)/wtsm(ngm(ind))
+        ENDDO
+      ELSE
+        DO ig = 1, ng(ibnd+15)
+          igcsm = igcsm + 1
+          ind = (ibnd-1)*mg + ig
+          rwgt(ind) = 1.0_wp
+        ENDDO
+      ENDIF
+    ENDDO
+
+    ! Reduce g-points for absorption coefficient data in each LW spectral band.
+
+    CALL cmbgb16s
+    CALL cmbgb17
+    CALL cmbgb18
+    CALL cmbgb19
+    CALL cmbgb20
+    CALL cmbgb21
+    CALL cmbgb22
+    CALL cmbgb23
+    CALL cmbgb24
+    CALL cmbgb25
+    CALL cmbgb26
+    CALL cmbgb27
+    CALL cmbgb28
+    CALL cmbgb29
 
   END SUBROUTINE setup_srtm
 
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb16s
-!!$    !***************************************************************************
-!!$    !
-!!$    !  Original version:       MJIacono; July 1998
-!!$    !  Revision for RRTM_SW:   MJIacono; November 2002
-!!$    !  Revision for RRTMG_SW:  MJIacono; December 2003
-!!$    !  Revision for F90 reformatting:  MJIacono; July 2006
-!!$    !
-!!$    !  The subroutines CMBGB16->CMBGB29 input the absorption coefficient
-!!$    !  data for each band, which are defined for 16 g-points and 14 spectral
-!!$    !  bands. The data are combined with appropriate weighting following the
-!!$    !  g-point mapping arrays specified in RRTMG_SW_INIT.  Solar source 
-!!$    !  function data in array SFLUXREF are combined without weighting.  All
-!!$    !  g-point reduced data are put into new arrays for use in RRTMG_SW.
-!!$    !
-!!$    !  band 16:  2600-3250 cm-1 (low key- h2o,ch4; high key - ch4)
-!!$    !
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg16, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         ka, kb, selfref, forref, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(1)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(1)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(1)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,3
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(1)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(1)
-!!$      sumf = 0.
-!!$      DO ipr = 1, ngn(igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf = sumf + sfluxrefo(iprsm)
-!!$      ENDDO
-!!$      sfluxref(igc) = sumf
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb16s
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb17
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 17:  3250-4000 cm-1 (low - h2o,co2; high - h2o,co2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg17, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         ka, kb, selfref, forref, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(2)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(1)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+16)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jn = 1,5
-!!$      DO jt = 1,5
-!!$        DO jp = 13,59
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(2)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(1)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+16)
-!!$            ENDDO
-!!$            kb(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(2)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(1)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+16)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,4
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(2)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(1)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+16)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,5
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(2)
-!!$        sumf = 0.
-!!$        DO ipr = 1, ngn(ngs(1)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf = sumf + sfluxrefo(iprsm,jp)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb17
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb18
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 18:  4000-4650 cm-1 (low - h2o,ch4; high - ch4)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg18, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         ka, kb, selfref, forref, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(3)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(2)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+32)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(3)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(2)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+32)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(3)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(2)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+32)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,3
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(3)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(2)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+32)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,9
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(3)
-!!$        sumf = 0.
-!!$        DO ipr = 1, ngn(ngs(2)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf = sumf + sfluxrefo(iprsm,jp)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb18
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb19
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 19:  4650-5150 cm-1 (low - h2o,co2; high - co2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg19, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         ka, kb, selfref, forref, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(4)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(3)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+48)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(4)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(3)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+48)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(4)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(3)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+48)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,3
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(4)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(3)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+48)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,9
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(4)
-!!$        sumf = 0.
-!!$        DO ipr = 1, ngn(ngs(3)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf = sumf + sfluxrefo(iprsm,jp)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb19
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb20
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 20:  5150-6150 cm-1 (low - h2o; high - h2o)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg20, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, absch4o, &
-!!$         ka, kb, selfref, forref, sfluxref, absch4
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf1, sumf2
-!!$
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 1,13
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(5)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(4)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+64)
-!!$          ENDDO
-!!$          ka(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(5)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(4)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+64)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(5)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(4)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+64)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,4
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(5)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(4)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+64)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(5)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      DO ipr = 1, ngn(ngs(4)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + sfluxrefo(iprsm)
-!!$        sumf2 = sumf2 + absch4o(iprsm)*rwgt(iprsm+64)
-!!$      ENDDO
-!!$      sfluxref(igc) = sumf1
-!!$      absch4(igc) = sumf2
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb20
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb21
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 21:  6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg21, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         ka, kb, selfref, forref, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(6)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(5)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+80)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jn = 1,5
-!!$      DO jt = 1,5
-!!$        DO jp = 13,59
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(6)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(5)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+80)
-!!$            ENDDO
-!!$            kb(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(6)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(5)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+80)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,4
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(6)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(5)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+80)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,9
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(6)
-!!$        sumf = 0.
-!!$        DO ipr = 1, ngn(ngs(5)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf = sumf + sfluxrefo(iprsm,jp)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb21
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb22
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 22:  7700-8050 cm-1 (low - h2o,o2; high - o2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg22, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         ka, kb, selfref, forref, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(7)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(6)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+96)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(7)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(6)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+96)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(7)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(6)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+96)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,3
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(7)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(6)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+96)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,9
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(7)
-!!$        sumf = 0.
-!!$        DO ipr = 1, ngn(ngs(6)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf = sumf + sfluxrefo(iprsm,jp)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb22
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb23
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 23:  8050-12850 cm-1 (low - h2o; high - nothing)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg23, ONLY : kao, selfrefo, forrefo, sfluxrefo, raylo, &
-!!$         ka, selfref, forref, sfluxref, rayl
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf1, sumf2
-!!$
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 1,13
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(8)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(7)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+112)
-!!$          ENDDO
-!!$          ka(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(8)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(7)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+112)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,3
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(8)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(7)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+112)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(8)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      DO ipr = 1, ngn(ngs(7)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + sfluxrefo(iprsm)
-!!$        sumf2 = sumf2 + raylo(iprsm)*rwgt(iprsm+112)
-!!$      ENDDO
-!!$      sfluxref(igc) = sumf1
-!!$      rayl(igc) = sumf2
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb23
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb24
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 24:  12850-16000 cm-1 (low - h2o,o2; high - o2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg24, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         abso3ao, abso3bo, raylao, raylbo, &
-!!$         ka, kb, selfref, forref, sfluxref, &
-!!$         abso3a, abso3b, rayla, raylb
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf1, sumf2, sumf3
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(9)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(8)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+128)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(9)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(8)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+128)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(9)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(8)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+128)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,3
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(9)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(8)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+128)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(9)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      sumf3 = 0.
-!!$      DO ipr = 1, ngn(ngs(8)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + raylbo(iprsm)*rwgt(iprsm+128)
-!!$        sumf2 = sumf2 + abso3ao(iprsm)*rwgt(iprsm+128)
-!!$        sumf3 = sumf3 + abso3bo(iprsm)*rwgt(iprsm+128)
-!!$      ENDDO
-!!$      raylb(igc) = sumf1
-!!$      abso3a(igc) = sumf2
-!!$      abso3b(igc) = sumf3
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,9
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(9)
-!!$        sumf1 = 0.
-!!$        sumf2 = 0.
-!!$        DO ipr = 1, ngn(ngs(8)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf1 = sumf1 + sfluxrefo(iprsm,jp)
-!!$          sumf2 = sumf2 + raylao(iprsm,jp)*rwgt(iprsm+128)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf1
-!!$        rayla(igc,jp) = sumf2
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb24
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb25
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 25:  16000-22650 cm-1 (low - h2o; high - nothing)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg25, ONLY : kao, sfluxrefo, &
-!!$         abso3ao, abso3bo, raylo, &
-!!$         ka, sfluxref, &
-!!$         abso3a, abso3b, rayl
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf1, sumf2, sumf3, sumf4
-!!$
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 1,13
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(10)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(9)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+144)
-!!$          ENDDO
-!!$          ka(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(10)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      sumf3 = 0.
-!!$      sumf4 = 0.
-!!$      DO ipr = 1, ngn(ngs(9)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + sfluxrefo(iprsm)
-!!$        sumf2 = sumf2 + abso3ao(iprsm)*rwgt(iprsm+144)
-!!$        sumf3 = sumf3 + abso3bo(iprsm)*rwgt(iprsm+144)
-!!$        sumf4 = sumf4 + raylo(iprsm)*rwgt(iprsm+144)
-!!$      ENDDO
-!!$      sfluxref(igc) = sumf1
-!!$      abso3a(igc) = sumf2
-!!$      abso3b(igc) = sumf3
-!!$      rayl(igc) = sumf4
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb25
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb26
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 26:  22650-29000 cm-1 (low - nothing; high - nothing)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg26, ONLY : sfluxrefo, raylo, &
-!!$         sfluxref, rayl
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: igc, ipr, iprsm
-!!$    REAL(wp) :: sumf1, sumf2
-!!$
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(11)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      DO ipr = 1, ngn(ngs(10)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + raylo(iprsm)*rwgt(iprsm+160)
-!!$        sumf2 = sumf2 + sfluxrefo(iprsm)
-!!$      ENDDO
-!!$      rayl(igc) = sumf1
-!!$      sfluxref(igc) = sumf2
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb26
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb27
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 27:  29000-38000 cm-1 (low - o3; high - o3)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg27, ONLY : kao, kbo, sfluxrefo, raylo, &
-!!$         ka, kb, sfluxref, rayl
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf1, sumf2
-!!$
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 1,13
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(12)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(11)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+176)
-!!$          ENDDO
-!!$          ka(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(12)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(11)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+176)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(12)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      DO ipr = 1, ngn(ngs(11)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + sfluxrefo(iprsm)
-!!$        sumf2 = sumf2 + raylo(iprsm)*rwgt(iprsm+176)
-!!$      ENDDO
-!!$      sfluxref(igc) = sumf1
-!!$      rayl(igc) = sumf2
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb27
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb28
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 28:  38000-50000 cm-1 (low - o3,o2; high - o3,o2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg28, ONLY : kao, kbo, sfluxrefo, &
-!!$         ka, kb, sfluxref
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jn, jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf
-!!$
-!!$
-!!$    DO jn = 1,9
-!!$      DO jt = 1,5
-!!$        DO jp = 1,13
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(13)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(12)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+192)
-!!$            ENDDO
-!!$            ka(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jn = 1,5
-!!$      DO jt = 1,5
-!!$        DO jp = 13,59
-!!$          iprsm = 0
-!!$          DO igc = 1,ngc(13)
-!!$            sumk = 0.
-!!$            DO ipr = 1, ngn(ngs(12)+igc)
-!!$              iprsm = iprsm + 1
-!!$              sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+192)
-!!$            ENDDO
-!!$            kb(jn,jt,jp,igc) = sumk
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jp = 1,5
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(13)
-!!$        sumf = 0.
-!!$        DO ipr = 1, ngn(ngs(12)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumf = sumf + sfluxrefo(iprsm,jp)
-!!$        ENDDO
-!!$        sfluxref(igc,jp) = sumf
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb28
-!!$
-!!$  !***************************************************************************
-!!$  SUBROUTINE cmbgb29
-!!$    !***************************************************************************
-!!$    !
-!!$    !     band 29:  820-2600 cm-1 (low - h2o; high - co2)
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    USE rrsw_kg29, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
-!!$         absh2oo, absco2o, &
-!!$         ka, kb, selfref, forref, sfluxref, &
-!!$         absh2o, absco2
-!!$
-!!$    ! ------- Local -------
-!!$    INTEGER :: jt, jp, igc, ipr, iprsm
-!!$    REAL(wp) :: sumk, sumf1, sumf2, sumf3
-!!$
-!!$
-!!$    DO jt = 1,5
-!!$      DO jp = 1,13
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(14)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(13)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+208)
-!!$          ENDDO
-!!$          ka(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$      DO jp = 13,59
-!!$        iprsm = 0
-!!$        DO igc = 1,ngc(14)
-!!$          sumk = 0.
-!!$          DO ipr = 1, ngn(ngs(13)+igc)
-!!$            iprsm = iprsm + 1
-!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+208)
-!!$          ENDDO
-!!$          kb(jt,jp,igc) = sumk
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,10
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(14)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(13)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+208)
-!!$        ENDDO
-!!$        selfref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    DO jt = 1,4
-!!$      iprsm = 0
-!!$      DO igc = 1,ngc(14)
-!!$        sumk = 0.
-!!$        DO ipr = 1, ngn(ngs(13)+igc)
-!!$          iprsm = iprsm + 1
-!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+208)
-!!$        ENDDO
-!!$        forref(jt,igc) = sumk
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    iprsm = 0
-!!$    DO igc = 1,ngc(14)
-!!$      sumf1 = 0.
-!!$      sumf2 = 0.
-!!$      sumf3 = 0.
-!!$      DO ipr = 1, ngn(ngs(13)+igc)
-!!$        iprsm = iprsm + 1
-!!$        sumf1 = sumf1 + sfluxrefo(iprsm)
-!!$        sumf2 = sumf2 + absco2o(iprsm)*rwgt(iprsm+208)
-!!$        sumf3 = sumf3 + absh2oo(iprsm)*rwgt(iprsm+208)
-!!$      ENDDO
-!!$      sfluxref(igc) = sumf1
-!!$      absco2(igc) = sumf2
-!!$      absh2o(igc) = sumf3
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE cmbgb29
+  !***************************************************************************
+  SUBROUTINE cmbgb16s
+    !***************************************************************************
+    !
+    !  Original version:       MJIacono; July 1998
+    !  Revision for RRTM_SW:   MJIacono; November 2002
+    !  Revision for RRTMG_SW:  MJIacono; December 2003
+    !  Revision for F90 reformatting:  MJIacono; July 2006
+    !
+    !  The subroutines CMBGB16->CMBGB29 input the absorption coefficient
+    !  data for each band, which are defined for 16 g-points and 14 spectral
+    !  bands. The data are combined with appropriate weighting following the
+    !  g-point mapping arrays specified in RRTMG_SW_INIT.  Solar source 
+    !  function data in array SFLUXREF are combined without weighting.  All
+    !  g-point reduced data are put into new arrays for use in RRTMG_SW.
+    !
+    !  band 16:  2600-3250 cm-1 (low key- h2o,ch4; high key - ch4)
+    !
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg16, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         ka, kb, selfref, forref, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(1)
+            sumk = 0.
+            DO ipr = 1, ngn(igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,5
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(1)
+          sumk = 0.
+          DO ipr = 1, ngn(igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(1)
+        sumk = 0.
+        DO ipr = 1, ngn(igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,3
+      iprsm = 0
+      DO igc = 1,ngc(1)
+        sumk = 0.
+        DO ipr = 1, ngn(igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(1)
+      sumf = 0.
+      DO ipr = 1, ngn(igc)
+        iprsm = iprsm + 1
+        sumf = sumf + sfluxrefo(iprsm)
+      ENDDO
+      sfluxref(igc) = sumf
+    ENDDO
+
+  END SUBROUTINE cmbgb16s
+
+  !***************************************************************************
+  SUBROUTINE cmbgb17
+    !***************************************************************************
+    !
+    !     band 17:  3250-4000 cm-1 (low - h2o,co2; high - h2o,co2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg17, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         ka, kb, selfref, forref, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(2)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(1)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+16)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jn = 1,5
+      DO jt = 1,5
+        DO jp = 13,59
+          iprsm = 0
+          DO igc = 1,ngc(2)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(1)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+16)
+            ENDDO
+            kb(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(2)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(1)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+16)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,4
+      iprsm = 0
+      DO igc = 1,ngc(2)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(1)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+16)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jp = 1,5
+      iprsm = 0
+      DO igc = 1,ngc(2)
+        sumf = 0.
+        DO ipr = 1, ngn(ngs(1)+igc)
+          iprsm = iprsm + 1
+          sumf = sumf + sfluxrefo(iprsm,jp)
+        ENDDO
+        sfluxref(igc,jp) = sumf
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb17
+
+  !***************************************************************************
+  SUBROUTINE cmbgb18
+    !***************************************************************************
+    !
+    !     band 18:  4000-4650 cm-1 (low - h2o,ch4; high - ch4)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg18, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         ka, kb, selfref, forref, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(3)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(2)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+32)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,5
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(3)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(2)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+32)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(3)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(2)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+32)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,3
+      iprsm = 0
+      DO igc = 1,ngc(3)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(2)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+32)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jp = 1,9
+      iprsm = 0
+      DO igc = 1,ngc(3)
+        sumf = 0.
+        DO ipr = 1, ngn(ngs(2)+igc)
+          iprsm = iprsm + 1
+          sumf = sumf + sfluxrefo(iprsm,jp)
+        ENDDO
+        sfluxref(igc,jp) = sumf
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb18
+
+  !***************************************************************************
+  SUBROUTINE cmbgb19
+    !***************************************************************************
+    !
+    !     band 19:  4650-5150 cm-1 (low - h2o,co2; high - co2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg19, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         ka, kb, selfref, forref, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(4)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(3)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+48)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,5
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(4)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(3)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+48)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(4)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(3)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+48)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,3
+      iprsm = 0
+      DO igc = 1,ngc(4)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(3)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+48)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jp = 1,9
+      iprsm = 0
+      DO igc = 1,ngc(4)
+        sumf = 0.
+        DO ipr = 1, ngn(ngs(3)+igc)
+          iprsm = iprsm + 1
+          sumf = sumf + sfluxrefo(iprsm,jp)
+        ENDDO
+        sfluxref(igc,jp) = sumf
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb19
+
+  !***************************************************************************
+  SUBROUTINE cmbgb20
+    !***************************************************************************
+    !
+    !     band 20:  5150-6150 cm-1 (low - h2o; high - h2o)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg20, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, absch4o, &
+         ka, kb, selfref, forref, sfluxref, absch4
+
+    ! ------- Local -------
+    INTEGER :: jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf1, sumf2
+
+
+    DO jt = 1,5
+      DO jp = 1,13
+        iprsm = 0
+        DO igc = 1,ngc(5)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(4)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+64)
+          ENDDO
+          ka(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(5)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(4)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+64)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(5)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(4)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+64)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,4
+      iprsm = 0
+      DO igc = 1,ngc(5)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(4)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+64)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(5)
+      sumf1 = 0.
+      sumf2 = 0.
+      DO ipr = 1, ngn(ngs(4)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + sfluxrefo(iprsm)
+        sumf2 = sumf2 + absch4o(iprsm)*rwgt(iprsm+64)
+      ENDDO
+      sfluxref(igc) = sumf1
+      absch4(igc) = sumf2
+    ENDDO
+
+  END SUBROUTINE cmbgb20
+
+  !***************************************************************************
+  SUBROUTINE cmbgb21
+    !***************************************************************************
+    !
+    !     band 21:  6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg21, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         ka, kb, selfref, forref, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(6)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(5)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+80)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jn = 1,5
+      DO jt = 1,5
+        DO jp = 13,59
+          iprsm = 0
+          DO igc = 1,ngc(6)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(5)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+80)
+            ENDDO
+            kb(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(6)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(5)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+80)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,4
+      iprsm = 0
+      DO igc = 1,ngc(6)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(5)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+80)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jp = 1,9
+      iprsm = 0
+      DO igc = 1,ngc(6)
+        sumf = 0.
+        DO ipr = 1, ngn(ngs(5)+igc)
+          iprsm = iprsm + 1
+          sumf = sumf + sfluxrefo(iprsm,jp)
+        ENDDO
+        sfluxref(igc,jp) = sumf
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb21
+
+  !***************************************************************************
+  SUBROUTINE cmbgb22
+    !***************************************************************************
+    !
+    !     band 22:  7700-8050 cm-1 (low - h2o,o2; high - o2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg22, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         ka, kb, selfref, forref, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(7)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(6)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+96)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,5
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(7)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(6)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+96)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(7)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(6)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+96)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,3
+      iprsm = 0
+      DO igc = 1,ngc(7)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(6)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+96)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jp = 1,9
+      iprsm = 0
+      DO igc = 1,ngc(7)
+        sumf = 0.
+        DO ipr = 1, ngn(ngs(6)+igc)
+          iprsm = iprsm + 1
+          sumf = sumf + sfluxrefo(iprsm,jp)
+        ENDDO
+        sfluxref(igc,jp) = sumf
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb22
+
+  !***************************************************************************
+  SUBROUTINE cmbgb23
+    !***************************************************************************
+    !
+    !     band 23:  8050-12850 cm-1 (low - h2o; high - nothing)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg23, ONLY : kao, selfrefo, forrefo, sfluxrefo, raylo, &
+         ka, selfref, forref, sfluxref, rayl
+
+    ! ------- Local -------
+    INTEGER :: jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf1, sumf2
+
+
+    DO jt = 1,5
+      DO jp = 1,13
+        iprsm = 0
+        DO igc = 1,ngc(8)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(7)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+112)
+          ENDDO
+          ka(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(8)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(7)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+112)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,3
+      iprsm = 0
+      DO igc = 1,ngc(8)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(7)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+112)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(8)
+      sumf1 = 0.
+      sumf2 = 0.
+      DO ipr = 1, ngn(ngs(7)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + sfluxrefo(iprsm)
+        sumf2 = sumf2 + raylo(iprsm)*rwgt(iprsm+112)
+      ENDDO
+      sfluxref(igc) = sumf1
+      rayl(igc) = sumf2
+    ENDDO
+
+  END SUBROUTINE cmbgb23
+
+  !***************************************************************************
+  SUBROUTINE cmbgb24
+    !***************************************************************************
+    !
+    !     band 24:  12850-16000 cm-1 (low - h2o,o2; high - o2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg24, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         abso3ao, abso3bo, raylao, raylbo, &
+         ka, kb, selfref, forref, sfluxref, &
+         abso3a, abso3b, rayla, raylb
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf1, sumf2, sumf3
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(9)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(8)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+128)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,5
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(9)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(8)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+128)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(9)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(8)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+128)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,3
+      iprsm = 0
+      DO igc = 1,ngc(9)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(8)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+128)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(9)
+      sumf1 = 0.
+      sumf2 = 0.
+      sumf3 = 0.
+      DO ipr = 1, ngn(ngs(8)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + raylbo(iprsm)*rwgt(iprsm+128)
+        sumf2 = sumf2 + abso3ao(iprsm)*rwgt(iprsm+128)
+        sumf3 = sumf3 + abso3bo(iprsm)*rwgt(iprsm+128)
+      ENDDO
+      raylb(igc) = sumf1
+      abso3a(igc) = sumf2
+      abso3b(igc) = sumf3
+    ENDDO
+
+    DO jp = 1,9
+      iprsm = 0
+      DO igc = 1,ngc(9)
+        sumf1 = 0.
+        sumf2 = 0.
+        DO ipr = 1, ngn(ngs(8)+igc)
+          iprsm = iprsm + 1
+          sumf1 = sumf1 + sfluxrefo(iprsm,jp)
+          sumf2 = sumf2 + raylao(iprsm,jp)*rwgt(iprsm+128)
+        ENDDO
+        sfluxref(igc,jp) = sumf1
+        rayla(igc,jp) = sumf2
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb24
+
+  !***************************************************************************
+  SUBROUTINE cmbgb25
+    !***************************************************************************
+    !
+    !     band 25:  16000-22650 cm-1 (low - h2o; high - nothing)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg25, ONLY : kao, sfluxrefo, &
+         abso3ao, abso3bo, raylo, &
+         ka, sfluxref, &
+         abso3a, abso3b, rayl
+
+    ! ------- Local -------
+    INTEGER :: jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf1, sumf2, sumf3, sumf4
+
+
+    DO jt = 1,5
+      DO jp = 1,13
+        iprsm = 0
+        DO igc = 1,ngc(10)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(9)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+144)
+          ENDDO
+          ka(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(10)
+      sumf1 = 0.
+      sumf2 = 0.
+      sumf3 = 0.
+      sumf4 = 0.
+      DO ipr = 1, ngn(ngs(9)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + sfluxrefo(iprsm)
+        sumf2 = sumf2 + abso3ao(iprsm)*rwgt(iprsm+144)
+        sumf3 = sumf3 + abso3bo(iprsm)*rwgt(iprsm+144)
+        sumf4 = sumf4 + raylo(iprsm)*rwgt(iprsm+144)
+      ENDDO
+      sfluxref(igc) = sumf1
+      abso3a(igc) = sumf2
+      abso3b(igc) = sumf3
+      rayl(igc) = sumf4
+    ENDDO
+
+  END SUBROUTINE cmbgb25
+
+  !***************************************************************************
+  SUBROUTINE cmbgb26
+    !***************************************************************************
+    !
+    !     band 26:  22650-29000 cm-1 (low - nothing; high - nothing)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg26, ONLY : sfluxrefo, raylo, &
+         sfluxref, rayl
+
+    ! ------- Local -------
+    INTEGER :: igc, ipr, iprsm
+    REAL(wp) :: sumf1, sumf2
+
+
+    iprsm = 0
+    DO igc = 1,ngc(11)
+      sumf1 = 0.
+      sumf2 = 0.
+      DO ipr = 1, ngn(ngs(10)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + raylo(iprsm)*rwgt(iprsm+160)
+        sumf2 = sumf2 + sfluxrefo(iprsm)
+      ENDDO
+      rayl(igc) = sumf1
+      sfluxref(igc) = sumf2
+    ENDDO
+
+  END SUBROUTINE cmbgb26
+
+  !***************************************************************************
+  SUBROUTINE cmbgb27
+    !***************************************************************************
+    !
+    !     band 27:  29000-38000 cm-1 (low - o3; high - o3)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg27, ONLY : kao, kbo, sfluxrefo, raylo, &
+         ka, kb, sfluxref, rayl
+
+    ! ------- Local -------
+    INTEGER :: jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf1, sumf2
+
+
+    DO jt = 1,5
+      DO jp = 1,13
+        iprsm = 0
+        DO igc = 1,ngc(12)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(11)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+176)
+          ENDDO
+          ka(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(12)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(11)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+176)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(12)
+      sumf1 = 0.
+      sumf2 = 0.
+      DO ipr = 1, ngn(ngs(11)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + sfluxrefo(iprsm)
+        sumf2 = sumf2 + raylo(iprsm)*rwgt(iprsm+176)
+      ENDDO
+      sfluxref(igc) = sumf1
+      rayl(igc) = sumf2
+    ENDDO
+
+  END SUBROUTINE cmbgb27
+
+  !***************************************************************************
+  SUBROUTINE cmbgb28
+    !***************************************************************************
+    !
+    !     band 28:  38000-50000 cm-1 (low - o3,o2; high - o3,o2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg28, ONLY : kao, kbo, sfluxrefo, &
+         ka, kb, sfluxref
+
+    ! ------- Local -------
+    INTEGER :: jn, jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf
+
+
+    DO jn = 1,9
+      DO jt = 1,5
+        DO jp = 1,13
+          iprsm = 0
+          DO igc = 1,ngc(13)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(12)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+192)
+            ENDDO
+            ka(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jn = 1,5
+      DO jt = 1,5
+        DO jp = 13,59
+          iprsm = 0
+          DO igc = 1,ngc(13)
+            sumk = 0.
+            DO ipr = 1, ngn(ngs(12)+igc)
+              iprsm = iprsm + 1
+              sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+192)
+            ENDDO
+            kb(jn,jt,jp,igc) = sumk
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jp = 1,5
+      iprsm = 0
+      DO igc = 1,ngc(13)
+        sumf = 0.
+        DO ipr = 1, ngn(ngs(12)+igc)
+          iprsm = iprsm + 1
+          sumf = sumf + sfluxrefo(iprsm,jp)
+        ENDDO
+        sfluxref(igc,jp) = sumf
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE cmbgb28
+
+  !***************************************************************************
+  SUBROUTINE cmbgb29
+    !***************************************************************************
+    !
+    !     band 29:  820-2600 cm-1 (low - h2o; high - co2)
+    !-----------------------------------------------------------------------
+
+    USE rrsw_kg29, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+         absh2oo, absco2o, &
+         ka, kb, selfref, forref, sfluxref, &
+         absh2o, absco2
+
+    ! ------- Local -------
+    INTEGER :: jt, jp, igc, ipr, iprsm
+    REAL(wp) :: sumk, sumf1, sumf2, sumf3
+
+
+    DO jt = 1,5
+      DO jp = 1,13
+        iprsm = 0
+        DO igc = 1,ngc(14)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(13)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+208)
+          ENDDO
+          ka(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+      DO jp = 13,59
+        iprsm = 0
+        DO igc = 1,ngc(14)
+          sumk = 0.
+          DO ipr = 1, ngn(ngs(13)+igc)
+            iprsm = iprsm + 1
+            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+208)
+          ENDDO
+          kb(jt,jp,igc) = sumk
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DO jt = 1,10
+      iprsm = 0
+      DO igc = 1,ngc(14)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(13)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+208)
+        ENDDO
+        selfref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    DO jt = 1,4
+      iprsm = 0
+      DO igc = 1,ngc(14)
+        sumk = 0.
+        DO ipr = 1, ngn(ngs(13)+igc)
+          iprsm = iprsm + 1
+          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+208)
+        ENDDO
+        forref(jt,igc) = sumk
+      ENDDO
+    ENDDO
+
+    iprsm = 0
+    DO igc = 1,ngc(14)
+      sumf1 = 0.
+      sumf2 = 0.
+      sumf3 = 0.
+      DO ipr = 1, ngn(ngs(13)+igc)
+        iprsm = iprsm + 1
+        sumf1 = sumf1 + sfluxrefo(iprsm)
+        sumf2 = sumf2 + absco2o(iprsm)*rwgt(iprsm+208)
+        sumf3 = sumf3 + absh2oo(iprsm)*rwgt(iprsm+208)
+      ENDDO
+      sfluxref(igc) = sumf1
+      absco2(igc) = sumf2
+      absh2o(igc) = sumf3
+    ENDDO
+
+  END SUBROUTINE cmbgb29
 
 END MODULE mo_psrad_srtm_setup
 
