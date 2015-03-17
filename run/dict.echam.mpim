@@ -23,7 +23,6 @@
   tro3               prm_o3
 #
   ts                 prm_tsfc
-  ts_eff             prm_tsfc_eff
   ts_rad             prm_tsfc_rad
 #
   sic                prm_seaice
