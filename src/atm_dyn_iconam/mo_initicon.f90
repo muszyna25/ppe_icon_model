@@ -48,7 +48,7 @@ MODULE mo_initicon
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
-    &                               isub_lake, isub_water, isub_seaice
+    &                               isub_lake, isub_water
   USE mo_phyparam_soil,       ONLY: cporv, crhosmin_ml
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell

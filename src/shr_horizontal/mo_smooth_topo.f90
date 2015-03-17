@@ -32,12 +32,11 @@ MODULE mo_smooth_topo
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
+  USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,  &
     &                              heightdiff_threshold
   USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
-  USE mo_intp,               ONLY: cells2verts_scalar
 
   IMPLICIT NONE
 

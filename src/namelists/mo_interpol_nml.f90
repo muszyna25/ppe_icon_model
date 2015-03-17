@@ -33,7 +33,6 @@ MODULE mo_interpol_nml
                                   & config_rbf_vec_kern_e       => rbf_vec_kern_e       , &
                                   & config_rbf_vec_scale_e      => rbf_vec_scale_e      , &
                                   & config_rbf_vec_kern_ll      => rbf_vec_kern_ll      , &
-                                  & config_rbf_vec_scale_ll     => rbf_vec_scale_ll     , &
                                   & config_i_cori_method        => i_cori_method        , &
                                   & config_nudge_max_coeff      => nudge_max_coeff      , &
                                   & config_nudge_efold_width    => nudge_efold_width    , &

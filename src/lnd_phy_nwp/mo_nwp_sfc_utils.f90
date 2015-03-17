@@ -22,7 +22,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: message, message_text
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_physical_constants,  ONLY: tmelt, tf_salt
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -32,11 +32,10 @@ MODULE mo_nwp_sfc_utils
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag, t_lnd_state
   USE mo_parallel_config,     ONLY: nproma
   USe mo_extpar_config,       ONLY: itopo
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
-    &                               frlake_thrhld, itype_interception
+    &                               itype_interception
   USE mo_initicon_config,     ONLY: init_mode_soil
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init

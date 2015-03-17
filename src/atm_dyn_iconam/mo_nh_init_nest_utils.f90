@@ -35,8 +35,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o
   USE mo_phyparam_soil,         ONLY: crhosminf
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
-    &                                 min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH,&
-    &                                 dzsoil, inwp
+    &                                 MAX_CHAR_LENGTH, dzsoil, inwp
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -44,20 +43,18 @@ MODULE mo_nh_init_nest_utils
   USE mo_mpi,                   ONLY: my_process_is_mpi_parallel
   USE mo_communication,         ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                  ONLY: sync_patch_array, sync_patch_array_mult, &
-                                      SYNC_C, SYNC_E, SYNC_V
+                                      SYNC_C, SYNC_E
   USE mo_intp_data_strc,        ONLY: t_int_state, p_int_state, p_int_state_local_parent
   USE mo_grf_intp_data_strc,    ONLY: t_gridref_single_state, t_gridref_state, &
                                       p_grf_state, p_grf_state_local_parent
-  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
-                                      grf_nudgintp_start_c, grf_nudgintp_start_e
+  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
+  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice,  &
-    &                                 lmulti_snow, nlev_snow, llake, isub_lake
+    &                                 llake, isub_lake
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
-  USE mo_intp,                  ONLY: cells2verts_scalar
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell

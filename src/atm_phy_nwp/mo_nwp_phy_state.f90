@@ -55,11 +55,11 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF, nexlevs_rrg_vnest
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, lart
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_linked_list,         ONLY: t_list_element, t_var_list
+USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv
 USE mo_data_turbdiff,       ONLY: ltkecon
 USE mo_radiation_config,    ONLY: irad_aero
@@ -83,7 +83,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN,  &
   &                               TSTEP_CONSTANT, ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
-  &                               ZA_ISOTHERM_ZERO, GRID_EDGE
+  &                               ZA_ISOTHERM_ZERO
 USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 

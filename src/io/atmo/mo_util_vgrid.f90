@@ -31,9 +31,8 @@ MODULE mo_util_vgrid
     &                                             ishallow_water, SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
-  USE mo_ext_data_state,                    ONLY: ext_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
-  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table, vct_a, vct_b, vct
+  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table
   USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             init_vert_coord, compute_smooth_topo,                 &
     &                                             prepare_hybrid_coord, prepare_sleve_coord

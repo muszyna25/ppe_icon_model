@@ -29,17 +29,16 @@ MODULE mo_td_ext_data
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: filename_max
   USE mo_master_nml,         ONLY: model_base_dir
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
-    &                              p_comm_work_test, p_comm_work
+  USE mo_mpi,                ONLY: p_comm_work_test, p_comm_work
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
   USE mo_io_config,           ONLY: default_read_method
-  USE mo_read_interface,      ONLY: nf, openInputFile, closeFile, onCells, &
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, onCells, &
     &                               t_stream_id, read_2D_1time
   USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rlcell_int
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell_int
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_loopindices,         ONLY: get_indices_c

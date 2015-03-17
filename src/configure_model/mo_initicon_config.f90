@@ -27,8 +27,7 @@ MODULE mo_initicon_config
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len, datetime, newDatetime,     &
     &                              deallocateDatetime, datetimeaddseconds,           &
-    &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
-    &                              datetimeToString
+    &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=)
   USE mo_mtime_extensions,   ONLY: getPTStringFromMS, get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text

@@ -38,10 +38,7 @@ MODULE mo_nwp_soil_init
   USE mo_lnd_nwp_config,     ONLY: lmulti_snow, lana_rho_snow, &
     &                              lmelt, lmelt_var,           &
     &                              max_toplaydepth
-  USE mo_phyparam_soil,      ONLY: cdw0, cdw1, ckw0, ckw1, cik2, &
-    &                              cporv, cpwp, cadp, cfcap,     & 
-    &                              crock, crhoc, cala0, cala1,   &
-    &                              csandf, cclayf  
+  USE mo_phyparam_soil,      ONLY: cporv, cadp, csandf, cclayf  
 
   IMPLICIT NONE
 

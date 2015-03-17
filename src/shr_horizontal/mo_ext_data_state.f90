@@ -43,7 +43,7 @@ MODULE mo_ext_data_state
     &                              HINTP_TYPE_LONLAT_NNB, MODIS, GLOBCOVER2009,                     &
     &                              GLC2000, SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -101,7 +101,6 @@ MODULE mo_ext_data_state
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_master_control,     ONLY: is_restart_run
-  USE mo_real_timer,         ONLY: new_timer, timer_start, timer_stop
   USE mo_cdi_constants,      ONLY: FILETYPE_GRB2, DATATYPE_PACK16, DATATYPE_FLT32, &
     &                              GRID_REFERENCE, TSTEP_CONSTANT, TSTEP_MAX,      &
     &                              TSTEP_AVG, streamOpenRead, streamInqFileType,   &

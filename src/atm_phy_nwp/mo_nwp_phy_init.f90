@@ -23,18 +23,17 @@
 MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi, rad2deg
-  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt, &
+  USE mo_math_constants,      ONLY: rad2deg
+  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg,         &
     &                               dtdz_standardatm, lh_v=>alv
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
-  USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_vertical_coord_table,ONLY: vct_a, vct
+  USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
@@ -43,16 +42,15 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqh,   &
-    &                               iqnc, iqnr, iqni, iqns, iqng, iqnh,             &
-    &                               inccn, ininpot, msg_level
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg,        &
+    &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
     &                               cldopt_filename, icpl_aero_conv
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw 
-  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip, ssi_rce
+  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
     &                               init_aerosol_props_tanre_rg,                    &
@@ -66,7 +64,7 @@ MODULE mo_nwp_phy_init
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
-    &                               set_qnc, set_qnr, set_qni,   &
+    &                               set_qnr, set_qni,   &
     &                               set_qns, set_qng
   USE mo_art_clouds_interface,ONLY: art_clouds_interface_twomom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
@@ -77,7 +75,6 @@ MODULE mo_nwp_phy_init
     &                               su_yoethf,         &
     &                               sucldp, suphli,    &
     &                               suvdf , suvdfs
-  USE mo_convect_tables,      ONLY: init_convect_tables
   ! EDMF DUAL turbulence
   USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg, sussoil
   ! turbulence
@@ -87,14 +84,10 @@ MODULE mo_nwp_phy_init
                                     impl_weight
   USE src_turbdiff,           ONLY: organize_turbdiff
 
-  ! vertical diffusion
-  USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
-    &                                tke_min
-  USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_t_g_q_v, copy_lnd_prog_now2new
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
-    &                               lseaice, isub_water, isub_lake, isub_seaice
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
+    &                               lseaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
@@ -103,7 +96,6 @@ MODULE mo_nwp_phy_init
   USE data_gwd,               ONLY: sugwwms
 
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
-  USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_nwp_parameters,      ONLY: t_phy_params

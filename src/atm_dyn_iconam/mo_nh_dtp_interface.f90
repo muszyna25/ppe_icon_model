@@ -30,7 +30,7 @@ MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: ippm_v
-  USE mo_dynamics_config,    ONLY: idiv_method, nnow, nnew
+  USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch

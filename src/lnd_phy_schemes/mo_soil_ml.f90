@@ -383,7 +383,6 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow,                     &
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 USE mo_impl_constants,     ONLY: iedmf
 USE mo_data_turbdiff,      ONLY: itype_tran
 #endif

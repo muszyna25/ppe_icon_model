@@ -31,7 +31,6 @@ MODULE mo_initicon_io
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &

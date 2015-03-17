@@ -31,7 +31,7 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                     ONLY: wp, vp
   USE mo_nonhydro_state,           ONLY: p_nh_state
-  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
+  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, divdamp_order,                     &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
@@ -84,8 +84,8 @@ MODULE mo_nh_stepping
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
-    &                                    MODE_DWDANA_INC, MODE_IAU, MODIS !, icosmo
+    &                                    inwp, iecham, itturb, itgscp, itsfc, MODE_DWDANA_INC,     &
+    &                                    MODE_IAU, MODIS !, icosmo
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -124,7 +124,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
-    &                                    interval_avg_fg, is_avgFG_time
+    &                                    is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
@@ -146,7 +146,6 @@ MODULE mo_nh_stepping
   USE mo_async_latbc,              ONLY: prefetch_input
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
-  USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_fortran_tools,            ONLY: swap
   USE mtime,                       ONLY: mtime_datetime => datetime, newDatetime,                  &

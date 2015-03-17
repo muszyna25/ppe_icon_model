@@ -49,7 +49,7 @@ MODULE mo_name_list_output_init
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
-  USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
+  USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, one_of

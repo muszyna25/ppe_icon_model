@@ -32,13 +32,12 @@ MODULE mo_velocity_advection
   USE mo_model_domain,      ONLY: t_patch
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar_ri
-  USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
+  USE mo_nonhydro_types,    ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_math_divrot,       ONLY: rot_vertex_ri
   USE mo_vertical_grid,     ONLY: nrdmax
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
-  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, &
-    &                             min_rlcell
+  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_timer,             ONLY: timer_solve_nh_veltend, timer_start, timer_stop
 

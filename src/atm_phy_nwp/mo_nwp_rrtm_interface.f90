@@ -24,7 +24,6 @@
 #endif
 MODULE mo_nwp_rrtm_interface
 
-  USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
@@ -35,7 +34,6 @@ MODULE mo_nwp_rrtm_interface
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_lrtm_par,             ONLY: jpband => nbndlw
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
@@ -43,9 +41,8 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_radiation,            ONLY: radiation, radiation_nwp
-  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
+  USE mo_radiation_config,     ONLY: irad_o3, irad_aero
   USE mo_radiation_rg_par,     ONLY: aerdis
-  USE mo_srtm_config,          ONLY: jpsw
   USE mo_sync,                 ONLY: global_max, global_min
 
   USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output

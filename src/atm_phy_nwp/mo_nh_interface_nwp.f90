@@ -56,7 +56,7 @@ MODULE mo_nh_interface_nwp
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqtke, iqm_max,    &
-    &                                   msg_level, ltimer, timers_level, nqtendphy, lart
+    &                                   msg_level, ltimer, timers_level, lart
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp
@@ -85,7 +85,6 @@ MODULE mo_nh_interface_nwp
     &                                   icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
-  USE mo_art_config,              ONLY: art_config
   USE mo_linked_list,             ONLY: t_var_list
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
