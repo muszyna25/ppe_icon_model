@@ -849,7 +849,6 @@ CONTAINS
           & albedo_tile    = field% albedo_tile(:,jb,:),                       &! inout
           & ptsfc     = field%tsfc    (:,jb),                      &! out
           & ptsfc_rad = field%tsfc_rad(:,jb),                      &! out
-          & ptsfc_eff = field%tsfc_eff(:,jb),                      &! out
           & plwflx_tile = field%lwflxsfc_tile(:,jb,:),             &! out (for coupling)
           & pswflx_tile = field%swflxsfc_tile(:,jb,:),             &! out (for coupling)
           & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice

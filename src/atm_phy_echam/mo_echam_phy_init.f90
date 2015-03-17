@@ -354,7 +354,6 @@ CONTAINS
         !
         prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        prm_field(jg)%tsfc_eff (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
 
         prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 

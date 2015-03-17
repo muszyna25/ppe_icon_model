@@ -78,6 +78,11 @@
   ts_ice             prm_tsfc_tile_2
   ts_lnd             prm_tsfc_tile_3
 #
+  swvis_dif_frac     prm_visdffsfc
+  swnir_dif_frac     prm_nirdffsfc
+  swvis              prm_vissfc
+  swnir              prm_nirsfc
+  swtrmall           prm_swtrmall
   albvisdir          prm_albvisdir
   albvisdif          prm_albvisdif
   albnirdir          prm_albnirdir

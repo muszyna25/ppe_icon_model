@@ -93,7 +93,6 @@ CONTAINS
                            & albedo, albedo_tile,               &! inout
                            & ptsfc,                             &! out
                            & ptsfc_rad,                         &! out
-                           & ptsfc_eff,                         &! out
                            & pswflx_tile, plwflx_tile,          &! out
                            !! Sea ice
                            & Tsurf,                             &! inout
@@ -177,7 +176,6 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim) ! OUT
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim) ! OUT
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_eff(kbdim) ! OUT
     REAL(wp),OPTIONAL,INTENT(INOUT) :: plw       (kbdim)            ! INOUT net surface longwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(INOUT) :: psw       (kbdim)            ! IOUT net surface shortwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pswflx_tile(kbdim,ksfc_type) ! OUT
@@ -618,19 +616,6 @@ CONTAINS
     DO jsfc=1,ksfc_type
       ptsfc(1:kproma) = ptsfc(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)
     ENDDO
-
-    ! Note: if JSBACH is not called, ptsfc_eff and ptsfc_rad will be equal.
-    !
-    ! calculate grid box mean effective temperature for updating the surface energy balance and radiative heating in echam physics
-    ptsfc_eff(:) = 0._wp
-    DO jsfc=1,ksfc_type
-      IF (jsfc == idx_lnd) THEN
-        ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ztsfc_lnd_eff(1:kproma)**4
-      ELSE
-        ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
-      END IF
-    ENDDO
-    ptsfc_eff(1:kproma) = ptsfc_eff(1:kproma)**0.25_wp
 
     ! calculate grid box mean radiative temperature for use in radiation
     ptsfc_rad(:) = 0._wp
