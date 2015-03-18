@@ -189,17 +189,17 @@ CONTAINS
               &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-            ! Remember to adapt name after GRIB2 template update!
-            IF (vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfAttribute") <= 0) THEN
+            IF (vlistInqVarIntKey(vlistId, i-1, "totalNumberOfTileAttributePairs") <= 0) THEN
               ! not a tile variable
               me%variableTileinfo(i)%tile(:)       = trivial_tileinfo
               me%variableTileinfo(i)%tile_index(:) = -99
             ELSE
+              ! tile
               DO ientry=1, subtypeSize(i)
                 CALL subtypeDefActiveIndex(subtypeID,ientry-1)  ! starts with 0
 
-                idx        = vlistInqVarIntKey(vlistId, i-1, "identificationNumberOfTile")
-                att        = vlistInqVarIntKey(vlistId, i-1, "attribute")
+                idx        = vlistInqVarIntKey(vlistId, i-1, "tileIndex")
+                att        = vlistInqVarIntKey(vlistId, i-1, "tileAttribute")
                 tile_index = ientry-1
 
                 me%variableTileinfo(i)%tile(ientry)       = t_tileinfo_elt( idx, att )
@@ -207,7 +207,7 @@ CONTAINS
                 ! reset active index
                 CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
-            ENDIF  ! identificationNumberOfAttribute <= 0
+            ENDIF  ! totalNumberOfTileAttributePairs <= 0
         END do
 
     END IF
@@ -232,11 +232,11 @@ CONTAINS
       END DO
     ENDIF
 
-    CALL p_bcast(me%variableNames, p_io, distribution%communicator)
+    CALL p_bcast(me%variableNames   , p_io, distribution%communicator)
     CALL p_bcast(me%variableDatatype, p_io, distribution%communicator)
-    CALL p_bcast(tileIdx_container, p_io, distribution%communicator)
-    CALL p_bcast(tileAtt_container, p_io, distribution%communicator)
-    CALL p_bcast(tileTid_container, p_io, distribution%communicator)
+    CALL p_bcast(tileIdx_container  , p_io, distribution%communicator)
+    CALL p_bcast(tileAtt_container  , p_io, distribution%communicator)
+    CALL p_bcast(tileTid_container  , p_io, distribution%communicator)
 
     ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
     IF (.NOT. my_process_is_mpi_workroot()) THEN
@@ -286,6 +286,7 @@ CONTAINS
       mapped_name = TRIM(dict_get(me%dict, TRIM(name), DEFAULT=name))
     END IF
     mapped_name = tolower(trim(mapped_name))
+
 
     varID      = -1
     tile_index = -1

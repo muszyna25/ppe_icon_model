@@ -267,10 +267,10 @@ CONTAINS
     !
     IF (typeOfGeneratingProcess == 4) THEN
       ! ensemble
-      productDefinitionTemplate = 40056     ! temporary
+      productDefinitionTemplate = 40456     ! FIXME (temporary)
     ELSE
       ! deterministic
-      productDefinitionTemplate = 40055     ! temporary
+      productDefinitionTemplate = 40455     ! FIXME (temporary)
     ENDIF
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
 
@@ -278,28 +278,27 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "tileClassification" , i_lctype)
 
     ! Set total number of tile/attribute pairs
-    ! misuse identificationNumberOfAttribute for storing the total number of records.
-    CALL vlistDefVarIntKey(vlistID, varID, "identificationNumberOfAttribute" , info%maxcontained)
+    CALL vlistDefVarIntKey(vlistID, varID, "totalNumberOfTileAttributePairs" , info%maxcontained)
 
     ! Set number of used tiles
     CALL vlistDefVarIntKey(vlistID, varID, "numberOfTiles" , &
       &                    getNumberOfTiles(class=info%var_class))
 
     ! get the following attributes:
-    ! - identificationNumberOfTile
-    ! - numberOfAttributes
+    ! - tileIndex
+    ! - numberOfTileAttributes
     !
     ! Convert internal tile ID into GRIB2 tile ID
     tileID = tileid_int2grib(info%ncontained)
 
     ! Set tile index
-    CALL vlistDefVarIntKey(vlistID, varID, "identificationNumberOfTile" , tileID%GRIB2_tile%itn)
+    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tileID%GRIB2_tile%itn)
 
     ! Set total number of attributes for given tile
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfAttributes" , tileID%GRIB2_tile%nat)
+    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , tileID%GRIB2_tile%nat)
 
     ! Set attribute
-    CALL vlistDefVarIntKey(vlistID, varID, "attribute" , tileID%GRIB2_att%attribute)
+    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tileID%GRIB2_att%attribute)
 
   END SUBROUTINE set_GRIB2_tile_keys
 

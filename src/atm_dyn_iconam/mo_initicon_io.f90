@@ -355,7 +355,7 @@ MODULE mo_initicon_io
 
 
       ! add tile suffix (if available) to varname
-      ! This is necessary, in oder to choose the right post-op
+      ! This is necessary, in order to select the right post-op
       IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
         full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
       ELSE
@@ -434,7 +434,7 @@ MODULE mo_initicon_io
 
 
       ! add tile suffix (if available) to varname
-      ! This is necessary, in oder to choose the right post-op
+      ! This is necessary, in order to select the right post-op
       IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
         full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
       ELSE
