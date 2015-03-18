@@ -27,7 +27,7 @@ MODULE mo_grib2_util
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_TILE_LAND
   USE mo_action,             ONLY: ACTION_RESET
   USE mo_util_string,        ONLY: one_of
-  USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, tileid_int2grib, t_tile
+  USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, select_tile, t_tile
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
@@ -251,10 +251,9 @@ CONTAINS
     INTEGER,                INTENT(IN) :: i_lctype  !< Tile classification
 
     ! local
-    INTEGER :: typeOfGeneratingProcess
-    INTEGER :: productDefinitionTemplate        ! Tile template number 
-
-    TYPE(t_tile) :: tileID
+    INTEGER      :: typeOfGeneratingProcess
+    INTEGER      :: productDefinitionTemplate        ! Tile template number 
+    TYPE(t_tile) :: tile
 
   !----------------------------------------------------------------
 
@@ -288,17 +287,17 @@ CONTAINS
     ! - tileIndex
     ! - numberOfTileAttributes
     !
-    ! Convert internal tile ID into GRIB2 tile ID
-    tileID = tileid_int2grib(info%ncontained)
+    ! Select tile info orresponding to index info%ncontained
+    tile = select_tile(info%ncontained)
 
     ! Set tile index
-    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tileID%GRIB2_tile%itn)
+    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tile%GRIB2_tile%tileIndex)
 
-    ! Set total number of attributes for given tile
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , tileID%GRIB2_tile%nat)
+    ! Set total number of tile attributes for given tile
+    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , tile%GRIB2_tile%numberOfTileAttributes)
 
-    ! Set attribute
-    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tileID%GRIB2_att%attribute)
+    ! Set tile attribute
+    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tile%GRIB2_att%tileAttribute)
 
   END SUBROUTINE set_GRIB2_tile_keys
 

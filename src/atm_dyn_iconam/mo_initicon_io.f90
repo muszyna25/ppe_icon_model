@@ -1519,8 +1519,8 @@ MODULE mo_initicon_io
       DO jt=1, ntiles_total + ntiles_water
 
         IF (.NOT. ltile_coldstart) THEN
-          tileinfo%idx = tiles(jt)%GRIB2_tile%itn
-          tileinfo%att = tiles(jt)%GRIB2_att%attribute
+          tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
+          tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
         ENDIF
 
         my_ptr2d => lnd_prog%t_g_t(:,:,jt)
@@ -1556,8 +1556,8 @@ MODULE mo_initicon_io
       DO jt=1, ntiles_total
 
         IF (.NOT. ltile_coldstart) THEN
-          tileinfo%idx = tiles(jt)%GRIB2_tile%itn
-          tileinfo%att = tiles(jt)%GRIB2_att%attribute
+          tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
+          tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
         ENDIF
 
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)

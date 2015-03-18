@@ -36,7 +36,7 @@ MODULE mo_lnd_nwp_config
 
   ! FUNCTIONS/SUBROUTINES
   PUBLIC :: getNumberOfTiles
-  PUBLIC :: tileid_int2grib
+  PUBLIC :: select_tile
   PUBLIC :: configure_lnd_nwp
   PUBLIC :: convert_luc_ICON2GRIB
   PUBLIC :: get_tile_suffix
@@ -115,12 +115,12 @@ MODULE mo_lnd_nwp_config
 
 
    TYPE t_GRIB2_tile
-     INTEGER :: itn        ! tile identification number (1,...,numberOfTiles)
-     INTEGER :: nat        ! number of used tile attributes
+     INTEGER :: tileIndex                    ! tile Index (1,...,numberOfTiles)
+     INTEGER :: numberOfTileAttributes       ! number of used tile attributes
    END TYPE t_GRIB2_tile
 
    TYPE t_GRIB2_att
-     INTEGER     :: attribute  ! tile attribute
+     INTEGER     :: tileAttribute
    END TYPE t_GRIB2_att
 
    TYPE t_tile
@@ -242,11 +242,11 @@ CONTAINS
 
 
   !>
-  !! Provides number of used tiles (NUT)
+  !! Provides number of tiles
   !!
-  !! Provides number of used tiles (NUT), as it is required for GRIB2 encoding.
-  !! NUT differs from the ICON internal counting rules for tiles, in that 
-  !! snowtiles and the sea-ice tile are not treated as separate tiles.
+  !! Provides number of tiles, as it is required for GRIB2 encoding.
+  !! It differs from the ICON internal counting rules for tiles, in that 
+  !! snowtiles and the sea-ice tile are not considered as separate tiles.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-22)
@@ -279,10 +279,9 @@ CONTAINS
   !!
   !! Setup tile meta-information required for tile I/O. 
   !! For each ICON-tile the following keys are defined:
-  !! - identificationNumberOfTile
-  !! - numberOfAttributes
-  !! - identificationNumberOfAttribute
-  !! - attribute
+  !! - tileIndex
+  !! - numberOfTileAttributes
+  !! - tileAttribute
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-23)
@@ -337,33 +336,33 @@ CONTAINS
 
       IF (i<=ntiles_lnd) THEN  ! dominating land tiles
   
-        tiles(i)%GRIB2_tile%itn      = i
-        tiles(i)%GRIB2_tile%nat      = nat_lnd
-        tiles(i)%GRIB2_att%attribute = MERGE(UNMOD, UNDEF, nat_lnd>1)
+        tiles(i)%GRIB2_tile%tileIndex              = i
+        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
+        tiles(i)%GRIB2_att%tileAttribute           = MERGE(UNMOD, UNDEF, nat_lnd>1)
   
       ELSE IF ( (i>ntiles_lnd) .AND. (i<= ntiles_total) ) THEN ! corresponding snow tiles (if present)
   
-        tiles(i)%GRIB2_tile%itn      = i - ntiles_lnd
-        tiles(i)%GRIB2_tile%nat      = nat_lnd
-        tiles(i)%GRIB2_att%attribute = SNOW
+        tiles(i)%GRIB2_tile%tileIndex              = i - ntiles_lnd
+        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
+        tiles(i)%GRIB2_att%tileAttribute           = SNOW
   
       ELSE IF ( i == isub_water ) THEN ! ocean tiles (unfrozen)
   
-        tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 1
-        tiles(i)%GRIB2_tile%nat      = nat_oce
-        tiles(i)%GRIB2_att%attribute = UNMOD
+        tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
+        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
+        tiles(i)%GRIB2_att%tileAttribute           = UNMOD
   
       ELSE IF ( i == isub_lake ) THEN  ! lake tile
   
-        tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 2
-        tiles(i)%GRIB2_tile%nat      = 1
-        tiles(i)%GRIB2_att%attribute = UNDEF
+        tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 2
+        tiles(i)%GRIB2_tile%numberOfTileAttributes = 1
+        tiles(i)%GRIB2_att%tileAttribute           = UNDEF
   
       ELSE IF ( i == isub_seaice ) THEN ! sea-ice tile
   
-        tiles(i)%GRIB2_tile%itn      = ntiles_lnd + 1
-        tiles(i)%GRIB2_tile%nat      = nat_oce
-        tiles(i)%GRIB2_att%attribute = SEAICE
+        tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
+        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
+        tiles(i)%GRIB2_att%tileAttribute           = SEAICE
 
       ELSE
         CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
@@ -376,27 +375,28 @@ CONTAINS
 
 
   !>
-  !! Convert internal tile ID into GRIB2 tile ID
+  !! Select tile
   !!
-  !! Convert internal tile ID into GRIB2 tile ID.
+  !! Select specific tile and corresponding tile information.
   !! Since the ICON internal tile nomenclature and structure differes 
   !! from the GRIB2 tile nomenclature, this function provides the GRIB2 
-  !! tile ID, given the internal tile ID (tile number) as input.
+  !! tileIndex, given the internal tile ID (tile number) as input.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-01-23)
   !!
-  FUNCTION tileid_int2grib (tileID_int)  RESULT (tileID_GRIB2)
+  FUNCTION select_tile (tileID_int)  RESULT (selected_tile)
 
     INTEGER, INTENT(IN) :: tileID_int
 
-    TYPE(t_tile) :: tileID_GRIB2
+    TYPE(t_tile) :: selected_tile
 
     !-----------------------------------------------------------------------
 
-    tileID_GRIB2 =  tiles(tileID_int)
+    selected_tile =  tiles(tileID_int)
 
-  END FUNCTION tileid_int2grib
+  END FUNCTION select_tile
+
 
   !>
   !! Convert tile/attribute pair into ICON-internal varname suffix
@@ -418,8 +418,8 @@ CONTAINS
     tileSuffix =''
 
     DO i=1, SIZE(tiles)
-      IF ( (tiles(i)%GRIB2_tile%itn == tileIdx) ) THEN
-        IF ((tiles(i)%GRIB2_att%attribute == tileAtt)) THEN
+      IF ( (tiles(i)%GRIB2_tile%tileIndex == tileIdx) ) THEN
+        IF ((tiles(i)%GRIB2_att%tileAttribute == tileAtt)) THEN
           WRITE(tileIdx_str,'(i2)') i 
           tileSuffix = '_t_'//TRIM(ADJUSTL(tileIdx_str))
           RETURN
@@ -432,6 +432,7 @@ CONTAINS
     ENDIF
 
   END FUNCTION get_tile_suffix
+
 
   !>
   !! Given the internal land use class index, provide the official GRIB2 index.

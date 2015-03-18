@@ -2841,9 +2841,9 @@ CONTAINS
     IF (.NOT. ALLOCATED(tiles)) THEN
       ALLOCATE(tiles(size_tiles))
     ENDIF
-    CALL p_bcast(tiles(:)%GRIB2_tile%itn                    , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_tile%nat                    , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_att%attribute               , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
 
 
     ! allocate vgrid_buffer on asynchronous output PEs, for storing 

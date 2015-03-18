@@ -365,11 +365,10 @@ CONTAINS
   !  Uses cdilib for file access.
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  FUNCTION test_cdi_varID(streamID, name, opt_tileidx, opt_dict) RESULT(result_varID)
+  FUNCTION test_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
     INTEGER,           INTENT(IN)           :: streamID            !< link to file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx       !< tile index, encoded as "localInformationNumber"
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
@@ -395,12 +394,6 @@ CONTAINS
       CALL vlistInqVarName(vlistID, varID, zname)
       IF (TRIM(tolower(TRIM(zname))) == TRIM(mapped_name)) THEN
 
-        ! check tile index
-        IF (PRESENT(opt_tileidx)) THEN
-          tileidx = vlistInqVarIntKey(vlistID, varID, "localInformationNumber")
-          IF (tileidx /= opt_tileidx) CYCLE LOOP
-        END IF
-
         result_varID = varID
         EXIT LOOP
       END IF
@@ -414,20 +407,16 @@ CONTAINS
   !  Uses cdilib for file access.
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  FUNCTION get_cdi_varID(streamID, name, opt_tileidx, opt_dict) RESULT(result_varID)
+  FUNCTION get_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
     INTEGER,           INTENT(IN)           :: streamID            !< link to file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx       !< tile index, encoded as "localInformationNumber"
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_varID'
 
-    result_varID = test_cdi_varID(streamID, name, opt_tileidx, opt_dict)
+    result_varID = test_cdi_varID(streamID, name, opt_dict)
     IF (result_varID== -1) THEN
-      IF (PRESENT(opt_tileidx)) THEN
-        WRITE (0,*) "tileidx = ", opt_tileidx
-      END IF
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END FUNCTION get_cdi_varID
@@ -440,11 +429,10 @@ CONTAINS
   !  Uses cdilib for file access.
   !  Initial revision by D. Reinert, DWD (2014-10-24)
   !
-  FUNCTION get_cdi_NlevRef(streamID, name, opt_tileidx, opt_dict) RESULT(result_NlevRef)
+  FUNCTION get_cdi_NlevRef(streamID, name, opt_dict) RESULT(result_NlevRef)
     INTEGER                                 :: result_NlevRef
     INTEGER,           INTENT(IN)           :: streamID            !< link to file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx       !< tile index, encoded as "localInformationNumber"
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     INTEGER :: varID                                              ! variable ID
@@ -452,11 +440,8 @@ CONTAINS
     INTEGER :: zaxisID 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_NlevRef'
 
-    varID = test_cdi_varID(streamID, name, opt_tileidx, opt_dict)
+    varID = test_cdi_varID(streamID, name, opt_dict)
     IF (varID== -1) THEN
-      IF (PRESENT(opt_tileidx)) THEN
-        WRITE (0,*) "tileidx = ", opt_tileidx
-      END IF
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
     vlistID = streamInqVlist(streamID)
