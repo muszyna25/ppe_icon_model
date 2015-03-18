@@ -23,9 +23,10 @@
         ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
 # 	ocean_data_MainFolder=/scratch/mpi/CC/mh0287/oes/${ocean_location}
       ;;
-#       blizzard) 
-# 	ocean_data_MainFolder=/work/mh0287/oes/${ocean_location}
-#       ;;
+      default) 
+ 	ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
+#	ocean_data_MainFolder=/work/mh0287/oes/${ocean_location}
+      ;;
     esac
   fi 
    
