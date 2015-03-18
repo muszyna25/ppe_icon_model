@@ -703,7 +703,6 @@ lapack/slaswp.f -text
 lapack/spotf2.f -text
 lapack/spotrf.f -text
 lapack/spotrs.f -text
-/make_my_runscript -text
 /make_runscripts -text
 run/README -text
 run/Rakefile -text
@@ -1214,6 +1213,7 @@ scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
