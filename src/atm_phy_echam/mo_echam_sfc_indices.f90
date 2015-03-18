@@ -29,7 +29,6 @@
 MODULE mo_echam_sfc_indices
 
   USE mo_exception, ONLY: message, message_text
-  USE mo_echam_phy_config, ONLY: phy_config => echam_phy_config
 
   IMPLICIT NONE
   PRIVATE

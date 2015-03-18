@@ -9,13 +9,14 @@
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
   ocean_location=${ocean_location:="fluent"}
-  get_file=${get_file:='add_link_file'} # 'add_required_file'
+  get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
 
   if [[ "x$ocean_location" = "buildbot" ]] ; then
     ocean_data_MainFolder=${icon_data_MainFolder}/oes  
   elif [[ "x$ocean_location" = "xlocal" ]] ; then
-    ocean_data_MainFolder=${ICON_BASE_PATH}/grids   
+    ocean_data_MainFolder=${ICON_BASE_PATH}/grids 
+    ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}}
   elif [[ "x$ocean_location" != "x" ]] ; then
     case "$target" in
       thunder|blizzard|mpipc)

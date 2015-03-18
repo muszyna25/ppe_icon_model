@@ -60,6 +60,8 @@ MODULE mo_les_config
     REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
     CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
 
+    LOGICAL  :: les_metric  ! .TRUE. to use LES metric terms
+
   END TYPE t_les_config
   !>
   !!

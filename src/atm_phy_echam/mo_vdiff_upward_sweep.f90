@@ -21,13 +21,8 @@
 MODULE mo_vdiff_upward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,     &
-                                 & rhs_bksub, vdiff_tendencies
-#ifdef __ICON__
-  USE mo_echam_vdiff_params, ONLY: tpfac2, itop
-#else
-  USE mo_physc2,             ONLY: tpfac2, itop
-#endif
+  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, rhs_bksub, vdiff_tendencies
+  USE mo_echam_vdiff_params, ONLY: itop
 
   IMPLICIT NONE
   PRIVATE
@@ -37,11 +32,10 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_up( lsfc_heat_flux,                                   &! in
-                       kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
-                       ksfc_type, idx_wtr, idx_ice, idx_lnd,             &! in
+  SUBROUTINE vdiff_up( kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
+                       ksfc_type, idx_wtr,                               &! in
                        pdtime, pstep_len, pfrc,                          &! in
-                       pcfm_tile,  pcfh_tile,   pqsat_tile,              &! in 
+                       pcfm_tile,                                        &! in 
                        aa,                                               &! in
                        ihpbl,      pcptgz,      prhoh,       pqshear,    &! in
                        pum1,       pvm1,        ptm1,        pqm1,       &! in
@@ -56,24 +50,19 @@ CONTAINS
                        ptte_corr,                                        &! in
                        bb,                                               &! inout
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
-                       pute,       pvte,        ptte,        pqte,       &! inout
-                       pxlte,      pxite,       pxtte,                   &! inout
                        pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pxvarprod,  pvmixtau,    pz0m,                    &! out
                        pthvvar,    pthvsig,     ptke,                    &! out
                        psh_vdiff,  pqv_vdiff                             )! out
 
-    LOGICAL, INTENT(IN) :: lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
-    INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
+    INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pdtime, pstep_len
 
     REAL(wp),INTENT(IN) ::           &
       & pfrc      (kbdim,ksfc_type), &!< area fraction of each surface type
-      & pcfm_tile (kbdim,ksfc_type), &!< exchange coeff
-      & pcfh_tile (kbdim,ksfc_type), &!< exchange coeff for heat and tracers
-      & pqsat_tile(kbdim,ksfc_type)   !< surface specific humidity at saturation
+      & pcfm_tile (kbdim,ksfc_type)   !< exchange coeff
 
     REAL(wp),INTENT(IN) :: aa    (kbdim,klev,3,nmatrix) !< for all variables
 
@@ -127,14 +116,6 @@ CONTAINS
 
     ! Tendencies
 
-    REAL(wp),INTENT(INOUT) :: pute (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pvte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: ptte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pqte (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxlte(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
-
     REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
@@ -164,7 +145,7 @@ CONTAINS
     CALL rhs_bksub( kproma, kbdim, itop, klev, aa, bb ) ! in,...,in, inout
 
     CALL vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,   &! in
-                         & ktrac, ksfc_type, idx_lnd, idx_wtr, idx_ice, &! in
+                         & ktrac, ksfc_type, idx_wtr,                   &! in
                          & pdtime, pstep_len,                           &! in
                          & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                          & pxtm1, pgeom1, pdelpm1, pcptgz,              &! in
@@ -174,11 +155,10 @@ CONTAINS
 #else
                          & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,    &! in
 #endif
-                         & pqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
+                         & pqshear, ihpbl,                              &! in
                          & pcfm_tile, pfrc, ptte_corr, bb,              &! in
                          & pkedisp(:),                                  &! inout ("pvdis" in echam)
                          & pxvar(:,:), pz0m_tile(:,:),                  &! inout
-                         & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
                          & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)

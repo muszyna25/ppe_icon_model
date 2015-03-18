@@ -20,7 +20,7 @@
 MODULE mo_echam_cloud_params
 
   USE mo_kind,               ONLY: wp
-  USE mo_physical_constants, ONLY: tmelt, g=>grav
+  USE mo_physical_constants, ONLY: tmelt, grav
   USE mo_datetime,           ONLY: rdaylen
   USE mo_exception,          ONLY: finish, print_value
 
@@ -39,13 +39,14 @@ MODULE mo_echam_cloud_params
   PUBLIC :: cthomi,cn0s,crhoi,crhosno
   PUBLIC :: ccsaut
   PUBLIC :: clmin,clmax
+  PUBLIC :: clwprat 
   PUBLIC :: crs,crt,nex
   PUBLIC :: cqtmin
   PUBLIC :: cptop, cpbot, ncctop, nccbot
   PUBLIC :: jbmin, jbmin1, jbmax, fjbmin, fjbmin1, fjbmax
   PUBLIC :: lonacc
 
-  PUBLIC :: csatsc
+  PUBLIC :: csatsc, cinv
   PUBLIC :: ceffmin
   PUBLIC :: csecfrl
   PUBLIC :: ccraut,ccsacl,ccracl,cauloc
@@ -55,21 +56,41 @@ MODULE mo_echam_cloud_params
   !----------------------------------------
   ! default values for cloud microphysics
   !----------------------------------------
-  REAL(wp)            :: cthomi  = tmelt-35.0_wp
+
+  REAL(wp), PARAMETER :: cthomi  = tmelt-35.0_wp
   REAL(wp), PARAMETER :: cn0s    = 3.e6_wp
   REAL(wp), PARAMETER :: crhoi   = 500.0_wp
   REAL(wp), PARAMETER :: crhosno = 100.0_wp
-  REAL(wp)            :: ccsaut  = 95.0_wp
+  REAL(wp), PARAMETER :: cauloc  = 0.0_wp
+  REAL(wp), PARAMETER :: ccsaut  = 95.0_wp
+  REAL(wp), PARAMETER :: ccraut  = 15.0_wp
+  REAL(wp), PARAMETER :: ccsacl  = 0.1_wp
+  REAL(wp), PARAMETER :: ccracl  = 6.0_wp
+  REAL(wp), PARAMETER :: csecfrl = 5.e-6_wp
+  REAL(wp), PARAMETER :: cvtfall = 2.5_wp
   REAL(wp), PARAMETER :: clmax   = 0.5_wp
   REAL(wp), PARAMETER :: clmin   = 0.0_wp
-  REAL(wp), PARAMETER :: crs     = 0.9_wp
-  REAL(wp), PARAMETER :: crt     = 0.7_wp
-  INTEGER,  PARAMETER :: nex     = 4
+  REAL(wp), PARAMETER :: clwprat = 4.0_wp
+  REAL(wp), PARAMETER :: ceffmin = 10.0_wp    ! min eff.radius for ice cloud 
   REAL(wp), PARAMETER :: ceffmax = 150.0_wp   ! max eff.radius for ice cloud
+  LOGICAL,  PARAMETER :: lonacc = .TRUE.
 
   !---------------------------------------
   ! default values for cloud cover scheme
   !---------------------------------------
+
+  REAL(wp), PARAMETER :: cptop        = 1000.0_wp   ! min. pressure level for cond. 
+  REAL(wp), PARAMETER :: cpbot        = 50000.0_wp  ! max. pressure level for tropopause calc.  
+
+  ! Sundqvist scheme:
+
+  REAL(wp), PARAMETER :: crs     = 0.975_wp   ! Critical relative humidity at surface
+  REAL(wp), PARAMETER :: crt     = 0.75_wp    ! Critical relative humidity aloft
+  INTEGER,  PARAMETER :: nex     = 2          ! Transition parameter for critical relative humidity profile
+  REAL(wp), PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate 
+  REAL(wp), PARAMETER :: csatsc  = 0.7_wp     ! Min critical relative humidity multiplier under low-level inversions
+
+  ! Tompkins scheme:
 
   REAL(wp), PARAMETER :: cbeta_cs     = 10.0_wp                  ! K1: conv source of skew
   REAL(wp), PARAMETER :: ctaus        = 1.0_wp/( 0.5_wp*rdaylen) ! htau shortest timescale
@@ -77,24 +98,14 @@ MODULE mo_echam_cloud_params
   REAL(wp), PARAMETER :: ctauk        = 0.091625_wp              ! htau K = sqrt(3)*Cs(=0.23)^2.
   REAL(wp), PARAMETER :: cbeta_pq     = 2.0_wp                   ! q_0: target value for q
   REAL(wp), PARAMETER :: cbeta_pq_max = 50.0_wp                  ! max values for q
+  REAL(wp), PARAMETER :: ccwmin       = 1.e-7_wp
   REAL(wp), PARAMETER :: cvarmin      = 0.1_wp                   ! b-a_0: min dist width *qv
   REAL(wp), PARAMETER :: cmmrmax      = 0.005_wp                 ! max mmr of cld in cldy region
   REAL(wp), PARAMETER :: cqtmin       = 1.e-12_wp                ! total water minimum
 
-  REAL(wp), PARAMETER :: cptop        = 1000.0_wp   ! min. pressure level for cond.
-  REAL(wp), PARAMETER :: cpbot        = 50000.0_wp  ! max. pressure level for tropopause calc.
-
-  LOGICAL,  PARAMETER :: lonacc = .TRUE.
-
   !-------------------------------------------------------------
   ! parameters initialized in subroutine sucloud of this module
   !-------------------------------------------------------------
-  REAL(wp) :: csatsc
-  REAL(wp) :: ceffmin
-  REAL(wp) :: csecfrl
-  REAL(wp) :: ccraut,ccsacl,ccracl,cauloc
-  REAL(wp) :: cvtfall
-  REAL(wp) :: ccwmin
 
   INTEGER  :: ncctop           ! max. level for condensation
   INTEGER  :: nccbot           ! lowest level for tropopause calculation
@@ -137,125 +148,6 @@ CONTAINS
     REAL(wp) :: za, zb, zph(nlev+1), zp(nlev), zh(nlev)
     INTEGER  :: jk
 
-    ! Resolution dependent parameters.
-    ! A single set of values are hardwired here. Tuning needed for ICON
-
-    ccsacl  = 0.1_wp
-    ccracl  = 6.0_wp
-    csecfrl = 5.e-7_wp
-    ccraut  = 15.0_wp
-    cvtfall = 3.29_wp
-    ceffmin = 10.0_wp    ! min eff.radius for ice cloud
-    ccwmin  = 1.e-7_wp   ! cloud water limit for cover>0
-    csatsc  = 1.0_wp
-    cauloc  = 5.0_wp
-
-    IF (lcouple .OR. lipcc) THEN
-       csatsc  = 1.0_wp
-       cauloc  = 0.0_wp
-    ENDIF
-
-!!echam!
-!!echam! Special 11-Level values
-!!echam!
-!!echam
-!!echam  IF (nlev == 11) THEN
-!!echam    ccsacl  = 0.5_wp
-!!echam    ccracl  = 6.0_wp
-!!echam    csecfrl = 1.e-6_wp
-!!echam    ccraut  = 30.0_wp
-!!echam    cvtfall = 7.0_wp
-!!echam    ceffmin = 30.0_wp    ! min eff.radius for ice cloud
-!!echam    ccwmin  = 5.e-7_wp  ! cloud water limit for cover>0
-!!echam    csatsc  = 1.0_wp
-!!echam  ELSE
-!!echam    ccsacl  = 0.10_wp
-!!echam    ccracl  = 6.0_wp
-!!echam    csecfrl = 5.e-7_wp
-!!echam    IF(lham) csecfrl = 1.e-8_wp
-!!echam    ccraut  = 15.0_wp
-!!echam    cvtfall = 3.29_wp
-!!echam    ceffmin = 10.0_wp    ! min eff.radius for ice cloud
-!!echam    ccwmin  = 1.e-7_wp  ! cloud water limit for cover>0
-!!echam    csatsc  = 1.0_wp
-!!echam  ENDIF
-!!echam!
-!!echam!                19 Level, no middle atmosphere
-!!echam!
-!!echam  IF (nlev == 11  .AND. .NOT. lmidatm) THEN
-!!echam    IF (nn == 21) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE IF (nn == 31) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam
-!!echam  ELSE IF (nlev == 19 .AND. .NOT. lmidatm) THEN
-!!echam    IF (nn == 31) THEN
-!!echam      cauloc  = 1.0_wp
-!!echam    ELSE IF (nn == 42) THEN
-!!echam      cauloc  = 2.0_wp
-!!echam      IF(lham) cauloc  = 1.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                31 Level, no middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 31  .AND. .NOT. lmidatm) THEN
-!!echam    IF (nn == 63) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                39 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF (nlev == 39 .AND. lmidatm) THEN
-!!echam    IF (nn == 31) THEN
-!!echam      cauloc  = 3.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                47 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 47  .AND. lmidatm) THEN
-!!echam    IF (nn == 63) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                95 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 95  .AND. lmidatm) THEN
-!!echam    IF (nn == 127) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam!
-!!echam!                199 Level, middle atmosphere
-!!echam!
-!!echam  ELSE IF(nlev == 199  .AND. lmidatm) THEN
-!!echam    IF (nn == 255) THEN
-!!echam      cauloc  = 5.0_wp
-!!echam    ELSE
-!!echam      CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam    ENDIF
-!!echam  ELSE
-!!echam    CALL finish (TRIM(thismodule), 'Truncation not supported.')
-!!echam  ENDIF
-!!echam!
-!!echam!-- overwrite values for coupled runs
-!!echam!
-!!echam!!echam  IF(lcouple .OR. lipcc) THEN
-!!echam    csatsc  = 1.0_wp
-!!echam    cauloc  = 0.0_wp
-!!echam  ENDIF
-!
 !
 !-- half level pressure values, assuming 101320. Pa surface pressure
 
@@ -272,7 +164,7 @@ CONTAINS
   END DO
 !
   DO jk = 1, nlev
-    zh(jk)=(zph(nlev+1)-zp(jk))/(g*1.25_wp)
+    zh(jk)=(zph(nlev+1)-zp(jk))/(grav*1.25_wp)
   END DO
 !
 ! -- search for highest inversion level (first full level below 1000 m)
