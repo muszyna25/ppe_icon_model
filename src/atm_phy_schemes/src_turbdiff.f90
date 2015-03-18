@@ -5267,7 +5267,7 @@ REAL (KIND=ireals), DIMENSION(:,ktp:), TARGET, INTENT(INOUT) :: &
                !out: total  water content       (or adjust. 'qv', if "ladjout")
   q_liq        !out: liquid water content after adjustment
 
-REAL (KIND=ireals), DIMENSION(:,khi:), OPTIONAL, INTENT(INOUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,k_st:k_en), OPTIONAL, INTENT(INOUT) :: &
   dens,  &     !current air density
   r_cpd        !cp/cpd
 
