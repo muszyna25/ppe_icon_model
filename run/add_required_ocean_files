@@ -11,6 +11,11 @@
   ocean_location=${ocean_location:="fluent"}
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
+  # if there are local settings from the user... use them
+  if [[ -f ocean_local_settings ]] ; then
+    source ./ocean_local_settings
+  fi
+
 
   if [[ "x$ocean_location" = "buildbot" ]] ; then
     ocean_data_MainFolder=${icon_data_RootFolder}/buildbot_data/oes
@@ -57,9 +62,9 @@
 
   #=======================================================
   # re-naming of the input files when copying to the experiment folder
-  ocean_forcing_outputFilename="ocean-flux.nc"
-  ocean_initialState_outputFilename="initial_state.nc"
-  ocean_relax_outputFilename="ocean-relax.nc"
+  ocean_forcing_modelFilename="ocean-flux.nc"
+  ocean_initialState_modelFilename="initial_state.nc"
+  ocean_relax_modelFilename="ocean-relax.nc"
    
   #=======================================================
   # add required files if this is not post processing
@@ -73,7 +78,7 @@
       if [[ "x$iforc" = "x12" ]] ; then
         ls -l $ocean_forcing_InputFilename
         if [ $? -eq 0 ]; then
-          $get_file ${ocean_forcing_InputFilename}     $ocean_forcing_outputFilename
+          $get_file ${ocean_forcing_InputFilename}     $ocean_forcing_modelFilename
         else
           echo "WARNING: $ocean_forcing_InputFilename does not exist - proceed from local disk"
         fi
@@ -86,7 +91,7 @@
       if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
         ls -l $ocean_initialState_InputFilename
         if [ $? -eq 0 ]; then
-          $get_file ${ocean_initialState_InputFilename}          $ocean_initialState_outputFilename
+          $get_file ${ocean_initialState_InputFilename}          $ocean_initialState_modelFilename
         else
           echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
         fi
@@ -96,7 +101,7 @@
       if [[ "x$init_relax" = "x1" ]] ; then
         ls -l $ocean_relax_InputFilename
         if [ $? -eq 0 ]; then
-          $get_file ${ocean_relax_InputFilename} $ocean_relax_outputFilename
+          $get_file ${ocean_relax_InputFilename} $ocean_relax_modelFilename
         else
           echo "WARNING: Cannot find restart file: ${ocean_relax_InputFilename}"
         fi
