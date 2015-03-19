@@ -518,7 +518,7 @@ CONTAINS
 
     ! Special treatment for undefined points
     IF (iluc_in == -1) THEN
-      iluc_out = iluc_in
+      iluc_out = 39                !undefined
       RETURN
     ENDIF
     IF (iluc_in == 0) THEN
