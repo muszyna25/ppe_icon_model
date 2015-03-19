@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/bash
 #==============================================================================
 # Creates the ICON run scripts
 # Leonidas Linardakis, MPI-M, 2011-25-1
@@ -48,7 +48,7 @@ fi
   
 #==============================================================================
 . $base_folder/config/set-up.info
-use_shell=${use_shell:="/bin/ksh"}
+use_shell=${use_shell:="/bin/bash"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
 
