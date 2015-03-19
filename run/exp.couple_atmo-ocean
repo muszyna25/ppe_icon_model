@@ -532,7 +532,7 @@ cat > ${ocean_namelist} << EOF
 /
 &sea_ice_nml
   i_ice_therm   = 1
-  i_ice_dyn     = 1
+  i_ice_dyn     = 0                ! ice dynamics not yet ready for coupling
 /
 &ocean_forcing_nml
   iforc_oce              = ${iforc_oce} ! ocean forcing:
