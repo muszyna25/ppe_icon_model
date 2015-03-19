@@ -70,7 +70,6 @@ fi
 
 lfeedback=.false.
 
-! cell_type is not used=${! cell_type is not used:=3}
 #-----------------------------------------------------------------------------
 #
 # write ICON namelist parameters
@@ -104,7 +103,6 @@ EOF
 else
 cat > ${atmo_namelist} << EOF
 &grid_nml
- ! cell_type is not used = ${! cell_type is not used}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 EOF
