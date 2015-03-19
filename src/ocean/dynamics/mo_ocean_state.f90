@@ -494,12 +494,6 @@ CONTAINS
     nblks_v = patch_2d%nblks_v
     
     ! add monitoring 
-    CALL add_var(ocean_default_list, 'salt_content', ocean_state_diag%monitor%salt_content , &
-      &          GRID_LONLAT, ZA_SURFACE, &
-      &            t_cf_var('salt_content', 'kg', 'total global salt content', DATATYPE_FLT32),&
-      &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &            in_group=groups("ocean_monitor"),ldims=(/1/))
-
     CALL add_var(ocean_default_list, 'volume_Global', ocean_state_diag%monitor%volume , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('volume', 'm^3', 'volume', DATATYPE_FLT32),&
@@ -508,43 +502,43 @@ CONTAINS
 
     CALL add_var(ocean_default_list, 'kin_energy_Global', ocean_state_diag%monitor%kin_energy , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('kin_energy', 'M', 'kin_energy', DATATYPE_FLT32),&
+      & t_cf_var('kin_energy', 'J', 'kin_energy', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'pot_energy_Global', ocean_state_diag%monitor%pot_energy , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('pot_energy', 'M', 'pot_energy', DATATYPE_FLT32),&
+      & t_cf_var('pot_energy', 'J', 'pot_energy', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'total_energy_Global', ocean_state_diag%monitor%total_energy , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('total_energy', 'M', 'total_energy', DATATYPE_FLT32),&
+      & t_cf_var('total_energy', 'J', 'total_energy', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'total_salt_Global', ocean_state_diag%monitor%total_salt , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('total_salt', 'M', 'total_salt', DATATYPE_FLT32),&
+      & t_cf_var('total_salt', 'kg', 'total_salt', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'vorticity_Global', ocean_state_diag%monitor%vorticity , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('vorticity', 'M', 'vorticity', DATATYPE_FLT32),&
+      & t_cf_var('vorticity', '', 'vorticity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'enstrophy_Global', ocean_state_diag%monitor%enstrophy , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('enstrophy', 'M', 'enstrophy', DATATYPE_FLT32),&
+      & t_cf_var('enstrophy', '', 'enstrophy', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'potential_enstrophy_Global', ocean_state_diag%monitor%potential_enstrophy , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('potential_enstrophy', 'M', 'potential_enstrophy', DATATYPE_FLT32),&
+      & t_cf_var('potential_enstrophy', '', 'potential_enstrophy', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 

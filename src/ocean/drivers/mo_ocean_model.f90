@@ -283,7 +283,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(method_name),'start to clean up')
 
-    !IF (diagnostics_level==1) CALL destruct_oce_diagnostics()
+    IF (diagnostics_level==1) CALL destruct_oce_diagnostics()
     !------------------------------------------------------------------
     ! destruct ocean physics and forcing
     ! destruct ocean state is in control_model

@@ -725,8 +725,10 @@ CONTAINS
     monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
     monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
     monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
-!   monitor%total_salt                 = calc_total_salt_content(p_patch, patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
-!       &                                                        p_ice, p_os,p_sfc_flx,p_ice%zUnderIce)
+    monitor%total_salt                 = calc_total_salt_content(p_patch, patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+      &                                                          p_ice, p_os,p_sfc_flx,p_ice%zUnderIce)
+
+
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
@@ -1518,7 +1520,8 @@ CONTAINS
   FUNCTION calc_total_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
       & computation_type) RESULT(total_salt_content)
     TYPE(t_patch),POINTER                                 :: p_patch
-    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks),INTENT(IN) :: thickness,zUnderIce
+    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks),INTENT(IN) :: zUnderIce
+    REAL(wp),DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks),INTENT(IN) :: thickness
     TYPE (t_sea_ice),       INTENT(IN)                    :: p_ice
     TYPE(t_hydro_ocean_state)                             :: p_os
     TYPE(t_sfc_flx)                                       :: surface_fluxes
@@ -1610,7 +1613,6 @@ CONTAINS
     monitor%pot_energy(:)                 = 0.0_wp
     monitor%total_energy(:)               = 0.0_wp
     monitor%total_salt(:)                 = 0.0_wp
-    monitor%salt_content(:)               = 0.0_wp
     monitor%vorticity(:)                  = 0.0_wp
     monitor%enstrophy(:)                  = 0.0_wp
     monitor%potential_enstrophy(:)        = 0.0_wp

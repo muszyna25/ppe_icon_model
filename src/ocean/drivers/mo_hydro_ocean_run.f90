@@ -344,9 +344,6 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
-      !TODO
-      ocean_state(jg)%p_diag%monitor%salt_content(:) = REAL(jstep,wp)
-
       CALL calc_fast_oce_diagnostics( patch_2d,      &
         & patch_3d%p_patch_1d(1)%dolic_c, &
         & patch_3d%p_patch_1d(1)%prism_thick_c, &

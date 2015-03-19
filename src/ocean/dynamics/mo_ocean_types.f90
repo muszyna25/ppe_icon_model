@@ -185,7 +185,6 @@ MODULE mo_ocean_types
     REAL(wp), POINTER :: pot_energy(:)
     REAL(wp), POINTER :: total_energy(:)
     REAL(wp), POINTER :: total_salt(:)
-    REAL(wp), POINTER :: salt_content(:)
     REAL(wp), POINTER :: vorticity(:)
     REAL(wp), POINTER :: enstrophy(:)
     REAL(wp), POINTER :: potential_enstrophy(:)
