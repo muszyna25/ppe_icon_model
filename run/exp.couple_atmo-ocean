@@ -1,3 +1,4 @@
+#!/bin/bash
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -25,6 +26,8 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
+grids_folder=/pool/data/ICON/grids/buildbot
+
 #
 # Number of ocean processes
 #
@@ -41,7 +44,7 @@ if [ $OMP_NUM_THREADS -gt 1 ] ; then
    check_error 0
    exit
 fi
-#
+
 #-----------------------------------------------------------------------------
 # ATMO
 #-----------------------------------------------------------------------------
@@ -529,7 +532,7 @@ cat > ${ocean_namelist} << EOF
 /
 &sea_ice_nml
   i_ice_therm   = 1
-  i_ice_dyn     = 1
+  i_ice_dyn     = 0                ! ice dynamics not yet ready for coupling
 /
 &ocean_forcing_nml
   iforc_oce              = ${iforc_oce} ! ocean forcing:

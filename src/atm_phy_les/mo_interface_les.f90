@@ -80,6 +80,7 @@ MODULE mo_interface_les
                                      write_vertical_profiles, write_time_series, &
                                      avg_interval_step, sampl_freq_step,  &
                                      is_sampling_time, is_writing_time, les_cloud_diag
+  USE mo_les_utilities,       ONLY: init_vertical_grid_for_les                                     
 
   IMPLICIT NONE
 
@@ -90,9 +91,23 @@ MODULE mo_interface_les
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
   INTEGER             :: ncount = 0
 
-  PUBLIC :: les_phy_interface
+  PUBLIC :: les_phy_interface, init_les_phy_interface
 
 CONTAINS
+  !
+  !-----------------------------------------------------------------------
+  !
+  SUBROUTINE init_les_phy_interface(jg, p_patch, p_int_state, p_metrics)
+    INTEGER,                   INTENT(in)     :: jg
+    TYPE(t_patch),     TARGET, INTENT(in)     :: p_patch
+    TYPE(t_int_state),         INTENT(in)     :: p_int_state
+    TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
+
+    ! precompute ddz_z metrics
+    ! could be done in init_vertical_grid later on
+    CALL init_vertical_grid_for_les(jg, p_patch, p_int_state, p_metrics)
+  END SUBROUTINE init_les_phy_interface
+
   !
   !-----------------------------------------------------------------------
   !

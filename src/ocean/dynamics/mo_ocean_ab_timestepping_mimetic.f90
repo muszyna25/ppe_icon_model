@@ -1857,6 +1857,18 @@ CONTAINS
       ENDIF
     ENDIF ! (debug_check_level > 8)
     !---------------------------------------------------------------------
+    IF (debug_check_level > 20) THEN
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        DO jc = start_index, end_index
+          IF(patch_3d%lsm_c(jc,1,blockNo) > sea_boundary) THEN
+            IF (ocean_state%p_prog(nnew(1))%h(jc,blockNo) /= 0.0_wp) &
+              & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,blockNo) /= 0 on land")
+          ENDIF
+        END DO
+      END DO
+    ENDIF
+    !---------------------------------------------------------------------
     
   END SUBROUTINE calc_vert_velocity_mim_bottomup
   !-------------------------------------------------------------------------

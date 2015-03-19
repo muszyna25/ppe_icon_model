@@ -54,7 +54,8 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce',#finalDoc',
+              #'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce',#finalDoc',
+               'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce'.split(','),
              }
 
   optsGiven = sys.argv[1:]
@@ -201,20 +202,20 @@ def _computeRegioMean(depth,varname,ifile,myMask,ofile,newData):
   # mask out region
   # vertical interpolation to target depth
   # mean value computaion
-  cdo.fldmean(input = '-div -sellevel,%s -selname,%s %s %s'%(depth,varname,ifile,myMask),
+  cdo.fldmean(input = '-div -sellevel,{0} -selname,{1} {2} {3}'.format(depth,varname,ifile,myMask),
               output = ofile,
               forceOutput = newData)
 
 """ compute global mean of bias for t s rho """
 def globalTempSalRho1D(ifile,initfile,maskfile,varNames,ofile):
-  cdo.timmean(input = '-fldmean -div -sub -selname,%s %s %s %s'%(varNames,ifile,initfile,maskfile),
+  cdo.timmean(input = '-fldmean -div -sub -selname,{0} {1} {2} {3}'.format(varNames,ifile,initfile,maskfile),
               output = ofile)
 
 """ compute horizontal last 30-year bias for t s rho """
 def globalTempSalRho2D(ifile,initfile,varNames,archdir):
   maskName = 'wet_c'
   ofile    = '/'.join([archdir,'TSR_2D_%s'%(os.path.basename(ifile))])
-  cdo.timmean(input = '-div -sub -selname,%s -sellevidx,1 %s -selname,%s -sellevidx,1 %s -sellevidx,1 -selname,%s -seltimestep,1 %s'%(varNames,ifile,varNames,initfile,maskName,ifile),
+  cdo.timmean(input = '-div -sub -selname,{0} -sellevidx,1 {1} -selname,{2} -sellevidx,1 {3} -sellevidx,1 -selname,{4} -seltimestep,1 {5}'.format(varNames,ifile,varNames,initfile,maskName,ifile),
               output = ofile)
 
 """ write a single file for a given years from a list of input files """ #{{{
@@ -250,6 +251,7 @@ def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
   yearFiles = []
   for year,files in filesOfYears.iteritems():
     yearFile               = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,True,expInfo])
+ #  yearFile               = pool.apply_async(grepYear,[[files],str(year),archdir,forceOutput,True,expInfo])
     yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
     yearFiles.append([year,yearFile,yearMeanFile])
 
@@ -263,10 +265,10 @@ def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
   pool    = multiprocessing.Pool(procs)
   results = []
 
-  initFile  = cdo.selname(','.join(varList),input = initFile, output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
+  initFile  = cdo.selname(','.join(varList),input = initFile, output = '/'.join([archdir,'TSR_{0}_init'.format(exp)]))
   # compute the 1d (vertical) year mean variance to the initial state
   for ifile in ifiles:
-    _ofile = '/'.join([archdir,'TSR_1D_%s'%(os.path.basename(ifile))])
+    _ofile = '/'.join([archdir,'TSR_1D_{0}'.format(os.path.basename(ifile))])
     ofile  = pool.apply_async(globalTempSalRho1D,[ifile,initFile,maskFile,','.join(varList),_ofile])
     ofile  = _ofile
     results.append(ofile)
@@ -274,16 +276,16 @@ def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
   pool.close()
   pool.join()
 
-  merged = '/'.join([archdir,'TSR_1D_%s_complete.nc'%(options['EXP'])])
+  merged = '/'.join([archdir,'TSR_1D_{0}_complete.nc'.format(options['EXP'])])
   if os.path.exists(merged):
     os.remove(merged)
   merged = cdo.cat(input = ' '.join(sorted(results)),
                    output =  merged)
 
   # rename vertical axis if present - ignore exit status (return code differs depending on the ncp version)
-  if subprocess.call("ncrename -d depth_2,depth -v depth_2,depth -O %s"%(merged),shell=True,env=os.environ):
+  if subprocess.call('ncrename -d depth_2,depth -v depth_2,depth -O {0}'.format(merged),shell=True,env=os.environ):
     print("ERROR: ncrename failed")
-    print("ERROR: ncrename -d depth_2,depth -v depth_2,depth_2 -O %s"%(merged))
+    print('ERROR: ncrename -d depth_2,depth -v depth_2,depth_2 -O {0}'.format(merged))
 #   exit(1)
 
   return merged
@@ -295,7 +297,7 @@ def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
   cdo.selname(','.join(varList),
               input  = log['last30YearsMeanBias'],
               output = ofile)
-  ofileMasked = '/'.join([archdir,'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])])
+  ofileMasked = '/'.join([archdir,'TSR_2D_{0}_complete_timmean_masked.nc'.format(options['EXP'])])
   applyMask(ofile,LOG['mask'],ofileMasked)
 
   return ofileMasked
@@ -631,14 +633,14 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
       # surface plot
       oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-atSurface_'+'_'.join([_filename,plotConfig['tag']])])
       cmd = [options['ICONPLOT'],
-             '-iFile=%s'%(plotConfig['iFile']),
-             '-varName=%s'%(varname),
+             '-iFile={0}'.format(plotConfig['iFile']),
+             '-varName={0}'.format(varname),
              '-oType='+options['OFORMAT'],plotConfig['sizeOpt'],
              '-rStrg="-"',
              '-maskName=wet_c',
              '-withLineLabels',
-             '-tStrg="%s"'%(plotConfig['title']),
-             '-oFile=%s'%(oFile)]
+             '-tStrg="{0}"'.format(plotConfig['title']),
+             '-oFile={0}'.format(oFile)]
 
       if ( 'box' == options['GRID'] ):
         cmd.append('-limitMap')
@@ -649,13 +651,13 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
         cmd.append('')
 
       if ('maskFile' in plotConfig):
-        cmd.append('-maskFile=%s'%(plotConfig['maskFile']))
+        cmd.append('-maskFile={0}'.format(plotConfig['maskFile']))
 
       if ('mapType' in plotConfig):
-        cmd.append('-mapType=%s'%(plotConfig['mapType']))
+        cmd.append('-mapType={0}'.format(plotConfig['mapType']))
 
       if ('colormap' in plotConfig):
-        cmd.append('-colormap=%s'%(plotConfig['colormap']))
+        cmd.append('-colormap={0}'.format(plotConfig['colormap']))
 
       if ('opts' in plotConfig):
         cmd.append(plotConfig['opts'])
@@ -669,7 +671,9 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
             cmd.append('-minVar=%s -maxVar=%s %s'%(limits['minVar'],limits['maxVar'],limits['mode']))
 
       cmd = ' '.join(cmd)
+      print('================================================================================================================================')
       dbg(cmd)
+      print('================================================================================================================================')
       plots.append(cmd)
 
       # plot for roughly 30m,100m and 200m depth
@@ -754,6 +758,10 @@ cdo             = Cdo()
 cdo.cdfMod = 'netcdf4'
 cdo.debug       = options['DEBUG']
 cdo.forceOutput = options['FORCE']
+cdo164          = ['/sw/squeeze-x64/cdo-1.6.4/bin/cdo','/sw/aix61/cdo-1.6.7/bin/cdo']
+for cdopath in cdo164:
+  if os.path.exists(cdopath):
+    cdo.setCdo(cdopath)
 # }}}
 # -----------------------------------------------------------------------------
 # INPUT HANDLING: {{{
@@ -847,6 +855,7 @@ if 'preproc' in options['ACTIONS']:
                                   options['FORCE'],
                                   options['EXP'],
                                   options['PROCS'])
+
   years, yearMeanFiles = [],[]
   LOG['meansOfYears'] = {}
   for _info in splitInfo:
@@ -855,15 +864,17 @@ if 'preproc' in options['ACTIONS']:
     years.append(year)
     yearMeanFiles.append(yearMeanFile)
     LOG['meansOfYears'][year] = yearMeanFile
-
   years.sort()
-  yearMeanFiles.sort()
-  LOG['years']      = years
-  LOG['splityear?'] = True
 else:
+  years = LOG['filesOfYears'].keys()
+  years.sort()
   yearMeanFiles = []
-  for year in LOG['years']:
-    yearMeanFiles.append(LOG['meansOfYears'][year])
+  for year in years:
+    yearMeanFile = LOG['meansOfYears'][year]
+    yearMeanFiles.append(yearMeanFile)
+  yearMeanFiles.sort()
+  LOG['splityear?'] = True
+LOG['years']      = years
 dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
@@ -892,6 +903,15 @@ lastYearsPeriod    = min(30,len(LOG['years'])/2)
 lastYearsStartYear = -1*lastYearsPeriod - 2
 lastYearsEndYear   = lastYearsStartYear + lastYearsPeriod
 
+print('#====================================================================')
+dbg(lastYearsPeriod)
+dbg(lastYearsStartYear)
+dbg(lastYearsEndYear)
+dbg(LOG['years'][lastYearsStartYear:lastYearsEndYear])
+dbg(','.join(LOG['years'][lastYearsStartYear:lastYearsEndYear]))
+sssss = ','.join(LOG['years'][lastYearsStartYear:lastYearsEndYear])
+dbg(LOG[LOG['years'][lastYearsStartYear:lastYearsEndYear][0]])
+print('#====================================================================')
 lastYearsFiles = []
 for y in LOG['years'][lastYearsStartYear:lastYearsEndYear]:
     lastYearsFiles.append(LOG[str(y)])
@@ -900,13 +920,13 @@ yearMonMeanFile    = yearMonMeanFileName(options['ARCHDIR'],
                                          LOG['years'][lastYearsStartYear],
                                          LOG['years'][lastYearsEndYear])
 LOG['last30YearsMonMean']   = cdo.ymonmean(input = cdo.cat(input = ' '.join(lastYearsFiles),
-                                                           output = yearMonMeanFile+'tmp'),
+                                                           output = str(yearMonMeanFile+'tmp')),
                                            output = yearMonMeanFile)
-LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][lastYearsStartYear:lastYearsEndYear]),ymFile),
+LOG['last30YearsMean']     = cdo.timmean(input = str('-selyear,'+sssss+' '+ymFile),
                                          output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],
                                                                                     options['EXP'],
-                                                                                    LOG['years'][lastYearsStartYear],
-                                                                                    LOG['years'][lastYearsEndYear]))
+                                                                                    str(LOG['years'][lastYearsStartYear]),
+                                                                                    str(LOG['years'][lastYearsEndYear])))
 LOG['last30YearsMeanBias'] = cdo.sub(input = ' %s %s'%(LOG['last30YearsMean'],LOG['init']),
                                      output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],
                                                                                     options['EXP'],
@@ -926,7 +946,7 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
   yearInfo  = '-'.join([years4Psi[0],years4Psi[-1]])
   psiModelVariableName = "u_vint_acc"
   psiGlobalFile = '/'.join([options['ARCHDIR'],'_'.join([psiModelVariableName,yearInfo])+'.nc'])
-  cdo.timmean(input = "-selname,%s -selyear,%s/%s %s"%(psiModelVariableName,years4Psi[0],years4Psi[-1],ymFile),
+  cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],ymFile),
               output = psiGlobalFile)
   psiSelectionConfig = {
           'indonesian_throughflow' : { 'lonlatbox' : '90,150,-20,40',},
@@ -1015,7 +1035,7 @@ if 'procMoc' in options['ACTIONS']:
       os.remove(mocMeanFile)
   if mocNeededNSteps <= mocLastNtime:
     # take the last 120 values for timmeaninput
-    mocMeanFile = cdo.timmean(input = "-seltimestep,%s/%s %s"%(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
+    mocMeanFile = cdo.timmean(input = '-seltimestep,{0}/{1} {2}'.format(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
                               output = mocMeanFile)
   else:
     mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
@@ -1032,17 +1052,18 @@ if 'procTSR' in options['ACTIONS']:
   t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
                                               LOG['init'],LOG['mask'],options['EXP'],options['ARCHDIR'],options['PROCS'])
   dbg(t_s_rho_Output_1D)
-  t_s_rho_Output_2D = applyMask(' -selname,t_acc,s_acc,rhopot_acc %s'%(LOG['last30YearsMeanBias']),
+  t_s_rho_Output_2D = applyMask(' -selname,t_acc,s_acc,rhopot_acc {0}'.format(LOG['last30YearsMeanBias']),
                                 LOG['mask'],
-                                '/'.join([options['ARCHDIR'],'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])]))
+                                '/'.join([options['ARCHDIR'],'TSR_2D_{0}_complete_timmean_masked.nc'.format(options['EXP'])]))
   dbg(t_s_rho_Output_2D)
+
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
 if 'plotPsi' in options['ACTIONS']:
   plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
   title    = "Bar. Streamfunction for %s\n (file: %s)"%(options['EXP'],psiGlobalFile)
-  cmd = '%s %s %s'%(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA=%s TITLE='%s' PLOT=%s"%(options['GRID'],title,plotFile))
+  cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA={0} TITLE='{1}' PLOT={2}".format(options['GRID'],title,plotFile))
   dbg(cmd)
   plotCommands.append(cmd)
   if subprocess.check_call(cmd,shell=True,env=os.environ):
@@ -1051,7 +1072,7 @@ if 'plotPsi' in options['ACTIONS']:
   for area, selection in psiSelectionConfig.iteritems():
     title = "Selected Stream function for %s (%s)"%(area,options['EXP'])
     plotFile = options['PLOTDIR']+'/'+"_".join(["psi",area,options['EXP'],options['TAG']+'.png'])
-    cmd = '%s %s %s'%(options['CALCPSI'], psiGlobalFile, " AREA=local TITLE='%s' PLOT=%s BOX=%s "%(title,plotFile,selection['lonlatbox']))
+    cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " AREA=local TITLE='{0}' PLOT={1} BOX={2} ".format(title,plotFile,selection['lonlatbox']))
     dbg(cmd)
     plotCommands.append(cmd)
     if subprocess.check_call(cmd,shell=True,env=os.environ):
@@ -1060,21 +1081,30 @@ if 'plotPsi' in options['ACTIONS']:
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
 if 'plotHorz' in options['ACTIONS']:
   # A) last year mean
+  print('-------------------------------------------------------')
+  dbg(LOG[LOG['years'][-2]])
+  dbg(cdo.showname(input = str(LOG[LOG['years'][-2]]))[0].split(' '))
+  print('-------------------------------------------------------')
   horizontalConfig = {
     'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
-    'iFile'         : LOG['meansOfYears'][LOG['years'][-2]],
-    'availableVars' : cdo.showname(input = LOG[LOG['years'][-2]])[0].split(' '),
+    'iFile'         : str(LOG['meansOfYears'][LOG['years'][-2]]),
+    'availableVars' : cdo.showname(input = str(LOG[LOG['years'][-2]]))[0].split(' '),
     'sizeOpt'       : '-xsize=1200 -ysize=800',
     'title'         : '%s: last year mean '%(options['EXP']),
     'tag'           : 'lastYearMean',
     'limits'        : PlotConfig,
   }
+  dbg(horizontalConfig)
   plotHorizontal(horizontalConfig,options,hasNewFiles)
   # B) last 30-year mean
+  print('-------------------------------------------------------')
+  dbg(LOG['last30YearsMean'])
+  print('-------------------------------------------------------')
+  sys.exit(1)
   horizontalConfig = {
     'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
-    'iFile'         : LOG['last30YearsMean'],
-    'availableVars' : cdo.showname(input = LOG['last30YearsMean'])[0].split(' '),
+    'iFile'         : str(LOG['last30YearsMean']),
+    'availableVars' : cdo.showname(input = str(LOG['last30YearsMean']))[0].split(' '),
     'sizeOpt'       : '-xsize=1200 -ysize=800',
     'title'         : '%s: last 30-year-mean '%(options['EXP']),
     'tag'           : 'last30YearMean',
@@ -1083,8 +1113,8 @@ if 'plotHorz' in options['ACTIONS']:
   plotHorizontal(horizontalConfig,options,hasNewFiles)
   horizontalConfig = {
     'varNames'      : ['HeatFlux_Total_acc','FrshFlux_VolumeTotal_acc', 'FrshFlux_Precipitation_acc', 'FrshFlux_Evaporation_acc','FrshFlux_Runoff_acc','HeatFlux_ShortWave_acc', 'HeatFlux_LongWave_acc','HeatFlux_Sensible_acc', 'HeatFlux_Latent_acc'],
-    'iFile'         : LOG['last30YearsMean'],
-    'availableVars' : cdo.showname(input = LOG['last30YearsMean'])[0].split(' '),
+    'iFile'         : str(LOG['last30YearsMean']),
+    'availableVars' : cdo.showname(input = str(LOG['last30YearsMean']))[0].split(' '),
     'sizeOpt'       : '-xsize=1200 -ysize=800',
     'title'         : '%s: last 30-year-mean '%(options['EXP']),
     'tag'           : 'last30YearMean',
@@ -1111,20 +1141,21 @@ XSectionPlotConfig['s_acc']['maxVar'] = '1.0'
 XSectionPlotConfig['t_acc']['minVar'] = '-5.0'
 XSectionPlotConfig['t_acc']['maxVar'] = '5.0'
 if 'plotX' in options['ACTIONS']:
+  print('# PLOTX  PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX')
   if ( 'global' == options['GRID'] ):
     for varname in ['t_acc','s_acc','rhopot_acc']:
       # plot last yearmean state
       oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
-      iFile4XSection = LOG['last30YearsMean'] # take last 30 year mean file
+      iFile4XSection = str(LOG['last30YearsMean']) # take last 30 year mean file
       # mask by devision
-      iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
+      iFile4XSection = cdo.div(input  = '-selname,{0} {1} {2}'.format(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                                output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
       if ( 'rhopot_acc' == varname ):
         # substract 1000
         iFile4XSection  = cdo.subc(1000.0,
-                                   input = '-selname,%s %s'%(varname,iFile4XSection),
-                                   output = os.path.splitext(iFile4XSection)[0]+'_%s_subc1000.nc'%(varname))
-      title = '%s: last 30 year mean '%(options['EXP'])
+                                   input = '-selname,{0} {1}'.format(varname,iFile4XSection),
+                                   output = os.path.splitext(iFile4XSection)[0]+'_{0}_subc1000.nc'.format(varname))
+      title = '{0}: last 30 year mean '.format(options['EXP'])
       cmd = [options['ICONPLOT'],
              '-iFile=%s'%(iFile4XSection),
              '-secMode=circle -secLC=-45,-70 -secRC=30,80',
@@ -1144,9 +1175,9 @@ if 'plotX' in options['ACTIONS']:
   
       # plot bias to initialization
       oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
-      iFile4XSection = LOG['last30YearsMeanBias'] # take last 30 yearmean bias to init
+      iFile4XSection = str(LOG['last30YearsMeanBias']) # take last 30 yearmean bias to init
       # mask by devision
-      iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
+      iFile4XSection = cdo.div(input  = '-selname,{0} {1} {2}'.format(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                                output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
       title = '%s: last 30 year mean bias to init '%(options['EXP'])
       cmd = [options['ICONPLOT'],
@@ -1273,17 +1304,17 @@ if ('plotMld' in options['ACTIONS']):
 # take march and septempber from the last 30 year mean
 if ('procIce' in options['ACTIONS']):
   iceData = cdo.selname('hi_acc,conc_acc',
-                        input = LOG['last30YearsMonMean'],
-                        output = '/'.join([options['ARCHDIR'],'sea_ice_%s'%(os.path.basename(LOG['last30YearsMean']))]))
+                        input = str(LOG['last30YearsMonMean']),
+                        output = '/'.join([options['ARCHDIR'],'sea_ice_{0}'.format(os.path.basename(LOG['last30YearsMean']))]))
   meanIceThicknessData = cdo.setunit('m',
-                                     input = " -expr,'hiMean=hi_acc*conc_acc' %s"%(iceData),
-                                     output = '/'.join([options['ARCHDIR'],'meanIceThickness_%s'%(os.path.basename(iceData))]))
+                                     input = " -expr,'hiMean=hi_acc*conc_acc' {0}".format(iceData),
+                                     output = '/'.join([options['ARCHDIR'],'meanIceThickness_{0}'.format(os.path.basename(iceData))]))
 if ('plotIce' in options['ACTIONS']):
   for mapTypeIndex,mapType in enumerate(['NHps','SHps']):
     month = [3,9][mapTypeIndex]
     iFile = cdo.selmon(month,
                        input = iceData,
-                       output = '/'.join([options['ARCHDIR'],'month%s_%s'%(month,os.path.basename(iceData))]))
+                       output = '/'.join([options['ARCHDIR'],'month{0}_{1}'.format(month,os.path.basename(iceData))]))
     icePlotConfig = {
       'varNames'      : ['hi_acc','conc_acc'],
       'iFile'         : iFile,
@@ -1298,7 +1329,7 @@ if ('plotIce' in options['ACTIONS']):
     plotHorizontal(icePlotConfig,options,hasNewFiles)
     iFile = cdo.selmon(month,
                        input = meanIceThicknessData,
-                       output = '/'.join([options['ARCHDIR'],'month%s_%s'%(month,os.path.basename(meanIceThicknessData))]))
+                       output = '/'.join([options['ARCHDIR'],'month{0}_{1}'.format(month,os.path.basename(meanIceThicknessData))]))
     icePlotConfig = {
       'varNames'      : ['hiMean'],
       'iFile'         : iFile,

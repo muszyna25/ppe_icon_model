@@ -186,6 +186,7 @@ doc/technical/async_restart/restart_module_doc.pdf -text
 doc/technical/async_restart/restart_module_doc.tex -text
 doc/technical/dwd_database/GRIB2_output_tables.tex -text
 doc/technical/dwd_database/analysis.tex -text
+doc/technical/dwd_database/appendix.tex -text
 doc/technical/dwd_database/cloud_variables.pdf -text
 doc/technical/dwd_database/cloud_variables.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
@@ -702,7 +703,6 @@ lapack/slaswp.f -text
 lapack/spotf2.f -text
 lapack/spotrf.f -text
 lapack/spotrs.f -text
-/make_my_runscript -text
 /make_runscripts -text
 run/README -text
 run/Rakefile -text
@@ -726,10 +726,6 @@ run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_160-40km_R-refined-NAtlantic -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_160km_40levels_cell -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_160km_edge -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_testSurface -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_long -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_short -text
@@ -741,6 +737,8 @@ run/checksuite.ocean_internal/other/exp.oce_Earth_10km_zonalWind_TemperatureRela
 run/checksuite.ocean_internal/other/exp.oce_atlbox79km -text
 run/checksuite.ocean_internal/other/exp.oce_default -text
 run/checksuite.ocean_internal/other/exp.oce_mpiom_new_noland -text
+run/checksuite.ocean_internal/other/exp.oce_omip_160-40km_R-refined-NAtlantic -text
+run/checksuite.ocean_internal/other/exp.oce_omip_testSurface -text
 run/checksuite.ocean_internal/other/exp.oce_sltst -text
 run/checksuite.ocean_internal/other/exp.oce_test_numeric -text
 run/checksuite.ocean_internal/other/exp.oce_test_numeric_r2b5 -text
@@ -816,7 +814,6 @@ run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.check_atm_jww_hs -text
-run/exp.check_restart -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-ocean-prod -text
 run/exp.couple_atmo-radiation -text
@@ -826,9 +823,6 @@ run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
-run/exp.hat_jww_echam -text
-run/exp.hat_jww_ptest -text
-run/exp.hat_jww_rescale -text
 run/exp.hat_rce_120km -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_communication -text
@@ -890,12 +884,9 @@ run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.oce_longrun -text
-run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
-run/post.test_oce_numeric -text
-run/post.test_oce_numeric_tracerconservation -text
 run/post.test_ocean_omip_10days -text
 run/postFunx.sh -text
 run/run_ICOHAM_R2B4_APE -text
@@ -1222,6 +1213,7 @@ scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
@@ -1310,7 +1302,6 @@ src/atm_phy_echam/mo_cover.f90 -text
 src/atm_phy_echam/mo_cuadjust.f90 -text
 src/atm_phy_echam/mo_cuascent.f90 -text
 src/atm_phy_echam/mo_cudescent.f90 -text
-src/atm_phy_echam/mo_cuentr.f90 -text
 src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
@@ -1377,6 +1368,7 @@ src/atm_phy_les/mo_interface_les.f90 -text
 src/atm_phy_les/mo_les_turb_interface.f90 -text
 src/atm_phy_les/mo_les_utilities.f90 -text
 src/atm_phy_les/mo_ls_forcing.f90 -text
+src/atm_phy_les/mo_sgs_turbmetric.f90 -text
 src/atm_phy_les/mo_sgs_turbulence.f90 -text
 src/atm_phy_les/mo_surface_les.f90 -text
 src/atm_phy_les/mo_turbulent_diagnostic.f90 -text

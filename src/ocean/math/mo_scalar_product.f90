@@ -211,6 +211,7 @@ CONTAINS
   !! Optimized version of the nonlinear_coriolis_3d
   !! Note: intel -o3 will produce very different results when using this version,
   !!  the model exhibits great sensitivity using the AtlanticBoxACC setup
+  !! Note: vn should be zero on land edges, otherwise it will give wrong result
   !<Optimize:inUse>
   SUBROUTINE nonlinear_coriolis_3d_fast(patch_3d, vn, p_vn_dual, vort_v, &
     & operators_coefficients, vort_flux)
@@ -273,22 +274,24 @@ CONTAINS
 
           DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           
-            thick_edge(level,1) = 1.0_wp!patch_3D%p_patch_1d(1)%prism_thick_e(&
-              !&patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge), level, &
-             ! &patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge))
+            thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(              &
+              & patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge), level, &
+              & patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge))
               
-            thick_vert(level,1) =1.0_wp! thick_vert(level,1)+thick_edge(level,1)/patch_2d%verts%num_edges(vertex1_idx,vertex1_blk)
+            thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
             
             this_vort_flux(level, 1) =  this_vort_flux(level, 1) + &
               & vn( patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge), level, &
               &      patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge))  * &
               &  operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)&
-              & *thick_edge(level,1)
+              & * thick_edge(level,1)
 
           ENDDO
 
         END DO ! edges of this vertex
-       !this_vort_flux(:,1) = this_vort_flux(:,1)/thick_vert(:,1)
+        this_vort_flux(:,1) = this_vort_flux(:,1) / &
+          & (thick_vert(:,1) / REAL(patch_2d%verts%num_edges(vertex1_idx,vertex1_blk),wp))
+          
         ! vertex 2
         ictr = no_dual_edges
         DO vertex_edge=1, patch_2d%verts%num_edges(vertex2_idx,vertex2_blk)!no_dual_cell_edges
@@ -301,8 +304,7 @@ CONTAINS
              ! &patch_2d%verts%edge_idx(vertex2_idx,vertex2_blk,vertex_edge), level, &
              ! &patch_2d%verts%edge_blk(vertex2_idx,vertex2_blk,vertex_edge))
               
-            thick_vert(level,2) = 1.0_wp!thick_vert(level,2)+thick_edge(level,2)/patch_2d%verts%num_edges(vertex2_idx,vertex2_blk)
-          
+            thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
           
             this_vort_flux(level, 2) =  this_vort_flux(level, 2) + &
               & vn( patch_2d%verts%edge_idx(vertex2_idx,vertex2_blk,vertex_edge), level, &
@@ -312,12 +314,13 @@ CONTAINS
 
           ENDDO
         END DO ! edges of this vertex
-        !this_vort_flux(:,2) = this_vort_flux(:,2)/thick_vert(:,2)
+        this_vort_flux(:,2) = this_vort_flux(:,2) / &
+          & (thick_vert(:,2) / REAL(patch_2d%verts%num_edges(vertex1_idx,vertex1_blk),wp))
         
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           
           vort_flux(je,level,blockNo) =  &
-            & this_vort_flux(level,1) * &
+            & this_vort_flux(level,1) *  &
             & (vort_v(vertex1_idx, level, vertex1_blk) + patch_2d%verts%f_v(vertex1_idx, vertex1_blk))  &
             & + this_vort_flux(level,2) * &
             & (vort_v(vertex2_idx, level, vertex2_blk) + patch_2d%verts%f_v(vertex2_idx, vertex2_blk))

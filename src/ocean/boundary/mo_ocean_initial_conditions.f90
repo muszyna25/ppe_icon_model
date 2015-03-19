@@ -545,8 +545,10 @@ CONTAINS
     CASE (214)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
       !  exponential temperature profile following Abernathey et al., 2011
-      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
-        &                                    initial_temperature_scale_depth)
+!       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+!         &                                    initial_temperature_scale_depth)
+      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & bottom_value=initial_temperature_bottom)
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     

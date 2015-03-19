@@ -574,7 +574,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     CALL delete_var_list(ocean_diagnostics_list)
 
-    IF (diagnostics_level < 0) RETURN
+    IF (diagnostics_level <= 0) RETURN
 
     DO i=0,nsteps
       DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)

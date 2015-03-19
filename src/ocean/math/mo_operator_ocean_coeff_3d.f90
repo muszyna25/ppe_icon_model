@@ -71,10 +71,8 @@ MODULE mo_operator_ocean_coeff_3d
   INTEGER,PUBLIC :: no_primal_edges 
 
   ! flags for computing ocean coefficients
-  ! LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
-  LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .FALSE. !Please do not change this unless you are sure, you know what you do.
-  !LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
-  LOGICAL, PARAMETER :: LARC_LENGTH = .TRUE.
+  LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
+  LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
   CHARACTER(LEN=16)           :: str_module = 'opcoeff'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
@@ -892,9 +890,6 @@ CONTAINS
     REAL(wp) :: basin_center_lat_rad, basin_height_rad
     REAL(wp) :: length
     REAL(wp) :: inverse_sphere_radius
-    !REAL(wp) :: dist_edge_cell, dist_edge_cell_basic
-    !INTEGER :: edge_block_cell, edge_index_cell, ictr
-    !INTEGER :: cell_edge, vert_edge
     INTEGER :: edge_block, edge_index
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
@@ -1539,7 +1534,6 @@ CONTAINS
     INTEGER :: ictr,edge_block_vertex, edge_index_vertex
     INTEGER :: vert_edge
     INTEGER :: edge_block, edge_index
-    !INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
     INTEGER :: start_index, end_index, neigbor
     INTEGER :: level
@@ -1757,17 +1751,22 @@ CONTAINS
             !actual edge
             edge_index_vertex = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
             edge_block_vertex = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
-            dist_vector%x  =  (dual_edge_middle(edge_index_vertex, edge_block_vertex)%x - vertex_center%x) &
-              & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
-
-            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_vertex, edge_block_vertex))
-
-            !The dot product is the cosine of the angle between vectors from dual cell centers
-            !to dual cell edges 
-            edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
-              & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))   &
-              & * (dual_edge_length(edge_index_vertex, edge_block_vertex)   &
-              &    / prime_edge_length(edge_index, edge_block))
+            
+            IF (edge_index == edge_index_vertex .and. edge_block == edge_block_vertex) THEN
+              ! the result is 0, since the external product (see below) by this edge is
+              ! perpedicular to itself, and the dot product is 0
+              edge2edge_viavert_coeff(edge_index,edge_block,ictr) = 0.0_wp
+            ELSE
+              dist_vector%x  =  (dual_edge_middle(edge_index_vertex, edge_block_vertex)%x - vertex_center%x) &
+                & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
+              dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_vertex, edge_block_vertex))
+              !The dot product is the cosine of the angle between vectors from dual cell centers
+              !to dual cell edges
+              edge2edge_viavert_coeff(edge_index,edge_block,ictr)             &
+                & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))          &
+                & * (dual_edge_length(edge_index_vertex, edge_block_vertex)   &
+                &    / prime_edge_length(edge_index, edge_block))
+            ENDIF
 
           END DO
         ENDDO !neigbor=1,2
@@ -1820,13 +1819,10 @@ CONTAINS
     INTEGER :: sea_edges_per_vertex(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: ibnd_edge_idx(4), ibnd_edge_blk(4)  !maximal 4 boundary edges in a dual loop.
     INTEGER :: i_edge_idx(4)
-    !REAL(wp) :: z_orientation(4)!,z_area_scaled 
     REAL(wp) :: zarea_fraction(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     INTEGER :: boundary_counter
-    !INTEGER :: cell_index, cell_block
-    !INTEGER :: edge_index_cell, edge_block_cell
     INTEGER :: neigbor, k
     INTEGER :: cell_index, cell_block, edge_index_of_cell, edge_block_of_cell, k_coeff
 
