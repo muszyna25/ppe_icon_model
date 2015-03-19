@@ -13,6 +13,7 @@ if [ ! -d "${EXP_ORI}" ]; then
   exit 1
 fi
 if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
+  echo "Cannot find restart file: ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc !"
   echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
   exit 1
 fi
