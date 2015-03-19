@@ -14,7 +14,7 @@
 !! Modification by Thomas Heinze (2006-09-20):
 !! - added routine grid_and_patch_diagnosis
 !! Modification by Pilar Ripodas, DWD, (2007-01-31)
-!! - addapted to the new TYPE grid_edges (system_orientation added)
+!! - addapted to the new TYPE grid_edges (tangent_orientation added)
 !! Modification by Peter Korn,  MPI-M, (2006-12)
 !! - implementation of topography and boundary treatment, i.e.
 !!   initialization of the grid & patch components that carry

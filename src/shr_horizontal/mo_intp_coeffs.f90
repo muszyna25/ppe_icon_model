@@ -2100,7 +2100,7 @@ CONTAINS
               ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) - &
                 & ptr_int%geofac_div(jc,je,jb) /                            &
                 & ptr_patch%edges%dual_edge_length(ile,ibe)*                &
-                & ptr_patch%edges%system_orientation(ile,ibe)
+                & ptr_patch%edges%tangent_orientation(ile,ibe)
             ENDIF
           ELSE IF (jc == ilc2 .AND. jb == ibc2) THEN
             IF (ptr_patch%geometry_info%cell_type == 3) THEN
@@ -2111,7 +2111,7 @@ CONTAINS
               ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) + &
                 & ptr_int%geofac_div(jc,je,jb) /                            &
                 & ptr_patch%edges%dual_edge_length(ile,ibe)*                &
-                & ptr_patch%edges%system_orientation(ile,ibe)
+                & ptr_patch%edges%tangent_orientation(ile,ibe)
             ENDIF
           ENDIF
           DO ic = 1, ptr_patch%geometry_info%cell_type
@@ -2126,7 +2126,7 @@ CONTAINS
                 ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) - &
                   & ptr_int%geofac_div(jc,je,jb) /                                  &
                   & ptr_patch%edges%dual_edge_length(ile,ibe)*                      &
-                  & ptr_patch%edges%system_orientation(ile,ibe)
+                  & ptr_patch%edges%tangent_orientation(ile,ibe)
               ENDIF
             ELSE IF (ilnc == ilc2 .AND. ibnc == ibc2) THEN
               IF (ptr_patch%geometry_info%cell_type == 3) THEN
@@ -2137,7 +2137,7 @@ CONTAINS
                 ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) + &
                   & ptr_int%geofac_div(jc,je,jb) /                                  &
                   & ptr_patch%edges%dual_edge_length(ile,ibe)*                      &
-                  & ptr_patch%edges%system_orientation(ile,ibe)
+                  & ptr_patch%edges%tangent_orientation(ile,ibe)
               ENDIF
             ENDIF
           ENDDO

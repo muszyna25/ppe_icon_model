@@ -171,7 +171,7 @@ CONTAINS
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge vertex index failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%system_orientation,  stat=ist )
+    DEALLOCATE( p_patch%edges%tangent_orientation,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge system orientation failed')
     ENDIF
@@ -854,7 +854,7 @@ CONTAINS
       ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
       IF (ALLOCATED(p_patch%edges%vertex_blk)) DEALLOCATE(p_patch%edges%vertex_blk)
       ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
-      ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%tangent_orientation(nproma,p_patch%nblks_e) )
       ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
       ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
       ALLOCATE( p_patch%edges%butterfly_idx(nproma,p_patch%nblks_e,2,2) )
@@ -938,7 +938,7 @@ CONTAINS
       p_patch%edges%cell_blk = 0
       p_patch%edges%vertex_idx = 0
       p_patch%edges%vertex_blk = 0
-      p_patch%edges%system_orientation = 0._wp
+      p_patch%edges%tangent_orientation = 0._wp
       p_patch%edges%quad_idx = 0
       p_patch%edges%quad_blk = 0
       p_patch%edges%butterfly_idx = 0

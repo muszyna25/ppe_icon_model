@@ -1659,7 +1659,7 @@ CONTAINS
 
           edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
             & (edge_center%x - patch_2D%verts%cartesian(vertex_index, vertex_block)%x) * &
-            & patch_2D%edges%system_orientation(edge_index, edge_block)                / &
+            & patch_2D%edges%tangent_orientation(edge_index, edge_block)                / &
             & prime_edge_length(edge_index, edge_block)
 
         ENDDO !neigbor=1,2
@@ -1712,7 +1712,7 @@ CONTAINS
           vertex_center%x= patch_2D%verts%cartesian(vertex_index, vertex_block)%x
 
           dist_vector_basic%x = (edge_center%x - vertex_center%x) &
-            & * (3 - 2 * neigbor) * patch_2D%edges%system_orientation(edge_index, edge_block)
+            & * (3 - 2 * neigbor) * patch_2D%edges%tangent_orientation(edge_index, edge_block)
 
           !IF(neigbor==1)ictr = 0
           !IF(neigbor==2)ictr = no_dual_edges
@@ -1740,7 +1740,7 @@ CONTAINS
 !             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
 !               & = orientation                                           &
 !               & * DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)        &
-!               & * patch_2D%edges%system_orientation(edge_index, edge_block)&
+!               & * patch_2D%edges%tangent_orientation(edge_index, edge_block)&
 !               & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
 !               &    / prime_edge_length(edge_index, edge_block))
 ! 
@@ -2143,7 +2143,7 @@ CONTAINS
             ibnd_edge_blk(je) = operators_coefficients%bnd_edge_blk(jv,jk,block,je)
 
             operators_coefficients%rot_coeff(jv,jk,block,i_edge_idx(je) )=&
-              & 0.5_wp*patch_2D%edges%system_orientation(ibnd_edge_idx(je),ibnd_edge_blk(je)) * &
+              & 0.5_wp*patch_2D%edges%tangent_orientation(ibnd_edge_idx(je),ibnd_edge_blk(je)) * &
               & patch_2D%edges%primal_edge_length(ibnd_edge_idx(je),ibnd_edge_blk(je))
 
           ENDDO
@@ -3140,7 +3140,7 @@ CONTAINS
 ! 
 !           edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
 !             & (edge_center%x - patch_2D%verts%cartesian(vertex_index, vertex_block)%x) * &
-!             & patch_2D%edges%system_orientation(edge_index, edge_block)                / &
+!             & patch_2D%edges%tangent_orientation(edge_index, edge_block)                / &
 !             & prime_edge_length(edge_index, edge_block)
 ! 
 !         ENDDO !neigbor=1,2

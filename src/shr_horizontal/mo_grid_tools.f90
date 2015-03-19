@@ -244,12 +244,12 @@ CONTAINS
         & patch%edges%vertex_blk(edge_index, edge_block, 1) == vertex_blocks(1)  .AND. &
         & patch%edges%vertex_idx(edge_index, edge_block, 2) == vertex_indexes(2) .AND. &
         & patch%edges%vertex_blk(edge_index, edge_block, 2) == vertex_blocks(2)) THEN
-        edge_orientation = patch%edges%system_orientation(edge_index, edge_block)
+        edge_orientation = patch%edges%tangent_orientation(edge_index, edge_block)
       ELSEIF(patch%edges%vertex_idx(edge_index, edge_block, 1) == vertex_indexes(2) .AND. &
         & patch%edges%vertex_blk(edge_index, edge_block, 1) == vertex_blocks(2)  .AND. &
         & patch%edges%vertex_idx(edge_index, edge_block, 2) == vertex_indexes(1) .AND. &
         & patch%edges%vertex_blk(edge_index, edge_block, 2) == vertex_blocks(1)) THEN
-        edge_orientation = -patch%edges%system_orientation(edge_index, edge_block)
+        edge_orientation = -patch%edges%tangent_orientation(edge_index, edge_block)
       ELSE
         CALL finish(method_name, "Edge-Vertex connectivity inconsistency")
       ENDIF
