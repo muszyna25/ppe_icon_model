@@ -93,7 +93,6 @@ lfeedback=.false.
 if [ x$lredgrid_phys = "x.true." ]; then
 cat > ${atmo_namelist} << EOF
 &grid_nml
- ! cell_type is not used = ${! cell_type is not used}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  radiation_grid_filename = "${atmo_rad_grids}",
  dynamics_radiation_grid_link = 1,
