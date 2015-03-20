@@ -134,6 +134,7 @@ nproma=$use_nproma
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
 icon_data_RootFolder="${icon_data_RootFolder}"
+icon_data_buildbot="${icon_data_RootFolder}/buildbot_data"
 EOF
 
 #for i in {1..$no_of_free_variables}

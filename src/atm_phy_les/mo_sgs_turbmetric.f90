@@ -503,7 +503,7 @@ MODULE mo_sgs_turbmetric
                               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
                               ddxn_z_full(je,jk,jb)
 
-            D_12(je,jk,jb) =     p_patch%edges%system_orientation(je,jb) *  &
+            D_12(je,jk,jb) =     p_patch%edges%tangent_orientation(je,jb) *  &
                             (vn_vert2-vn_vert1) *                       &
                              p_patch%edges%inv_primal_edge_length(je,jb)&
                              + (vt_vert4-vt_vert3)*                     &
@@ -524,7 +524,7 @@ MODULE mo_sgs_turbmetric
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
                              ddxn_z_full(je,jk,jb)
 
-            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%system_orientation(je,jb) * &
+            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%tangent_orientation(je,jb) * &
                              p_patch%edges%inv_primal_edge_length(je,jb)    &
                              + 2._wp*(vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *      &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
@@ -533,7 +533,7 @@ MODULE mo_sgs_turbmetric
             ! todo: vertical metric term multiplicator is missing
             D_23(je,jk,jb) =    (vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *          &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) +        &
-                             p_patch%edges%system_orientation(je,jb) *       &
+                             p_patch%edges%tangent_orientation(je,jb) *       &
                             (w_full_v2 - w_full_v1) *                        &
                              p_patch%edges%inv_primal_edge_length(je,jb)    &
                              + (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *      &
@@ -1024,7 +1024,7 @@ MODULE mo_sgs_turbmetric
          jvn     = ividx(je,jb,2)
          jbn     = ivblk(je,jb,2)
          flux_up_v = 0.5_wp * (visc_smag_iv(jvn,jk,jbn)+visc_smag_iv(jvn,jk+1,jbn)) *     &
-           ( p_patch%edges%system_orientation(je,jb)*(vn_vert2-p_nh_prog%vn(je,jk,jb))* &
+           ( p_patch%edges%tangent_orientation(je,jb)*(vn_vert2-p_nh_prog%vn(je,jk,jb))* &
              p_patch%edges%inv_primal_edge_length(je,jb)*2._wp - &
              (vn_vert2i-vn_vert2i_p1) * &
              p_nh_metrics%inv_ddqz_z_full_v(jvn,jk,jbn) * &
@@ -1037,7 +1037,7 @@ MODULE mo_sgs_turbmetric
          jvn     = ividx(je,jb,1)
          jbn     = ivblk(je,jb,1)
          flux_dn_v = 0.5_wp * (visc_smag_iv(jvn,jk,jbn)+visc_smag_iv(jvn,jk+1,jbn)) *     &
-           ( p_patch%edges%system_orientation(je,jb)*(p_nh_prog%vn(je,jk,jb)-vn_vert1) *  &
+           ( p_patch%edges%tangent_orientation(je,jb)*(p_nh_prog%vn(je,jk,jb)-vn_vert1) *  &
              p_patch%edges%inv_primal_edge_length(je,jb)*2._wp - &
              (vn_vert1i-vn_vert1i_p1) * &
              p_nh_metrics%inv_ddqz_z_full_v(jvn,jk,jbn) * &
@@ -1071,7 +1071,7 @@ MODULE mo_sgs_turbmetric
          !tang_metr = 0._wp
                       
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
-                        p_patch%edges%system_orientation(je,jb) * (flux_up_v-flux_dn_v) * &
+                        p_patch%edges%tangent_orientation(je,jb) * (flux_up_v-flux_dn_v) * &
                         p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp &
                         - norm_metr - tang_metr) * inv_rhoe(je,jk,jb)
 
@@ -1810,7 +1810,7 @@ MODULE mo_sgs_turbmetric
 
          flux_up_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt2*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
-                     p_patch%edges%system_orientation(je,jb)* &
+                     p_patch%edges%tangent_orientation(je,jb)* &
                      (w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
                      p_patch%edges%edge_vert_length(je,jb,2) - & !check orig. code
                      0.5_wp*(w_vert(jvn,jkm1,jbn)-w_vert(jvn,jk+1,jbn)) * &
@@ -1830,7 +1830,7 @@ MODULE mo_sgs_turbmetric
 
          flux_dn_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt1*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
-                     p_patch%edges%system_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
+                     p_patch%edges%tangent_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
                      p_patch%edges%edge_vert_length(je,jb,1) - & !check orig. code
                      0.5_wp*(w_vert(jvn,jkm1,jbn)-w_vert(jvn,jk+1,jbn)) * &
                      p_nh_metrics%inv_ddqz_z_half_v(jcn,jk,jbn) * &
@@ -1845,12 +1845,12 @@ MODULE mo_sgs_turbmetric
          jvn = ividx(je,jb,2)
          jbn = ivblk(je,jb,2)
          w2mw1 = 0.5_wp*p_patch%edges%inv_primal_edge_length(je,jb) * &
-            p_patch%edges%system_orientation(je,jb) * &
+            p_patch%edges%tangent_orientation(je,jb) * &
             visc_smag_iv(jvn,jk-1,jbn)*(w_vert(jvn,jk-1,jbn) + &
             w_vert(jvn,jk,jbn) - w_vert(ividx(je,jb,1),jk-1,ivblk(je,jb,1)) - &
             p_nh_prog%w(ividx(je,jb,1),jk,ivblk(je,jb,1)))
          w2mw1_p1 = 0.5_wp*p_patch%edges%inv_primal_edge_length(je,jb) * &
-            p_patch%edges%system_orientation(je,jb) * &
+            p_patch%edges%tangent_orientation(je,jb) * &
             visc_smag_iv(jvn,jk,jbn)*(w_vert(jvn,jk,jbn) + &
             p_nh_prog%w(jvn,jk+1,jbn) - w_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) - &
             p_nh_prog%w(ividx(je,jb,1),jk+1,ivblk(je,jb,1)))
@@ -1865,7 +1865,7 @@ MODULE mo_sgs_turbmetric
                      (w2mw1 - w2mw1_p1))
 
          hor_tend(je,jk,jb) = (flux_up_c - flux_dn_c) * p_patch%edges%inv_dual_edge_length(je,jb) + &
-                               p_patch%edges%system_orientation(je,jb) * (flux_up_v - flux_dn_v) *  &
+                               p_patch%edges%tangent_orientation(je,jb) * (flux_up_v - flux_dn_v) *  &
                                p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp - &
                                norm_metr - tang_metr
 
@@ -2482,7 +2482,7 @@ MODULE mo_sgs_turbmetric
              jbn     = ievblk(je,jb,2)
 
              tang_metr = -les_config(jg)%rturb_prandtl * p_patch%edges%inv_primal_edge_length(je,jb) * &
-                         p_patch%edges%system_orientation(je,jb) * ( &
+                         p_patch%edges%tangent_orientation(je,jb) * ( &
                          visc_smag_ie(je,jk,jb) * &
                          (var_iv(jvn,jk,jbn) - var_iv(ievidx(je,jb,1),jk,ievblk(je,jb,1))) * &
                          exner_ie(je,jk,jb) - &

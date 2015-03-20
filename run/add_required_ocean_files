@@ -18,7 +18,7 @@
 
 
   if [[ "x$ocean_location" = "buildbot" ]] ; then
-    ocean_data_MainFolder=${icon_data_RootFolder}/buildbot_data/oes
+    ocean_data_MainFolder=${icon_data_buildbot}/oes
   elif [[ "x$ocean_location" = "xlocal" ]] ; then
     ocean_data_MainFolder=${ICON_BASE_PATH}/grids 
     ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}}
