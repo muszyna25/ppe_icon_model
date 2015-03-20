@@ -1518,7 +1518,7 @@ MODULE mo_initicon_io
       ! tile based fields
       DO jt=1, ntiles_total + ntiles_water
 
-        IF (.NOT. ltile_coldstart) THEN
+        IF ( .NOT. ltile_coldstart ) THEN
           tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
           tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
         ENDIF

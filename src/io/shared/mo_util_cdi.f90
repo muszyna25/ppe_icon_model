@@ -208,6 +208,7 @@ CONTAINS
                 CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
             ENDIF  ! totalNumberOfTileAttributePairs <= 0
+
         END do
 
     END IF
@@ -286,7 +287,6 @@ CONTAINS
       mapped_name = TRIM(dict_get(me%dict, TRIM(name), DEFAULT=name))
     END IF
     mapped_name = tolower(trim(mapped_name))
-
 
     varID      = -1
     tile_index = -1

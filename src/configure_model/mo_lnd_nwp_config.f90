@@ -29,6 +29,7 @@ MODULE mo_lnd_nwp_config
   USE mo_var_metadata_types, ONLY: CLASS_TILE, CLASS_TILE_LAND
   USE mo_io_units,           ONLY: filename_max
   USE mo_exception,          ONLY: finish
+  USE mo_util_cdi,           ONLY: trivial_tileinfo
 
   IMPLICIT NONE
 
@@ -53,7 +54,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
              itype_hydbound, idiag_snowfrac
-  PUBLIC :: lstomata,   l2tls, lana_rho_snow 
+  PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
   PUBLIC :: tiles
@@ -314,62 +315,74 @@ CONTAINS
     ENDIF
 
 
-    ! define number of attributes for land tiles
-    ! can be unmodified or snow covered
-    IF (lsnowtile) THEN
-      nat_lnd = 2
-    ELSE
-      nat_lnd = 1
-    ENDIF
+    IF (ntiles_total > 1) THEN  ! tile approach is used
 
-    ! define number of attributes for ocean tile
-    ! can be unmodified or sea ice covered
-    IF (ntiles_water > 0) THEN
-      nat_oce = 2
-    ELSE
-      nat_oce = 0
-    ENDIF
-
-
-    ! fill in tile meta information
-    DO i=1, SIZE(tiles)
-
-      IF (i<=ntiles_lnd) THEN  ! dominating land tiles
-  
-        tiles(i)%GRIB2_tile%tileIndex              = i
-        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
-        tiles(i)%GRIB2_att%tileAttribute           = MERGE(UNMOD, UNDEF, nat_lnd>1)
-  
-      ELSE IF ( (i>ntiles_lnd) .AND. (i<= ntiles_total) ) THEN ! corresponding snow tiles (if present)
-  
-        tiles(i)%GRIB2_tile%tileIndex              = i - ntiles_lnd
-        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
-        tiles(i)%GRIB2_att%tileAttribute           = SNOW
-  
-      ELSE IF ( i == isub_water ) THEN ! ocean tiles (unfrozen)
-  
-        tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
-        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
-        tiles(i)%GRIB2_att%tileAttribute           = UNMOD
-  
-      ELSE IF ( i == isub_lake ) THEN  ! lake tile
-  
-        tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 2
-        tiles(i)%GRIB2_tile%numberOfTileAttributes = 1
-        tiles(i)%GRIB2_att%tileAttribute           = UNDEF
-  
-      ELSE IF ( i == isub_seaice ) THEN ! sea-ice tile
-  
-        tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
-        tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
-        tiles(i)%GRIB2_att%tileAttribute           = SEAICE
-
+      ! define number of attributes for land tiles
+      ! can be unmodified or snow covered
+      IF (lsnowtile) THEN
+        nat_lnd = 2
       ELSE
-        CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
-          &      ' failed')
-      END IF
+        nat_lnd = 1
+      ENDIF
+
+      ! define number of attributes for ocean tile
+      ! can be unmodified or sea ice covered
+      IF (ntiles_water > 0) THEN
+        nat_oce = 2
+      ELSE
+        nat_oce = 0
+      ENDIF
+
+
+      ! fill in tile meta information
+      DOTILES: DO i=1, SIZE(tiles)
+ 
+        IF (i<=ntiles_lnd) THEN  ! dominating land tiles
   
-    ENDDO
+          tiles(i)%GRIB2_tile%tileIndex              = i
+          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
+          tiles(i)%GRIB2_att%tileAttribute           = MERGE(UNMOD, UNDEF, nat_lnd>1)
+  
+        ELSE IF ( (i>ntiles_lnd) .AND. (i<= ntiles_total) ) THEN ! corresponding snow tiles (if present)
+  
+          tiles(i)%GRIB2_tile%tileIndex              = i - ntiles_lnd
+          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
+          tiles(i)%GRIB2_att%tileAttribute           = SNOW
+  
+        ELSE IF ( i == isub_water ) THEN ! ocean tiles (unfrozen)
+  
+          tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
+          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
+          tiles(i)%GRIB2_att%tileAttribute           = UNMOD
+  
+        ELSE IF ( i == isub_lake ) THEN  ! lake tile
+  
+          tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 2
+          tiles(i)%GRIB2_tile%numberOfTileAttributes = 1
+          tiles(i)%GRIB2_att%tileAttribute           = UNDEF
+  
+        ELSE IF ( i == isub_seaice ) THEN ! sea-ice tile
+  
+          tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
+          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
+          tiles(i)%GRIB2_att%tileAttribute           = SEAICE
+
+        ELSE
+          CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
+            &      ' failed')
+        END IF
+  
+      ENDDO DOTILES
+
+    ELSE IF (ntiles_total == 1) THEN  ! no tile apporach
+      ! set trivial tile info
+      tiles(1)%GRIB2_tile%tileIndex                = trivial_tileinfo%idx
+      tiles(1)%GRIB2_tile%numberOfTileAttributes   = -99
+      tiles(1)%GRIB2_att%tileAttribute             = trivial_tileinfo%att
+    ELSE
+      CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
+        &    ' invalid number of tiles ntiles_total')
+    ENDIF  ! ntiles_total > 1
 
   END SUBROUTINE setup_tile_metainfo
 
