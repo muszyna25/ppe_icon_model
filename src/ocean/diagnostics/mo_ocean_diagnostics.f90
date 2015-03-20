@@ -539,9 +539,9 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
     !-----------------------------------------------------------------------
-    DO i=0,nsteps
-      DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
-    END DO
+    !DO i=0,nsteps
+    !  DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
+    !END DO
     DEALLOCATE(oce_ts%oce_diagnostics)
     DEALLOCATE(oce_ts)
     ! close the global diagnostics text file and the SRV MOC file
