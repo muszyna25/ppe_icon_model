@@ -10,7 +10,7 @@ convert2html="${postProcPath}/ocean/mk_index_html"
 # plotting
 ## find the last input file
 cd ${dataPath}
-iFile=$(ls ${EXPNAME}*.nc* | tail -n 1)
+iFile=$(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1)
 if [[ ! -f ${iFile} ]]; then
   echo "Could not find the input file '${iFile}'"
   echo "Give up!"
@@ -21,7 +21,6 @@ revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
 
 [[ -d /sw/share/Modules/init/bash ]] && source /sw/share/Modules/init/bash
 
-module load python/2.7-ve3
 
 
 module switch cdo cdo/1.6.4
@@ -32,30 +31,15 @@ module list
 export HOME=/scratch/mpi/CC/mh0287/users/$USER
 # disable ':' to be a special character in ncl - this makes it plotable
 export NCARG_USRRESFILE=${nclConfig}
-
 [[ ! -d plots ]] && mkdir plots
-
-iFile=$(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1)
-if [[ ! -f ${iFile} ]]; then
-  echo "Could not find the input file '${iFile}'"
-  echo "Give up monitoring!"
-else
-# join them
-  oceanMonitorComplete="Monitor_${EXPNAME}.nc"
-  [[ -f ${oceanMonitorComplete} ]] && rm -f ${oceanMonitorComplete}
-  cdo -r -cat ${EXPNAME}*oceanMonitor*.nc* ${oceanMonitorComplete}
+for file in $(ls ${EXPNAME}*oceanMonitor*.nc*); do
+  echo "processing file: $file"
   cd plots;
-  cdo -r -yearmean -delete,timestep=1 ../${oceanMonitorComplete}
+  cdo -r delete,timestep=1 ../$file relativeTimeAxis_$file;
   ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file};
   ${convert2png} MANIFEST > index.html;
   cd -;
-fi
-
-
-
-$archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true # FORCE=1
-
-check_error $? "${EXPNAME}"
+done
 
 exit
 

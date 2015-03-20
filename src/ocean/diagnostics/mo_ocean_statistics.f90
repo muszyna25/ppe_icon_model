@@ -81,7 +81,6 @@ CONTAINS
     
     INTEGER :: jtrc,i
     
-    
     ! update ocean state accumulated values
     CALL add_fields(ocean_state%p_acc%h     , ocean_state%p_prog(nnew(1))%h, cells)
     CALL add_fields(ocean_state%p_acc%u     , ocean_state%p_diag%u         , cells)

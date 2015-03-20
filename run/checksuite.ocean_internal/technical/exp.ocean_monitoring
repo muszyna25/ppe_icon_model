@@ -6,13 +6,13 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2201-01-01T00:00:00Z"  #  200 years
+  end_date="2001-01-05T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 (( years_checkpoint  = 25 ))    # write restart file interval [days]
 (( years_restart     = 25 ))    # stop model for restart [days]
-(( days_data         = 30 ))    # ocean model output interval hours [hours] - for test runs
+(( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -23,15 +23,15 @@ output_interval="P$leading_zero${days_data}D"     # ocean model output interval 
 (( dt_checkpoint  = years_checkpoint  * year ))
 (( dt_restart     = years_restart     * year ))
 (( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
-autoPostProcessing="true"             #  submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
-ocean_vertical_levels=40
+ocean_vertical_levels=20
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
+#grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -61,23 +61,9 @@ cat > ${ocean_namelist} << EOF
  debug_check_level    = 1
 /
 &output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${output_interval}"
-  steps_per_file   = ${steps_per_file}                ! error with ""
-  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  include_last     = .false.
-  output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
-/
-&output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${output_interval}"
+  output_interval  = "P01D"
   steps_per_file   = 999999
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceanMonitor"
@@ -95,15 +81,15 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
-!  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-!  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
-!                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev             =   $ocean_vertical_levels
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+!n_zlev             =   40
+!dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+!                       30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+!                      100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+!                      220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
 ! l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
@@ -181,11 +167,11 @@ cat > ${ocean_namelist} << EOF
 ! limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
-/
+/                                    
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
   initial_temperature_type        = 1         ! read from file
-/                                    
+/
 &ocean_diagnostics_nml
    diagnostics_level            = 1
    gibraltar(1:10)              = 1367,1369
@@ -211,6 +197,5 @@ EOF
 
 
 #-----------------------------------------------------------------------------
-# add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
