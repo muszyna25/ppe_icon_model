@@ -44,6 +44,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
   USE mo_flake,               ONLY: flake_interface
+  USE mo_data_flake,          ONLY: h_Ice_min_flk
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
@@ -1407,11 +1408,11 @@ CONTAINS
         ! for consistency, set 
         ! t_so(0) = t_g            if the lake is not frozen
         ! t_so(0) = 273.15         if the lake is frozen
-        lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>0._wp)
+        lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>h_Ice_min_flk)
 
         ! surface saturation specific humidity over water/ice 
         !
-        IF ( h_ice_new (ic) > 0._wp ) THEN
+        IF ( h_ice_new (ic) > h_Ice_min_flk ) THEN
           p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_ice(t_scf_lk_new(ic)),&
             &                                   p_diag%pres_sfc(jc,jb) )
           ! keep fr_seaice synchronized with h_ice

@@ -39,6 +39,7 @@
 \usepackage{framed}
 \usepackage{array}
 \usepackage[titletoc]{appendix}
+\usepackage{soul}
 
 % \usepackage{amsthm}      %--- Theorem-Package
 % \usepackage{setspace}
@@ -198,7 +199,9 @@
              ./grid_geometry,
              ./GRIB2_output_tables,
              ./icon_in_sky,
-             ./appendix}
+             ./appendix,
+             ./statproc} %,
+%             ./cosmo_eu_fields}
 
 
 
@@ -273,12 +276,14 @@
 \include{./grid_geometry}
 \include{./input}
 \include{./analysis}
-\include{./GRIB2_output_tables}
+\input{./GRIB2_output_tables}
+\input{./statproc}
 \include{./icon_in_sky}
 % ----------------------------------------------------------------%
 
 \begin{appendices}
 \include{./appendix}  %--- Einbinden der Appendix
+%\include{./cosmo_eu_fields}
 \end{appendices}
 
 % \listoffigures                    %--- Erstellung des Figurenverzeichnisses

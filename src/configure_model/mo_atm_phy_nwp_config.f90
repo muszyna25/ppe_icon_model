@@ -25,6 +25,7 @@ MODULE mo_atm_phy_nwp_config
 
   USE mo_kind,                ONLY: wp
   USE mo_grid_config,         ONLY: l_limited_area
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
@@ -104,7 +105,8 @@ MODULE mo_atm_phy_nwp_config
 
     ! Tuning variables
 
-    REAL(wp), allocatable :: fac_ozone(:) ! ozone tuning profile funtion
+    REAL(wp), ALLOCATABLE :: fac_ozone(:)         ! vertical profile funtion for ozone tuning
+    REAL(wp), ALLOCATABLE :: shapefunc_ozone(:,:) ! horizontal profile funtion for ozone tuning
 
   END TYPE t_atm_phy_nwp_config
 
@@ -160,7 +162,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: n_dom
     REAL(wp),INTENT(IN) :: dtime
   
-    INTEGER :: jg, jk, jk_shift
+    INTEGER :: jg, jk, jk_shift, jb, jc
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
     REAL(wp) :: z_mc_ref
@@ -325,19 +327,30 @@ CONTAINS
       CALL configure_latbc()
     END IF
 
-    !Ozone tuning function
+    ! Ozone tuning function, applied to the ozone climatology as 
+    ! o3clim_tuned = o3clim*(1.+fac_ozone*shapefunc_ozone)
     DO jg = 1, n_dom
-      ALLOCATE(atm_phy_nwp_config(jg)%fac_ozone(p_patch(jg)%nlev))
+      ALLOCATE(atm_phy_nwp_config(jg)%fac_ozone(p_patch(jg)%nlev), &
+               atm_phy_nwp_config(jg)%shapefunc_ozone(nproma,p_patch(jg)%nblks_c) )
+      ! Vertical profile function
       DO jk = 1,p_patch(jg)%nlev
         jk_shift = jk+p_patch(jg)%nshift_total
         z_mc_ref = 0.5_wp*(vct_a(jk_shift)+vct_a(jk_shift+1))
         IF ( z_mc_ref > tune_ozone_zbot .AND. z_mc_ref < tune_ozone_ztop ) THEN
-          atm_phy_nwp_config(jg)%fac_ozone(jk) = 1.0_wp + 0.5_wp *                &
-            & min( (z_mc_ref-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot), &
+          atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.5_wp *                        &
+            & MIN( (z_mc_ref-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot), &
             &      (tune_ozone_ztop-z_mc_ref)/(tune_ozone_ztop-tune_ozone_zmid) )
        ELSE
-          atm_phy_nwp_config(jg)%fac_ozone(jk) = 1.0_wp
+          atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.0_wp
         ENDIF
+      ENDDO
+      ! Horizontal profile function for fac_ozone
+      DO jb = 1, p_patch(jg)%nblks_c
+        DO jc = 1, nproma
+          atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 1.0_wp
+          ! Use this expression to obtain a latitudinal dependence
+     !     atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = COS(p_patch(jg)%cells%center(jc,jb)%lat)**2
+        ENDDO
       ENDDO
     ENDDO
 

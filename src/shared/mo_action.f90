@@ -57,8 +57,9 @@ MODULE mo_action
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
-  USE mo_run_config,         ONLY: msg_level
   USE mo_action_types,       ONLY: t_var_action
+  USE mo_grid_config,        ONLY: n_dom
+  USE mo_run_config,         ONLY: msg_level
   USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
@@ -91,6 +92,7 @@ MODULE mo_action
   TYPE t_var_element_ptr
     TYPE(t_var_list_element), POINTER :: p
     TYPE(event)             , POINTER :: event     ! event from mtime library
+    INTEGER                           :: patch_id  ! patch on which field lives 
   END TYPE t_var_element_ptr
 
 
@@ -209,6 +211,7 @@ CONTAINS
             nvars = nvars + 1
             act_obj%var_element_ptr(nvars)%p => element%field
             act_obj%var_action_index(nvars) = iact
+            act_obj%var_element_ptr(nvars)%patch_id = var_lists(i)%p%patch_id
 
 
             ! Create event for this specific field
@@ -273,37 +276,47 @@ CONTAINS
     CLASS(t_action_obj)  :: act_obj  !< action for which setup will be printed
 
     ! local variables
-    TYPE(t_table) :: table
-    INTEGER       :: ivar            ! loop counter
-    INTEGER       :: irow            ! row to fill
-    INTEGER       :: var_action_idx  ! index of current action in variable-specific action list
+    TYPE(t_table)   :: table
+    INTEGER         :: ivar            ! loop counter
+    INTEGER         :: irow            ! row to fill
+    INTEGER         :: var_action_idx  ! index of current action in variable-specific action list
+    INTEGER         :: jg              ! patch loop counter
+    CHARACTER(LEN=2):: str_patch_id
     !--------------------------------------------------------------------------
 
     ! table-based output
     CALL initialize_table(table)
     ! the latter is no longer mandatory
     CALL add_table_column(table, "VarName")
+    CALL add_table_column(table, "PID")
     CALL add_table_column(table, "Ref date")
     CALL add_table_column(table, "Start date")
     CALL add_table_column(table, "End date")
     CALL add_table_column(table, "Interval")
 
     irow = 0
-    DO ivar=1,act_obj%nvars
+    ! print event info sorted by patch ID in ascending order
+    DO jg = 1, n_dom
+      DO ivar=1,act_obj%nvars
 
-      var_action_idx = act_obj%var_action_index(ivar)
+        IF (act_obj%var_element_ptr(ivar)%patch_id /= jg) CYCLE
 
-      irow = irow + 1 
-      CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
-      CALL set_table_entry(table,irow,"Ref date", &
-        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%ref))
-      CALL set_table_entry(table,irow,"Start date", &
-        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%start))
-      CALL set_table_entry(table,irow,"End date", &
-        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%end))
-      CALL set_table_entry(table,irow,"Interval", &
-        &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%intvl))
-    ENDDO
+        var_action_idx = act_obj%var_action_index(ivar)
+
+        irow = irow + 1 
+        CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
+        write(str_patch_id,'(i2)')  act_obj%var_element_ptr(ivar)%patch_id
+        CALL set_table_entry(table,irow,"PID", TRIM(str_patch_id))
+        CALL set_table_entry(table,irow,"Ref date", &
+          &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%ref))
+        CALL set_table_entry(table,irow,"Start date", &
+          &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%start))
+        CALL set_table_entry(table,irow,"End date", &
+          &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%end))
+        CALL set_table_entry(table,irow,"Interval", &
+          &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%intvl))
+      ENDDO
+    ENDDO  ! jg
 
     CALL print_table(table, opt_delimiter=' | ')
     CALL finalize_table(table)
@@ -347,7 +360,7 @@ CONTAINS
 
     TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:execute")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:")
 
     TYPE(datetime) :: lastTrigger_datetime  ! latest intended triggering date
 
@@ -408,8 +421,10 @@ CONTAINS
 
 
         IF (msg_level >= 12) THEN
-          WRITE(message_text,'(a,i2,a,a,a,a)') 'action ',act_obj%actionID, &
-            &  ' triggered for ', TRIM(field%info%name), ' at ', TRIM(mtime_cur_datetime)
+          WRITE(message_text,'(a,i2,a,a,a,i2,a,a)') 'action ',act_obj%actionID, &
+            &  ' triggered for ', TRIM(field%info%name),' (PID ',               &
+            &  act_obj%var_element_ptr(ivar)%patch_id,') at ',                  &
+            &  TRIM(mtime_cur_datetime)
           CALL message(TRIM(routine),message_text)
         ENDIF
 

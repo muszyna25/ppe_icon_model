@@ -1194,8 +1194,8 @@ CONTAINS
             k = k + 1
             list(k) = list(i)
           END IF
+          n = k
         END IF
-        n = k
       END IF
     END SUBROUTINE remove_entries_from_ref_list
 

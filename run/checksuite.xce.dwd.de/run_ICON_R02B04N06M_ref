@@ -50,7 +50,8 @@ ICONDIR=${PBS_O_WORKDIR}/../../
 EXPDIR=$TMPDIR/../experiments/exp15
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+#MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=/e/uhome/dreinert/workdir/debug/icon-nwp-dev/build/x86_64-unknown-linux-gnu/bin/icon
 
 
 # ----------------------------------------------------------------------------
