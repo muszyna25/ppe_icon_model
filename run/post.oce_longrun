@@ -1,20 +1,11 @@
 # technical stuff
-basePath=${ICON_BASE_PATH}
-dataPath="../experiments/${EXPNAME}/"
-scriptPath="/pool/data/ICON/tools"
+    basePath=${ICON_BASE_PATH}
+    dataPath="../experiments/${EXPNAME}/"
 postProcPath="${basePath}/scripts/postprocessing/tools"
-nclCaller="nclsh"
-plotCmd="${scriptPath}/icon_plot.ncl"
-archiver="${postProcPath}/archive_oce.py"
-nclConfig="${postProcPath}/.hluresfile"
-# set the CDO path for the dwd to a local installation
-case "$(hostname -d)" in
-  dwd.de)
-    CDO="/e/uhome/extrmuel/local/bin/cdo"
-    ;;
-  *)
-    CDO="cdo"
-esac
+   nclConfig="${postProcPath}/.hluresfile"
+      plotTS="${postProcPath}/ocean/plot_timeser"
+ convert2png="${postProcPath}/ocean/create_plot_browser"
+convert2html="${postProcPath}/ocean/mk_index_html"
 # ================================================================================
 # plotting
 ## find the last input file
@@ -30,7 +21,8 @@ revision=$(svn info | grep -F 'anged Rev' | rev | cut -d ' ' -f 1 | rev)
 
 [[ -d /sw/share/Modules/init/bash ]] && source /sw/share/Modules/init/bash
 
-module load python/2.7-ve2
+module load python/2.7-ve3
+
 
 module switch cdo cdo/1.6.4
 module switch ncl ncl/6.2.0-precompiled
@@ -46,8 +38,7 @@ export NCARG_USRRESFILE=${nclConfig}
 iFile=$(ls ${EXPNAME}*oceanMonitor*.nc* | tail -n 1)
 if [[ ! -f ${iFile} ]]; then
   echo "Could not find the input file '${iFile}'"
-  echo "Give up!"
-  exit 1
+  echo "Give up monitoring!"
 else
 # join them
   oceanMonitorComplete="Monitor_${EXPNAME}.nc"
@@ -67,4 +58,7 @@ $archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true
 check_error $? "${EXPNAME}"
 
 exit
+
+
+# vim:ft=sh
 
