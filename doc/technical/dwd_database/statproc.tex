@@ -153,9 +153,9 @@ phase is started. This procedure is repeated till the end of the forecast.
 
 Let $\Psi$ denote the instantaneous value of one of the above fields. The maximumu value $\Psi_{max}$ at time $t$ stored in the 
 database is given as
-\begin{align}
+\begin{align*}
  \Psi_{max}(t) = \max(\Psi(t),\Psi_{max}(t))  \quad \text{, for } t_{i}<t<t_{i}+3h
-\end{align}
+\end{align*}
 Here, $t_{i}$ indicates the time when $\Psi_{max}$ was (re)-initialized the last time. For $t=0$, the extreme value $\Psi_{max}$ 
 is equal to the instantaneous value $\Psi$. 
 
@@ -164,7 +164,7 @@ extreme value fields. This is because the extreme value fields are written to th
 start/end of the 3-hourly time windows. Example: Extreme value fields which are written into the database after a 
 forecast time of $5$ hours, contain extreme values collected over the last $2$ hours. On the other hand, extreme value fields 
 written into the database after $6$ hours contain values collected over the last $3$ hours.
-Thus, when dealing with those fields it is very important to check the GRIB2 metainfo listed in Table \ref{tab_GRIB2extreme}.
+Thus, when dealing with those fields it is very important to check the GRIB2 keys listed in Table \ref{tab_GRIB2extreme}.
 
 \texttt{productDefinitionTemplateNumber=8} indicates that the field in question is statistically processed. The statistical process itself 
 is specified by the key \texttt{typeOfStatisticalProcessing}. The time interval (relative to the start of the forecast) over which the 
