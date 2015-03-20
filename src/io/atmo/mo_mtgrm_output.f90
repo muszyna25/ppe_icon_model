@@ -511,6 +511,8 @@ CONTAINS
       &              jg, prm_diag%u_10m(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "V10M", "m/s", "meridional wind in 10m", &
       &              jg, prm_diag%v_10m(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "VBMAX10M", "m/s", "gust in 10m", &
+      &              jg, prm_diag%gust10(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
