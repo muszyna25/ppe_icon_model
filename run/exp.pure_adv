@@ -59,7 +59,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  run_day     = ${NDAYS}     ! run length in days
  dtime       = ${DTIME}     ! timestep in seconds
  iequations  = ${IEQ}       ! equation system
- i_cell_type = 3            ! triangular cells
+ i_! cell_type is not used = 3            ! triangular cells
  lcorio      = .FALSE.      ! no Coriolis force
  ldynamics   = .FALSE.      ! dynamics
  ltransport  = .TRUE.       ! transport 

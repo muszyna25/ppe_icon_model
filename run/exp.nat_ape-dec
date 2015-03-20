@@ -28,7 +28,7 @@ else
 fi  
 
 #-----------------------------------------------------------------------------
-cell_type=${cell_type:=3}
+! cell_type is not used=${! cell_type is not used:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
 # global timing
@@ -111,7 +111,7 @@ damp_height=${damp_height:=60000.}
 if [ x$lredgrid_phys = "x.true." ]; then
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = ${cell_type}        ! triangular cells
+ ! cell_type is not used = ${! cell_type is not used}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  radiation_grid_filename = "${atmo_rad_grids}",
  dynamics_radiation_grid_link = 1,
@@ -121,7 +121,7 @@ EOF
 else
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = ${cell_type}        ! triangular cells
+ ! cell_type is not used = ${! cell_type is not used}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 EOF

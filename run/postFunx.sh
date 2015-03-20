@@ -29,15 +29,17 @@ function directoryDiff {
 
   refList=`ls ${refDir}/*`
   for refFile in ${refList}; do 
-    refFileBasename=$(basename ${refFile})
-    case "${refFileBasename}" in
-      *.nc*)
-        DIFF='diffWithExitCode'
-        ;;
-      *)
-        DIFF='diff'
-        ;;
-    esac
-    ${DIFF} ${refFile} ${expDir}/${refFileBasename}
+    if [[ -f $refFile ]]; then
+      refFileBasename=$(basename ${refFile})
+      case "${refFileBasename}" in
+	*.nc*)
+	  DIFF='diffWithExitCode'
+	  ;;
+	*)
+	  DIFF='diff'
+	  ;;
+      esac
+      ${DIFF} ${refFile} ${expDir}/${refFileBasename}
+    fi
   done
 }
