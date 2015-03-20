@@ -179,7 +179,7 @@ CONTAINS
     CALL reorder_array_pos(pp%edges%cell_blk,               idx_old2new,      pp%nblks_e, pp%npromz_e, 1, 2)
     CALL reorder_array_pos(pp%edges%vertex_idx,             idx_old2new,      pp%nblks_e, pp%npromz_e, 1, 2)
     CALL reorder_array_pos(pp%edges%vertex_blk,             idx_old2new,      pp%nblks_e, pp%npromz_e, 1, 2)
-    CALL reorder_array_pos(pp%edges%system_orientation,     idx_old2new,      pp%nblks_e, pp%npromz_e)
+    CALL reorder_array_pos(pp%edges%tangent_orientation,     idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%quad_idx,               idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%quad_blk,               idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%quad_orientation,       idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)

@@ -42,8 +42,6 @@ MODULE mo_ocean_statistics
   USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
-  USE mo_ocean_state,              ONLY: ocean_restart_list
- ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics

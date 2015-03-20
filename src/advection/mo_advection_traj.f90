@@ -432,7 +432,7 @@ CONTAINS
       IF (lcounterclock) THEN
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-            lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%system_orientation(je,jb) >= 0._wp
+            lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%tangent_orientation(je,jb) >= 0._wp
           ENDDO
         ENDDO
       ELSE

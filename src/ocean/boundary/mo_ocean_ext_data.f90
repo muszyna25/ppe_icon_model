@@ -350,7 +350,7 @@ CONTAINS
     CHARACTER(filename_max) :: omip_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
+    INTEGER :: jg, i_lev, no_cells, no_verts, no_tst
     INTEGER :: ncid, dimid
     TYPE(t_stream_id) :: stream_id
     INTEGER :: mpi_comm
@@ -370,7 +370,6 @@ CONTAINS
     jg = 1
 
     i_lev       = p_patch(jg)%level
-    i_cell_type = p_patch(jg)%cell_type
     z_flux(:,:,:) = 0.0_wp
 
     CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
@@ -398,18 +397,10 @@ CONTAINS
       ! get number of cells and vertices
       !
       CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ENDIF
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
       CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ENDIF
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
 
       !
       ! check the number of cells and verts
@@ -486,7 +477,6 @@ CONTAINS
       jg = 1
 
       i_lev       = p_patch(jg)%level
-      i_cell_type = p_patch(jg)%cell_type
 
 !       WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
       omip_file='ocean-flux.nc'

@@ -48,6 +48,7 @@ MODULE mo_ocean_output
   USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
+    & destruct_oce_diagnostics, t_oce_timeseries, &
     & calc_moc, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
@@ -117,13 +118,14 @@ CONTAINS
 
     !------------------------------------------------------------------
         IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
+	  CALL calc_slow_oce_diagnostics( patch_3d       , &
+	    &                             ocean_state(jg), &
+	    &                             p_sfc_flx      , &
+	    &                             p_ice          , &
+	    &                             jstep-jstep0   , &
+	    &                             datetime) !    , &
+            ! &                             oce_ts)
           IF (diagnostics_level > 0 ) THEN
-            CALL calc_slow_oce_diagnostics( patch_3d       , &
-              &                             ocean_state(jg), &
-              &                             p_sfc_flx      , &
-              &                             p_ice          , &
-              &                             jstep-jstep0   , &
-              &                             datetime) 
             IF (no_tracer>=2) THEN
               CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
             ENDIF
