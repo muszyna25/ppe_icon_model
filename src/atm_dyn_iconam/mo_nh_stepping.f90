@@ -165,6 +165,12 @@ MODULE mo_nh_stepping
 
 #endif
 #endif
+
+#if defined( _OPENACC )
+  USE mo_nonhydro_gpu_types,       ONLY: init_gpu_variables, finalize_gpu_variables, &
+                                         save_convenience_pointers, refresh_convenience_pointers 
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -554,6 +560,17 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
   
+#if defined( _OPENACC )
+!
+  CALL init_gpu_variables( )
+
+  CALL save_convenience_pointers( )
+
+!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv ), IF ( i_am_accel_node )
+
+  CALL refresh_convenience_pointers( )
+
+#endif
   TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
 
     ! Check if a nested domain needs to be turned off
@@ -886,6 +903,13 @@ MODULE mo_nh_stepping
     ENDIF
 
   ENDDO TIME_LOOP
+#if defined( _OPENACC )
+  CALL save_convenience_pointers( )
+!$ACC END DATA
+  CALL refresh_convenience_pointers( )
+  CALL finalize_gpu_variables( )
+#endif
+
 
   IF (use_async_restart_output) CALL close_async_restart
 
