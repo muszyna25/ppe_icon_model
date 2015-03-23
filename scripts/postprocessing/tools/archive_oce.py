@@ -411,9 +411,9 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
   ice_fields = ['ice_extent_nh','ice_volume_nh']
   columns2Plot = passages + \
                  ice_fields + \
-                 ['volume',
-                  'total_salinity',
-                  'total_temperature',
+                 ['total_volume',
+#                 'total_salinity',
+#                 'total_temperature',
                   ]
   # filter columns according to what is in the input
   columns2Plot = [ x for x in columns2Plot if x in header ]
@@ -422,6 +422,7 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
   for column in columns2Plot:
     columns2PlotIndeces[column] = header.index(column)
 
+  dbg(columns2PlotIndeces)
   dates = all_diag[dateIndex]
   dates = map(dateutil.parser.parse,dates[1:-1])
   lastCompleteYear = dates[-1].year - 1
@@ -435,7 +436,10 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
   rightColumnWidth = 8
   onlineMeanValueFile.write('   '.join(["Passage/Parameter".ljust(leftColumnWith),''.rjust(rightColumnWidth)])+"\n")
   # go on with data  
+# dbg(all_diag)
   for column in columns2Plot:
+    dbg(column)
+    dbg(columns2PlotIndeces[column])
     data   = all_diag[columns2PlotIndeces[column]]
     values = map(float,numpy.array(data)[1:-1])
     # compute mean value of last 10 years
@@ -1046,6 +1050,7 @@ if 'procMoc' in options['ACTIONS']:
 # target is a year mean file of fldmean data, but mean value computation
 # should come at the very end of the processing chain
 if 'procTSR' in options['ACTIONS']:
+  print(' procTSR START ----------------------------------------')
   t_s_rho_Input_1D = []
   t_s_rho_Input_2D = []
   for year in LOG['years']:
@@ -1058,10 +1063,12 @@ if 'procTSR' in options['ACTIONS']:
                                 '/'.join([options['ARCHDIR'],'TSR_2D_{0}_complete_timmean_masked.nc'.format(options['EXP'])]))
   dbg(t_s_rho_Output_2D)
 
+  print(' procTSR FINISH ---------------------------------------')
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
 if 'plotPsi' in options['ACTIONS']:
+  print(' plotPsi START ----------------------------------------')
   plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
   title    = "Bar. Streamfunction for %s\n (file: %s)"%(options['EXP'],psiGlobalFile)
   cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA={0} TITLE='{1}' PLOT={2}".format(options['GRID'],title,plotFile))
@@ -1078,9 +1085,11 @@ if 'plotPsi' in options['ACTIONS']:
     plotCommands.append(cmd)
     if subprocess.check_call(cmd,shell=True,env=os.environ):
       print("ERROR: CALCPSI failed")
+  print(' plotPsi FINISH ---------------------------------------')
 # }}} ----------------------------------------------------------------------------------
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
 if 'plotHorz' in options['ACTIONS']:
+  print(' plotHorz START ----------------------------------------')
   # A) last year mean
   print('-------------------------------------------------------')
   dbg(LOG[LOG['years'][-2]])
@@ -1101,7 +1110,6 @@ if 'plotHorz' in options['ACTIONS']:
   print('-------------------------------------------------------')
   dbg(LOG['last30YearsMean'])
   print('-------------------------------------------------------')
-  sys.exit(1)
   horizontalConfig = {
     'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
     'iFile'         : str(LOG['last30YearsMean']),
@@ -1122,10 +1130,12 @@ if 'plotHorz' in options['ACTIONS']:
     'limits'        : PlotConfig,
   }
   plotHorizontal(horizontalConfig,options,hasNewFiles)
+  print(' plotHorz FINISH ---------------------------------------')
 # }}} ----------------------------------------------------------------------------------
 # THROUGH FLOWS / ONLINE DIAGNOSTICS {{{
 # for global grid only
 if ('plotTf' in options['ACTIONS']):
+  print(' plotTf START ----------------------------------------')
   if ( 'global' == options['GRID'] ):
     diagnosticFiles = sorted(glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"])),key=mtime)
     if options['JOBISRUNNING']:
@@ -1133,6 +1143,7 @@ if ('plotTf' in options['ACTIONS']):
     diagnosticTable = plotOnlineDiagnostics(diagnosticFiles,options)
   else:
     diagnosticTable = ''
+  print(' plotTf FINISH ---------------------------------------')
 # }}} ----------------------------------------------------------------------------------
 # ATLANTIC X-Section: t,s,rhopot  {{{ ================================
 # for global grid only
@@ -1142,7 +1153,7 @@ XSectionPlotConfig['s_acc']['maxVar'] = '1.0'
 XSectionPlotConfig['t_acc']['minVar'] = '-5.0'
 XSectionPlotConfig['t_acc']['maxVar'] = '5.0'
 if 'plotX' in options['ACTIONS']:
-  print('# PLOTX  PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX PLOTX')
+  print(' plotX START  ---------------------------------------')
   if ( 'global' == options['GRID'] ):
     for varname in ['t_acc','s_acc','rhopot_acc']:
       # plot last yearmean state
@@ -1202,6 +1213,7 @@ if 'plotX' in options['ACTIONS']:
       plotCommands.append(cmd)
       subprocess.check_call(cmd,shell=True,env=os.environ)
 
+  print(' plotX FINISH ---------------------------------------')
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
