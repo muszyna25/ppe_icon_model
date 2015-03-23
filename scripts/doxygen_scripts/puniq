@@ -1,0 +1,18 @@
+#! /usr/bin/perl
+
+use strict;
+
+my $previous;
+my $line;
+
+$previous = <>;
+chomp $previous;
+
+while($line = <>) {
+    if(substr($line, 0, length($previous)) ne $previous) {
+       print $previous, "\n"; 
+    }
+    $previous = $line;
+    chomp $previous;
+}
+print $previous, "\n";

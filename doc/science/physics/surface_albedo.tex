@@ -1,0 +1,139 @@
+\documentclass[a4paper,11pt]{article}
+%\documentclass[a4paper,11pt,twocolumn]{article}
+
+\usepackage{natbib}
+\setlength{\bibsep}{1pt}
+%\newcommand{\bibfont}{\footnotesize}
+
+\usepackage{enumitem}
+
+\usepackage[dvips,colorlinks,bookmarksopen,bookmarksnumbered,citecolor=red,urlcolor=red]{hyperref}
+
+\usepackage{moreverb}
+\addtolength{\hoffset}{-2cm}
+\addtolength{\textwidth}{4cm}
+\addtolength{\voffset}{-3cm}
+\addtolength{\textheight}{5cm}
+\usepackage{array,amsmath,graphicx}
+\author{Daniel Reinert}
+\title{ICON Documentation: Surface Albedo from MODIS Data}
+%\date{ 2007} % optional  
+\begin{document}  \maketitle
+
+%-------------------------------------------------------------------------
+
+%\chapter{Physical processes}
+
+\section{Surface albedo}
+Albedo is defined as the ratio of upwelling to downwelling radiative flux at the surface. The downwelling flux may be written as the sum of a direct and a diffuse component. Thus, two 
+different albedos based on either the diffuse or direct flux component can be defined. White-sky albedo is defined as albedo in the absence of a direct component when the diffuse 
+component is isotropic. Black sky albedo is defined as albedo in the absence of a diffuse component. While black sky albedo is a function of the solar zenith angle, white sky albedo 
+is essentially zenith angle independent.
+
+Within the shortwave radiation scheme, the reflection at the surface is handled considering both direct and diffuse downward radiation fluxes. For this, spectral albedos for parallel and 
+diffuse radiation are needed. The spectral albedos distinguish between the visible ($0.3\,-\,0.7\,\mathrm{\mu m}$) and near-infrared ($0.7\,-\,5.0\,\mathrm{\mu m}$) spectral bands. Thus, 
+$4$ albedo values ($\alpha_{\mathrm{dir}}^{vis}$, $\alpha_{\mathrm{dir}}^{nir}$, $\alpha_{\mathrm{diff}}^{vis}$, $\alpha_{\mathrm{diff}}^{nir}$) are required for each grid point. The 
+indices $\mathrm{dir}$ and $\mathrm{diff}$ indicate the type of radiation (direct or diffuse), whereas the indices $\mathrm{vis}$ and $\mathrm{nir}$ distinguish the spectral bands 
+(UV-visible or near-infrared). In the following we will separately discuss snow-free land, snow-covered land, open water, sea-ice and fresh water lake points.
+
+
+\subsection{Albedo for diffuse downward radiation (white sky)}
+
+\subsubsection{Snow-free land points}
+Over snow-free land, white sky surface albedos ($\alpha_{\mathrm{diff}}^{vis}$, $\alpha_{\mathrm{diff}}^{nir}$) are derived from monthly mean climatologies build from 16-days MODIS 
+albedo over the year 2000-2003 \citep{Schaaf:2002}. Separate datasets are available for UV-visible and near-infrared spectral bands. The model does a linear interpolation between successive 
+months, assuming that the monthly field belongs to the $15\mathrm{th}$ of the month. The values are updated on a daily basis.
+
+
+\subsubsection{Snow-covered land points}
+The snow albedo for visible and near-infrared spectral bands is calculated by
+\begin{align}
+ \alpha_{\mathrm{diff}}^{vis} = \alpha_{\mathrm{diff}}^{nir} =\alpha_{s,min} + S_{age}\,\left(\alpha_{s,max} - \alpha_{s,min}\right)\,,
+\end{align}
+with $\alpha_{s,max}=0.85$ and $\alpha_{s,min}=0.5$. The reduction of snow albedo with increasing snow age is taken into account by an ageing function $0\leq S_{age}\leq 1$. The value 
+of $S_{age}$ is $1$ for fresh snow and approaches 0 for old snow. The variation of $S_{age}$ with time consists of a constant ageing and a regeneration by falling snow:
+\begin{align}
+ \Delta S_{age} = S_{age}\left[\frac{P_{snow}}{P_{norm}} - \frac{\Delta t}{\tau_{a}}\right]
+\end{align}
+$P_{snow}$ is the snowfall rate, and $P_{norm}=5\,\mathrm{mm}/24\,\mathrm{h}$. If no snow exists, $S_{age}=1$ is prescribed. Note that for needleleaved and broadleaved forests snow 
+ageing is not taken into account and the snow albedo is limited to values of about $0.3$.
+
+
+\subsubsection{Open-water points}
+For open-water points, the white sky albedos are set to a constant value.
+\begin{align}
+  \alpha_{\mathrm{diff}}^{vis} = \alpha_{\mathrm{diff}}^{nir} = 0.07
+\end{align}
+
+
+\subsubsection{Sea-ice points}
+The ice surface albedo for diffuse radiation is approximated as:
+\begin{align}
+  \alpha_{\mathrm{diff}}^{vis} = \alpha_{\mathrm{diff}}^{nir} = \alpha_{i,max} - 
+  \left(\alpha_{i,max}-\alpha_{i,min}\right)\exp\left[-C_{\alpha}\left(\frac{\theta_{f0}-\theta_{i}}{\theta_{f0}}\right)\right]\,, \label{eq_icealbedo}
+\end{align}
+where $\alpha_{i,max}=0.7$ and $\alpha_{i,min}=0.43$ are maximum and minimum values of the sea-ice albedo, $\theta_{f0}=273.25\,\mathrm{K}$ is the fresh water freezing point, 
+$\theta_{i}$ is the ice surface temperature and $C_{\alpha}=95.6$ is a fitting coefficient. Equation \ref{eq_icealbedo} is meant to implicitly account (in a crude way) for the seasonal 
+changes of $\alpha$. The ice albedo is the lower the warmer, and therefore wetter the ice is.
+
+
+\subsubsection{Fresh water lake points}
+For frozen lakes, equation \ref{eq_icealbedo} is used, too. However, the maximum and minimum ice albedo is set to $\alpha_{i,max}=0.6$ and $\alpha_{i,min}=0.1$, respectively. 
+If no ice is present, the surface albedo for diffuse radiation is approximated as
+\begin{align}
+   \alpha_{\mathrm{diff}}^{vis} = \alpha_{\mathrm{diff}}^{nir} =0.07
+\end{align}
+ 
+
+\subsection{Albedo for direct downward radiation (black sky)}
+While surface albedo for the diffuse flux does not depend on the solar zenith angle $\mu$, surface albedo for the direct flux does \citep{Yang:2008}. The formula for taking into account 
+the zenith angle dependency has been taken over from the Ritter-Geleyn radiation scheme. It is applied, irrespective of the underlying type of surface.
+\begin{align}
+  \alpha_{\mathrm{dir}}^{vis} = \frac{1.0 + 0.5\, \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{vis}}-1\right)}
+                              {\left[1.0 + \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{vis}}-1\right)\right]^{2}}
+\end{align}
+\begin{align}
+  \alpha_{\mathrm{dir}}^{nir} = \frac{1.0 + 0.5\, \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{nir}}-1\right)}
+                              {\left[1.0 + \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{nir}}-1\right)\right]^{2}}
+\end{align}
+Note that the surface albedo for the direct flux is derived from the surface albedo for the diffuse flux, which is clearly an approximation. Also note that the parameterization is 
+applied separately for the UV-visible and nera-infrared spectral bands.
+
+
+\subsection{Sample plots}
+Figure \ref{fig_albdif} and \ref{fig_albdir} show white sky and black sky albedo for the 4th Jan 2012 00UTC as used by ICON. 
+\begin{figure}[ht]
+\begin{minipage}[t]{\textwidth}
+  \begin{minipage}[t]{0.496\textwidth}
+    \center
+    \includegraphics[width=7.7cm]{albvisdif_20120104_00UTC.png}
+  \end{minipage}
+  \begin{minipage}[t]{0.496\textwidth}
+    \center
+    \includegraphics[width=7.7cm]{albnirdif_20120104_00UTC.png}
+  \end{minipage}
+\end{minipage}
+\caption{White sky (diffuse) albedo for UV-visible (left) and near-infrared (right) spectral bands for the 4th Jan 2012 00UTC.}\label{fig_albdif}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{minipage}[t]{\textwidth}
+  \begin{minipage}[t]{0.496\textwidth}
+    \center
+    \includegraphics[width=7.7cm]{albvisdir_20120104_00UTC.png}
+  \end{minipage}
+  \begin{minipage}[t]{0.496\textwidth}
+    \center
+    \includegraphics[width=7.7cm]{albnirdir_20120104_00UTC.png}
+  \end{minipage}
+\end{minipage}
+\caption{Black sky (diffuse) albedo for UV-visible (left) and near-infrared (right) spectral bands for the 4th Jan 2012 00UTC.}\label{fig_albdir}
+\end{figure}
+
+%-------------------------------------------------------------------------
+
+\bibliography {../references-icon-science}
+\bibliographystyle {../wileyqj} %QJ
+
+
+\end{document}

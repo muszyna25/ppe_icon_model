@@ -1,0 +1,88 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  GET_DATA.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - retrieve IFS data from MARS 
+%end
+
+# include the header file for remote jobs
+%include <init_sc.h> 
+
+# -------------------------------------------------
+
+echo "GET_DATA.SMS"
+
+module load python
+
+if [[ %NENS% -gt 0 ]]
+  then DIRENS=/%NMEM%
+  else DIRENS=''
+fi
+
+# ifsdir for IFS initial condition
+IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
+# ifs2icon file
+IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
+IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
+# local
+SCRIPTDIR=%SCPERM%/icon-dev/scripts
+TMPDIR="${TEMP}"
+
+mkdir -p ${IFSDATADIR}
+cd ${IFSDATADIR}
+
+DATCONVCMD="/home/ms/de/dfr/routfox/bin/datconv"
+PERL5LIB="/home/ms/de/dfr/routfox/perl"
+
+export IFSDATADIR DATCONVCMD PERL5LIB TMPDIR
+
+
+# Retrieve data from MARS ---------------------
+
+if [[ %YMD%%INIHOUR% -ge 2013062512 ]] ; then
+  nlev=137
+else
+  nlev=91
+fi
+
+#rm -f ${IFSDATADIR2}/${IFS_FILENAME_NC}
+if [[ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ]] ; then
+  echo 'ifs2icon file can be copied - no MARS!'
+  ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
+else
+  if [[ %SIMMODE% -eq 3 ]] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_ERAinterim %YMD%%INIHOUR% 0  255 1/to/60 %SCPERMIII%/icon_input/slt-data
+  else
+    if [[ %NENS% -gt 0 ]] ; then
+      if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R03B07" ] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  639 1/to/${nlev} %NMEM%
+      else
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  399 1/to/${nlev} %NMEM%
+      fi
+    else 
+      if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R03B07" ] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0 1279 1/to/${nlev}
+      else 
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0  799 1/to/${nlev}
+      fi
+    fi
+  fi
+fi
+ls -lrt ${IFSDATADIR}
+
+
+# -------------------------------------------------
+
+# include the "tail" file for remote jobs
+%include <end_sc.h>
+

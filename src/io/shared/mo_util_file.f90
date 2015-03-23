@@ -1,0 +1,225 @@
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+MODULE mo_util_file
+
+  USE, INTRINSIC ::  ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG
+  USE mo_kind,        ONLY: i8
+  
+  IMPLICIT NONE
+  
+  PRIVATE
+
+  INTERFACE 
+    FUNCTION private_symlink(file, link) RESULT(iret) BIND(C,NAME='symlink')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: iret
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: file
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: link
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: file
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: link
+#endif
+    END FUNCTION private_symlink
+  END INTERFACE
+  
+  INTERFACE
+    FUNCTION private_unlink(filename) RESULT(iret) BIND(C,NAME='unlink')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: iret
+#if defined(__SX__) || defined (__SUNPRO_F95)
+     CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
+    END FUNCTION private_unlink
+  END INTERFACE
+    
+  INTERFACE
+    FUNCTION private_islink(filename) RESULT(iret) BIND(C,NAME='util_islink')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: iret
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
+    END FUNCTION private_islink
+  END INTERFACE
+
+  INTERFACE 
+    FUNCTION private_rename(old_filename, new_filename) RESULT(iret) BIND(C,NAME='rename')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: iret
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: old_filename
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: new_filename
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: old_filename
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: new_filename
+#endif
+    END FUNCTION private_rename
+  END INTERFACE
+
+  INTERFACE
+    FUNCTION private_tmpnam_len() RESULT(maxlen) BIND(C,NAME='util_tmpnam_len')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+#else
+      IMPORT :: C_INT
+#endif
+      INTEGER(C_INT) :: maxlen
+    END FUNCTION private_tmpnam_len
+  END INTERFACE
+
+  INTERFACE
+    FUNCTION private_tmpnam(filename) RESULT(flen) BIND(C,NAME='util_tmpnam')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_INT
+#else
+      IMPORT :: C_CHAR, C_INT
+#endif
+      INTEGER(C_INT) :: flen
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(inout) :: filename
+    END FUNCTION private_tmpnam
+  END INTERFACE
+
+  INTERFACE
+    FUNCTION private_filesize(filename) RESULT(flen) BIND(C,NAME='util_filesize')
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LONG, C_CHAR
+#else
+      IMPORT :: C_LONG, C_CHAR
+#endif
+      INTEGER(C_LONG) :: flen
+#if defined(__SX__) || defined (__SUNPRO_F95)
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
+    END FUNCTION private_filesize
+  END INTERFACE
+
+  PUBLIC :: util_symlink
+  PUBLIC :: util_unlink
+  PUBLIC :: util_islink
+  PUBLIC :: util_rename
+  PUBLIC :: util_tmpnam
+  PUBLIC :: util_filesize
+
+CONTAINS
+
+  FUNCTION util_symlink(file, link) RESULT(iret)
+    INTEGER :: iret
+    CHARACTER(len=*), INTENT(in) :: file
+    CHARACTER(len=*), INTENT(in) :: link
+    iret = private_symlink(TRIM(file)//C_NULL_CHAR, TRIM(link)//C_NULL_CHAR)
+  END FUNCTION util_symlink
+
+  FUNCTION util_unlink(filename) RESULT(iret)
+    INTEGER :: iret
+    CHARACTER(len=*), INTENT(in) :: filename
+    iret = private_unlink(TRIM(filename)//C_NULL_CHAR)
+  END FUNCTION util_unlink
+
+  FUNCTION util_islink(filename) RESULT(islink)
+    LOGICAL :: islink
+    CHARACTER(len=*), INTENT(in) :: filename
+    INTEGER :: iret
+    iret = private_islink(TRIM(filename)//C_NULL_CHAR)
+    islink = .FALSE.
+    IF (iret == 1) islink = .TRUE.
+  END FUNCTION util_islink
+
+  FUNCTION util_rename(old_filename, new_filename) RESULT(iret)
+    INTEGER :: iret
+    CHARACTER(len=*), INTENT(in) :: old_filename
+    CHARACTER(len=*), INTENT(in) :: new_filename
+    iret = private_rename(TRIM(old_filename)//C_NULL_CHAR, TRIM(new_filename)//C_NULL_CHAR)
+  END FUNCTION util_rename
+    
+  FUNCTION generate_tmpnam(filename, klen) RESULT(flen)
+    INTEGER :: flen
+    CHARACTER(len=*), INTENT(out) :: filename
+    INTEGER,          INTENT(in)  :: klen
+    ! local variables
+    INTEGER :: i
+    !
+    CHARACTER(C_CHAR), ALLOCATABLE :: tf(:)    
+    INTEGER :: maxlen
+    !
+    maxlen = private_tmpnam_len()
+    ALLOCATE(tf(maxlen))
+    flen = private_tmpnam(tf)
+    IF (flen > klen) THEN
+      flen = -1
+    ELSE
+      DO i = 1, flen
+        filename(i:i) = tf(i)
+      ENDDO
+    ENDIF
+    DEALLOCATE(tf)
+  END FUNCTION generate_tmpnam
+
+
+  FUNCTION util_tmpnam(filename, klen) RESULT(flen)
+    INTEGER :: flen
+    CHARACTER(len=*), INTENT(out) :: filename
+    INTEGER,          INTENT(in)  :: klen
+    ! local variables
+    INTEGER, PARAMETER :: N_RETRIES = 50
+    INTEGER              :: i
+    LOGICAL              :: lexists
+    CHARACTER (LEN=klen) :: new_filename
+
+    ! Note: (At least) on the SX-9 it is not sufficient to generate a
+    ! filename - the TMPDIR of the local file system is seldom tidied
+    ! up. Therefore, we test N_RETRIES times, if the generated
+    ! filename already exists.
+    !
+    ! try to find a file name for our temporary file that does not
+    ! exist yet:
+    TEST_LOOP : DO i=1,N_RETRIES
+      flen   = generate_tmpnam(new_filename, klen)
+      INQUIRE(file=new_filename(1:flen), exist=lexists)
+      IF (.NOT. lexists) THEN
+        filename(1:flen) = new_filename(1:flen)
+        EXIT TEST_LOOP
+      END IF
+      IF (i == N_RETRIES) THEN
+        WRITE (0,*) "mo_util_file::util_tmpnam : Failed to find a tmp filename!"
+        STOP
+      END IF
+    END DO TEST_LOOP
+  END FUNCTION util_tmpnam
+
+  FUNCTION util_filesize(filename) RESULT(flen)
+    INTEGER(KIND=i8) :: flen
+    CHARACTER(len=*), INTENT(in) :: filename
+    flen = private_filesize(TRIM(filename)//C_NULL_CHAR)
+  END FUNCTION util_filesize
+
+END MODULE mo_util_file
+
+

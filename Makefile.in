@@ -1,0 +1,178 @@
+export
+
+SHELL = /bin/bash
+
+ARCH = @ARCH@
+OS   = @OS@
+
+HOST = @HOST@
+SITE = @SITE@
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+libdir = @libdir@
+
+NETCDFROOT     = @NETCDFROOT@
+NETCDFLIBPATH  = @NETCDFLIBPATH@
+NETCDF_LIB     = @NETCDF_LIB@
+NETCDF_INCLUDE = @NETCDF_INCLUDE@
+
+CDIROOT     = @CDIROOT@
+CDILIBPATH  = @CDILIBPATH@
+CDI_LIB     = @CDI_LIB@
+CDI_INCLUDE = @CDI_INCLUDE@
+
+HDF5ROOT       = @HDF5ROOT@
+HDF5_LIB       = @HDF5_LIB@
+HDF5_INCLUDE   = @HDF5_INCLUDE@
+
+SZIPROOT       = @SZIPROOT@
+SZIP_LIB       = @SZIP_LIB@
+SZIP_INCLUDE   = @SZIP_INCLUDE@
+
+ZLIBROOT       = @ZLIBROOT@
+ZLIB_LIB       = @ZLIB_LIB@
+ZLIB_INCLUDE   = @ZLIB_INCLUDE@
+
+SCTROOT        = @SCTROOT@
+SCT_LIB        = @SCT_LIB@
+SCT_INCLUDE    = @SCT_INCLUDE@
+
+MPIROOT        = @MPIROOT@
+MPI_LIB        = @MPI_LIB@
+MPI_INCLUDE    = @MPI_INCLUDE@
+
+LAPACKROOT     = @LAPACKROOT@
+LAPACK_LIB_PATH= @LAPACK_LIB_PATH@
+LAPACK_LIB     = @LAPACK_LIB@
+
+PROFILE_LIB     = @PROFILE_LIB@
+PROFILE_INCLUDE = @PROFILE_INCLUDE@
+
+METIS_LIB      = @METIS_LIB@
+
+OTHER_LIBS     = @OTHER_LIBS@
+
+LIBS           = @LIB@ $(LAPACK_LIB) $(NETCDF_LIB) $(CDI_LIB) $(HDF5_LIB) $(SZIP_LIB) $(ZLIB_LIB) $(MPI_LIB) $(METIS_LIB) $(PROFILE_LIB) $(SCT_LIB) $(OTHER_LIBS)
+INCLUDE        = -I../include -I../../../src/include $(MPI_INCLUDE) $(NETCDF_INCLUDE) $(CDI_INCLUDE) $(HDF5_INCLUDE) $(SZIP_INCLUDE) $(ZLIB_INCLUDE) $(PROFILE_INCLUDE) $(SCT_INCLUDE)
+INCLUDES       = $(INCLUDE)
+
+AS             = @AS@
+
+CC             = @CC@
+CFLAGS         = $(INCLUDE) @CFLAGS@
+FC             = @FC@
+FFLAGS         = $(INCLUDES) @MODDIR@ @FFLAGS@
+FlibFLAGS      = $(INCLUDES) @MODDIR@ @FlibFLAGS@
+F77            = @F77@
+F77FLAGS       = @F77FLAGS@
+
+AR             = @AR@
+ARFLAGS        = @ARFLAGS@
+
+LDFLAGS        = @LDFLAGS@
+
+SRCDIRS        = @SRCDIRS@
+OBJDIRS        = @OBJDIRS@
+
+ECHO_N = @ECHO_N@
+
+.PHONY: doc
+
+all:
+	@for DIR in $(OBJDIRS) ;\
+	  do \
+	    back=`pwd`; \
+	    cd $$DIR ;\
+	    $(MAKE) ; status=$$? ; \
+	    if [ $$status != 0 ] ; then \
+	      echo "Exit status from make was $$status" ; exit $$status ; \
+	    fi ; \
+	    cd $$back ; \
+	  done 
+model:
+	@for DIR in $(OBJDIRS) ;\
+	  do LASTDIR=$$DIR ;\
+	done ;\
+	back=`pwd` ;\
+	cd $$LASTDIR ;\
+	$(MAKE) icon  ;\
+	cd $$back
+
+one:
+	@for DIR in $(OBJDIRS) ;\
+	  do LASTDIR=$$DIR ;\
+	done ;\
+	back=`pwd` ;\
+	cd $$LASTDIR ;\
+	$(MAKE) $(name)  ;\
+	cd $$back
+
+
+install:
+	@for DIR in $(OBJDIRS) ;\
+	  do \
+	  (cd $$DIR ;\
+	  $(MAKE) install ; if [ $$? != 0 ] ; then \
+	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
+	  done
+
+clean:
+	@for DIR in $(OBJDIRS) ;\
+	  do \
+	  (cd $$DIR ;\
+	  $(MAKE) clean ; if [ $$? != 0 ] ; then \
+	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
+	  done
+	-rm -f ${exec_prefix}/bin/*
+	-rm -f ${exec_prefix}/lib/*.a
+	-rm -f ${exec_prefix}/module/*.mod  
+	-rm -f ${exec_prefix}/src/*.o   
+	-rm -rf html/[a-z]*
+
+distclean:
+	-rm -rf build
+	-rm Makefile
+	-rm build_command
+	-rm config.log
+	-rm config.status
+	-rm config/config.h
+	-rm config/mh-config-use
+	-rm config/set-up.info
+	-rm -rf doc/html
+	-rm -rf doc/latex
+	-rm -rf html/[a-z]*
+	-rm -f src/messy_interface
+
+doc:
+	doxygen doc/resources/doxyfile_icon_html
+	@echo 
+	@echo "Start of HTML documentation: doc/html/index.html"
+	@echo 
+
+pdf: 
+	doxygen doc/resources/doxyfile_icon_pdf
+
+index:
+	-rm -rf html/[a-z]*
+	scripts/f2html_scripts/f2html.pl -f scripts/f2html_scripts/fgenrc -d html $(SRCDIRS)
+
+checkstyle:
+	scripts/code_processing/process_src -v
+
+
+check:
+	@. config/set-up.info ; \
+	mpi_total_procs=4 ; \
+	for testprog in $(exec_prefix)/bin/test_* ; do \
+	echo $(ECHO_N) "$$testprog: " | sed -e 's/^.*\///'; \
+	case "$$testprog" in  *_mp|*_mpi) \
+	eval $$use_mpi_startrun \"\$$testprog\" && echo "SUCCESS" \
+	|| echo "ERROR" ;; \
+	*) "$$testprog" && echo "SUCCESS" || echo "ERROR" ;; \
+	esac ; done

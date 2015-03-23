@@ -1,0 +1,101 @@
+%% LyX 1.4.5.1 created this file.  For more info, see http://www.lyx.org/.
+%% Do not edit unless you really know what you are doing.
+
+\documentclass[10pt,english,a4paper,landscape]{article}
+
+\usepackage[T1]{fontenc}
+
+\usepackage[latin1]{inputenc}
+
+\usepackage{array}
+
+\usepackage[colorlinks=true,bookmarks=true,linkcolor=blue,citecolor=blue]{hyperref}
+\usepackage{longtable}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
+%% Bold symbol macro for standard LaTeX users
+\providecommand{\boldsymbol}[1]{\mbox{\boldmath $#1$}}
+%% Because html converters don't know tabularnewline
+\providecommand{\tabularnewline}{\\}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\makeatletter
+
+\usepackage[landscape]{geometry}
+\AtBeginDvi{\special{landscape}}
+\makeatother
+
+\usepackage{babel}
+\makeatother
+
+\newenvironment{longtab}
+{
+\begin{longtable}
+{|>{\raggedright}p{4cm}
+ |>{\raggedright}p{1.5cm}
+ |>{\raggedright}p{1.5cm}
+ |>{\raggedright}p{1cm}
+ |>{\raggedright}p{8cm}
+ |>{\raggedright}p{4cm}|}
+\hline
+Parameter& Type& Default& Unit& Description & Scope
+\tabularnewline
+\hline
+\endhead
+}
+{
+\hline
+\end{longtable}
+}
+
+% ------------------------------------------------------
+% new environment for documentation of namelist changes
+% that are incompatible with former versions.
+% ------------------------------------------------------
+
+\newenvironment{changeitem}[3]
+{
+ \rule[-1em]{0.2ex}{4em}\hspace*{1em}%
+ \begin{minipage}{9.95\textwidth}
+ \begin{tabbing}
+ \hspace*{3cm} \= ~ \kill
+ \textcolor{red}{\emph{Change:}}         \> \textbf{#1} \\
+ \textcolor{red}{\emph{Date of Change:}} \> \textbf{#2} \\
+ \textcolor{red}{\emph{Revision:}}       \> \textbf{#3} \\
+ \end{tabbing}
+ \end{minipage}
+}{\vspace*{1em}}
+
+
+% ------------------------------------------------------
+% new environment for short comments:
+% ------------------------------------------------------
+
+\newenvironment{note}{%
+\begin{list}{}%
+         {}%
+         \item[\textbf{Note:} ] ~\\%
+}{%
+\end{list}
+}
+
+% ------------------------------------------------------
+% define a base path for TeX-includes
+% ------------------------------------------------------
+\newcommand*{\basepath}{}%
+
+
+\begin{document}
+
+\title{ICON Namelist Overview}
+
+\maketitle
+
+\tableofcontents{}
+
+\newpage{}
+
+\input{icon_nml_tables}
+
+\input{incompatible_changes}
+
+
+\end{document}

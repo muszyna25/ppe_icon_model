@@ -1,0 +1,49 @@
+#! /bin/sh -e
+
+PROGRAM=`basename $0`
+BINDIR=`dirname $0`
+
+get_temp_file() {
+    echo $PROGRAM.$1${1:+.}.txt
+#     mktemp $PROGRAM.$1${1:+.}XXXXXXXXXXXXX
+}
+
+trap 'rm -f $DIFF_FILE $AFTER_FILE $BEFORE_FILE' 0 1 2 3 15
+
+DIFF_FILE=`get_temp_file diff`
+BEFORE_FILE=`get_temp_file before`
+AFTER_FILE=`get_temp_file after`
+
+diff "$1" "$2" |
+sed '
+    /^[^<>]/d;
+    s/@date .*$//;
+    s/<[\/[:alpha:]][[:alpha:]_]*>//g;
+    s/[@\\]\+[[:alpha:]][[:alpha:]_]*\({[^}]*}\)\?//g;
+    s/[{}]//g;
+    s/\\_/_/g;
+    s/\(\[\]\)\?\.\?\(\\\+\)\?[[:space:]]*$//;
+    s/(\([^)]*\))/\1/g;
+' > $DIFF_FILE
+
+grep '^< ' $DIFF_FILE | sed '
+    s/^< [[:space:]]*!!*[[:space:]]*//;
+    s/^[[:digit:]][[:digit:]]*\.[[:space:]]//;
+    /^[BE]O[IPC]/d;
+    s/!\(DESCRIPTION\|TITLE\|AUTHORS\|AFFILIATION\|DATE\):[[:space:]]*//;
+    s/!\(USES\|VERSION CONTROL\|GLOBAL VARIABLES\|ROUTINE\|MODULE\|IROUTINE\|SUBROUTINE INTERFACE\|FUNCTION INTERFACE\|RETURN VALUE\|LOCAL VARIABLES\|INPUT PARAMETERS\|OUTPUT PARAMETERS\|PARAMETERS\|DEFINED PARAMETERS\|INPUT\/OUTPUT PARAMETERS\|PUBLIC MEMBER FUNCTIONS\):.*$//;
+    s/!\([^:]*\):/\1/;
+    s/--- End.*$//;
+    /^[[:space:]]*$/d;
+    s/[[:space:]]*$//;
+' | $BINDIR/puniq > $BEFORE_FILE
+
+grep '^> ' $DIFF_FILE | sed '
+    s/^> [[:space:]]*![!>][[:space:]]*//;
+    s/&nbsp\;/~/g;
+    s/\$Id:[^\$]*\$//g;
+    /^[[:space:]]*$/d;
+    s/[[:space:]]*$//;
+' | $BINDIR/puniq > $AFTER_FILE
+
+diff -ib $BEFORE_FILE $AFTER_FILE

@@ -1,0 +1,306 @@
+\documentclass[a4paper,twoside,10pt]{book}
+
+\usepackage[english]{babel}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{fancyhdr}
+\usepackage{geometry}
+\usepackage{pgfplots,pgfplotstable}
+\usepackage{colortbl}
+\usepackage[notoday,nofancy]{svninfo}
+
+\usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
+% --- but without toc itself [nottoc] 
+\usepackage[round,sort,comma,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
+% \usepackage[  %--- no numbering of positions 
+% toc,           %--- let it appear in the document's table of contents
+% style=mylong3colheader %--- see glossaries Documentation for a list of available styles
+% ]{glossaries}  %--- use the glossary package
+\geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
+\usepackage{caption}
+\usepackage{subcaption}  %--- simplifies putting pictures side by side
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{supertabular}
+\usepackage{booktabs}    % to give tables a more professional look
+\usepackage{rotating}    % rotate column labels
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}    % ability to create hyperlinks within the document
+\usepackage{vhistory}
+\usepackage{tikz}
+\usepackage{etex}
+\usepackage{xargs}
+\usepackage{xstring}
+\usepackage{enumitem}
+\usepackage[strict]{changepage} % for adjustwidth environment
+\usepackage{framed}
+\usepackage{array}
+\usepackage[titletoc]{appendix}
+
+% \usepackage{amsthm}      %--- Theorem-Package
+% \usepackage{setspace}
+% \usepackage{pdftricks}   %--- for drawing arrows, frames, etc in Latex
+% \usepackage{pstricks}    %--- for drawing arrows, frames etc in Latex
+% \usepackage{layout}      %--- overview about boundaries and widths
+                           % usage: write \layout somewhere in the document
+
+
+
+% left-aligned fixed-width table column
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+
+% define some colors
+\definecolor{darkred}{rgb}{0.5,0.,0.}
+\definecolor{darkblue}{rgb}{0.,0.,0.6}
+\definecolor{darkgreen}{rgb}{0.,0.5,0.}
+\definecolor{darkgrey}{rgb}{0.7,0.75,0.71}
+
+% textcolors
+\newcommand{\tred}{\textcolor{red}}
+\newcommand{\tblu}{\textcolor{blue}}
+
+
+
+% customize hyperref
+\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred}
+
+
+% Fortran environment
+\lstnewenvironment{fortran}%
+{\lstset{language=[95]Fortran,%
+    basicstyle=\ttfamily\footnotesize\color{darkgreen},%
+    breaklines=true,%
+    commentstyle=\ttfamily\color{blue},%
+    emptylines=0,%
+    keywordstyle=\color{black}\ttfamily\bfseries,%
+    backgroundcolor=\color{darkgrey!5},
+    framexleftmargin=4mm,%
+    frame=shadowbox,%
+    rulesepcolor=\color{darkgreen}}}
+{}
+
+
+% Sky environment
+\lstnewenvironment{skydb}%
+{\lstset{language=SQL,%
+    basicstyle=\ttfamily\footnotesize\color{black},%
+    breaklines=true,%
+    commentstyle=\ttfamily\color{blue},%
+    emptylines=0,%
+    keywordstyle=\color{black}\ttfamily\bfseries,%
+    backgroundcolor=\color{darkgrey!5},
+    framexleftmargin=4mm,%
+    frame=shadowbox,%
+    rulesepcolor=\color{darkgreen}}}
+{}
+
+
+
+
+\newcolumntype{x}[1]{%
+  >{\centering\hspace{0pt}}p{#1}}%
+
+
+% ---------- Glossary: All the stuff and more ----------%
+% \newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
+% \makeglossaries
+
+% \input{./text/listofsymbols}  %--- include defined symbols
+
+
+
+% ---------------bold caption for figures-------------------------%
+\makeatletter
+\long\def\@makecaption#1#2{%
+  \fontfamily{cmr}
+  \fontseries{m}
+  \fontshape{sl}
+  \fontsize{10pt}{11pt}
+  \selectfont
+  \vskip 10\p@
+  \setbox\@tempboxa\hbox{{\bf#1:} #2}%
+  \ifdim \wd\@tempboxa >\hsize
+  {\bf #1:} #2\par
+  \else
+  \hbox to\hsize{\hfil\box\@tempboxa\hfil}%
+  \fi}
+\makeatother
+% ----------------------------------------------------------------%
+
+% sign function
+\newcommand{\sgn}{\operatorname{sgn}}
+
+\newcommand{\markRed}{\tikz \fill[red!60] (0,0) rectangle (0.08,0.8em);}
+\newcommand{\markBlue}{\tikz \fill[blue!80] (0,0) rectangle (0.08,0.8em);}
+\newcommand{\markWhite}{\tikz \fill[white!100] (0,0) rectangle (0.08,0.8em);}
+
+% Macro for indicating whether field is available on native grid (tri), lat-lon grid (ll), or both
+\newcommandx{\groups}[2][1=none,2=none,usedefault]{
+  \IfEqCase{#1}{%
+      {tri}{%
+           \IfEqCase{#2}{%
+           {ll}{\markRed\markBlue}      %group (tri,ll)
+           {none}{\markRed\markWhite}   %group (tri)
+           }%
+      }%
+  }%
+  \IfEqCase{#1}{%
+      {none}{%
+           \IfEqCase{#2}{%
+           {ll}{\markWhite\markBlue}   %group (ll)
+           }%
+      }%
+  }%
+}%
+
+
+%
+%
+% mark Namelists
+% - im Fliesstext:
+\newcommand{\nml}[1]{\texttt{#1}}
+
+
+% environment derived from framed.sty: see leftbar environment definition
+\definecolor{formalshade}{rgb}{0.95,0.95,1}
+
+\newenvironment{note}{%
+  \def\FrameCommand{%
+    \hspace{1pt}%
+    {\color{darkblue}\vrule width 2pt}%
+    {\color{formalshade}\vrule width 4pt}%
+    \colorbox{formalshade}%
+  }%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}%
+  \noindent\hspace{-4.55pt}% disable indenting first paragraph
+  \begin{adjustwidth}{}{7pt}%
+%  \vspace{-2pt}\vspace{-2pt}%
+}
+{%
+  %\vspace{2pt}%
+  \end{adjustwidth}\endMakeFramed%
+}
+
+
+%\parskip0.4ex plus0.2ex minus0.3ex
+\setlength{\parskip}{0.2cm plus0.1cm minus0.1cm}
+\setlength{\parindent}{0.0em}
+
+\includeonly{./title_toc,
+             ./intro,
+             ./versionhistory,
+             ./analysis,
+             ./input,
+             ./grid_geometry,
+             ./GRIB2_output_tables,
+             ./icon_in_sky,
+             ./appendix}
+
+
+
+% ------------------ start of document -----------------------%
+\begin{document}
+\svnInfo $Id$
+\setcounter{tocdepth}{3}     %--- maximum toc depth
+
+\pagestyle{fancy}
+\fancyhead{}
+\fancyfoot{}
+% --- Seitenzahl bei geraden/linken Seiten nach links/aussen
+% --- Seitenzahl bei ungeraden/rechten Seiten nach rechts/aussen
+\fancyhead[EL,OR]{\thepage}
+% --- Kapitel/Abschnitt bei geraden/linken Seiten rechts/aussen
+\fancyhead[ER]{\leftmark}
+% --- Unterkapitel/Unterabschnitt bei ungeraden/rechten Seiten links/aussen
+\fancyhead[OL]{\rightmark}
+
+\renewcommand{\chaptermark}[1]{%
+  \markboth{\chaptername
+    \ \thechapter.\ #1}{}}
+
+\renewcommand{\sectionmark}[1]{
+  \markright{\thesection.\ #1}
+}
+
+% --- Erhoehung des vertikalen Abstandes zwischen den Zeilen eines Arrays
+\renewcommand{\arraystretch}{1.5}
+
+% --- Auswahl der Formatierung des Literaturverzeichnisses (deutsche Version), erstellt mit custom-bib package
+% \bibliographystyle{plain}
+% \bibliographystyle{diss_bibstyle.bst}
+\bibliographystyle{jas99}
+
+% --- search path for figures
+\graphicspath{{./pics/}}
+% ----------------------------------------------------------------%
+
+\frontmatter     %--- aendert Zahlen von Arabisch auf roemisch
+
+% ---------------- Generate title page ---------------------%
+\begin{titlepage}
+  \include{./title_toc}
+\end{titlepage}
+% ----------------------------------------------------------------%
+
+%---- generate version history page -----------------%
+\include{./versionhistory}
+
+\tableofcontents              %--- generate table of contents
+
+% remove chapter number from header for abstracts
+\renewcommand{\chaptermark}[1] {
+  \markboth{#1}{}
+}
+
+
+% shifting table captions...
+\newcommand{\rb}[1]{\raisebox{4.0ex}[0pt]{#1}}
+
+% use default again
+\renewcommand{\chaptermark}[1]{%
+  \markboth{\chaptername
+    \ \thechapter.\ #1}{}}
+
+\mainmatter                   %--- Zurcksetzen der Nummerierung auf arabisch
+
+
+% ---------- Einbinden der verschiedenen Teildokumente -----------%
+\include{./intro}
+\include{./grid_geometry}
+\include{./input}
+\include{./analysis}
+\include{./GRIB2_output_tables}
+\include{./icon_in_sky}
+% ----------------------------------------------------------------%
+
+\begin{appendices}
+\include{./appendix}  %--- Einbinden der Appendix
+\end{appendices}
+
+% \listoffigures                    %--- Erstellung des Figurenverzeichnisses
+
+% \glsaddall
+% \printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
+
+\backmatter
+% \bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
+\bibliography{litera.bib} %--- Create list of references
+
+% remove chapter number from header for Acknowledgements
+\renewcommand{\chaptermark}[1] {
+  \markboth{#1}{}
+}
+% --- Danksagung ---
+% \include{./text/danksagung}
+
+% use default again
+\renewcommand{\chaptermark}[1]{%
+  \markboth{\chaptername
+    \ \thechapter.\ #1}{}}
+
+
+\end{document}

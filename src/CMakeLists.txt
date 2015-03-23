@@ -1,0 +1,46 @@
+file (GLOB_RECURSE Fortran_sourcefiles "*.?90")
+file (GLOB_RECURSE C_sourcefiles "*.c")
+
+file (GLOB_RECURSE icon_source "icon.f90") 
+file (GLOB_RECURSE grid_command_source "grid_command.f90") 
+file (GLOB_RECURSE partitioner_source "partitioner.f90") 
+
+message (STATUS "icon         : ${icon_source}")
+message (STATUS "grid_command : ${grid_command_source}")
+message (STATUS "partitioner  : ${partitioner_source}")
+
+list (REMOVE_ITEM Fortran_sourcefiles 
+  ${icon_source} ${grid_command_source} ${partitioner_source})
+
+add_executable (icon ${icon_source} 
+  ${Fortran_sourcefiles} 
+  ${C_sourcefiles}
+  version.c)
+add_custom_command (OUTPUT version.c 
+  COMMAND ${CMAKE_HOME_DIRECTORY}/config/pvcs.pl --srcdir ${CMAKE_HOME_DIRECTORY})
+add_custom_target (version.c)
+target_link_libraries (icon 
+  ${MPI_Fortran_LIBRARIES} 
+  ${NETCDF_LIBRARIES} 
+  ${HDF5_LIBRARIES} 
+  mtime support lapack blas)
+
+add_executable (grid_command ${grid_command_source} 
+  ${Fortran_sourcefiles} 
+  ${C_sourcefiles})
+target_link_libraries (grid_command
+  ${MPI_Fortran_LIBRARIES} 
+  ${NETCDF_LIBRARIES} 
+  ${HDF5_LIBRARIES} 
+  mtime support lapack blas)
+
+add_executable (partitioner ${partitioner_source} 
+  ${Fortran_sourcefiles} 
+  ${C_sourcefiles})
+target_link_libraries (partitioner
+  ${MPI_Fortran_LIBRARIES} 
+  ${NETCDF_LIBRARIES} 
+  ${HDF5_LIBRARIES} 
+  mtime support lapack blas)
+
+
