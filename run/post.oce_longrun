@@ -2,6 +2,7 @@
     basePath=${ICON_BASE_PATH}
     dataPath="../experiments/${EXPNAME}/"
 postProcPath="${basePath}/scripts/postprocessing/tools"
+    archiver="${postProcPath}/archive_oce.py"
    nclConfig="${postProcPath}/.hluresfile"
       plotTS="${postProcPath}/ocean/plot_timeser"
  convert2png="${postProcPath}/ocean/create_plot_browser"
@@ -45,15 +46,15 @@ else
   [[ -f ${oceanMonitorComplete} ]] && rm -f ${oceanMonitorComplete}
   cdo -r -cat ${EXPNAME}*oceanMonitor*.nc* ${oceanMonitorComplete}
   cd plots;
-  cdo -r -yearmean -delete,timestep=1 ../${oceanMonitorComplete}
-  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${file};
+  cdo -r -yearmean -delete,timestep=1 ../${oceanMonitorComplete} relativeTimeAxis_${oceanMonitorComplete}
+  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${oceanMonitorComplete};
   ${convert2png} MANIFEST > index.html;
   cd -;
 fi
 
 
 
-$archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true # FORCE=1
+$archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=false  FORCE=1
 
 check_error $? "${EXPNAME}"
 
