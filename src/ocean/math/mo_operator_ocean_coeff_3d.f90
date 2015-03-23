@@ -1760,10 +1760,13 @@ CONTAINS
               dist_vector%x  =  (dual_edge_middle(edge_index_vertex, edge_block_vertex)%x - vertex_center%x) &
                 & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
               dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_vertex, edge_block_vertex))
+              orientation = DOT_PRODUCT( dist_vector%x,                         &
+                & patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x)
               !The dot product is the cosine of the angle between vectors from dual cell centers
               !to dual cell edges
               edge2edge_viavert_coeff(edge_index,edge_block,ictr)             &
                 & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))          &
+                & * SIGN(1.0_wp,orientation)                                  &
                 & * (dual_edge_length(edge_index_vertex, edge_block_vertex)   &
                 &    / prime_edge_length(edge_index, edge_block))
             ENDIF
