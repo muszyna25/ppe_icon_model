@@ -568,7 +568,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
-                    'albedo_srf', 't_air', 'q_air', 
+                    'albedo_srf', 't_air', 'q_air',
                     'lw_srf_down', 'swnir_srf_down', 'swpar_srf_down', 'swvis_srf_down',
                     'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
                     'evapotrans', 'sensible_hflx', 'latent_hflx' 
