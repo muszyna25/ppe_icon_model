@@ -24,6 +24,29 @@
 !!
 !! -------------------------------------------------------------------------
 !!
+!! The "namelist_output" module was originally written by Rainer
+!! Johanni. Some data structures used therein are duplicates of those
+!! created in the other parts of the model: In general, variable
+!! fields are introduced in ICON through the "add_var" mechanism in
+!! the module "shared/mo_var_list". This mechanism allocates "r_ptr"
+!! POINTERs for REAL(wp) variable fields, see the data structure in
+!! "t_var_list_element" (mo_var_list_element.f90). The "p_nh_state"
+!! variables, for example, then point to the same location. In the
+!! output, however, there exists a data structure "t_var_desc"
+!! (variable descriptor) which also contains an "r_ptr" POINTER. This
+!! also points to the original "r_ptr" location in memory.
+!!
+!! Exceptions and caveats for this described mechanism:
+!!
+!! - INTEGER fields are stored in "i_ptr" POINTERs.
+!! - After gathering the output data, so-called "post-ops" are
+!!   performed which modify the copied data (for example scaling from/to
+!!   percent values).
+!! - In asynchronous output mode, the "r_ptr" POINTERs are meaningless
+!!   on those PEs which are dedicated for output. These are NULL
+!!   pointers then.
+!!
+!!
 !! MPI roles in asynchronous communication:
 !! 
 !! - Compute PEs create local memory windows, buffering all variables
