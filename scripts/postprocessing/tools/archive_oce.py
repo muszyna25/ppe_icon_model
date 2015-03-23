@@ -228,12 +228,13 @@ def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInf
 
     catFiles = []
     for ifile in ifiles:
-      ofile = "%s/_catFile_%s_%s"%(archdir,year,os.path.basename(ifile))
-      catFiles.append(cdo.selyear(year, input  = ifile, output = ofile))
+      dbg(ifile)
+      ofile = "{0}/_catFile_{1}_{2}".format(archdir,year,os.path.basename(ifile))
+      catFiles.append(cdo.selyear(year, input = '{0}'.format(ifile), output = ofile))
     if ( 1 == len(ifiles) ):
-      cdo.copy(input = catFiles[0], output = yearFile)
+      cdo.copy(input = ' '.join(ifiles), output = yearFile)
     else:
-      cdo.cat(input = " ".join(catFiles), output = yearFile)
+      cdo.cat(input = ' '.join(catFiles), output = yearFile)
 
     if (shouldComputeYearMean):
       cdo.yearmean(input = yearFile,output = yearMeanFile,forceOutput = forceOutput)
@@ -242,7 +243,7 @@ def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInf
 
     map(lambda x: os.remove(x),catFiles)
   else:
-    print("Use existing yearFile '%s'"%(yearFile))
+    print("Use existing yearFile '{0}'".format(yearFile))
 #}}}
 
 """ split input files into yearly files - compute yearmean if desired """
