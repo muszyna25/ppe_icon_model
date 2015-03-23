@@ -877,9 +877,9 @@ else:
   for year in years:
     yearMeanFile = LOG['meansOfYears'][year]
     yearMeanFiles.append(yearMeanFile)
-  yearMeanFiles.sort()
   LOG['splityear?'] = True
 LOG['years']      = years
+yearMeanFiles.sort()
 dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
@@ -992,6 +992,7 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
 # PREPARE INPUT FOR REGIONAL MEANS from yearMean output {{{
 # for global grid only
 if 'procRegio' in options['ACTIONS']:
+  print(' procRegio mask START ------------------------------------------------------')
   # setup
   regioCodes    = {'ArcticOcean' : 2, 'NorthAtlantic' : 4,'TropicalAtlantic' : 5, 'SouthernOcean' : 6}
   if 20 == len(LOG['depths']):
@@ -1010,6 +1011,7 @@ if 'procRegio' in options['ACTIONS']:
   dbg(LOG['depths'])
   dbg(len(LOG['depths']))
   regioMeanData = processRegionMean(options,LOG['mask'],LOG['init'],ymFile,regioCodes,regioDepths,regioVars,regioMaskVar)
+  print(' procRegio mask FINISH -----------------------------------------------------')
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
 mocMeanFile = '/'.join([options['ARCHDIR'],'mocMean'])
@@ -1238,6 +1240,7 @@ if 'plotX' in options['ACTIONS']:
 # REGIO MEAN PROFILES {{{ ================================
 # for global grids only
 if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
+  print(' procRegio START ------------------------------------------------------')
   regioPlotNames = {'t_acc' : 'Temperature','s_acc' : 'Salinity'}
   for location, regioCode in regioCodes.iteritems():
     for varname in regioVars:
@@ -1266,6 +1269,7 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
       collectImageToMapByRows(imageCollection,
                               2,
                               '/'.join([options['PLOTDIR'],'_'.join(['regioMean',location,varname,options['EXP'],options['TAG']+'.png'])])) 
+  print(' procRegio FINISH -----------------------------------------------------')
 # }}} ----------------------------------------------------------------------------------
 # MOC PLOT {{{
 if 'plotMoc' in options['ACTIONS']:
