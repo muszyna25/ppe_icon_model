@@ -29,6 +29,7 @@ MODULE mo_art_tracer_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_tend
   USE mo_nonhydro_types,                ONLY: t_nh_prog
   USE mo_run_config,                    ONLY: lart
+  USE mo_art_config,                    ONLY: art_config
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
@@ -106,7 +107,9 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
         CALL art_init(jg,this_list,tracer=p_prog%tracer)
       ENDIF
     ELSE !defcase is diag
-      CALL art_create_diagnostics(jg, this_list)
+      IF (art_config(jg)%lart_diag_out) THEN
+        CALL art_create_diagnostics(jg, this_list)
+      ENDIF
     ENDIF
   ENDIF ! lart
 #endif

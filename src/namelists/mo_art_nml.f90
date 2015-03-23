@@ -22,7 +22,6 @@ MODULE mo_art_nml
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_kind                ,ONLY: wp
   USE mo_parallel_config     ,ONLY: nproma
-  USE mo_exception           ,ONLY: finish
   USE mo_io_units            ,ONLY: nnml, nnml_output
   USE mo_master_control      ,ONLY: is_restart_run
   USE mo_impl_constants      ,ONLY: max_dom
@@ -48,6 +47,7 @@ MODULE mo_art_nml
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
+  LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
     
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
@@ -79,7 +79,8 @@ MODULE mo_art_nml
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
-   &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas
+   &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
+   &                lart_diag_out
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -117,6 +118,7 @@ CONTAINS
     iart_ntracer        = 0
     iart_init_aero      = 0
     iart_init_gas       = 0
+    lart_diag_out       = .FALSE.
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem           = .FALSE.
@@ -177,9 +179,16 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Sanity check
     !----------------------------------------------------
-
-
-
+    
+    IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
+      CALL finish('mo_art_nml:read_art_namelist',  &
+        &         'Invalid combination: iart_aci_cold = 6 and iart_dust = 0')
+    ENDIF
+    IF (iart_aci_cold == 7 .AND. iart_dust == 0) THEN
+      CALL finish('mo_art_nml:read_art_namelist',  &
+        &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
+    ENDIF
+    
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -190,6 +199,7 @@ CONTAINS
       art_config(jg)%iart_ntracer        = iart_ntracer
       art_config(jg)%iart_init_aero      = iart_init_aero
       art_config(jg)%iart_init_gas       = iart_init_gas
+      art_config(jg)%lart_diag_out       = lart_diag_out
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem           = lart_chem
