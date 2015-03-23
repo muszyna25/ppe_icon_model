@@ -1672,6 +1672,7 @@ MODULE mo_initicon
 
             CALL get_wsnow(h_snow    = lnd_diag%h_snow_t(:,jb,jt),          &
               &            rho_snow  = lnd_prog_now%rho_snow_t(:,jb,jt),    &
+              &            t_snow    = lnd_prog_now%t_snow_t(:,jb,jt),      &
               &            istart    = i_startidx,                          &
               &            iend      = i_endidx,                            &
               &            soiltyp   = ext_data(jg)%atm%soiltyp_t(:,jb,jt), &

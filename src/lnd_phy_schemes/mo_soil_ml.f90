@@ -1391,6 +1391,8 @@ END SUBROUTINE message
       icount_rockice=icount_rockice+1
       rockice_list(icount_rockice)=i
     END IF
+    ! ensure that glaciers are covered with at least 1 m of snow
+    IF (mstyp == 1) h_snow(i) = MAX(1._ireals, h_snow(i))
     zdw   (i,:)  = cdw0  (mstyp)
     zdw1  (i,:)  = cdw1  (mstyp)
     zkw   (i,:)  = ckw0  (mstyp)
