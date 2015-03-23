@@ -33,7 +33,8 @@ MODULE mo_output_event_control
     &                              OPERATOR(+), OPERATOR(-), timedelta, newTimedelta,   &
     &                              deallocateTimedelta, OPERATOR(<=), OPERATOR(>),      &
     &                              OPERATOR(<), OPERATOR(==),                           &
-    &                              divisionquotienttimedelta, dividetimedeltainseconds, &
+    &                              divisionquotienttimespan,                            &
+    &                              dividedatetimedifferenceinseconds,                   &
     &                              getPTStringFromMS, getPTStringFromSeconds,           &
     &                              timedeltaToString
   USE mo_var_list_element,   ONLY: lev_type_str
@@ -56,7 +57,7 @@ MODULE mo_output_event_control
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_control'
 
   !> Internal switch for debugging output
-  LOGICAL,          PARAMETER :: ldebug  = .false.
+  LOGICAL,          PARAMETER :: ldebug  = .true.
 
 CONTAINS
 
@@ -161,7 +162,7 @@ CONTAINS
     TYPE(datetime),  POINTER             :: mtime_step
     CHARACTER(len=max_timedelta_str_len) :: td_string
     TYPE(timedelta), POINTER             :: tddiff => NULL()
-    TYPE(divisionquotienttimedelta)      :: tq     
+    TYPE(divisionquotienttimespan)       :: tq     
     TYPE(timedelta), POINTER             :: vlsec => NULL()
 
     ! first, we compute the dynamic time step which is equal or larger than
@@ -176,19 +177,30 @@ CONTAINS
     
     tddiff => newtimedelta('PT0S')
     tddiff = mtime_current - mtime_begin
-    CALL dividetimedeltainseconds(tddiff, vlsec, tq)
+
+    write (0,*) 'LK: intvlsec = ', intvlsec
+    CALL datetimeToString(mtime_begin, td_string)
+    write (0,*) 'LK: begin = ', trim(td_string)
+    CALL datetimeToString(mtime_current, td_string)
+    write (0,*) 'LK: current = ', trim(td_string)
+
+    CALL divideDatetimeDifferenceInSeconds(mtime_current, mtime_begin, vlsec, tq)
 
     step = INT(tq%quotient,i4)
     
+    write (0,*) 'LK: ', step
+
     mtime_step => newDatetime('0001-01-01T00:00:00')
     IF (step >= 0) THEN
       mtime_step = mtime_begin + step * vlsec
       CALL datetimeToString(mtime_step, exact_date)
+      write (0,*) 'LK: ', trim(exact_date)      
     END IF
     CALL deallocateDatetime(mtime_step)
 
     ! then we add the offset "jstep0" (nonzero for restart cases):
     step        = step + step_offset
+    write (0,*) 'LK: ', step, step_offset
 
   END SUBROUTINE compute_step
 

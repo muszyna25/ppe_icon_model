@@ -241,7 +241,7 @@ MODULE mo_output_event_handler
   INTEGER, PARAMETER :: ROOT_OUTEVENT         = 0
 
   !> Internal switch for debugging output
-  LOGICAL, PARAMETER :: ldebug                = .FALSE.
+  LOGICAL, PARAMETER :: ldebug                = .TRUE.
 
   !> Max. no. of steps printed out to stderr
   INTEGER, PARAMETER :: MAX_PRINTOUT          = 2000
@@ -2280,20 +2280,32 @@ CONTAINS
     INTEGER :: ev_step, istep, n_pes, i_pe
     TYPE(t_event_step_data), POINTER :: event_step_data
 
+!LK
+    write (0,*) 'LK: ', jstep, l_isrestart, lrecover_open_file
 
     ev_step = 0
     DO istep=1,event%n_event_steps
+!LK
+      write (0,*) 'LK: ', event%event_step(istep)%i_sim_step
       IF (event%event_step(istep)%i_sim_step < jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
 
+!LK
+    write (0,*) 'LK: ', event%i_event_step, event%n_event_steps
 
     IF (event%i_event_step <= event%n_event_steps) THEN
       istep = event%i_event_step
       n_pes = event%event_step(istep)%n_pes
+
+!LK
+    write (0,*) 'LK: ', n_pes
       
       DO i_pe=1,n_pes
         event_step_data => event%event_step(istep)%event_step_data(i_pe)
+
+!LK
+    write (0,*) 'LK: ', event_step_data
 
         ! Spooling forward the event status to a given step means that
         ! we have to set the "open" flag.

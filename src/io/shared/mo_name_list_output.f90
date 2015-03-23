@@ -140,7 +140,7 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER :: WAIT_UNTIL_FINISHED = -1
 
   !> Internal switch for debugging output
-  LOGICAL, PARAMETER :: ldebug  = .FALSE.
+  LOGICAL, PARAMETER :: ldebug  = .TRUE.
 
 
 CONTAINS
