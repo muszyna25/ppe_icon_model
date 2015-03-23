@@ -2445,10 +2445,6 @@
             DO jc = i_startidx, i_endidx
 #endif
 
-              IF (ptr_int%baryctr_idx(1,jc,jb) < 1) THEN
-                WRITE (0,*) "jc, jb = ", jc, jb
-              END IF
-
               p_out(jc,jk,jb) = &
                 &    ptr_int%baryctr_coeff(1,jc,jb)*                                            &
                 &    p_cell_in(ptr_int%baryctr_idx(1,jc,jb), jk, ptr_int%baryctr_blk(1,jc,jb))  &
