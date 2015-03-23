@@ -53,6 +53,7 @@ MODULE mo_art_config
     INTEGER :: iart_ntracer            !< number of transported ART tracers
     INTEGER :: iart_init_aero          !< Initialization of aerosol species
     INTEGER :: iart_init_gas           !< Initialization of gaseous species
+    LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
