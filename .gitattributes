@@ -184,10 +184,10 @@ doc/technical/async_restart/ICONImplementierungAsynchronerRestart-img001.png -te
 doc/technical/async_restart/ICONImplementierungAsynchronerRestart-img002.png -text
 doc/technical/async_restart/restart_module_doc.pdf -text
 doc/technical/async_restart/restart_module_doc.tex -text
+doc/technical/cloud_variables.pdf -text
+doc/technical/cloud_variables.tex -text
 doc/technical/dwd_database/analysis.tex -text
 doc/technical/dwd_database/appendix.tex -text
-doc/technical/dwd_database/cloud_variables.pdf -text
-doc/technical/dwd_database/cloud_variables.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
@@ -218,8 +218,6 @@ doc/technical/dwd_database/plot_maxhsurf.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/preface_intro.tex -text
 doc/technical/dwd_database/preface_title_toc.tex -text
 doc/technical/dwd_database/preface_versionhistory.tex -text
-doc/technical/dwd_database/radiation_variables.pdf -text
-doc/technical/dwd_database/radiation_variables.tex -text
 doc/technical/flux_diagram-crop.pdf -text
 doc/technical/flux_diagram.pdf -text
 doc/technical/flux_diagram.ps -text
@@ -232,6 +230,8 @@ doc/technical/icon_technical.pdf -text svneol=unset#unset
 doc/technical/icon_technical.tex -text
 doc/technical/icondoc_fig1.pdf -text svneol=unset#unset
 doc/technical/icondoc_fig2.pdf -text
+doc/technical/radiation_variables.pdf -text
+doc/technical/radiation_variables.tex -text
 doc/technical/transport_arlists.tex -text
 doc/userguide/Makefile -text
 doc/userguide/authorlist.tex -text
