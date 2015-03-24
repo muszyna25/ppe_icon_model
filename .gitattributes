@@ -214,7 +214,7 @@ doc/technical/dwd_database/pics/icosahedron.png -text
 doc/technical/dwd_database/pics/icosahedron_spherical.png -text
 doc/technical/dwd_database/pics/lon-lat-grid.png -text
 doc/technical/dwd_database/pics/nsection.png -text
-doc/technical/dwd_database/plot_maxhsurf.pdf -text svneol=unset#application/pdf
+doc/technical/dwd_database/pics/plot_maxhsurf.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/preface_intro.tex -text
 doc/technical/dwd_database/preface_title_toc.tex -text
 doc/technical/dwd_database/preface_versionhistory.tex -text
