@@ -354,23 +354,40 @@ CONTAINS
         !
         prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        prm_field(jg)%tsfc_eff (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+
+        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+
+        prm_field(jg)%albvisdir(:,:) = albedoW
+        prm_field(jg)%albvisdif(:,:) = albedoW
+        prm_field(jg)%albnirdir(:,:) = albedoW
+        prm_field(jg)%albnirdif(:,:) = albedoW
+        prm_field(jg)%albedo(:,:)    = albedoW
+
         !
 ! TODO: ME preliminary setting for ice
+      ! The ice model should be able to handle different thickness classes, 
+      ! but for AMIP we ONLY USE one ice class.
         prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
         prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
         prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
         prm_field(jg)% Tsurf(:,:,:) = Tf
         prm_field(jg)% T1   (:,:,:) = Tf
         prm_field(jg)% T2   (:,:,:) = Tf
         prm_field(jg)% hs   (:,:,:) = 0._wp
-        prm_field(jg)% hi   (:,:,:) = 0._wp
-        prm_field(jg)% conc (:,:,:) = 0._wp
+        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
+        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
 
       END DO ! jg
 
@@ -513,10 +530,6 @@ CONTAINS
           field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:)   = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:)   = albedoW ! albedo in the NIR range for direct radiation
-          field% albvisdif_wtr(:,:)   = albedoW ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:)   = albedoW ! albedo in the NIR range for diffuse radiation
 
         CASE('APEc')
           ! The same as APEi, except we initialize with no ice and don't modify the surface
@@ -548,10 +561,6 @@ CONTAINS
           field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:)   = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:)   = albedoW ! albedo in the NIR range for direct radiation
-          field% albvisdif_wtr(:,:)   = albedoW ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:)   = albedoW ! albedo in the NIR range for diffuse radiation
 
 ! This shouldn't be necessary!
           IF ( is_coupled_run() ) THEN
@@ -781,8 +790,16 @@ CONTAINS
 
       field% cosmu0    (:,  :) = 0._wp
       field% flxdwswtoa(:,  :) = 0._wp
+      field% vissfc    (:,  :) = 0._wp
+      field% nirsfc    (:,  :) = 0._wp
+      field% parsfcdn  (:,  :) = 0._wp
+      field% visdffsfc (:,  :) = 0._wp
+      field% nirdffsfc (:,  :) = 0._wp
+      field% pardffsfc (:,  :) = 0._wp
+      field% lwflxupsfc(:,  :) = 0._wp
       field% swflxsfc    (:,:) = 0._wp
       field% lwflxsfc    (:,:) = 0._wp
+      field% lwupflxsfc  (:,:) = 0._wp
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
@@ -812,15 +829,6 @@ CONTAINS
 
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
-
-      field% albvisdir(:,  :) = 0.07_wp ! albedo in the visible range for direct radiation
-                                        ! (set to the albedo of water for testing)
-      field% albnirdir(:,  :) = 0.07_wp ! albedo in the NIR range for direct radiation
-                                        ! (set to the albedo of water for testing)
-      field% albvisdif(:,  :) = 0.07_wp ! albedo in the visible range for diffuse radiation
-                                        ! (set to the albedo of water for testing)
-      field% albnirdif(:,  :) = 0.07_wp ! albedo in the NIR range for diffuse radiation
-                                        ! (set to the albedo of water for testing)
 
       tend% xl_dtr(:,:,:)  = 0._wp  !"xtecl" in ECHAM
       tend% xi_dtr(:,:,:)  = 0._wp  !"xteci" in ECHAM
