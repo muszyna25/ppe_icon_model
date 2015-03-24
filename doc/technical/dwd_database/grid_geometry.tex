@@ -222,10 +222,16 @@ vary considerably from location to location, due to grid level stretching/compre
 \end{figure}
 
 
-%  % ---------------------------------------------------------------
-%  \section{Refined subregion over Europe (``local nest'')}
-%  % ---------------------------------------------------------------
-%  
+% ---------------------------------------------------------------
+\section{Refined subregion over Europe (``local nest'')}
+% ---------------------------------------------------------------
+
+\begin{note}
+  \begin{center}
+   \textbf{--- this section is incomplete ---}
+  \end{center}
+\end{note}
+
 %  \begin{itemize}
 %    \item Bounds of the refined subregion, with illustration
 %    \item No. of cells
@@ -239,3 +245,45 @@ vary considerably from location to location, due to grid level stretching/compre
 %    \item Description of IAU for nest
 %    \item \emph{no} additional tables for HHL in appendix.
 %  \end{itemize}
+
+
+\begin{itemize}
+  \item Two-way nesting: coupling between forecast on the global grid
+        and the regional (Europe) domain.
+        \begin{itemize}
+          \item boundary data for the nest area is updated every time step (120~s)
+          \item feedback of atmospheric prognostic variabes (except precipitation) via relaxation
+                on a 3~h time scale.
+        \end{itemize}
+\end{itemize}
+
+\textbf{ICON-EU nest}
+\begin{itemize}
+  \item geographical coordinates:
+        \begin{itemize}
+          \item[$\circ$] $23.5^\degree~\text{W}$ -- $62.5^\degree~\text{E}$
+          \item[$\circ$] $29.5^\degree~\text{N}$ -- $70.5^\degree~\text{N}$
+        \end{itemize}
+  \item mesh size: approx. $6.5~\km$ (R3B8)
+  \item 60 levels, upper boundary at $22.5~\km$
+\end{itemize}
+
+In comparison to: \textbf{COSMO-EU}
+\begin{itemize}
+  \item rotated geogr. coordinates:
+        \begin{itemize}
+          \item[$\circ$] $\lambda_{\text{N}} = 170^\degree~\text{W}$, 
+                         $\phi_{\text{N}}    =  40^\degree~\text{N}$, 
+          \item[$\circ$] $18.0^\degree~\text{W} -- 23.5^\degree~\text{E}$
+          \item[$\circ$] $20.0^\degree~\text{S} -- 21.0^\degree~\text{N}$
+        \end{itemize}
+  \item mesh size: $0.0625^\degree$ ($\approx 7~\km$)
+  \item 665 x 657 grid points
+  \item 40 levels, upper boundary at $22.5~\km$
+\end{itemize}
+  
+
+
+
+
+
