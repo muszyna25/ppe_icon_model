@@ -167,7 +167,7 @@ vary considerably from location to location, due to grid level stretching/compre
 \begin{figure}[hb]
 \begin{tabbing}
   \begin{minipage}[t]{0.65\linewidth} \vspace*{0pt}%
-    \pgfplotstableread{vertical_levels_i.txt}{\loadedtable}
+    \pgfplotstableread{level_tables/vertical_levels_i.txt}{\loadedtable}
     \pgfplotsset{
       tick label style={font=\small},
     }
@@ -205,7 +205,7 @@ vary considerably from location to location, due to grid level stretching/compre
   \begin{minipage}[t]{0.35\linewidth}\vspace*{0em}%
    \renewcommand{\baselinestretch}{0.95}\normalsize%
    \pgfkeys{/pgf/number format/set thousands separator={\,}}
-   \pgfplotstableread{vertical_levels_i_small.txt}{\loadedtablesmall}\vspace*{0pt}%
+   \pgfplotstableread{level_tables/vertical_levels_i_small.txt}{\loadedtablesmall}\vspace*{0pt}%
    \pgfplotstabletypeset[ columns={k,z,p},every  head row/.style={after row={\hline}},
           font=\footnotesize,
           columns/k/.style={column name=$level$, column type=r,column type/.add={>{\columncolor[gray]{.8}}}{}},
