@@ -44,7 +44,6 @@
 MODULE mo_nonhydro_gpu_types
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_mpi,                  ONLY: my_process_is_work, i_am_accel_node
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
   USE mo_model_domain,         ONLY: t_patch, p_patch
   USE mo_nonhydro_state,       ONLY: p_nh_state
@@ -56,7 +55,6 @@ MODULE mo_nonhydro_gpu_types
 
 #if defined( _OPENACC )
 
-  PUBLIC :: init_gpu_variables, finalize_gpu_variables
   PUBLIC :: save_convenience_pointers
   PUBLIC :: refresh_convenience_pointers
 
@@ -85,20 +83,6 @@ MODULE mo_nonhydro_gpu_types
     & '$Id: mo_nonhydro_gpu_types.f90 16760 2014-04-01 09:04:22Z wsawyer $'
 
 CONTAINS
-
-     SUBROUTINE init_gpu_variables( )
-
-       i_am_accel_node   = my_process_is_work()
-
-     END SUBROUTINE init_gpu_variables
-
-
-     SUBROUTINE finalize_gpu_variables( )
-
-       i_am_accel_node = .FALSE.
-
-     END SUBROUTINE finalize_gpu_variables
-
 
      SUBROUTINE save_convenience_pointers( )
 

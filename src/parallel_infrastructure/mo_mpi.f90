@@ -1194,6 +1194,10 @@ CONTAINS
       my_mpi_function = pref_mpi_process
     ENDIF
 
+#ifdef _OPENACC
+    i_am_accel_node  = ( my_mpi_function == work_mpi_process )
+#endif
+
     CALL MPI_Comm_split(process_mpi_all_comm, my_mpi_function, p_pe, p_comm_work, p_error)
 
     ! Set p_comm_work_test, the communicator spanning work group and test PE

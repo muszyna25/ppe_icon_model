@@ -167,8 +167,7 @@ MODULE mo_nh_stepping
 #endif
 
 #if defined( _OPENACC )
-  USE mo_nonhydro_gpu_types,       ONLY: init_gpu_variables, finalize_gpu_variables, &
-                                         save_convenience_pointers, refresh_convenience_pointers 
+  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers 
   USE mo_mpi,                      ONLY: i_am_accel_node
 #endif
 
@@ -563,8 +562,6 @@ MODULE mo_nh_stepping
   
 #if defined( _OPENACC )
 !
-  CALL init_gpu_variables( )
-
   CALL save_convenience_pointers( )
 
 !$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv ), IF ( i_am_accel_node )
@@ -908,7 +905,6 @@ MODULE mo_nh_stepping
   CALL save_convenience_pointers( )
 !$ACC END DATA
   CALL refresh_convenience_pointers( )
-  CALL finalize_gpu_variables( )
 #endif
 
 
