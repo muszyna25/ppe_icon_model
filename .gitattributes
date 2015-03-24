@@ -203,6 +203,8 @@ doc/technical/dwd_database/output_GRIB2_tables.tex -text
 doc/technical/dwd_database/output_statproc.tex -text
 doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/IAU_scheme_2.png -text
+doc/technical/dwd_database/pics/ICON_EU_nest_1.png -text svneol=unset#image/png
+doc/technical/dwd_database/pics/ICON_EU_nest_2.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/analysis_drips.png -text
 doc/technical/dwd_database/pics/bisection.png -text
 doc/technical/dwd_database/pics/forecast_length.png -text svneol=unset#image/png
