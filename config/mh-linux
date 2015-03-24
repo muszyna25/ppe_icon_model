@@ -247,27 +247,26 @@ case "$ac_sitename" in
 
                 case "$fortran_compiler" in
                     default|gcc)
-                        load_modules="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
+                        load_modules ="PrgEnv-gnu" "cray-netcdf" "cray-hdf5" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
                     ;;
                     intel)
-                        load_modules      = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
+                        load_modules = "PrgEnv-intel" "cray-netcdf" "cray-hdf5" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
                         ;;
                     cray)
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-hdf5" "${load_modules}"
 			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
                         NETCDFROOT = /opt/cray/netcdf/default/cray/83
-                        load_modules      = "PrgEnv-cray" "cray-netcdf" "cray-hdf5" "${load_modules}"
                         ;;
                     cray_gpu)
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-hdf5" "${load_modules}"
 			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
-                        load_modules      = "cray-netcdf" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/default/cray/83
-                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
                         ;;
                 esac
                 mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
