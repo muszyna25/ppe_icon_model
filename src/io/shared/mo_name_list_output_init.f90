@@ -1556,8 +1556,6 @@ CONTAINS
         &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
         &                  generate_output_filenames, local_i, p_comm_io)
       ! ------------------------------------------------------------------------------------------
-!LK
-      write (0,*) 'LK: dom_sim_step_info 1 ... ', dom_sim_step_info%jstep0, i, nfiles
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
         &                            is_restart_run(), lrecover_open_file=.TRUE.)
@@ -1574,8 +1572,6 @@ CONTAINS
     all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
          &                               p_comm_work_io, process_work_io0)
 
-!LK
-      write (0,*) 'LK: dom_sim_step_info 2 ... ', dom_sim_step_info%jstep0
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
       &                            is_restart_run(), lrecover_open_file=.TRUE.)
