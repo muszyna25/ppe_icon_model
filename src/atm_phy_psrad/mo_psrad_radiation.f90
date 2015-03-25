@@ -451,102 +451,116 @@ MODULE mo_psrad_radiation
 !!$      !
 !!$      ! --- Check CH4
 !!$      ! 
-!!$      SELECT CASE (ich4)
-!!$      CASE(0)
-!!$        CALL message('','ich4 = 0 --> no CH4 in radiation')
-!!$      CASE(1)
-!!$        CALL message('','ich4 = 1 --> transported CH4 is not yet implemented')
-!!$        CALL finish('setup_psrad_radiation','Run terminated ich4')
-!!$      CASE(2)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'ich4 = 2 --> CH4 volume mixing ratio=', ch4vmr
-!!$        CALL message('',message_text)
+      SELECT CASE (ich4)
+      CASE(0)
+        CALL message('','irad_ch4 = 0 --> no CH4 in radiation')
+      CASE(1)
+        CALL message('','irad_ch4 = 1 --> transported CH4 is not yet implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_ch4')
+      CASE(2)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_ch4 = 2 --> CH4 mass mixing ratio=', mmr_ch4
+        CALL message('',message_text)
 !!$        ch4mmr = ch4vmr*amch4/amd
-!!$      CASE(3)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'ich4 = 3 --> CH4 (trop) volume mixing ratio =', ch4vmr
-!!$        CALL message('',message_text)
+      CASE(3)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_ch4 = 3 --> CH4 (trop) mass mixing ratio =', mmr_ch4
+        CALL message('',message_text)
 !!$        ch4mmr = ch4vmr*amch4/amd
 !!$      CASE(4)
-!!$        CALL message('','ich4 = 4 --> CH4 volume mixing ratio from scenario')
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'ich4 =', ich4, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated ich4')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check O3
-!!$      ! 
-!!$      SELECT CASE (io3)
-!!$      CASE(0)
-!!$        CALL message('','io3  = 0 --> no O3 in radiation')
-!!$      CASE(1)
-!!$        CALL message('','io3  = 1 --> transported O3 is not yet implemented')
-!!$        CALL finish('setup_psrad_radiation','Run terminated io3')
-!!$      CASE(2)
-!!$        CALL message('','io3  = 2 --> spectral O3 climatology (ECHAM4)')
-!!$      CASE(3)
-!!$        CALL message('','io3  = 3 --> gridpoint O3 climatology from NetCDF file')
-!!$      CASE(4)
-!!$        CALL message('','io3  = 4 --> gridpoint O3 climatology from IPCC-NetCDF file')
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'io3  =', io3, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated io3')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check N2O
-!!$      ! 
-!!$      SELECT CASE (in2o)
-!!$      CASE(0)
-!!$        CALL message('','in2o = 0 --> no N2O in radiation')
-!!$      CASE(1)
-!!$        CALL message('','in2o = 1 --> transported N2O is not yet implemented')
-!!$        CALL finish('setup_psrad_radiation','Run terminated in2o')
-!!$      CASE(2)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'in2o = 2 --> N2O volume mixing ratio=', n2ovmr
-!!$        CALL message('',message_text)
+!!$        CALL message('','irad_ch4 = 4 --> CH4 volume mixing ratio from scenario')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_ch4 =', ich4, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_ch4')
+      END SELECT
+      !
+      ! --- Check O3
+      ! 
+      SELECT CASE (io3)
+      CASE(0)
+        CALL message('','irad_o3  = 0 --> no O3 in radiation')
+      CASE(1)
+        CALL message('','irad_o3  = 1 --> transported O3 is not yet implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
+      CASE(2)
+        CALL message('','irad_o3  = 2 --> spectral O3 climatology (ECHAM4)')
+      CASE(8)
+        CALL message('','irad_o3  = 8 --> gridpoint O3 climatology from NetCDF file')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_o3  =', io3, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
+      END SELECT
+      !
+      ! --- Check N2O
+      ! 
+      SELECT CASE (in2o)
+      CASE(0)
+        CALL message('','irad_n2o = 0 --> no N2O in radiation')
+      CASE(1)
+        CALL message('','irad_n2o = 1 --> transported N2O is not yet implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_n2o')
+      CASE(2)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_n2o = 2 --> N2O mass mixing ratio=', mmr_n2o
+        CALL message('',message_text)
 !!$        n2ommr = n2ovmr*amn2o/amd
-!!$      CASE(3)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'in2o = 3 --> N2O (trop) volume mixing ratio=', n2ovmr
-!!$        CALL message('',message_text)
+      CASE(3)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_n2o = 3 --> N2O (trop) mass mixing ratio=', mmr_n2o
+        CALL message('',message_text)
 !!$        n2ommr = n2ovmr*amn2o/amd
 !!$      CASE(4)
-!!$        CALL message('','in2o = 4 --> N2O volume mixing ratio from scenario')
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'in2o =',in2o,' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated in2o')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check CFCs
-!!$      ! 
-!!$      SELECT CASE (icfc)
-!!$      CASE(0)
-!!$        CALL message('','icfc = 0 --> no CFCs in radiation')
-!!$      CASE(1)
-!!$        CALL message('','icfc = 1 --> transported CFCs not yet implemented')
-!!$        CALL finish('setup_psrad_radiation','Run terminated icfc')
-!!$      CASE(2)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'icfc = 2 --> CFC11    volume mixing ratio=', cfcvmr(1)
-!!$        CALL message('',message_text)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             '             CFC12    volume mixing ratio=', cfcvmr(2)
-!!$        CALL message('',message_text)
+!!$        CALL message('','irad_n2o = 4 --> N2O volume mixing ratio from scenario')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_n2o =',in2o,' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated in2o')
+      END SELECT
+      !
+      ! --- Check CFCs
+      ! 
+      SELECT CASE (icfc11)
+      CASE(0)
+        CALL message('','irad_cfc11 = 0 --> no CFCs in radiation')
+      CASE(1)
+        CALL message('','irad_cfc11 = 1 --> transported CFCs not yet implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_cfc11')
+      CASE(2)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_cfc11 = 2 --> CFC11    volume mixing ratio=', vmr_cfc11
+        CALL message('',message_text)
 !!$      CASE(4)
-!!$        CALL message('','icfc = 4 --> CFC volume mixing ratio from scenario')
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'icfc=', icfc, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated icfc')
-!!$      END SELECT
+!!$        CALL message('','irad_cfc11 = 4 --> CFC11 volume mixing ratio from scenario')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_cfc11=', icfc11, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_cfc11')
+      END SELECT
+
+      SELECT CASE (icfc12)
+      CASE(0)
+        CALL message('','irad_cfc12 = 0 --> no CFCs in radiation')
+      CASE(1)
+        CALL message('','irad_cfc12 = 1 --> transported CFCs not yet implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_cfc12')
+      CASE(2)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_cfc12 = 2 --> CFC12    volume mixing ratio=', vmr_cfc12
+        CALL message('',message_text)
+!!$      CASE(4)
+!!$        CALL message('','irad_cfc12 = 4 --> CFC12 volume mixing ratio from scenario')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_cfc12=', icfc12, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_cfc12')
+      END SELECT
 !!$      !
 !!$      ! --- Check Scenario
 !!$      ! 

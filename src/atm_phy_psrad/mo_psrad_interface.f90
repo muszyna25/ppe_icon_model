@@ -9,7 +9,7 @@ module mo_psrad_interface
 !!$  USE mo_kind,            ONLY: wp
 !!$  USE mo_physical_constants, ONLY: grav, rd, avo,                               &
 !!$       &                        amco2, amch4, amn2o, amo3, amo2, amd, amw
-!!$  USE mo_exception,       ONLY: finish
+  USE mo_exception,       ONLY: finish
 !!$  USE mo_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
 !!$  USE mo_rrtm_params,     ONLY: maxxsec, maxinpx, nbndsw, nbndlw
 !!$  USE mo_cloud_optics,    ONLY: cloud_optics
@@ -57,9 +57,9 @@ CONTAINS
 !--jsr
     CALL lrtm_setup('rrtmg_lw.nc')
     CALL setup_srtm
-!!$    IF(seed_size_random() > rng_seed_size) THEN 
-!!$      CALL finish('setup_psrad','Random number seed size (rng_seed_size) is smaller than true size')
-!!$    END IF
+    IF(seed_size_random() > rng_seed_size) THEN 
+      CALL finish('setup_psrad','Random number seed size (rng_seed_size) is smaller than true size')
+    END IF
   END SUBROUTINE setup_psrad
 
 !!$  !-----------------------------------------------------------------------------
