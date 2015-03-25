@@ -68,7 +68,8 @@
 
 
 % customize hyperref
-\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred}
+\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred, linktoc=all}
+
 
 
 % Fortran environment
@@ -99,6 +100,10 @@
     frame=shadowbox,%
     rulesepcolor=\color{darkgreen}}}
 {}
+
+% LaTeX macro that is later used to disable/enable rows in the tables
+% of output fields (global/local domain):
+\newcommand{\row}[1]{#1}
 
 
 
@@ -253,6 +258,8 @@
 %---- generate version history page -----------------%
 \include{./preface_versionhistory}
 
+\newpage
+\pdfbookmark{\contentsname}{toc}
 \tableofcontents              %--- generate table of contents
 
 % remove chapter number from header for abstracts
