@@ -92,6 +92,7 @@ CLEAN.include('*.run')
   :atmTimeMeanSmall       => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
   :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
   :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
+  :meanStream             => %w[exp.ocean_meanStream],
 }
 # }}}
 #==============================================================================
@@ -219,6 +220,7 @@ def processComponents
     :iconStableMpim => {:subDirPattern => 'icon-stable.mpim/**/*'},
     :iconDev        => {:subDirPattern => 'icon-dev/check.atm*'},
     :atmDev         => {:subDirPattern => 'icon-dev/technical/exp.atm*'},
+    :infratructure  => {:subDirPattern => 'infrastructure/**/exp.*'},
   }.each {|component,componentExperiments|
     componentTemplates[component] = {}
     Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
