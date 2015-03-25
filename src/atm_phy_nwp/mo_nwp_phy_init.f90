@@ -298,40 +298,44 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         
         DO jc = i_startidx, i_endidx
           zlat = p_patch%cells%center(jc,jb)%lat
-          p_prog_lnd_now%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
-          p_prog_lnd_new%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
+          p_prog_lnd_now%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat) ! set SST
+          p_prog_lnd_new%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat)
+          p_prog_lnd_now%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
           ! Humidity at water surface = humidity at saturation
-          p_diag_lnd%qv_s    (jc,jb) = &
-  !      & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+          p_diag_lnd%qv_s(jc,jb)     = &
+            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
-!        IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
-!          DO jc = i_startidx, i_endidx
-!            zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
-!          ENDDO
-!        END IF
 
-      ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN !
+      ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN
  
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
                     ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
-          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
-         p_diag_lnd%qv_s     (jc,jb) = &
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+ 
+          p_diag_lnd%qv_s     (jc,jb) = &
+            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
           p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
-                                     &     p_prog_now%tracer(jc,nlev,jb,iqv)) 
+            &   p_prog_now%tracer(jc,nlev,jb,iqv))
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
       ELSE IF (ltestcase .AND. nh_test_name == 'CBL' .OR. nh_test_name == 'RCE'  &
                & .OR. nh_test_name == 'RCE_CBL' ) THEN !
  
         DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g (jc,jb) = th_cbl(1)
-          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
-         p_diag_lnd%qv_s     (jc,jb) = &
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
+          p_prog_lnd_new%t_g  (jc,jb)   = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+          p_diag_lnd%qv_s(jc,jb)     = &
+            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
       ELSE IF (ltestcase) THEN ! any other testcase
@@ -341,14 +345,15 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         ! KF increase the surface values to obtain fluxes          
 
         DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
-          p_prog_lnd_new%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_now%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_new%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
           ! KF NOTE: as long as we have only water as lower boundary
           ! this is the same setting as for APE
-         p_diag_lnd%qv_s    (jc,jb) = &
-!                & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-
+          p_diag_lnd%qv_s    (jc,jb) = &
+            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
       ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
 
@@ -384,7 +389,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
           END DO
         END IF  ! init_mode /= MODE_IFSANA
 
-        ! t_g_t  qv_s and qv_s_t are not initialized in case of MODE_IFSANA
+        ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
         IF (init_mode == MODE_IFSANA) THEN
           DO ic=1, ext_data%atm%spw_count(jb)
             jc = ext_data%atm%idx_lst_spw(ic,jb)
