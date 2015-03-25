@@ -186,6 +186,7 @@ doc/technical/async_restart/restart_module_doc.pdf -text
 doc/technical/async_restart/restart_module_doc.tex -text
 doc/technical/cloud_variables.pdf -text
 doc/technical/cloud_variables.tex -text
+doc/technical/dwd_database/Makefile -text
 doc/technical/dwd_database/analysis.tex -text
 doc/technical/dwd_database/appendix.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
@@ -209,6 +210,7 @@ doc/technical/dwd_database/pics/analysis_drips.png -text
 doc/technical/dwd_database/pics/bisection.png -text
 doc/technical/dwd_database/pics/forecast_length.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/forecast_length.svg -text svneol=unset#image/svg%2Bxml
+doc/technical/dwd_database/pics/grid_refinement.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/icon_grid_R2B00.png -text
 doc/technical/dwd_database/pics/icon_grid_R2B02.png -text
 doc/technical/dwd_database/pics/icon_with_nest.png -text
