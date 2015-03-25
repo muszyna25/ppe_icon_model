@@ -20,7 +20,7 @@ source postFunx.sh
 # plotting
 # find the last input file
 cd ${dataPath}
-iFile=$(ls ${EXPNAME}*.nc | tail -n 1)
+iFile=$(ls ${EXPNAME}_[0-9]*.nc | tail -n 1)
 if [[ ! -f ${iFile} ]]; then
   echo "Could not find the input file '${iFile}'"
   echo "Give up!"
