@@ -66,7 +66,7 @@ MODULE mo_name_list_output_init
     &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
-  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
     &                                             first_output_name_list,                         &
     &                                             add_var_desc
@@ -2457,21 +2457,21 @@ CONTAINS
       zaxisID = info%cdiZaxisID
       IF (zaxisID /= CDI_UNDEFID) THEN
 
-!DR *********** FOR TESTING *************
-        ! If desired, re-set
+!DR *********** FIXME *************
+        ! Re-set
         ! ZA_HYBRID       -> ZA_REFERENCE
         ! ZA_HYBRID_HALF  -> ZA_REFERENCE_HALF
-        ! for testing purposes
-        IF (lzaxis_reference) THEN  ! switch to ZAXIS_REFERENCE
-          IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
-            zaxisID = of%cdiZaxisID(ZA_reference)
-          ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
-            zaxisID = of%cdiZaxisID(ZA_reference_half)
-          ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
-            zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
-          ENDIF
-          info%cdiZaxisID = zaxisID
+        ! as long as ZA_hybrid/ZA_hybrid_half is used throughout the code.
+        ! Should be replaced by ZA_reference/ZA_reference_half for the 
+        ! nonhydrostatic model.
+        IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
+          zaxisID = of%cdiZaxisID(ZA_reference)
+        ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
+          zaxisID = of%cdiZaxisID(ZA_reference_half)
+        ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
+          zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
         ENDIF
+        info%cdiZaxisID = zaxisID
 !DR*********WILL BE REMOVED SOON**********
 
       ELSE
