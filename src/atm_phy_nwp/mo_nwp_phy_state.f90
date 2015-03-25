@@ -2072,6 +2072,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &
              &                DATATYPE_FLT32)
+        new_cf_desc = t_cf_var('z0_t', 'm'      ,'tile-based roughness length',  DATATYPE_FLT32)
         grib2_desc = t_grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'gz0_t', diag%gz0_t,                                    &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
@@ -2089,7 +2090,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & t_grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL),    &
              & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,            &
-             & in_group=groups("dwd_fg_sfc_vars_t") )
+             & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,            &
+             &                 new_cf=new_cf_desc)                        )
         ENDDO
 
 
