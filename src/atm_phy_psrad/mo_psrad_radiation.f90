@@ -102,6 +102,20 @@ MODULE mo_psrad_radiation
 !                              irlu, srsu, irld, srsd, irlucs, srsucs, irldcs, srsdcs
 ! namelist parameters. Reorganize reading
   USE mo_psrad_radiation_parameters, ONLY: nb_sw 
+  USE mo_radiation_config,           ONLY: ih2o=>irad_h2o,     &
+                                           ico2=>irad_co2,     &
+                                           ich4=>irad_ch4,     &
+                                           io3=>irad_o3,       &
+                                           io2=>irad_o2,       &
+                                           in2o=>irad_n2o,     &
+                                           icfc11=>irad_cfc11, &
+                                           icfc12=>irad_cfc12, &
+                                           mmr_co2,            &
+                                           mmr_ch4,            &
+                                           mmr_n2o,            &
+                                           mmr_o2,             &
+                                           vmr_cfc11,          &
+                                           vmr_cfc12
 !!$  USE mo_radiation_parameters, ONLY: ldiur, lradforcing,                          &
 !!$                                     l_interp_rad_in_time, zepzen,                &
 !!$                                     lyr_perp, yr_perp, nmonth, isolrad, nb_sw,   &
@@ -375,43 +389,43 @@ MODULE mo_psrad_radiation
       !
       CALL message('','lrad = .TRUE.  --> Doing radiation radiation')
       !
-!!$      ! --- Check  H2O
-!!$      !
-!!$      SELECT CASE (ih2o)
-!!$      CASE(0)
-!!$        CALL message('','ih2o = 0 --> no H2O(gas,liquid,ice) in radiation')
-!!$      CASE(1)
-!!$        CALL message('','ih2o = 1 --> prognostic H2O(gas,liquid,ice)')
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'ih2o =', ih2o, ' in radctl namelist is not supported'
-!!$        CALL message('', message_text)
-!!$        CALL finish('setup_radiation','Run terminated ih2o')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check  CO2
-!!$      ! 
-!!$      SELECT CASE (ico2)
+      ! --- Check  H2O
+      !
+      SELECT CASE (ih2o)
+      CASE(0)
+        CALL message('','irad_h2o = 0 --> no H2O(gas,liquid,ice) in radiation')
+      CASE(1)
+        CALL message('','irad_h2o = 1 --> prognostic H2O(gas,liquid,ice)')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_h2o =', ih2o, ' in radiation_nml namelist is not supported'
+        CALL message('', message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_h2o')
+      END SELECT
+      !
+      ! --- Check  CO2
+      ! 
+      SELECT CASE (ico2)
 !!$      CASE(0)
 !!$        CALL message('','ico2 = 0 --> no CO2 in radiation')
 !!$        co2mmr=co2vmr*amco2/amd   ! Necessary for use with lco2=.TRUE.
 !!$      CASE(1)  
 !!$        IF (lco2) THEN
 !!$          WRITE (message_text, '(a,e16.8)') &
-!!$               'ico2 = 1 --> Initial CO2 volume mixing ratio=', co2vmr
+!!$               'irad_co2 = 1 --> Initial CO2 mass mixing ratio=', mmr_co2
 !!$          CALL message('',message_text)
 !!$          co2mmr = co2vmr*amco2/amd
 !!$        ELSE
-!!$          CALL finish('setup_radiation','ico2=1 (interactive CO2) not '// &
+!!$          CALL finish('setup_psrad_radiation','irad_co2=1 (interactive CO2) not '// &
 !!$               &      'a valid choice for lco2=.false.')
 !!$        END IF
-!!$      CASE(2)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'ico2 = 2 --> CO2 volume mixing ratio=', co2vmr
-!!$        CALL message('',message_text)
+      CASE(2)
+        WRITE (message_text, '(a,e16.8)') &
+             'irad_co2 = 2 --> CO2 mass mixing ratio=', mmr_co2
+        CALL message('',message_text)
 !!$        co2mmr = co2vmr*amco2/amd
 !!$      CASE(4)
-!!$        CALL message('','ico2 = 4 --> CO2 volume mixing ratio from scenario')
+!!$        CALL message('','irad_co2 = 4 --> CO2 mass mixing ratio from scenario')
 !!$        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
 !!$           WRITE (message_text, '(a,e16.8,a)') &
 !!$                'fco2 = ', fco2, ' --> Factor for CO2 scenario'
@@ -422,12 +436,12 @@ MODULE mo_psrad_radiation
 !!$                                          ! co2m1 will be overwritten with the correct
 !!$                                          ! values as soon as the ghg-data are
 !!$                                          ! interpolated to the right date.
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'ico2 = ', ico2, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated ico2')
-!!$      END SELECT
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_co2 = ', ico2, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_co2')
+      END SELECT
 !!$
 !!$      IF (ico2 /= 4 .AND. ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
 !!$         WRITE (message_text, '(a,i2,a)') &
@@ -442,7 +456,7 @@ MODULE mo_psrad_radiation
 !!$        CALL message('','ich4 = 0 --> no CH4 in radiation')
 !!$      CASE(1)
 !!$        CALL message('','ich4 = 1 --> transported CH4 is not yet implemented')
-!!$        CALL finish('setup_radiation','Run terminated ich4')
+!!$        CALL finish('setup_psrad_radiation','Run terminated ich4')
 !!$      CASE(2)
 !!$        WRITE (message_text, '(a,e16.8)') &
 !!$             'ich4 = 2 --> CH4 volume mixing ratio=', ch4vmr
@@ -459,7 +473,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'ich4 =', ich4, ' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated ich4')
+!!$        CALL finish('setup_psrad_radiation','Run terminated ich4')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check O3
@@ -469,7 +483,7 @@ MODULE mo_psrad_radiation
 !!$        CALL message('','io3  = 0 --> no O3 in radiation')
 !!$      CASE(1)
 !!$        CALL message('','io3  = 1 --> transported O3 is not yet implemented')
-!!$        CALL finish('setup_radiation','Run terminated io3')
+!!$        CALL finish('setup_psrad_radiation','Run terminated io3')
 !!$      CASE(2)
 !!$        CALL message('','io3  = 2 --> spectral O3 climatology (ECHAM4)')
 !!$      CASE(3)
@@ -480,7 +494,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'io3  =', io3, ' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated io3')
+!!$        CALL finish('setup_psrad_radiation','Run terminated io3')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check N2O
@@ -490,7 +504,7 @@ MODULE mo_psrad_radiation
 !!$        CALL message('','in2o = 0 --> no N2O in radiation')
 !!$      CASE(1)
 !!$        CALL message('','in2o = 1 --> transported N2O is not yet implemented')
-!!$        CALL finish('setup_radiation','Run terminated in2o')
+!!$        CALL finish('setup_psrad_radiation','Run terminated in2o')
 !!$      CASE(2)
 !!$        WRITE (message_text, '(a,e16.8)') &
 !!$             'in2o = 2 --> N2O volume mixing ratio=', n2ovmr
@@ -507,7 +521,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'in2o =',in2o,' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated in2o')
+!!$        CALL finish('setup_psrad_radiation','Run terminated in2o')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check CFCs
@@ -517,7 +531,7 @@ MODULE mo_psrad_radiation
 !!$        CALL message('','icfc = 0 --> no CFCs in radiation')
 !!$      CASE(1)
 !!$        CALL message('','icfc = 1 --> transported CFCs not yet implemented')
-!!$        CALL finish('setup_radiation','Run terminated icfc')
+!!$        CALL finish('setup_psrad_radiation','Run terminated icfc')
 !!$      CASE(2)
 !!$        WRITE (message_text, '(a,e16.8)') &
 !!$             'icfc = 2 --> CFC11    volume mixing ratio=', cfcvmr(1)
@@ -531,7 +545,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'icfc=', icfc, ' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated icfc')
+!!$        CALL finish('setup_psrad_radiation','Run terminated icfc')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check Scenario
@@ -557,7 +571,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'io2 =', io2, ' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated io2')
+!!$        CALL finish('setup_psrad_radiation','Run terminated io2')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check aerosol
@@ -589,7 +603,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'iaero=', iaero, ' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated iaero')
+!!$        CALL finish('setup_psrad_radiation','Run terminated iaero')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check annual cycle
@@ -605,7 +619,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i2,a)') &
 !!$             'nmonth=', nmonth, ' in radctl namelist is not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation','Run terminated nmonth')
+!!$        CALL finish('setup_psrad_radiation','Run terminated nmonth')
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check Shortwave Model
@@ -636,7 +650,7 @@ MODULE mo_psrad_radiation
 !!$        WRITE (message_text, '(a,i3,a)') &
 !!$             'Run terminated isolrad = ', isolrad, ' not supported'
 !!$        CALL message('',message_text)
-!!$        CALL finish('setup_radiation', message_text)
+!!$        CALL finish('setup_psrad_radiation', message_text)
 !!$      END SELECT
 !!$      !
 !!$      ! --- Check diurnal cycle
@@ -669,7 +683,7 @@ MODULE mo_psrad_radiation
 !!$          WRITE (message_text, '(a,i0,a,l1,a)') &
 !!$               'yr_perp = ', yr_perp, ' l_orbvsop87 = ',l_orbvsop87,' not allowed!'
 !!$          CALL message('',message_text)
-!!$          CALL finish('setup_radiation', &
+!!$          CALL finish('setup_psrad_radiation', &
 !!$               ' yr_perp.ne.-99999 cannot run  PCMDI-orbit (l_orbvsop87=.F.).')
 !!$        END IF
 !!$      END IF
