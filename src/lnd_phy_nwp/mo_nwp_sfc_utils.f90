@@ -226,7 +226,6 @@ CONTAINS
 
             p_prog_lnd_now%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_g(jc,jb)
             p_prog_lnd_new%t_g_t(jc,jb,isubs) = p_prog_lnd_now%t_g(jc,jb)
-            p_lnd_diag%qv_s_t(jc,jb,isubs)    = p_lnd_diag%qv_s(jc,jb)
           END DO
         END DO
 
