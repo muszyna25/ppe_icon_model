@@ -31,7 +31,10 @@ In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurf
 
 
 
+% --------------------------------------------------------------------------------
 \section{Deprecated output fields}
+% --------------------------------------------------------------------------------
+
 With the launch of ICON, the following former GME output fields will no longer be available:
 
 \begin{itemize}
@@ -44,8 +47,9 @@ With the launch of ICON, the following former GME output fields will no longer b
 \end{itemize}
 
 
-
+% --------------------------------------------------------------------------------
 \section{New output fields}\label{sec_newout}
+% --------------------------------------------------------------------------------
 
 Table \ref{table_newout} contains a list of new output fields that became available with the launch of ICON (compared to GME). A more thorough description of these 
 fields is provided in Section \ref{sec_outfields}.
@@ -99,9 +103,9 @@ fields is provided in Section \ref{sec_outfields}.
 
 
 
-
-
+% --------------------------------------------------------------------------------
 \section{Available output fields}\label{sec_outfields}
+% --------------------------------------------------------------------------------
 
 ICON forecasts are performed multiple times a day with varying forecast times. An overview of the various forecasts, including its  
 forecast time and output intervals is provided in Figure \ref{fig:forecast_length}.
@@ -135,7 +139,9 @@ For details regarding the algorithm for interpolation onto the lat-lon grid, see
 This is because \texttt{U\_10M} and \texttt{V\_10M} are needed as input by the wave models.}
 
 
+% --------------------------------------------------------------------------------
 \subsection{Time-constant (external parameter) fields}
+% --------------------------------------------------------------------------------
 
 Table \ref{table_constdb} provides an overview of the available time invariant fields. They are available from the database category 
 \texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. As mentioned in Section \ref{section:extpar}, \texttt{HSURF}, 
@@ -240,8 +246,9 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 \end{longtable}
 
 
-
+% --------------------------------------------------------------------------------
 \subsection{Multi-level fields on native hybrid vertical levels}
+% --------------------------------------------------------------------------------
 
 \begin{table}[H]
 \caption{Hybrid multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}
@@ -270,9 +277,9 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 
 
 
-% ------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
 \subsection{Multi-level fields interpolated to pressure levels}
-% ------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
 
 \newcommand{\pressurelevelsTriangular}{$1000$, $950$, $850$, $700$, $500$, $300$ $\mathrm{hPa}$}
 
@@ -346,9 +353,10 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 
 \newpage
 
-% ------------------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \subsection{Multi-level fields interpolated to height levels}
-% ------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
 
 \newcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$ $\mathrm{m}$}
 
@@ -371,9 +379,11 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 \end{table}
 
 
-% ------------------------------------------------------------------------------------------
+\newpage
+
+% --------------------------------------------------------------------------------
 \subsection{Single-level fields}
-% ------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
 
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
 \caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}\\
@@ -464,7 +474,9 @@ rather than $\mathrm{kg\,m^{-2}}$. Mathematically this is wrong, however, it is 
 unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit displayed by \emph{grib\_dump} must be multiplied by $\mathrm{s}$.}
 
 
+% --------------------------------------------------------------------------------
 \subsection{Surface fields interpolated to msl}
+% --------------------------------------------------------------------------------
 
 \begin{table}[H]
 \caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}
@@ -478,8 +490,11 @@ unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit dis
 \end{table}
 
 
+\newpage
 
+% --------------------------------------------------------------------------------
 \subsection{Soil-specific multi-level fields}
+% --------------------------------------------------------------------------------
 
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
 \caption[]{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}\\
@@ -526,8 +541,11 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 \end{table}
 
 
+\newpage
 
+% --------------------------------------------------------------------------------
 \subsection{Lake-specific single-level fields}
+% --------------------------------------------------------------------------------
 
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
 \caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the lake model model}\\
@@ -718,10 +736,10 @@ is not correctly taken into account.
 \end{description}
 
 
-% ------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
 \subsection{Technical Details of the Horizontal Interpolation}
 \label{section:technical_details_of_the_horizontal_interpolation}
-% ------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
 
 Most of the output data on regular grids is processed using an RBF-based interpolation method.
 The algorithm  approximates the input field with a linear combination of 

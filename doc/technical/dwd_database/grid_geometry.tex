@@ -1,7 +1,13 @@
 \svnInfo $Id$
+% --------------------------------------------------------------------------------
 \chapter{Grid geometry}
+% --------------------------------------------------------------------------------
 
+
+% --------------------------------------------------------------------------------
 \section{Horizontal grid}
+% --------------------------------------------------------------------------------
+
 The horizontal ICON grid consists of a set of spherical triangles that seamlessly span the entire sphere. The grid is constructed from an icosahedron (see Figure 
 \ref{fig_ico_a}) which is projected onto a sphere. The spherical icosahedron (Figure \ref{fig_ico_b}) consists of $20$ equilateral spherical triangles. The edges of each triangle 
 are bisected into equal halves or more generally into $n$ equal sections. Connecting the new edge points by great circle arcs yields $4$ or more generally $n^2$ spherical triangles 
@@ -103,13 +109,9 @@ pressure, \dots) are representative. Some additional information about ICON's ho
 \textbf{\textcolor{red}{The first operational version of ICON is based on the R3B07 grid, thus, having a horizontal resolution of about $13\,\mathrm{km}$!}}
 
 
-%
-%\subsection{Local grid refinement}
-%
-
-
-
+% --------------------------------------------------------------------------------
 \section{Vertical grid}
+% --------------------------------------------------------------------------------
 
 The vertical grid consists of a set of vertical layers with height-based vertical coordinates.
 Each of these layers carries the horizontal $2D$ grid structure, thus forming the $3D$ structure of the grid.
@@ -222,9 +224,9 @@ vary considerably from location to location, due to grid level stretching/compre
 \end{figure}
 
 
-% ---------------------------------------------------------------
+% --------------------------------------------------------------------------------
 \section{Refined subregion over Europe (``local nest'')}
-% ---------------------------------------------------------------
+% --------------------------------------------------------------------------------
 
 \begin{note}
   \begin{center}
@@ -285,8 +287,8 @@ In comparison to: \textbf{COSMO-EU}
 \begin{figure}[h]
   \begin{minipage}[b]{\textwidth}
     \centering
-    \subcaption{}\label{fig:EU_nest}
     \includegraphics[width=0.90\textwidth]{ICON_EU_nest_1.png}
+    \subcaption{}\label{fig:EU_nest}
   \end{minipage}
   \hfill
   \par
@@ -295,9 +297,11 @@ In comparison to: \textbf{COSMO-EU}
     \includegraphics[width=0.80\textwidth]{ICON_EU_nest_2.png}
     \subcaption{}\label{fig:EU_nest_polar}
   \end{minipage}\hfill
-  \caption{\ref{fig:EU_nest}: Horizontal extent of the ICON-EU nest (orange) in a cylindrical equidistant projection. 
-           For comparison, the outline of the COSMO-EU nest is shown in red. \ref{fig:EU_nest_polar}: 
-           Same as \ref{fig:EU_nest} but in a polar stereographic projection.}
+  \caption{\ref{fig:EU_nest}: Horizontal extent of the ICON-EU nest
+    (orange shaded area) in a cylindrical equidistant projection. For
+    comparison, the outline of the COSMO-EU nest is shown in red.
+    \ref{fig:EU_nest_polar}:  Same as \ref{fig:EU_nest} but in a polar
+    stereographic projection.}
 \end{figure}
 
 
