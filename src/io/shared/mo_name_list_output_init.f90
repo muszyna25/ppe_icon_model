@@ -168,6 +168,7 @@ MODULE mo_name_list_output_init
   ! subroutines
   PUBLIC :: read_name_list_output_namelists
   PUBLIC :: parse_variable_groups
+  PUBLIC :: collect_meanStream_variables
   PUBLIC :: init_name_list_output
   PUBLIC :: setup_output_vlist
   PUBLIC :: collect_requested_ipz_levels
@@ -243,6 +244,7 @@ CONTAINS
     REAL(wp)                              :: h_levels(MAX_NZLEVS)             !< height levels
     REAL(wp)                              :: i_levels(MAX_NILEVS)             !< isentropic levels
     INTEGER                               :: remap
+    CHARACTER(LEN=MAX_CHAR_LENGTH)        :: operation
     REAL(wp)                              :: reg_lon_def(3)
     REAL(wp)                              :: reg_lat_def(3)
     INTEGER                               :: reg_def_mode
@@ -290,7 +292,7 @@ CONTAINS
       stream_partitions_hl, stream_partitions_il,            &
       pe_placement_ml, pe_placement_pl,                      &
       pe_placement_hl, pe_placement_il,                      &
-      filename_extn
+      filename_extn, operation
 
     ! -- preliminary checks:
     !
@@ -528,6 +530,7 @@ CONTAINS
       p_onl%z_levels                 = h_levels
       p_onl%i_levels                 = i_levels
       p_onl%remap                    = remap
+      p_onl%operation                = operation
       p_onl%lonlat_id                = -1
       p_onl%output_start(:)          = output_start(:)
       p_onl%output_end(:)            = output_end
@@ -801,6 +804,53 @@ CONTAINS
   END SUBROUTINE parse_variable_groups
 
 
+  SUBROUTINE collect_meanStream_variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_meanStream_variables"
+    !
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
+    CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
+    INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
+      &                                        ivar, ntotal_vars, jvar, i,        &
+      &                                        nsubtract_vars
+    CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
+    TYPE (t_output_name_list), POINTER      :: p_onl
+
+    ntotal_vars = total_number_of_variables()
+    ! temporary variables needed for variable group parsing
+    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), &
+      &      new_varlist(ntotal_vars), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! -- loop over all output namelists
+    p_onl => first_output_name_list
+    DO
+      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      IF ("mean" .NE. p_onl%operation) THEN
+        ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
+        DO i_typ = 1, 4
+   
+          IF (i_typ == level_type_ml)  in_varlist => p_onl%ml_varlist
+          IF (i_typ == level_type_pl)  in_varlist => p_onl%pl_varlist
+          IF (i_typ == level_type_hl)  in_varlist => p_onl%hl_varlist
+          IF (i_typ == level_type_il)  in_varlist => p_onl%il_varlist
+   
+          ! Get the number of variables in varlist
+          nvars = 1
+          DO
+            IF (nvars>SIZE(in_varlist))   EXIT
+            IF (in_varlist(nvars) == ' ') EXIT
+            nvars = nvars + 1
+          END DO
+          nvars = nvars - 1
+   
+          IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
+          varlist((nvars+1):ntotal_vars) = " "
+        END DO
+      END IF
+      p_onl => p_onl%next
+    END DO ! p_onl
+  !write(0,*)'varlist:',varlist
+  END SUBROUTINE collect_meanStream_variables
   !------------------------------------------------------------------------------------------------
   !> Initialize data structures for output.
   !

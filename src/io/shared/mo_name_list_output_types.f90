@@ -294,6 +294,11 @@ MODULE mo_name_list_output_types
     REAL(wp) :: i_levels(MAX_NILEVS) ! isentropic levels
 
     ! -------------------------------------
+    ! data operations
+    ! ------------------------------------
+    CHARACTER(len=MAX_CHAR_LENGTH) :: operation ! "mean"
+
+    ! -------------------------------------
     ! Internal members, not read from input
     ! -------------------------------------
 
