@@ -185,7 +185,7 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = 
         ;;
-    cce)
+    cray_gpu)
         config_compiler=cce                                                     
         CC          = cc
         FC          = ftn
@@ -234,73 +234,52 @@ case "$ac_sitename" in
    cscs.ch)
 	echo The host is:  $HOST
         case "$HOST" in
-            *rosa*)
-                config_target=rosa
+            *daint*)
+                config_target=daint_cpu
                 make_command="make" "-j" "8"
 #                use_shell="/bin/sh"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
+                submit="sbatch"
+                sync_submit="sbatch"
                 CC = cc
                 FC = ftn
                 F77= ftn
 
                 case "$fortran_compiler" in
                     default|gcc)
-                      load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
-                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
-                    ;;
-                    intel)
-                        load_modules      = "PrgEnv-intel" "netcdf" "hdf5" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-intel
-                        ;;
-                    cray)
-        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
-                        load_modules      = "cray-netcdf" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
-                        ;;
-                esac
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
-                ;;
-
-            *todi*)
-                config_target=todi
-                make_command="make" "-j" "8"
-#                use_shell="/bin/sh"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
-                CC = cc
-                FC = ftn
-                F77= ftn
-
-                case "$fortran_compiler" in
-                    default|gcc)
-                        load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
+                        load_modules="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
                     ;;
                     intel)
-                        load_modules      = "PrgEnv-intel" "netcdf" "hdf5" "${load_modules}"
+                        load_modules      = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
                         ;;
                     cray)
+			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
                         load_modules      = "cray-netcdf" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
+                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
+                        ;;
+                    cray_gpu)
+			OMPFLAG     = -h omp
+        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
+                        load_modules      = "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
                         load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
                         ;;
                 esac
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
                 ;;
-            *daint*)
-                config_target=default
+            *dora*)
+                config_target=dora
                 make_command="make" "-j" "8"
 #                use_shell="/bin/sh"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit=""
-                sync_submit=""
+                submit="sbatch"
+                sync_submit="sbatch"
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -323,7 +302,7 @@ case "$ac_sitename" in
                         load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
                         ;;
                 esac
-                mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
                 ;;
             *castor*)
                 echo "Chose target CASTOR"
