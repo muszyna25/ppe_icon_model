@@ -53,7 +53,7 @@ MODULE mo_action
     &                              MAX_EVENTNAME_STR_LEN, timedelta,                 &
     &                              newTimedelta, deallocateTimedelta,                &
     &                              setCalendar, getTriggeredPreviousEventAtDateTime, &
-    &                              getPTStringFromSeconds
+    &                              getPTStringFromMS
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
@@ -363,7 +363,7 @@ CONTAINS
     ! Use factor 999 instead of 1000, since no open interval is available
     ! needed [trigger_date, trigger_date + slack[
     ! used   [trigger_date, trigger_date + slack]
-    CALL getPTStringFromSeconds(999.0_wp*slack,str_slack)
+    CALL getPTStringFromMS(INT(999.0_wp*slack,i8),str_slack)
     ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
     p_slack => newTimedelta(str_slack)
 
