@@ -110,12 +110,18 @@ MODULE mo_psrad_radiation
                                            in2o=>irad_n2o,     &
                                            icfc11=>irad_cfc11, &
                                            icfc12=>irad_cfc12, &
+                                           iaero=>irad_aero,   &
                                            mmr_co2,            &
                                            mmr_ch4,            &
                                            mmr_n2o,            &
                                            mmr_o2,             &
                                            vmr_cfc11,          &
-                                           vmr_cfc12
+                                           vmr_cfc12,          &
+                                           nmonth,             &
+                                           isolrad,            &
+                                           ldiur,              &
+                                           lyr_perp,           &
+                                           yr_perp
 !!$  USE mo_radiation_parameters, ONLY: ldiur, lradforcing,                          &
 !!$                                     l_interp_rad_in_time, zepzen,                &
 !!$                                     lyr_perp, yr_perp, nmonth, isolrad, nb_sw,   &
@@ -590,9 +596,9 @@ MODULE mo_psrad_radiation
 !!$      !
 !!$      ! --- Check aerosol
 !!$      ! 
-!!$      SELECT CASE (iaero)
-!!$      CASE(0)
-!!$        CALL message('','iaero= 0 --> no aerosol in radiation')
+      SELECT CASE (iaero)
+      CASE(0)
+        CALL message('','irad_aero= 0 --> no aerosol in radiation')
 !!$      CASE(1)
 !!$        CALL message('','iaero= 1 --> prognostic aerosol (sub model)')
 !!$      CASE(3)
@@ -613,67 +619,67 @@ MODULE mo_psrad_radiation
 !!$        CALL su_aero_kinne(nb_sw)
 !!$        CALL su_aero_prop_crow
 !!$        CALL read_aero_volc_tables
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'iaero=', iaero, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated iaero')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check annual cycle
-!!$      ! 
-!!$      SELECT CASE (nmonth)
-!!$      CASE(0)
-!!$        CALL message('','nmonth=0 --> annual cycle on')
-!!$      CASE(1:12)
-!!$        WRITE (message_text, '(a,i2.2,a)') &
-!!$             'nmonth = ', nmonth, ' --> perpetual month'
-!!$        CALL message('',message_text)
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'nmonth=', nmonth, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated nmonth')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check Shortwave Model
-!!$      ! 
-!!$      CALL message('','  --> USE AER RRTM Shortwave Model')
-!!$      !
-!!$      ! --- Check Longwave Model
-!!$      ! 
-!!$      CALL message('','  --> USE New (V4) LRTM Model')
-!!$      !
-!!$      ! --- Check solar constant
-!!$      !
-!!$      SELECT CASE (isolrad)
-!!$      CASE (0) 
-!!$        CALL message('','isolrad = 0 --> standard rrtm solar constant')
-!!$      CASE (1) 
-!!$        CALL message('','isolrad = 1 --> time dependent spectrally resolved solar constant read from file')
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'irad_aero=', iaero, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated irad_aero')
+      END SELECT
+      !
+      ! --- Check annual cycle
+      ! 
+      SELECT CASE (nmonth)
+      CASE(0)
+        CALL message('','nmonth=0 --> annual cycle on')
+      CASE(1:12)
+        WRITE (message_text, '(a,i2.2,a)') &
+             'nmonth = ', nmonth, ' --> perpetual month'
+        CALL message('',message_text)
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'nmonth=', nmonth, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated nmonth')
+      END SELECT
+      !
+      ! --- Check Shortwave Model
+      ! 
+      CALL message('','  --> USE AER RRTM Shortwave Model')
+      !
+      ! --- Check Longwave Model
+      ! 
+      CALL message('','  --> USE New (V4) LRTM Model')
+      !
+      ! --- Check solar constant
+      !
+      SELECT CASE (isolrad)
+      CASE (0) 
+        CALL message('','isolrad = 0 --> standard rrtm solar constant')
+      CASE (1) 
+        CALL message('','isolrad = 1 --> time dependent spectrally resolved solar constant read from file')
 !!$        CALL init_solar_irradiance(nb_sw)
-!!$      CASE (2) 
-!!$        CALL message('','isolrad = 2 --> preindustrial solar constant')
-!!$      CASE (3) 
-!!$        CALL message('','isolrad = 3 --> solar constant for amip runs')
+      CASE (2) 
+        CALL message('','isolrad = 2 --> preindustrial solar constant')
+      CASE (3) 
+        CALL message('','isolrad = 3 --> solar constant for amip runs')
 !!$      CASE (4)
 !!$        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
 !!$      CASE (5)
 !!$        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
-!!$      CASE default 
-!!$        WRITE (message_text, '(a,i3,a)') &
-!!$             'Run terminated isolrad = ', isolrad, ' not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation', message_text)
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check diurnal cycle
-!!$      ! 
-!!$      IF (ldiur) THEN
-!!$        CALL message('','ldiur =.TRUE.  --> diurnal cycle on')
-!!$      ELSE
-!!$        CALL message('','ldiur =.FALSE. --> diurnal cycle off')
-!!$      ENDIF
+      CASE default 
+        WRITE (message_text, '(a,i3,a)') &
+             'Run terminated isolrad = ', isolrad, ' not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation', message_text)
+      END SELECT
+      !
+      ! --- Check diurnal cycle
+      ! 
+      IF (ldiur) THEN
+        CALL message('','ldiur =.TRUE.  --> diurnal cycle on')
+      ELSE
+        CALL message('','ldiur =.FALSE. --> diurnal cycle off')
+      ENDIF
 !!$      !
 !!$      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
 !!$      ! 
@@ -682,17 +688,17 @@ MODULE mo_psrad_radiation
 !!$           ' solar radiation: ',   lradforcing(1), &
 !!$           ' thermal radiation: ', lradforcing(2)
 !!$      CALL message('',message_text)
-!!$      !
-!!$      ! --- Check perpetual orbit
-!!$      ! 
-!!$      IF (yr_perp.NE.-99999)  lyr_perp = .TRUE.
+      !
+      ! --- Check perpetual orbit
+      ! 
+      IF (yr_perp.NE.-99999)  lyr_perp = .TRUE.
 !!$      CALL p_bcast (lyr_perp, p_io)
 !!$
-!!$      IF (lyr_perp) THEN
+      IF (lyr_perp) THEN
 !!$        IF (l_orbvsop87) THEN
-!!$          WRITE (message_text, '(a,i0,a)') &
-!!$               'yr_perp=', yr_perp, ' --> perpetual year for orbit'
-!!$          CALL message('',message_text)
+          WRITE (message_text, '(a,i0,a)') &
+               'yr_perp=', yr_perp, ' --> perpetual year for orbit'
+          CALL message('',message_text)
 !!$        ELSE
 !!$          WRITE (message_text, '(a,i0,a,l1,a)') &
 !!$               'yr_perp = ', yr_perp, ' l_orbvsop87 = ',l_orbvsop87,' not allowed!'
@@ -700,7 +706,7 @@ MODULE mo_psrad_radiation
 !!$          CALL finish('setup_psrad_radiation', &
 !!$               ' yr_perp.ne.-99999 cannot run  PCMDI-orbit (l_orbvsop87=.F.).')
 !!$        END IF
-!!$      END IF
+      END IF
 !!$      !
 !!$      ! 4.0 Initialization for radiation
 !!$      ! -------------------------------
