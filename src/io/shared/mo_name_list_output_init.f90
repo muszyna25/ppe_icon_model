@@ -808,7 +808,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_meanStream_variables"
     !
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
-    CHARACTER(LEN=VARNAME_LEN)              :: varname, mean_varname
+    CHARACTER(LEN=VARNAME_LEN)              :: varname, mean_varname, message_text
     INTEGER                                 :: nvars, i_typ, ierrstat, i, ntotal_vars
     INTEGER                                 :: varlist_length
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
@@ -822,6 +822,9 @@ CONTAINS
     nvars = 1
     ! -- loop over all output namelists
     p_onl => first_output_name_list
+    
+    WRITE(message_text,'(3a)') 'Var_list name: ',TRIM(p_onl%output_interval(1))
+    CALL message('',message_text)
     DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT
       IF ("mean" .NE. p_onl%operation) THEN
@@ -847,9 +850,11 @@ CONTAINS
       p_onl => p_onl%next
     END DO ! p_onl
     !
-    !1. 
-    !
-    !
+    !1. Collect variables uniq by the output interval
+    !   this will allow collective events for all variables in this group
+    !2. for each variable, store
+    !      source pointer [got with find_element]
+    !      target pointer: copy meta info the the source, but choose new name with '_m'
     !
     !
     !write(0,*)'varlist:',varlist
