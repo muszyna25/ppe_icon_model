@@ -40,7 +40,8 @@
     USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                              &
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
       &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,        &
-      &                               min_rlcell
+      &                               min_rlcell, SCALE_MODE_TABLE, SCALE_MODE_AUTO,        &
+      &                               SCALE_MODE_PRESET
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
@@ -1625,18 +1626,24 @@
       ! -------------------------------------------------------------------------
 
       SELECT CASE (rbf_scale_mode_ll)
-      CASE (1) 
+      CASE (SCALE_MODE_TABLE) 
         rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-      CASE (2)
+      CASE (SCALE_MODE_AUTO)
         ! if no shape parameter has been set: compute an estimate 
         CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,              &
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,           &
           &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c,                    &
           &                         ptr_int_lonlat%global_idx, rbf_shape_param)
-        rbf_shape_param = p_min(rbf_shape_param, comm=p_comm_work)
+        rbf_shape_param          = p_min(rbf_shape_param, comm=p_comm_work)
+        ptr_int_lonlat%rbf_scale = rbf_shape_param
         IF (my_process_is_stdio()) THEN
           WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
         END IF
+      CASE (SCALE_MODE_PRESET)
+        IF (ptr_int_lonlat%rbf_scale <= 0._wp) THEN
+          CALL finish(routine, "Explicitly presetting RBF shape parameter... invalid value!")
+        END IF
+        rbf_shape_param = ptr_int_lonlat%rbf_scale
       CASE DEFAULT
         CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
       END SELECT
@@ -1678,18 +1685,21 @@
 !$OMP END PARALLEL
 
         SELECT CASE (rbf_scale_mode_ll)
-        CASE (1) 
+        CASE (SCALE_MODE_TABLE) 
           rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-        CASE (2)
+        CASE (SCALE_MODE_AUTO)
           ! if no shape parameter has been set: compute an estimate 
           CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,              &
             &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,         &
             &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l,                     &
             &                         ptr_int_lonlat%global_idx, rbf_shape_param)
           rbf_shape_param = p_min(rbf_shape_param, comm=p_comm_work)
+          ptr_int_lonlat%rbf_scale = rbf_shape_param
           IF (my_process_is_stdio()) THEN
             WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
           END IF
+        CASE (SCALE_MODE_PRESET)
+          rbf_shape_param = ptr_int_lonlat%rbf_scale
         CASE DEFAULT
           CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
         END SELECT
@@ -2444,10 +2454,6 @@
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
 #endif
-
-              IF (ptr_int%baryctr_idx(1,jc,jb) < 1) THEN
-                WRITE (0,*) "jc, jb = ", jc, jb
-              END IF
 
               p_out(jc,jk,jb) = &
                 &    ptr_int%baryctr_coeff(1,jc,jb)*                                            &

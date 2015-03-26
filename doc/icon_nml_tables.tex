@@ -1892,6 +1892,7 @@ determined for lon-lat interpolation.\\
 1 : lookup table based on grid level\\
 2 : determine automatically.\\
 So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
+3 : explicitly set shape parameter in each output namelist
 &
 \tabularnewline
 
@@ -2071,14 +2072,6 @@ C&' '& &
 &
 \texttt{output\_nml} namelists,
 NetCDF output
-\tabularnewline
-
-%\hline
-lzaxis\_reference&
-L& .TRUE. & &
-FALSE: encode vertical axis as ZAXIS\_HYBRID for 3D atmospheric fields\\
-TRUE: encode vertical axis as ZAXIS\_REFERENCE for 3D atmospheric fields &
-GRIB2-output (ZAXIS\_HYBRID will be removed after some testing phase)
 \tabularnewline
 
 %\hline
@@ -3661,6 +3654,16 @@ I&1& &
 Splits pressure level output of this namelist into several concurrent alternating files.
 See namelist parameter \texttt{stream\_partitions\_ml} for details.
 &
+\tabularnewline
+
+
+%\hline
+ rbf\_scale &
+R&-1.& &
+Explicit setting of RBF shape parameter for interpolated lon-lat output. 
+This namelist parameter is only active in combination with interpol\_nml:rbf\_scale\_mode\_ll=3.
+&
+interpol\_nml:rbf\_scale\_mode\_ll=3
 \tabularnewline
 
 %\hline

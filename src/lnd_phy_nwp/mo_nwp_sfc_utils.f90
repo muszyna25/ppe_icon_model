@@ -70,7 +70,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: update_sstice, update_ndvi
   PUBLIC :: init_snowtile_lists
   PUBLIC :: init_sea_lists
-  PUBLIC :: aggregate_t_g_q_v
+  PUBLIC :: aggregate_tg_qvs
   PUBLIC :: copy_lnd_prog_now2new
 
 CONTAINS
@@ -953,7 +953,7 @@ CONTAINS
     ! Loop over all points (land AND water points)
     ! Aggregation has been moved to the end of the subroutine (PR)
     !
-    CALL aggregate_t_g_q_v( p_patch, ext_data, p_prog_lnd_now , &
+    CALL aggregate_tg_qvs( p_patch, ext_data, p_prog_lnd_now , &
      &                           p_lnd_diag )
     p_prog_lnd_new%t_g(:,:)  = p_prog_lnd_now%t_g(:,:)
 
@@ -972,7 +972,7 @@ CONTAINS
   !! Segregated from nwp_surface_init, to avoid recoding again
   !-------------------------------------------------------------------------
 
-  SUBROUTINE aggregate_t_g_q_v( p_patch, ext_data, p_prog_lnd_now, &
+  SUBROUTINE aggregate_tg_qvs( p_patch, ext_data, p_prog_lnd_now, &
     &                           p_lnd_diag )
 
 
@@ -1040,7 +1040,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-  END SUBROUTINE aggregate_t_g_q_v
+  END SUBROUTINE aggregate_tg_qvs
 
 !-------------------------------------------------------------------------
 
@@ -2356,7 +2356,7 @@ CONTAINS
 
 
     !Still have to aggregate t_g_t and qv_s_t
-    CALL aggregate_t_g_q_v( p_patch(jg), ext_data(jg), p_lnd_state(jg)%prog_lnd(n_now) , &
+    CALL aggregate_tg_qvs( p_patch(jg), ext_data(jg), p_lnd_state(jg)%prog_lnd(n_now) , &
      &                           p_lnd_state(jg)%diag_lnd )
    END DO !jg
   END SUBROUTINE update_sstice

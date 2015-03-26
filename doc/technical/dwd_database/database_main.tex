@@ -40,7 +40,6 @@
 \usepackage{array}
 \usepackage[titletoc]{appendix}
 \usepackage{soul}
-
 % \usepackage{amsthm}      %--- Theorem-Package
 % \usepackage{setspace}
 % \usepackage{pdftricks}   %--- for drawing arrows, frames, etc in Latex
@@ -59,15 +58,18 @@
 \definecolor{darkblue}{rgb}{0.,0.,0.6}
 \definecolor{darkgreen}{rgb}{0.,0.5,0.}
 \definecolor{darkgrey}{rgb}{0.7,0.75,0.71}
+\definecolor{Gray}{gray}{0.9}
 
 % textcolors
 \newcommand{\tred}{\textcolor{red}}
 \newcommand{\tblu}{\textcolor{blue}}
-
+\newcommand{\degree}{{\circ}}
+\newcommand{\km}{\text{km}}
 
 
 % customize hyperref
-\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred}
+\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred, linktoc=all}
+
 
 
 % Fortran environment
@@ -98,6 +100,11 @@
     frame=shadowbox,%
     rulesepcolor=\color{darkgreen}}}
 {}
+
+% LaTeX macros that are later used to disable/enable rows in the
+% tables of output fields (global/local domain):
+\newcommand{\onlyglb}[1]{#1}
+\newcommand{\onlyloc}[1]{#1}
 
 
 
@@ -191,17 +198,18 @@
 \setlength{\parskip}{0.2cm plus0.1cm minus0.1cm}
 \setlength{\parindent}{0.0em}
 
-\includeonly{./title_toc,
-             ./intro,
-             ./versionhistory,
+\includeonly{./preface_title_toc,
+             ./preface_intro,
+             ./preface_versionhistory,
              ./analysis,
              ./input,
              ./grid_geometry,
-             ./GRIB2_output_tables,
+             ./output_GRIB2_global,
+             ./output_GRIB2_nest,
              ./icon_in_sky,
              ./appendix,
-             ./statproc} %,
-%             ./cosmo_eu_fields}
+             ./output_statproc,
+             ./output_description} 
 
 
 
@@ -245,13 +253,15 @@
 
 % ---------------- Generate title page ---------------------%
 \begin{titlepage}
-  \include{./title_toc}
+  \include{./preface_title_toc}
 \end{titlepage}
 % ----------------------------------------------------------------%
 
 %---- generate version history page -----------------%
-\include{./versionhistory}
+\include{./preface_versionhistory}
 
+\newpage
+\pdfbookmark{\contentsname}{toc}
 \tableofcontents              %--- generate table of contents
 
 % remove chapter number from header for abstracts
@@ -271,19 +281,52 @@
 \mainmatter                   %--- Zurcksetzen der Nummerierung auf arabisch
 
 
-% ---------- Einbinden der verschiedenen Teildokumente -----------%
-\include{./intro}
+% --------------------------------------------------------------------------------
+\include{./preface_intro}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./grid_geometry}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./input}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./analysis}
-\input{./GRIB2_output_tables}
-\input{./statproc}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
+\chapter[Global output fields: Forecast runs]{Global output fields:\\ Forecast runs}
+
+\input{./output_GRIB2_global}
+
+% --------------------------------------------------------------------------------
+\chapter[EU Nest output fields: Forecast runs]{EU Nest output fields:\\ Forecast runs}
+
+\input{./output_GRIB2_nest}
+
+
+% --------------------------------------------------------------------------------
+\chapter{Extended description of available output fields}
+\input{./output_description}
+
+
+% --------------------------------------------------------------------------------
+\chapter[Remarks on statistical processing and horizontal interpolation]{Remarks on statistical processing and horizontal interpolation}
+
+\input{./output_statproc}
+% --------------------------------------------------------------------------------
+
+
+
+% --------------------------------------------------------------------------------
 \include{./icon_in_sky}
 % ----------------------------------------------------------------%
 
 \begin{appendices}
 \include{./appendix}  %--- Einbinden der Appendix
-%\include{./cosmo_eu_fields}
 \end{appendices}
 
 % \listoffigures                    %--- Erstellung des Figurenverzeichnisses
@@ -292,15 +335,12 @@
 % \printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
 
 \backmatter
-% \bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
 \bibliography{litera.bib} %--- Create list of references
 
 % remove chapter number from header for Acknowledgements
 \renewcommand{\chaptermark}[1] {
   \markboth{#1}{}
 }
-% --- Danksagung ---
-% \include{./text/danksagung}
 
 % use default again
 \renewcommand{\chaptermark}[1]{%
