@@ -26,10 +26,10 @@ MODULE mo_initicon_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len, datetime, newDatetime,     &
-    &                              deallocateDatetime, datetimeaddseconds,           &
+    &                              deallocateDatetime, OPERATOR(+),                  &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
-    &                              datetimeToString
-  USE mo_mtime_extensions,   ONLY: getPTStringFromMS, get_datetime_string
+    &                              datetimeToString,  getPTStringFromSeconds
+  USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text
 
@@ -186,13 +186,15 @@ CONTAINS
   !!
   SUBROUTINE configure_initicon
     !
-    CHARACTER(len=max_timedelta_str_len) :: PTshift
-    TYPE(timedelta), POINTER             :: mtime_shift_local
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
-
+    !
+    CHARACTER(len=max_timedelta_str_len) :: PTshift
+    TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
+    CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
+    !
     TYPE(datetime), POINTER               :: inidatetime          ! in mtime format
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
-
+    !
     !-----------------------------------------------------------------------
     !
     ! Check whether an mapping file is provided for prefetching boundary data
@@ -215,7 +217,7 @@ CONTAINS
     !
     ! transform timeshift to mtime-format
     !
-    CALL getPTStringFromMS(INT(timeshift%dt_shift * 1000._wp), PTshift)
+    CALL getPTStringFromSeconds(timeshift%dt_shift, PTshift)
 
     !*******************************************************
     ! can be removed, once the new libmtime is available (timedeltaToString)
@@ -231,7 +233,6 @@ CONTAINS
 
     ! cleanup
     CALL deallocateTimedelta(mtime_shift_local)
-
 
     ! Preparations for first guess averaging
     !
@@ -250,14 +251,19 @@ CONTAINS
     inidatetime => newDatetime(TRIM(iso8601_ini_datetime))
     !
     ! get start and end datetime in mtime-format
-    startdatetime_avgFG = datetimeaddseconds(inidatetime,REAL(start_time_avg_fg,sp))
-    enddatetime_avgFG   = datetimeaddseconds(inidatetime,REAL(end_time_avg_fg,sp))
+    CALL getPTStringFromSeconds(start_time_avg_fg, str_start_time_avg_fg)
+    td_start_time_avg_fg => newTimedelta(str_start_time_avg_fg)
+    CALL getPTStringFromSeconds(end_time_avg_fg, str_end_time_avg_fg)
+    td_end_time_avg_fg   => newTimedelta(str_end_time_avg_fg)
+    !
+    startdatetime_avgFG = inidatetime + td_start_time_avg_fg
+    enddatetime_avgFG   = inidatetime + td_end_time_avg_fg
     !
     ! get start and end datetime in ISO_8601 format relative to inidatetime
     ! start time
-    CALL getPTStringFromMS(INT(start_time_avg_fg * 1000._wp), iso8601_start_timedelta_avg_fg)
+    CALL getPTStringFromSeconds(start_time_avg_fg, iso8601_start_timedelta_avg_fg)
     ! end time
-    CALL getPTStringFromMS(INT(end_time_avg_fg * 1000._wp), iso8601_end_timedelta_avg_fg)
+    CALL getPTStringFromSeconds(end_time_avg_fg, iso8601_end_timedelta_avg_fg)
 
     !******************************************************* 
     ! can be removed, once the new libmtime is available (timedeltaToString)
@@ -277,7 +283,7 @@ CONTAINS
     !
     ! transform averaging interval to ISO_8601 format
     !
-    CALL getPTStringFromMS(INT(interval_avg_fg * 1000._wp), iso8601_interval_avg_fg)
+    CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
 
     ! cleanup
     CALL deallocateDatetime(inidatetime)
