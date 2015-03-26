@@ -205,6 +205,7 @@ doc/technical/dwd_database/output_GRIB2_forecast_singlelvl.tex -text
 doc/technical/dwd_database/output_GRIB2_global.tex -text
 doc/technical/dwd_database/output_GRIB2_nest.tex -text
 doc/technical/dwd_database/output_GRIB2_vv0.tex -text
+doc/technical/dwd_database/output_description.tex -text
 doc/technical/dwd_database/output_statproc.tex -text
 doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/IAU_scheme_2.png -text
