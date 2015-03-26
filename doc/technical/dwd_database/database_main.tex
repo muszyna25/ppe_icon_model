@@ -101,9 +101,10 @@
     rulesepcolor=\color{darkgreen}}}
 {}
 
-% LaTeX macro that is later used to disable/enable rows in the tables
-% of output fields (global/local domain):
-\newcommand{\row}[1]{#1}
+% LaTeX macros that are later used to disable/enable rows in the
+% tables of output fields (global/local domain):
+\newcommand{\onlyglb}[1]{#1}
+\newcommand{\onlyloc}[1]{#1}
 
 
 
@@ -203,11 +204,11 @@
              ./analysis,
              ./input,
              ./grid_geometry,
-             ./output_GRIB2_tables,
+             ./output_GRIB2_global,
+             ./output_GRIB2_nest,
              ./icon_in_sky,
              ./appendix,
-             ./output_statproc} %,
-%             ./cosmo_eu_fields}
+             ./output_statproc} 
 
 
 
@@ -279,24 +280,45 @@
 \mainmatter                   %--- Zurcksetzen der Nummerierung auf arabisch
 
 
-% ---------- Einbinden der verschiedenen Teildokumente -----------%
+% --------------------------------------------------------------------------------
 \include{./preface_intro}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./grid_geometry}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./input}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./analysis}
+% --------------------------------------------------------------------------------
 
+% --------------------------------------------------------------------------------
+\chapter[Global output fields: Forecast runs]{Global output fields:\\ Forecast runs}
 
-\chapter[Available output fields: Forecast runs]{Available output fields:\\ Forecast runs}
-
-\input{./output_GRIB2_tables}
+\input{./output_GRIB2_global}
 \input{./output_statproc}
+% --------------------------------------------------------------------------------
 
+
+% --------------------------------------------------------------------------------
+\chapter[Output fields: EU Nest]{Output fields: EU nest}
+
+\input{./output_GRIB2_nest}
+% --------------------------------------------------------------------------------
+
+
+
+
+% --------------------------------------------------------------------------------
 \include{./icon_in_sky}
 % ----------------------------------------------------------------%
 
 \begin{appendices}
 \include{./appendix}  %--- Einbinden der Appendix
-%\include{./cosmo_eu_fields}
 \end{appendices}
 
 % \listoffigures                    %--- Erstellung des Figurenverzeichnisses
