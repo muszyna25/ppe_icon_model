@@ -823,11 +823,11 @@ CONTAINS
     ! -- loop over all output namelists
     p_onl => first_output_name_list
     
-    WRITE(message_text,'(3a)') 'Var_list name: ',TRIM(p_onl%output_interval(1))
-    CALL message('',message_text)
     DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT
-      IF ("mean" .NE. p_onl%operation) THEN
+      IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
+        WRITE(message_text,'(3a)') 'outputInterval: ',TRIM(p_onl%output_interval(1))
+        CALL message('',message_text)
         DO i_typ = 1, 4
    
           IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
@@ -848,7 +848,7 @@ CONTAINS
         END DO
       END IF
       p_onl => p_onl%next
-    END DO ! p_onl
+    END DO
     !
     !1. Collect variables uniq by the output interval
     !   this will allow collective events for all variables in this group
