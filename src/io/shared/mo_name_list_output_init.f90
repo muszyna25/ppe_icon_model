@@ -274,6 +274,9 @@ CONTAINS
       &                                      pe_placement_hl(MAX_NUM_IO_PROCS), &
       &                                      pe_placement_il(MAX_NUM_IO_PROCS)
 
+    !> RBF shape parameter.
+    REAL(wp)                              :: rbf_scale
+
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
       mode, taxis_tunit, dom,                                &
@@ -290,7 +293,7 @@ CONTAINS
       stream_partitions_hl, stream_partitions_il,            &
       pe_placement_ml, pe_placement_pl,                      &
       pe_placement_hl, pe_placement_il,                      &
-      filename_extn
+      filename_extn, rbf_scale
 
     ! -- preliminary checks:
     !
@@ -321,10 +324,10 @@ CONTAINS
     ! As in COSMO, there may exist several output_nml namelists in the input file
     ! Loop until EOF is reached
 
-    p_onl => NULL()
+    p_onl                  => NULL()
     first_output_name_list => NULL()
-    nnamelists = 0
-    lrewind = .TRUE.
+    nnamelists             =  0
+    lrewind                = .TRUE.
 
     IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
 
@@ -383,6 +386,7 @@ CONTAINS
       pe_placement_pl(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
       pe_placement_hl(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
       pe_placement_il(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
+      rbf_scale                = -1._wp
 
       ! -- Read output_nml
 
@@ -465,15 +469,27 @@ CONTAINS
         ! compute some additional entries of lon-lat grid specification:
         CALL compute_lonlat_specs(new_grid)
         CALL compute_lonlat_blocking(new_grid, nproma)
-        ! check, if lon-lat grids has already been registered
-        lonlat_id = get_lonlat_grid_ID(new_grid)
-        IF (lonlat_id == -1) THEN
-          ! Register a lon-lat grid data structure in global list
-          lonlat_id   = get_free_lonlat_grid()
-          lonlat => lonlat_grid_list(lonlat_id)
-          lonlat%grid = new_grid
+        ! If the user has explicitly specified an interpolation
+        ! parameter, then we always register this as a new lon-lat
+        ! grid. Otherwise we might share the lon-lat coefficients with
+        ! other output namelists.
+        IF (rbf_scale > 0._wp) THEN
+          lonlat_id             =  get_free_lonlat_grid()
+          lonlat                => lonlat_grid_list(lonlat_id)
+          lonlat%grid           =  new_grid
+          lonlat%intp%rbf_scale =  rbf_scale
         ELSE
-          lonlat => lonlat_grid_list(lonlat_id)
+          ! check, if lon-lat grids has already been registered
+          lonlat_id = get_lonlat_grid_ID(new_grid)
+          IF (lonlat_id == -1) THEN
+            ! Register a lon-lat grid data structure in global list
+            lonlat_id             =  get_free_lonlat_grid()
+            lonlat                => lonlat_grid_list(lonlat_id)
+            lonlat%grid           =  new_grid
+            lonlat%intp%rbf_scale =  rbf_scale
+          ELSE
+            lonlat => lonlat_grid_list(lonlat_id)
+          END IF
         END IF
 
         ! Flag those domains, which are used for this lon-lat grid:
