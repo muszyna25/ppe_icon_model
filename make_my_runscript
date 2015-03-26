@@ -41,7 +41,7 @@ base_folder=$(pwd)
 input_folder=run
 #==============================================================================
 # Define run parameters
-   exp_name="atm_amip_test"
+   exp_name="couple_atmo-ocean"
 
 # Define how many nodes to use 
   no_of_nodes=4
