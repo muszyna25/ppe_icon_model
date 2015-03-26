@@ -246,7 +246,7 @@ MODULE mo_initicon_utils
       &                              time_config%ini_datetime%hour,       &
       &                              time_config%ini_datetime%minute,     &
       &                              INT(time_config%ini_datetime%second),&
-      &                              ims=0)
+      &                              ms=0)
 
     ! add timeshift to INI-datetime to get true starting time
     start_datetime = mtime_inidatetime + timeshift%mtime_shift

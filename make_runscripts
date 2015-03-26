@@ -169,7 +169,7 @@ check_accept_script()
    if [[ $use_openmp = "yes" ]] ; then
      case $check_accepted_filename in
      *test_atm_icoles_nested*)
-        accepted_script="false"   #  ocean does not run with openmp
+        accepted_script="false"   
         ;;
      esac
    fi
@@ -178,16 +178,13 @@ check_accept_script()
    # check which scripts run without mpi
    if [[ $use_mpi != "yes" ]] ; then
      case $check_accepted_filename in
-       *test_oce_parallel*)
+       *test_*_parallel)
           accepted_script="false"  
           ;;
        *nat_jww_nwp_mpiomp*)
           accepted_script="false"
           ;;
        *test_couple*)
-          accepted_script="false"
-          ;;
-       *ptest*)
           accepted_script="false"
           ;;
        esac
@@ -202,36 +199,10 @@ check_accept_script()
        # check which scripts run on blizzard
        # (p_test does not work, xlf gives inconsistent results )
        case $check_accepted_filename in
-       # *test_oce_parallel*)
-       #   accepted_script="false"  
-       #   ;;
        *nat_jww_nwp_mpiomp*)
           [[ $param == "test" ]] && accepted_script="false"
           ;;
        esac
-     ;; 
-
-     sx9)
-       case $check_accepted_filename in
-       *test_oce_*)
-          accepted_script="false"
-          ;;
-       *test_nh_hdcp2_lam_r15000_modified*)
-          accepted_script="false"
-          ;;
-       *_rce_*)
-          accepted_script="false"
-          ;;
-       *test_icon*)
-          accepted_script="false"
-          ;;
-      #  post.test_hat_jw*)
-      #    accepted_script="false"
-      #    ;;
-       esac
-       if [[ _${define_grids_folder} != "_" ]] ; then
-         define_grids_folder='grids_folder="/e/uscratch/extwsauf/buildbot.grids"'
-       fi
      ;; 
 
      thunder)
@@ -250,18 +221,7 @@ check_accept_script()
    #--------------------------
    # compiler based checks
    case $use_compiler in
-   
-     pgi)
-       case $check_accepted_filename in
-       *test_nat_jww_nwp_mpiomp*)
-          accepted_script="false"  
-          ;;
-       *test_atm_icoles_nested*)
-          accepted_script="false"  
-          ;;
-       esac
-     ;; 
- 
+    
      nag)
        case $check_accepted_filename in
        *test_nh_moist_cbl*)
@@ -281,7 +241,7 @@ check_accept_script()
 #---------------------------------------------------------------
 
 
-
+# process experiment descriptors
 for filename in $exp_list
 do
 
@@ -299,29 +259,11 @@ do
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       memory_model="huge"  omp_stacksize="500M" queue="$queue" ${define_grids_folder}
       ;;
-    *_nh35_tri_jws*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      memory_model="small" queue="$queue" ${define_grids_folder}
-      ;;
     *)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder}
       ;;
     esac
-
-    # special cases for queuing on blizzard
-#     if [ $use_target = "blizzard" ] ; then
-#       if [ $name = test_nh3_tri_tracer_solid_body ] ; then
-#         $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#         EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-#       fi
-#       if [ $use_openmp = "yes" ] ; then
-#         if [ $name = test_nh35_tri_jws ] ; then
-#           $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#           EXPNAME="$name"  memory_model="small" queue="express"
-#         fi
-#       fi
-#    fi
 
   fi
   
@@ -329,32 +271,6 @@ done
 #==============================================================================
 
 
-#==============================================================================
-# use express queue for some of the builtbot seq,openmp experiments on blizzard
-# if [ $make_restart_exp = "true" ] ; then
-#   if [[ $use_target = "blizzard" ]] ; then
-# 
-#     name=test_nh3_tri_tracer_solid_body
-#     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#     EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-# 
-#     if [[ $use_openmp = "yes" ]] ; then
-# 
-#       name=test_nh35_tri_jws
-#       $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#       EXPNAME="$name"  memory_model="small" queue="express"
-# 
-#     fi
-#   fi
-# fi
-
-#==============================================================================
-# special treatment for exp.couple_atmo-radiation
-# if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
-#   name=couple_atmo-radiation
-#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" openmp_threads=3
-# fi
-#==============================================================================
 
 
 #==============================================================================
@@ -401,53 +317,10 @@ create_restart()
   fi
 }
 
-#==============================================================================
-# special treatment for test_hat_jww
-cpu_time="04:00:00"
-create_restart test_hat_jww 
-
 
 #==============================================================================
-# special treatment for exp.test_oce_default
-#
-cpu_time="01:00:00"
-create_restart test_oce_default
-# create restart test for accumulation variable to be checked
-create_restart test_oce_acc
+# create restart tests 
+# create_restart test_oce_default
 
-
-#==============================================================================
-# special treatment for test_nat_rce_cbl_120km_nwp
-#
-#cpu_time="02:00:00"
-#create_restart test_nat_rce_cbl_120km_nwp
-
-
-#==============================================================================
-# special treatment for test_nh35_tri_jws
-# this includes the restart in the exp.test_nh35_tri_jws_restart
-#
-#queue="default"
-#cpu_time="03:00:00"
-#create_restart test_nh35_tri_jws
-#==============================================================================
-
-#==============================================================================
-# check typical nh ape setup for exp.nat_ape-dec
-# if [ $make_restart_exp = "true" ] ; then
-#   if [ $use_mpi = "yes" ] ; then
-#   name=nat_ape-dec
-#   exp_name=test_nat_ape-dec
-#   runname=exp.${exp_name}.run
-# 
-#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
-#   atmo_dyn_gridname="iconR2B04_DOM01" atmo_rad_gridname="iconR2B03_DOM00" division_method=1 nsteps=720 cpu_time="04:00:00" \
-#   memory_model="small"
-#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
-#   atmo_dyn_gridname="iconR2B04_DOM01" atmo_rad_gridname="" division_method=1 nsteps=720 cpu_time="04:00:00" \
-#   memory_model="small"
-#   fi
-# fi
-#==============================================================================
 
 echo "-----------------------------------------------------------"

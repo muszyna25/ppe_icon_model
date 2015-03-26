@@ -63,15 +63,15 @@ else
   mh_setup=""            
 fi
 
-AC_ARG_WITH([mtime],
-  [AS_HELP_STRING([--without-mtime],
-    [disable use of mtime])],
+AC_ARG_WITH([yac],
+  [AS_HELP_STRING([--with-yac],
+    [enable use of yac])],
     [],
     [])
 
-AS_IF([test "x$with_mtime" != "xno"],
-      [use_mtime="yes"],
-      [use_mtime="no"])
+AS_IF([test "x$with_yac" = "xyes"],
+      [use_yac="yes"],
+      [use_yac="no"])
 
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
@@ -260,6 +260,49 @@ dnl ######################################################################
 if test -z "$CROSS" ; then
   AC_PROG_CC
 fi
+
+dnl ######################################################################
+dnl Checks for XML2.
+
+XML2_LIB=""
+XML2_INCLUDE=""
+
+AC_ARG_WITH([xml2],
+            [AC_HELP_STRING([--with-xml2=DIR],
+                            [Required libxml2])],,
+			    withval=yes)
+
+if test x$withval = xyes; then
+  if test x$with_xml2 != x; then
+    XML2ROOT=$with_xml2
+  fi
+fi
+
+if test -n "$XML2ROOT" ; then
+
+  if test -r "$XML2ROOT/lib/libxml2.a" ; then
+     XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+  else
+     echo "cannot read $XML2ROOT/lib/libxml2.a"  
+     exit 1    
+  fi
+
+  if test -d "$XML2ROOT/include/libxml2" ; then
+     XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
+  else
+     echo "cannot find $XML2ROOT/include/libxml2"  
+     exit 1    
+  fi
+
+  FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
+  CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
+
+else
+
+  echo "Warning: the variable XML2ROOT is not set in $host_frag"  
+  echo "         set XML2ROOT to the xml2 root directory"
+fi
+
 
 dnl ######################################################################
 dnl Checks for LAPACK/BLAS
@@ -626,7 +669,7 @@ else
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
     case $host in
     *-*-darwin*)
-      MPI_LIB='-L$(MPIROOT)/lib/mpich-mp '$MPI_LIB
+      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
       ;;    
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
@@ -725,9 +768,16 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
+my_srcdirs="externals/mtime/src ${my_srcdirs}"
 
-if [[ "x$use_mtime" = xyes ]] ; then
-    my_srcdirs="externals/mtime/src ${my_srcdirs}"
+if [[ "x$use_yac" = xyes ]] ; then
+    my_srcdirs="externals/yac/src ${my_srcdirs}"
+    FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
+    CFLAGS="${CFLAGS} -I`pwd`/${exec_prefix}/include"
+    if test "x$with_mpi" != "xno" ; then
+        FFLAGS="${FFLAGS} ${DEFOPT}USE_MPI"
+        CFLAGS="${CFLAGS} ${DEFCOPT}USE_MPI"
+    fi
 fi
 
 if [[ "x$use_messy" = xyes ]] ; then
@@ -788,8 +838,8 @@ else
     use_flags_group=$with_flags
 fi
 
-if [[ "x$use_mtime" = xyes ]] ; then
-   ac_libs="$ac_libs -lmtime"
+if [[ "x$use_yac" = xyes ]] ; then
+   ac_libs="$ac_libs -lyac"
 fi
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS
@@ -848,6 +898,10 @@ AC_SUBST(ZLIBROOT,$ZLIBROOT)
 AC_SUBST(ZLIB_LIB,$ZLIB_LIB)
 AC_SUBST(ZLIB_INCLUDE,$ZLIB_INCLUDE)
 
+AC_SUBST(XML2ROOT,$XML2ROOT)
+AC_SUBST(XML2_LIB,$XML2_LIB)
+AC_SUBST(XML2_INCLUDE,$XML2_INCLUDE)
+
 AC_SUBST(SCTROOT,$SCTROOT)
 AC_SUBST(SCT_LIB,$SCT_LIB)
 AC_SUBST(SCT_INCLUDE,$SCT_INCLUDE)
@@ -880,6 +934,8 @@ AC_SUBST(CFLAGS,$CFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
+
+ac_libs="${ac_libs} -lmtime"
 
 AC_SUBST(LIB,$ac_libs)
 
@@ -1039,6 +1095,13 @@ zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -
 echo "    ZLIB   : zlib-${zlib_version}"
 echo "             installation  ${ZLIBROOT}"
 fi
+if test x$XML2ROOT = x; then
+echo "    XML2   : none (error)"
+else
+xml2_version=$(grep "define LIBXML_DOTTED_VERSION" ${XML2ROOT}/include/libxml2/libxml/xmlversion.h | cut -f2 -d "\"")
+echo "    XML2   : xml2-${xml2_version}"
+echo "             installation  ${XML2ROOT}"
+fi 
 if test x$SCTROOT = x; then
 echo "    SCT    : none"
 else

@@ -73,7 +73,6 @@ config/icon_components -text
 config/install-sh -text
 config/make_target_runscript -text
 config/mh-aix -text
-config/mh-cygwin -text
 config/mh-darwin -text
 config/mh-linux -text
 config/mh-nec -text
@@ -1680,7 +1679,6 @@ src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_types.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
-src/shared/libmtime.f90 -text
 src/shared/mo_action.f90 -text
 src/shared/mo_action_types.f90 -text
 src/shared/mo_cdi_constants.f90 -text
