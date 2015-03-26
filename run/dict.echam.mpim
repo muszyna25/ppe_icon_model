@@ -23,7 +23,6 @@
   tro3               prm_o3
 #
   ts                 prm_tsfc
-  ts_eff             prm_tsfc_eff
   ts_rad             prm_tsfc_rad
 #
   sic                prm_seaice
@@ -78,7 +77,31 @@
   ts_ice             prm_tsfc_tile_2
   ts_lnd             prm_tsfc_tile_3
 #
-  alb                prm_albvisdir
+  swvis_dif_frac     prm_visdffsfc
+  swnir_dif_frac     prm_nirdffsfc
+  swvis              prm_vissfc
+  swnir              prm_nirsfc
+  swtrmall           prm_swtrmall
+  albvisdir          prm_albvisdir
+  albvisdif          prm_albvisdif
+  albnirdir          prm_albnirdir
+  albnirdif          prm_albnirdif
+  albvisdir_wtr      prm_albvisdir_tile_1
+  albvisdir_ice      prm_albvisdir_tile_2
+  albvisdir_lnd      prm_albvisdir_tile_3
+  albvisdif_wtr      prm_albvisdif_tile_1
+  albvisdif_ice      prm_albvisdif_tile_2
+  albvisdif_lnd      prm_albvisdif_tile_3
+  albnirdir_wtr      prm_albnirdir_tile_1
+  albnirdir_ice      prm_albnirdir_tile_2
+  albnirdir_lnd      prm_albnirdir_tile_3
+  albnirdif_wtr      prm_albnirdif_tile_1
+  albnirdif_ice      prm_albnirdif_tile_2
+  albnirdif_lnd      prm_albnirdif_tile_3
+  albedo             prm_albedo
+  albedo_wtr         prm_albedo_tile_1
+  albedo_ice         prm_albedo_tile_2
+  albedo_lnd         prm_albedo_tile_3
 #
   prlr               prm_rsfl
   prcr               prm_rsfc
@@ -106,6 +129,7 @@
   tend_ta_dyn        prm_tend_temp_dyn
   tend_ta_phy        prm_tend_temp_phy
   tend_ta_rlw        prm_tend_temp_rlw
+  tend_ta_rlw_sfc    prm_tend_temp_rlw_sfc
   tend_ta_rsw        prm_tend_temp_rsw
   tend_ta_cld        prm_tend_temp_cld
   tend_ta_cnv        prm_tend_temp_cnv
