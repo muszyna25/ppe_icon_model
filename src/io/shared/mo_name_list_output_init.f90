@@ -807,19 +807,19 @@ CONTAINS
   SUBROUTINE collect_meanStream_variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_meanStream_variables"
     !
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
-    CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
-    INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
-      &                                        ivar, ntotal_vars, jvar, i,        &
-      &                                        nsubtract_vars
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
+    CHARACTER(LEN=VARNAME_LEN)              :: varname, mean_varname
+    INTEGER                                 :: nvars, i_typ, ierrstat, i, ntotal_vars
+    INTEGER                                 :: varlist_length
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
     TYPE (t_output_name_list), POINTER      :: p_onl
 
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
-    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), new_varlist(ntotal_vars), STAT=ierrstat)
+    ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+    nvars = 1
     ! -- loop over all output namelists
     p_onl => first_output_name_list
     DO
@@ -827,15 +827,14 @@ CONTAINS
       IF ("mean" .NE. p_onl%operation) THEN
         DO i_typ = 1, 4
    
-          IF (i_typ == level_type_ml)  in_varlist => p_onl%ml_varlist
-          IF (i_typ == level_type_pl)  in_varlist => p_onl%pl_varlist
-          IF (i_typ == level_type_hl)  in_varlist => p_onl%hl_varlist
-          IF (i_typ == level_type_il)  in_varlist => p_onl%il_varlist
+          IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
+          IF (i_typ == level_type_pl) in_varlist => p_onl%pl_varlist
+          IF (i_typ == level_type_hl) in_varlist => p_onl%hl_varlist
+          IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
    
-          ! Get the number of variables in varlist
-          nvars = 1
+          varlist_length = SIZE(in_varlist)
+
           DO
-            IF (nvars > SIZE(in_varlist))   EXIT
             IF (in_varlist(nvars) == ' ') EXIT
             nvars = nvars + 1
           END DO
