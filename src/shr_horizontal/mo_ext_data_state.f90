@@ -2820,6 +2820,13 @@ CONTAINS
 
              ! set surface area index (needed by turbtran)
              ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
+
+             ! set land-cover class for seaice tile
+             ! sea-ice and sea have the same land cover class. This is consistent with the 
+             ! applied GRIB2 tile template, where sea-ice and sea are treated as two 
+             ! attribute of the same tile. Per definition, different attributes of the 
+             ! same tile have the same land-cover class
+!DR             ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice) = ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)
            ENDIF
 
            !
