@@ -398,7 +398,8 @@ MODULE mo_nh_init_nest_utils
 !$OMP END PARALLEL
 
     ! Convert wsoil into SMI for interpolation
-    CALL wsoil_to_smi(p_patch(jg), lndvars_par(:,1:nlev_soil,:))
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1) &
+      CALL wsoil_to_smi(p_patch(jg), lndvars_par(:,1:nlev_soil,:))
 
     ! Step 1b: execute boundary interpolation
 
@@ -510,7 +511,8 @@ MODULE mo_nh_init_nest_utils
     ENDIF
 
     ! Convert SMI back to wsoil
-    CALL smi_to_wsoil(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1) &
+      CALL smi_to_wsoil(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
 
     ! Step 3: Add reference state to thermodynamic variables and copy land fields
     ! from the container arrays to the prognostic variables (for the time being,
