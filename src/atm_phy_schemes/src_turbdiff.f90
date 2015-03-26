@@ -6355,12 +6355,14 @@ ELEMENTAL FUNCTION alpha0_char(u10)
   ! Wind-speed dependent specification of the Charnock parameter based on suggestions by
   ! Jean Bidlot and Peter Janssen, ECMWF
   REAL (KIND=ireals), INTENT(IN) :: u10 ! 10 m wind speed
-  REAL (KIND=ireals), PARAMETER  :: a=0.00594770_ireals, b=0.00054409_ireals, &
-                                    c=0.00004055_ireals, umax=25.0_ireals
-  REAL (KIND=ireals) :: ulim, alpha0_char
+  REAL (KIND=ireals), PARAMETER  :: a=6.e-3_ireals, b=5.5e-4_ireals, &
+                                    c=4.e-5_ireals, d=6.e-5_ireals,  &
+                                    u2=17.5_ireals, umax=25.0_ireals
+  REAL (KIND=ireals) :: ulim, ured, alpha0_char
 
   ulim = MIN(u10,umax)
-  alpha0_char = MAX (alpha0, a + ulim*(b + c*ulim))
+  ured = MAX(0._ireals, ulim-u2)
+  alpha0_char = MAX (alpha0, a + ulim*(b + c*ulim - d*ured))
 
 END FUNCTION alpha0_char
 
