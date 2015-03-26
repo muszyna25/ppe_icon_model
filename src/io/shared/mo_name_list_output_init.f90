@@ -817,16 +817,14 @@ CONTAINS
 
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
-    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), &
-      &      new_varlist(ntotal_vars), STAT=ierrstat)
+    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), new_varlist(ntotal_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! -- loop over all output namelists
     p_onl => first_output_name_list
     DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      IF (.NOT.ASSOCIATED(p_onl)) EXIT
       IF ("mean" .NE. p_onl%operation) THEN
-        ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
         DO i_typ = 1, 4
    
           IF (i_typ == level_type_ml)  in_varlist => p_onl%ml_varlist
@@ -837,7 +835,7 @@ CONTAINS
           ! Get the number of variables in varlist
           nvars = 1
           DO
-            IF (nvars>SIZE(in_varlist))   EXIT
+            IF (nvars > SIZE(in_varlist))   EXIT
             IF (in_varlist(nvars) == ' ') EXIT
             nvars = nvars + 1
           END DO
@@ -849,7 +847,13 @@ CONTAINS
       END IF
       p_onl => p_onl%next
     END DO ! p_onl
-  !write(0,*)'varlist:',varlist
+    !
+    !1. 
+    !
+    !
+    !
+    !
+    !write(0,*)'varlist:',varlist
   END SUBROUTINE collect_meanStream_variables
   !------------------------------------------------------------------------------------------------
   !> Initialize data structures for output.
