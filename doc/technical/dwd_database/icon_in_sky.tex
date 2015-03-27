@@ -39,15 +39,20 @@ following values:
                      \textbf{const} for invariant data.
  \item \textbf{type}: \textbf{an} for analysis data,
                       \textbf{fc} for forecast data.
- \item \textbf{suite}: \textbf{rout} for operational data in \emph{db=roma,}
-                       \textbf{para} for pre-operational data in \emph{db=parma},
-                       \textbf{exp} or \textbf{exp1} for data from experiments in
+ \item \textbf{suite}: 
+       \begin{itemize}
+         \item \textbf{rout} for operational data in \emph{db=roma,}
+         \item \textbf{para} or \textbf{para1} for pre-operational data in \emph{db=parma},
+                       The category extension para1 denotes the data with EU nest
+                       (starting at 12 UTC, 2015032612).
+         \item \textbf{exp} or \textbf{exp1} for data from experiments in
                        \emph{db=numex}. The category extension exp1 is used for
                        experiments of the NUMEX wizard, a special NUMEX user.
 
                        Data from experiments is additionally
                        identified by the parameter \emph{exp=}$NUM$ where $NUM$ is
                        the experiment number.
+       \end{itemize}
 \end{itemize}
 
 The categories for ICON start with the string \textbf{ico} for ICON data on the native

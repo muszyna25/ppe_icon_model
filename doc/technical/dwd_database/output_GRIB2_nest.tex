@@ -82,11 +82,14 @@ the native (triangular) grid.
 % --------------------------------------------------------------------------------
 
 \renewcommand{\new}[1]{\textcolor{red}{#1}}
-\renewcommand{\pressurelevelsRegular}{$1000$, $975$, $950$, $925$, $900$, 
-                                    $875$, $850$, $825$, $800$, 
-                                    $775$, $750$, $725$, $700$, $600$, 
-                                    $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
-                                    $70$, $50$ $\mathrm{hPa}$}
+%
+% List of pressure levels taken from COSMO-EU DB documentation, Section 5.1 (2015-03-27)
+%
+\renewcommand{\pressurelevelsRegular}{$1000$, \new{$975$}, $950$, \new{$925$}, \new{$900$}, 
+                                    \new{$875$}, $850$, \new{$825$}, \new{$800$}, 
+                                    \new{$775$}, \new{$750$}, \new{$725$}, $700$, $600$, 
+                                    $500$, $400$, $300$, $250$, $200$, \new{$150$}, \new{$100$}, 
+                                    \new{$70$}, \new{$50$}~$\mathrm{hPa}$}
 
 For regular grid output the following pressure levels are available: 
 \begin{center}
@@ -95,20 +98,14 @@ For regular grid output the following pressure levels are available:
 \end{minipage}
 \end{center}
 
-%Newly available pressure levels (as compared to GME) are highlighted in red. 
-%The output fields are listed in Table~\ref{table:nest:output_pressurelevels_regular}.
-%I.e.\ note that all $17$ WMO standard pressure levels are included.
+Newly available pressure levels (as compared to COSMO-EU) are highlighted in red. 
+The output fields are listed in Table~\ref{table:nest:output_pressurelevels_regular}.
 
 On the native (triangular) grid no output is generated for pressure levels.
 
-\begin{note}
-  \centering
-  \textbf{--- This section is not yet complete ---}
-\end{note}
-
 \begin{table}
 \renewcommand{\new}[1]{#1}
-\caption{Regular grid output:
+\caption{Regular grid output on the ICON EU Nest:
          Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
          interpolated to pressure levels \pressurelevelsRegular.}
  \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
@@ -131,15 +128,14 @@ On the native (triangular) grid no output is generated for pressure levels.
 \subsection{Multi-level fields interpolated to height levels}
 % --------------------------------------------------------------------------------
 
-\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$ $\mathrm{m}$}
 
-\begin{note}
-  \centering
-  \textbf{--- This section is not yet complete ---}
-\end{note}
+%
+% List of pressure levels taken from COSMO-EU DB documentation, Section 5.1 (2015-03-27)
+%
+\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$~$\mathrm{m}$}
 
 \begin{table}[H]
-\caption{Regular grid output:
+\caption{Regular grid output on the ICON EU Nest:
          Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to height levels \heightlevelsRegular
          ~(above mean sea level).}
  \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
@@ -168,7 +164,7 @@ On the native (triangular) grid no output is generated for pressure levels.
 \renewcommand{\onlyloc}[1]{#1}
 %
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}\\
+\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products on the ICON EU Nest}\\
   \toprule
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
@@ -190,13 +186,18 @@ On the native (triangular) grid no output is generated for pressure levels.
 \subsection{Surface fields interpolated to msl}
 % --------------------------------------------------------------------------------
 
+% NOTE:
+%
+% "PMSL" is not among the variables required to drive INT2LM/COSMO-DE,
+%    see "~for1han/const/iglo/namelst.output.i2l"
+%
 \begin{table}[H]
 \caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}
  \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
   \toprule
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
-\groups[tri][ll] & PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
+\groups[][ll] & PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
   \bottomrule
  \end{tabular}
 \end{table}
@@ -208,6 +209,14 @@ On the native (triangular) grid no output is generated for pressure levels.
 % --------------------------------------------------------------------------------
 \subsection{Soil-specific multi-level fields}
 % --------------------------------------------------------------------------------
+
+
+%    Variables required to drive INT2LM/COSMO-DE,
+%    see "~for1han/const/iglo/namelst.output.i2l"
+%
+%    > For the EU nest these are the fields required for the native grid. 
+% 
+%      'T_SO',      'W_SO'
 
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
 \caption[]{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}\\
@@ -223,7 +232,7 @@ On the native (triangular) grid no output is generated for pressure levels.
 \endlastfoot
 \groups[tri][ll] & T\_SO                          &  Soil temperature                                                                      &               2                                   &                     3                       &                    18                       &               106/--                           &                      inst                   &        $\mathrm{K}$   \\
 \groups[tri][ll] & W\_SO                          &  Soil moisture integrated over individual soil layers  (ice + liquid)                  &               2                                   &                     3                       &                    20                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
-\groups[tri][ll] & W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
+\groups[   ][ll] & W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
   \bottomrule
 \end{longtable}
 
@@ -261,14 +270,12 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 \subsection{Lake-specific single-level fields}
 % --------------------------------------------------------------------------------
 
+
 \begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the lake model model}\\
+\caption[]{Initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}\\
   \toprule
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
-%%\endfirsthead
-%%\caption[]{\emph{continued}}\\
-%%\midrule
 \endhead
 \hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
 \endfoot
@@ -278,5 +285,23 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 \groups[tri][ll] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
 \groups[tri][ll] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
 \groups[tri][ll] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
+  \bottomrule
+\end{longtable}
+
+
+\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
+\caption[]{Single-level forecast ($VV>0$) products of the lake model model on the ICON EU nest.}\\
+  \toprule
+&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+\endhead
+\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
+\endfoot
+\endlastfoot
+\groups[][ll] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
+\groups[][ll] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
+\groups[][ll] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
+\groups[][ll] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
+\groups[][ll] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
   \bottomrule
 \end{longtable}

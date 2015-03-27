@@ -213,7 +213,8 @@
              ./icon_in_sky,
              ./appendix,
              ./output_statproc,
-             ./output_description} 
+             ./output_description,
+             ./cosmo_eu_fields.tex} 
 
 
 
@@ -311,6 +312,7 @@
 \chapter[EU Nest output fields: Forecast runs]{EU Nest output fields:\\ Forecast runs}
 
 \input{./output_GRIB2_nest}
+\input{./cosmo_eu_fields.tex}
 
 
 % --------------------------------------------------------------------------------
@@ -357,21 +359,9 @@
 % --------------------------------------------------------------------------------
 
 \begin{itemize}
-  \item  There now exists a further parallel suite ''para1''. 
-         Document this in Section~\ref{section:icon_in_sky}.
   \item EU nest: ''Urstart'' fields must be contained in the $VV=0$ list.
-  \item EU nest, list of pressure levels: Mark new levels (compared to COSMO-EU) in red.
-  \item EU nest: take over the list of height levels from COSMO-EU
-  \item EU nest: native grid output only for those single-level fields
-    that are used by INT2LM/COSMO-DE as input.
   \item lake variables: ask Dimitri if these fields could be changed
     from RBF interpolation to nearest-neighbor.
-  \item PMSL only lon-lat if not required by INT2LM
-  \item lake variables: 
-        \begin{itemize}
-          \item output for $VV=0$ also on the native grid
-          \item $VV>0$: only lon-lat
-          \end{itemize}
   \item Questions for the ICON migration group:
         \begin{itemize}
           \item QR, QS necessary for lon-lat?
@@ -382,6 +372,7 @@
             afterwards 3 hourly:  Output of VMAX\_10M is 3-hourly for
             $VV>78h$. Should the sampling interval also be changed to
             3h after $VV>78h$?
+          \item How should DTKE\_CON be treated on the EU nest, native grid?
         \end{itemize}
 \end{itemize}
 
