@@ -2,6 +2,7 @@
 
 \usepackage[english]{babel}
 \usepackage{float}
+\usepackage{xparse}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 \usepackage{fancyhdr}
@@ -40,12 +41,6 @@
 \usepackage{array}
 \usepackage[titletoc]{appendix}
 \usepackage{soul}
-% \usepackage{amsthm}      %--- Theorem-Package
-% \usepackage{setspace}
-% \usepackage{pdftricks}   %--- for drawing arrows, frames, etc in Latex
-% \usepackage{pstricks}    %--- for drawing arrows, frames etc in Latex
-% \usepackage{layout}      %--- overview about boundaries and widths
-                           % usage: write \layout somewhere in the document
 
 
 
@@ -146,25 +141,34 @@
 \newcommand{\markBlue}{\tikz \fill[blue!80] (0,0) rectangle (0.08,0.8em);}
 \newcommand{\markWhite}{\tikz \fill[white!100] (0,0) rectangle (0.08,0.8em);}
 
-% Macro for indicating whether field is available on native grid (tri), lat-lon grid (ll), or both
-\newcommandx{\groups}[2][1=none,2=none,usedefault]{
+
+%% Macro for indicating whether field is available on native grid
+%% (tri), lat-lon grid (ll), or both
+%
+% This is using LaTeX 3 to trim white space around macro arguments!
+\newcommand{\groupsinner}[2]{
   \IfEqCase{#1}{%
       {tri}{%
            \IfEqCase{#2}{%
-           {ll}{\markRed\markBlue}      %group (tri,ll)
-           {none}{\markRed\markWhite}   %group (tri)
-           }%
+           {ll}{\markRed\markBlue}}      %group (tri,ll)
+           [\markRed\markWhite]          %group (tri)
       }%
-  }%
-  \IfEqCase{#1}{%
-      {none}{%
+  }[%
            \IfEqCase{#2}{%
-           {ll}{\markWhite\markBlue}   %group (ll)
-           }%
-      }%
-  }%
-}%
-
+           {ll}{\markWhite\markBlue}}     %group (ll)
+  ]
+}
+%%% Now we go with LaTeX3
+\ExplSyntaxOn
+\NewDocumentCommand{\groups}{ O{none} O{none} }
+ {
+  \latex_groups_node:nn
+   { \tl_trim_spaces:n { #1 } }
+   { \tl_trim_spaces:n { #2 } }
+ }
+\cs_set_eq:NN \latex_groups_node:nn \groupsinner
+\cs_generate_variant:Nn \latex_groups_node:nn { xx }
+\ExplSyntaxOff
 
 %
 %
@@ -217,6 +221,7 @@
 \begin{document}
 \svnInfo $Id$
 \setcounter{tocdepth}{3}     %--- maximum toc depth
+
 
 \pagestyle{fancy}
 \fancyhead{}
@@ -310,6 +315,7 @@
 
 % --------------------------------------------------------------------------------
 \chapter{Extended description of available output fields}
+
 \input{./output_description}
 
 
@@ -323,16 +329,11 @@
 
 % --------------------------------------------------------------------------------
 \include{./icon_in_sky}
-% ----------------------------------------------------------------%
+% --------------------------------------------------------------------------------
 
 \begin{appendices}
 \include{./appendix}  %--- Einbinden der Appendix
 \end{appendices}
-
-% \listoffigures                    %--- Erstellung des Figurenverzeichnisses
-
-% \glsaddall
-% \printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
 
 \backmatter
 \bibliography{litera.bib} %--- Create list of references
@@ -346,6 +347,43 @@
 \renewcommand{\chaptermark}[1]{%
   \markboth{\chaptername
     \ \thechapter.\ #1}{}}
+
+
+% --------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
+\cleardoublepage
+\section*{Database documentation: list of todos}
+% --------------------------------------------------------------------------------
+% --------------------------------------------------------------------------------
+
+\begin{itemize}
+  \item  There now exists a further parallel suite ''para1''. 
+         Document this in Section~\ref{section:icon_in_sky}.
+  \item EU nest: ''Urstart'' fields must be contained in the $VV=0$ list.
+  \item EU nest, list of pressure levels: Mark new levels (compared to COSMO-EU) in red.
+  \item EU nest: take over the list of height levels from COSMO-EU
+  \item EU nest: native grid output only for those single-level fields
+    that are used by INT2LM/COSMO-DE as input.
+  \item lake variables: ask Dimitri if these fields could be changed
+    from RBF interpolation to nearest-neighbor.
+  \item PMSL only lon-lat if not required by INT2LM
+  \item lake variables: 
+        \begin{itemize}
+          \item output for $VV=0$ also on the native grid
+          \item $VV>0$: only lon-lat
+          \end{itemize}
+  \item Questions for the ICON migration group:
+        \begin{itemize}
+          \item QR, QS necessary for lon-lat?
+          \item Q\_SEDIM required?
+          \item REL\_HUM on height levels required?
+          \item CAPE\_ML required?
+          \item EU nest, output of wind gusts hourly until 78h,
+            afterwards 3 hourly:  Output of VMAX\_10M is 3-hourly for
+            $VV>78h$. Should the sampling interval also be changed to
+            3h after $VV>78h$?
+        \end{itemize}
+\end{itemize}
 
 
 \end{document}
