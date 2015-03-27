@@ -48,8 +48,8 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename,         &
-                                   llake, itype_lndtbl
+                                   isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
+                                   ci_td_filename, llake, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              i_lctype 
@@ -2824,9 +2824,9 @@ CONTAINS
              ! set land-cover class for seaice tile
              ! sea-ice and sea have the same land cover class. This is consistent with the 
              ! applied GRIB2 tile template, where sea-ice and sea are treated as two 
-             ! attribute of the same tile. Per definition, different attributes of the 
+             ! attributes of the same tile. Per definition, different attributes of the 
              ! same tile have the same land-cover class
-!DR             ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice) = ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)
+             ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice) = ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)
            ENDIF
 
            !

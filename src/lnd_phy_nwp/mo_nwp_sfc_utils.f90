@@ -1478,8 +1478,6 @@ CONTAINS
             i_count_ice = i_count_ice + 1
             ext_data%atm%idx_lst_spi(i_count_ice,jb) = jc
             ext_data%atm%spi_count(jb)               = i_count_ice
-            ! set land-cover class
-            ext_data%atm%lc_class_t(jc,jb,isub_seaice)= ext_data%atm%i_lc_water
             ! set surface area index (needed by turbtran)
             ext_data%atm%sai_t    (jc,jb,isub_seaice) = c_sea
           ELSE
@@ -1524,8 +1522,6 @@ CONTAINS
             i_count_ice = i_count_ice + 1
             ext_data%atm%idx_lst_spi(i_count_ice,jb) = jc
             ext_data%atm%spi_count(jb)               = i_count_ice
-            ! set land-cover class
-            ext_data%atm%lc_class_t(jc,jb,isub_seaice)= ext_data%atm%i_lc_water
 
             ! Initialize frac_t for seaice
             ext_data%atm%frac_t(jc,jb,isub_seaice) = ext_data%atm%lc_frac_t(jc,jb,isub_seaice) &
@@ -2117,8 +2113,6 @@ CONTAINS
             !
             fracwater_old = ext_data(jg)%atm%frac_t(jc,jb,isub_water)
             IF (fracwater_old  > 0._wp  ) THEN
-             ! seaice and water have same landuse class
-             ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_water
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
@@ -2140,7 +2134,6 @@ CONTAINS
             ext_data(jg)%atm%idx_lst_spw(count_water,jb) = jc
             ext_data(jg)%atm%spw_count(jb)                 = count_water
 
-            ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
@@ -2182,8 +2175,6 @@ CONTAINS
             count_ice = count_ice + 1
             ext_data(jg)%atm%idx_lst_spi(count_ice,jb) = jc
             ext_data(jg)%atm%spi_count(jb)               = count_ice
-            ! seaice and water have same landuse class
-            ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_water
 
             fracice_old = ext_data(jg)%atm%frac_t(jc,jb,isub_seaice)              &
                         & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice)
@@ -2194,7 +2185,6 @@ CONTAINS
       !  & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice), p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)
 
       !CALL message('', TRIM(message_text))
-             ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice)= lc_water
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
 
@@ -2234,7 +2224,6 @@ CONTAINS
             ext_data(jg)%atm%idx_lst_spw(count_water,jb) = jc
             ext_data(jg)%atm%spw_count(jb)                 = count_water
 
-            ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
