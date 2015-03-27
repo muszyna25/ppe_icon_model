@@ -248,6 +248,9 @@ done
 ##  (( year = year+1 ))
 ##done
 #
+# - cloud optical properties
+  add_link_file /pool/data/ECHAM6/input/r0003/ECHAM6_CldOptProps.nc ./
+#
 # - sst and sic
 datadir=$INDATA/r2b4_amip/oce
 add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc

@@ -88,7 +88,7 @@ MODULE mo_psrad_radiation
 !  USE mo_solar_irradiance,ONLY: get_solar_irradiance, set_solar_irradiance, &
 !                                get_solar_irradiance_m, set_solar_irradiance_m
 ! cloud optics does not exist in icon
-!  USE mo_cloud_optics,    ONLY: setup_cloud_optics  
+  USE mo_psrad_cloud_optics,    ONLY: setup_cloud_optics  
 ! greenhouse gases in mo_radiation_config, but probably in different "units" (ppm...)
 !  USE mo_greenhouse_gases, ONLY: mmr_co2, mmr_ch4, mmr_n2o, ghg_cfcvmr
 ! ozone: read by mo_bc_ozone in icon, does not contain full functionality like here.
@@ -707,14 +707,14 @@ MODULE mo_psrad_radiation
 !!$               ' yr_perp.ne.-99999 cannot run  PCMDI-orbit (l_orbvsop87=.F.).')
 !!$        END IF
       END IF
-!!$      !
-!!$      ! 4.0 Initialization for radiation
-!!$      ! -------------------------------
-!!$      !
-!!$      ! --- resolution/run dependent cloud optical parameters (tuning)
-!!$      !
-!!$      CALL setup_cloud_optics
-!!$      !
+      !
+      ! 4.0 Initialization for radiation
+      ! -------------------------------
+      !
+      ! --- resolution/run dependent cloud optical parameters (tuning)
+      !
+      CALL setup_cloud_optics
+      !
 !!$      ! --- Ozone climatology
 !!$      ! 
 !!$      IF (io3==3) CALL read_o3clim_3
