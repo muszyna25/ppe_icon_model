@@ -214,18 +214,19 @@ exit
 #                                
 #      
 # NAME= XXX name of data files (maximum length 10 characters)
-# WORKDIR= working directory (containing the input data atm_dyn_XXX and atm_phy_XXX)
+# WORKDIR= working directory 
+#          (containing the input data atm_3d_XXX and atm_2d_XXX)
 #
 # MODELDIR= model directory
 #
 #
-# ATM_dyn= 1 plot atmosphere data
+# ATM_3d= 1 plot atmosphere data
 #          0 no plot of atmospheric data
-# ATM_phy= 1 plot surface data
+# ATM_2d= 1 plot surface data
 #          0 no plot of surface data
 #
 #       the plot program expects the following two files:
-#                 atm_phy_XXX (surface data, containing at least:
+#                 atm_2d_XXX (surface data, containing at least:
 #                           variable: 
 #                                     clwvi Liquid water + ice content
 #                                     clt   total cloud cover     
