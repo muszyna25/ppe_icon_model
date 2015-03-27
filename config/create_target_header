@@ -136,8 +136,8 @@ cdo_diff="${cdo} ${cdo_diff}"
 icon_data_rootFolder="${icon_data_rootFolder}"
 icon_data_poolFolder="${icon_data_poolFolder}"
 icon_data_buildbotFolder="${icon_data_rootFolder}/buildbot_data"
-icon_data_buildbotFolder_aes="${icon_data_buildbotFolder}/aes"
-icon_data_buildbotFolder_oes="${icon_data_buildbotFolder}/oes"
+icon_data_buildbotFolder_aes="${icon_data_rootFolder}/buildbot_data/aes"
+icon_data_buildbotFolder_oes="${icon_data_rootFolder}/buildbot_data/oes"
 EOF
 
 #for i in {1..$no_of_free_variables}
@@ -790,88 +790,6 @@ EOF
 
 }
 
-
-#=============================================================================
-set_run_target_sx9()
-{
- 
-  set_default use_nproma 1024
-
-
-  if [[ $use_mpi == "yes" ]]; then
- 
-    mpimultitaskmix="ON"
-    set_default use_nodes 1
-
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 4
-      set_default use_openmp_threads 2
-      cpunum_job=8                         
-    else
-      set_default use_mpi_procs_pernode 8
-      set_default use_openmp_threads 1
-      cpunum_job=$use_mpi_procs_pernode
-    fi
-  else
-    set_default use_nodes 1
-    set_default use_mpi_procs_pernode 1
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 8
-      cpunum_job=$use_openmp_threads
-    else
-      cpunum_job=1
-    fi
-  fi
-
-
-   
-  cat >> $output_script << EOF
-# ================
-#### BATCH_SYSTEM=NQS2 ####
-# ================
-#PBS -q normal
-#PBS -j o
-#PBS -N $job_name
-#PBS -o LOG.$job_name.o
-#PBS -l  cpunum_job=$cpunum_job
-#PBS -b $use_nodes
-#PBS -T mpisx
-#PBS -l elapstim_req=1800
-#PBS -m n
-# ================
-#-----------------------------------------------------------------------------
-# for PBS change to directory where job was submitted
-# (without this job is started in HOME)
-if [[ -n \${PBS_O_WORKDIR} ]] ; then
-  cd \${PBS_O_WORKDIR}
-fi
-#-----------------------------------------------------------------------------
-EOF
-
-  
-  # create header
-  start_header
-
-
-  cat >> $output_script << EOF
-#-----------------------------------------------------------------------------
-# for PBS change to directory where job was submitted
-# (without this job is started in HOME)
-if [[ -n \${PBS_O_WORKDIR} ]] ; then
-  cd \${PBS_O_WORKDIR}
-fi
-export F_PROGINF=DETAIL
-export MPIMULTITASKMIX=$mpimultitaskmix
-export NMPITASKS=$use_mpi_procs_pernode
-export NC_BLOCKSIZE=128mb
-export MPIPROGINF=yes
-export MPIPROGINF=ALL_DETAIL
-export MPIEXPORT="MPIPROGINF F_PROGINF F_NORCW NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC"
-
-#-----------------------------------------------------------------------------
-EOF
-
-}
 
 #=============================================================================
 set_run_target_pacluster()
