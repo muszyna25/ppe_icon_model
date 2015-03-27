@@ -25,7 +25,8 @@ MODULE mo_util_phys
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
     &                                 vtmpc1, t3,      &
-    &                                 grav
+    &                                 grav,            &
+    &                                 tmelt
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int
@@ -52,6 +53,7 @@ MODULE mo_util_phys
   PUBLIC :: nwp_con_gust
   PUBLIC :: virtual_temp
   PUBLIC :: vap_pres
+  PUBLIC :: calsnowlmt
   PUBLIC :: swdir_s
   PUBLIC :: rel_hum
   PUBLIC :: compute_field_rel_hum_wmo
@@ -496,6 +498,141 @@ CONTAINS
     vap_pres = (qv * pres) / (rdv + O_m_rdv*qv)
 
   END FUNCTION vap_pres
+
+
+
+
+  !------------------------------------------------------------------------------
+  !>
+  !! Description:
+  !!   This subroutine calculates height of the snowfall limit (snowlmt).
+  !!
+  !! Method:
+  !!   In a first step the wet bulb temperature is derived from pres, t and qv.
+  !!   In a second step the snowfall limit is evaluated from 8000m down to the
+  !!   the lowest model level (ke) and linearly interpolated to the height where
+  !!   the wet bulb temperature is >= wbl (=+1.3C after P. Haechler, MeteoSwiss).
+  !!   A flag (-999) is set to indicate that no snowlmt was found.
+  !!
+  !! @par Revision History
+  !! Inherited from COSMO 5.0 by Daniel Reinert, DWD (2015-03-27)
+  !! 
+  !!
+  SUBROUTINE calsnowlmt ( snowlmt, temp, pres, qv, hhl, hhlr, istart, iend, wbl)
+
+    ! Parameter list:
+
+    INTEGER, INTENT (IN)     ::  &
+      istart, iend           ! loop start/end indices
+
+    REAL(wp), INTENT (INOUT)   ::  &
+      snowlmt(:)    ! height of the snowfall limit in m above sea level
+
+    REAL(wp), INTENT (IN)    ::  &
+      temp  (:,:), & ! temperature
+      pres  (:,:), & ! pressure at full levels
+      qv    (:,:), & ! specific humidity
+      hhl   (:,:), & ! height of model half levels
+      hhlr  (:)      ! height of model half levels resp. sea level
+
+    REAL (wp), INTENT (IN)    ::  &
+      wbl               ! (empirical) wet bulb temperature at snowfall limit (1.3C)
+    !------------------------------------------------------------------------------
+    ! Local variables
+
+    INTEGER ::     i, k, ktopmin, nlev
+
+    LOGICAL                  ::    &
+      lfound(SIZE(temp,1))     ! Logical flag : =.TRUE when wet bulb temp corresponding to
+                     !                  parameter "wbl" is found
+
+    REAL (wp)       ::    &
+      za = 0.78588481_wp,      & ! local storage
+      zb = 7.567_wp,           &
+      zc = 2066.92605_wp,      &
+      zd = 33.45_wp,           &
+      ze = 0.622_wp,           &
+      zf = 0.378_wp,           &
+      zg = 0.5_wp,             &
+      zh = 0.6_wp,             &
+      zi = 700._wp,            &
+      zl = 0.1_wp,             &
+      zm = 6400._wp,           &
+      zn = 11.564_wp,          &
+      zo = 1742._wp,           &
+      td,tl,tp,ppp,            &
+      zp,                      &  ! pressure in hPa
+      ppp,                     &  ! pressure in dPa
+      deltat,zt,               &
+      ep,const,                &
+      zh_bot, zh_top,          &
+      zdt
+
+    REAL(wp) :: wetblb(SIZE(temp,1),SIZE(temp,2))  ! wet-bulb temperature in Celsius
+
+  !------------------------------------------------------------------------------
+
+    ! Begin subroutine calsnowlmt
+
+    ! number of vertical full levels
+    nlev = SIZE(temp,2)
+
+    ! Set the uppermost model level for the occurence of a wet bulb temperature (wbl)
+    ! to about 8000m above surface
+    ktopmin = 2
+    DO k = nlev+1, 1, -1
+      IF ( hhlr(k) < 8000.0_wp ) THEN
+        ktopmin = k
+      ENDIF
+    ENDDO
+
+    ! Initialize the definition mask and the output array snowlmt
+    lfound (:) = .FALSE.
+    snowlmt(:) = -999.0_wp
+
+    DO k = ktopmin, nlev
+      DO i = istart, iend
+        zp     = (pres(i,k))/100._wp     ! in hPa
+        ep     = MAX(1.0E-10_wp,qv(i,k))*zp /      &
+                 (ze + zf*MAX(1.0E-10_wp,qv(i,k)))
+        ep     = MAX(ep,1.0E-10_wp)
+        CONST  = LOG10(ep) - za
+        td     = (zd*CONST-zc) / (CONST-zb)              ! in Kelvin
+        ! Wet bulb temperature after Egger/Joss
+        tl     = (temp(i,k) - tmelt) *10._wp
+        tp     = (td-tmelt) *10._wp
+        ppp    = zp * 10._wp
+        deltat = tl-tp
+        zt     = tp + zg*deltat*(zh-tp/zi)
+        wetblb(i,k) = zl * ( tp +                      & ! in Celsius
+                      (deltat / (1._wp + zm*EXP(zn*zt/(zo+zt))/ppp)))
+
+        IF ( wetblb(i,k) >= wbl ) THEN
+          ! definition of snowlmt can be made in this column
+          lfound (i) = .TRUE.
+        ENDIF
+      ENDDO
+    ENDDO
+
+    DO k = ktopmin+1, nlev
+      DO i = istart, iend
+        IF ( lfound(i) .AND. wetblb(i,k) >= wbl ) THEN
+          ! definition of snowlmt is now made once
+          lfound (i) = .FALSE.
+          zh_bot     = 0.5_wp * ( hhl(i,k) + hhl(i,k+1) )
+          zh_top     = 0.5_wp * ( hhl(i,k) + hhl(i,k-1) )
+          zdt        = ( wbl - wetblb(i,k) ) /                 &
+                       ( wetblb(i,k-1) - wetblb(i,k) )
+          snowlmt(i) = zh_bot + (zh_top-zh_bot)*zdt
+        ENDIF
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE calsnowlmt
+
+
+
+
 
 
   !> computation of vertical velocity (dp/dt)
