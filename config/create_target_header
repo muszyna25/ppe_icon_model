@@ -136,8 +136,8 @@ cdo_diff="${cdo} ${cdo_diff}"
 icon_data_rootFolder="${icon_data_rootFolder}"
 icon_data_poolFolder="${icon_data_poolFolder}"
 icon_data_buildbotFolder="${icon_data_rootFolder}/buildbot_data"
-icon_data_buildbotFolder_aes="${icon_data_buildbotFolder}/aes"
-icon_data_buildbotFolder_oes="${icon_data_buildbotFolder}/oes"
+icon_data_buildbotFolder_aes="${icon_data_rootFolder}/buildbot_data/aes"
+icon_data_buildbotFolder_oes="${icon_data_rootFolder}/buildbot_data/oes"
 EOF
 
 #for i in {1..$no_of_free_variables}
