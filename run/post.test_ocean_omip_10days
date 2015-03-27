@@ -12,7 +12,7 @@ oType="eps"
 # technical stuff
 basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/${EXPNAME}/"
-scriptPath="/pool/data/ICON/tools"
+scriptPath="${icon_data_poolFolder}/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 source postFunx.sh

@@ -133,8 +133,9 @@ cat >> $output_script << EOF
 nproma=$use_nproma
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
-icon_data_RootFolder="${icon_data_RootFolder}"
-icon_data_buildbotFolder="${icon_data_RootFolder}/buildbot_data"
+icon_data_rootFolder="${icon_data_rootFolder}"
+icon_data_poolFolder="${icon_data_poolFolder}"
+icon_data_buildbotFolder="${icon_data_rootFolder}/buildbot_data"
 icon_data_buildbotFolder_aes="${icon_data_buildbotFolder}/aes"
 icon_data_buildbotFolder_oes="${icon_data_buildbotFolder}/oes"
 EOF
@@ -156,7 +157,8 @@ set_run_target_blizzard()
   set_default use_nproma 32
   set_default use_nodes 1
   use_OMP_SCHEDULE="dynamic,1"
-  icon_data_RootFolder=${icon_data_RootFolder:=/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
   
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
@@ -441,7 +443,8 @@ set_run_target_thunder()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
-  icon_data_RootFolder=${icon_data_RootFolder:=/scratch/mpi/CC/mh0287}
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/mpi/CC/mh0287}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -627,7 +630,8 @@ set_run_target_mpipc()
 
   set_default use_nproma 64
   use_nodes=1
-  icon_data_RootFolder=${icon_data_RootFolder:=/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
   
   if [[ $use_mpi == "yes" ]]; then
     set_default use_mpi_procs_pernode 2
