@@ -14,7 +14,7 @@
 !! Modification by Thomas Heinze (2006-09-20):
 !! - added routine grid_and_patch_diagnosis
 !! Modification by Pilar Ripodas, DWD, (2007-01-31)
-!! - addapted to the new TYPE grid_edges (system_orientation added)
+!! - addapted to the new TYPE grid_edges (tangent_orientation added)
 !! Modification by Peter Korn,  MPI-M, (2006-12)
 !! - implementation of topography and boundary treatment, i.e.
 !!   initialization of the grid & patch_2D components that carry
@@ -63,6 +63,7 @@
 !! Modification by Almut Gassmann, MPI-M, (2008-09-21)
 !!  - remove reference to mask and height files, they are never used
 !!  - use cell_type to distinguish cells as triangles or hexagons
+!!  LL: this is done by reading directly the dual grid
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Constantin Junk, MPI-M (2011-04-05)
