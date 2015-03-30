@@ -491,9 +491,11 @@ MODULE mo_psrad_radiation
         CALL message('','irad_o3  = 1 --> transported O3 is not yet implemented')
         CALL finish('setup_psrad_radiation','Run terminated irad_o3')
       CASE(2)
-        CALL message('','irad_o3  = 2 --> spectral O3 climatology (ECHAM4)')
+        CALL message('','irad_o3  = 2 --> spectral O3 climatology (ECHAM4), no implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
       CASE(8)
-        CALL message('','irad_o3  = 8 --> gridpoint O3 climatology from NetCDF file')
+        CALL message('','irad_o3  = 8 --> gridpoint O3 climatology from NetCDF file, not implemented')
+        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_o3  =', io3, ' in radctl namelist is not supported'
