@@ -45,9 +45,9 @@
 LAPACKROOT  =
 LAPACK_LIB  =
 
-LIBS        = "$LIBS" -L../lib -lsupport
+LIBS        = -L../lib -lsupport $LIBS
 
-load_modules=""
+load_modules=
 
 #===============================================
 
@@ -375,15 +375,15 @@ case "$ac_sitename" in
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
                       F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
-                      LIBS            = ${LIBS} -lirng
+                      OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
                       ;;
                     default|gcc)
                       load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
                       FFLAGS          = ${FFLAGS}
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
                       ;;
                 esac
                 ;;
@@ -437,7 +437,7 @@ case "$ac_sitename" in
                       SZIPROOT    = $software_tree/szip-2.1-static
                       MPIROOT     = $software_tree/mpi/mpich2-1.3.1-static-intel12
                       MPI_LIB     = -lmpichf90 -lmpich -lmpl
-                      LIBS        = ${LIBS} -lz
+                      OTHER_LIBS  = -lz $OTHER_LIBS
                       ;;
                 esac
                 ;;
@@ -478,7 +478,7 @@ case "$ac_sitename" in
                       # sed -i '/^MPI_INCLUDE *= -I\$(MPIROOT)\/include\/gfortran\/4.0.0/s@/gfortran/4.0.0.*@@' Makefile
                       MPIROOT     = /sw/rhel6-x64/intel/impi/4.1.3.049/intel64
                       MPI_LIB     = -I/sw/rhel6-x64/intel/impi/4.1.3.049/intel64/include -I/sw/rhel6-x64/intel/impi/4.1.3.049/intel64/include -L/sw/rhel6-x64/intel/impi/4.1.3.049/intel64/lib -Xlinker --enable-new-dtags -Xlinker -rpath -Xlinker /sw/rhel6-x64/intel/impi/4.1.3.049/intel64/lib -Xlinker -rpath -Xlinker /opt/intel/mpi-rt/4.1 -lmpigf -lmpi -lmpigi -ldl -lrt -lpthread
-                      LIBS        = ${LIBS} -lz
+                      OTHER_LIBS  = -lz $OTHER_LIBS
                       ;;
                 esac
                 ;;
@@ -653,15 +653,15 @@ case "$ac_sitename" in
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
                       F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
-                      LIBS            = ${LIBS} -lirng
+                      OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
                       ;;
                     default|gcc)
                      #load_modules    = "PrgEnv-gnu/5.1.29" "netcdf" "grib_api" "cray-mpich/6.2.0" "${load_modules}"
                       FFLAGS          = ${FFLAGS}
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
                       ;;
                 esac
         ;;
