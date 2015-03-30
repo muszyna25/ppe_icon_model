@@ -42,8 +42,8 @@ MODULE mo_ocean_model
     & grid_generatingcenter,  & ! grid generating center
     & grid_generatingsubcenter  ! grid generating subcenter
 
-  USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, diagnostics_level
+  USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
 
@@ -80,7 +80,7 @@ MODULE mo_ocean_model
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
-    & destruct_atmos_for_ocean, destruct_atmos_fluxes, destruct_sea_ice
+    & destruct_atmos_for_ocean, destruct_sea_ice
 
   USE mo_ocean_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, success
@@ -283,7 +283,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(method_name),'start to clean up')
 
-    IF (diagnostics_level==1) CALL destruct_oce_diagnostics()
+    CALL destruct_oce_diagnostics()
     !------------------------------------------------------------------
     ! destruct ocean physics and forcing
     ! destruct ocean state is in control_model
@@ -297,7 +297,7 @@ CONTAINS
     IF(no_tracer>0) CALL destruct_ocean_forcing(v_sfc_flx)
     CALL destruct_sea_ice(v_sea_ice)
     CALL destruct_atmos_for_ocean(p_as)
-    CALL destruct_atmos_fluxes(atmos_fluxes)
+    !CALL destruct_atmos_fluxes(atmos_fluxes)
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
@@ -360,7 +360,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
-    CALL oce_crosscheck()
+    CALL ocean_crosscheck()
 
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
@@ -557,8 +557,7 @@ CONTAINS
 
     !------------------------------------------------------------------
     CALL datetime_to_string(datestring, start_datetime)
-    IF (diagnostics_level == 1) &
-      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
+    CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
     !------------------------------------------------------------------
     CALL message (TRIM(method_name),'end')

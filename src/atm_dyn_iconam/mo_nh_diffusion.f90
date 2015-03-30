@@ -316,7 +316,7 @@ MODULE mo_nh_diffusion
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+            dvt_tang(je,jk) = p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -349,7 +349,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(                           (  &
               (vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb)- &
               dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (         &
-              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*   &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%tangent_orientation(je,jb)*   &
               p_patch%edges%inv_primal_edge_length(je,jb) +                                &
               dvt_norm(je,jk)*p_patch%edges%inv_vert_vert_length(je,jb))**2 )
 
@@ -461,7 +461,7 @@ MODULE mo_nh_diffusion
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+            dvt_tang(je,jk) = p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -514,7 +514,7 @@ MODULE mo_nh_diffusion
                       p_nh_prog%w(iecidx(je,jb,2),jk+1,iecblk(je,jb,2)))   )
 
             dwdt (je,jk) = p_patch%edges%inv_primal_edge_length(je,jb) *                                   &
-                           p_patch%edges%system_orientation(je,jb) * (                                     &
+                           p_patch%edges%tangent_orientation(je,jb) * (                                     &
               0.5_wp*(z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1))+z_w_v(ividx(je,jb,1),jk+1,ivblk(je,jb,1))) - &
               0.5_wp*(z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))+z_w_v(ividx(je,jb,2),jk+1,ivblk(je,jb,2)))   )
 
@@ -522,7 +522,7 @@ MODULE mo_nh_diffusion
               ( (vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb) )**2 + &
               (dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb))**2 + dwdz(je,jk)**2) + &
               0.5_wp *( (p_patch%edges%inv_primal_edge_length(je,jb) *                             &
-              p_patch%edges%system_orientation(je,jb)*(vn_vert2(je,jk)-vn_vert1(je,jk)) +          &
+              p_patch%edges%tangent_orientation(je,jb)*(vn_vert2(je,jk)-vn_vert1(je,jk)) +          &
               p_patch%edges%inv_vert_vert_length(je,jb)*dvt_norm(je,jk) )**2 +                     &
               (dvndz(je,jk) + dwdn(je,jk))**2 + (dvtdz(je,jk) + dwdt(je,jk))**2 ) -                &
               3._wp*grav * dthvdz(je,jk) / (                                                       &
@@ -533,7 +533,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT( MAX(kh_smag3d_e(je,jk), fac2d*( &
               ((vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb)-   &
               dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (            &
-              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*      &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%tangent_orientation(je,jb)*      &
               p_patch%edges%inv_primal_edge_length(je,jb) +                                   &
               dvt_norm(je,jk)*p_patch%edges%inv_vert_vert_length(je,jb) )**2 ) ) )
 
@@ -609,7 +609,7 @@ MODULE mo_nh_diffusion
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+            dvt_tang(je,jk) = p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -643,7 +643,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(                           (  &
               (vn_cell2(je,jk)-vn_cell1(je,jk))*p_patch%edges%inv_dual_edge_length(je,jb)- &
               dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (         &
-              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*   &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%tangent_orientation(je,jb)*   &
               p_patch%edges%inv_primal_edge_length(je,jb) +                                &
               dvt_norm(je,jk)*p_patch%edges%inv_dual_edge_length(je,jb))**2 )
 

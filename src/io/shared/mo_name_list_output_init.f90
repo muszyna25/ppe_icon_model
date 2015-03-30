@@ -2272,6 +2272,15 @@ CONTAINS
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
 
+      ! Single point grid for monitoring
+      of%cdiSingleGridID = gridCreate(GRID_LONLAT, 1)
+      !
+      CALL griddefxsize(of%cdiSingleGridID, 1)                                                                         
+      CALL griddefysize(of%cdiSingleGridID, 1)
+      CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
+      CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
+
+
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -2438,6 +2447,8 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE(GRID_UNSTRUCTURED_CELL)
         info%cdiGridID = of%cdiCellGridID
+      CASE(GRID_LONLAT)
+        info%cdiGridID = of%cdiSingleGridID
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = of%cdiVertGridID
       CASE(GRID_UNSTRUCTURED_EDGE)

@@ -1,3 +1,8 @@
+
+#-----------------------------------------------------------------------------
+. ${thisdir}/add_required_ocean_files
+#-----------------------------------------------------------------------------
+
 varNames2D="h_acc"
 varNames3D="t_acc s_acc rhopot_acc"
 varNames="${varNames2D} ${varNames3D}"
@@ -7,7 +12,7 @@ oType="eps"
 # technical stuff
 basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/${EXPNAME}/"
-scriptPath="/pool/data/ICON/tools"
+scriptPath="${icon_data_poolFolder}/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 source postFunx.sh
@@ -15,7 +20,7 @@ source postFunx.sh
 # plotting
 # find the last input file
 cd ${dataPath}
-iFile=$(ls ${EXPNAME}*.nc | tail -n 1)
+iFile=$(ls ${EXPNAME}_[0-9]*.nc | tail -n 1)
 if [[ ! -f ${iFile} ]]; then
   echo "Could not find the input file '${iFile}'"
   echo "Give up!"
@@ -47,18 +52,19 @@ check_error $? "oce_numeric: $nclCaller"
 
 # check for identical results compared to the reference
 slave=${BB_SLAVE:-thunder_gcc}
-case ${slave} in  
-  thunder*)
-    refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
-    ;;
-  bliz*)
-    refDir=/work/mh0287/reference/${slave}/${EXPNAME}
-    ;;
-  *)
-    echo "Unknown slave: ${slave}!"
-    exit 1
-    ;;
-esac
+refDir=${ocean_data_MainFolder}/reference/${slave}/${EXPNAME}
+#case ${slave} in  
+#  thunder*)
+#    refDir=/scratch/mpi/CC/mh0287/reference/${slave}/${EXPNAME}
+#    ;;
+#  bliz*)
+#    refDir=/work/mh0287/reference/${slave}/${EXPNAME}
+#    ;;
+#  *)
+#    echo "Unknown slave: ${slave}!"
+#    exit 1
+#    ;;
+#esac
 
 directoryDiff ${refDir} .
 

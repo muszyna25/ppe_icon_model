@@ -65,6 +65,7 @@ MODULE mo_grid_geometry_info
   ! types of grid geometries
   INTEGER, PARAMETER ::  sphere_geometry       = 1
   INTEGER, PARAMETER ::  planar_torus_geometry = 2
+  INTEGER, PARAMETER ::  cylinder_geometry     = 3
   
   ! -----------------------------
   ! types of grids
@@ -97,7 +98,7 @@ MODULE mo_grid_geometry_info
     REAL(wp) :: domain_length          ! (meters)
     REAL(wp) :: domain_height          ! (meters)
 
-    !> Sphere parameters 
+    !> Sphere/Cylinder parameters
     REAL(wp) :: sphere_radius
     
     !> derived info, the following can be calclulated from the previous

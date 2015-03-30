@@ -107,7 +107,7 @@ cat > ${atmo_namelist} << EOF
  num_prefetch_proc = 0
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = ${dynamics_grid_filename}
  dynamics_parent_grid_id = ${dynamics_parent_grid_id}
  lfeedback         = .true.
