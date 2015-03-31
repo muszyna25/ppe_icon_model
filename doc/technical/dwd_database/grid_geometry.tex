@@ -244,9 +244,15 @@ save computing time.
 For each nesting level, the time step is automatically divided by a
 factor of two.
 %
-Note that the grid nests are computed in a concurrent fashion:  Points
-that are covered by the refined subdomain additionally contain data
-for the global grid state.
+Note that the grid nests are computed in a concurrent fashion:  
+\begin{itemize}
+\item Points that are covered by the refined subdomain additionally
+  contain data for the global grid state.
+\item The data points on the triangular grid are the cell
+  circumcenters. Therefore the global grid data points are closely
+  located to nest data sites, but they \emph{do not coincide} exactly.
+\end{itemize}
+
 
 \begin{figure}[h]
   \centering
@@ -254,20 +260,6 @@ for the global grid state.
   \caption{ICON grid refinement (zoom view).}
   \label{fig:icon_grid_refinement_zoom_view}
 \end{figure}
-
-
-
-%  \begin{itemize}
-%    \item No. of cells
-%  \end{itemize}
-%  
-%  \begin{itemize}
-%    \item Duplicate chapter on GRIB2 output tables for nest region
-%    \item Description of IAU for nest
-%    \item \emph{no} additional tables for HHL in appendix.
-%  \end{itemize}
-
-
 
 Currently, a refined subregion over Europe is in preparation,
 which is comparable to the COSMO-EU region of DWD's COSMO model.
