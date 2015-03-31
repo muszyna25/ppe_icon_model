@@ -28,19 +28,9 @@ output_interval="P$leading_zero${days_data}D"     # ocean model output interval 
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-use_file_initialConditions=".true."
-external_interpolation_type="mpiom"
-use_gridfile_for_grabbing_externale_data='true'
 init_relax=1
-#init_rel_suff='20m.nc'  # 20m thickness
-init_oce_suff='L40.nc'
-init_rel_suff='surf.nc'
-R=2   # nroot
-B=4   # number of bisections applied
-grid_ext="etopo40_planet_newgeom_noinland"
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-LOC="POOL"
-#LOC="OTHR"
+ocean_vertical_levels=40
+ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
@@ -99,9 +89,9 @@ cat > ${ocean_namelist} << EOF
 !  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev             =   40
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+ n_zlev             =  $ocean_vertical_levels
+ dzlev_m(1:40)      =  12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+                       30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization

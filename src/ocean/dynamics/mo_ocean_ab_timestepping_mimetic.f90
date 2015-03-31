@@ -42,7 +42,10 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & select_restart_mixedPrecision_gmres,                &
     & solver_max_iter_per_restart_sp,                     &
     & solver_tolerance_sp, l_partial_cells,               &
-    & MASS_MATRIX_INVERSION_TYPE,NO_INVERSION,MASS_MATRIX_INVERSION,BUREAUCRATIC_MASS_MATRIX_INVERSION
+    & No_Forcing,                                         &
+    & MASS_MATRIX_INVERSION_TYPE,NO_INVERSION,            &
+    & MASS_MATRIX_INVERSION_ADVECTION,                    &
+    & MASS_MATRIX_INVERSION_ALLTERMS
   
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -655,8 +658,8 @@ CONTAINS
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
     CALL timer_start(timer_extra4)
-    IF (   MASS_MATRIX_INVERSION_TYPE == BUREAUCRATIC_MASS_MATRIX_INVERSION&
-      &.OR.MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION) THEN
+    IF (   MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ALLTERMS&
+      &.OR.MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ADVECTION) THEN
     
       CALL explicit_vn_pred_invert_mass_matrix( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep)
 
@@ -754,7 +757,7 @@ CONTAINS
           & op_coeffs,                                     &
           & start_edge_index, end_edge_index, blockNo)
         
-      ELSE !( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
+      ELSE !( iswm_oce == 1) THEN
         CALL calculate_explicit_vn_pred_2D_onBlock( patch_3d, ocean_state, z_gradh_e(:), &
         & start_edge_index, end_edge_index, blockNo) 
       ENDIF
@@ -785,20 +788,22 @@ CONTAINS
     patch_2D        => patch_3d%p_patch_2d(n_dom)
     edges_in_domain => patch_3d%p_patch_2d(n_dom)%edges%in_domain
 
-      IF(MASS_MATRIX_INVERSION_TYPE== MASS_MATRIX_INVERSION)THEN
+    IF(MASS_MATRIX_INVERSION_TYPE== MASS_MATRIX_INVERSION_ADVECTION)THEN
        !Here the inversion of the mass matrix is already carried out        
        
        z_e=ocean_state%p_diag%veloc_adv_horz+ocean_state%p_diag%veloc_adv_vert
-       Write(0,*)'Horiz ADV before:',&
-       &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
+!        Write(0,*)'Horiz ADV before:',&
+!        &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
             
-       ocean_state%p_diag%veloc_adv_horz = invert_mass_matrix(patch_3d, ocean_state, op_coeffs, z_e)       
+       ocean_state%p_diag%veloc_adv_horz = invert_mass_matrix(patch_3d, ocean_state, op_coeffs, z_e)
+
+       CALL sync_patch_array(sync_e, patch_2D, z_e)
        
-       Write(0,*)'Horiz ADV after:',&
-       &maxval(ocean_state%p_diag%veloc_adv_horz(:,1,:)),& 
-       &minval(ocean_state%p_diag%veloc_adv_horz(:,1,:))
+!        Write(0,*)'Horiz ADV after:',&
+!        &maxval(ocean_state%p_diag%veloc_adv_horz(:,1,:)),& 
+!        &minval(ocean_state%p_diag%veloc_adv_horz(:,1,:))
      
-      ENDIF    
+    ENDIF
     
     !---------------------------------------------------------------------
     ! STEP 4: calculate weighted gradient of surface height at previous timestep
@@ -845,7 +850,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    IF(MASS_MATRIX_INVERSION_TYPE == BUREAUCRATIC_MASS_MATRIX_INVERSION )THEN
+    IF(MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ALLTERMS )THEN
       !Here the inversion is just prepared
       Write(0,*)'vn_pred before:',&
       &maxval(ocean_state%p_diag%vn_pred(:,1,:)),& 
@@ -955,7 +960,7 @@ CONTAINS
     END DO
 
     !In case of Shallow-water with forcing and or damping
-    IF ( iforc_oce/=10) THEN
+    IF ( iforc_oce /= No_Forcing) THEN
 
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -982,7 +987,7 @@ CONTAINS
 
     INTEGER :: je, jk
     !-----------------------------------------------------------------------
-    IF(MASS_MATRIX_INVERSION_TYPE/=MASS_MATRIX_INVERSION)THEN    
+    IF(MASS_MATRIX_INVERSION_TYPE/=MASS_MATRIX_INVERSION_ADVECTION)THEN
     
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -996,7 +1001,7 @@ CONTAINS
         END DO
       END DO
       
-    ELSEIF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION)THEN    
+    ELSEIF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION_ADVECTION)THEN
    
       DO je = start_edge_index, end_edge_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
@@ -1538,7 +1543,7 @@ CONTAINS
         & op_coeffs%grad_coeff(:,1,:),                            &
         & z_grad_h(:,:))         
         
-      IF(MASS_MATRIX_INVERSION_TYPE==BUREAUCRATIC_MASS_MATRIX_INVERSION)THEN
+      IF(MASS_MATRIX_INVERSION_TYPE==MASS_MATRIX_INVERSION_ALLTERMS)THEN
 !        write(0,*)'New height grad before',&
 !         &maxval(z_grad_h),minval(z_grad_h)
 !         !CALL map_edges2edges_viacell_3d_const_z( patch_3D, z_grad_h, op_coeffs, z_grad_h)
@@ -1852,6 +1857,18 @@ CONTAINS
       ENDIF
     ENDIF ! (debug_check_level > 8)
     !---------------------------------------------------------------------
+    IF (debug_check_level > 20) THEN
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        DO jc = start_index, end_index
+          IF(patch_3d%lsm_c(jc,1,blockNo) > sea_boundary) THEN
+            IF (ocean_state%p_prog(nnew(1))%h(jc,blockNo) /= 0.0_wp) &
+              & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,blockNo) /= 0 on land")
+          ENDIF
+        END DO
+      END DO
+    ENDIF
+    !---------------------------------------------------------------------
     
   END SUBROUTINE calc_vert_velocity_mim_bottomup
   !-------------------------------------------------------------------------
@@ -1859,7 +1876,6 @@ CONTAINS
   !-------------------------------------------------------------------------
   !!  The result is NOT synced. Should be done in the calling method if required
   FUNCTION invert_mass_matrix(patch_3d, ocean_state, op_coeffs, rhs_e) result(inv_flip_flop_e)
-    !
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET      :: ocean_state
@@ -1869,7 +1885,7 @@ CONTAINS
     !
     !LOCAL VARIABLES
     !TYPE(t_patch), TARGET :: patch_2D    
-    INTEGER,PARAMETER :: nmax_iter= 200 ! maximum number of iterations
+    INTEGER,PARAMETER :: nmax_iter= 800 ! maximum number of iterations
     REAL(wp) :: zimpl_coeff = 1.0_wp    !COEFF has to be set appropriately !!!!
     INTEGER  :: n_iter                  ! number of iterations
     REAL(wp) :: tolerance               ! (relative or absolute) tolerance
@@ -1897,7 +1913,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     
-    tolerance                = 1.0e-2_wp  ! solver_tolerance
+    tolerance                = 1.0e-6_wp  ! solver_tolerance
     inv_flip_flop_e(:,:,:)   = 0.0_wp
     use_absolute_solver_tolerance=.true.
     DO jk=1, n_zlev
@@ -1913,41 +1929,87 @@ CONTAINS
           absolute_tolerance      = 0.0_wp
         ENDIF
         
-        
-        DO WHILE(maxIterations_isReached .AND. gmres_restart_iterations < solver_max_restart_iterations)
-          
-          CALL ocean_restart_gmres_e2e( inv_flip_flop_e(:,jk,:),                   &  ! arg 1 of lhs. x input is the first guess.
-            & lhs_primal_flip_flop,     &  ! function calculating l.h.s.
-            & patch_3d,                    &  ! arg 3 of lhs
-            & op_coeffs,                    &
-            & jk,                           &
-            & rhs_e(:,jk,:),       &  ! right hand side as input
-            & absolute_tolerance,                &     ! inout, if > 0 then is used as absolute_tolerance, out otherwise
-            & relative_tolerance,                &
-            & solver_max_iter_per_restart,       &  ! max. # of iterations to do
-            & maxIterations_isReached,                     &  ! out: .true. = not converged
-            & n_iter,                        &  ! out: # of iterations done
-            & zresidual)
+!         write(0,*) "Tolerence:", absolute_tolerance, relative_tolerance
+  
+        SELECT CASE (select_solver)
+        !-----------------------------------------------------------------------------------------
+        CASE (select_gmres)
+          CALL gmres_oce_e2e(                      &
+            & x = inv_flip_flop_e(:,jk,:),         &
+            & lhs = lhs_primal_flip_flop,          &
+            & patch_3d = patch_3d,                 &
+            & level = jk,                          &
+            & p_op_coeff = op_coeffs,              &
+            & b = rhs_e(:,jk,:),                   &
+            & tolerance = tolerance,               &
+            & abstol = use_absolute_solver_tolerance,&
+            & m = nmax_iter,                       &
+            & maxiterex = maxIterations_isReached, &
+            & niter = n_iter,                      &
+            & res = zresidual)
 
-            
-          IF(n_iter==0) THEN
-            residual_norm = 0.0_wp
+          IF (maxIterations_isReached) THEN
+            WRITE(string,'(a,i4,a,e28.20)') &
+              & 'gmres old iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
+            CALL message('invert_mass_matrix',TRIM(string))
+            CALL finish('GMRES_oce_old: solver surface equation: ','NOT YET CONVERGED !!')
           ELSE
-            residual_norm =  ABS(zresidual(n_iter))
+            ! output print level idt_src used for ocean gmres output with call message:
+            IF(n_iter==0)n_iter=1
+            idt_src=1
+            IF (idbg_mxmn >= idt_src) THEN
+              WRITE(string,'(a,i4,a,e28.20)') &
+                & 'gmres old iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
+              CALL message('invert_mass_matrix',TRIM(string))
+            ENDIF
           ENDIF
+    
+        CASE (select_restart_gmres)
+          DO WHILE(maxIterations_isReached .AND. gmres_restart_iterations < solver_max_restart_iterations)
+
+            CALL ocean_restart_gmres_e2e(     &
+              & inv_flip_flop_e(:,jk,:),      &  ! arg 1 of lhs. x input is the first guess.
+              & lhs_primal_flip_flop,         &  ! function calculating l.h.s.
+              & patch_3d,                     &  ! arg 3 of lhs
+              & op_coeffs,                    &
+              & jk,                           &
+              & rhs_e(:,jk,:),                &  ! right hand side as input
+              & absolute_tolerance,                &     ! inout, if > 0 then is used as absolute_tolerance, out otherwise
+              & relative_tolerance,                &
+              & solver_max_iter_per_restart,       &  ! max. # of iterations to do
+              & maxIterations_isReached,                     &  ! out: .true. = not converged
+              & n_iter,                        &  ! out: # of iterations done
+              & zresidual)
+
+            IF(n_iter==0) THEN
+              residual_norm = 0.0_wp
+            ELSE
+              residual_norm =  ABS(zresidual(n_iter))
+            ENDIF
+
+            iter_sum = iter_sum + n_iter
+            ! output print level idt_src used for ocean_restart_gmres output with call message:
+            idt_src=2
+            IF (idbg_mxmn >= idt_src) THEN
+              WRITE(string,'(a,i4,a,e28.20)') &
+                & 'ocean_restart_gmres iteration =', n_iter,', residual =', residual_norm
+              CALL message('invert_mass_matrix',TRIM(string))
+            ENDIF
+
+            gmres_restart_iterations = gmres_restart_iterations + 1
+
+          END DO ! WHILE(tolerance >= solver_tolerance)
           
-          iter_sum = iter_sum + n_iter
-          ! output print level idt_src used for ocean_restart_gmres output with call message:
-          idt_src=2
+          idt_src=1
           IF (idbg_mxmn >= idt_src) THEN
             WRITE(string,'(a,i4,a,e28.20)') &
-              & 'ocean_restart_gmres iteration =', n_iter,', residual =', residual_norm
-            CALL message('GMRES_oce_new: surface height',TRIM(string))
+              & 'ocean_restart_gmres iteration =', iter_sum,', residual =', residual_norm
+            CALL message('invert_mass_matrix',TRIM(string))
           ENDIF
-          
-          gmres_restart_iterations = gmres_restart_iterations + 1
-          
-        END DO ! WHILE(tolerance >= solver_tolerance)
+
+            gmres_restart_iterations = gmres_restart_iterations + 1
+        !-----------------------------------------------------------------------------------------
+        END SELECT
        
       END DO    
   END FUNCTION invert_mass_matrix
@@ -1969,10 +2031,11 @@ CONTAINS
     !CALL finish("lhs_primal_flip_flop", "not implemented")
     
     !llhs(:,:) = 0.5_wp*x(:,:)
+    CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(1), x )
     
-     CALL map_edges2edges_viacell_2D_per_level( patch_3d, &
-     & x(:,:), &
-     & op_coeffs, llhs(:,:), jk)  
+    CALL map_edges2edges_viacell_2D_per_level( patch_3d, &
+      & x(:,:), &
+      & op_coeffs, llhs(:,:), jk)  
     !write(*,*)'max/min v:PTPv:', maxval(x(:,:)),minval(x(:,:)),maxval(llhs(:,:)),minval(llhs(:,:))
     
   END FUNCTION lhs_primal_flip_flop

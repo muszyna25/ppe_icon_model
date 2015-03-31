@@ -59,7 +59,7 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grids_folder='/pool/data/ICON/grids/private/anurag'
+grids_folder="${icon_data_poolFolder}/grids/private/anurag"
 atmo_dyn_grids='torus_grid_r140s68.nc'
 #
 #-----------------------------------------------------------------------------
@@ -80,7 +80,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  corio_lat = 0.0
 / 
