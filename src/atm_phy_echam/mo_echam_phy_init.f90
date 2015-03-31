@@ -84,8 +84,12 @@ MODULE mo_echam_phy_init
                                    & prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
+#ifdef YAC_coupling
+  USE mo_yac_finterface,       ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+#else
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+#endif
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
 
@@ -577,7 +581,7 @@ CONTAINS
              !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
              !
              !
-#ifdef YAC_Coupling
+#ifdef YAC_coupling
              CALL yac_fget_nbr_fields ( nbr_fields )
              ALLOCATE(field_id(nbr_fields))
              CALL yac_fget_field_ids ( nbr_fields, field_id )
@@ -590,10 +594,6 @@ CONTAINS
              field_shape(1) = 1
              field_shape(2) = nbr_hor_points
              field_shape(3) = 1
-
-#ifdef YAC_coupling
-   TODO
-#else
              !
              ! Send fields away
              ! ----------------
@@ -607,16 +607,25 @@ CONTAINS
              !
              buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
              buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+#else
              field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(1), field_shape, &
                                       buffer(1:nbr_hor_points,1:2), ierror )
+#endif
              !
              ! TAUY
              !
              buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
              buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+#else
+
              CALL ICON_cpl_put_init ( field_id(2), field_shape, &
                                       buffer(1:nbr_hor_points,1:2), ierror )
+#endif
              !
              ! SFWFLX Note: the evap_tile should be properly updated and added
              !
@@ -625,16 +634,24 @@ CONTAINS
              buffer(:,2) = RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
                   &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
              buffer(:,3) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
+#else
              field_shape(3) = 3
              CALL ICON_cpl_put_init ( field_id(3), field_shape, &
                                       buffer(1:nbr_hor_points,1:3), ierror )
+#endif
              !
              ! SFTEMP
              !
              buffer(:,1) =  RESHAPE ( field%temp(:,nlev,:), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
              field_shape(3) = 1
              CALL ICON_cpl_put_init ( field_id(4), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), ierror )
+#endif
              !
              ! THFLX, total heat flux
              !
@@ -642,9 +659,13 @@ CONTAINS
              buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
              buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) ! sensible heat flux
              buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+#else
              field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
                                       buffer(1:nbr_hor_points,1:4), ierror )
+#endif
              !
              ! ICEATM, Ice state determined by atmosphere
              !
@@ -652,10 +673,14 @@ CONTAINS
              buffer(:,2) =  RESHAPE ( field%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
              buffer(:,3) =  RESHAPE ( field%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
              buffer(:,4) =  RESHAPE ( field%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+#else
+
              field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(6), field_shape, &
                                       buffer(1:nbr_hor_points,1:4), ierror )
-
+#endif
              ! Receive fields, only assign values if something was received ( info > 0 )
              ! -------------------------------------------------------------------------
              !
@@ -664,10 +689,13 @@ CONTAINS
              !
              ! SST
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
              field_shape(3) = 1
              CALL ICON_cpl_get_init ( field_id(7), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
-
+#endif
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -678,8 +706,12 @@ CONTAINS
              !
              ! OCEANU
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
              CALL ICON_cpl_get_init ( field_id(8), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -688,8 +720,13 @@ CONTAINS
              !
              ! OCEANV
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
+
              CALL ICON_cpl_get_init ( field_id(9), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -699,9 +736,14 @@ CONTAINS
              !
              ! ICEOCE
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(10), nbr_hor_points, 5, 1, 1, buffer, info, ierror )
+#else
+
              field_shape(3) = 5
              CALL ICON_cpl_get_init ( field_id(10), field_shape, &
                                       buffer(1:nbr_hor_points,1:5), info, ierror )
+#endif
              IF ( info > 0 ) THEN
                buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
                field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -716,7 +758,7 @@ CONTAINS
                CALL sync_patch_array(sync_c, p_patch, field%T2  (:,1,:))
                field%seaice(:,:) = field%conc(:,1,:)
              ENDIF
-#endif
+
              DEALLOCATE(field_id)
              DEALLOCATE(buffer)
 
