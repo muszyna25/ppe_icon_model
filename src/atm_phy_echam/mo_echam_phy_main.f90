@@ -132,7 +132,7 @@ CONTAINS
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw_sfc (nbdim)        !< additional heating by long  wave radiation due to surface energy balance [W/m2]
+    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by long wave radiation due to impl. coupling in surface energy balance [W/m2]
     REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
@@ -968,22 +968,22 @@ CONTAINS
     IF (phy_config%lrad) THEN
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
-      zq_rlw_sfc(jcs:jce) =                                                  &
+      zq_rlw_impl(jcs:jce) =                                                  &
         & ( (field%lwflxall(jcs:jce,nlev,jb) - field%lwflxsfc(jcs:jce,jb)) ) &  ! new heating from new lwflxsfc
         & - zq_rlw(jcs:jce,nlev)                                                ! old heating from radheat
 
       ! Heating accumulated
-      zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_sfc(jcs:jce)
+      zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_impl(jcs:jce)
 
       ! Tendency
-      tend%temp_rlw_sfc(jcs:jce,jb) = zq_rlw_sfc(jcs:jce) * zconv(jcs:jce,nlev)
+      tend%temp_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * zconv(jcs:jce,nlev)
 
       ! Tendencies accumulated
-      tend%temp(jcs:jce,nlev,jb) = tend%temp(jcs:jce,nlev,jb) + tend%temp_rlw_sfc(jcs:jce,jb)
+      tend%temp(jcs:jce,nlev,jb) = tend%temp(jcs:jce,nlev,jb) + tend%temp_rlw_impl(jcs:jce,jb)
 
     ELSE
 
-      tend%temp_rlw_sfc(jcs:jce,jb) = 0._wp
+      tend%temp_rlw_impl(jcs:jce,jb) = 0._wp
 
     END IF
 

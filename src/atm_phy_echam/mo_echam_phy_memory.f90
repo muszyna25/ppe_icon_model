@@ -461,7 +461,7 @@ MODULE mo_echam_phy_memory
       !
       & temp_rsw (:,:,:)  , & !< temperature tendency from radiation
       & temp_rlw (:,:,:)  , & !< temperature tendency from radiation
-      & temp_rlw_sfc(:,:)     !< temperature tendency in bottom layer due to updated surface temperatures after vdiff
+      & temp_rlw_impl(:,:)    !< temperature tendency in bottom layer due to updated sfc temperatures (impl. coupling)
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
@@ -2119,10 +2119,10 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_rlw_sfc(nproma,nblks),             &
-    cf_desc    = t_cf_var('temperature_tendency_rlw_sfc', 'K s-1', '', DATATYPE_FLT32)
+    ! &       tend% temp_rlw_impl(nproma,nblks),            &
+    cf_desc    = t_cf_var('temperature_tendency_rlw_impl', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_rlw_sfc', tend%temp_rlw_sfc,                  &
+    CALL add_var( tend_list, prefix//'temp_rlw_impl', tend%temp_rlw_impl,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
                 & ldims=(/kproma,kblks/))
 
