@@ -79,7 +79,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  lredgrid_phys     = .false.,.false.
  lfeedback         = .true.

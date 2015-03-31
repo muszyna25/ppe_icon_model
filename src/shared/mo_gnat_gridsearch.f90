@@ -1534,7 +1534,7 @@ CONTAINS
 
     cells => p_patch%cells
     verts => p_patch%verts
-    i_nv  =  p_patch%cell_type
+    i_nv  =  p_patch%geometry_info%cell_type
 
     IF (i_nv /= 3)  CALL finish(routine, "Wrong number of cell vertices!")
 

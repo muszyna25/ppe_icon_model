@@ -558,7 +558,7 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 IF (ltimer) CALL timer_start(timer_intp)
 
 !loop over blocks and verts
-IF (ptr_patch%cell_type == 6) THEN
+IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
   ! no grid refinement in hexagonal model
   nblks_v   = ptr_patch%nblks_v
@@ -593,7 +593,7 @@ IF (ptr_patch%cell_type == 6) THEN
 !$OMP END DO
 !$OMP END PARALLEL
 
-ELSE IF (ptr_patch%cell_type == 3) THEN
+ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -713,7 +713,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 IF (ltimer) CALL timer_start(timer_intp)
 
 !loop over blocks and cells
-IF (ptr_patch%cell_type == 3) THEN
+IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -742,7 +742,7 @@ IF (ptr_patch%cell_type == 3) THEN
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-ELSE IF (ptr_patch%cell_type == 6) THEN
+ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -854,7 +854,7 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-IF (ptr_patch%cell_type == 6) THEN
+IF (ptr_patch%geometry_info%cell_type == 6) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -883,7 +883,7 @@ IF (ptr_patch%cell_type == 6) THEN
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-ELSE IF (ptr_patch%cell_type == 3) THEN
+ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1084,7 +1084,7 @@ npromz_c = ptr_patch%npromz_c
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-IF (ptr_patch%cell_type == 3) THEN
+IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
@@ -1115,7 +1115,7 @@ IF (ptr_patch%cell_type == 3) THEN
   END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-ELSE IF (ptr_patch%cell_type == 6) THEN
+ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c

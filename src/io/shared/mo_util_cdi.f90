@@ -36,6 +36,7 @@ MODULE mo_util_cdi
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
     &                              deallocateTimedelta, deallocateDatetime, &
+    &                              PROLEPTIC_GREGORIAN, setCalendar,        &
     &                              MAX_DATETIME_STR_LEN,                    &
     &                              OPERATOR(-)
 
@@ -966,6 +967,7 @@ CONTAINS
       ! the statistical process starting time
       statProc_startDateTime = info%action_list%action(1)%EventLastTriggerDate
 
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
 
       ! get time interval, over which statistical process has been performed
       ! It is the time difference between the current time (rounded) mtime_cur and 
@@ -993,6 +995,7 @@ CONTAINS
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
     forecast_delta => newTimedelta("P01D")
     forecast_delta = statProc_startDateTime - mtime_start
 

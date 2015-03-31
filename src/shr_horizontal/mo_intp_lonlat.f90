@@ -1402,7 +1402,7 @@
         WRITE(message_text,*) "SETUP : interpol_lonlat"
         CALL message(routine, message_text)
       END IF
-      IF (ptr_patch%cell_type == 6) &
+      IF (ptr_patch%geometry_info%cell_type == 6) &
         &   CALL finish(routine, "Lon-lat interpolation not yet implemented for cell_type == 6!")
 
       nblks_lonlat  = grid%nblks

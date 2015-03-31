@@ -261,7 +261,7 @@ cat > $atmo_namelist << EOF
  max_send_recv_buffer_size = 262144
  /
 &grid_nml
- cell_type = 3             ! triangular cells
+ ! cell_type is not used = 3             ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
  grid_angular_velocity  = 7.29212e-5  !default earth angular velocity is 7.29212e-5
 /
