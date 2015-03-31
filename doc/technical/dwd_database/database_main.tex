@@ -362,16 +362,15 @@
   \item EU nest: ''Urstart'' fields must be contained in the $VV=0$ list.
   \item lake variables: ask Dimitri if these fields could be changed
     from RBF interpolation to nearest-neighbor.
+  \item EU nest, output of wind gusts hourly until 78h, afterwards 3
+    hourly:  Output of VMAX\_10M is 3-hourly for $VV>78h$. The
+    sampling interval should also be changed to 3h after $VV>78h$.
   \item Questions for the ICON migration group:
         \begin{itemize}
           \item QR, QS necessary for lon-lat?
           \item Q\_SEDIM required?
           \item REL\_HUM on height levels required?
           \item CAPE\_ML required?
-          \item EU nest, output of wind gusts hourly until 78h,
-            afterwards 3 hourly:  Output of VMAX\_10M is 3-hourly for
-            $VV>78h$. Should the sampling interval also be changed to
-            3h after $VV>78h$?
           \item How should DTKE\_CON be treated on the EU nest, native grid?
         \end{itemize}
 \end{itemize}
