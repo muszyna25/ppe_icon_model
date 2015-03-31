@@ -56,6 +56,8 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   IMPLICIT NONE
 
+#define d_norma_3d(v) SQRT(DOT_PRODUCT(v%x,v%x))
+#define d_normalize(v) v%x=v%x/d_norma_3d(v)
 
   PRIVATE
 
@@ -1530,6 +1532,7 @@ CONTAINS
     REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch_2D%nblks_e,1:2*no_dual_edges )
     !REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch_2D%nblks_e,1:no_dual_edges)
     REAL(wp)                      :: norm, orientation, length
+    TYPE(t_cartesian_coordinates) :: z
 
     INTEGER :: ictr,edge_block_vertex, edge_index_vertex
     INTEGER :: vert_edge
@@ -1699,6 +1702,9 @@ CONTAINS
     !----------------------------------------------------
     ! 8) compute
     !   edge2edge_viavert calculation
+    ! For the vorticity advection coeffecients see
+    ! B. Perot, Conservation Properties of Unstructured Staggered Mesh Schemes
+    !  Eq. (14) and (18)
     DO edge_block = owned_edges%start_block, owned_edges%end_block
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
@@ -1711,8 +1717,18 @@ CONTAINS
           vertex_block   = patch_2D%edges%vertex_blk(edge_index, edge_block, neigbor)
           vertex_center%x= patch_2D%verts%cartesian(vertex_index, vertex_block)%x
 
-          dist_vector_basic%x = (edge_center%x - vertex_center%x) &
-            & * (3 - 2 * neigbor) * patch_2D%edges%tangent_orientation(edge_index, edge_block)
+          ! note on orientation: by default the "positive" orientation used in the eqs is:
+          !   outwards of the vertex for the tangent, and counterclockwise for the normal
+          !   ie. the tangent-normal forms a right-hand system
+          !   Note this is ALWAYS in reference to the given vertex
+          !       this is the case in our coridinate system when verts%edge_orientation = 1
+          !       or, for vertex 1 of the edge, when edges%tangent_orientation = 1  
+          !dist_vector_basic%x = (edge_center%x - vertex_center%x) &
+          dist_vector_basic%x = (vertex_center%x - edge_center%x) & ! opposite orientation since we use left-hand system
+            & * (3 - 2 * neigbor) * patch_2D%edges%tangent_orientation(edge_index, edge_block) &
+!            & * dual_edge_length(edge_index, edge_block)          & not used in a not-flux form
+            &  / prime_edge_length(edge_index, edge_block)
+          ! this is multiplied by the dual edge length on unit sphere
 
           !IF(neigbor==1)ictr = 0
           !IF(neigbor==2)ictr = no_dual_edges
@@ -1753,22 +1769,25 @@ CONTAINS
             edge_block_vertex = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
             
             IF (edge_index == edge_index_vertex .and. edge_block == edge_block_vertex) THEN
-              ! the result is 0, since the external product (see below) by this edge is
+              ! the result is 0, since the external product (see below) of this edge is
               ! perpedicular to itself, and the dot product is 0
               edge2edge_viavert_coeff(edge_index,edge_block,ictr) = 0.0_wp
             ELSE
+            
               dist_vector%x  =  (dual_edge_middle(edge_index_vertex, edge_block_vertex)%x - vertex_center%x) &
                 & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
-              dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_vertex, edge_block_vertex))
-              orientation = DOT_PRODUCT( dist_vector%x,                         &
-                & patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x)
-              !The dot product is the cosine of the angle between vectors from dual cell centers
-              !to dual cell edges
+
+              ! we need the normalized half of the dual_edge_middle + vertex as z
+              z%x = 0.5_wp * (  dual_edge_middle(edge_index_vertex, edge_block_vertex)%x      &
+                &             + vertex_center%x)
+              d_normalize(z)                
+              dist_vector = vector_product(dist_vector, z)
+              ! the dist_vector has still dual_edge_middle-vertex length
+
+              ! adjust the orientation along the vn of the edge
               edge2edge_viavert_coeff(edge_index,edge_block,ictr)             &
-                & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))          &
-                & * SIGN(1.0_wp,orientation)                                  &
-                & * (dual_edge_length(edge_index_vertex, edge_block_vertex)   &
-                &    / prime_edge_length(edge_index, edge_block))
+                & =  DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)           &
+                &  * dual_edge_length(edge_index_vertex, edge_block_vertex)
             ENDIF
 
           END DO
