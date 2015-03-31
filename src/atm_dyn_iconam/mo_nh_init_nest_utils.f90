@@ -567,8 +567,10 @@ MODULE mo_nh_init_nest_utils
           prm_diag(jgc)%snow_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,5,jb))
           prm_diag(jgc)%rain_gsp_rate(jc,jb)  = phdiag_chi(jc,6,jb)
           prm_diag(jgc)%snow_gsp_rate(jc,jb)  = phdiag_chi(jc,7,jb)
-          prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,8,jb)
-          prm_diag(jgc)%snow_con_rate(jc,jb)  = phdiag_chi(jc,9,jb)
+          IF (atm_phy_nwp_config(jgc)%inwp_convection == 1) THEN
+            prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,8,jb)
+            prm_diag(jgc)%snow_con_rate(jc,jb)  = phdiag_chi(jc,9,jb)
+          ENDIF
           prm_diag(jgc)%gz0(jc,jb)            = phdiag_chi(jc,10,jb)
           prm_diag(jgc)%tcm(jc,jb)            = phdiag_chi(jc,11,jb)
           prm_diag(jgc)%tch(jc,jb)            = phdiag_chi(jc,12,jb)
