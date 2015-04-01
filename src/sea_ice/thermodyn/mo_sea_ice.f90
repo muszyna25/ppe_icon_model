@@ -2644,6 +2644,8 @@ CONTAINS
  !  REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
+    REAL(wp) :: leadclose_2n
+
     CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Calculate the sea surface freezing temperature                        [C]
@@ -2664,6 +2666,8 @@ CONTAINS
     CALL dbg_print('IceConcCh: vol  at beg' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: vols at beg' ,ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
 
+    leadclose_2n = 2.0_wp/3.0_wp
+
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE 
     ! Concentration change due to new ice formation
@@ -2678,7 +2682,12 @@ CONTAINS
       !    1 and 0 respectively
       ! Fixed 2. April (2014) - we don't need to multiply with 1-A here, like Hibler does, because it's
       ! already included in newice (we use volume, but Hibler growth rate)
-      ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
+      !ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
+      ! #slo# test with leadclose parameter 2n, including parameters 2 and 3 of MPIOM:
+      ! leadclose_2n (=mpiom_leadclose(3)/mpiom_leadclose(2)
+      ice%conc(:,1,:) = min( 1._wp, ice%conc(:,1,:) + &
+        &                           ice%newice(:,:)/(hnull+leadclose_2n*(ice%hi(:,1,:)-hnull)) )
+
 
       ! New ice and snow thickness
       ice%hi   (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
