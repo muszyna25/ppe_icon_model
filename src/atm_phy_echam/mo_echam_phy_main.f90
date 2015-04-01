@@ -833,8 +833,8 @@ CONTAINS
           & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
           & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
           & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
-          & z0m_lnd = field% z0m_tile(:,jb,ilnd), &! out, roughness length for momentum over land
-          & z0h_lnd = field% z0h_lnd (:,jb),      &! out, roughness length for heat over land
+          & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
+          & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
           & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
           & albnirdir      = field% albnirdir     (:,jb)  ,                    &! inout
           & albvisdif      = field% albvisdif     (:,jb)  ,                    &! inout

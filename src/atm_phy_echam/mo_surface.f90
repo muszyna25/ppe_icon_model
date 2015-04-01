@@ -84,7 +84,7 @@ CONTAINS
                            & pcair,                             &! inout
                            & tte_corr,                          &! out
                            !
-                           & z0h_lnd, z0m_lnd,                  &! out
+                           & z0h_lnd, z0m_tile,                 &! out
                            & albvisdir, albnirdir, albvisdif, albnirdif, &! inout
                            & albvisdir_tile,                    &! inout
                            & albnirdir_tile,                    &! inout
@@ -164,7 +164,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: tte_corr(kbdim)  ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_lnd(kbdim)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_tile(kbdim,ksfc_type)  ! OUT
     !
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_tile(kbdim,ksfc_type)
@@ -287,7 +287,6 @@ CONTAINS
     ! Land surface
     !===========================================================================
     
-    z0m_lnd(:)       = 0._wp
     z0h_lnd(:)       = 0._wp
     tte_corr(:)      = 0._wp
 
@@ -300,8 +299,9 @@ CONTAINS
       dry_static_energy(:) = 0._wp
       evapotranspiration(:) = 0._wp
 
-      ztsfc_lnd(:)     = 0._wp
-      ztsfc_lnd_eff(:) = 0._wp
+      ztsfc_lnd(:)        = 0._wp
+      ztsfc_lnd_eff(:)    = 0._wp
+      z0m_tile(:,idx_lnd) = 0._wp
 
       CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                  & ! in
         & t_air            = ptemp(1:kproma),                                           & ! in
@@ -334,7 +334,7 @@ CONTAINS
         & grnd_hflx        = zgrnd_hflx(1:kproma, idx_lnd),                             & ! out
         & grnd_hcap        = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
         & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
-        & rough_m_srf      = z0m_lnd(1:kproma),                                         & ! out
+        & rough_m_srf      = z0m_tile(1:kproma, idx_lnd),                               & ! out
         & tte_corr         = tte_corr(1:kproma),                                        & ! out
         & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
