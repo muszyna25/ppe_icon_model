@@ -13,7 +13,7 @@ class MyListTest < Minitest::Test
     @input = []
     OPERATORS.each {|operator| INTERVALS.each {|interval| VARNAMES.each {|varname|
           @input << [operator,interval,varname]
-    } } } 
+    } } }
   end
   # multiple adds of the same value, should lead to a singe entry only
   def test_add_multiple
@@ -36,9 +36,8 @@ class MyListTest < Minitest::Test
   #    { "operatorA" => [vA,vB,...]},
   #    { "operatorB" => [vD,vC,...]},
   #    ],
-  #    }
+  # }
   def test_output_L1
-
     @input.each {|line|
       pp line
     }
