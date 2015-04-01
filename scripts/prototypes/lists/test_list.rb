@@ -1,3 +1,5 @@
+# Author: ralf.mueller
+
 $:.unshift File.join(File.dirname(__FILE__),".")
 require 'list'
 require 'minitest/autorun'
@@ -14,16 +16,15 @@ class MyListTest < Minitest::Test
     OPERATORS.each {|operator| INTERVALS.each {|interval| VARNAMES.each {|varname|
           @input << [operator,interval,varname]
     } } }
+    #pp @input
   end
+
   # multiple adds of the same value, should lead to a singe entry only
   def test_add_multiple
     @list.clear
-    @list.add('a')
-    @list.add('a')
-    @list.add('a')
+    @list.add('a'); @list.add('a'); @list.add('a')
     assert_equal(1,@list.size)
-    @list.add('b')
-    @list.add('b')
+    @list.add('b'); @list.add('b')
     assert_equal(2,@list.size)
   end
 
@@ -39,7 +40,7 @@ class MyListTest < Minitest::Test
   # }
   def test_output_L1
     @input.each {|line|
-      pp line
+      operator,interval,varname = line
     }
   end
 
