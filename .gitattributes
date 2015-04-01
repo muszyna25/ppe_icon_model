@@ -56,7 +56,6 @@ blas/ssyrk.f -text
 blas/strsm.f -text
 blas/xerbla.f -text
 /build_ICON_ECMWF -text
-/build_all -text
 /build_command.ecmwf -text
 /cmake.configure -text
 cmake/FindGRIB_API.cmake -text
@@ -726,11 +725,12 @@ run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
-run/checksuite.ocean_internal/omip/exp.oce_omip_testSurface -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_long -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_short -text
+run/checksuite.ocean_internal/omip/exp.ocean_omip_testSurface -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_testbed -text
+run/checksuite.ocean_internal/omip/post.ocean_longrun -text
 run/checksuite.ocean_internal/operators/exp.oce_testbed_coriolis -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km_cell_WindTempForcing -text
@@ -863,6 +863,7 @@ run/exp.nh_rce -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
+run/exp.ocean_omip_long -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
 run/exp.pure_adv -text
@@ -886,7 +887,7 @@ run/post.nh35_tri_jws -text
 run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
-run/post.oce_longrun -text
+run/post.ocean_omip_long -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
@@ -1018,6 +1019,7 @@ scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
+scripts/building/build_all -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/cp_ocean -text
