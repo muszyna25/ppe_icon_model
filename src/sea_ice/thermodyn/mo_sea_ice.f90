@@ -43,7 +43,7 @@ MODULE mo_sea_ice
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
-    &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
+    &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
     &                               i_Qio_type, use_constant_tfreez, &
     &                               use_calculated_ocean_stress, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
@@ -2644,7 +2644,7 @@ CONTAINS
  !  REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
-    REAL(wp) :: leadclose_2n
+ !  REAL(wp) :: leadclose_2n
 
     CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
 
@@ -2666,8 +2666,6 @@ CONTAINS
     CALL dbg_print('IceConcCh: vol  at beg' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: vols at beg' ,ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
 
-    leadclose_2n = 2.0_wp/3.0_wp
-
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE 
     ! Concentration change due to new ice formation
@@ -2679,15 +2677,17 @@ CONTAINS
 
       ! Hibler's way to change the concentration 
       !  - the formulation here uses the default values of leadclose parameters 2 and 3 in MPIOM:
-      !    1 and 0 respectively
+      !    1 and 0 respectively, which recovers the Hibler model: conc=conc+newice/hnull
       ! Fixed 2. April (2014) - we don't need to multiply with 1-A here, like Hibler does, because it's
       ! already included in newice (we use volume, but Hibler growth rate)
       !ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
-      ! #slo# test with leadclose parameter 2n, including parameters 2 and 3 of MPIOM:
+
+      ! New formulation of leadclose parameter leadclose_2n includes parameters 2 and 3 of MPIOM:
       ! leadclose_2n (=mpiom_leadclose(3)/mpiom_leadclose(2)
+      ! standard value of mpiom is: mpiom_leadclose(3)=2. mpiom_leadclose(2)=mpiom_leadclose(3)+1.
+      ! i.e. leadclose_2n=2./3. according to mpiom default
       ice%conc(:,1,:) = min( 1._wp, ice%conc(:,1,:) + &
         &                           ice%newice(:,:)/(hnull+leadclose_2n*(ice%hi(:,1,:)-hnull)) )
-
 
       ! New ice and snow thickness
       ice%hi   (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )

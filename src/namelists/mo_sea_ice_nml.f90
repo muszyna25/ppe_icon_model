@@ -63,6 +63,7 @@ MODULE mo_sea_ice_nml
                                         !  still ocean, i.e. not re-start
   REAL(wp),PUBLIC :: hci_layer          !< Thickness of stabilizing constant heat capacity layer
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
+  REAL(wp),PUBLIC :: leadclose_2n       !< MPIOM's leadclose parameters par_3/par_2 to push new ice together
 
   ! some analytic initialization parameters
   REAL(wp),PUBLIC :: init_analytic_conc_param    = 0.9_wp
@@ -89,6 +90,7 @@ MODULE mo_sea_ice_nml
     &  i_therm_slo, &
     &  hci_layer, &
     &  leadclose_1, &
+    &  leadclose_2n, &
     &  t_heat_base, &
     &  use_IceInitialization_fromTemperature, &
     &  use_constant_tfreez, &
@@ -122,6 +124,7 @@ CONTAINS
     hmin        = 0.05_wp
     hci_layer   = 0.10_wp
     leadclose_1 = 0.5_wp
+    leadclose_2n = 0.0_wp
 
     ramp_wind   = 1.0_wp
 
