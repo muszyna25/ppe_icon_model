@@ -1,4 +1,3 @@
-EXP="test_oce_numeric_tracerconservation"
 varNames3D="t s"
 varNames="${varNames3D}"
 maskName="wet_c"
@@ -6,7 +5,7 @@ oType="eps"
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
-dataPath="${baseBath}../experiments/${EXP}/"
+dataPath="${baseBath}../experiments/${EXPNAME}/"
 scriptPath="/pool/data/ICON/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
@@ -22,7 +21,7 @@ esac
 # plotting
 # find the last input file
 cd ${dataPath}
-iFile=$(ls ${EXP}*.nc | tail -n 1)
+iFile=$(ls ${EXPNAME}*.nc | tail -n 1)
 if [[ ! -f ${iFile} ]]; then
   echo "Could not find the input file '${iFile}'"
   echo "Give up!"
@@ -35,10 +34,10 @@ fi
 # (B) mask s and t
 # (C) substract 16deg and 35 psu
 # (D) performa -fdmean and -fldmax -abs
-files=$(ls ${EXP}*)
-allData=allOf_${EXP}.nc
-t_Data=t_${EXP}.nc
-s_Data=s_${EXP}.nc
+files=$(ls ${EXPNAME}*)
+allData=allOf_${EXPNAME}.nc
+t_Data=t_${EXPNAME}.nc
+s_Data=s_${EXPNAME}.nc
 [[ -f ${allData} ]] && rm ${allData}
 cdo cat $files $allData
 # get the index of the last timestamp
@@ -88,24 +87,27 @@ from cdo import *
 cdo = Cdo()
 
 
-tErr = cdo.outputkey('value',input=" -fldsum masked_${t_Data}")
-sErr = cdo.outputkey('value',input=" -fldsum masked_${s_Data}")
+tErr = cdo.outputkey('value',input=" -fldsum masked_${t_Data}")[1::]
+sErr = cdo.outputkey('value',input=" -fldsum masked_${s_Data}")[1::]
 
 expectedError = ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0']
 
+print(tErr)
+print(sErr)
+
 if tErr != expectedError:
-  print "Error for Temperatur"
-  print tErr
+  print("Error for Temperatur")
+  print(tErr)
   sys.exit(1)
 
 if sErr != expectedError:
-  print "Error for Salinity"
-  print sErr
+  print("Error for Salinity")
+  print(sErr)
   sys.exit(1)
 
-print "#==================================================================="
-print "Found ZERO DIFFERENCE to initial values for temperature and salinity"
-print "#==================================================================="
+print("#===================================================================")
+print("Found ZERO DIFFERENCE to initial values for temperature and salinity")
+print("#===================================================================")
 
 sys.exit(0)
 EOF

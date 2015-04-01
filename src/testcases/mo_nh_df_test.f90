@@ -496,7 +496,7 @@ CONTAINS
           ! something to do with the fact, that for the system orientation 
           ! the vector product between the dual normal and the primal normal 
           ! (dn x pn) is computed and not (pn x dn). 
-          iorient = ptr_patch%edges%system_orientation(je,jb)
+          iorient = ptr_patch%edges%tangent_orientation(je,jb)
 
           ptr_prog%vn(je,1,jb) = grid_sphere_radius * iorient                             &
             &                  * (zpsi(ilv2,ibv2) - zpsi(ilv1,ibv1))      &

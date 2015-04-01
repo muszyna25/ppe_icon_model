@@ -1795,7 +1795,7 @@ CONTAINS
         p_pd%id              = p_patch(jg)%id
         p_pd%work_pe0_id     = p_patch(jg)%proc0
         p_pd%nlev            = p_patch(jg)%nlev
-        p_pd%cell_type       = p_patch(jg)%cell_type
+        p_pd%cell_type       = p_patch(jg)%geometry_info%cell_type
         p_pd%nblks_glb_c     = (p_patch(jg)%n_patch_cells-1)/nproma + 1
         p_pd%nblks_glb_e     = (p_patch(jg)%n_patch_edges-1)/nproma + 1
         p_pd%nblks_glb_v     = (p_patch(jg)%n_patch_verts-1)/nproma + 1

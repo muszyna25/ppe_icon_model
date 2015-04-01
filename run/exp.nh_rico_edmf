@@ -80,7 +80,7 @@ cat > ${atmo_namelist} << EOF
 /
 &grid_nml
  is_plane_torus = .TRUE.
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  corio_lat = 18.0         !in degrees
 / 

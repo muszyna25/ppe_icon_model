@@ -115,7 +115,7 @@ cat > NAMELIST_ICON << EOF
  run_day     = ${NDAYS}     ! run length in days
  dtime       = ${DTIME}     ! timestep in seconds
  iequations  = ${IEQ}       ! equation system   1:T, 2:theta, -1:SW
- i_cell_type = ${ICELL}     ! 3 triangular cells, 6 hexagonal dells
+ i_! cell_type is not used = ${ICELL}     ! 3 triangular cells, 6 hexagonal dells
  itopo       = 0
  lcorio      = .TRUE.
  ldynamics   = .TRUE.       ! dynamics

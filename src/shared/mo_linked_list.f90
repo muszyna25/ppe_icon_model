@@ -77,6 +77,7 @@ MODULE mo_linked_list
     INTEGER                       :: cdiVlistId         ! cdi vlist handler
     !
     INTEGER                       :: cdiCellGridID
+    INTEGER                       :: cdiSingleGridID
     INTEGER                       :: cdiVertGridID
     INTEGER                       :: cdiEdgeGridID
     !
