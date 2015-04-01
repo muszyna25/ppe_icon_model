@@ -95,9 +95,8 @@ MODULE mo_name_list_output
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar,                         &
+    &                                     PROLEPTIC_GREGORIAN, setCalendar, resetCalendar, OPERATOR(-),            &
     &                                     timedelta, newTimedelta, deallocateTimedelta
-  USE mo_mtime_extensions,          ONLY: getTimeDeltaFromDateTime
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -309,7 +308,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
     TYPE(t_output_name_list), POINTER :: p_onl
-    TYPE(datetime),           POINTER :: mtime_datetime
+    TYPE(datetime),           POINTER :: io_datetime => NULL()
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, list_idx
@@ -371,24 +370,25 @@ CONTAINS
       END IF
 
       IF (output_file(i)%io_proc_id == p_pe) THEN
+        CALL setCalendar(PROLEPTIC_GREGORIAN)
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
-        CALL setCalendar(PROLEPTIC_GREGORIAN)
-        mtime_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
-        
-        idate = cdiEncodeDate(INT(mtime_datetime%date%year),   &
-          &                   INT(mtime_datetime%date%month),  &
-          &                   INT(mtime_datetime%date%day))
-        itime = cdiEncodeTime(INT(mtime_datetime%time%hour),   &
-          &                   INT(mtime_datetime%time%minute), &
-          &                   INT(mtime_datetime%time%second))
-        CALL deallocateDatetime(mtime_datetime)
+        io_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
+        idate = cdiEncodeDate(INT(io_datetime%date%year),   &
+          &                   INT(io_datetime%date%month),  &
+          &                   INT(io_datetime%date%day))
+        itime = cdiEncodeTime(INT(io_datetime%time%hour),   &
+          &                   INT(io_datetime%time%minute), &
+          &                   INT(io_datetime%time%second))
+        CALL deallocateDatetime(io_datetime)
         CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
+        CALL resetCalendar()
       END IF
+
 
       p_onl => output_file(i)%name_list
       IF(my_process_is_io()) THEN
@@ -504,7 +504,7 @@ CONTAINS
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+    forecast_delta = mtime_date - mtime_begin
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
       &                                    forecast_delta%minute, forecast_delta%second 
     CALL deallocateDatetime(mtime_date)
