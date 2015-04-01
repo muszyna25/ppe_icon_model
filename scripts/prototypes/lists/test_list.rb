@@ -21,16 +21,36 @@ class MyListTest < Minitest::Test
     @list.add('a')
     @list.add('a')
     @list.add('a')
-    @list.add('a')
     assert_equal(1,@list.size)
     @list.add('b')
     @list.add('b')
     assert_equal(2,@list.size)
   end
 
+  # OUTPUT = {
+  # "intervalA" => [
+  #    { "operatorA" => [vA,vB,...]},
+  #    { "operatorB" => [vA,vC,...]},
+  #    ],
+  # "intervalB" => 
+  #    { "operatorA" => [vA,vB,...]},
+  #    { "operatorB" => [vD,vC,...]},
+  #    ],
+  #    }
   def test_output_L1
+
     @input.each {|line|
       pp line
     }
+  end
+
+
+  # OUTPUT = {
+  # "intervalA,operatorA" => [vA,vB,...],
+  # "intervalA,operatorB" => [vA,vC,...],
+  # "intervalB,operatorA" => [vA,vB,...],
+  # "intervalB,operatorB" => [vD,vC,...],
+  # }
+  def test_output_L2
   end
 end
