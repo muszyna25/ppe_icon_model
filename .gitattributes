@@ -1188,8 +1188,8 @@ scripts/preprocessing/preproc4phc.sh -text
 scripts/prototypes/findPath.rb -text
 scripts/prototypes/lists/list.rb -text
 scripts/prototypes/lists/test_list.rb -text
-scripts/prototypes/mo_statistics.rb -text
-scripts/prototypes/test/mo_statistics.rb -text
+scripts/prototypes/statistics/mo_statistics.rb -text
+scripts/prototypes/statistics/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
