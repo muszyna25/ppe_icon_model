@@ -177,6 +177,7 @@ MODULE mo_meteogram_output
 
   INTEGER, PARAMETER :: TAG_VARLIST          =   99  !< MPI tag for communication of variable info
   INTEGER, PARAMETER :: TAG_MTGRM_MSG        = 77777 !< MPI tag (base) for communication of meteogram data
+  INTEGER, PARAMETER :: TAG_DOMAIN_SHIFT     = 10000 !< separating of tag IDs for different domains
   ! flags for communication of variable info
   INTEGER, PARAMETER :: FLAG_VARLIST_ATMO    =    0
   INTEGER, PARAMETER :: FLAG_VARLIST_SFC     =    1
@@ -1432,7 +1433,7 @@ CONTAINS
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
         IF ((iowner /= get_my_mpi_all_id()) .AND. (iowner > 0)) THEN
           CALL p_irecv_packed(mtgrm(jg)%msg_buffer(:,istation), MPI_ANY_SOURCE, &
-            &                 TAG_MTGRM_MSG + istation, mtgrm(jg)%max_buf_size)
+            &                 TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, mtgrm(jg)%max_buf_size)
         END IF
       END DO
 
@@ -1597,7 +1598,7 @@ CONTAINS
           ! (blocking) send of packed station data to IO PE:
           istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
           CALL p_send_packed(mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%process_mpi_all_collector_id, &
-            &                TAG_MTGRM_MSG + istation, position)
+            &                TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, position)
           IF (dbg_level > 0) &
             WRITE (*,*) "Sending ", icurrent, " time slices, station ", istation
         END DO
