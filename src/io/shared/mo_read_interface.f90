@@ -54,11 +54,10 @@ MODULE mo_read_interface
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
     &                                   idx_blk_time
   USE mo_model_domain, ONLY: t_patch
-  USE mo_parallel_config, ONLY: nproma, p_test_run
+  USE mo_parallel_config, ONLY: nproma
   USE mo_model_domain, ONLY: t_patch
   USE mo_communication, ONLY: t_scatterPattern
-  USE mo_mpi, ONLY: p_comm_work_test, p_comm_work, p_io, my_process_is_stdio, &
-    &               p_bcast
+  USE mo_mpi, ONLY: p_comm_work, p_io, my_process_is_mpi_workroot, p_bcast
 
 
   !-------------------------------------------------------------------------
@@ -1763,15 +1762,14 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: string_in
     CHARACTER(LEN=NF_MAX_NAME), INTENT(OUT) :: string_out
 
-    IF (my_process_is_stdio()) THEN
+    IF (my_process_is_mpi_workroot()) THEN
       IF (LEN(string_in) > NF_MAX_NAME) &
         CALL finish("bcast_varname", "invalid string length")
 
       string_out = string_in
     END IF
 
-    CALL p_bcast(string_out, p_io, &
-      &          MERGE(p_comm_work_test, p_comm_work, p_test_run))
+    CALL p_bcast(string_out, p_io,  p_comm_work)
   END SUBROUTINE bcast_varname
 
   !-------------------------------------------------------------------------
