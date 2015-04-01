@@ -362,10 +362,6 @@ MODULE mo_ocean_types
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_top_v(:,:)        ,& ! meridional velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_u(:,:)        ,& ! zonal velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_v(:,:)        ,& ! meridional velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
       & bc_top_w(:,:)        ,& ! vertical velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_bot_w(:,:)        ,& ! vertical velocity boundary condition at bottom

@@ -1257,14 +1257,6 @@ CONTAINS
       & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&
       & ldims=(/nproma,nblks_e/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
     
-    CALL add_var(ocean_restart_list,'bc_bot_u',ocean_state_aux%bc_bot_u, grid_unstructured_cell,&
-      & za_surface, t_cf_var('bc_bot_u','','', DATATYPE_FLT32),&
-      & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
-    CALL add_var(ocean_restart_list,'bc_bot_v',ocean_state_aux%bc_bot_v, grid_unstructured_cell,&
-      & za_surface, t_cf_var('bc_bot_v','','', DATATYPE_FLT32),&
-      & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list,'bc_bot_vn',ocean_state_aux%bc_bot_vn, grid_unstructured_edge,&
       & za_surface, t_cf_var('bc_bot_vn','','', DATATYPE_FLT32),&
       & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&

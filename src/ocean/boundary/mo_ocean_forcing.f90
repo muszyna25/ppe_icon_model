@@ -443,6 +443,27 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+  !<Optimize:inUse>
+  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, atmos_fluxes, fu10)
+    !
+    TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
+    TYPE(t_atmos_fluxes)                    :: atmos_fluxes
+    REAL(wp), INTENT(INOUT)                 :: fu10(:,:)      !  windspeed: p_as%fu10
+
+    TYPE(t_subset_range), POINTER :: all_cells, owned_cells
+
+    
+    CALL init_ocean_WindForcing(patch_2d, patch_3d, ocean_state, atmos_fluxes, fu10)
+
+    IF (init_oce_relax > 0) THEN
+      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
+    END IF
+  END SUBROUTINE init_ocean_forcing
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
   !>
   !! Initialization of temperature and salinity relaxation for the hydrostatic ocean model.
   !! Temperature and salinity relaxation data are read from external data
@@ -660,8 +681,10 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, atmos_fluxes, fu10)
+
+  !-------------------------------------------------------------------------
+  !<Optimize:inUse>
+  SUBROUTINE init_ocean_WindForcing(patch_2d, patch_3d, ocean_state, atmos_fluxes, fu10)
     !
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
@@ -671,7 +694,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_cells, owned_cells
 
-      all_cells => patch_3d%p_patch_2d(1)%cells%All
+    all_cells   => patch_3d%p_patch_2d(1)%cells%All
     owned_cells => patch_3d%p_patch_2d(1)%cells%owned
 
     CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_u, &
@@ -689,10 +712,7 @@ CONTAINS
     CALL dbg_print('init merid. wind stress'   ,atmos_fluxes%topBoundCond_windStress_v,str_module,idt_src,in_subset=owned_cells)
     CALL dbg_print('init wind speed'           ,fu10                                  ,str_module,idt_src,in_subset=owned_cells)
 
-    IF (init_oce_relax > 0) THEN
-      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
-    END IF
-  END SUBROUTINE init_ocean_forcing
+  END SUBROUTINE init_ocean_WindForcing
 
 !<Optimize:inUse>
   SUBROUTINE set_windstress_u(subset, mask, threshold, windstress, &
