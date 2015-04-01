@@ -1186,6 +1186,8 @@ scripts/preprocessing/preproc4omip.rb -text
 scripts/preprocessing/preproc4omip.sh -text
 scripts/preprocessing/preproc4phc.sh -text
 scripts/prototypes/findPath.rb -text
+scripts/prototypes/lists/list.rb -text
+scripts/prototypes/lists/test_list.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
