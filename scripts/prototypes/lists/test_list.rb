@@ -22,6 +22,22 @@ class MyListTest < Minitest::Test
     #pp @input
   end
 
+  def intervalHasEvent?(interval)
+    return interval == (ENV.has_key?('INT') ? ENV['INT'] : 'P01D')
+  end
+  def loopA(output)
+    output.each {|interval,joblist|
+      if intervalHasEvent?(interval) then
+        puts "INTERVAL:#{interval} is active"
+        joblist.each {|operator,varlist|
+          varlist.each {|var|
+            puts "Work on VARNAME:#{var} for OPERATOR:#{operator}"
+          }
+        }
+      end
+    }
+  end
+
   # multiple adds of the same value, should lead to a singe entry only
   def test_add_multiple
     @list.clear
@@ -31,6 +47,7 @@ class MyListTest < Minitest::Test
     assert_equal(2,@list.size)
   end
 
+  # (A)
   # OUTPUT = {
   # "intervalA" => [
   #    { "operatorA" => [vA,vB,...]},
@@ -41,22 +58,23 @@ class MyListTest < Minitest::Test
   #    { "operatorB" => [vD,vC,...]},
   #    ],
   # }
-  def test_output_L1_hash
+  def test_output_A_hash
     output = {}
     @input.each {|line|
       operator,interval,varname = line
       ((output[interval] ||= {})[operator] ||= []) << varname
     }
-    pp output
+    loopA(output)
   end
 
 
+  # (B)
   # OUTPUT = {
   # "intervalA,operatorA" => [vA,vB,...],
   # "intervalA,operatorB" => [vA,vC,...],
   # "intervalB,operatorA" => [vA,vB,...],
   # "intervalB,operatorB" => [vD,vC,...],
   # }
-  def test_output_L2
+  def test_output_B
   end
 end
