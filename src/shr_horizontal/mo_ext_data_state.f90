@@ -1834,7 +1834,7 @@ CONTAINS
   SUBROUTINE read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
     &                           cdi_filetype, extpar_varnames_dict)
 
-    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     INTEGER,               INTENT(IN)    :: nlev_o3
 
