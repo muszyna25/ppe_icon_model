@@ -44,7 +44,8 @@ MODULE mo_initicon_io
     &                               MODE_COMBINED, MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work, p_comm_work_test
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
+    &                               p_comm_work_test, my_process_is_mpi_workroot
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
@@ -116,7 +117,7 @@ MODULE mo_initicon_io
     CHARACTER(*), PARAMETER :: routine = modname//':open_init_files'
     INTEGER :: jg, vlistID, jlev, mpi_comm
     INTEGER(KIND=i8) :: flen_fg, flen_ana                     ! filesize in bytes
-    LOGICAL :: l_exist
+    LOGICAL :: l_exist, lread_process
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     CALL cdiDefMissval(cdimissval)
@@ -125,7 +126,10 @@ MODULE mo_initicon_io
     dwdfg_file (:)=' '
     dwdana_file(:)=' '
 
-    IF(my_process_is_stdio()) THEN
+    ! flag. if true, then this PE reads data from file and broadcasts
+    lread_process = my_process_is_mpi_workroot()
+
+    IF(lread_process) THEN
       ! first guess ("_fg")
       !
       DO jg=1,n_dom
@@ -228,7 +232,7 @@ MODULE mo_initicon_io
 
         END DO
       ENDIF  ! lread_ana
-    END IF  ! my_process_is_stdio()
+    END IF  ! lread_process
 
 
 
@@ -254,8 +258,12 @@ MODULE mo_initicon_io
     INTEGER, INTENT(INOUT) :: fileID_ana(:), fileID_fg(:) ! dim (1:n_dom)
     ! local variables
     INTEGER :: jg
+    LOGICAL :: lread_process
 
-    IF(my_process_is_stdio()) THEN
+    ! flag. if true, then this PE reads data from file and broadcasts
+    lread_process = my_process_is_mpi_workroot()
+
+    IF(lread_process) THEN
       ! first guess ("_fg")
       DO jg=1,n_dom
         IF (fileID_fg(jg) == -1) CYCLE
@@ -434,7 +442,7 @@ MODULE mo_initicon_io
     INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
     TYPE(t_stream_id) :: stream_id
-    INTEGER :: ist, psvar_ndims, geopvar_ndims
+    INTEGER :: psvar_ndims, geopvar_ndims
 
     CHARACTER(LEN=10) :: psvar
 
@@ -442,11 +450,13 @@ MODULE mo_initicon_io
       routine = 'mo_nh_initicon:read_extana_atm'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
-
+    LOGICAL :: lread_process
     LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
 
     !-------------------------------------------------------------------------
 
+    ! flag. if true, then this PE reads data from file and broadcasts
+    lread_process = my_process_is_mpi_workroot()
 
     DO jg = 1, n_dom
 
@@ -466,7 +476,7 @@ MODULE mo_initicon_io
 
       ! Read in data from IFS2ICON
       !
-      IF(my_process_is_stdio() ) THEN
+      IF( lread_process ) THEN
 
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -678,7 +688,7 @@ MODULE mo_initicon_io
 
           ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
-          IF(my_process_is_stdio()) THEN
+          IF(lread_process) THEN
             CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
             CALL nf(nf_get_var_double(ncid, varid, vct_a), routine)
 
@@ -741,7 +751,7 @@ MODULE mo_initicon_io
 
       ! close file
       !
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+      IF(lread_process) CALL nf(nf_close(ncid), routine)
       CALL closeFile(stream_id)
 
     ENDDO ! loop over model domains
@@ -763,11 +773,10 @@ MODULE mo_initicon_io
   !! Modification by Daniel Reinert, DWD (2012-12-18)
   !! - encapsulate reading of IFS analysis
   !!
-  SUBROUTINE read_extana_sfc (p_patch, initicon, ext_data)
+  SUBROUTINE read_extana_sfc (p_patch, initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
-    TYPE(t_external_data),  INTENT(IN)    :: ext_data(:)
 
     INTEGER :: jg, jlev
     LOGICAL :: l_exist
@@ -783,10 +792,12 @@ MODULE mo_initicon_io
       routine = 'mo_nh_initicon:read_extana_sfc'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
-
+    LOGICAL :: lread_process
 
     !-------------------------------------------------------------------------
 
+    ! flag. if true, then this PE reads data from file and broadcasts
+    lread_process = my_process_is_mpi_workroot()
 
     DO jg = 1, n_dom
 
@@ -805,7 +816,7 @@ MODULE mo_initicon_io
 
       ! Read in data from IFS2ICON
       !
-      IF(my_process_is_stdio() ) THEN
+      IF(lread_process) THEN
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
@@ -966,7 +977,7 @@ MODULE mo_initicon_io
 
       ! close file
       !
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+      IF(lread_process) CALL nf(nf_close(ncid), routine)
       CALL closeFile(stream_id)
 
 
@@ -1092,10 +1103,9 @@ MODULE mo_initicon_io
   !! - split off reading of FG fields
   !! 
   !!
-  SUBROUTINE read_dwdfg_atm_ii (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+  SUBROUTINE read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     INTEGER,                INTENT(IN)    :: fileID_fg(:), filetype_fg(:)
 
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
@@ -1105,15 +1115,18 @@ MODULE mo_initicon_io
     INTEGER :: mpi_comm
     INTEGER :: ngrp_vars_fg, filetype
 
-    REAL(wp), POINTER :: my_ptr3d(:,:,:)
     REAL(wp) :: tempv, exner
     TYPE(t_inputParameters) :: parameters
     CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':read_dwdfg_atm_ii'
+    LOGICAL :: lread_process
 
     !-------------------------------------------------------------------------
+
+    ! flag. if true, then this PE reads data from file and broadcasts
+    lread_process = my_process_is_mpi_workroot()
 
     DO jg = 1, n_dom
 
@@ -1124,7 +1137,7 @@ MODULE mo_initicon_io
 
       ! determine number of HALF LEVELS of generalized Z-AXIS
       ! use 'theta_v' for testing (may have chosen another one as well)
-      IF(my_process_is_stdio() ) THEN 
+      IF(lread_process) THEN 
         IF (filetype_fg(jg) == FILETYPE_GRB2) THEN
           nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'theta_v', opt_dict=ana_varnames_dict)
         ELSE
