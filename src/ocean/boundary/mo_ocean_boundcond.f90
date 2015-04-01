@@ -29,7 +29,8 @@ MODULE mo_ocean_boundcond
   USE mo_physical_constants, ONLY: rho_ref
   USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea, min_rlcell, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
-  USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot, forcing_smooth_steps
+  USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot, forcing_smooth_steps, &
+    & forcing_windstress_u_type
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message, finish
@@ -66,6 +67,24 @@ MODULE mo_ocean_boundcond
 
 CONTAINS
   
+  SUBROUTINE top_bound_cond_horz_veloc( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)
+    !
+    TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
+    TYPE(t_hydro_ocean_state), INTENT(inout)   :: ocean_state            ! ocean state variable
+    TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
+    TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
+
+    IF (forcing_windstress_u_type > 100 .OR. forcing_windstress_u_type == 0) THEN
+      ! analytic wind
+      CALL top_bound_cond_horz_veloc_onEdges( patch_3D, ocean_state, p_op_coeff)
+    ELSE
+      ! OMIP wind
+      CALL top_bound_cond_horz_veloc_fromCells( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)
+    ENDIF
+
+  END SUBROUTINE top_bound_cond_horz_veloc
+  !-------------------------------------------------------------------------
+    
   !-------------------------------------------------------------------------
   !>
   !! Computes top boundary condition for horizontal velocity. This information
@@ -76,26 +95,114 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn,         MPI-M (2010)
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  !!
-!<Optimize:inUse>
-  SUBROUTINE top_bound_cond_horz_veloc( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)  !  , &
- !  & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
+  !<Optimize:inUse>
+  SUBROUTINE top_bound_cond_horz_veloc_onEdges( patch_3D, ocean_state, p_op_coeff) 
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
+    TYPE(t_hydro_ocean_state), INTENT(inout)   :: ocean_state            ! ocean state variable
+    TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
+    
+    !Local variables
+    INTEGER :: je, jb
+    INTEGER :: start_index, end_index
+    REAL(wp):: z_scale(nproma,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: smooth_coeff, u_diff, v_diff, stress_coeff
+    TYPE(t_subset_range), POINTER :: all_edges   
+    TYPE(t_patch), POINTER        :: patch_2D
+    !CHARACTER(len=max_char_length), PARAMETER :: &
+    !& routine = ('mo_ocean_boundcond:top_bound_cond_veloc')
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+    all_edges  => patch_2D%edges%all
+    !-----------------------------------------------------------------------
+    IF (is_restart_run() .OR. i_bc_veloc_top /= 4) THEN
+      smooth_coeff = 1.0_wp
+    ELSE
+      smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
+      current_step = current_step + 1
+    ENDIF
+    
+    ! Modification of surface wind forcing according to surface boundary condition
+!ICON_OMP_PARALLEL
+    IF(iswm_oce == 1)THEN
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_edges%start_block, all_edges%end_block
+        z_scale(:,jb) = rho_ref*ocean_state%p_diag%thick_e(:,jb)
+      ENDDO
+!ICON_OMP_END_DO 
+    ELSEIF(iswm_oce /= 1)THEN
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_edges%start_block, all_edges%end_block
+        z_scale(:,jb) = rho_ref
+      ENDDO
+!ICON_OMP_END_DO
+    ENDIF
+
+    SELECT CASE (i_bc_veloc_top)
+
+   CASE (0)
+     ! this is the same as forcing_windstress_u/v_type = 0
+!ICON_OMP_DO PRIVATE(start_index, end_index, je) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        DO je = start_index, end_index
+          ocean_state%p_aux%bc_top_vn(je,jb) = 0.0_wp
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+
+    CASE (1,4)
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, stress_coeff) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        DO je = start_index, end_index
+          stress_coeff = smooth_coeff / z_scale(je,jb)
+          ocean_state%p_aux%bc_top_vn(je,jb) = &
+            & ocean_state%p_aux%bc_top_WindStress(je,jb) * stress_coeff
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+    CASE default
+      CALL finish("top_bound_cond_horz_veloc", "unknown i_bc_veloc_top")
+
+    END SELECT
+!ICON_OMP_END_PARALLEL
+
+!     CALL map_cell2edges_3D( patch_3D, ocean_state%p_aux%bc_top_veloc_cc,ocean_state%p_aux%bc_top_vn,p_op_coeff,level=1)
+    ! CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), ocean_state%p_aux%bc_top_vn)
+
+    !---------Debug Diagnostics-------------------------------------------
+!     idt_src=2  ! output print level (1-5, fix)
+!     CALL dbg_print('top bound.cond. u' ,ocean_state%p_aux%bc_top_u ,str_module,idt_src, in_subset=patch_2D%cells%owned)
+!     CALL dbg_print('top bound.cond. v' ,ocean_state%p_aux%bc_top_v ,str_module,idt_src, in_subset=patch_2D%cells%owned)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('top bound.cond. vn',ocean_state%p_aux%bc_top_vn,str_module,idt_src, in_subset=patch_2D%edges%owned)
+    !---------------------------------------------------------------------
+    
+  END SUBROUTINE top_bound_cond_horz_veloc_onEdges
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !<Optimize:inUse>
+  SUBROUTINE top_bound_cond_horz_veloc_fromCells( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)  !  , &
+ !  & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
+    !
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)       :: patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: ocean_state            ! ocean state variable
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
     TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
  !  REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
  !  REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,alloc_cell_blocks)
  !  TYPE(t_cartesian_coordinates), INTENT(inout) :: top_bc_u_cc(:,:)
-    
+
     !Local variables
     INTEGER :: jc, jb
     INTEGER :: start_index, end_index
     REAL(wp):: z_scale(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: smooth_coeff, u_diff, v_diff, stress_coeff
-    TYPE(t_subset_range), POINTER :: all_cells   
+    TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER        :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !& routine = ('mo_ocean_boundcond:top_bound_cond_veloc')
@@ -109,7 +216,7 @@ CONTAINS
       smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
       current_step = current_step + 1
     ENDIF
-    
+
     ! Modification of surface wind forcing according to surface boundary condition
 !ICON_OMP_PARALLEL
     IF(iswm_oce == 1)THEN
@@ -119,7 +226,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         z_scale(:,jb) = rho_ref*ocean_state%p_diag%thick_c(:,jb)
       ENDDO
-!ICON_OMP_END_DO 
+!ICON_OMP_END_DO
     ELSEIF(iswm_oce /= 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
@@ -257,9 +364,10 @@ CONTAINS
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('top bound.cond. vn',ocean_state%p_aux%bc_top_vn,str_module,idt_src, in_subset=patch_2D%edges%owned)
     !---------------------------------------------------------------------
-    
-  END SUBROUTINE top_bound_cond_horz_veloc
+
+  END SUBROUTINE top_bound_cond_horz_veloc_fromCells
   !-------------------------------------------------------------------------
+
   
   !-------------------------------------------------------------------------
   !>

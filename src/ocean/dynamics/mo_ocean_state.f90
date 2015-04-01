@@ -1256,6 +1256,10 @@ CONTAINS
       & za_surface, t_cf_var('bc_top_vn','','', DATATYPE_FLT32),&
       & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&
       & ldims=(/nproma,nblks_e/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list,'bc_top_WindStress',ocean_state_aux%bc_top_WindStress, grid_unstructured_edge,&
+      & za_surface, t_cf_var('bc_top_WindStress','','', DATATYPE_FLT32),&
+      & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&
+      & ldims=(/nproma,nblks_e/),in_group=groups("oce_aux"),lrestart_cont=.FALSE.)
     
     CALL add_var(ocean_restart_list,'bc_bot_vn',ocean_state_aux%bc_bot_vn, grid_unstructured_edge,&
       & za_surface, t_cf_var('bc_bot_vn','','', DATATYPE_FLT32),&
@@ -1283,17 +1287,10 @@ CONTAINS
     IF (ist/=success) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    ALLOCATE(ocean_state_aux%bc_bot_veloc_cc(nproma,alloc_cell_blocks), stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
-    END IF
     
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(1) = 0.0_wp
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(2) = 0.0_wp
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
-    ocean_state_aux%bc_bot_veloc_cc(:,:)%x(1) = 0.0_wp
-    ocean_state_aux%bc_bot_veloc_cc(:,:)%x(2) = 0.0_wp
-    ocean_state_aux%bc_bot_veloc_cc(:,:)%x(3) = 0.0_wp
     
     ! allocation of 3-dim tracer relaxation:
     IF (no_tracer >= 1) THEN
@@ -1635,11 +1632,6 @@ CONTAINS
     DEALLOCATE(ocean_state_aux%bc_top_veloc_cc, stat=ist)
     IF (ist/=success) THEN
       CALL finish(TRIM(routine),'deallocation of top boundary cond cc failed')
-    END IF
-    
-    DEALLOCATE(ocean_state_aux%bc_bot_veloc_cc, stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'deallocation of bot boundary cond cc failed')
     END IF
     
   END SUBROUTINE destruct_hydro_ocean_aux
