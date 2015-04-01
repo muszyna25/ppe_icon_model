@@ -14,6 +14,9 @@ class MyListTest < Minitest::Test
     @list = MyList.new
     @input = []
     OPERATORS.each {|operator| INTERVALS.each {|interval| VARNAMES.each {|varname|
+          next if varname.size == 1 and interval == 'P01D'
+          next if varname.size >  5 and interval == 'P01Y'
+          next if varname.size == 4 and ['min','max'].include?(operator)
           @input << [operator,interval,varname]
     } } }
     #pp @input
@@ -33,15 +36,18 @@ class MyListTest < Minitest::Test
   #    { "operatorA" => [vA,vB,...]},
   #    { "operatorB" => [vA,vC,...]},
   #    ],
-  # "intervalB" => 
+  # "intervalB" => [
   #    { "operatorA" => [vA,vB,...]},
   #    { "operatorB" => [vD,vC,...]},
   #    ],
   # }
-  def test_output_L1
+  def test_output_L1_hash
+    output = {}
     @input.each {|line|
       operator,interval,varname = line
+      ((output[interval] ||= {})[operator] ||= []) << varname
     }
+    pp output
   end
 
 
