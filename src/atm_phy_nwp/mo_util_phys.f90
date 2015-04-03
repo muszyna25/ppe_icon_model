@@ -560,7 +560,7 @@ CONTAINS
       zm = 6400._wp,           &
       zn = 11.564_wp,          &
       zo = 1742._wp,           &
-      td,tl,tp,ppp,            &
+      td,tl,tp,                &
       zp,                      &  ! pressure in hPa
       ppp,                     &  ! pressure in dPa
       deltat,zt,               &
