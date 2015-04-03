@@ -1609,9 +1609,9 @@ CONTAINS
 
     END IF SENDER
 
-#endif
-
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
+
+#endif
 
   END SUBROUTINE meteogram_collect_buffers
 
