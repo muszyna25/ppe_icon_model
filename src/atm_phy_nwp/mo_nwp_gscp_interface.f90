@@ -285,6 +285,7 @@ CONTAINS
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & !< in:  rain water
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)    ,    & !< in:  snow
             & qg     =p_prog_rcf%tracer (:,:,jb,iqg)    ,    & !< in:  graupel
+            & qnc    = qnc_s                            ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
             & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of snow
