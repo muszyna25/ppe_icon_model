@@ -1164,7 +1164,7 @@ CONTAINS
     kcell     = patch%n_patch_cells_g
     kvert     = patch%n_patch_verts_g
     kedge     = patch%n_patch_edges_g
-    icelltype = patch%cell_type
+    icelltype = patch%geometry_info%cell_type
 
     CALL set_restart_attribute( 'current_caltime', datetime%caltime )
     CALL set_restart_attribute( 'current_calday' , datetime%calday )

@@ -31,9 +31,13 @@ MODULE mo_coupling_nml
   USE mo_nml_annotate,    ONLY: temp_defaults, temp_settings
   USE mo_mpi,             ONLY: my_process_is_stdio
 
+#ifdef YAC_coupling
+  USE mo_coupling_config, ONLY: config_coupled_mode
+
+#else
   USE mo_coupling_config, ONLY: t_cpl_field_nml, config_cpl_fields, &
     & number_of_coupled_variables, config_debug_coupler_level
-
+#endif
 
   IMPLICIT NONE
 
@@ -56,8 +60,7 @@ MODULE mo_coupling_nml
   INTEGER            :: dt_model
   INTEGER            :: lag
   CHARACTER(len=132) :: name
-  
-    
+
 CONTAINS
 
   !>
@@ -76,10 +79,14 @@ CONTAINS
     !
     ! Local variables
     !
-    INTEGER            :: debug_coupler_level
-    
-    TYPE(t_cpl_field_nml), POINTER :: new_cpl_fields(:)
 
+#ifdef YAC_coupling
+    LOGICAL            :: coupled_mode
+#else
+    TYPE(t_cpl_field_nml), POINTER :: new_cpl_fields(:)
+#endif
+
+    INTEGER :: debug_coupler_level
     INTEGER :: i
     INTEGER :: ierr
     INTEGER :: new_dim
@@ -93,8 +100,10 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
 
+#ifdef YAC_coupling
+    NAMELIST /coupling_mode_nml/ coupled_mode
+#else
     NAMELIST /coupling_mode_nml/ debug_coupler_level
-  
     NAMELIST /coupling_nml/ name,              &
                           dt_coupling,         &
                           dt_model,            &
@@ -103,7 +112,8 @@ CONTAINS
                           l_time_accumulation, &
                           l_diagnostic,        &
                           l_activated
-    
+#endif
+
     !--------------------------------------------------------------------
     ! 1. Set default values
     !--------------------------------------------------------------------
@@ -121,17 +131,25 @@ CONTAINS
     l_activated         = .FALSE.
 
     debug_coupler_level = 0
+
     !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (done so far by all MPI processes)
+    ! 2. Read user's (new) specifications (done so far by all MPI processes)
     !--------------------------------------------------------------------
     CALL open_nml (TRIM(namelist_filename))
     
     CALL position_nml('coupling_mode_nml',STATUS=istat)
     IF (istat==POSITIONED) THEN
       READ (nnml, coupling_mode_nml)
-    ENDIF        
+    ENDIF
+
+#ifdef YAC_coupling
+
+    config_coupled_mode = coupled_mode
+
+#else
+
     !--------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above 
+    ! 3. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !--------------------------------------------------------------------
 
@@ -256,11 +274,13 @@ CONTAINS
 
     END DO
 
-    CALL close_nml
-
     number_of_coupled_variables = i
     config_debug_coupler_level  = debug_coupler_level
-    
+
+#endif
+
+    CALL close_nml
+
   END SUBROUTINE read_coupling_namelist
 
 END MODULE mo_coupling_nml

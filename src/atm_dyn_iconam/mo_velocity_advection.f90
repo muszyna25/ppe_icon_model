@@ -125,9 +125,9 @@ MODULE mo_velocity_advection
     REAL(vp) :: cfl_w_limit, vcfl, vcflmax(p_patch%nblks_c)
     REAL(wp) :: w_con_e, scalfac_exdiff, difcoef
                 
-    INTEGER  :: iclist(p_patch%nlev*nproma), ielist(p_patch%nlev*nproma), iklist(p_patch%nlev*nproma), &
-                ic, ie, icount
+    INTEGER  :: ic, ie, nrdmax_jg, nflatlev_jg
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
+    LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
 
     !--------------------------------------------------------------------------
 
@@ -141,6 +141,8 @@ MODULE mo_velocity_advection
 
     !Get patch id
     jg = p_patch%id
+    nrdmax_jg     = nrdmax(jg)     ! This shorthand creates large diffs
+    nflatlev_jg   = nflatlev(jg)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -233,7 +235,7 @@ MODULE mo_velocity_advection
 
         ! Compute contravariant correction for vertical velocity at interface levels
         ! (will be interpolated to cell centers below)
-        DO jk = nflatlev(p_patch%id), nlev
+        DO jk = nflatlev_jg, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
             z_w_concorr_me(je,jk,jb) =                              &
@@ -301,7 +303,7 @@ MODULE mo_velocity_advection
             z_v_grad_w(jk,je,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
              (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
              + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
-             p_patch%edges%system_orientation(je,jb) *                                                 &
+             p_patch%edges%tangent_orientation(je,jb) *                                                 &
              (z_w_v(jk,ividx(je,jb,1),ivblk(je,jb,1)) - z_w_v(jk,ividx(je,jb,2),ivblk(je,jb,2))) 
 #else
         DO jk = 1, nlev
@@ -309,7 +311,7 @@ MODULE mo_velocity_advection
             z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
              (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
              + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
-             p_patch%edges%system_orientation(je,jb) *                                                 &
+             p_patch%edges%tangent_orientation(je,jb) *                                                 &
              (z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) - z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))) 
 #endif
 
@@ -333,7 +335,7 @@ MODULE mo_velocity_advection
     i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, ic, icount, iclist, iklist, difcoef, vcfl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, ic, difcoef, vcfl) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -363,9 +365,9 @@ MODULE mo_velocity_advection
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
-          DO jk = nflatlev(p_patch%id), nlev
+          DO jk = nflatlev_jg, nlev
 #else
-        DO jk = nflatlev(p_patch%id), nlev
+        DO jk = nflatlev_jg, nlev
           DO jc = i_startidx, i_endidx
 #endif
 
@@ -380,7 +382,7 @@ MODULE mo_velocity_advection
         ! ... and to interface levels
         ! Remark: computation of w_concorr_c at nlevp1 is needed in solve_nh only
         ! because this serves solely for setting the lower boundary condition for w
-        DO jk = nflatlev(p_patch%id)+1, nlev
+        DO jk = nflatlev_jg+1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_diag%w_concorr_c(jc,jk,jb) =                                &
@@ -395,17 +397,10 @@ MODULE mo_velocity_advection
       z_w_con_c(:,nlevp1) = 0._wp
 
       ! Contravariant vertical velocity on w points and interpolation to full levels
-      DO jk = nlev, nflatlev(p_patch%id)+1, -1
+      DO jk = nlev, nflatlev_jg+1, -1
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           z_w_con_c(jc,jk) = z_w_con_c(jc,jk) - p_diag%w_concorr_c(jc,jk,jb)
-          z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
-        ENDDO
-      ENDDO
-
-      DO jk = 1, nflatlev(p_patch%id)
-        DO jc = i_startidx, i_endidx
-          z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
         ENDDO
       ENDDO
 
@@ -415,15 +410,11 @@ MODULE mo_velocity_advection
       ic = 0
       vcflmax(jb) = 0
       !
-      DO jk = MAX(3,nrdmax(jg)-2), nlev-3
+      DO jk = MAX(3,nrdmax_jg-2), nlev-3
         levmask(jb,jk) = .FALSE.
         DO jc = i_startidx, i_endidx
-          IF (ABS(z_w_con_c(jc,jk)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
-            IF (p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
-              ic = ic+1
-              iclist(ic) = jc
-              iklist(ic) = jk
-            ENDIF
+          cfl_clipping(jc,jk) = (ABS(z_w_con_c(jc,jk)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb))
+          IF ( cfl_clipping(jc,jk) ) THEN
             levmask(jb,jk) = .TRUE.
             vcfl = z_w_con_c(jc,jk)*dtime/p_metrics%ddqz_z_half(jc,jk,jb)
             vcflmax(jb) = MAX(vcflmax(jb),ABS(vcfl))
@@ -431,17 +422,18 @@ MODULE mo_velocity_advection
             ! limit w_con to 85% of the nominal CFL stability threshold
             IF (vcfl < -0.85_vp) THEN
               z_w_con_c(jc,jk)           = -0.85_vp*p_metrics%ddqz_z_half(jc,jk,jb)/dtime
-              z_w_con_c_full(jc,jk,jb)   =   0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
-              z_w_con_c_full(jc,jk-1,jb) =   0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk-1))
             ELSE IF (vcfl > 0.85_vp) THEN
               z_w_con_c(jc,jk)           = 0.85_vp*p_metrics%ddqz_z_half(jc,jk,jb)/dtime
-              z_w_con_c_full(jc,jk,jb)   =  0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
-              z_w_con_c_full(jc,jk-1,jb) =  0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk-1))
             ENDIF
           ENDIF
         ENDDO
       ENDDO
-      icount = ic
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
+        ENDDO
+      ENDDO
 
       ! The remaining computations are not needed in vn_only mode and only on prognostic grid points
       IF (lvn_only) CYCLE
@@ -484,31 +476,32 @@ MODULE mo_velocity_advection
 
       IF (lextra_diffu) THEN
         ! Apply extra diffusion at grid points where w_con is close to or above the CFL stability limit
-        IF (icount > 0) THEN
-          DO ic = 1, icount
-            jc = iclist(ic)
-            jk = iklist(ic)
+        DO jc = i_startidx_2, i_endidx_2
+          IF (p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
+            DO jk = MAX(3,nrdmax_jg-2), nlev-3
+              IF ( cfl_clipping(jc,jk) ) THEN
+                difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
+                  ABS(z_w_con_c(jc,jk))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
 
-            difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
-              ABS(z_w_con_c(jc,jk))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
+                ! nabla2 diffusion on w
+                p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)        + &
+                  difcoef * p_patch%cells%area(jc,jb) * (                                  &
+                  p_prog%w(jc,jk,jb)                          *p_int%geofac_n2s(jc,1,jb) + &
+                  p_prog%w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
+                  p_prog%w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
+                  p_prog%w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)   )
 
-            ! nabla2 diffusion on w
-            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)        + &
-              difcoef * p_patch%cells%area(jc,jb) * (                                  &
-              p_prog%w(jc,jk,jb)                          *p_int%geofac_n2s(jc,1,jb) + &
-              p_prog%w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
-              p_prog%w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
-              p_prog%w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)   )
-
-          ENDDO
-        ENDIF
+              ENDIF
+            ENDDO
+          ENDIF
+        ENDDO
       ENDIF
 
     ENDDO
 !$OMP END DO
 
 !$OMP DO PRIVATE(jk)
-    DO jk = MAX(3,nrdmax(jg)-2), nlev-3
+    DO jk = MAX(3,nrdmax_jg-2), nlev-3
       levelmask(jk) = ANY(levmask(i_startblk:i_endblk,jk))
     ENDDO
 !$OMP END DO
@@ -519,8 +512,7 @@ MODULE mo_velocity_advection
     i_startblk = p_patch%edges%start_block(rl_start)
     i_endblk   = p_patch%edges%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, ielist, iklist, icount, &
-!$OMP            difcoef) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, difcoef) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -563,47 +555,32 @@ MODULE mo_velocity_advection
         ! At these points, additional diffusion is applied in order to prevent numerical instability
         ie = 0
 
-        DO jk = MAX(3,nrdmax(jg)-2), nlev-4
+        DO jk = MAX(3,nrdmax_jg-2), nlev-4
           IF (levelmask(jk) .OR. levelmask(jk+1)) THEN
             DO je = i_startidx, i_endidx
               w_con_e = p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
                         p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))
               IF (ABS(w_con_e) > cfl_w_limit*p_metrics%ddqz_z_full_e(je,jk,jb)) THEN
-                ie = ie+1
-                ielist(ie) = je
-                iklist(ie) = jk
+                difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                &
+                  ABS(w_con_e)*dtime/p_metrics%ddqz_z_full_e(je,jk,jb) - cfl_w_limit*dtime )
+
+                p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd)   +                 &
+                  difcoef * p_patch%edges%area_edge(je,jb) * (                                          &
+                  p_int%geofac_grdiv(je,1,jb)*p_prog%vn(je,jk,jb)                         +             &
+                  p_int%geofac_grdiv(je,2,jb)*p_prog%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) +             &
+                  p_int%geofac_grdiv(je,3,jb)*p_prog%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) +             &
+                  p_int%geofac_grdiv(je,4,jb)*p_prog%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) +             &
+                  p_int%geofac_grdiv(je,5,jb)*p_prog%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4)) +             &
+                  p_patch%edges%tangent_orientation(je,jb)*p_patch%edges%inv_primal_edge_length(je,jb) * &
+#ifdef __LOOP_EXCHANGE
+                  (zeta(jk,ividx(je,jb,2),ivblk(je,jb,2)) - zeta(jk,ividx(je,jb,1),ivblk(je,jb,1))) )
+#else
+                  (zeta(ividx(je,jb,2),jk,ivblk(je,jb,2)) - zeta(ividx(je,jb,1),jk,ivblk(je,jb,1))) )
+#endif
               ENDIF
             ENDDO
           ENDIF
         ENDDO
-
-        icount = ie
-        IF (icount > 0) THEN
-          DO ie = 1, icount
-            je = ielist(ie)
-            jk = iklist(ie)
-
-            w_con_e = p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
-                      p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))
-
-            difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                &
-              ABS(w_con_e)*dtime/p_metrics%ddqz_z_full_e(je,jk,jb) - cfl_w_limit*dtime )
-
-            p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd)   +                 &
-              difcoef * p_patch%edges%area_edge(je,jb) * (                                          &
-              p_int%geofac_grdiv(je,1,jb)*p_prog%vn(je,jk,jb)                         +             &
-              p_int%geofac_grdiv(je,2,jb)*p_prog%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) +             &
-              p_int%geofac_grdiv(je,3,jb)*p_prog%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) +             &
-              p_int%geofac_grdiv(je,4,jb)*p_prog%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) +             &
-              p_int%geofac_grdiv(je,5,jb)*p_prog%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4)) +             &
-              p_patch%edges%system_orientation(je,jb)*p_patch%edges%inv_primal_edge_length(je,jb) * &
-#ifdef __LOOP_EXCHANGE
-             (zeta(jk,ividx(je,jb,2),ivblk(je,jb,2)) - zeta(jk,ividx(je,jb,1),ivblk(je,jb,1))) )
-#else
-             (zeta(ividx(je,jb,2),jk,ivblk(je,jb,2)) - zeta(ividx(je,jb,1),jk,ivblk(je,jb,1))) )
-#endif
-          ENDDO
-        ENDIF
       ENDIF
 
     ENDDO

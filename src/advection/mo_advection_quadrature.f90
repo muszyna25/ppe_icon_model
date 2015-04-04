@@ -1132,9 +1132,9 @@ CONTAINS
 
 !!$IF (p_dreg_area(je,jk,jb) < 0._wp) THEN
 !!$  WRITE(0,*) "ATTENTION: negative areas at je,jk,jb= ", je, jk, jb, p_dreg_area(je,jk,jb)
-!!$  WRITE(0,*) "system orientation: ", p_patch%edges%system_orientation(je,jb)
+!!$  WRITE(0,*) "system orientation: ", p_patch%edges%tangent_orientation(je,jb)
 !!$  ELSE IF ((p_dreg_area(je,jk,jb) >= 0._wp)) THEN
-!!$  WRITE(0,*) "OK for system orientation= ", je, jk, jb, p_patch%edges%system_orientation(je,jb)
+!!$  WRITE(0,*) "OK for system orientation= ", je, jk, jb, p_patch%edges%tangent_orientation(je,jb)
 !!$ENDIF
         ENDDO ! loop over edges
 
