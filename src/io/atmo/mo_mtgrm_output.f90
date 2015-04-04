@@ -1120,7 +1120,8 @@ CONTAINS
       IF (mtgrm(jg)%l_is_collecting_pe .AND. (.NOT. ALLOCATED(mtgrm(jg)%msg_buffer))) THEN
         ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, MAX_NUM_STATIONS), stat=ierrstat)  
         IF (ierrstat /= SUCCESS) THEN
-          WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
+          WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
+            & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
           WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
           WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte         
           WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS        
