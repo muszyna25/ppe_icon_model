@@ -49,7 +49,8 @@ CONTAINS
     & start_level, end_level,    & ! in
     & noise_scale,               & ! in
     & global_vertical_seed,      & ! input, OPTIONAL
-    & add_seed)                    ! input, OPTIONAL
+    & add_seed,                  & ! input, OPTIONAL
+    & debug)                       ! input, OPTIONAL
 
     TYPE(t_subset_range)    :: in_subset
     REAL(wp), INTENT(INOUT) :: in_var(:,:,:) ! variable to perturb
@@ -57,6 +58,7 @@ CONTAINS
     REAL(wp), INTENT(IN)    :: noise_scale ! magnitude of the perturbation
     INTEGER, INTENT(IN), TARGET, OPTIONAL  :: global_vertical_seed(:)
     INTEGER, INTENT(IN), OPTIONAL    :: add_seed ! add this number to the fisrt seed element to obtain the rest of them
+    LOGICAL, INTENT(IN), OPTIONAL :: debug
 
 
     ! LOCAL VARIABLES
@@ -70,12 +72,18 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: noise_1D(:), noise_3D(:,:,:)
     INTEGER, POINTER  :: vertical_seed(:)
     INTEGER    :: add_thisSeed
+    LOGICAL :: mydebug
 
     CHARACTER(len=*), PARAMETER ::  &
       &  method_name = 'mo_random_util:add_random_noise_global'
 
     !-----
-    CALL message(TRIM(method_name),'=========== generating random noise based on global index =============')
+    mydebug = .FALSE.
+    IF (PRESENT(debug)) mydebug = debug
+
+    IF (mydebug) THEN
+      CALL message(TRIM(method_name),'=========== generating random noise based on global index =============')
+    END IF
 
     !-----------------------------------------------------------
     ! 1. prepare memory for the seed
@@ -83,7 +91,9 @@ CONTAINS
 
     CALL RANDOM_SEED(SIZE=seed_size)
     WRITE(message_text,*) 'The size of the intrinsic seed is', seed_size
-    CALL message(method_name,TRIM(message_text))
+    IF (mydebug) THEN
+      CALL message(method_name,TRIM(message_text))
+    END IF
 
     ALLOCATE( seed_array(seed_size), STAT=status)
     IF(status/=SUCCESS)THEN

@@ -101,7 +101,7 @@ cat > ${atmo_namelist} << EOF
  iorder_sendrecv = 1
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
  !radiation_grid_filename = ${radiation_grid_filename}
  radiation_grid_filename = ' '

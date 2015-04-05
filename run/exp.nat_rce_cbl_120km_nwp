@@ -57,58 +57,6 @@ atmo_model_equations=3         # equation system
 #
 nlev=40                        # nlev = number of full levels
 #-----------------------------------------------------------------------------
-# the grid files if not defined
-grids_folder=/pool/data/ICON/grids/private/m300232
-atmo_dyn_grids=${atmo_dyn_grids:='torus_grid_r120000s64.nc'}
-ozon_file="tor120000s64_ozone_CMIP5_aqua_1870_march.nc"
-if [ x$atmo_rad_gridname = x ] ; then
-  lredgrid_phys=".false."
-else
-  atmo_rad_grids=${atmo_rad_gridname}.nc
-  lredgrid_phys=".true."
-fi  
-
-lfeedback=.false.
-
-cell_type=${cell_type:=3}
-#-----------------------------------------------------------------------------
-#
-# write ICON namelist parameters
-# ------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
-#
-# ------------------------
-# reconstrcuct the grid parameters in namelist form
-#dynamics_grid_filename=""
-#for gridfile in ${atmo_dyn_grids}; do
-#  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
-#done
-#radiation_grid_filename=""
-#for gridfile in ${atmo_rad_grids}; do
-#  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
-#done
-#dynamics_parent_grid_id="${dynamics_parent_grid_id},"
-#lredgrid_phys="${lredgrid_phys},"
-#lfeedback="${lfeedback},"
-#
-if [ x$lredgrid_phys = "x.true." ]; then
-cat > ${atmo_namelist} << EOF
-&grid_nml
- cell_type = ${cell_type}        ! triangular cells
- dynamics_grid_filename = "${atmo_dyn_grids}",
- radiation_grid_filename = "${atmo_rad_grids}",
- dynamics_radiation_grid_link = 1,
- lredgrid_phys   = ${lredgrid_phys},
-/
-EOF
-else
-cat > ${atmo_namelist} << EOF
-&grid_nml
- cell_type = ${cell_type}        ! triangular cells
- dynamics_grid_filename = "${atmo_dyn_grids}",
-/
-EOF
-fi
 
 p_test_run=${p_test_run:=".false."}
 if [ $p_test_run = ".true." ] ; then
@@ -118,11 +66,23 @@ else
   l_test_openmp=".false."
   l_log_checks=".false."
 fi
+#-----------------------------------------------------------------------------
+# the grid files if not defined
+grids_folder=${icon_data_poolFolder}/grids/private/m300232
+atmo_dyn_grids=${atmo_dyn_grids:='torus_grid_r120000s64.nc'}
+ozon_file="tor120000s64_ozone_CMIP5_aqua_1870_march.nc"
+if [ x$atmo_rad_gridname = x ] ; then
+  lredgrid_phys=".false."
+else
+  atmo_rad_grids=${atmo_rad_gridname}.nc
+  lredgrid_phys=".true."
+fi
+
+lfeedback=.false.
 # ------------------------
 if [ x$lredgrid_phys = "x.true." ]; then
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = ${cell_type}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  radiation_grid_filename = "${atmo_rad_grids}",
  dynamics_radiation_grid_link = 1,
@@ -132,7 +92,6 @@ EOF
 else
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = ${cell_type}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 EOF
