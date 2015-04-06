@@ -928,7 +928,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           IF ( prm_diag%locum(jc,jb)) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
-            prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
+            prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
           ELSE
             prm_diag%hbas_con(jc,jb) = -500._wp
             prm_diag%htop_con(jc,jb) = -500._wp
@@ -1014,7 +1014,7 @@ CONTAINS
         &               pres    = pt_diag%pres(:,:,jb)          , & !in
         &               qv      = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
         &               hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
-        &               hhlr    = vct_a                         , & !in
+        &               hhlr    = vct_a(pt_patch%nshift_total+1:),& !in
         &               istart  = i_startidx                    , & !in
         &               iend    = i_endidx                      , & !in
         &               wbl     = 1.3_wp )

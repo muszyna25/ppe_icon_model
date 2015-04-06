@@ -185,6 +185,7 @@ CONTAINS
     END DO
 
     ! consistency check
+    idx = 0
     DO idom=1,max_dom
       IF (meteogram_output_config(idom)%lenabled) THEN 
         idx = idom
