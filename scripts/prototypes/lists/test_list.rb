@@ -11,7 +11,6 @@ VARNAMES  = %w[u v temp zmc tend_t_up]
 
 class MyListTest < Minitest::Test
   def setup
-    @list  = MyHash.new
     @input = []
     OPERATORS.each {|operator| INTERVALS.each {|interval| VARNAMES.each {|varname|
           next if varname.size == 1 and interval == 'P01D'
@@ -38,13 +37,17 @@ class MyListTest < Minitest::Test
   end
 
   # multiple adds of the same value, should lead to a singe entry only
+  def check(listObj)
+    listObj.clear
+    listObj.add('a').add('a').add('a')
+    assert_equal(1,listObj.size)
+    listObj.add('b').add('b')
+    assert_equal(2,listObj.size)
+    pp listObj
+  end
   def test_add_multiple
-    @list.clear
-    @list.add('a').add('a').add('a')
-    assert_equal(1,@list.size)
-    @list.add('b').add('b')
-    assert_equal(2,@list.size)
-    pp @list
+    check(MyHash.new)
+    check(MyVector.new)
   end
 
   # OUTPUT = {
@@ -63,7 +66,7 @@ class MyListTest < Minitest::Test
       operator,interval,varname = line
       ((output[interval] ||= {})[operator] ||= []) << varname
     }
-    loopA(output)
+    loopHash(output)
   end
 
   # OUTPUT = MyList [
@@ -79,7 +82,8 @@ class MyListTest < Minitest::Test
   # ),
   # ]
   def test_output_list
-    pp @input
+    #pp @input
+   # output = My.new
     @input.each {|line|
       operator,interval,varname = line
     }
