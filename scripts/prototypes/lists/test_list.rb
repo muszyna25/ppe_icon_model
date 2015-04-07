@@ -11,7 +11,7 @@ VARNAMES  = %w[u v temp zmc tend_t_up]
 
 class MyListTest < Minitest::Test
   def setup
-    @list  = MyList.new
+    @list  = MyHash.new
     @input = []
     OPERATORS.each {|operator| INTERVALS.each {|interval| VARNAMES.each {|varname|
           next if varname.size == 1 and interval == 'P01D'
@@ -19,13 +19,12 @@ class MyListTest < Minitest::Test
           next if varname.size == 4 and ['min','max'].include?(operator)
           @input << [operator,interval,varname]
     } } }
-    #pp @input
   end
 
   def intervalHasEvent?(interval)
     return interval == (ENV.has_key?('INT') ? ENV['INT'] : 'P01D')
   end
-  def loopA(output)
+  def loopHash(output)
     output.each {|interval,joblist|
       if intervalHasEvent?(interval) then
         puts "INTERVAL:#{interval} is active"
@@ -45,6 +44,7 @@ class MyListTest < Minitest::Test
     assert_equal(1,@list.size)
     @list.add('b').add('b')
     assert_equal(2,@list.size)
+    pp @list
   end
 
   # OUTPUT = {
@@ -64,5 +64,24 @@ class MyListTest < Minitest::Test
       ((output[interval] ||= {})[operator] ||= []) << varname
     }
     loopA(output)
+  end
+
+  # OUTPUT = MyList [
+  # ("intervalA", MyList[
+  #   ("operatorA, MyList[vA,vB,...]),
+  #   ("operatorB, MyList[vA,vc,...])
+  #   ],
+  # ),
+  # ("intervalB", MyList[
+  #   ("operatorA, MyList[vA,vB,...]),
+  #   ("operatorB, MyList[vD,vc,...])
+  #   ],
+  # ),
+  # ]
+  def test_output_list
+    pp @input
+    @input.each {|line|
+      operator,interval,varname = line
+    }
   end
 end
