@@ -47,7 +47,6 @@ class MyListTest < Minitest::Test
     assert_equal(2,@list.size)
   end
 
-  # (A)
   # OUTPUT = {
   # "intervalA" => [
   #    { "operatorA" => [vA,vB,...]},
@@ -58,23 +57,12 @@ class MyListTest < Minitest::Test
   #    { "operatorB" => [vD,vC,...]},
   #    ],
   # }
-  def test_output_A_hash
+  def test_output_hash
     output = {}
     @input.each {|line|
       operator,interval,varname = line
       ((output[interval] ||= {})[operator] ||= []) << varname
     }
     loopA(output)
-  end
-
-
-  # (B)
-  # OUTPUT = {
-  # "intervalA,operatorA" => [vA,vB,...],
-  # "intervalA,operatorB" => [vA,vC,...],
-  # "intervalB,operatorA" => [vA,vB,...],
-  # "intervalB,operatorB" => [vD,vC,...],
-  # }
-  def test_output_B
   end
 end
