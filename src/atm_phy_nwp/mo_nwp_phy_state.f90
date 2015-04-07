@@ -729,7 +729,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'snowlmt', diag%snowlmt,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc,           &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE.,                  &
-                & loutput=.TRUE.)
+                & loutput=.TRUE.,                                              &
+                & lmiss=.TRUE., missval_r=-999._wp,                            &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
 
     ! &      diag%clc(nproma,nlev,nblks_c)
     cf_desc      = t_cf_var('clc', '',  'cloud cover', DATATYPE_FLT32)

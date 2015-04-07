@@ -687,7 +687,9 @@ CONTAINS
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-                &           post_op=info%post_op )
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval_r=info%missval%rval )
             END IF
             !--- INTEGER fields
             IF (ASSOCIATED(element%field%i_ptr)) THEN
@@ -698,7 +700,9 @@ CONTAINS
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-                &           post_op=info%post_op )
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval_i=info%missval%ival )
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
