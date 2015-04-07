@@ -56,7 +56,6 @@ blas/ssyrk.f -text
 blas/strsm.f -text
 blas/xerbla.f -text
 /build_ICON_ECMWF -text
-/build_all -text
 /build_command.ecmwf -text
 /cmake.configure -text
 cmake/FindGRIB_API.cmake -text
@@ -989,6 +988,7 @@ scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
+scripts/building/build_all -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/cp_ocean -text

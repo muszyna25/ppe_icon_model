@@ -362,20 +362,17 @@ MODULE mo_ocean_types
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_top_v(:,:)        ,& ! meridional velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_u(:,:)        ,& ! zonal velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_v(:,:)        ,& ! meridional velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
       & bc_top_w(:,:)        ,& ! vertical velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_bot_w(:,:)        ,& ! vertical velocity boundary condition at bottom
       & bc_top_tracer(:,:,:) ,& ! vertical velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_bot_tracer(:,:,:) ,& ! vertical velocity boundary condition at bottom
-      & p_rhs_sfc_eq(:,:)!,   & ! right hand side of surface equation
+      & p_rhs_sfc_eq(:,:),    & ! right hand side of surface equation
     ! dimension: (nproma,alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
-      & bc_bot_veloc_cc(:,:)
+      & bc_top_WindStress(:,:)  ! normal velocity boundary condition at surface
+    ! dimension: (nproma,nblks_e)
+    TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:)
     TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
 !     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
     
