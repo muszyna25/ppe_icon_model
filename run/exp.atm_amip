@@ -37,13 +37,13 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="2009-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="1979-05-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
 (( dt_checkpoint =  360 * day))
 (( dt_restart    = 1080 * day))
 #
-output_interval="PT06H"
+output_interval="PT6H"
 file_interval="P30D"
 
 # namelist files

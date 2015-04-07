@@ -42,8 +42,8 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 # restart interval
 (( dt_checkpoint =  8 * minute))
 #
-output_interval="PT04M"
-file_interval="PT04M"
+output_interval="PT4M"
+file_interval="PT4M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
