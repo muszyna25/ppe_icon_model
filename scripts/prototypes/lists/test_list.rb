@@ -11,7 +11,7 @@ VARNAMES  = %w[u v temp zmc tend_t_up]
 
 class MyListTest < Minitest::Test
   def setup
-    @list = MyList.new
+    @list  = MyList.new
     @input = []
     OPERATORS.each {|operator| INTERVALS.each {|interval| VARNAMES.each {|varname|
           next if varname.size == 1 and interval == 'P01D'
@@ -41,9 +41,9 @@ class MyListTest < Minitest::Test
   # multiple adds of the same value, should lead to a singe entry only
   def test_add_multiple
     @list.clear
-    @list.add('a'); @list.add('a'); @list.add('a')
+    @list.add('a').add('a').add('a')
     assert_equal(1,@list.size)
-    @list.add('b'); @list.add('b')
+    @list.add('b').add('b')
     assert_equal(2,@list.size)
   end
 
