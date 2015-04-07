@@ -2564,6 +2564,7 @@ CONTAINS
         ! CLCL    : typeOfSecondFixedSurface = 1
         ! C_T_LK  : typeOfSecondFixedSurface = 162
         ! H_B1_LK : typeOfSecondFixedSurface = 165
+        ! SNOWLMT : typeOfSecondFixedSurface = 101
         IF ( one_of(TRIM(info%name),sfs_name_list) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
             &                    second_tos(one_of(TRIM(info%name),sfs_name_list)))

@@ -727,7 +727,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &                   DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 204, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snowlmt', diag%snowlmt,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc,           &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE.,                  &
                 & loutput=.TRUE.)
 
