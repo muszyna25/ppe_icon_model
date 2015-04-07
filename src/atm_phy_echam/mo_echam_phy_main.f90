@@ -132,7 +132,7 @@ CONTAINS
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw_sfc (nbdim)        !< additional heating by long  wave radiation due to surface energy balance [W/m2]
+    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by long wave radiation due to impl. coupling in surface energy balance [W/m2]
     REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
@@ -166,8 +166,6 @@ CONTAINS
 
     REAL(wp) :: zfactor_sfc(nbdim)
     REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
-
-    REAL(wp) :: zvis_frc_sfc(nbdim)   !< visual fraction of net surface shortwave radiation
 
     REAL(wp) :: zcptgz   (nbdim,nlev) !< dry static energy
     REAL(wp) :: zrhoh    (nbdim,nlev) !< air density at half levels
@@ -599,10 +597,10 @@ CONTAINS
           ! - visible fraction w.r.t. total flux
           ! - diffuse fractions in a spectral range w.r.t. total flux in the same spectral range
           & trm_par_dn_sfc =field% partrmdnsfc(:,jb)      ,&!< out    downward shortwave transmissivity in PAR range
-          & vis_frc_sfc    =zvis_frc_sfc(:)               ,&!< out    Visible fraction of net surface radiation
-          & nir_dff_frc_sfc=field% nirdffsfc(:,jb)        ,&!< out    diffuse fraction in NIR net downw. flux
-          & vis_dff_frc_sfc=field% visdffsfc(:,jb)        ,&!< out    diffuse fraction in VIS net downw. flux
-          & par_dff_frc_sfc=field% pardffsfc(:,jb)         &!< out    diffuse fraction in PAR net downw. flux
+          & vis_frc_sfc    =field% visfrcsfc  (:,jb)      ,&!< out    Visible fraction of net surface radiation
+          & nir_dff_frc_sfc=field% nirdffsfc  (:,jb)      ,&!< out    diffuse fraction in NIR net downw. flux
+          & vis_dff_frc_sfc=field% visdffsfc  (:,jb)      ,&!< out    diffuse fraction in VIS net downw. flux
+          & par_dff_frc_sfc=field% pardffsfc  (:,jb)       &!< out    diffuse fraction in PAR net downw. flux
           )
 
 !!$          & field% nirsfc(:,jb)      ,&!< out    solar transmissivity in NIR, net downward
@@ -688,7 +686,7 @@ CONTAINS
 
     ! Compute VIS/NIR/PAR shortwave fluxes for surface processes
 
-    field%vissfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) * zvis_frc_sfc(jcs:jce)
+    field%vissfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) * field%visfrcsfc(jcs:jce,jb)
     field%nirsfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) - field%vissfc(jcs:jce,jb)
     field%parsfcdn (jcs:jce,jb) = zi0(jcs:jce) * field%partrmdnsfc (jcs:jce,       jb)
 
@@ -835,8 +833,8 @@ CONTAINS
           & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
           & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
           & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
-          & z0m_lnd = field% z0m_tile(:,jb,ilnd), &! out, roughness length for momentum over land
-          & z0h_lnd = field% z0h_lnd (:,jb),      &! out, roughness length for heat over land
+          & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
+          & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
           & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
           & albnirdir      = field% albnirdir     (:,jb)  ,                    &! inout
           & albvisdif      = field% albvisdif     (:,jb)  ,                    &! inout
@@ -970,22 +968,22 @@ CONTAINS
     IF (phy_config%lrad) THEN
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
-      zq_rlw_sfc(jcs:jce) =                                                  &
+      zq_rlw_impl(jcs:jce) =                                                  &
         & ( (field%lwflxall(jcs:jce,nlev,jb) - field%lwflxsfc(jcs:jce,jb)) ) &  ! new heating from new lwflxsfc
         & - zq_rlw(jcs:jce,nlev)                                                ! old heating from radheat
 
       ! Heating accumulated
-      zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_sfc(jcs:jce)
+      zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_impl(jcs:jce)
 
       ! Tendency
-      tend%temp_rlw_sfc(jcs:jce,jb) = zq_rlw_sfc(jcs:jce) * zconv(jcs:jce,nlev)
+      tend%temp_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * zconv(jcs:jce,nlev)
 
       ! Tendencies accumulated
-      tend%temp(jcs:jce,nlev,jb) = tend%temp(jcs:jce,nlev,jb) + tend%temp_rlw_sfc(jcs:jce,jb)
+      tend%temp(jcs:jce,nlev,jb) = tend%temp(jcs:jce,nlev,jb) + tend%temp_rlw_impl(jcs:jce,jb)
 
     ELSE
 
-      tend%temp_rlw_sfc(jcs:jce,jb) = 0._wp
+      tend%temp_rlw_impl(jcs:jce,jb) = 0._wp
 
     END IF
 
@@ -1000,7 +998,7 @@ CONTAINS
       zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
 
       CALL gw_hines ( jg                       ,&
-  &             nbdim                    ,&
+        &             nbdim                    ,&
         &             jcs                      ,&
         &             jce                      ,&
         &             nc                       ,&

@@ -129,7 +129,7 @@
   tend_ta_dyn        prm_tend_temp_dyn
   tend_ta_phy        prm_tend_temp_phy
   tend_ta_rlw        prm_tend_temp_rlw
-  tend_ta_rlw_sfc    prm_tend_temp_rlw_sfc
+  tend_ta_rlw_impl   prm_tend_temp_rlw_impl
   tend_ta_rsw        prm_tend_temp_rsw
   tend_ta_cld        prm_tend_temp_cld
   tend_ta_cnv        prm_tend_temp_cnv

@@ -158,6 +158,9 @@ MODULE mo_echam_phy_memory
       & nirsfc      (:,  :),  &!< [ ]    net shortwave radiation in NIR (positive downward)
       & parsfcdn    (:,  :),  &!< [ ]    downward shortwave radiation in PAR
       !
+      ! fractions of net surface shortwave flux (updated every radiation time step)
+      & visfrcsfc   (:,  :),  &!< [ ]    visible fraction of net surface shortwave flux 
+      !
       ! fractions of diffuse shortwave surface radiation (updated every radiation time step)
       & visdffsfc   (:,  :),  &!< [ ]    diffuse fraction in VIS downward flux
       & nirdffsfc   (:,  :),  &!< [ ]    diffuse fraction in NIR downward flux
@@ -458,7 +461,7 @@ MODULE mo_echam_phy_memory
       !
       & temp_rsw (:,:,:)  , & !< temperature tendency from radiation
       & temp_rlw (:,:,:)  , & !< temperature tendency from radiation
-      & temp_rlw_sfc(:,:)     !< temperature tendency in bottom layer due to updated surface temperatures after vdiff
+      & temp_rlw_impl(:,:)    !< temperature tendency in bottom layer due to updated sfc temperatures (impl. coupling)
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
@@ -875,6 +878,12 @@ CONTAINS
     cf_desc    = t_cf_var('flxdwswtoa', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'flxdwswtoa', field%flxdwswtoa,           &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    ! &       field% visfrcsfc    (nproma,       nblks),          &
+    cf_desc    = t_cf_var('visfrcsfc', '', 'visible fraction of sfc net sw', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'visfrcsfc', field%visfrcsfc,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% vissfc    (nproma,       nblks),          &
@@ -2110,10 +2119,10 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_rlw_sfc(nproma,nblks),             &
-    cf_desc    = t_cf_var('temperature_tendency_rlw_sfc', 'K s-1', '', DATATYPE_FLT32)
+    ! &       tend% temp_rlw_impl(nproma,nblks),            &
+    cf_desc    = t_cf_var('temperature_tendency_rlw_impl', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_rlw_sfc', tend%temp_rlw_sfc,                  &
+    CALL add_var( tend_list, prefix//'temp_rlw_impl', tend%temp_rlw_impl,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
                 & ldims=(/kproma,kblks/))
 

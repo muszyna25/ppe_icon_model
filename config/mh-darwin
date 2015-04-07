@@ -42,12 +42,13 @@ config_compiler=gcc
 load_modules=""
 
 MPIROOT     = /opt/local
-MPI_LIB     = -lmpichf90 -lmpich -lpmpi -lopa -lmpl -lpthread
+MPI_LIB     = -lmpifort -lmpi -lpmpi
 
 ZLIBROOT    = /opt/local
 SZIPROOT    = /opt/local
 HDF5ROOT    = /opt/local
 NETCDFROOT  = /opt/local
+XML2ROOT    = /opt/local
 LAPACKROOT  =
 
 ZLIB_LIB    = -lz
@@ -80,5 +81,3 @@ MODDIR      = -J
 make_command="make" "-j" "2"
 mpi_startrun="$MPIROOT/bin/mpiexec" "-n" "\\\$mpi_total_procs"
 submit=""
-  
-

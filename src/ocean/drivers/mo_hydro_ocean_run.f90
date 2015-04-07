@@ -27,10 +27,9 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write
-  ! & use_ThermoExpansion_Correction
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
-  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
+  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
@@ -62,10 +61,10 @@ MODULE mo_hydro_ocean_run
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config
   USE mo_master_control,         ONLY: is_restart_run
-  USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
-  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_print_mean
+  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
+  USE mo_statistics
   USE mo_ocean_statistics
   USE mo_ocean_output
 
@@ -150,11 +149,10 @@ CONTAINS
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
-!     INTEGER, POINTER :: dolic(:,:)
-!     REAL(wp), POINTER :: prism_thickness(:,:,:)
     INTEGER :: jstep0 ! start counter for time loop
-    REAL(wp) :: mean_height
-
+    REAL(wp) :: mean_height, old_mean_height
+    REAL(wp) :: verticalMeanFlux(n_zlev+1)
+    INTEGER :: level
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
@@ -242,6 +240,12 @@ CONTAINS
 
       CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, p_ice%concsum, p_phys_param, operators_coefficients)
 
+
+      !------------------------------------------------------------------------
+      IF (debug_check_level > 5) THEN
+        CALL horizontal_mean(values=ocean_state(jg)%p_prog(nold(1))%h(:,:), weights=patch_2d%cells%area(:,:), &
+          & in_subset=patch_2d%cells%owned, mean=old_mean_height)
+      END IF
       !------------------------------------------------------------------------
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
@@ -267,11 +271,27 @@ CONTAINS
       ENDIF
       !------------------------------------------------------------------------
 
-      IF (idbg_mxmn > 1) THEN
-        CALL levels_horizontal_mean(values=ocean_state(jg)%p_prog(1)%h(:,:), weights=patch_2d%cells%area(:,:), &
-          & in_subset=patch_3d%p_patch_2d(1)%cells%owned, mean=mean_height)
-        CALL debug_print_mean("Mean Height", mean_height, 2)
+      IF (idbg_mxmn >= 2 .OR. debug_check_level > 2) THEN
+        CALL horizontal_mean(values=ocean_state(jg)%p_prog(nnew(1))%h(:,:), weights=patch_2d%cells%area(:,:), &
+          & in_subset=patch_2d%cells%owned, mean=mean_height)
+        CALL debug_printValue(description="Mean Height", value=mean_height, detail_level=2)
       ENDIF
+      IF (debug_check_level > 5 .AND. idbg_mxmn >= 2) THEN
+        ! check difference from old_mean_height
+        CALL debug_printValue(description="Old/New Mean Height", value=old_mean_height, &
+          & value1=mean_height, value2=(mean_height-old_mean_height) / old_mean_height, &
+          & detail_level=2)
+        ! check if vertical and horizontal fluxes add to 0
+!         ocean_state(jg)%p_diag%w
+        CALL horizontal_mean(values=ocean_state(jg)%p_diag%w, weights=patch_2d%cells%area(:,:), &
+          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev-1)
+        
+        DO level=2, n_zlev-1
+          CALL debug_printValue(description="Mean vertical flux at", value=REAL(level,wp),  &
+            & value1=verticalMeanFlux(level), detail_level=2)
+        ENDDO         
+      END IF
+      !------------------------------------------------------------------------
 
       !------------------------------------------------------------------------
       ! Step 6: transport tracers and diffuse them
@@ -324,9 +344,6 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
-!       dolic           => patch_3d%p_patch_1d(1)%dolic_c
-!       prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
-
       CALL calc_fast_oce_diagnostics( patch_2d,      &
         & patch_3d%p_patch_1d(1)%dolic_c, &
         & patch_3d%p_patch_1d(1)%prism_thick_c, &
@@ -364,9 +381,9 @@ CONTAINS
       ! check cfl criterion
       IF (cfl_check) THEN
         CALL check_cfl_horizontal(ocean_state(jg)%p_prog(nnew(1))%vn, &
-          & patch_3d%p_patch_2d(1)%edges%inv_dual_edge_length, &
+          & patch_2d%edges%inv_dual_edge_length, &
           & dtime, &
-          & patch_3d%p_patch_2d(1)%edges%ALL, &
+          & patch_2d%edges%ALL, &
           & cfl_threshold, &
           & ocean_state(jg)%p_diag%cfl_horz, &
           & cfl_stop_on_violation,&
@@ -374,7 +391,7 @@ CONTAINS
         CALL check_cfl_vertical(ocean_state(jg)%p_diag%w, &
           & patch_3d%p_patch_1d(1)%prism_center_dist_c, &
           & dtime, &
-          & patch_3d%p_patch_2d(1)%cells%ALL,&
+          & patch_2d%cells%ALL,&
           & cfl_threshold, &
           & ocean_state(jg)%p_diag%cfl_vert, &
           & cfl_stop_on_violation,&
@@ -406,23 +423,32 @@ CONTAINS
     ! in general nml output is writen based on the nnew status of the
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
-    ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
     ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
-      ! copy old tracer values to spot value fields for propper initial timestep
-      ! output
+    
+    ! ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
+    ! CALL calculate_thickness( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
+    
+    ! copy old tracer values to spot value fields for propper initial timestep
+    ! output
     IF(no_tracer>=1)THEN
       ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+      ! in general nml output is writen based on the nnew status of the
+      ! prognostics variables. Unfortunately, the initialization has to be written
+      ! to the nold state. That's why the following manual copying is nec.
+      ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
     ENDIF
     IF(no_tracer>=2)THEN
       ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
     ENDIF
     ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-    CALL calc_potential_density( patch_3d,                     &
-      & ocean_state%p_prog(nold(1))%tracer,&
-      & ocean_state%p_diag%rhopot )
-    CALL calculate_density( patch_3d,                        &
-      & ocean_state%p_prog(nold(1))%tracer, &
-      & ocean_state%p_diag%rho )
+    IF(no_tracer>=1)THEN
+      CALL calc_potential_density( patch_3d,                     &
+        & ocean_state%p_prog(nold(1))%tracer,&
+        & ocean_state%p_diag%rhopot )
+      CALL calculate_density( patch_3d,                        &
+        & ocean_state%p_prog(nold(1))%tracer, &
+        & ocean_state%p_diag%rho )
+    ENDIF
 
     CALL update_ocean_statistics( &
       & ocean_state,            &

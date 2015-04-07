@@ -46,7 +46,7 @@ MODULE mo_srtm
 CONTAINS
 
   SUBROUTINE srtm_srtm_224gp                                                   &
-    !  input
+                                !  input
     & (kproma          , kbdim           , klev            , ksw             , &
     &  alb_vis_dir     , alb_nir_dir     , alb_vis_dif     , alb_nir_dif     , &
     &  pm_fl_vr        , tk_fl_vr        , prmu0                             , &
@@ -54,9 +54,9 @@ CONTAINS
     &  cld_frc_vr      , cld_tau_sw_vr   , cld_cg_sw_vr    , cld_piz_sw_vr   , &
     &  aer_tau_sw_vr   , aer_cg_sw_vr    , aer_piz_sw_vr                     , &
     &  ssi             , z_mc                                                , &
-    !  output
+                                !  output
     &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
-    ! optional output
+                                ! optional output
     &  flxd_dff_sfc    , flxd_par_sfc    , vis_frc_sfc                       , &
     &  nir_dff_frc_sfc , vis_dff_frc_sfc , par_dff_frc_sfc                     )
 

@@ -545,8 +545,10 @@ CONTAINS
     CASE (214)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
       !  exponential temperature profile following Abernathey et al., 2011
-      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
-        &                                    initial_temperature_scale_depth)
+!       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+!         &                                    initial_temperature_scale_depth)
+      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & bottom_value=initial_temperature_bottom)
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
@@ -2507,7 +2509,7 @@ stop
 
         !Local hot perturbation
         IF(distan<=perturbation_width)THEN
-          temperature = (1.0_wp+COS(pi*distan/perturbation_width))/2.0_wp +2.0_wp
+          temperature = (1.0_wp+COS(pi*distan/perturbation_width)) * 0.5_wp +2.0_wp
         ELSE
           temperature = 0.0_wp
         ENDIF
@@ -2518,6 +2520,7 @@ stop
 
       END DO
     END DO
+    
   END SUBROUTINE temperature_circularLonLatPerturbation
   !-------------------------------------------------------------------------------
 

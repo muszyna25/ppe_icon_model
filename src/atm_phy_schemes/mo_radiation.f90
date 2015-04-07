@@ -727,7 +727,7 @@ CONTAINS
     ! --------------------------------------
     !
     CALL rrtm_interface(                                                    &
-      ! input
+                                ! input
       & jg              ,jb                                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
@@ -742,10 +742,10 @@ CONTAINS
       & qm_o3           ,xm_co2          ,xm_ch4                           ,&
       & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5                                      ,&
-      ! output
+                                ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc,&
-      ! optional output
+                                ! optional output
       & flx_dnpar_sfc=flx_dnpar_sfc,                                        &
       & vis_frc_sfc=vis_frc_sfc,                                            &
       & nir_dff_frc_sfc=nir_dff_frc_sfc,                                    &

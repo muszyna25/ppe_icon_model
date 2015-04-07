@@ -1997,7 +1997,7 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
       
-      DO je = 1, ptr_patch%cell_type
+      DO je = 1, ptr_patch%geometry_info%cell_type
         DO jc = i_startidx, i_endidx
           
           IF (je > ptr_patch%cells%num_edges(jc,jb)) CYCLE ! relevant for hexagons
@@ -2024,7 +2024,7 @@ CONTAINS
     rl_end = min_rlvert
     
     ! Vorticity should have the right sign
-    SELECT CASE (ptr_patch%cell_type)
+    SELECT CASE (ptr_patch%geometry_info%cell_type)
     CASE (3)
       ifac = 1
     CASE (6)
@@ -2042,7 +2042,7 @@ CONTAINS
       CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
       
-      DO je = 1, 9-ptr_patch%cell_type
+      DO je = 1, 9-ptr_patch%geometry_info%cell_type
         DO jv = i_startidx, i_endidx
           
           IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
@@ -2080,7 +2080,7 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
       
-      DO je = 1, ptr_patch%cell_type
+      DO je = 1, ptr_patch%geometry_info%cell_type
         DO jc = i_startidx, i_endidx
           
           ile = ptr_patch%cells%edge_idx(jc,jb,je)
@@ -2092,52 +2092,52 @@ CONTAINS
           ibc2 = ptr_patch%edges%cell_blk(ile,ibe,2)
           
           IF (jc == ilc1 .AND. jb == ibc1) THEN
-            IF (ptr_patch%cell_type == 3) THEN
+            IF (ptr_patch%geometry_info%cell_type == 3) THEN
               ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) - &
                 & ptr_int%geofac_div(jc,je,jb) /                            &
                 & ptr_patch%edges%dual_edge_length(ile,ibe)
-            ELSE IF (ptr_patch%cell_type == 6) THEN
+            ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
               ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) - &
                 & ptr_int%geofac_div(jc,je,jb) /                            &
                 & ptr_patch%edges%dual_edge_length(ile,ibe)*                &
-                & ptr_patch%edges%system_orientation(ile,ibe)
+                & ptr_patch%edges%tangent_orientation(ile,ibe)
             ENDIF
           ELSE IF (jc == ilc2 .AND. jb == ibc2) THEN
-            IF (ptr_patch%cell_type == 3) THEN
+            IF (ptr_patch%geometry_info%cell_type == 3) THEN
               ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) + &
                 & ptr_int%geofac_div(jc,je,jb) /                            &
                 & ptr_patch%edges%dual_edge_length(ile,ibe)
-            ELSE IF (ptr_patch%cell_type == 6) THEN
+            ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
               ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) + &
                 & ptr_int%geofac_div(jc,je,jb) /                            &
                 & ptr_patch%edges%dual_edge_length(ile,ibe)*                &
-                & ptr_patch%edges%system_orientation(ile,ibe)
+                & ptr_patch%edges%tangent_orientation(ile,ibe)
             ENDIF
           ENDIF
-          DO ic = 1, ptr_patch%cell_type
+          DO ic = 1, ptr_patch%geometry_info%cell_type
             ilnc = ptr_patch%cells%neighbor_idx(jc,jb,ic)
             ibnc = ptr_patch%cells%neighbor_blk(jc,jb,ic)
             IF (ilnc == ilc1 .AND. ibnc == ibc1) THEN
-              IF (ptr_patch%cell_type == 3) THEN
+              IF (ptr_patch%geometry_info%cell_type == 3) THEN
                 ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) - &
                   & ptr_int%geofac_div(jc,je,jb) /                                  &
                   & ptr_patch%edges%dual_edge_length(ile,ibe)
-              ELSE IF (ptr_patch%cell_type == 6) THEN
+              ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
                 ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) - &
                   & ptr_int%geofac_div(jc,je,jb) /                                  &
                   & ptr_patch%edges%dual_edge_length(ile,ibe)*                      &
-                  & ptr_patch%edges%system_orientation(ile,ibe)
+                  & ptr_patch%edges%tangent_orientation(ile,ibe)
               ENDIF
             ELSE IF (ilnc == ilc2 .AND. ibnc == ibc2) THEN
-              IF (ptr_patch%cell_type == 3) THEN
+              IF (ptr_patch%geometry_info%cell_type == 3) THEN
                 ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) + &
                   & ptr_int%geofac_div(jc,je,jb) /                                  &
                   & ptr_patch%edges%dual_edge_length(ile,ibe)
-              ELSE IF (ptr_patch%cell_type == 6) THEN
+              ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
                 ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) + &
                   & ptr_int%geofac_div(jc,je,jb) /                                  &
                   & ptr_patch%edges%dual_edge_length(ile,ibe)*                      &
-                  & ptr_patch%edges%system_orientation(ile,ibe)
+                  & ptr_patch%edges%tangent_orientation(ile,ibe)
               ENDIF
             ENDIF
           ENDDO
@@ -2155,7 +2155,7 @@ CONTAINS
     
     ! d) Geometrical factor for quad-cell divergence (triangles only)
     
-    IF (ptr_patch%cell_type == 3) THEN
+    IF (ptr_patch%geometry_info%cell_type == 3) THEN
       
       rl_start = 2
       rl_end = min_rledge
@@ -2195,7 +2195,7 @@ CONTAINS
     
     ! sync does not work on patch 0 for some unknown reason. But we don't need this
     ! field on the radiation grid anyway, so let's just skip it
-    IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
+    IF (ptr_patch%geometry_info%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
       
       rl_start = 2
       rl_end = min_rledge
@@ -2331,7 +2331,7 @@ CONTAINS
     ! f) coefficients for directional gradient of a normal vector quantity
     ! at the same edge (gives directional laplacian if gradient psi is assumed as input)
     
-    IF (ptr_patch%cell_type == 6) THEN
+    IF (ptr_patch%geometry_info%cell_type == 6) THEN
       
       ! Now compute coefficients
       !-------------------------
@@ -2631,7 +2631,7 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
       
-      DO je = 1, ptr_patch%cell_type
+      DO je = 1, ptr_patch%geometry_info%cell_type
         DO jc = i_startidx, i_endidx
           
           IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -2659,7 +2659,7 @@ CONTAINS
               & ptr_int%primal_normal_ec(jc,jb,je,2)*ptr_int%geofac_div(jc,je,jb)* &
               & ptr_int%c_lin_e(ile,2,ibe)
           ENDIF
-          DO ic = 1, ptr_patch%cell_type
+          DO ic = 1, ptr_patch%geometry_info%cell_type
             ilnc = ptr_patch%cells%neighbor_idx(jc,jb,ic)
             ibnc = ptr_patch%cells%neighbor_blk(jc,jb,ic)
             IF (ilnc == ilc1 .AND. ibnc == ibc1) THEN
@@ -2696,12 +2696,12 @@ CONTAINS
     CALL sync_patch_array(sync_v,ptr_patch,ptr_int%geofac_rot)
     CALL sync_patch_array(sync_c,ptr_patch,ptr_int%geofac_n2s)
     
-    IF (ptr_patch%cell_type == 3) THEN
+    IF (ptr_patch%geometry_info%cell_type == 3) THEN
       CALL sync_patch_array(sync_e,ptr_patch,ptr_int%geofac_qdiv)
       IF (ptr_patch%id >= 1) CALL sync_patch_array(sync_e,ptr_patch,ptr_int%geofac_grdiv)
     ENDIF
     
-    IF (ptr_patch%cell_type == 6) THEN
+    IF (ptr_patch%geometry_info%cell_type == 6) THEN
       CALL sync_patch_array(sync_e,ptr_patch,ptr_int%cno_en)
       CALL sync_patch_array(sync_e,ptr_patch,ptr_int%cea_en)
       
@@ -2965,7 +2965,7 @@ CONTAINS
         cc_ev4 = ptr_patch%verts%cartesian(ilv4,ibv4)
         
         ! inverse length bewtween vertices 3 and 4
-        IF (ptr_patch%cell_type == 3 ) THEN
+        IF (ptr_patch%geometry_info%cell_type == 3 ) THEN
           ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/&
             & (grid_sphere_radius*arc_length(cc_ev3,cc_ev4,ptr_patch%geometry_info))
         ENDIF
@@ -3283,7 +3283,7 @@ CONTAINS
     
 !$OMP END PARALLEL
     
-    DO je = 1, ptr_patch%cell_type
+    DO je = 1, ptr_patch%geometry_info%cell_type
       CALL sync_patch_array(sync_c,ptr_patch,ptr_int%primal_normal_ec(:,:,je,1))
       CALL sync_patch_array(sync_c,ptr_patch,ptr_int%primal_normal_ec(:,:,je,2))
       CALL sync_patch_array(sync_c,ptr_patch,ptr_int%edge_cell_length(:,:,je))
