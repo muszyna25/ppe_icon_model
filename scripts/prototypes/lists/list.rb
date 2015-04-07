@@ -3,5 +3,6 @@
 class MyList < Array
   def add(value)
     self << value unless self.include?(value)
+    self
   end
 end
