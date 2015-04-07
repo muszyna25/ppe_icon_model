@@ -50,6 +50,7 @@ class MyListTest < Minitest::Test
     check(MyVector.new)
   end
 
+  # Hash and Array based
   # OUTPUT = {
   # "intervalA" => [
   #    { "operatorA" => [vA,vB,...]},
@@ -69,21 +70,20 @@ class MyListTest < Minitest::Test
     loopHash(output)
   end
 
-  # OUTPUT = MyList [
-  # ("intervalA", MyList[
-  #   ("operatorA, MyList[vA,vB,...]),
-  #   ("operatorB, MyList[vA,vc,...])
+  # MyVector based
+  # OUTPUT = MyVector [
+  #   MyVector["intervalA",
+  #     MyVector["operatorA, MyVector[vA,vB,...]],
+  #     MyVector["operatorB, MyVector[vA,vc,...]]
   #   ],
-  # ),
-  # ("intervalB", MyList[
-  #   ("operatorA, MyList[vA,vB,...]),
-  #   ("operatorB, MyList[vD,vc,...])
+  #   MyVector["intervalB",
+  #     MyVector["operatorA, MyVector[vA,vB,...]],
+  #     MyVector["operatorB, MyVector[vD,vc,...]]
   #   ],
-  # ),
   # ]
-  def test_output_list
+  def test_output_vector
     #pp @input
-   # output = My.new
+    output = MyVector.new
     @input.each {|line|
       operator,interval,varname = line
     }
