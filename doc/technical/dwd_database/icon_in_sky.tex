@@ -127,10 +127,11 @@ read db=numex cat=icogl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=7/to/9 p=T 
 \item Retrieve a 6 hour forecast on a regular grid on pressure levels. ICON was run on a 40 km
 grid (R2B06).  Write reference date (d),
 forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), and
-store date (stdat) in information file icr.info
+store date (stdat) in information file icr.info.
 \begin{skydb}
 read db=numex cat=icrgl400l90_main_fc_exp exp=9323 d=2012010100 step[h]=6 lv=P f=icr06p bin info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat sort=d,s,p,lv,lv1 infof=icr.info
 \end{skydb}
+In order to retrieve the same forecast on height levels, the level type must be changed to lv=HMSL.
 
 \item Retrieve temperature in 850 hPa from a forecast on 2013-10-05 at 12 UTC:
 
