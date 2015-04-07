@@ -437,7 +437,7 @@ CONTAINS
         jk = levlist_c1(jl,jb)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
@@ -504,7 +504,7 @@ CONTAINS
         jk = levlist_c2p(jl,jb)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         !
@@ -561,7 +561,7 @@ CONTAINS
         je = idxlist_c2m(jl,jb)
         jk = levlist_c2m(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line2
         !
@@ -618,7 +618,7 @@ CONTAINS
         je = idxlist_c3p(jl,jb)
         jk = levlist_c3p(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
@@ -675,7 +675,7 @@ CONTAINS
         je = idxlist_c3m(jl,jb)
         jk = levlist_c3m(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
         pi2(1:2) = line_intersect(fl_e1(je,jk), tri_line2(je,jk))
@@ -732,7 +732,7 @@ CONTAINS
         je = idxlist_vn0(jl,jb)
         jk = levlist_vn0(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! patch 0 (non-existing)
         !
@@ -1261,7 +1261,7 @@ CONTAINS
         jk = levlist_c1(jl)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
@@ -1321,7 +1321,7 @@ CONTAINS
         jk = levlist_c2p(jl)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         !
@@ -1375,7 +1375,7 @@ CONTAINS
         je = idxlist_c2m(jl)
         jk = levlist_c2m(jl)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line2
         !
@@ -1429,7 +1429,7 @@ CONTAINS
         je = idxlist_c3p(jl)
         jk = levlist_c3p(jl)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
@@ -1479,7 +1479,7 @@ CONTAINS
         je = idxlist_c3m(jl)
         jk = levlist_c3m(jl)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
         pi2(1:2) = line_intersect(fl_e1(ie), tri_line2(ie))
