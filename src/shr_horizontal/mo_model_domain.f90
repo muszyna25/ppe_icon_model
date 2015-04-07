@@ -28,7 +28,7 @@
 !!  - replaced neighbor_index by neighbor_idx
 !!  - replaced child_index by child_idx
 !! Modification by P. Ripodas (2007-01-31)
-!!  - added system_orientation to TYPE grid_edges
+!!  - added tangent_orientation to TYPE grid_edges
 !! Modification by Hui Wan, MPI-M, (2007-02-22):
 !!  - type cartesian_coordinates and type geographical_coordinates
 !!    moved to mo_math_utilities
@@ -409,7 +409,7 @@ MODULE mo_model_domain
     ! from cell c1 to cell c2 (c2-c1) goes outside the sphere
     ! =-1 if vector product ...       goes inside  the sphere
     ! index=1,nproma, index2=1,nblks_e
-    REAL(wp), ALLOCATABLE :: system_orientation(:,:)
+    REAL(wp), ALLOCATABLE :: tangent_orientation(:,:)
 
     ! line indices of the  of the quadrilateral formed by two adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
@@ -755,9 +755,9 @@ MODULE mo_model_domain
     !-------------------------------------
     !> The grid domain geometry parameters
     ! cell type =3 or 6
-    INTEGER :: cell_type
+    ! INTEGER :: cell_type     ! included in geometry_info
 
-    INTEGER :: geometry_type
+!     INTEGER :: geometry_type ! included in geometry_info
 
     TYPE(t_grid_geometry_info) :: geometry_info
     !-------------------------------------

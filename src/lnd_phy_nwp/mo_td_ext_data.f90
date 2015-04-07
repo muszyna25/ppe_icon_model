@@ -263,7 +263,7 @@ CONTAINS
     ENDIF
 
       DO jg = 1,n_dom
-        IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+        IF (p_patch(jg)%geometry_info%cell_type == 6) THEN ! hexagonal grid
 
           CALL finish(TRIM(ROUTINE),&
             & 'Hexagonal grid is not supported, yet.')

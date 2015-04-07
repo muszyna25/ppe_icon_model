@@ -1,3 +1,4 @@
+#!/bin/bash
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -25,6 +26,8 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
+grids_folder=${icon_data_poolFolder}/grids/buildbot
+
 #
 # Number of ocean processes
 #
@@ -41,7 +44,7 @@ if [ $OMP_NUM_THREADS -gt 1 ] ; then
    check_error 0
    exit
 fi
-#
+
 #-----------------------------------------------------------------------------
 # ATMO
 #-----------------------------------------------------------------------------
@@ -227,7 +230,7 @@ cat > $atmo_namelist << EOF
  max_send_recv_buffer_size = 262144
 /
 &grid_nml
- cell_type = 3             ! triangular cells
+ ! cell_type is not used = 3             ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
  grid_angular_velocity  = 7.29212e-5  !default earth angular velocity is 7.29212e-5
 /
@@ -529,7 +532,7 @@ cat > ${ocean_namelist} << EOF
 /
 &sea_ice_nml
   i_ice_therm   = 1
-  i_ice_dyn     = 1
+  i_ice_dyn     = 0                ! ice dynamics not yet ready for coupling
 /
 &ocean_forcing_nml
   iforc_oce              = ${iforc_oce} ! ocean forcing:
