@@ -250,14 +250,15 @@ Note that the grid nests are computed in a concurrent fashion:
   contain data for the global grid state.
 \item The data points on the triangular grid are the cell
   circumcenters. Therefore the global grid data points are closely
-  located to nest data sites, but they \emph{do not coincide} exactly.
+  located to nest data sites, but they \emph{do not coincide} exactly 
+  (see Fig.~\ref{fig:icon_grid_refinement_zoom_view}).
 \end{itemize}
 
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.90\textwidth]{pics/grid_refinement.png}
-  \caption{ICON grid refinement (zoom view).}
+  \caption{ICON grid refinement (zoom view). Blue and red dots indicate the cell circumcenters for the global (``parent'') and the refined (``child'') domain, respectively.}
   \label{fig:icon_grid_refinement_zoom_view}
 \end{figure}
 
