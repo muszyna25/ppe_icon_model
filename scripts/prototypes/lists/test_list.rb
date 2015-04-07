@@ -23,18 +23,6 @@ class MyListTest < Minitest::Test
   def intervalHasEvent?(interval)
     return interval == (ENV.has_key?('INT') ? ENV['INT'] : 'P01D')
   end
-  def loopHash(output)
-    output.each {|interval,joblist|
-      if intervalHasEvent?(interval) then
-        puts "INTERVAL:#{interval} is active"
-        joblist.each {|operator,varlist|
-          varlist.each {|var|
-            puts "Work on VARNAME:#{var} for OPERATOR:#{operator}"
-          }
-        }
-      end
-    }
-  end
 
   # multiple adds of the same value, should lead to a singe entry only
   def check(listObj)
@@ -61,31 +49,61 @@ class MyListTest < Minitest::Test
   #    { "operatorB" => [vD,vC,...]},
   #    ],
   # }
+  def loop_hash(output)
+    output.each {|interval,joblist|
+      if intervalHasEvent?(interval) then
+        puts "INTERVAL:#{interval} is active"
+        joblist.each {|operator,varlist|
+          varlist.each {|var|
+            puts "Work on VARNAME:#{var} for OPERATOR:#{operator}"
+          }
+        }
+      end
+    }
+  end
   def test_output_hash
     output = {}
     @input.each {|line|
       operator,interval,varname = line
       ((output[interval] ||= {})[operator] ||= []) << varname
     }
-    loopHash(output)
+    loop_hash(output)
+    pp output
   end
 
   # MyVector based
-  # OUTPUT = MyVector [
-  #   MyVector["intervalA",
-  #     MyVector["operatorA, MyVector[vA,vB,...]],
-  #     MyVector["operatorB, MyVector[vA,vc,...]]
-  #   ],
-  #   MyVector["intervalB",
-  #     MyVector["operatorA, MyVector[vA,vB,...]],
-  #     MyVector["operatorB, MyVector[vD,vc,...]]
-  #   ],
-  # ]
+  $expectedOutput = MyVector.new([
+    MyVector.new(["intervalA",
+      MyVector.new(["operatorA", MyVector.new(['vA','vB'])]),
+      MyVector.new(["operatorB", MyVector.new(['vA','vC'])])
+    ]),
+    MyVector.new(["intervalB",
+      MyVector.new(["operatorA", MyVector.new(['vA','vB'])]),
+      MyVector.new(["operatorB", MyVector.new(['vD','vC'])])
+    ]),
+  ])
+  def loop_vector(output)
+    puts "OUTPUT SIZE:#{output.size}"
+    (0...output.size).each {|intervalIndex|
+      intervalVector = output[intervalIndex]
+      interval       = intervalVector[0]
+      if intervalHasEvent?(interval) then
+      else
+        pp interval
+      end
+    }
+  end
   def test_output_vector
-    #pp @input
-    output = MyVector.new
+    pp @input
+    #pp $expectedOutput
+    output         = MyVector.new
+    intervalVector = MyVector.new
+    operatorVector = MyVector.new
+    varnameVector  = MyVector.new
     @input.each {|line|
       operator,interval,varname = line
+      # check if interval is already  there
     }
+    loop_vector($expectedOutput)
   end
 end
