@@ -1830,18 +1830,18 @@
       REAL(wp),       INTENT(IN)     :: v(3)          !< query point
       TYPE(t_point),  INTENT(IN)     :: v1,v2,v3      !< vertex longitudes/latitudes
       ! local variables
-      REAL(wp)      :: c1,c2,c3
+      LOGICAL       :: c1,c2,c3
       TYPE(t_point) :: p
-      
+
       p%x = v(1)
       p%y = v(2)
       p%z = v(3)
-      
-      c1      = ccw_spherical(v1,v2,p)
-      c2      = ccw_spherical(v2,v3,p)
-      c3      = ccw_spherical(v3,v1,p)
-      inside_triangle = ((c1>=0._wp) .AND. (c2>=0._wp) .AND. (c3>=0._wp)) .OR. &
-        &               ((c1<=0._wp) .AND. (c2<=0._wp) .AND. (c3<=0._wp))
+
+      c1  = ccw_spherical(v1,v2,p)
+      c2  = ccw_spherical(v2,v3,p)
+      c3  = ccw_spherical(v3,v1,p)
+      inside_triangle = ((      c1) .AND. (      c2) .AND. (      c3)) .OR. &
+        &               ((.NOT. c1) .AND. (.NOT. c2) .AND. (.NOT. c3))
     END FUNCTION inside_triangle
 
 
@@ -1888,6 +1888,7 @@
       TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
       TYPE(t_point)                   :: p, centroid
       LOGICAL                         :: inside_test1, inside_test2
+      TYPE (t_triangulation)  :: tri_global
 
       !-----------------------------------------------------------------------
 
@@ -2024,23 +2025,22 @@
       !
       ! --- write a plot of the local triangulation
 
-      !  IF (dbg_level > 2) THEN
-      !    WRITE (0,'(a,i0,a)') "# formed ", tri%nentries, " triangles."
-      !    IF (dbg_level > 10) THEN
-      !      CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
-      !    END IF
-      !  END IF
-      !  CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
+      IF (dbg_level > 2) THEN
+        WRITE (0,'(a,i0,a)') "# formed ", tri%nentries, " triangles."
+        IF (dbg_level > 10) THEN
+          CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
+        END IF
+      END IF
+      CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
 
       ! --- write a plot of the global triangulation
 
-      !  CALL tri%quicksort() 
-      !  !     TYPE (t_triangulation)  :: tri_global
-      !  tri_global=triangulation(tri)
-      !  CALL tri_global%sync()
-      !  IF (my_process_is_stdio()) THEN
-      !    CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
-      !  END IF
+      CALL tri%quicksort() 
+      tri_global=triangulation(tri)
+      CALL tri_global%sync()
+      IF (my_process_is_stdio()) THEN
+        CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
+      END IF
 
       ALLOCATE(pmin(tri%nentries,3), pmax(tri%nentries,3), STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')

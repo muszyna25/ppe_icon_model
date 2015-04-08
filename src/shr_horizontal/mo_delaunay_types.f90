@@ -47,12 +47,7 @@ MODULE mo_delaunay_types
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_delaunay_types'
 
   ! quadruple precision, needed for some determinant computations
-
-#ifndef NAGFOR
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
-#else
-  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
-#endif
 
 
   ! --------------------------------------------------------------------
@@ -167,6 +162,28 @@ MODULE mo_delaunay_types
 
 
   ! --------------------------------------------------------------------
+  ! DATA TYPES FOR K-WAY MERGE ALGORITHM
+  ! --------------------------------------------------------------------
+
+  TYPE t_min_heap_elt
+    TYPE(t_triangle) :: p
+  END TYPE t_min_heap_elt
+
+  ! min heap node
+  TYPE t_min_heap_node
+    TYPE (t_min_heap_elt) :: elt ! element to be stored
+    INTEGER               :: i   ! array from which the element is taken
+    INTEGER               :: j   ! index of the next element to be picked 
+  END TYPE t_min_heap_node
+
+  TYPE t_min_heap
+    TYPE (t_min_heap_node), ALLOCATABLE :: harr(:)  ! array of elements in heap
+    INTEGER                             :: isize    ! size of min heap    
+  END TYPE t_min_heap
+
+
+
+  ! --------------------------------------------------------------------
   ! DECLARATION OF OPERATORS AND TYPE-BOUND PROCEDURES
   ! --------------------------------------------------------------------
 
@@ -256,7 +273,7 @@ CONTAINS
     TYPE (t_point_list), INTENT(IN)   :: pxyz
     INTEGER,             INTENT(IN)   :: ip(0:2)
     ! local variables
-    TYPE (t_point)              :: d1, d2, d3
+    REAL(wp) :: d1_x, d1_y, d1_z,d2_x, d2_y, d2_z,d3_x, d3_y, d3_z, d1, d2
 
     ! p lies above the plane of (p1,p3,p2) iff p2 lies above the plane
     ! of (p3,p1,p) iff Det(p2-p,p3-p,p1-p) = (p2-p,p3-p X p1-p) > 0.
@@ -264,16 +281,65 @@ CONTAINS
     ! det =      (pxyz%a(ip(1))%x - p%x)*(d3%y*d1%z - d1%y*d3%z) &
     !   &     -  (pxyz%a(ip(1))%y - p%y)*(d3%x*d1%z - d1%x*d3%z) &
     !   &     +  (pxyz%a(ip(1))%z - p%z)*(d3%x*d1%y - d1%x*d3%y)
-    d1 = pxyz%a(ip(0)) - p
-    d2 = pxyz%a(ip(1)) - p
-    d3 = pxyz%a(ip(2)) - p
-    IF ( d2%x*d3%y*d1%z  +  d2%y*d1%x*d3%z + d2%z*d3%x*d1%y &
-      > d2%y*d3%x*d1%z + d2%x*d1%y*d3%z + d2%z*d1%x*d3%y ) THEN 
-      circum_circle_spherical = .TRUE.
+    d1_x = pxyz%a(ip(0))%x - p%x
+    d1_y = pxyz%a(ip(0))%y - p%y
+    d1_z = pxyz%a(ip(0))%z - p%z
+    d2_x = pxyz%a(ip(1))%x - p%x
+    d2_y = pxyz%a(ip(1))%y - p%y
+    d2_z = pxyz%a(ip(1))%z - p%z
+    d3_x = pxyz%a(ip(2))%x - p%x
+    d3_y = pxyz%a(ip(2))%y - p%y
+    d3_z = pxyz%a(ip(2))%z - p%z
+
+    d1 = d2_x*d3_y*d1_z  +  d2_y*d1_x*d3_z + d2_z*d3_x*d1_y
+    d2 = d2_y*d3_x*d1_z + d2_x*d1_y*d3_z + d2_z*d1_x*d3_y 
+    IF (ABS(d1-d2) < 1.e-12_wp) THEN
+      circum_circle_spherical = circum_circle_spherical_q128(p, pxyz, ip)
     ELSE
-      circum_circle_spherical = .FALSE.
+      circum_circle_spherical = (d1 > d2)
     END IF
   END FUNCTION circum_circle_spherical
+
+
+  ! --------------------------------------------------------------------
+  !> Return TRUE if a point (xp,yp) is inside the circumcircle made up
+  !  of the points ip[1,2,3].
+  ! 
+  !  See, e.g., 
+  !  Renka, R. J. Interpolation of Data on the Surface of a Sphere
+  !               ACM Trans. Math. Softw., ACM, 1984, 10, 417-436
+  !  Renka's STRIPACK algorithm (http://www.netlib.org/toms/772)
+  PURE FUNCTION circum_circle_spherical_q128(p, pxyz, ip)
+    LOGICAL :: circum_circle_spherical_q128
+    TYPE (t_point),      INTENT(IN)   :: p
+    TYPE (t_point_list), INTENT(IN)   :: pxyz
+    INTEGER,             INTENT(IN)   :: ip(0:2)
+    ! local variables
+    REAL(QR_K) :: d1_x, d1_y, d1_z,d2_x, d2_y, d2_z,d3_x, d3_y, d3_z
+
+    ! p lies above the plane of (p1,p3,p2) iff p2 lies above the plane
+    ! of (p3,p1,p) iff Det(p2-p,p3-p,p1-p) = (p2-p,p3-p X p1-p) > 0.
+    !
+    ! det =      (pxyz%a(ip(1))%x - p%x)*(d3%y*d1%z - d1%y*d3%z) &
+    !   &     -  (pxyz%a(ip(1))%y - p%y)*(d3%x*d1%z - d1%x*d3%z) &
+    !   &     +  (pxyz%a(ip(1))%z - p%z)*(d3%x*d1%y - d1%x*d3%y)
+    d1_x = pxyz%a(ip(0))%x - p%x
+    d1_y = pxyz%a(ip(0))%y - p%y
+    d1_z = pxyz%a(ip(0))%z - p%z
+    d2_x = pxyz%a(ip(1))%x - p%x
+    d2_y = pxyz%a(ip(1))%y - p%y
+    d2_z = pxyz%a(ip(1))%z - p%z
+    d3_x = pxyz%a(ip(2))%x - p%x
+    d3_y = pxyz%a(ip(2))%y - p%y
+    d3_z = pxyz%a(ip(2))%z - p%z
+
+    IF ( d2_x*d3_y*d1_z  +  d2_y*d1_x*d3_z + d2_z*d3_x*d1_y &
+      > d2_y*d3_x*d1_z + d2_x*d1_y*d3_z + d2_z*d1_x*d3_y ) THEN 
+      circum_circle_spherical_q128 = .TRUE.
+    ELSE
+      circum_circle_spherical_q128 = .FALSE.
+    END IF
+  END FUNCTION circum_circle_spherical_q128
 
 
   ! --------------------------------------------------------------------
@@ -284,17 +350,18 @@ CONTAINS
   !  contains v3, or, in other words, if we "turn left" when going
   !  from v1 to v2 to v3.
   PURE FUNCTION ccw_spherical(v1,v2,v3)
-    REAL(wp) :: ccw_spherical
+    LOGICAL :: ccw_spherical
     TYPE (t_point), INTENT(IN)  :: v1,v2,v3
+    REAL(wp) :: ccw
 
     ! det(v1,v2,v3) = <v1 x v2, v3> = | v1 x v2 | cos(a) 
     !  
     ! where a is the angle between v3 and the normal to the plane
     ! defined by v1 and v2.
     
-    ccw_spherical = v3%x*(v1%y*v2%z - v2%y*v1%z) &
+    ccw =           v3%x*(v1%y*v2%z - v2%y*v1%z) &
       &        -    v3%y*(v1%x*v2%z - v2%x*v1%z) &
-      &        +    v3%z*(v1%x*v2%y - v2%x*v1%y)
+      &        +    v3%z*(v1%x*v2%y - v2%x*v1%y) 
 
     ! we apply a static error of
     !   | e - e'| <= 3*2^-48
@@ -302,11 +369,13 @@ CONTAINS
     ! has the correct sign, see Section 2.2 of
     !
     ! Burnikel, C.; Funke, S. & Seel, M. 
-    ! "Exact geometric computation using cascading"
+    ! "Exact geometric computation using Cascading"
     ! International Journal of Computational Geometry & Applications, 
     ! World Scientific, 2001, 11, 245-266
-    IF (ABS(ccw_spherical) <= 1.1e-14_wp) THEN
+    IF (ABS(ccw) <= 1.1e-14_wp) THEN
       ccw_spherical = ccw_spherical_q128(v1,v2,v3)
+    ELSE
+      ccw_spherical = ccw <= 0._wp
     END IF
   END FUNCTION ccw_spherical
 
@@ -319,7 +388,7 @@ CONTAINS
   !  contains v3, or, in other words, if we "turn left" when going
   !  from v1 to v2 to v3.
   PURE FUNCTION ccw_spherical_q128(v1,v2,v3)
-    REAL(wp) :: ccw_spherical_q128
+    LOGICAL :: ccw_spherical_q128
     TYPE (t_point), INTENT(IN)  :: v1,v2,v3
     REAL(QR_K) :: v1_x, v1_y, v1_z,v2_x, v2_y, v2_z,v3_x, v3_y, v3_z
 
@@ -340,7 +409,7 @@ CONTAINS
 
     ccw_spherical_q128 = v3_x*(v1_y*v2_z - v2_y*v1_z) &
       &             -    v3_y*(v1_x*v2_z - v2_x*v1_z) &
-      &             +    v3_z*(v1_x*v2_y - v2_x*v1_y)
+      &             +    v3_z*(v1_x*v2_y - v2_x*v1_y)  <= 0._wp
   END FUNCTION ccw_spherical_q128
 
 
@@ -540,7 +609,7 @@ CONTAINS
     IF (PRESENT(ioedge))     oedge=ioedge
     IF (PRESENT(icomplete))  complete=icomplete
     triangle = t_triangle(p=(/ip1,ip2,ip3/), oedge=oedge, complete=complete,  &
-      &                   cc=point(-2._wp,-2._wp,-2._wp), r=0._wp, cap_distance=2._wp, rdiscard=1._wp)
+      &                   cc=point(-2._wp,-2._wp,-2._wp), r=0._wp, cap_distance=2._wp, rdiscard=-1._wp)
   END FUNCTION triangle
 
 
@@ -880,6 +949,7 @@ CONTAINS
     ELSE IF (this%nentries == SIZE(this%a)) THEN
       CALL this%reserve(this%nentries + 1)
     END IF
+
     this%a(this%nentries) = element
     this%nentries         = this%nentries + 1
   END SUBROUTINE push_back_triangulation
@@ -1028,6 +1098,141 @@ CONTAINS
   END SUBROUTINE sync_point_list
 
 
+  ! utility function to swap two elements
+  SUBROUTINE heap_swap(heap, i, j)
+    TYPE(t_min_heap),      INTENT(INOUT)   :: heap
+    INTEGER,               INTENT(IN)      :: i,j
+    TYPE(t_min_heap_node) :: tmp
+    tmp = heap%harr(i)
+    heap%harr(i) = heap%harr(j)
+    heap%harr(j) = tmp
+  END SUBROUTINE heap_swap
+
+
+  ! to get index of left child of node at index i
+  ELEMENTAL INTEGER FUNCTION heap_left(i) 
+    INTEGER, INTENT(IN) :: i
+    heap_left = (2*i + 1)
+  END FUNCTION heap_left
+
+ 
+  ! to get index of right child of node at index i
+  ELEMENTAL INTEGER FUNCTION heap_right(i) 
+    INTEGER, INTENT(IN) :: i
+    heap_right = (2*i + 2)
+  END FUNCTION heap_right
+
+
+  ! build a heap from a given array a[] of given size
+  SUBROUTINE construct_heap(heap, a)
+    TYPE(t_min_heap),      INTENT(INOUT)  :: heap
+    TYPE(t_min_heap_node), INTENT(IN)     :: a(0:)
+    INTEGER :: i
+    
+    heap%isize = SIZE(a)
+    ALLOCATE(heap%harr(0:(heap%isize-1)))
+    heap%harr(:) = a(:)
+    DO i=(heap%isize - 1)/2,0,-1
+      CALL heap_heapify(heap, i)
+    END DO
+  END SUBROUTINE construct_heap
+
+
+  ! Recursive method to heapify a subtree with root at given index.
+  ! This method assumes that the subtrees are already heapified.
+  RECURSIVE SUBROUTINE heap_heapify(heap, i)
+    TYPE(t_min_heap), INTENT(INOUT)   :: heap
+    INTEGER,          INTENT(IN)      :: i
+    INTEGER :: l,r,smallest
+
+    l = heap_left(i)
+    r = heap_right(i)
+    smallest = i
+    IF (l < heap%isize) THEN
+      IF (heap%harr(l)%elt%p < heap%harr(i)%elt%p) THEN
+        smallest = l
+      END IF
+    END IF
+    IF (r < heap%isize) THEN
+      IF (heap%harr(r)%elt%p < heap%harr(smallest)%elt%p) THEN
+        smallest = r
+      END IF
+    END IF
+    IF (smallest /= i) THEN
+      CALL heap_swap(heap, i, smallest)
+      CALL heap_heapify(heap, smallest)
+    END IF
+  END SUBROUTINE heap_heapify
+
+
+  ! This function takes an array of arrays as an argument where all
+  ! arrays are assumed to be sorted and merges them together.
+  !
+  ! Time complexity:
+  !  O(nk Logk) ,  where n := SIZE(arr) , k := size(isize)
+  !
+  ! Based on C++ program
+  !
+  ! http://www.geeksforgeeks.org/merge-k-sorted-arrays
+  !
+  SUBROUTINE kway_merge(arr, isize, output, count)
+    TYPE(t_mpi_triangle),  INTENT(IN)     :: arr(0:)
+    INTEGER,               INTENT(IN)     :: isize(0:)
+    TYPE (t_min_heap_elt), INTENT(INOUT)  :: output(0:)
+    INTEGER,               INTENT(OUT)    :: count
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::kway_merge"
+    INTEGER                 :: istart(0:(SIZE(isize)-1))
+    INTEGER                 :: k, i, j
+    TYPE(t_min_heap_node)   :: heap_init(0:(SIZE(isize)-1)), root
+    TYPE (t_min_heap)       :: heap
+    TYPE (t_min_heap_elt)   :: last_elt
+
+    k = SIZE(isize)
+
+    ! Create a min heap with k heap nodes. Every heap node has first
+    ! element of an array.
+    istart(0) = 0
+    DO i=0,(k-1)
+      heap_init(i)%elt%p%p = arr(istart(i))%p ! Store the first element
+      heap_init(i)%i   = i    ! index of array
+      heap_init(i)%j   = 1    ! index of next element to be stored from array
+      IF (i /= (k-1)) THEN
+        istart(i+1) = istart(i) + isize(i)
+      END IF
+    END DO
+    CALL construct_heap(heap, heap_init) ! create the heap
+
+    ! Now one by one get the minimum element from min heap and replace
+    ! it with next element of its array
+    count = 0
+    DO j=0,(SIZE(arr)-1)
+      ! get the minimum element and store it in output
+      root          = heap%harr(0)
+      IF ((j == 0) .OR. (.NOT. (root%elt%p == last_elt%p))) THEN
+        output(count)%p = root%elt%p
+        last_elt        = root%elt
+        count = count + 1
+      END IF
+
+      ! Find the next element that will replace current root of heap.
+      ! The next element belongs to same array as the current root.
+      IF (root%j < isize(root%i)) THEN
+        root%elt%p%p = arr(istart(root%i)+root%j)%p
+        root%j = root%j + 1
+      ELSE
+        ! If root was the last element of its array
+        root%elt%p%p(0) =  HUGE(1)
+      END IF
+      ! Replace root with next element of array
+      heap%harr(0) = root
+      CALL heap_heapify(heap, 0); 
+    END DO
+    ! clean up
+    DEALLOCATE(heap%harr)
+  END SUBROUTINE kway_merge
+
+
   ! --------------------------------------------------------------------
   !> Synchronizes a triangulation between different processors with MPI.
   !
@@ -1041,11 +1246,14 @@ CONTAINS
 #if (!defined(NOMPI))
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":sync_triangulation"
-    INTEGER                        :: ierr, mpi_t_triangle, local_nentries, global_nentries, mpi_comm, &
-      &                               oldtypes(2), blockcounts(2), ierrstat, nranks, i, endtri
-    INTEGER(MPI_ADDRESS_KIND)      :: offsets(2)
-    INTEGER, ALLOCATABLE           :: recv_count(:), recv_displs(:)
+    INTEGER                           :: ierr, mpi_t_triangle, local_nentries,   &
+      &                                  global_nentries, mpi_comm, oldtypes(2), &
+      &                                  blockcounts(2), ierrstat, nranks, i,    &
+      &                                  endtri, count
+    INTEGER(MPI_ADDRESS_KIND)         :: offsets(2)
+    INTEGER, ALLOCATABLE              :: recv_count(:), recv_displs(:)
     TYPE(t_mpi_triangle), ALLOCATABLE :: tmp(:), recv_tmp(:)
+    TYPE(t_min_heap_elt), ALLOCATABLE :: kway_merge_array_out(:)
 
     mpi_comm = p_comm_work
 
@@ -1058,6 +1266,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
     CALL MPI_ALLGATHER(local_nentries, 1, MPI_INTEGER, recv_count, 1, MPI_INTEGER, mpi_comm, ierr)
     global_nentries = SUM(recv_count(:))
+
+    CALL this%quicksort() ! local sort on each PE
 
     ! create an MPI-sendable copy of the point list
     ALLOCATE(tmp(0:(local_nentries-1)), STAT=ierrstat)
@@ -1081,41 +1291,28 @@ CONTAINS
     DO i=1,(nranks-1)
       recv_displs(i) = recv_displs(i-1) + recv_count(i-1)
     END DO
+
     CALL MPI_ALLGATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
       &                 mpi_t_triangle, mpi_comm, ierr)
 
     CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
+    DEALLOCATE(tmp, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-    CALL this%resize(global_nentries)
-    this%a(0:(this%nentries-1))%p(0)   = recv_tmp(0:(this%nentries-1))%p(0) 
-    this%a(0:(this%nentries-1))%p(1)   = recv_tmp(0:(this%nentries-1))%p(1) 
-    this%a(0:(this%nentries-1))%p(2)   = recv_tmp(0:(this%nentries-1))%p(2) 
+    ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    ! remove duplicates in-situ
-    this%a(0:(this%nentries-1))%complete = 0
-    CALL this%quicksort()
-    endtri = this%nentries-1
-    DO i=1,endtri
-      IF (this%a(i) == this%a(i-1)) THEN
-        this%a(i)%complete = 1
-      ELSE
-        this%a(i)%complete = 0
-      END IF
-    END DO
-    i = 1
-    LOOP1: DO
-      IF (i>endtri)  EXIT LOOP1
-      IF (this%a(i)%complete == 1) THEN
-        this%a(i) = this%a(endtri)
-        endtri = endtri -1
-      ELSE
-        i = i + 1
-      END IF
-    END DO LOOP1
-    CALL this%resize(endtri+1)
+    ! perform a k-way merging of the sorted arrays from the k MPI
+    ! processes:
+    CALL kway_merge(recv_tmp, recv_count, kway_merge_array_out, count)
+
+    CALL this%resize(count)
+    this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0) 
+    this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1) 
+    this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2) 
 
     ! clean up
-    DEALLOCATE(tmp, recv_tmp, recv_count, recv_displs, STAT=ierrstat)
+    DEALLOCATE(recv_tmp, recv_count, recv_displs, kway_merge_array_out, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 #endif
   END SUBROUTINE sync_triangulation

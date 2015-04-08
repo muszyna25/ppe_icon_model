@@ -54,6 +54,7 @@ MODULE mo_delaunay
     &                          point_list, triangle, point, spherical_cap,                     &
     &                          OPERATOR(<), OPERATOR(/), OPERATOR(*), OPERATOR(==),            &
     &                          ccw_spherical, circum_circle_spherical
+
   IMPLICIT NONE
   
   PRIVATE
@@ -63,14 +64,11 @@ MODULE mo_delaunay
   PUBLIC :: triangulate_parallel
   PUBLIC :: write_triangulation_vtk
   PUBLIC :: point_cloud_diam
+  PUBLIC :: create_thin_covering
 
   CHARACTER(LEN=*), PARAMETER :: modname   = 'mo_delaunay'
-  INTEGER,          PARAMETER :: dbg_level = 4
+  INTEGER,          PARAMETER :: dbg_level = 0
 
-  ! guarantee the exact evaluation of determinants in the
-  ! algorithm by rounding coordinates to 2^-17 (losing, however,
-  ! accuracy), cf. [Lawson1984]
-  INTEGER,      PARAMETER :: ACCURACY = wp
 
 CONTAINS
 
@@ -100,7 +98,7 @@ CONTAINS
     TYPE(t_edge)              :: bedge
     TYPE(t_triangle), POINTER :: jtri
     INTEGER                   :: i,j,k, npts, gp, j0, ndiscard, ipt, ne, ntri, &
-      &                          jmin, oedge, jmin0, this_edge, endtri
+      &                          oedge, jmin0, this_edge, endtri
     LOGICAL                   :: inside
     REAL(wp)                  :: cos_radius, rlimit
 
@@ -116,11 +114,6 @@ CONTAINS
     pxyz = point_list(points)
     DO i=0,(npts-1)
       pxyz%a(i)        = pxyz%a(i)/pxyz%a(i)%norm2()
-      ! --- guarantee the exact evaluation of determinants in the
-      ! --- algorithm (losing, however, accuracy):
-      pxyz%a(i)%x      = REAL(REAL(pxyz%a(i)%x, ACCURACY), wp)
-      pxyz%a(i)%y      = REAL(REAL(pxyz%a(i)%y, ACCURACY), wp)
-      pxyz%a(i)%z      = REAL(REAL(pxyz%a(i)%z, ACCURACY), wp)
       pxyz%a(i)%ps     = pxyz%a(i) * subset%sorting_direction
     END DO
     CALL pxyz%quicksort()
@@ -130,10 +123,10 @@ CONTAINS
     CALL tri%reserve(2*npts-4)
 
     ! set up the initial triangle: insert the first three points
-    IF (ccw_spherical(pxyz%a(0), pxyz%a(1), pxyz%a(2)) > 0._wp) THEN
-      CALL tri%push_back(triangle(0, 2, 1)) ! counter-clockwise starting triangle
-    ELSE 
+    IF (ccw_spherical(pxyz%a(0), pxyz%a(1), pxyz%a(2))) THEN
       CALL tri%push_back(triangle(0, 1, 2)) ! clockwise starting triangle
+    ELSE 
+      CALL tri%push_back(triangle(0, 2, 1)) ! counter-clockwise starting triangle
     END IF
 
     ! connect triangle edges to a "ghost point"
@@ -145,10 +138,8 @@ CONTAINS
     CALL tri%push_back(triangle(tri%a(0)%p(0),tri%a(0)%p(2),gp, 0))
     CALL tri%a(0)%compute_circumcenter(pxyz, subset)
 
-    ipt      = 3           ! current point index    
     j0       = 0           ! first triangle index that is not "complete"
     ndiscard = 0           ! no. of triangles that violate global Delaunay condition
-    ipoint   = pxyz%a(ipt) ! current point
     IF (subset%radius < 0._wp) THEN
       cos_radius = 99._wp
     ELSE
@@ -159,17 +150,21 @@ CONTAINS
     ! all points have been processed or the requested radius has been
     ! reached without violating the global Delaunay condition.
     LOOP : DO ipt=3,(npts-1)
-      IF (.NOT. ((ipoint%ps <= cos_radius) .OR. (ndiscard>0)))  EXIT LOOP
-
+      IF (dbg_level > 10) THEN
+        IF (MOD(ipt,1000) == 0) THEN
+          WRITE (0,*) "ipt = ", ipt, "; j0 = ", j0
+        END IF
+      END IF
       ipoint       = pxyz%a(ipt)
-      ntri         = tri%nentries
-      endtri       = ntri - 1
-      ne           =  0 ! no. of entries in edge buffer
-      jmin         = -1
+      IF ((ipoint%ps > cos_radius) .AND. (ndiscard==0))  EXIT LOOP
 
-      j = j0
+      j   = j0
+      j0  = -1
+
       ! find the next "complete" triangle from the back
-      DO
+      ntri   = tri%nentries
+      endtri = ntri-1
+      DO 
         IF ((tri%a(endtri)%complete==1) .OR. (endtri==j))  EXIT
         endtri = endtri - 1
       END DO 
@@ -179,31 +174,31 @@ CONTAINS
       ! If the point pxyz[i] lies inside the circumcircle then the
       ! three edges of that triangle are added to the edge buffer and
       ! that triangle is removed.
+      ne = 0 ! no. of entries in edge buffer
       LOOP2 : DO 
         IF (j>=ntri)  EXIT LOOP2
-
-        ! test if triangle remains on "discard" list
         jtri => tri%a(j)
-        IF (ipoint%ps > jtri%rdiscard) THEN
-          ndiscard      = ndiscard-1
-          jtri%rdiscard = 1._wp
-        END IF
 
         IF (jtri%complete == 0) THEN
+          ! test if triangle remains on "discard" list
+          IF (-1._wp*ipoint%ps < jtri%rdiscard) THEN
+            ndiscard      = ndiscard-1
+            jtri%rdiscard = -1._wp
+          END IF
+
+          jmin0 = j0
+          ! "j0" denotes the smallest triangle index which is not yet
+          ! "complete" (significant speedup!)
+          IF (j0 == -1)  j0 = j
+
           oedge = jtri%oedge
-          jmin0 = jmin
-          IF (jmin == -1)  jmin = j
           IF (oedge /= -1) THEN
             ! boundary edge
             bedge  = jtri%edge(oedge)
-            inside = (ccw_spherical(pxyz%a(bedge%p1), pxyz%a(bedge%p2), ipoint) <= 0._wp)
+            inside = ccw_spherical(pxyz%a(bedge%p1), pxyz%a(bedge%p2), ipoint)
           ELSE
             ! interior edge
             inside = circum_circle_spherical(ipoint, pxyz, jtri%p)
-            IF (.NOT. inside .AND. ((ipoint%ps - jtri%cc%ps) > jtri%r)) THEN
-              jtri%complete =     1
-              jmin          = jmin0
-            END IF
           END IF
           
           IF (inside) THEN
@@ -213,11 +208,10 @@ CONTAINS
             DO k=0,2
               edges(this_edge)       = jtri%edge(k)
               edges_oedge(this_edge) = next_oedge(k,oedge)
-              edges_valid(this_edge) = .TRUE.
               this_edge = this_edge + 1
             END DO
 
-            IF (jtri%rdiscard < 1._wp)  ndiscard=ndiscard-1            
+            IF (jtri%rdiscard > -1._wp)  ndiscard=ndiscard-1            
             ntri = ntri - 1
             IF (endtri > j) THEN
               tri%a(j)      = tri%a(endtri)
@@ -231,17 +225,19 @@ CONTAINS
               tri%a(j) = tri%a(ntri)
             END IF
             CYCLE LOOP2
+          ELSE
+            IF ((oedge==-1) .AND. ((ipoint%ps - jtri%cc%ps) > jtri%r)) THEN
+              jtri%complete =     1
+              j0            = jmin0
+            END IF
           END IF
         END IF
         j = j + 1
       END DO LOOP2
       CALL tri%resize(ntri)
-
-      ! "j0" denotes the smallest triangle index which is not yet
-      ! "complete" (significant speedup!)
-      IF (jmin >= j0)  j0 = jmin
-      
+     
       ! remove multiple edges
+      edges_valid(0:(ne-1)) = .TRUE.
       DO j=0,(ne-1)
         IF (edges_valid(j)) THEN
           DO k=j+1,(ne-1)
@@ -258,19 +254,20 @@ CONTAINS
       DO j=0,(ne-1)
         IF (edges_valid(j))  CALL tri%push_back( triangle(edges(j)%p1, edges(j)%p2, ipt, edges_oedge(j)) )
       END DO
+      ! compute circumcircle for triangle without ghost point
       DO j=ntri,(tri%nentries-1)
-          IF (tri%a(j)%oedge == -1) THEN  
-            ! triangle without ghost point
-            CALL tri%a(j)%compute_circumcenter(pxyz, subset)
-            ! mark triangle if it violates the global Delaunay condition:
-            IF ((cos_radius > ipoint%ps) .AND. (tri%a(j)%cap_distance < subset%radius)) THEN 
-              ndiscard          = ndiscard + 1
-              tri%a(j)%rdiscard = -1._wp*COS(tri%a(j)%cap_distance+2._wp*tri%a(j)%r)
-            END IF
-          END IF
+        IF (tri%a(j)%oedge == -1)  CALL tri%a(j)%compute_circumcenter(pxyz, subset)
       END DO
+      ! mark triangle if it violates the global Delaunay condition:
+      IF (cos_radius > ipoint%ps) THEN
+        DO j=ntri,(tri%nentries-1)
+          IF ((tri%a(j)%oedge == -1) .AND. (tri%a(j)%cap_distance < subset%radius)) THEN  
+            ndiscard          = ndiscard + 1
+            tri%a(j)%rdiscard = COS(tri%a(j)%cap_distance+2._wp*tri%a(j)%r)
+          END IF
+        END DO
+      END IF
     END DO LOOP
-
     ! compute limit radius (last point inserted into triangulation)
     IF (subset%radius < 0._wp) THEN
       rlimit = 99._wp
@@ -311,7 +308,7 @@ CONTAINS
 
     !> triangle count that triggers clean-up of "tri" data structure
     INTEGER, PARAMETER :: cleanup_limit  = 50000  
-    INTEGER, PARAMETER :: MAX_EDGES      = 1000   !< size of edge buffer
+    INTEGER, PARAMETER :: MAX_EDGES      = 10000   !< size of edge buffer
 
     ! For the triangles that are created from the edges 0,1,2: compute
     ! the edge opposite to "ghost point" (if "ghost point" part of this
@@ -346,11 +343,6 @@ CONTAINS
     pxyz = point_list(points)
     DO i=0,(npts-1)
       pxyz%a(i)        = pxyz%a(i)/pxyz%a(i)%norm2()
-      ! --- guarantee the exact evaluation of determinants in the
-      ! --- algorithm (losing, however, accuracy):
-      pxyz%a(i)%x      = REAL(REAL(pxyz%a(i)%x, ACCURACY), wp)
-      pxyz%a(i)%y      = REAL(REAL(pxyz%a(i)%y, ACCURACY), wp)
-      pxyz%a(i)%z      = REAL(REAL(pxyz%a(i)%z, ACCURACY), wp)
       pxyz%a(i)%ps     = pxyz%a(i) * subset%sorting_direction
     END DO
     CALL pxyz%quicksort()
@@ -361,10 +353,10 @@ CONTAINS
     tri%nentries = 0
 
     ! set up the initial triangle: insert the first three points
-    IF (ccw_spherical(pxyz%a(0), pxyz%a(1), pxyz%a(2)) > 0._wp) THEN
-      CALL tri%push_back(triangle(0, 2, 1)) ! counter-clockwise starting triangle
-    ELSE 
+    IF (ccw_spherical(pxyz%a(0), pxyz%a(1), pxyz%a(2))) THEN
       CALL tri%push_back(triangle(0, 1, 2)) ! clockwise starting triangle
+    ELSE 
+      CALL tri%push_back(triangle(0, 2, 1)) ! counter-clockwise starting triangle
     END IF
 
     ! connect triangle edges to a "ghost point"
@@ -392,7 +384,12 @@ CONTAINS
     ! all points have been processed or the requested radius has been
     ! reached without violating the global Delaunay condition.
     LOOP : DO ipt=3,(npts-1)
-      IF (.NOT. ((ipoint%ps <= cos_radius) .OR. (ndiscard>0)))  EXIT LOOP
+      IF (dbg_level > 10) THEN
+        IF (MOD(ipt,1000) == 0) THEN
+          WRITE (0,*) "ipt = ", ipt
+        END IF
+      END IF
+      IF ((ipoint%ps > cos_radius) .AND. (ndiscard==0))  EXIT LOOP
 
       ipoint = pxyz%a(ipt)
       ! Set up the edge buffer.
@@ -417,9 +414,9 @@ CONTAINS
 
         IF (jtri%complete == 0) THEN
           ! test if triangle remains on "discard" list
-          IF (ipoint%ps > jtri%rdiscard) THEN
+          IF (-1._wp*ipoint%ps < jtri%rdiscard) THEN
             new_ndiscard  = new_ndiscard-1
-            jtri%rdiscard = 1._wp
+            jtri%rdiscard = -1._wp
           END IF
 
           oedge = jtri%oedge
@@ -428,7 +425,7 @@ CONTAINS
           IF (oedge /= -1) THEN
             ! boundary edge
             bedge  = jtri%edge(oedge)
-            inside = (ccw_spherical(pxyz%a(bedge%p1), pxyz%a(bedge%p2), ipoint) <= 0._wp)
+            inside = (ccw_spherical(pxyz%a(bedge%p1), pxyz%a(bedge%p2), ipoint))
           ELSE
             ! interior edge
             inside = circum_circle_spherical(ipoint, pxyz, jtri%p)
@@ -453,7 +450,7 @@ CONTAINS
             
             jtri%complete =       2 ! mark triangle for removal
             new_ninvalid = new_ninvalid + 1
-            IF (jtri%rdiscard < 1._wp)  new_ndiscard=new_ndiscard-1
+            IF (jtri%rdiscard > -1._wp)  new_ndiscard=new_ndiscard-1
           END IF
         END IF
       END DO
@@ -490,19 +487,25 @@ CONTAINS
       ndiscard     = ndiscard + new_ndiscard
       new_ndiscard = 0
 
-!$omp parallel do reduction(+:new_ndiscard)
+!$omp parallel
+!$omp do
+      ! compute circumcircle for triangle without ghost point
       DO j=ntri,(tri%nentries-1)
-          IF (tri%a(j)%oedge == -1) THEN  
-            ! triangle without ghost point
-            CALL tri%a(j)%compute_circumcenter(pxyz, subset)
-            ! mark triangle if it violates the global Delaunay condition:
-            IF ((cos_radius > ipoint%ps) .AND. (tri%a(j)%cap_distance < subset%radius)) THEN 
-              new_ndiscard  = new_ndiscard + 1
-              tri%a(j)%rdiscard = -1._wp*COS(tri%a(j)%cap_distance+2._wp*tri%a(j)%r)
-            END IF
-          END IF
+        IF (tri%a(j)%oedge == -1)  CALL tri%a(j)%compute_circumcenter(pxyz, subset)
       END DO
-!$omp end parallel do
+!$omp end do
+      ! mark triangle if it violates the global Delaunay condition:
+      IF (cos_radius > ipoint%ps) THEN
+!$omp do reduction(+:new_ndiscard)
+        DO j=ntri,(tri%nentries-1)
+          IF ((tri%a(j)%oedge == -1) .AND. (tri%a(j)%cap_distance < subset%radius)) THEN  
+            new_ndiscard  = new_ndiscard + 1
+            tri%a(j)%rdiscard = COS(tri%a(j)%cap_distance+2._wp*tri%a(j)%r)            
+          END IF
+        END DO
+!$omp end do
+      END IF
+!$omp end parallel
       ndiscard = ndiscard + new_ndiscard
       
       ! remove "invalid" triangles at regular intervals:
@@ -543,7 +546,6 @@ CONTAINS
         ninvalid = 0
       END IF
     END DO LOOP
-
     ! compute limit radius (last point inserted into triangulation)
     IF (subset%radius < 0._wp) THEN
       rlimit = 99._wp
@@ -574,8 +576,8 @@ CONTAINS
 
 
   !> perform triangulation in parallel
-  SUBROUTINE triangulate_parallel(p_local, this_rank, nparallel, nsubsets_local, tri)
-    TYPE(t_point_list),    INTENT(IN)             :: p_local
+  SUBROUTINE triangulate_parallel(p_global, this_rank, nparallel, nsubsets_local, tri)
+    TYPE(t_point_list),    INTENT(IN)             :: p_global
     INTEGER,               INTENT(IN)             :: this_rank       !< local MPI rank no.
     INTEGER,               INTENT(IN)             :: nparallel
     INTEGER,               INTENT(IN)             :: nsubsets_local  !< triangulation tasks/rank
@@ -584,41 +586,32 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":triangulate_parallel"
     INTEGER                             :: itri, i,j, npivot, isubset, n1,n2
     TYPE (t_triangulation)              :: tri_list(0:(nparallel-1))
-    TYPE (t_point_list)                 :: p_global, pivot_points, pts0
+    TYPE (t_point_list)                 :: pivot_points, pts0
     TYPE (t_sphcap_list)                :: subset
     TYPE (t_point)                      :: default_direction
+!$  DOUBLE PRECISION                :: time_s, toc
     
-    IF (dbg_level >= 2)  WRITE (0,'(a,i0)') "# no. of local points: ", p_local%nentries
-
-    ! --- create a copy of all points (global)
-
-    p_global = point_list(p_local)
-    DO i=0,(p_global%nentries-1)
-      p_global%a(i) = p_global%a(i)/p_global%a(i)%norm2()
-    END DO
-    CALL p_global%sync()
-    IF (dbg_level >= 2)  WRITE (0,'(a,i0)') "# no. of global points: ", p_global%nentries
-
     ! --- select "pivot points" out of the local point set
     !     each point generates an independent Delaunay triangulation.
 
     npivot = nsubsets_local
+
     CALL pivot_points%initialize()
     default_direction = point(-1._wp, 0._wp, 0._wp)
-    j = 0
+    j = this_rank*npivot*MAX(INT(p_global%nentries)/(npivot*nparallel),1)
     DO i=0,(npivot-1)
-      CALL pivot_points%push_back(p_local%a(j))
+      CALL pivot_points%push_back(p_global%a(j))
       pivot_points%a(i)%gindex = this_rank
       pivot_points%a(i)%ps     = pivot_points%a(i) * default_direction
-      j = j + MAX(INT(p_local%nentries)/npivot,1)
+      j = j + MAX(INT(p_global%nentries)/(npivot*nparallel),1)
     END DO
 
     ! --- merge pivot points into a global set
 
     pts0 = point_list(pivot_points)
-    IF (dbg_level >= 3)  WRITE (0,'(a,i0)') "# total no. of local pivot points: ", pivot_points%nentries
+    IF (dbg_level >= 10)  WRITE (0,'(a,i0)') "# total no. of local pivot points: ", pivot_points%nentries
     CALL pts0%sync()
-    IF (dbg_level >= 1)  WRITE (0,'(a,i0)') "# total no. of pivot points: ", pts0%nentries
+    IF (dbg_level >= 10)  WRITE (0,'(a,i0)') "# total no. of pivot points: ", pts0%nentries
 
     ! --- build a coarse auxiliary triangulation 
     !     based on the pivot points
@@ -644,10 +637,19 @@ CONTAINS
       DO itri=isubset,(isubset + nparallel - 1)
         IF (itri >= subset%nentries)  CYCLE
         
-        IF (dbg_level >= 3)  WRITE (0,'(a,f10.3)') "# subset radius: ", subset%a(itri)%radius
+!        IF (dbg_level >= 10) THEN
+          WRITE (0,'(a,f10.3)') "# subset radius: ", subset%a(itri)%radius
+          WRITE (0,*) "# triangulating ", p_global%nentries, " points."
+!        END IF
+!$  time_s = omp_get_wtime()
         CALL triangulate(p_global, tri_list(itri-isubset), subset%a(itri))
+!$  toc = omp_get_wtime() - time_s
+!$    WRITE (0,*) "local elapsed time: ", toc
+!    END IF
+!        CALL triangulate_mthreaded(p_global, tri_list(itri-isubset), subset%a(itri), 1)
         CALL tri_list(itri-isubset)%quicksort() ! re-order triangles for global merge
-        IF (dbg_level >= 1)  WRITE (0,'(a,i0,a)') "# formed ", tri_list(itri-isubset)%nentries, " triangles."
+!        IF (dbg_level >= 1)  
+WRITE (0,'(a,i0,a)') "# formed ", tri_list(itri-isubset)%nentries, " triangles."
       END DO
 !$omp end parallel do
       isubset = (isubset + nparallel)
@@ -672,7 +674,8 @@ CONTAINS
       CALL tri_list(i)%destructor()
     END DO
     CALL tri%sync()
-    IF (dbg_level >= 1)  WRITE (0,'(a,i0,a)') "Resulting triangulation: ", tri%nentries, " triangles."
+!    IF (dbg_level >= 1)  
+WRITE (0,'(a,i0,a)') "Resulting triangulation: ", tri%nentries, " triangles."
 
     ! clean up
     CALL pivot_points%destructor()
@@ -728,24 +731,21 @@ CONTAINS
     CALL tri0%initialize()
     CALL triangulate(pts0, tri0, spherical_cap(point(-1._wp, 0._wp, 0._wp), -1._wp))
 
-    IF ((dbg_level >= 3) .AND. (this_rank == 0)) THEN
+    IF ((dbg_level >= 10) .AND. (this_rank == 0)) THEN
       ! debugging output to file
       CALL write_triangulation_vtk("tri0.vtk", pts0, tri0)
     END IF
     
-    ! radii are set to max. length of coarse Delaunay triangulation:
+    ! radii are set to max. distance between coarse Delaunay triangle
+    ! circumcenter and its vertices:
     DO i=0,(tri0%nentries-1)
       DO j1=0,2
         p1 = tri0%a(i)%p(j1)
         IF (point_set%a(p1)%gindex == this_rank) THEN
           p1_local = local_idx(p1)
-          DO j2=0,2
-            IF (j1 /= j2) THEN
-              subset%a(p1_local)%radius =         &
-                &  MAX(subset%a(p1_local)%radius, &
-                &      point_set%a(p1)%spherical_dist(point_set%a(tri0%a(i)%p(j2))))
-            END IF
-          END DO
+          subset%a(p1_local)%radius =         &
+            &  MAX(subset%a(p1_local)%radius, &
+            &      point_set%a(p1)%spherical_dist(tri0%a(i)%cc))
         END IF
       END DO
     END DO
@@ -784,7 +784,16 @@ CONTAINS
     DO i=0,(tri%nentries-1)
       WRITE (out_unit,'(a)') "5"
     END DO
+    WRITE (out_unit,'(a,i0)') "CELL_DATA ", tri%nentries
+    WRITE (out_unit,'(a)')    "SCALARS rdiscard float 1"
+    WRITE (out_unit,'(a)')    "LOOKUP_TABLE default"
+    DO i=0,(tri%nentries-1)
+      WRITE (out_unit,'(f7.3)') tri%a(i)%rdiscard
+    END DO
     CLOSE(out_unit)
   END SUBROUTINE write_triangulation_vtk
   
 END MODULE mo_delaunay
+
+
+
