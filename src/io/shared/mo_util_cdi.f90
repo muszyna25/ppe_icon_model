@@ -576,7 +576,12 @@ CONTAINS
         gridId = vlistInqVarGrid(vlistId, varId)
         IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
             & (zaxisInqSize(zaxisId) /= nlevs)) THEN
-            CALL finish(routine, "Incompatible dimensions!")
+          WRITE (0,*)  "VAR ", TRIM(varname)
+          WRITE (0,*) "      gridInqSize(gridId) = ", gridInqSize(gridId),           &
+            &         " /= parameters%glb_arr_len = ", parameters%glb_arr_len
+          WRITE (0,*)  ".OR. zaxisInqSize(zaxisId) = ", zaxisInqSize(zaxisId), &
+            &         " /= nlevs = ", nlevs
+          CALL finish(routine, "Incompatible dimensions!")
         END IF
     END IF
 
