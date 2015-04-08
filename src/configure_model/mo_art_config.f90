@@ -48,15 +48,18 @@ MODULE mo_art_config
 
     ! Namelist variables
 
-    ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
+    ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
     CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
     INTEGER :: iart_ntracer            !< number of transported ART tracers
+    INTEGER :: iart_init_aero          !< Initialization of aerosol species
+    INTEGER :: iart_init_gas           !< Initialization of gaseous species
+    LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
     
-    ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
+    ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     
-    ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
+    ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
     INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
     INTEGER :: iart_dust               !< Treatment of mineral dust aerosol
@@ -68,17 +71,17 @@ MODULE mo_art_config
     CHARACTER(LEN=120) :: cart_radioact_file !< Absolute path + filename of input file for radioactive emissions
     INTEGER :: iart_pollen             !< Treatment of pollen
     
-    ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
+    ! Feedback processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
     INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
     INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
     
-    ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
+    ! Fast Physics Processes (Details: cf. Tab. 2.6 ICON-ART User Guide)
     LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
     INTEGER :: nconv_tracer            !< number of tracers in convection 
     LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
     INTEGER :: nturb_tracer            !< number of tracers in turbulence
-
+    
   END TYPE t_art_config
 
   TYPE(t_art_config), TARGET :: art_config(0:max_dom)
