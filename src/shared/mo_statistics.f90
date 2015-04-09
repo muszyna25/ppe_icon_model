@@ -43,7 +43,8 @@ MODULE mo_statistics
   
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
-  PUBLIC :: accumulate_mean, levels_horizontal_mean, total_mean
+  PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
+  PUBLIC :: horizontal_sum
   
   ! simple min max mean (no weights)
   ! uses the range in_subset
@@ -59,6 +60,7 @@ MODULE mo_statistics
   ! used for calculating total fluxes acros given paths
   INTERFACE subset_sum
     MODULE PROCEDURE Sum_3D_AllLevels_3Dweights_InIndexed
+    MODULE PROCEDURE Sum_2D_2Dweights_InRange
     ! MODULE PROCEDURE globalspace_3d_sum_max_level_array
   END INTERFACE subset_sum
 
@@ -78,6 +80,19 @@ MODULE mo_statistics
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_3Dweights
     MODULE PROCEDURE HorizontalMean_2D_InRange_2Dweights
   END INTERFACE levels_horizontal_mean
+  
+  ! the same as above, but better name
+  INTERFACE horizontal_mean
+    MODULE PROCEDURE LevelHorizontalMean_3D_InRange_2Dweights
+    MODULE PROCEDURE LevelHorizontalMean_3D_InRange_3Dweights
+    MODULE PROCEDURE HorizontalMean_2D_InRange_2Dweights
+  END INTERFACE horizontal_mean
+  
+  INTERFACE horizontal_sum
+    MODULE PROCEDURE LevelHorizontalSum_3D_InRange_2Dweights
+    MODULE PROCEDURE LevelHorizontalSum_3D_InRange_3Dweights
+  END INTERFACE horizontal_sum
+
 
   INTERFACE gather_sums
     MODULE PROCEDURE gather_sums_0D
@@ -520,15 +535,16 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-  ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
+  ! Returns the weighted Sum for each level in a 3D array in a given range subset.
+  SUBROUTINE LevelHorizontalSum_3D_InRange_2Dweights(values, weights, in_subset, total_sum, start_level, end_level, mean)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
+    REAL(wp), TARGET, INTENT(inout) :: total_sum(:)   ! mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
+    REAL(wp), TARGET, INTENT(inout), OPTIONAL :: mean(:)   ! mean for each level
 
-    REAL(wp), ALLOCATABLE :: sum_value(:,:), total_sum(:), sum_weight(:,:), total_weight(:)
+    REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
@@ -541,9 +557,8 @@ CONTAINS
     no_of_threads = omp_get_max_threads()
 #endif
 
-    allocated_levels = SIZE(mean)
+    allocated_levels = SIZE(total_sum)
     ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
-      & total_sum(allocated_levels), &
       & sum_weight(allocated_levels, 0:no_of_threads-1), &
       & total_weight(allocated_levels) )
 
@@ -621,17 +636,40 @@ CONTAINS
     ! Collect the value and weight sums (at all procs)
     CALL gather_sums(total_sum, total_weight)
 
-    ! Get average and add
-    mean(:) = 0.0_wp
-    DO level = start_vertical, end_vertical
-      ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
-      mean(level) = total_sum(level)/total_weight(level)
-    ENDDO
-    DEALLOCATE(total_sum, total_weight)
+    IF (PRESENT(mean)) THEN
+      mean(:) = 0.0_wp
+      DO level = start_vertical, end_vertical
+        ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
+        mean(level) = total_sum(level)/total_weight(level)
+      ENDDO
+    ENDIF
+    
+    DEALLOCATE(total_weight)
 
+  END SUBROUTINE LevelHorizontalSum_3D_InRange_2Dweights
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the weighted average for each level in a 3D array in a given range subset.
+  SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
+    REAL(wp), INTENT(in) :: values(:,:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
+    INTEGER, OPTIONAL :: start_level, end_level
+
+    REAL(wp), ALLOCATABLE :: total_sum(:)
+    ALLOCATE( total_sum(SIZE(mean)))
+    
+    CALL LevelHorizontalSum_3D_InRange_2Dweights(values=values, weights=weights, in_subset=in_subset, &
+      & total_sum=total_sum, start_level=start_level, end_level=end_level, mean=mean)
+    
+    DEALLOCATE( total_sum)
   END SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
+  
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
@@ -642,7 +680,7 @@ CONTAINS
     TYPE(t_subset_range), TARGET :: in_subset
     INTEGER, OPTIONAL :: start_level, end_level
 
-    REAL(wp), ALLOCATABLE, TARGET :: levelWeights(:), levelMean(:)
+    REAL(wp), ALLOCATABLE, TARGET :: levelWeights(:), levelWeightedSum(:)
     REAL(wp) ::  totalWeight, totalSum
     INTEGER :: level, start_vertical, end_vertical, allocated_levels
 
@@ -657,36 +695,37 @@ CONTAINS
       end_vertical = SIZE(values, VerticalDim_Position)
     ENDIF
     allocated_levels = SIZE(values, VerticalDim_Position)
-    ALLOCATE( levelWeights(allocated_levels), levelMean(allocated_levels) )
+    ALLOCATE( levelWeights(allocated_levels), levelWeightedSum(allocated_levels) )
 
-    CALL LevelHorizontalMean_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
-      & mean=levelMean, start_level=start_level, end_level=end_level, sumLevelWeights=levelWeights)
+    CALL LevelHorizontalSum_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
+      & total_sum=levelWeightedSum, start_level=start_level, end_level=end_level, sumLevelWeights=levelWeights)
 
     totalSum = 0.0_wp
     totalWeight = 0.0_wp
     DO level = start_vertical, end_vertical
-      totalSum    = totalSum    + levelMean(level) * levelWeights(level)
+      totalSum    = totalSum    + levelWeightedSum(level)
       totalWeight = totalWeight + levelWeights(level)
     ENDDO
 
     TotalWeightedMean_3D_InRange_3Dweights = totalSum / totalWeight
-    DEALLOCATE(levelWeights, levelMean)
+    DEALLOCATE(levelWeights, levelWeightedSum)
 
   END FUNCTION TotalWeightedMean_3D_InRange_3Dweights
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   !>
-  ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights(values, weights, in_subset, mean, start_level, end_level, sumLevelWeights)
+  ! Returns the weighted sum for each level in a 3D array in a given range subset.
+  SUBROUTINE LevelHorizontalSum_3D_InRange_3Dweights(values, weights, in_subset, total_sum, &
+    & start_level, end_level, mean, sumLevelWeights)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
+    REAL(wp), TARGET, INTENT(inout) :: total_sum(:)   ! mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
-    REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: sumLevelWeights(:)   ! the sum of the weights in each level
+    REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: mean(:), sumLevelWeights(:)   ! the sum of the weights in each level
 
-    REAL(wp), ALLOCATABLE :: sum_value(:,:), total_sum(:), sum_weight(:,:), total_weight(:)
+    REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
@@ -699,9 +738,8 @@ CONTAINS
     no_of_threads = omp_get_max_threads()
 #endif
 
-    allocated_levels = SIZE(mean)
+    allocated_levels = SIZE(total_sum)
     ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
-      & total_sum(allocated_levels), &
       & sum_weight(allocated_levels, 0:no_of_threads-1), &
       & total_weight(allocated_levels) )
 
@@ -776,36 +814,57 @@ CONTAINS
     ! Collect the value and weight sums (at all procs)
     CALL gather_sums(total_sum, total_weight)
 
-    ! Get average and add
-    mean(:) = 0.0_wp
-    DO level = start_vertical, end_vertical
-      ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
-      mean(level) = total_sum(level)/total_weight(level)
-    ENDDO
+    IF (PRESENT(mean)) THEN
+      mean(:) = 0.0_wp
+      DO level = start_vertical, end_vertical
+        mean(level) = total_sum(level)/total_weight(level)
+      ENDDO
+    ENDIF
 
     IF (PRESENT(sumLevelWeights)) THEN
       sumLevelWeights(:) = total_weight(:)
     ENDIF
 
-    DEALLOCATE(total_sum, total_weight)
+    DEALLOCATE(total_weight)
 
-  END SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights
+  END SUBROUTINE LevelHorizontalSum_3D_InRange_3Dweights
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
+  SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights(values, weights, in_subset, mean, start_level, end_level, sumLevelWeights)
+    REAL(wp), INTENT(in) :: values(:,:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
+    INTEGER, OPTIONAL :: start_level, end_level
+    REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: sumLevelWeights(:)   ! the sum of the weights in each level
+
+    REAL(wp), ALLOCATABLE :: sumLevels(:)
+    ALLOCATE( sumLevels(SIZE(mean)))
+    
+    CALL LevelHorizontalSum_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
+      & total_sum=sumLevels, start_level=start_level, end_level=end_level, mean=mean, sumLevelWeights=sumLevelWeights)
+
+    DEALLOCATE( sumLevels)
+    
+  END SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  REAL(wp)  FUNCTION Sum_2D_2Dweights_InRange(values, weights, in_subset, mean) 
     REAL(wp), INTENT(in) :: values(:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: mean   ! mean for each level
+    REAL(wp), OPTIONAL   :: mean  ! in
 
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
     REAL(wp):: total_sum, total_weight
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':HorizontalMean_2D_InRange_2Dweights'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_2D_2Dweights_InRange'
 
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
 
@@ -870,12 +929,29 @@ CONTAINS
     ! Collect the value and weight sums (at all procs)
     CALL gather_sums(total_sum, total_weight)
 
-    ! Get average and add
-    mean = total_sum / total_weight
+    IF (PRESENT(mean)) THEN
+      ! Get average
+      mean = total_sum / total_weight
+    ENDIF
+    
+  END FUNCTION Sum_2D_2Dweights_InRange
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the weighted average for each level in a 3D array in a given range subset.
+  SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
+    REAL(wp), INTENT(in) :: values(:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), TARGET, INTENT(inout) :: mean   ! mean for each level
+
+    REAL(wp) :: WeightedSum
+
+    WeightedSum = Sum_2D_2Dweights_InRange(values, weights, in_subset, mean)
 
   END SUBROUTINE HorizontalMean_2D_InRange_2Dweights
   !-----------------------------------------------------------------------
-
 
   
   !-----------------------------------------------------------------------

@@ -26,13 +26,13 @@ MODULE mo_bc_sst_sic
   USE mo_scatter,            ONLY: scatter_time_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_datetime,           ONLY: t_datetime, add_time, date_to_time, idaylen, rdaylen
-  USE mo_run_config,         ONLY: dtime
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_cdi_constants,      ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
     &                              vlistInqVarGrid
+
+  USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
   IMPLICIT NONE
 
@@ -44,19 +44,9 @@ MODULE mo_bc_sst_sic
   CHARACTER(len=*), PARAMETER :: sst_fn = 'bc_sst.nc'
   CHARACTER(len=*), PARAMETER :: sic_fn = 'bc_sic.nc'
 
-  ! weighting factors and indices for time interpolation
-
-  REAL(dp):: wgt1, wgt2
-  INTEGER :: nmw1, nmw2
-
-  REAL(dp):: wgtd1, wgtd2
-
   PUBLIC :: read_bc_sst_sic
-  PUBLIC :: bc_sst_sic_time_weights
   PUBLIC :: bc_sst_sic_time_interpolation
   PUBLIC :: get_current_bc_sst_sic_year
-
-  PUBLIC :: wgt1, wgt2, nmw1, nmw2
 
   INTEGER, SAVE :: current_year = -1
 
@@ -185,113 +175,19 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_weights(current_date)
-
-    TYPE(t_datetime), INTENT(in) :: current_date 
-
-    ! calculates weighting factores for monthly sst and sea ice
-
-    TYPE(t_datetime) :: next_date
-
-    TYPE(t_datetime) :: date_monm1, date_monp1
-    INTEGER   :: yr, mo, dy, hr, mn, se
-    INTEGER   :: isec
-    INTEGER   :: imp1, imm1, imlenm1, imlen, imlenp1
-    REAL (dp) :: zsec, zdayl
-    REAL (dp) :: zmohlf, zmohlfp1, zmohlfm1
-    REAL (dp) :: zdh, zdhp1, zdhm1
+  SUBROUTINE bc_sst_sic_time_interpolation(wi, slf, tsw, seaice, siced)
     
-    ! time of next timestep and split
-    !
-    next_date = current_date
-    CALL add_time(dtime,0,0,0,next_date)
-    CALL date_to_time(next_date)    
-
-    yr = next_date%year
-    mo = next_date%month 
-    dy = next_date%day   
-    hr = next_date%hour  
-    mn = next_date%minute
-    se = INT(next_date%second)
-
-    ! month index for sst and sic data  (0..13)
-    imp1 = mo+1
-    imm1 = mo-1
-      
-    ! determine length of months and position within current month
-
-    date_monm1%calendar = next_date%calendar
-    IF (imm1 ==  0) THEN
-      date_monm1%year = yr-1;  date_monm1%month = 12;   date_monm1%day = 1;
-    ELSE
-      date_monm1%year = yr;    date_monm1%month = imm1; date_monm1%day = 1;
-    ENDIF
-    date_monm1%hour = 0;   date_monm1%minute = 0; date_monm1%second   = 0;
-    CALL date_to_time(date_monm1)
-
-    date_monp1%calendar = next_date%calendar
-    IF (imp1 == 13) THEN
-      date_monp1%year = yr+1;  date_monp1%month = 1;    date_monp1%day = 1;
-    ELSE
-      date_monp1%year = yr;    date_monp1%month = imp1; date_monp1%day = 1;
-    ENDIF
-    date_monp1%hour     = 0;   date_monp1%minute   = 0;    date_monp1%second   = 0;
-    CALL date_to_time(date_monp1)
-
-    imlenm1 = date_monm1%monlen
-    imlen   = next_date%monlen
-    imlenp1 = date_monp1%monlen
-      
-    zdayl    = rdaylen
-    zmohlfm1 = imlenm1*zdayl*0.5_dp
-    zmohlf   = imlen  *zdayl*0.5_dp
-    zmohlfp1 = imlenp1*zdayl*0.5_dp
-    
-    ! weighting factors for first/second half of month
-      
-    nmw1   = mo
-      
-    ! seconds in the present month
-    isec = (dy-1) * idaylen + INT(next_date%daysec)
-    zsec = REAL(isec,dp)
-      
-    IF(zsec <= zmohlf) THEN                     ! first part of month
-      wgt1   = (zmohlfm1+zsec)/(zmohlfm1+zmohlf)
-      wgt2   = 1.0_dp-wgt1
-      nmw2   = imm1
-    ELSE                                        ! second part of month
-      wgt2   = (zsec-zmohlf)/(zmohlf+zmohlfp1)
-      wgt1   = 1.0_dp-wgt2
-      nmw2   = imp1
-    ENDIF
-      
-    ! weighting factors for first/second half of day
-      
-    zsec = REAL(next_date%second, dp)
-    zdh   = 12.0_dp*3600.0_dp
-    zdhm1 = zdh
-    zdhp1 = zdh
-    IF( zsec <= zdh ) THEN                     ! first part of day
-      wgtd1  = (zdhm1+zsec)/(zdhm1+zdh)
-      wgtd2  = 1.0_dp-wgtd1
-    ELSE                                       ! second part of day
-      wgtd2  = (zsec-zdh)/(zdh+zdhp1)
-      wgtd1  = 1.0_dp-wgtd2
-    ENDIF
-    
-  END SUBROUTINE bc_sst_sic_time_weights
-
-  SUBROUTINE bc_sst_sic_time_interpolation(seaice, tsw, siced, slf)
-    REAL(dp), INTENT(out) :: seaice(:,:) 
-    REAL(dp), INTENT(out) :: siced(:,:) 
-    REAL(dp), INTENT(out) :: tsw(:,:) 
-    REAL(dp), INTENT(in) :: slf(:,:) 
+    TYPE(t_wi_limm), INTENT(in)  :: wi
+    REAL(dp)       , INTENT(in)  :: slf(:,:) 
+    REAL(dp)       , INTENT(out) :: tsw(:,:) 
+    REAL(dp)       , INTENT(out) :: seaice(:,:) 
+    REAL(dp)       , INTENT(out) :: siced(:,:) 
 
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
 
-    zts(:,:) = wgt1 * sst(:,:,nmw1) + wgt2 * sst(:,:,nmw2)
-    zic(:,:) = wgt1 * sic(:,:,nmw1) + wgt2 * sic(:,:,nmw2)
+    zts(:,:) = wi%wgt1 * sst(:,:,wi%inm1) + wi%wgt2 * sst(:,:,wi%inm2)
+    zic(:,:) = wi%wgt1 * sic(:,:,wi%inm1) + wi%wgt2 * sic(:,:,wi%inm2)
 
     !TODO: missing siced needs to be added
 

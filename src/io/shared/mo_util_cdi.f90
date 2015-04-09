@@ -36,8 +36,9 @@ MODULE mo_util_cdi
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
     &                              deallocateTimedelta, deallocateDatetime, &
-    &                              MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
+    &                              PROLEPTIC_GREGORIAN, setCalendar,        &
+    &                              MAX_DATETIME_STR_LEN,                    &
+    &                              OPERATOR(-)
   USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
     &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
     &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
@@ -1001,6 +1002,7 @@ CONTAINS
       ! the statistical process starting time
       statProc_startDateTime = info%action_list%action(1)%EventLastTriggerDate
 
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
 
       ! get time interval, over which statistical process has been performed
       ! It is the time difference between the current time (rounded) mtime_cur and 
@@ -1008,7 +1010,7 @@ CONTAINS
       mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
       !
       ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-      CALL getTimeDeltaFromDateTime(mtime_cur, statProc_startDateTime, mtime_lengthOfTimeRange)
+      mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
 
 
       ! time interval over which statistical process has been performed (in secs)    
@@ -1028,8 +1030,9 @@ CONTAINS
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(statProc_startDateTime, mtime_start, forecast_delta)
+    forecast_delta = statProc_startDateTime - mtime_start
 
     ! forecast time in seconds
     forecast_secs =    forecast_delta%second    +   &

@@ -38,10 +38,11 @@ MODULE mo_ocean_ext_data
   USE mo_impl_constants,     ONLY: max_char_length, LAND
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_ocean_nml,          ONLY: iforc_oce, &
-    &                              forcing_timescale, &
-    &                              forcing_windstress_u_type, &
-    &                              forcing_windstress_v_type, &
-    &                              forcing_fluxes_type 
+    & forcing_timescale, &
+    & forcing_windstress_u_type, &
+    & forcing_windstress_v_type, &
+    & forcing_fluxes_type,       &
+    & OMIP_FluxFromFile
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -282,7 +283,7 @@ CONTAINS
 
     ! omip forcing data on cell edge
     !
-    IF (iforc_oce == 12) THEN
+    IF (iforc_oce == OMIP_FluxFromFile) THEN
       cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
         &                   'OMIP forcing data', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
@@ -349,7 +350,7 @@ CONTAINS
     CHARACTER(filename_max) :: omip_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
+    INTEGER :: jg, i_lev, no_cells, no_verts, no_tst
     INTEGER :: ncid, dimid
     TYPE(t_stream_id) :: stream_id
     INTEGER :: mpi_comm
@@ -369,7 +370,6 @@ CONTAINS
     jg = 1
 
     i_lev       = p_patch(jg)%level
-    i_cell_type = p_patch(jg)%cell_type
     z_flux(:,:,:) = 0.0_wp
 
     CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
@@ -397,18 +397,10 @@ CONTAINS
       ! get number of cells and vertices
       !
       CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ENDIF
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
       CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ENDIF
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
 
       !
       ! check the number of cells and verts
@@ -479,13 +471,12 @@ CONTAINS
     use_omip_fluxes     = ( forcing_fluxes_type == 1 )
     use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
 
-    IF ( use_omip_forcing .AND. iforc_oce == 12) THEN
+    IF ( use_omip_forcing .AND. iforc_oce == OMIP_FluxFromFile) THEN
 
     !DO jg = 1,n_dom
       jg = 1
 
       i_lev       = p_patch(jg)%level
-      i_cell_type = p_patch(jg)%cell_type
 
 !       WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
       omip_file='ocean-flux.nc'
@@ -686,7 +677,7 @@ CONTAINS
 
       CALL message( TRIM(routine),'Ocean OMIP fluxes for external data read' )
 
-    END IF ! iforc_oce=12 and iforc_type.ne.5
+    END IF ! iforc_oce=OMIP_FluxFromFile and iforc_type.ne.5
 
   END SUBROUTINE read_ext_data_oce
   !-------------------------------------------------------------------------

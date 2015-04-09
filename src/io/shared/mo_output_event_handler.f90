@@ -2292,18 +2292,16 @@ CONTAINS
     INTEGER :: ev_step, istep, n_pes, i_pe
     TYPE(t_event_step_data), POINTER :: event_step_data
 
-
     ev_step = 0
     DO istep=1,event%n_event_steps
       IF (event%event_step(istep)%i_sim_step < jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
 
-
     IF (event%i_event_step <= event%n_event_steps) THEN
       istep = event%i_event_step
       n_pes = event%event_step(istep)%n_pes
-      
+
       DO i_pe=1,n_pes
         event_step_data => event%event_step(istep)%event_step_data(i_pe)
 

@@ -185,7 +185,7 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = 
         ;;
-    cce)
+    cray_gpu)
         config_compiler=cce                                                     
         CC          = cc
         FC          = ftn
@@ -221,6 +221,26 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -module 
         ;;
+    intel-kit)
+        config_compiler=intel
+        compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
+        CC     =  icc
+        CFLAGS      = "$CFLAGS" -DpgiFortran
+        FC          = mpif90 -sox
+        ##FDEBUG      = -check bounds -check pointers -check uninit -debug -g
+        FDEBUG      = -g
+        FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost -g -traceback
+        FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost  -traceback
+        ##FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost -g -traceback
+        ##FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost  -traceback
+        F77         = ifort -sox
+        F77FLAGS    = "$FFLAGS"
+        OMPFLAG     = -openmp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -module 
+        ;;
 esac
 #===============================================
 
@@ -234,73 +254,52 @@ case "$ac_sitename" in
    cscs.ch)
 	echo The host is:  $HOST
         case "$HOST" in
-            *rosa*)
-                config_target=rosa
+            *daint*)
+                config_target=daint_cpu
                 make_command="make" "-j" "8"
 #                use_shell="/bin/sh"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
+                submit="sbatch"
+                sync_submit="sbatch"
                 CC = cc
                 FC = ftn
                 F77= ftn
 
                 case "$fortran_compiler" in
                     default|gcc)
-                      load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
-                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
-                    ;;
-                    intel)
-                        load_modules      = "PrgEnv-intel" "netcdf" "hdf5" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-intel
-                        ;;
-                    cray)
-        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
-                        load_modules      = "cray-netcdf" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
-                        ;;
-                esac
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
-                ;;
-
-            *todi*)
-                config_target=todi
-                make_command="make" "-j" "8"
-#                use_shell="/bin/sh"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
-                CC = cc
-                FC = ftn
-                F77= ftn
-
-                case "$fortran_compiler" in
-                    default|gcc)
-                        load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
+                        load_modules="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
                     ;;
                     intel)
-                        load_modules      = "PrgEnv-intel" "netcdf" "hdf5" "${load_modules}"
+                        load_modules      = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
                         ;;
                     cray)
+			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
                         load_modules      = "cray-netcdf" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
+                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
+                        ;;
+                    cray_gpu)
+			OMPFLAG     = -h omp
+        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
+                        load_modules      = "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
                         load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
                         ;;
                 esac
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
                 ;;
-            *daint*)
-                config_target=default
+            *dora*)
+                config_target=dora
                 make_command="make" "-j" "8"
 #                use_shell="/bin/sh"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit=""
-                sync_submit=""
+                submit="sbatch"
+                sync_submit="sbatch"
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -323,7 +322,7 @@ case "$ac_sitename" in
                         load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
                         ;;
                 esac
-                mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
                 ;;
             *castor*)
                 echo "Chose target CASTOR"
@@ -516,6 +515,7 @@ case "$ac_sitename" in
                 HDF5ROOT    = $software_tree/hdf5-1.8.7-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr
+                XML2ROOT    = /usr
                 CFLAGS   = $CFLAGS -DHAVE_NETCDF4
                 SYS_LIBS = -lnuma -lrt -lnsl -lutil -lm -lpthread -ldl -Wl,--export-dynamic -lrt -lnsl -lutil -lm -lpthread -ldl
                 IB_LIBS  = -lrdmacm -libverbs
@@ -572,18 +572,18 @@ case "$ac_sitename" in
                            MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                            case "$fortran_compiler" in
                                default|gcc)
-                                   load_modules="gcc/4.7.2" "${load_modules}"
+                                   load_modules="gcc/4.8.2" "${load_modules}"
                                    ;;
                                nag)
-                                   load_modules="gcc/4.7.2" "nag/5.3.951" "${load_modules}"
+                                   load_modules="gcc/4.8.2" "nag/5.3.951" "${load_modules}"
                                    ;;
                                pgi)
-                                   load_modules= "gcc/4.7.2" "pgi/14.7" "${load_modules}"
+                                   load_modules= "gcc/4.8.2" "pgi/14.7" "${load_modules}"
                                    ;;
                                intel)
                                    # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                                    HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                   load_modules="gcc/4.7.2" "intel/14.0.2" "${load_modules}"
+                                   load_modules="gcc/4.8.2" "intel/14.0.2" "${load_modules}"
                                    ;;
                            esac
                            ;;

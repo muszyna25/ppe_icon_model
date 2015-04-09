@@ -80,7 +80,7 @@ cat > ${atmo_namelist} << EOF
 ! use_dycore_barrier = .false.
 /
 &grid_nml
- cell_type = 3        ! triangular cells
+ ! cell_type is not used = 3        ! triangular cells
  dynamics_grid_filename = "$atmo_dyn_grids",
 /
 &run_nml
