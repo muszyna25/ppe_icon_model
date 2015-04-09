@@ -76,7 +76,7 @@
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
          &                            MAX_TIMEDELTA_STR_LEN,                       &
-         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
+         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
     USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
