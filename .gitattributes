@@ -228,6 +228,7 @@ doc/technical/dwd_database/pics/plot_maxhsurf.pdf -text svneol=unset#application
 doc/technical/dwd_database/preface_intro.tex -text
 doc/technical/dwd_database/preface_title_toc.tex -text
 doc/technical/dwd_database/preface_versionhistory.tex -text
+doc/technical/dwd_database/quote.tex -text
 doc/technical/flux_diagram-crop.pdf -text
 doc/technical/flux_diagram.pdf -text
 doc/technical/flux_diagram.ps -text
