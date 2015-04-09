@@ -6,24 +6,19 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-10T00:00:00Z"
+  end_date="2001-01-15T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 (( years_checkpoint  = 50 ))    # write restart file interval [days]
 (( years_restart = 50 ))    # stop model for restart [days]
-(( days_data     = 1 ))    # ocean model output interval hours [hours] - for test runs
-#
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
-output_interval="PT06H"
-(( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
+output_interval="PT01H"
 (( dt_checkpoint  = years_checkpoint  * year ))
 (( dt_restart     = years_restart * year ))
 steps_per_file=610   # output intervals per file interval
 autoPostProcessing=false
-#-----------------------------------------------------------------------------
-ocean_grids="AquaPlanet_Ico_0079km.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -44,7 +39,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 400               ! model timestep in seconds
+ dtime       = $dtime               ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output     = 3
@@ -64,7 +59,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials'
+  ml_varlist       =  'h_acc', 'u_acc', 'v_acc', 't_acc', 'veloc_adv_horz_u','veloc_adv_horz_v', 'vort_acc'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -85,8 +80,8 @@ cat > ${ocean_namelist} << EOF
 ! l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   select_solver      = 2              !  1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance = .true.
-  solver_tolerance   = 1.0E-13           !
-  solver_max_iter_per_restart   = 26     !
+  solver_tolerance   = 1.0E-14           !
+  solver_max_iter_per_restart   = 32     !
   solver_tolerance_sp   = 1.0E-13        !
   solver_max_iter_per_restart_sp   = 26  !
   solver_max_restart_iterations = 100     !  outer (restart solver)
@@ -97,6 +92,7 @@ cat > ${ocean_namelist} << EOF
   veloc_diffusion_form  = 1
   veloc_diffusion_order = 1
   iswm_oce= 1
+  MASS_MATRIX_INVERSION_TYPE=0
 /
 &ocean_tracer_transport_nml
   no_tracer             = 1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
@@ -132,7 +128,8 @@ cat > ${ocean_namelist} << EOF
   initial_temperature_type=211
 /
 &ocean_diagnostics_nml
-   diagnostics_level            = 1
+   diagnostics_level            = 0
+  diagnose_for_horizontalVelocity = .true.
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

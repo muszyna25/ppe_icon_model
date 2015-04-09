@@ -725,10 +725,7 @@ run/checksuite.ocean_internal/other/post.test_oce_default -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric_tracerconservation -text
 run/checksuite.ocean_internal/other/variations.rb -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0039km -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0079km -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0158km -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp2_WavePropagation -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp3_WindDrivenBasin -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp4_CheckerBoardBasin -text
@@ -736,7 +733,7 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6a_Instability_Barotropi
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6b_Instability_KelvinHelmholtz -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityChannel_10km -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
-run/checksuite.ocean_internal/paper_dycore/make_ShallowWater_runs -text
+run/checksuite.ocean_internal/paper_dycore/make_runs_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_testbed -text
