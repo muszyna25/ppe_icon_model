@@ -1283,7 +1283,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: energyCheck, sst, zuipsnowf
     REAL(wp), POINTER             :: flat(:,:)
-    INTEGER                       :: jb, jc, i_startidx_c, i_endidx_c
+    INTEGER                       :: k, jb, jc, i_startidx_c, i_endidx_c
 
     !-------------------------------------------------------------------------------
 
@@ -1361,7 +1361,8 @@ CONTAINS
     !---------------------------------------------------------------------
 
     ! Ocean Heat Flux
-    CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
+    IF ( i_ice_therm >= 1 ) &
+      & CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
 
     sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)  !  add corresponding flux or calculate zUnderIce
  !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
@@ -1392,7 +1393,15 @@ CONTAINS
     CALL dbg_print('IceSlow: energy aft. upUPTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
 
     ! Ice Concentration Change
-    CALL ice_conc_change(p_patch,ice,p_os)
+    IF ( i_ice_therm >= 1 ) THEN
+      CALL ice_conc_change(p_patch,ice,p_os)
+    ELSE
+      ! This is needed since vol and vols are calculated in ice_conc_change and cleanup will set all to zero!
+      DO k=1,ice%kice
+        ice%vol (:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
+        ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
+      ENDDO
+    ENDIF
 
     ! #slo# 2015-01 - Test: update draft, zunderice now includes totalsnowfall as in ocets, inconsistent with h
     !               - update of draft/zunderice should be done whenever draft is changed

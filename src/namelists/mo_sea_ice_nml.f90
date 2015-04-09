@@ -41,6 +41,7 @@ MODULE mo_sea_ice_nml
 
   INTEGER,PUBLIC :: kice                !< Number of ice classes
   INTEGER,PUBLIC :: i_ice_therm         !< Thermodynamic model switch:
+                                        ! 0: No thermodynamics for test, full ice model initialization and cleanup
                                         ! 1: Zero layers
                                         ! 2: Winton's two layer model
                                         ! 3: Zero layers with analytical fluxes
@@ -164,8 +165,12 @@ CONTAINS
       CALL finish(TRIM(routine), 'Currently, kice must be 1.')
     END IF
 
-    IF (i_ice_therm < 1 .OR. i_ice_therm > 4) THEN
-      CALL finish(TRIM(routine), 'i_ice_therm must be between 1 and 4.')
+    IF (i_ice_therm < 0 .OR. i_ice_therm > 4) THEN
+      CALL finish(TRIM(routine), 'i_ice_therm must be between 0 and 4.')
+    END IF
+
+    IF (i_ice_therm == 2) THEN
+      CALL finish(TRIM(routine), 'i_ice_therm = 2 is not allowed - Winton thermodynamics not active anymore')
     END IF
 
     IF (i_ice_albedo < 1 .OR. i_ice_albedo > 2 ) THEN
@@ -178,8 +183,8 @@ CONTAINS
 
     IF (i_ice_dyn == 1 ) THEN
       ! TODO: This can be changed when we start advecting T1 and T2
-      CALL message(TRIM(routine), 'WARNING: i_ice_therm set to 1 because i_ice_dyn is 1')
-      i_ice_therm = 1
+   !  CALL message(TRIM(routine), 'WARNING: i_ice_therm set to 1 because i_ice_dyn is 1')
+   !  i_ice_therm = 1   !  no Winton thermodynamics allowed, switched off by default
 
       ! When using routine ice_ocean_stress, ocean stress below sea ice is considered accordingly
       CALL message(TRIM(routine), 'WARNING: stress_ice_zero=FALSE because i_ice_dyn is 1')
