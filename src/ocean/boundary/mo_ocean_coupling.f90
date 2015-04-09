@@ -380,8 +380,6 @@ CONTAINS
       & p_pe_work,  & ! this owner id
       & error_status )                                            ! output
 
-# endif
-
     field_name(1) =  "TAUX"   ! bundled field containing two components
     field_name(2) =  "TAUY"   ! bundled field containing two components
     field_name(3) =  "SFWFLX" ! bundled field containing three components
@@ -391,9 +389,22 @@ CONTAINS
     field_name(7) =  "SST"
     field_name(8) =  "OCEANU"
     field_name(9) =  "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
+    field_name(10) = "ICEOCE" ! bundled field containing five components
+
+# endif
 
 # ifdef YAC_coupling
+
+    field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
+    field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
+    field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
+    field_name(4) = "surface_temperature"
+    field_name(5) = "total_heat_flux"                    ! bundled field containing four components
+    field_name(6) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
+    field_name(7) = "sea_surface_temperature"
+    field_name(8) = "eastward_sea_water_velocity"
+    field_name(9) = "northward_sea_water_velocity"
+    field_name(10) = "ocean_sea_ice_bundle"              ! bundled field containing five components
 
     DO i = 1, no_of_fields
       CALL yac_fdef_field (    &
