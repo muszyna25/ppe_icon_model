@@ -51,7 +51,8 @@ MODULE mo_action
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,          &
-    &                              newTimedelta, deallocateTimedelta, setCalendar
+    &                              newTimedelta, deallocateTimedelta,         &
+    &                              setCalendar, OPERATOR(>=), OPERATOR(<=)
   USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS,    &
     &                              getTriggeredPreviousEventAtDateTime
   USE mo_util_string,        ONLY: remove_duplicates
@@ -64,7 +65,7 @@ MODULE mo_action
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
-
+  USE mo_var_metadata_types, ONLY: t_var_metadata
 
   IMPLICIT NONE
 
@@ -73,10 +74,11 @@ MODULE mo_action
   ! VARIABLES/OBJECTS
   PUBLIC :: reset_act
 
+  ! Functions/Subroutines
+  PUBLIC :: getActiveAction
   !!!! temporary workaround for gfortran 4.5 and potentially others !!!!!!
   PUBLIC :: action_init    ! wrapper for CALL reset_act%initialize
   PUBLIC :: reset_action   ! wrapper for CALL reset_act%execute
-
 
   INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be 
                                         ! assigned to a single action
@@ -481,6 +483,58 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE reset_kernel
+
+
+  !>
+  !! Get index of potentially active action-event
+  !!
+  !! For a specific variable, 
+  !! get index of potentially active action-event of selected action-type.
+  !!
+  !! The variable's info state and the action-type must be given.
+  !! The function returns the active action index within the variable's array 
+  !! of actions. If no matching action is found, the function returns 
+  !! the result -1.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-04-08)
+  !!
+  FUNCTION getActiveAction(var_info, actionTyp, cur_date) RESULT(actionId)
+    TYPE(t_var_metadata), INTENT(IN)  :: var_info      ! var metadata
+    INTEGER             , INTENT(IN)  :: actionTyp     ! type of action to be searched for
+    TYPE(datetime)      , INTENT(IN)  :: cur_date      ! current datetime (mtime format)
+    !
+    ! local
+    INTEGER :: actionId
+    INTEGER :: iact             ! loop counter
+    TYPE(datetime), POINTER :: start_date       ! action-event start datetime
+    TYPE(datetime), POINTER :: end_date         ! action-event end datetime
+    !-------------------------------------------------------------------
+
+    actionId = -1
+
+    ! loop over all variable-specific actions
+    !
+    ! We unconditionally take the first active one found, even if there are more active ones. 
+    ! (which however would normally make little sense) 
+    DO iact = 1,var_info%action_list%n_actions
+      IF (var_info%action_list%action(iact)%actionID /= actionTyp ) CYCLE  ! skip all non-matching action types
+      
+      start_date => newDatetime(TRIM(var_info%action_list%action(iact)%start))
+      end_date   => newDatetime(TRIM(var_info%action_list%action(iact)%end))
+
+      IF ((cur_date >= start_date) .AND. (cur_date <= end_date)) THEN
+        actionId = iact   ! found active action
+        CALL deallocateDatetime(start_date)
+        CALL deallocateDatetime(end_date)
+        EXIT      ! exit loop
+      ENDIF
+      CALL deallocateDatetime(start_date)
+      CALL deallocateDatetime(end_date)
+    ENDDO
+
+  END FUNCTION getActiveAction
+
 
 
   !=================================================================================!
