@@ -696,8 +696,8 @@ CONTAINS
     CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
     CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
 
-    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start,  &
-      &                      end_datetime   = sim_step_info%sim_end   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%sim_start),  &
+      &                      end_datetime   = TRIM(sim_step_info%sim_end)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
