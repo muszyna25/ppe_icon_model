@@ -412,20 +412,26 @@ CONTAINS
 
     field_shape(1:2) = grid_shape(1:2)
 
+    ! see equivalent ocean counterpart in drivers/mo_atmo_model.f90
+    ! routine construct_atmo_coupler 
+
     DO i = 1, no_of_fields
+
       IF ( i == 1 .OR. i == 2 ) THEN
         field_shape(3) = 2
       ELSE IF ( i == 3 ) THEN
         field_shape(3) = 3
-      ELSE IF ( i == 6 .OR. i == 5 ) THEN
+      ELSE IF ( i == 5 .OR. i == 6 ) THEN
         field_shape(3) = 4
       ELSE IF ( i == 10 ) THEN
         field_shape(3) = 5
       ELSE
         field_shape(3) = 1
       ENDIF
+
       CALL icon_cpl_def_field ( field_name(i), grid_id, field_id(i), &
         & field_shape, error_status )
+
     ENDDO
 
     CALL icon_cpl_search
