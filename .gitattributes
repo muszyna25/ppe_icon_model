@@ -214,8 +214,10 @@ doc/technical/dwd_database/pics/ICON_EU_nest_1.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/ICON_EU_nest_2.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/analysis_drips.png -text
 doc/technical/dwd_database/pics/bisection.png -text
-doc/technical/dwd_database/pics/forecast_length.png -text svneol=unset#image/png
-doc/technical/dwd_database/pics/forecast_length.svg -text svneol=unset#image/svg%2Bxml
+doc/technical/dwd_database/pics/forecast_length_global.png -text svneol=unset#image/png
+doc/technical/dwd_database/pics/forecast_length_global.svg -text svneol=unset#image/svg%2Bxml
+doc/technical/dwd_database/pics/forecast_length_nest.png -text svneol=unset#image/png
+doc/technical/dwd_database/pics/forecast_length_nest.svg -text svneol=unset#image/svg%2Bxml
 doc/technical/dwd_database/pics/grid_refinement.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/icon_grid_R2B00.png -text
 doc/technical/dwd_database/pics/icon_grid_R2B02.png -text
