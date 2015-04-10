@@ -145,7 +145,7 @@ MODULE mo_name_list_output
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
+  USE mo_intp_data_strc,            ONLY: lonlat_grid_list, t_lon_lat_data
 #endif
 
   IMPLICIT NONE
@@ -577,7 +577,8 @@ CONTAINS
                                                
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
-      &                                            idata_type, lev_idx, lev
+      &                                            idata_type, lev_idx, lev, ierrstat, dim1,  &
+      &                                            dim2, nrecv
     INTEGER(i8)                                 :: ioff
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
@@ -593,6 +594,8 @@ CONTAINS
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
+    INTEGER, ALLOCATABLE                        :: global_idx(:,:), gather_reorder_idx(:)
+    TYPE(t_lon_lat_data),  POINTER              :: lonlat
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -870,6 +873,36 @@ CONTAINS
           nmiss = 0
         ENDIF
 
+        ! 
+        IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
+          SELECT CASE (info%ndims)
+          CASE(2)
+            dim1 = info%used_dimensions(1)
+            dim2 = info%used_dimensions(2)
+          CASE(3)
+            dim1 = info%used_dimensions(1)
+            dim2 = info%used_dimensions(3)
+          END SELECT
+
+          ALLOCATE(global_idx(dim1, dim2),                                                  &
+            &      gather_reorder_idx(MERGE(p_ri%n_glb, 0, my_process_is_mpi_workroot())),  &
+            &      STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+          lonlat => lonlat_grid_list(lonlat_id)
+
+          global_idx(:,:) = RESHAPE(lonlat%intp(i_log_dom)%global_idx, &
+            &                       (/ dim1, dim2 /), pad=(/ 0 /) )
+          gather_reorder_idx(:) = 1
+          CALL exchange_data(global_idx, gather_reorder_idx, p_pat)
+          DEALLOCATE(global_idx, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+          nrecv = SUM(p_pat%collector_size(:))
+          IF (my_process_is_mpi_workroot()) THEN
+            DO i=1,nrecv
+              IF (gather_reorder_idx(i) > nrecv)  gather_reorder_idx(gather_reorder_idx(i)) = i
+            END DO
+          END IF
+        END IF
 
         ! For all levels (this needs to be done level-wise in order to reduce 
         !                 memory consumption)
@@ -893,7 +926,10 @@ CONTAINS
               lev_idx = of%level_selection%global_idx(lev_idx)
             END IF
             CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
-          
+            IF ((info%hgrid == GRID_REGULAR_LONLAT) .AND. my_process_is_mpi_workroot()) THEN
+              r_out_wp(gather_reorder_idx(:))= r_out_wp(:)
+            END IF
+
           ELSE IF (idata_type == iINTEGER) THEN
 
             r_out_int(:) = 0
@@ -907,6 +943,9 @@ CONTAINS
               lev_idx = of%level_selection%global_idx(lev_idx)
             END IF
             CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
+            IF ((info%hgrid == GRID_REGULAR_LONLAT) .AND. my_process_is_mpi_workroot()) THEN
+              r_out_int(gather_reorder_idx(:))  = r_out_int(:)
+            END IF
 
           END IF
 
@@ -963,6 +1002,11 @@ CONTAINS
           ENDIF
           
         END DO ! lev = 1, nlevs
+
+        IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
+          DEALLOCATE(gather_reorder_idx, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+        END IF
 
         IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
           & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
