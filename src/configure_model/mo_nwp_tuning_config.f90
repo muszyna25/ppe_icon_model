@@ -35,6 +35,9 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: max_freshsnow_inc
 
 
+  !!--------------------------------------------------------------------------
+  !! Basic configuration setup for physics tuning
+  !!--------------------------------------------------------------------------
 
 !  TYPE :: t_nwp_tuning_config
 
@@ -57,14 +60,15 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
-  REAL(wp) :: &                    !< (MODIS) albedo tuning
-    &  itune_albedo                ! 1: dimmed sahara
+  INTEGER :: &                     !< (MODIS) albedo tuning
+    &  itune_albedo                ! 1: dimmed Sahara
+                                   ! 2: dimmed Sahara and brighter Antarctica
+
 
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc
 
 !  END TYPE t_nwp_tuning_config
-
 
 
 !CONTAINS

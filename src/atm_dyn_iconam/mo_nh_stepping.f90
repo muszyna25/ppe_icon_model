@@ -1616,22 +1616,24 @@ MODULE mo_nh_stepping
             ! Activate cold-start mode in TERRA-init routine irrespective of what has been used for the global domain
             init_mode_soil = 1
 
-            CALL init_nwp_phy(                           &
-              & p_patch(jgc)                            ,&
-              & p_nh_state(jgc)%metrics                 ,&
-              & p_nh_state(jgc)%prog(nnow(jgc))         ,&
-              & p_nh_state(jgc)%diag                    ,&
-              & prm_diag(jgc)                           ,&
-              & prm_nwp_tend(jgc)                       ,&
-              & p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),&
-              & p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),&
-              & p_lnd_state(jgc)%prog_wtr(nnow_rcf(jgc)),&
-              & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
-              & p_lnd_state(jgc)%diag_lnd               ,&
-              & ext_data(jgc)                           ,&
-              & phy_params(jgc), lnest_start=.TRUE.      )
+            IF (iforcing == inwp) THEN
+              CALL init_nwp_phy(                           &
+                & p_patch(jgc)                            ,&
+                & p_nh_state(jgc)%metrics                 ,&
+                & p_nh_state(jgc)%prog(nnow(jgc))         ,&
+                & p_nh_state(jgc)%diag                    ,&
+                & prm_diag(jgc)                           ,&
+                & prm_nwp_tend(jgc)                       ,&
+                & p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),&
+                & p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),&
+                & p_lnd_state(jgc)%prog_wtr(nnow_rcf(jgc)),&
+                & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
+                & p_lnd_state(jgc)%diag_lnd               ,&
+                & ext_data(jgc)                           ,&
+                & phy_params(jgc), lnest_start=.TRUE.      )
 
-            CALL init_cloud_aero_cpl (datetime, p_patch(jgc), p_nh_state(jgc)%metrics, ext_data(jgc), prm_diag(jgc))
+              CALL init_cloud_aero_cpl (datetime, p_patch(jgc), p_nh_state(jgc)%metrics, ext_data(jgc), prm_diag(jgc))
+            ENDIF
 
             CALL compute_airmass(p_patch(jgc),                   &
               &                  p_nh_state(jgc)%metrics,        &

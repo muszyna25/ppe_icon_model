@@ -67,9 +67,10 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
-  REAL(wp) :: &                    !< (MODIS) albedo tuning
+  INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
-                                   ! 1: dimmed sahara
+                                   ! 1: dimmed Sahara
+                                   ! 2: dimmed Sahara and brighter Antarctica
 
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc

@@ -34,7 +34,7 @@ setup.
 
    \renewcommand{\baselinestretch}{1.00}\normalsize%
    \pgfkeys{/pgf/number format/set thousands separator={\,}}
-   \pgfplotstableread{vertical_levels_i.txt}{\loadedtable}\vspace*{0pt}%
+   \pgfplotstableread{level_tables/vertical_levels_i.txt}{\loadedtable}\vspace*{0pt}%
    \pgfplotstabletypeset[ 
           begin table=\begin{longtable}, 
           end table=\end{longtable},
@@ -64,7 +64,7 @@ setup.
    \definecolor{maroon}{cmyk}{0,0.87,0.68,0.32}
    \renewcommand{\baselinestretch}{1.00}\normalsize%
    \pgfkeys{/pgf/number format/set thousands separator={\,}}
-   \pgfplotstableread{vertical_full_levels_i.txt}{\loadedtable}\vspace*{0pt}%
+   \pgfplotstableread{level_tables/vertical_full_levels_i.txt}{\loadedtable}\vspace*{0pt}%
    \pgfplotstabletypeset[ 
           begin table=\begin{longtable}, 
           end table=\end{longtable},
@@ -126,7 +126,7 @@ following formula:
           \end{minipage}
           \=\hspace*{3.0em}%
           \begin{minipage}[c]{0.25\textwidth}\vspace*{-8em}%
-            \includegraphics[width=\textwidth]{plot_maxhsurf.pdf}
+            \includegraphics[width=\textwidth]{pics/plot_maxhsurf.pdf}
           \end{minipage}
         \end{tabbing}
 
@@ -134,7 +134,7 @@ following formula:
         \definecolor{bggreen}{cmyk}{0.38, 0.00, 0.25, 0.16 }
         \renewcommand{\baselinestretch}{1.00}\normalsize%
         \pgfkeys{/pgf/number format/set thousands separator={\,}}
-        \pgfplotstableread{vertical_half_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
+        \pgfplotstableread{level_tables/vertical_half_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
         \pgfplotstabletypeset[ 
         begin table=\begin{longtable}, 
           end table=\end{longtable},
@@ -181,7 +181,7 @@ following formula:
           \end{minipage}
           \=\hspace*{3.0em}%
           \begin{minipage}[c]{0.25\textwidth}\vspace*{-8em}%
-            \includegraphics[width=\textwidth]{plot_maxhsurf.pdf}
+            \includegraphics[width=\textwidth]{pics/plot_maxhsurf.pdf}
           \end{minipage}
         \end{tabbing}
 
@@ -189,7 +189,7 @@ following formula:
         \definecolor{bgblue}{cmyk}{ 0.53, 0.20, 0.00, 0.27}
         \renewcommand{\baselinestretch}{1.00}\normalsize%
         \pgfkeys{/pgf/number format/set thousands separator={\,}}
-        \pgfplotstableread{vertical_full_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
+        \pgfplotstableread{level_tables/vertical_full_levels_maxheight_i.txt}{\loadedtable}\vspace*{0pt}%
         \pgfplotstabletypeset[ 
         begin table=\begin{longtable}, 
           end table=\end{longtable},

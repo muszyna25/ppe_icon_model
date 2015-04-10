@@ -92,7 +92,7 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
-    &                               aggregate_t_g_q_v, copy_lnd_prog_now2new
+    &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
     &                               lseaice, isub_water, isub_lake, isub_seaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
@@ -379,7 +379,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
          !t_g_t and qv_s_t are initialized in read_dwdfg_sfc, calculate the aggregated values 
          ! needed for example for initializing the turbulence fields
          IF (init_mode /= MODE_IFSANA) THEN
-          CALL aggregate_t_g_q_v( p_patch, ext_data, p_prog_lnd_now , &
+          CALL aggregate_tg_qvs( p_patch, ext_data, p_prog_lnd_now , &
           &                           p_diag_lnd )    
           DO jc = i_startidx, i_endidx
            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)

@@ -90,6 +90,7 @@ USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 USE mo_advection_config,     ONLY: advection_config
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
+USE mo_action_types,         ONLY: t_var_action
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mtime,                   ONLY: MAX_DATETIME_STR_LEN
@@ -269,8 +270,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
     LOGICAL :: lrestart
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stats_intvl ! time interval during which fields are statistically processed
-                                                       ! iso8601
+
+    TYPE(t_var_action) :: action_list_reset
 
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
@@ -282,13 +283,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
 
     ! Quick and dirty implementation of domain-specific statistics intervals
+    ! Initially, global domain and nest have distinct statistics intervals (3h vs. 1h). 
+    ! However, after 78h the statistics interval of the nest is re-set to that of the global domain.  
     SELECT CASE(k_jg)
     CASE(1)  ! global domain
-      stats_intvl = "PT03H"
+      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
     CASE(2)  ! nesting level 1
-      stats_intvl = "PT01H"
+      action_list_reset = actions(                                  &
+                  &               new_action(ACTION_RESET,"PT01H",  &
+                  &                          opt_end  ="P03DT06H"), &
+                  &               new_action(ACTION_RESET,"PT03H",  &
+                  &                          opt_start="P03DT06H",  &
+                  &                          opt_ref  ="P03DT06H")  &
+                  &               )
     CASE DEFAULT
-      stats_intvl = "PT03H"
+      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
     END SELECT
 
     ! Register a field list and apply default settings
@@ -622,7 +631,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval_r=0._wp, resetval_r=0._wp,                           &
-                & action_list=actions(new_action(ACTION_RESET,TRIM(stats_intvl))) )
+                & action_list=action_list_reset )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
@@ -721,6 +730,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'ktop_envel', diag%ktop_envel,                    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.  )
+
+    !        diag%snowlmt(nproma,nblks_c)
+    cf_desc    = t_cf_var('snowlmt', 'm', 'Height of snow fall limit above MSL', &
+      &                   DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 204, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'snowlmt', diag%snowlmt,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc,           &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE.,                  &
+                & loutput=.TRUE.,                                              &
+                & lmiss=.TRUE., missval_r=-999._wp,                            &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
 
     ! &      diag%clc(nproma,nlev,nblks_c)
     cf_desc      = t_cf_var('clc', '',  'cloud cover', DATATYPE_FLT32)
@@ -1815,7 +1837,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
-          & action_list=actions(new_action(ACTION_RESET,TRIM(stats_intvl))),  &
+          & action_list=action_list_reset, &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -1826,7 +1848,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
-          & action_list=actions(new_action(ACTION_RESET,TRIM(stats_intvl))),  &
+          & action_list=action_list_reset, &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
