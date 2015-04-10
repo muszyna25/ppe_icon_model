@@ -420,8 +420,9 @@ MODULE mo_ocean_nml
                                                  ! mo_ocean_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PPoptimized_type    = 1
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_type    = 1
   INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
   INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
   REAL(wp) :: lambda_wind           = 0.03_wp    !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
