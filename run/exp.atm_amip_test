@@ -60,7 +60,6 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
- l_fast_sum       = .false.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
