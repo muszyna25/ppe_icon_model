@@ -235,7 +235,8 @@ CONTAINS
     ! by "hor_interp%fallback_type".
     ! --------------------------------------------------------------------------
     IF (hintp_type == HINTP_TYPE_LONLAT_BCTR) THEN
-      IF ((jg > 1) .OR. .NOT. support_baryctr_intp) THEN
+!      IF ((jg > 1) .OR. .NOT. support_baryctr_intp) THEN
+      IF (.NOT. support_baryctr_intp) THEN
         hintp_type = p_info%hor_interp%fallback_type
       END IF
     END IF

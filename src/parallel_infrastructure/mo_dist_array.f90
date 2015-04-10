@@ -304,7 +304,9 @@ CONTAINS
     END DO
     dm_array%max_win_size = max_remote_win_size
     CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
-         mpi_mode_nocheck, dm_array%win, ierror)
+         0, dm_array%win, ierror)
+!    CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
+!         mpi_mode_nocheck, dm_array%win, ierror)
   CONTAINS
     !> get extent for each sub_array element datatype
     SUBROUTINE get_extents
@@ -512,8 +514,10 @@ CONTAINS
          __LINE__, &
          "distributed multi-array must have previously been made accessible!")
     CALL mpi_barrier(dm_array%comm, ierror)
+!    CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
+!         mpi_mode_nocheck, dm_array%win, ierror)
     CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
-         mpi_mode_nocheck, dm_array%win, ierror)
+         0, dm_array%win, ierror)
 
     CALL handle_mpi_error(ierror, dm_array%comm, __LINE__)
     dm_array%exposure_status = not_exposed
@@ -598,7 +602,9 @@ CONTAINS
 
       baseptr_c = TRANSFER(dm_array%cache(cache_entry)%base, baseptr_c)
       CALL C_F_POINTER(baseptr_c, baseptr)
-      CALL mpi_win_lock(mpi_lock_shared, rank, mpi_mode_nocheck, &
+!      CALL mpi_win_lock(mpi_lock_shared, rank, mpi_mode_nocheck, &
+!           dm_array%win, ierror)
+      CALL mpi_win_lock(mpi_lock_shared, rank, 0, &
            dm_array%win, ierror)
       CALL handle_mpi_error(ierror, dm_array%comm, __LINE__)
       CALL mpi_get(baseptr, 1, dm_array%cache(cache_entry)%composite_dt, &

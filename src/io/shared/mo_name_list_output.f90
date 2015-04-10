@@ -578,7 +578,7 @@ CONTAINS
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
       &                                            idata_type, lev_idx, lev, ierrstat, dim1,  &
-      &                                            dim2, nrecv
+      &                                            dim2, nrecv, j
     INTEGER(i8)                                 :: ioff
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
@@ -898,9 +898,26 @@ CONTAINS
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
           nrecv = SUM(p_pat%collector_size(:))
           IF (my_process_is_mpi_workroot()) THEN
-            DO i=1,nrecv
-              IF (gather_reorder_idx(i) > nrecv)  gather_reorder_idx(gather_reorder_idx(i)) = i
-            END DO
+            i = nrecv
+            IF (idata_type == iREAL) THEN
+              r_out_wp(:) = -1._wp
+              r_out_wp(gather_reorder_idx(:)) = 1._wp
+              DO j=1,SIZE(gather_reorder_idx)
+                IF (r_out_wp(j) < 0.) THEN
+                  i = i + 1
+                  gather_reorder_idx(i) = j
+                END IF
+              END DO
+            ELSE IF (idata_type == iINTEGER) THEN
+              r_out_int(:) = -1._wp
+              r_out_int(gather_reorder_idx(:)) = 1._wp
+              DO j=1,SIZE(gather_reorder_idx)
+                IF (r_out_int(j) < 0.) THEN
+                  i = i + 1
+                  gather_reorder_idx(i) = j
+                END IF
+              END DO
+            END IF
           END IF
         END IF
 

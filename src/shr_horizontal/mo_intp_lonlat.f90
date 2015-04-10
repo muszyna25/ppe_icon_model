@@ -265,7 +265,8 @@
             !
             ! --------------------------------------------------------------------------
 
-            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
+!            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
+            IF (support_baryctr_intp) THEN
               CALL setup_barycentric_intp_lonlat(       &
                 &         p_patch(jg),                  &
                 &         lonlat_grid_list(i)%intp(jg))
@@ -291,16 +292,17 @@
             my_id = get_my_mpi_work_id()
             nthis_local_pts = lonlat_grid_list(i)%intp(jg)%nthis_local_pts
 
-            CALL setup_comm_gather_pattern(n_points, &
-              (/(my_id, i = 1, nthis_local_pts)/), &
-              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
-              lonlat_grid_list(i)%p_pat(jg))
-
             ! resize global data structures, after the setup only
             ! local information is needed:
             CALL resize_lonlat_state(lonlat_grid_list(i)%intp(jg),     &
               &                      (nthis_local_pts - 1)/nproma + 1, &
               &                      nthis_local_pts)
+
+            CALL setup_comm_gather_pattern(n_points,                      &
+              (/(my_id, i = 1, nthis_local_pts)/),                        &
+              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
+              lonlat_grid_list(i)%p_pat(jg))
+
           END IF
         END DO ! jg
 
@@ -2079,13 +2081,17 @@
       npromz_lonlat = ptr_int_lonlat%nthis_local_pts - (nblks_lonlat-1)*nproma
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, v1,v2,v3,i,j )
+!$OMP                     idx0, v1,v2,v3,i,j,inside_test1,inside_test2 )
       DO jb=1,nblks_lonlat
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 
         DO jc=i_startidx,i_endidx
+
+          ptr_int_lonlat%baryctr_idx(1:3,jc,jb)   = 1
+          ptr_int_lonlat%baryctr_blk(1:3,jc,jb)   = 1
+          ptr_int_lonlat%baryctr_coeff(1:3,jc,jb) = (/ 1._wp,  0._wp, 0._wp /)
 
           ! --- determine the triangle in our auxiliary triangulation
           ! --- which contains the lon-lat grid point:
@@ -2138,7 +2144,7 @@
                 END IF
               ELSE
                 ! the containing triangle is not local for this PE?
-                CALL finish(routine, "Internal error!")
+!                CALL finish(routine, "Internal error: the containing triangle is not local for this PE")
               END IF
 
               EXIT LOOP
@@ -2146,43 +2152,56 @@
           END DO LOOP
 
           ! consistency check:
-          IF (idx0 == -1) THEN
-            WRITE (0,*) "obj_list = ", obj_list(1:nobjects)
-            WRITE (0,*) "ll_point_c = ", ll_point_c
-            DO i=1,nobjects
-              j = obj_list(i) - 1
-            
-              v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
-              v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
-              v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
-              WRITE (0,*) "v1 = ", v1
-              WRITE (0,*) "v2 = ", v2
-              WRITE (0,*) "v3 = ", v3
-
-              p%x = ll_point_c%x(1)
-              p%y = ll_point_c%x(2)
-              p%z = ll_point_c%x(3)
-              WRITE (0,*) "c1 = ",  ccw_spherical(p_global%a(tri%a(j)%p(0)),p_global%a(tri%a(j)%p(1)),p)
-              WRITE (0,*) "c2 = ",  ccw_spherical(p_global%a(tri%a(j)%p(1)),p_global%a(tri%a(j)%p(2)),p)
-              WRITE (0,*) "c3 = ",  ccw_spherical(p_global%a(tri%a(j)%p(2)),p_global%a(tri%a(j)%p(0)),p)
-
-              CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
-                &                             v1,v2,v3,                             &
-                &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
-              WRITE (0,*) "barycentric coords: ", ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)
-            END DO
-            CALL finish(routine, "Internal error!")
-          END IF
+!          IF (idx0 == -1) THEN
+!            WRITE (0,*) "obj_list = ", obj_list(1:nobjects)
+!            WRITE (0,*) "ll_point_c = ", ll_point_c
+!            DO i=1,nobjects
+!              j = obj_list(i) - 1
+!            
+!              v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
+!              v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
+!              v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
+!              WRITE (0,*) "v1 = ", v1
+!              WRITE (0,*) "v2 = ", v2
+!              WRITE (0,*) "v3 = ", v3
+!
+!              p%x = ll_point_c%x(1)
+!              p%y = ll_point_c%x(2)
+!              p%z = ll_point_c%x(3)
+!              WRITE (0,*) "c1 = ",  ccw_spherical(p_global%a(tri%a(j)%p(0)),p_global%a(tri%a(j)%p(1)),p)
+!              WRITE (0,*) "c2 = ",  ccw_spherical(p_global%a(tri%a(j)%p(1)),p_global%a(tri%a(j)%p(2)),p)
+!              WRITE (0,*) "c3 = ",  ccw_spherical(p_global%a(tri%a(j)%p(2)),p_global%a(tri%a(j)%p(0)),p)
+!
+!              CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
+!                &                             v1,v2,v3,                             &
+!                &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
+!              WRITE (0,*) "barycentric coords: ", ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)
+!            END DO
+!            CALL finish(routine, "Internal error!")
+!          END IF
 
           IF (nobjects == 0) THEN
             WRITE (0,*) "nobjects == 0"
             WRITE (0,*) "ll_point_c = ", ll_point_c
-            CALL finish(routine, "Internal error!")
+!            CALL finish(routine, "Internal error!")
           END IF
 
         END DO
       END DO
 !$OMP END PARALLEL DO
+
+      ! fill out undefined points (for nest regions)
+      WHERE (ptr_int_lonlat%baryctr_idx(1,:,:) <= 0)
+        ptr_int_lonlat%baryctr_idx(1,:,:)   = 1
+        ptr_int_lonlat%baryctr_blk(1,:,:)   = 1
+        ptr_int_lonlat%baryctr_idx(2,:,:)   = 1
+        ptr_int_lonlat%baryctr_blk(2,:,:)   = 1
+        ptr_int_lonlat%baryctr_idx(3,:,:)   = 1
+        ptr_int_lonlat%baryctr_blk(3,:,:)   = 1
+        ptr_int_lonlat%baryctr_coeff(1,:,:) = 1._wp
+        ptr_int_lonlat%baryctr_coeff(2,:,:) = 0._wp
+        ptr_int_lonlat%baryctr_coeff(3,:,:) = 0._wp
+      END WHERE
 
       ! clean up
       CALL octree_finalize(octree)
