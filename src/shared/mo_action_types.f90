@@ -36,7 +36,7 @@ MODULE mo_action_types
   ! defines single variable specific action
   !
   TYPE t_var_action_element
-    INTEGER                             :: actionID              ! action ID
+    INTEGER                             :: actionTyp             ! Type of action
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start                 ! action start time (TimeStamp)
                                                                  ! [YYYY-MM-DDThh:mm:ss]
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: end                   ! action end time   (TimeStamp)
