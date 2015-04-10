@@ -24,7 +24,6 @@ MODULE mo_vdiff_downward_sweep
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
-  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
 

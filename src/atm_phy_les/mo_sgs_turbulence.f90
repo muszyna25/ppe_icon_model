@@ -56,6 +56,7 @@ MODULE mo_sgs_turbulence
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
+  USE mo_sgs_turbmetric,      ONLY: drive_subgrid_diffusion_m
 
   IMPLICIT NONE
 
@@ -88,7 +89,7 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
-  SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
@@ -104,8 +105,9 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
+    LOGICAL,           INTENT(in)        :: linit         !indicate the first time step
 
-    REAL(wp), ALLOCATABLE :: theta(:,:,:)
+    REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -123,7 +125,15 @@ MODULE mo_sgs_turbulence
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
     i_nchdom   = MAX(1,p_patch%n_childdom)
- 
+
+    ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
+    IF (les_config(jg)%les_metric) THEN
+      CALL drive_subgrid_diffusion_m(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+                                     p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
+                                     p_diag_lnd, prm_diag, prm_nwp_tend, dt)
+      RETURN
+    ENDIF
+
    
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v),           &
               v_vert(nproma,nlev,p_patch%nblks_v),           &
@@ -133,6 +143,7 @@ MODULE mo_sgs_turbulence
               visc_smag_c(nproma,nlev,p_patch%nblks_c),      &
               visc_smag_ie(nproma,nlevp1,p_patch%nblks_e),   &                              
               theta(nproma,nlev,p_patch%nblks_c),            &
+              theta_v(nproma,nlev,p_patch%nblks_c),          &
               DIV_c(nproma,nlev,p_patch%nblks_c),            &
               rho_ic(nproma,nlevp1,p_patch%nblks_c)          &
              )
@@ -167,6 +178,9 @@ MODULE mo_sgs_turbulence
        DO jc = i_startidx, i_endidx
          theta(jc,1:nlev,jb)  = p_nh_diag%temp(jc,1:nlev,jb) / &
                                 p_nh_prog%exner(jc,1:nlev,jb)
+
+         theta_v(jc,1:nlev,jb)  = p_nh_diag%tempv(jc,1:nlev,jb) / &
+                                  p_nh_prog%exner(jc,1:nlev,jb)
        END DO
     END DO
 !$OMP END DO NOWAIT
@@ -176,13 +190,12 @@ MODULE mo_sgs_turbulence
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
 
-    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+    CALL surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
                             p_nh_prog%tracer(:,:,:,iqv))
 
-    !Calculate Brunt Vaisala Frequency and store in prm_diag%buoyancy_prod
-    CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta, p_nh_prog%tracer(:,:,:,iqc), &
-                            rho_ic, p_nh_diag%temp, prm_diag%buoyancy_prod)
+    !Calculate Brunt Vaisala Frequency 
+    CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
 
@@ -217,7 +230,7 @@ MODULE mo_sgs_turbulence
 
     
     DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_iv, visc_smag_ie,  &
-               theta, visc_smag_c, rho_ic, DIV_c)
+               theta, visc_smag_c, rho_ic, DIV_c, theta_v)
 
 
   END SUBROUTINE drive_subgrid_diffusion
@@ -454,7 +467,7 @@ MODULE mo_sgs_turbulence
             D_11       =      2._wp * (vn_vert4-vn_vert3) * &       
                               p_patch%edges%inv_vert_vert_length(je,jb)
 
-            D_12       =     p_patch%edges%system_orientation(je,jb) *  &
+            D_12       =     p_patch%edges%tangent_orientation(je,jb) *  &
                             (vn_vert2-vn_vert1) *                       &
                              p_patch%edges%inv_primal_edge_length(je,jb)&
                              + (vt_vert4-vt_vert3)*                     &
@@ -465,12 +478,12 @@ MODULE mo_sgs_turbulence
                              (w_full_c2 - w_full_c1) *                      &
                               p_patch%edges%inv_dual_edge_length(je,jb)   
 
-            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%system_orientation(je,jb) * &
+            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%tangent_orientation(je,jb) * &
                              p_patch%edges%inv_primal_edge_length(je,jb)
 
             D_23       =    (vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *          &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)  +     &
-                             p_patch%edges%system_orientation(je,jb) *       &
+                             p_patch%edges%tangent_orientation(je,jb) *       &
                             (w_full_v2 - w_full_v1) *                        &
                              p_patch%edges%inv_primal_edge_length(je,jb)   
 
@@ -550,9 +563,8 @@ MODULE mo_sgs_turbulence
 
     !--------------------------------------------------------------------------
     !3) Classical Smagorinsky model with stability correction due to Lilly 1962
-    !   at interface cell centers. At this point buoyancy_prod contains Brunt Vaisala 
-    !   Frequency and mech_prod is twice the actual mechanical production term. These 
-    !   are only converted to proper terms during output. 
+    !   at interface cell centers. At this point mech_prod is twice the actual 
+    !   mechanical production term.
     !--------------------------------------------------------------------------
     !MP = Mechanical prod term calculated above
     !visc = mixing_length_sq * SQRT(MP)/2 * SQRT(1-Ri/Pr) where 
@@ -580,7 +592,7 @@ MODULE mo_sgs_turbulence
            diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl      * &
                      MAX( les_config(jg)%km_min, p_nh_metrics%mixing_length_sq(jc,jk,jb) * &
                      SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp                 - &
-                     les_config(jg)%rturb_prandtl*prm_diag%buoyancy_prod(jc,jk,jb))) ) 
+                     les_config(jg)%rturb_prandtl*prm_diag%bruvais(jc,jk,jb))) ) 
          END DO
        END DO
        DO jc = i_startidx, i_endidx
@@ -820,20 +832,20 @@ MODULE mo_sgs_turbulence
          jvn     = ividx(je,jb,2)
          jbn     = ivblk(je,jb,2)
          flux_up_v = 0.5_wp * (visc_smag_iv(jvn,jk,jbn)+visc_smag_iv(jvn,jk+1,jbn)) *     &
-             ( p_patch%edges%system_orientation(je,jb)*(vn_vert2-p_nh_prog%vn(je,jk,jb))* &
+             ( p_patch%edges%tangent_orientation(je,jb)*(vn_vert2-p_nh_prog%vn(je,jk,jb))* &
               p_patch%edges%inv_primal_edge_length(je,jb)*2._wp +                         &
               dvt*p_patch%edges%inv_vert_vert_length(je,jb) )  
 
          jvn     = ividx(je,jb,1)
          jbn     = ivblk(je,jb,1)
          flux_dn_v = 0.5_wp * (visc_smag_iv(jvn,jk,jbn)+visc_smag_iv(jvn,jk+1,jbn)) *     &
-           ( p_patch%edges%system_orientation(je,jb)*(p_nh_prog%vn(je,jk,jb)-vn_vert1) *  &
+           ( p_patch%edges%tangent_orientation(je,jb)*(p_nh_prog%vn(je,jk,jb)-vn_vert1) *  &
              p_patch%edges%inv_primal_edge_length(je,jb)*2._wp +                          &
              dvt*p_patch%edges%inv_vert_vert_length(je,jb) )  
 
 
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
-                        p_patch%edges%system_orientation(je,jb) * (flux_up_v-flux_dn_v)  * &
+                        p_patch%edges%tangent_orientation(je,jb) * (flux_up_v-flux_dn_v)  * &
                         p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp ) * inv_rhoe(je,jk,jb)
 
        END DO
@@ -1364,7 +1376,7 @@ MODULE mo_sgs_turbulence
 
          flux_up_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt2*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
-                     p_patch%edges%system_orientation(je,jb)*(w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
+                     p_patch%edges%tangent_orientation(je,jb)*(w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
                      p_patch%edges%edge_cell_length(je,jb,2) )
 
 
@@ -1380,11 +1392,11 @@ MODULE mo_sgs_turbulence
 
          flux_dn_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt1*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
-                     p_patch%edges%system_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
+                     p_patch%edges%tangent_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
                      p_patch%edges%edge_cell_length(je,jb,1) )
 
          hor_tend(je,jk,jb) = (flux_up_c - flux_dn_c) * p_patch%edges%inv_dual_edge_length(je,jb) + &
-                               p_patch%edges%system_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
+                               p_patch%edges%tangent_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
                                p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp 
 
        END DO

@@ -43,7 +43,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.1
+dtime=0.5
 dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
@@ -79,7 +79,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  corio_lat = 0.0
 / 
@@ -140,7 +140,7 @@ lconst_z0 = .TRUE.
 const_z0  = 0.0003
 /
 &transport_nml
- ihadv_tracer = 1,1,0,0,0,0,0
+ ihadv_tracer = 2,2,0,0,0,0,0
  ivadv_tracer = 3,3,0,0,0,0,0  !1=1st order upwind,3=ppm-highCFL,30-ppm
 /
 &nonhydrostatic_nml
@@ -162,8 +162,6 @@ const_z0  = 0.0003
  lkeep_in_sync    = .true.
 /
 &output_nml
- filetype         = 4
- dom              = -1
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT30M"
@@ -171,6 +169,7 @@ const_z0  = 0.0003
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_insta'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  output_grid      = .TRUE.
  ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc','clc'
 /

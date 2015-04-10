@@ -143,7 +143,7 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
-    &                                 number_of_grid_used
+    &                                 number_of_grid_used, iqm_max
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -421,6 +421,13 @@ CONTAINS
     CALL add_atmo_var(IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QV_DIA", "kg kg-1", "total specific humidity (diagnostic)", &
+      &               jg, prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QC_DIA", "kg kg-1", "total specific cloud water content (diagnostic)", &
+      &               jg, prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QI_DIA", "kg kg-1", "total specific cloud ice content (diagnostic)", &
+      &               jg, prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
+
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "cloud cover", &
       &               jg, prm_diag%clc(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_HL, "TKVM", "m**2/s", &
@@ -506,6 +513,8 @@ CONTAINS
       &              jg, prm_diag%v_10m(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
+      &              jg, prm_diag%lwflxall(:,1,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "SOBS", "W m-2", "shortwave net flux at surface", &
       &              jg, prm_diag%swflxsfc(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE, "THBS", "W m-2", "longwave net flux at surface", &
@@ -537,15 +546,41 @@ CONTAINS
     CALL add_sfc_var(VAR_GROUP_SURFACE, "VMFL_S", "N m-2", "v-momentum flux at the surface", &
       &              jg, prm_diag%vmfl_s(:,:))
 
-   CALL add_sfc_var(VAR_GROUP_SURFACE, "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
       &              jg, prm_diag%swflx_up_sfc(:,:))
-   CALL add_sfc_var(VAR_GROUP_SURFACE, "SWDIFD_S", "W m-2", "shortwave diffuse downward flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "SWDIFD_S", "W m-2", "shortwave diffuse downward flux at surface", &
       &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
-   CALL add_sfc_var(VAR_GROUP_SURFACE, "PAB_S", "W m-2", "photosynthetically active shortwave downward flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "PAB_S", "W m-2", "photosynthetically active shortwave downward flux at surface", &
       &              jg, prm_diag%swflx_par_sfc(:,:))
 
-   CALL add_sfc_var(IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), "SWDIR_S", "W m-2", "shortwave direct downward flux at surface", &
+    CALL add_sfc_var(IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), "SWDIR_S", "W m-2", "shortwave direct downward flux at surface", &
       &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
+
+
+    ! -- vertical integrals
+
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TQV", "kg m-2", "column integrated water vapour", &
+      &              jg, diag%tracer_vi_ptr(iqv)%p_2d(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TQC", "kg m-2", "column integrated cloud water", &
+      &              jg, diag%tracer_vi_ptr(iqc)%p_2d(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TQI", "kg m-2", "column integrated cloud ice", &
+      &              jg, diag%tracer_vi_ptr(iqi)%p_2d(:,:))
+    IF ( iqm_max >= 4) THEN
+      CALL add_sfc_var(VAR_GROUP_SURFACE, "TQR", "kg m-2", "column integrated rain", &
+        &              jg, diag%tracer_vi_ptr(iqr)%p_2d(:,:))
+    ENDIF
+    IF ( iqm_max >= 5) THEN
+      CALL add_sfc_var(VAR_GROUP_SURFACE, "TQS", "kg m-2", "column integrated snow", &
+        &              jg, diag%tracer_vi_ptr(iqs)%p_2d(:,:))
+    END IF 
+
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TQV_DIA", "kg m-2", "total column integrated water vapour (diagnostic)", &
+      &              jg, prm_diag%tci_ptr(iqv)%p_2d(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TQC_DIA", "kg m-2", "total column integrated cloud water (diagnostic)", &
+      &              jg, prm_diag%tci_ptr(iqc)%p_2d(:,:))
+    CALL add_sfc_var(VAR_GROUP_SURFACE, "TQI_DIA", "kg m-2", "total column integrated cloud ice (diagnostic)", &
+      &              jg, prm_diag%tci_ptr(iqi)%p_2d(:,:))
+
 
     IF (inextra_2d > 0) THEN
       ! Variable: Extra 2D
@@ -1076,20 +1111,17 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step, &
-    &                               jsteps_adv_ntsteps, iadv_rcf)
+  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step)
     LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
-    INTEGER,          INTENT(IN)  :: jsteps_adv_ntsteps, iadv_rcf
 
     meteogram_is_sample_step = &
       &  meteogram_output_config%lenabled               .AND. &
       &  (cur_step >= meteogram_output_config%n0_mtgrm) .AND. &
       &  (MOD((cur_step - meteogram_output_config%n0_mtgrm),  &
-      &       meteogram_output_config%ninc_mtgrm) == 0) .AND. &
-      &  (MOD(jsteps_adv_ntsteps,iadv_rcf)==0)
+      &       meteogram_output_config%ninc_mtgrm) == 0)
     
   END FUNCTION meteogram_is_sample_step
 

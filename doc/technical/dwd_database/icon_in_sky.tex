@@ -14,22 +14,28 @@ Management der DWD Fachdaten -Dokumentation $\rightarrow$ SKY}.
 Here, some remarks are given on the SKY categories for ICON data, and some
 examples are given how to retrieve data from the data base.
 
-\section{SKY categories for ICON}
+\section{SKY categories for ICON}\label{sec_skycat}
 
 In SKY the data is stored in different categories and data base subsystems.
 These are identified by the cat=CAT\_NAME parameter.
-The name of a category is made up
-of 4 parts: \${model}\_\${run}\_\${type}\_\${suite}. run, type, and suite are general
-for all forecast models of DWD. They can have the following values:
+The name of a category is made up of 4 parts:
 
-
+\begin{center}
+ \begin{minipage}{0.25\textwidth}
+  \centering
+  \textbf{\${model}\_\${run}\_\${type}\_\${suite}}
+ \end{minipage}
+\end{center}
+ 
+run, type, and suite are general for all forecast models of DWD. They can have the 
+following values:
 \begin{itemize}
  \item \textbf{run}: \textbf{main} for main forecast runs,
                      \textbf{ass} for assimilation runs,
-                     \textbf{pre} for pre-assimilation runs.
+                     \textbf{pre} for pre-assimilation runs,
+                     \textbf{const} for invariant data.
  \item \textbf{type}: \textbf{an} for analysis data,
-                      \textbf{fc} for forecast data,
-                      \textbf{const} for invariant data.
+                      \textbf{fc} for forecast data.
  \item \textbf{suite}: \textbf{rout} for operational data in \emph{db=roma,}
                        \textbf{para} for pre-operational data in \emph{db=parma},
                        \textbf{exp} or \textbf{exp1} for data from experiments in
@@ -59,7 +65,7 @@ Since 2014-08-12 12 UTC ICON is running pre-operationally at DWD. Hence, forecas
 is available in the sky database \textbf{db=parma} in categories
 \textbf{icogl130l90\_main\_fc\_para} and \textbf{icrgl130l90\_main\_fc\_para}.
 
-\section{Retrieving ICON data from SKY}
+\section{Retrieving ICON data from SKY}\label{sec_example}
 
 Here we shall give several examples how to retrieve ICON data from SKY.
 The parameter d specifies the reference or initial date, s is the forecast step, p the parameter,
@@ -86,7 +92,7 @@ read db=numex cat=icrgl130l90_main_fc_exp1 exp=901 d=2012062800 s[h]=6,12,18,24 
 \end{skydb}
 
 \item Retrieve wind components U and V at 300 hPa on the regular grid from a 24 hour forecast on
-2013-10-03 at 00 UTC. lv=P specifies the level type as pressure levels:
+2013-10-03 at 00 UTC. lv=P specifies the level type as pressure levels. lv1=30000 specifies the level in Pa. 
 
 \begin{skydb}
 read db=numex cat=icrgl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=24 p=U,V lv=P lv1=30000 bin f=uvReg300hPa
@@ -114,6 +120,14 @@ read db=numex cat=icrgl400l90_main_fc_exp exp=9323 d=2012010100 step[h]=6 lv=P f
 
 \begin{skydb}
 read db=numex cat=icrgl400l90_main_fc_exp1 exp=906 d=2013100512 p=T lv1=85000 lv=P bin f=t850_iconr
+\end{skydb}
+
+\item Retrieve all available time-invariant (constant) fields on the native grid and store them in the file const\_icongl. 
+Write reference date (d), forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), 
+and store date (stdat) in information file icr.info. It is important to set \textbf{invar=true}.
+
+\begin{skydb}
+read db=parma cat=icogl130l90_const_an_para invar=true info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat bin infof=icr.info f=const_icongl
 \end{skydb}
 
 \end{itemize}

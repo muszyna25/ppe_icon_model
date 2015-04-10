@@ -28,7 +28,7 @@ else
 fi  
 
 #-----------------------------------------------------------------------------
-cell_type=${cell_type:=3}
+! cell_type is not used=${! cell_type is not used:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
 # global timing
@@ -40,10 +40,9 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=${dtime:=60}
+dtime=${dtime:=240}
 ndays=${ndays:=10}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
-advection_substepping=${advection_substepping:=4}
 dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
 dt_conv=${dt_conv:=$dtime}         # every advection step
 dt_sso=${dt_sso:=$dt_conv}         # every advection step
@@ -112,7 +111,7 @@ damp_height=${damp_height:=60000.}
 if [ x$lredgrid_phys = "x.true." ]; then
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = ${cell_type}        ! triangular cells
+ ! cell_type is not used = ${! cell_type is not used}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  radiation_grid_filename = "${atmo_rad_grids}",
  dynamics_radiation_grid_link = 1,
@@ -122,7 +121,7 @@ EOF
 else
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = ${cell_type}        ! triangular cells
+ ! cell_type is not used = ${! cell_type is not used}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 EOF
@@ -180,7 +179,6 @@ cat >> ${atmo_namelist} << EOF
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 3        ! new default
- iadv_rcf        = ${advection_substepping}   ! microphysics and turb and sat adj 
  exner_expol     = 0.666    ! exner function extrapolation?
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = ${vwind_implicitness}     ! off-centering for time differencing (like alpha in turb)

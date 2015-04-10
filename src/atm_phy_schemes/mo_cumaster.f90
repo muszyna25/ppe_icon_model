@@ -1130,8 +1130,8 @@ ENDDO
 
 CALL cuflxn &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
-  & phy_params%rhebc_land, phy_params%rhebc_ocean, ptsphy,          &
-  & pten,     pqen,     pqsen,    ztenh,    zqenh,&
+  & phy_params%rhebc_land, phy_params%rhebc_ocean, phy_params%rcucov, &
+  & ptsphy,  pten,     pqen,     pqsen,    ztenh,    zqenh,&
   & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
   & kcbot,    kctop,    idtop,    itopm2,&
   & ktype,    llddraf,&

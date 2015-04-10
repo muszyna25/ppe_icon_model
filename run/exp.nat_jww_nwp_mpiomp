@@ -54,10 +54,8 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=120
-#ndays=10
-#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-nsteps=50
+dtime=480
+nsteps=10
 dt_data=`expr ${dtime} \* ${nsteps}`   # data output at the end of the integration
 #
 #-----------------------------------------------------------------------------
@@ -71,6 +69,7 @@ atmo_model_equations=3             # equation system
 nlev=40              # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid parameters
+grids_folder=${icon_data_poolFolder}/grids/buildbot
 atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
 dynamics_parent_grid_id="0,                1"
 atmo_rad_grids="iconR2B03_DOM00.nc"
@@ -125,7 +124,7 @@ cat > ${atmo_namelist} << EOF
  ! l_log_checks   = .true.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
  radiation_grid_filename = ${radiation_grid_filename}
  dynamics_parent_grid_id = ${dynamics_parent_grid_id}
@@ -173,7 +172,6 @@ inwp_surface    = 0
  vwind_offctr   = 0.12
  damp_height    = 23000.
  rayleigh_coeff = 0.05
- iadv_rcf       = 4
  l_open_ubc     = .false.
 /
 &sleve_nml

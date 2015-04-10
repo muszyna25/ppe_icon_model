@@ -48,7 +48,7 @@ MODULE mo_util_dbg_prnt
   PUBLIC :: init_dbg_index
   PUBLIC :: dbg_print
   PUBLIC :: debug_verts_on_edges
-  PUBLIC :: debug_print_MaxMinMean, debug_print_mean
+  PUBLIC :: debug_print_MaxMinMean, debug_printValue
 
   ! Public variables: should be removed!
   PUBLIC :: c_i, c_b, nc_i, nc_b
@@ -660,22 +660,31 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Print out given  min, mean and max
-  SUBROUTINE debug_print_Mean( description, mean, inDetail_level )
+  SUBROUTINE debug_printValue( description, value, value1, value2, detail_level )
 
-    CHARACTER(LEN=*),      INTENT(in) :: description    ! description of array
-    REAL(wp),              INTENT(in) :: mean           ! 2-dim array for debugging
-    INTEGER,               INTENT(in) :: inDetail_level    ! source level from module for print output
+    CHARACTER(LEN=*),      INTENT(in) :: description    
+    REAL(wp),              INTENT(in) :: value           
+    REAL(wp), OPTIONAL,    INTENT(in) :: value1, value2    
+    INTEGER,               INTENT(in) :: detail_level    
 
 
     ! g-format with first digit > zero, not valid for SX-compiler
-    992 FORMAT(a,a27,'  :', 1pg26.18)
+!     992 FORMAT(a,a27,'  :', 1pg26.18)
+!     993 FORMAT(a,a27,'  :', 1pg26.18, ", ", 1pg26.18, ", ", 1pg26.18)
+!     994 FORMAT(a,a27,'  :', 1pg26.18, ", ", 1pg26.18, ", ", 1pg26.18)
 
-    IF (idbg_mxmn >= inDetail_level) THEN
-      IF (my_process_is_stdio()) &
-        & WRITE(nerr,992) ' MEAN ', TRIM(description), mean
+    IF (idbg_mxmn < detail_level) RETURN
+    IF (.NOT. my_process_is_stdio()) RETURN
+
+    IF (PRESENT(value2)) THEN
+       WRITE(nerr,*) TRIM(description), ": ", value, value1, value2
+    ELSEIF (PRESENT(value1)) THEN
+       WRITE(nerr,*) TRIM(description), ": ", value, value1
+    ELSE
+       WRITE(nerr,*) TRIM(description), ": ", value
     ENDIF
 
-  END SUBROUTINE debug_print_Mean
+  END SUBROUTINE debug_printValue
 
 
 END MODULE mo_util_dbg_prnt

@@ -43,7 +43,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=2
+dtime=10
 dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  lredgrid_phys     = .false.
  lfeedback         = .false.
@@ -191,7 +191,6 @@ lsq_high_ord      = 2
  vwind_offctr     =  0.25
  damp_height      =  15000.
  rayleigh_coeff   =  0.25
- iadv_rcf         =  5
  lhdiff_rcf       = .true.
  divdamp_fac      =  0.004
  divdamp_order    =  4

@@ -13,6 +13,7 @@ if [ ! -d "${EXP_ORI}" ]; then
   exit 1
 fi
 if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
+  echo "Cannot find restart file: ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc !"
   echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
   exit 1
 fi
@@ -112,6 +113,15 @@ DEXP1=$2
 MODEL_DIR2=$3
 DEXP2=$4
 TEST=$5
+DISTRO=$(lsb_release -cs)
+case $DISTRO in
+  squeeze)
+    module load cdo/1.6.5.1
+    ;;
+  wheezy)
+    module load cdo/1.6.5.1
+    ;;
+esac
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
 #
@@ -340,8 +350,8 @@ SUB_FILES=${SUB_FILES='no'}
 # Set defaults for file types, dates, and the restart date for the 
 # checks depending on the experiment.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
-  TYPES=${TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_rmb_pl lnd_ml phy_2d_ml phy_3d_ml'}
-  DATES=${DATES='19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+  TYPES=${TYPES='dyn_2d_ml dyn_3d_ml phy_2d_ml phy_3d_ml lnd_ml'}
+  DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
   RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
 if [ "${EXPERIMENT}" == 'oce_omip_0160km' ]; then
@@ -467,14 +477,14 @@ if string_in_list $MD $CMODES; then
   echo ' '
   cd ${REFERENCE} 
   RUN_STATUS=-1
-  if [ "${OVERWRITE}" == 'yes' -o ! -d experiments/${EXP_BASE} ] ;then 
+  if [ ! -d experiments/${EXP_BASE} ] ;then 
     if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
       ${MODEL_DIR}/make_runscripts ${SCRIPT}
     fi
     if [ ! -d experiments ]; then
       mkdir experiments
     fi
-    cd ${SCRIPT_DIR}
+    cd run
     if [ ! -f exp.${SCRIPT}.run ]; then
       if [ "$COLOUR" == 'no' ]; then
         echo 'reference model: '$REFERENCE

@@ -31,6 +31,7 @@
 \usepackage{hyperref}    % ability to create hyperlinks within the document
 \usepackage{vhistory}
 \usepackage{tikz}
+\usepackage{etex}
 \usepackage{xargs}
 \usepackage{xstring}
 \usepackage{enumitem}
@@ -157,6 +158,11 @@
 }%
 
 
+%
+%
+% mark Namelists
+% - im Fliesstext:
+\newcommand{\nml}[1]{\texttt{#1}}
 
 
 % environment derived from framed.sty: see leftbar environment definition
@@ -185,6 +191,7 @@
 \setlength{\parindent}{0.0em}
 
 \includeonly{./title_toc,
+             ./intro,
              ./versionhistory,
              ./analysis,
              ./input,
@@ -262,6 +269,7 @@
 
 
 % ---------- Einbinden der verschiedenen Teildokumente -----------%
+\include{./intro}
 \include{./grid_geometry}
 \include{./input}
 \include{./analysis}

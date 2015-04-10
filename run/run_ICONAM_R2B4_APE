@@ -74,7 +74,7 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=150                     # time step in seconds (150, 180, 225, 300)
+dtime=300                     # time step in seconds
 ndays=400                     # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #nsteps=268
@@ -158,7 +158,7 @@ cat > ${atmo_namelist} << EOF_NL
  l_log_checks   = .true.
 /
 &grid_nml
- cell_type = 3              ! triangular cells
+ ! cell_type is not used = 3              ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
 !radiation_grid_filename = ${radiation_grid_filename}
  radiation_grid_filename = ' '
@@ -218,7 +218,6 @@ ntiles           = 1
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  itime_scheme    = 5        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
  igradp_method   = 3        ! new default
- iadv_rcf        = 2        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
  exner_expol     = 0.666    ! exner function extrapolation?
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
 !damp_height     = 35000.   ! damping height vertical wind (set about 10km below top, 10 levels)

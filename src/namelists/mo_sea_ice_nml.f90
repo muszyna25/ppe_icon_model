@@ -50,8 +50,11 @@ MODULE mo_sea_ice_nml
                                         ! 0: No dynamics
                                         ! 1: FEM dynamics (from AWI)
   INTEGER,PUBLIC :: i_Qio_type          !< Methods to calculate ice-ocean heatflux
-                                        ! 1: Proportional to ocean cell thickness (like MPI-OM)
+                                        ! 1: Proportional to temperature difference below ice-covered part only
                                         ! 2: Proportional to speed difference btwn. ice and ocean
+                                        ! 3: Proportional to temperature difference of whole grid-cell (like MPI-OM)
+
+  INTEGER ,PUBLIC :: i_therm_slo = 0    ! cleanup switch for thermodynamic model - 0: corrected model, old style; 1: cleaned model
 
   REAL(wp),PUBLIC :: hnull              !< Hibler's h_0 for new ice formation
   REAL(wp),PUBLIC :: hmin               !< Minimum ice thickness allowed in the model
@@ -62,19 +65,38 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
 
   ! some analytic initialization parameters
-  REAL(wp),PUBLIC :: init_analytic_conc_param
-  INTEGER ,PUBLIC :: init_analytic_conc_type
-  REAL(wp),PUBLIC :: init_analytic_hi_param
-  INTEGER ,PUBLIC :: init_analytic_hi_type
-  REAL(wp),PUBLIC :: init_analytic_hs_param
-  INTEGER ,PUBLIC :: init_analytic_hs_type
-
-  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .false.
+  REAL(wp),PUBLIC :: init_analytic_conc_param    = 0.9_wp
+  REAL(wp),PUBLIC :: init_analytic_hi_param      = 2.0_wp
+  REAL(wp),PUBLIC :: init_analytic_hs_param      = 0.2_wp
+  REAL(wp),PUBLIC :: t_heat_base                 = -5.0_wp  !  arbitrary temperature used as basis for
+                                                            !  heat content in energy calculations
+  LOGICAL, PUBLIC :: use_constant_tfreez         = .TRUE.   !  constant freezing temperature for ocean water (=Tf)
+  LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
+  LOGICAL, PUBLIC :: stress_ice_zero             = .TRUE.   !  set stress below sea ice to zero
+  LOGICAL, PUBLIC :: use_calculated_ocean_stress = .FALSE.  !  calculate ocean stress instead of reading from OMIP
 
   INTEGER         :: iunit
 
-  NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
-    &           i_Qio_type, hci_layer, leadclose_1, use_IceInitialization_fromTemperature
+  NAMELIST /sea_ice_nml/ &
+    &  kice, &
+    &  i_ice_therm, &
+    &  i_ice_albedo, &
+    &  i_ice_dyn, &
+    &  hnull, & 
+    &  hmin, &
+    &  ramp_wind, &
+    &  i_Qio_type, &
+    &  i_therm_slo, &
+    &  hci_layer, &
+    &  leadclose_1, &
+    &  t_heat_base, &
+    &  use_IceInitialization_fromTemperature, &
+    &  use_constant_tfreez, &
+    &  stress_ice_zero,    &
+    &  use_calculated_ocean_stress, &
+    &  init_analytic_conc_param , &
+    &  init_analytic_hi_param, &
+    &  init_analytic_hs_param
 
 CONTAINS
   !>
@@ -94,14 +116,14 @@ CONTAINS
     i_ice_therm = 1
     i_ice_albedo= 1
     i_ice_dyn   = 0
-    i_Qio_type  = 1
+    i_Qio_type  = 3
 
     hnull       = 0.5_wp
     hmin        = 0.05_wp
     hci_layer   = 0.10_wp
     leadclose_1 = 0.5_wp
 
-    ramp_wind   = 10._wp
+    ramp_wind   = 1.0_wp
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -151,20 +173,24 @@ CONTAINS
       CALL finish(TRIM(routine), 'i_ice_dyn must be either 0 or 1.')
     END IF
 
-    ! TODO: This can be changed when we start advecting T1 and T2
     IF (i_ice_dyn == 1 ) THEN
-      CALL message(TRIM(routine), 'i_ice_therm set to 1 because i_ice_dyn is 1')
+      ! TODO: This can be changed when we start advecting T1 and T2
+      CALL message(TRIM(routine), 'WARNING: i_ice_therm set to 1 because i_ice_dyn is 1')
       i_ice_therm = 1
+
+      ! When using routine ice_ocean_stress, ocean stress below sea ice is considered accordingly
+      CALL message(TRIM(routine), 'WARNING: stress_ice_zero=FALSE because i_ice_dyn is 1')
+      stress_ice_zero = .TRUE.
     ENDIF
 
 
-    IF (i_Qio_type < 1 .OR. i_Qio_type > 2) THEN
-      CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
+    IF (i_Qio_type < 1 .OR. i_Qio_type > 3) THEN
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 1,2 or 3.')
     END IF
 
-    IF (i_ice_dyn == 0 .AND. i_Qio_type /= 1) THEN
-      CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
-      i_Qio_type = 1
+    IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN
+      CALL message(TRIM(routine), 'i_Qio_type set to 3 because i_ice_dyn is 0')
+      i_Qio_type = 3
     ENDIF
 
     IF (hmin > hnull) THEN
@@ -182,6 +208,11 @@ CONTAINS
     IF (hci_layer < 0) THEN
       CALL message(TRIM(routine), 'hci_layer < 0, setting it equal to zero')
     ENDIF
+      
+  ! IF (i_ice_dyn == 1 ) THEN
+  !   i_ice_dyn = 0
+  !   CALL warning(method_name,"Disable sea-ice dynamics. It does not work.")
+  ! ENDIF
 
     !------------------------------------------------------------------
     ! Store the namelist for restart

@@ -86,7 +86,7 @@ cat > ${atmo_namelist} << EOF
  n_ghost_rows       = 1
 /
 &grid_nml
- cell_type = 3                ! triangular cells
+ ! cell_type is not used = 3                ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  grid_rescale_factor = 0.008  ! 1/X
 / 
@@ -116,7 +116,6 @@ cat > ${atmo_namelist} << EOF
 &nonhydrostatic_nml
  iadv_rhotheta  = 2
  igradp_method  = 3  !new default
- iadv_rcf       = 1  ! reset to 1 for matching output times
  ivctype        = 1  ! Gal-Chen hybrid
  vwind_offctr   = 0.05  ! default: 0.15
  lhdiff_rcf     =.TRUE.

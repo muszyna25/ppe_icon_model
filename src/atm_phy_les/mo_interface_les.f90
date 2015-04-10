@@ -80,6 +80,7 @@ MODULE mo_interface_les
                                      write_vertical_profiles, write_time_series, &
                                      avg_interval_step, sampl_freq_step,  &
                                      is_sampling_time, is_writing_time, les_cloud_diag
+  USE mo_les_utilities,       ONLY: init_vertical_grid_for_les                                     
 
   IMPLICIT NONE
 
@@ -90,14 +91,28 @@ MODULE mo_interface_les
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
   INTEGER             :: ncount = 0
 
-  PUBLIC :: les_phy_interface
+  PUBLIC :: les_phy_interface, init_les_phy_interface
 
 CONTAINS
   !
   !-----------------------------------------------------------------------
   !
+  SUBROUTINE init_les_phy_interface(jg, p_patch, p_int_state, p_metrics)
+    INTEGER,                   INTENT(in)     :: jg
+    TYPE(t_patch),     TARGET, INTENT(in)     :: p_patch
+    TYPE(t_int_state),         INTENT(in)     :: p_int_state
+    TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
+
+    ! precompute ddz_z metrics
+    ! could be done in init_vertical_grid later on
+    CALL init_vertical_grid_for_les(jg, p_patch, p_int_state, p_metrics)
+  END SUBROUTINE init_les_phy_interface
+
+  !
+  !-----------------------------------------------------------------------
+  !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
-                            & dt_loc, dtadv_loc, dt_phy_jg,        & !input
+                            & dt_loc, dt_phy_jg,                   & !input
                             & p_sim_time, nstep, datetime,         & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
@@ -118,8 +133,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: linit           !< .TRUE. if initialization call (this switch is currently used
                                                     !  to call turbtran in addition to the slow-physics routines
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
-    REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
-    REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
+    REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     REAL(wp),INTENT(in)          :: p_sim_time
     INTEGER, INTENT(in)          :: nstep           !time step counter
@@ -481,6 +495,7 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       CALL les_turbulence (  dt_phy_jg(itfastphy),              & !>in
+                            & linit,                            & !in
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
                             & pt_prog,                          & !>in
@@ -526,10 +541,10 @@ CONTAINS
 
 !      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
 
-      CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+      CALL art_washout_interface(pt_prog, pt_diag ,             & !>in
+                 &          dt_phy_jg(itfastphy),               & !>in
                  &          pt_patch,                           & !>in
                  &          prm_diag,                           & !>in
-                 &          pt_prog%rho,                        & !>in               
                  &          pt_prog_rcf%tracer)                   !>inout             
     ENDIF !lart
 
@@ -1318,7 +1333,7 @@ CONTAINS
 &                                   +         prm_nwp_tend%ddt_v_ls(jk)                &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
 
-            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
                                               pt_int_state%c_lin_e(jce,1,jb)           &
 &                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
@@ -1343,7 +1358,7 @@ CONTAINS
           DO jce = i_startidx, i_endidx
 #endif
 
-            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
                                               pt_int_state%c_lin_e(jce,1,jb)           &
 &                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
@@ -1407,9 +1422,9 @@ CONTAINS
       npoints   = SUM(npoints_blk)
       dpsdt_avg = global_sum_array(dpsdt_avg)
       npoints   = global_sum_array(npoints)
-      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
+      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dt_loc)
       ! Exclude initial time step where pres_sfc_old is zero
-      IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
+      IF (dpsdt_avg < 10000._wp/dt_loc) THEN
         WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
@@ -1445,6 +1460,7 @@ CONTAINS
                               & pt_prog,  pt_prog_rcf,      & !in
                               & pt_diag,                    & !in
                               & lnd_prog_new, lnd_diag,     & !in
+                              & prm_nwp_tend,               & !in
                               & prm_diag                )     !inout
 
       !write out time series

@@ -1986,7 +1986,6 @@ CONTAINS
     CALL p_pack_string(TRIM(sim_step_info%sim_start),        buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(sim_step_info%sim_end),          buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_real(sim_step_info%dtime,                    buffer, MAX_BUF_SIZE, position, icomm)
-    CALL p_pack_int(sim_step_info%iadv_rcf,                  buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(sim_step_info%run_start),        buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(sim_step_info%restart_time),     buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%jstep0,                    buffer, MAX_BUF_SIZE, position, icomm)
@@ -2046,7 +2045,6 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_start,                  icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_end,                    icomm)
     CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dtime,                      icomm)
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%iadv_rcf,                   icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%run_start,                  icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%restart_time,               icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%jstep0,                     icomm)
@@ -2282,18 +2280,16 @@ CONTAINS
     INTEGER :: ev_step, istep, n_pes, i_pe
     TYPE(t_event_step_data), POINTER :: event_step_data
 
-
     ev_step = 0
     DO istep=1,event%n_event_steps
-      IF (event%event_step(istep)%i_sim_step <= jstep)  ev_step = istep
+      IF (event%event_step(istep)%i_sim_step < jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
-
 
     IF (event%i_event_step <= event%n_event_steps) THEN
       istep = event%i_event_step
       n_pes = event%event_step(istep)%n_pes
-      
+
       DO i_pe=1,n_pes
         event_step_data => event%event_step(istep)%event_step_data(i_pe)
 

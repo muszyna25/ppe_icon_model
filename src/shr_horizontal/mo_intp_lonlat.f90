@@ -37,63 +37,68 @@
 !$  USE OMP_LIB
     USE mo_kind,                ONLY: wp
     USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, max_dom,                     &
+    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                              &
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
-      &                               HINTP_TYPE_LONLAT_NNB
+      &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,        &
+      &                               min_rlcell
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
     USE mo_timer,               ONLY: timer_start, timer_stop,                              &
-      &                               timers_level,                                         &
       &                               timer_lonlat_setup
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                       &
       &                               t_cartesian_coordinates,                              &
-      &                               t_geographical_coordinates
-    USE mo_math_constants,      ONLY: pi, pi2, pi_2
+      &                               t_geographical_coordinates, cc_dot_product
+    USE mo_math_constants,      ONLY: pi
     USE mo_physical_constants,  ONLY: earth_radius
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, latlon_compute_area_weights
     USE mo_parallel_config,     ONLY: nproma, p_test_run
-    USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+    USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,          &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
     USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,       &
       &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,            &
-      &                               l_mono_c2l, rbf_scale_mode_ll
+      &                               l_mono_c2l, rbf_scale_mode_ll, support_baryctr_intp
     USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree,            &
       &                               gnat_query_containing_triangles,                      &
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,        &
       &                               INVALID_NODE, gnat_recursive_proximity_query
-    USE mo_mpi,                 ONLY: my_process_is_mpi_workroot,                           &
-      &                               get_my_mpi_work_id, p_n_work,                         &
-      &                               p_min, get_my_mpi_work_communicator,                  &
-      &                               my_process_is_mpi_seq, p_comm_work,                   &
+    USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                   &
+      &                               p_min, p_comm_work,                                   &
       &                               my_process_is_mpi_test, p_max, p_send,                &
       &                               p_recv, process_mpi_all_test_id,                      &
       &                               process_mpi_all_workroot_id, p_pe,                    &
       &                               my_process_is_stdio
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
-      &                               setup_comm_pattern, setup_comm_gather_pattern
+      &                               setup_comm_gather_pattern
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &
-      &                               GRID_CELL, ZA_SURFACE, TIME_CONSTANT,                 &
+      &                               GRID_CELL, ZA_SURFACE,                                &
       &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state
     USE mo_var_list,            ONLY: add_var
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
-    USE mo_decomposition_tools, ONLY: deallocate_glb2loc_index_lookup
     USE mo_rbf_errana,          ONLY: estimate_rbf_parameter
+    USE mo_delaunay_types,      ONLY: t_point_list, point_list, point, t_spherical_cap,     &
+      &                               spherical_cap, OPERATOR(/), t_triangulation,          &
+      &                               ccw_spherical, t_point, OPERATOR(+), triangulation
+    USE mo_delaunay,            ONLY: point_cloud_diam, triangulate,write_triangulation_vtk,&
+      &                               triangulate_mthreaded
+    USE mo_util_string,         ONLY: int2string
+    USE mo_octree,              ONLY: t_range_octree, octree_init, octree_count_point,      &
+      &                               octree_query_point, octree_finalize
 
     IMPLICIT NONE
 
     !> level of output verbosity (for debugging purposes)
     INTEGER, PARAMETER  :: dbg_level = 0
 
-    CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_intp_lonlat')
+    CHARACTER(LEN=*), PARAMETER :: modname = 'mo_intp_lonlat'
 
     PRIVATE
 
@@ -102,11 +107,11 @@
     PUBLIC :: compute_lonlat_intp_coeffs
     PUBLIC :: compute_lonlat_area_weights
     PUBLIC :: rbf_vec_interpol_lonlat
-    PUBLIC :: rbf_interpol_lonlat
+    PUBLIC :: interpol_lonlat
 
-    INTERFACE rbf_interpol_lonlat
-      MODULE PROCEDURE rbf_interpol_lonlat_int
-      MODULE PROCEDURE rbf_interpol_lonlat_real
+    INTERFACE interpol_lonlat
+      MODULE PROCEDURE interpol_lonlat_int
+      MODULE PROCEDURE interpol_lonlat_real
     END INTERFACE
 
     INTERFACE nnb_interpol_lonlat
@@ -126,7 +131,7 @@
     !
     SUBROUTINE init_lonlat_grid_list()
       INTEGER :: i
-      CHARACTER(*), PARAMETER :: routine = modname//"init_lonlat_grid_list"
+      CHARACTER(*), PARAMETER :: routine = modname//"::init_lonlat_grid_list"
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
 
@@ -145,7 +150,7 @@
     !
     SUBROUTINE destroy_lonlat_grid_list()
       INTEGER :: i, jg
-      CHARACTER(*), PARAMETER :: routine = modname//"destroy_lonlat_grid_list"
+      CHARACTER(*), PARAMETER :: routine = modname//"::destroy_lonlat_grid_list"
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
@@ -170,7 +175,7 @@
       INTEGER,                       INTENT(IN)    :: nblks_local, nlocal_pts
 
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = modname//"resize_lonlat_state"
+      CHARACTER(*), PARAMETER :: routine = modname//"::resize_lonlat_state"
       INTEGER, ALLOCATABLE  :: tmp_tri_idx(:,:,:), tmp_global_idx(:)
       INTEGER               :: errstat
 
@@ -212,9 +217,11 @@
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
       CHARACTER(*), PARAMETER :: routine = &
-        &  TRIM("mo_intp_lonlat:compute_lonlat_intp_coeffs")
+        &  modname//"::compute_lonlat_intp_coeffs"
       INTEGER              :: i, jg, n_points, my_id, nthis_local_pts
       TYPE(t_gnat_tree)    :: gnat
+
+      ! -----------------------------------------------------------
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
@@ -233,12 +240,36 @@
         DO i=1, n_lonlat_grids
           IF (lonlat_grid_list(i)%l_dom(jg)) THEN
             IF (ltimer) CALL timer_start(timer_lonlat_setup)
+            ! compute weights for Radial Basis Function (RBF)
+            ! interpolation:
             CALL rbf_setup_interpol_lonlat_grid(      &
               &         lonlat_grid_list(i)%grid,     &
               &         gnat,                         &
               &         p_patch(jg),                  &
               &         lonlat_grid_list(i)%intp(jg), &
               &         p_int_state(jg) )
+
+            ! compute weights for barycentric interpolation.
+            ! 
+            ! note: this requires a previous call to
+            ! "rbf_setup_interpol_lonlat_grid" where the interpolation
+            ! data structure is allocated.
+            !
+            ! --------------------------------------------------------------------------
+            !
+            ! IMPORTANT: Currently, barycentric interpolation supported only
+            !            - for patch #1 and
+            !            - if the namelist parameter "interpol_nml/support_baryctr_intp"
+            !              has been set to .TRUE.
+            !
+            ! --------------------------------------------------------------------------
+
+            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
+              CALL setup_barycentric_intp_lonlat(       &
+                &         p_patch(jg),                  &
+                &         lonlat_grid_list(i)%intp(jg))
+            END IF
+
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
             lonlat_grid_list(i)%l_initialized(jg) = .TRUE.
           END IF
@@ -286,7 +317,7 @@
     !
     SUBROUTINE compute_lonlat_area_weights()
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = modname//"compute_lonlat_area_weights"
+      CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_area_weights"
       TYPE(t_cf_var)       :: cf_desc
       TYPE(t_grib2_var)    :: grib2_desc
       INTEGER              :: var_shape(3), nblks_lonlat, i, jg, ierrstat, &
@@ -365,7 +396,7 @@
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, nblks_c
       TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
 
-      CHARACTER(*), PARAMETER :: routine = modname//"allocate_int_state_lonlat"
+      CHARACTER(*), PARAMETER :: routine = modname//"::allocate_int_state_lonlat"
       INTEGER :: ist
 
       ! ----------------------------------------------------------------------
@@ -425,6 +456,24 @@
         ptr_int_lonlat%cell_vert_dist    = 0._wp
       END IF
 
+      ! --- barycentric interpolation
+
+      ALLOCATE ( &
+        &  ptr_int_lonlat%baryctr_coeff(3, nproma, nblks_lonlat), &
+        &  ptr_int_lonlat%baryctr_idx(3, nproma, nblks_lonlat),   &
+        &  ptr_int_lonlat%baryctr_blk(3, nproma, nblks_lonlat),   &
+        &  STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish (routine, 'allocation for barycentric lon-lat coeffs failed')
+      ENDIF
+      ptr_int_lonlat%baryctr_coeff = 0._wp
+      ptr_int_lonlat%baryctr_idx   = -1
+      ptr_int_lonlat%baryctr_blk   = -1
+
+      ! -- array with lon-lat coordinates
+      ALLOCATE(ptr_int_lonlat%ll_coord(nproma, nblks_lonlat), stat=ist)
+      IF (ist /= SUCCESS)  CALL finish (routine, 'Allocation of array with lon-lat coordinates!')
+
     END SUBROUTINE allocate_int_state_lonlat_grid
 
 
@@ -436,7 +485,7 @@
     SUBROUTINE deallocate_int_state_lonlat( ptr_int_lonlat )
 
       TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
-      CHARACTER(*), PARAMETER :: routine = modname//"deallocate_int_state_lonlat"
+      CHARACTER(*), PARAMETER :: routine = modname//"::deallocate_int_state_lonlat"
       INTEGER :: ist
 
       !-----------------------------------------------------------------------
@@ -475,6 +524,23 @@
         ENDIF
       END IF
 
+      IF (ALLOCATED(ptr_int_lonlat%baryctr_idx)) THEN
+        DEALLOCATE (ptr_int_lonlat%baryctr_idx, ptr_int_lonlat%baryctr_blk, STAT=ist)
+        IF (ist /= SUCCESS) THEN
+          CALL finish (routine, 'deallocation for barycentric stencil indices failed')
+        ENDIF
+      END IF
+      IF (ALLOCATED(ptr_int_lonlat%baryctr_coeff)) THEN
+        DEALLOCATE (ptr_int_lonlat%baryctr_coeff, STAT=ist)
+        IF (ist /= SUCCESS) THEN
+          CALL finish (routine, 'deallocation for barycentric lon-lat coefficients failed')
+        ENDIF
+      END IF
+
+      ! -- array with lon-lat coordinates
+      DEALLOCATE(ptr_int_lonlat%ll_coord, stat=ist)
+      IF (ist /= SUCCESS)  CALL finish (routine, 'Deallocation of array with lon-lat coordinates!')
+
     END SUBROUTINE deallocate_int_state_lonlat
 
 
@@ -489,7 +555,7 @@
       TYPE (t_int_state),   INTENT(IN)     :: ptr_int
       TYPE(t_lon_lat_intp), INTENT(inout)  :: ptr_int_lonlat
 
-      CHARACTER(*), PARAMETER :: routine = modname//"rbf_c2l_index"
+      CHARACTER(*), PARAMETER :: routine = modname//"::rbf_c2l_index"
       INTEGER :: ilc_n(3), ibc_n(3)       ! line and block index for neighbors of
       ! direct neighbors
       INTEGER :: ilv(3), ibv(3)           ! vertex line and block indices
@@ -501,7 +567,6 @@
       INTEGER :: jec                      ! loop index
       INTEGER :: jtri                     ! loop index
       INTEGER :: cnt                      ! counter
-      INTEGER :: nblks_c
       INTEGER :: i_startblk               ! start block
       INTEGER :: i_startidx               ! start index
       INTEGER :: i_endidx                 ! end index
@@ -522,9 +587,6 @@
         rl_start = 2
         rl_end   = min_rlcell_int
         ptr_int_lonlat%rbf_c2l_idx(:,:,:) = 0
-
-        ! values for the blocking
-        nblks_c  = ptr_patch%nblks_c
 
         ! The start block depends on the width of the stencil
         i_nchdom   = MAX(1,ptr_patch%n_childdom)
@@ -643,19 +705,18 @@
     ! This routine is based on mo_intp_rbf_coeffs::rbf_vec_compute_coeff_cell()
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !      Initial implementation  by  F. Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, lon_lat_points, &
+    SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat,  &
       &                                      nblks_lonlat, npromz_lonlat, rbf_shape_param )
 
       ! Input parameters
       TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
       TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
-      REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
       REAL(wp),                      INTENT(IN)    :: rbf_shape_param
       ! Local parameters
-      CHARACTER(*), PARAMETER :: routine = modname//"rbf_vec_compute_coeff_lonlat"
+      CHARACTER(*), PARAMETER :: routine = modname//"::rbf_vec_compute_coeff_lonlat"
       REAL(wp)                         :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
       TYPE(t_cartesian_coordinates)    :: cc_center                  ! cartes. coordinates of lon-lat points
       REAL(wp), DIMENSION (nproma,3)   :: z_nx1, z_nx2, z_nx3        ! 3d  normal velocity vectors at edge midpoints
@@ -674,8 +735,7 @@
         &                                 ile1, ibe1, ile2, ibe2,  & ! edge indices
         &                                 ist,                     & ! return value of array allocation
         &                                 i_startidx, i_endidx,    & ! start/end index
-        &                                 istencil(nproma),        & ! actual number of stencil points
-        &                                 jg
+        &                                 istencil(nproma)           ! actual number of stencil points
       REAL(wp)                         :: checksum_u,checksum_v      ! to check if sum of interpolation coefficients is correct
       TYPE(t_geographical_coordinates) :: grid_point
 
@@ -684,13 +744,11 @@
       CALL message(routine, '')
       IF (ptr_patch%n_patch_cells == 0) RETURN;
 
-      jg = ptr_patch%id
-
 !$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist,   &
 !$OMP                   grid_point),                                   &
 !$OMP          SHARED  (nproma, rbf_vec_dim_c, nblks_lonlat,           &
 !$OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!$OMP                   rbf_vec_kern_ll, jg)
+!$OMP                   rbf_vec_kern_ll)
 
       ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_c,rbf_vec_dim_c),  &
         z_diag(nproma,rbf_vec_dim_c),                  &
@@ -768,8 +826,7 @@
           !
           ! convert coordinates to cartesian vector
           !
-          grid_point%lon = REAL( lon_lat_points(jc, jb,1), wp)
-          grid_point%lat = REAL( lon_lat_points(jc, jb,2), wp)
+          grid_point = ptr_int_lonlat%ll_coord(jc,jb)
           cc_center = gc2cc(grid_point)
           cc_c(jc,1:3) = cc_center%x(1:3)
 
@@ -1004,19 +1061,18 @@
     !  -------------------------------------------------------------------------
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2012-06-13)
+    !      Initial implementation  by  F. Prill, DWD (2012-06-13)
     !
-    SUBROUTINE rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, lon_lat_points, &
+    SUBROUTINE rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, &
       &                               nblks_lonlat, npromz_lonlat, rbf_shape_param )
 
       ! Input parameters
       TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
       TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
-      REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
       REAL(wp),                      INTENT(IN)    :: rbf_shape_param
       ! Local parameters
-      CHARACTER(*), PARAMETER :: routine = modname//"rbf_compute_coeff_c2l"
+      CHARACTER(*), PARAMETER :: routine = modname//"::rbf_compute_coeff_c2l"
       REAL(wp)                         :: cc_c(nproma,3)             ! coordinates of cell centers
       TYPE(t_cartesian_coordinates)    :: cc_center, cc_1, cc_2      ! temporary variables
       REAL(wp)                         :: z_dist                     ! distance between data points
@@ -1029,7 +1085,7 @@
         &                                 ist,                     & ! return value of array allocation
         &                                 i_startidx, i_endidx,    & ! start/end index
         &                                 istencil(nproma),        & ! actual number of stencil points
-        &                                 jg, jb_cell, jc_cell
+        &                                 jb_cell, jc_cell
       REAL(wp)                         :: checksum                   ! to check if sum of interpolation coefficients is correct
       TYPE(t_geographical_coordinates) :: grid_point
 
@@ -1038,12 +1094,10 @@
       CALL message(routine, '')
       IF (ptr_patch%n_patch_cells == 0) RETURN;
 
-      jg = ptr_patch%id
-
 !OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist, grid_point),    &
 !OMP          SHARED  (nproma, rbf_dim_c2l, nblks_lonlat,             &
 !OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!OMP                   rbf_vec_kern_ll, jg )
+!OMP                   rbf_vec_kern_ll )
 
       ALLOCATE( z_rbfmat(nproma,rbf_dim_c2l,rbf_dim_c2l),    &
         &       z_diag(nproma,rbf_dim_c2l),                  &
@@ -1111,8 +1165,7 @@
         ! compute RHS for coefficient computation
         DO jc = i_startidx, i_endidx
 
-          grid_point%lon = REAL( lon_lat_points(jc, jb,1), wp)
-          grid_point%lat = REAL( lon_lat_points(jc, jb,2), wp)
+          grid_point = ptr_int_lonlat%ll_coord(jc,jb)
           ! convert coordinates to cartesian vector
           cc_center = gc2cc(grid_point)
           cc_c(jc,1:3) = cc_center%x(1:3)
@@ -1292,7 +1345,7 @@
     !  an arbitrary grid.
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !      Initial implementation  by  F. Prill, DWD (2011-08)
     !      Changed for abritrary grids by Rainer Johanni (2011-11)
     !
     ! @note   This subroutine assumes that the GNAT data structure for
@@ -1329,7 +1382,7 @@
       INTEGER                          :: jb, jc, i_startidx, i_endidx,           &
         &                                 nblks_lonlat, npromz_lonlat, errstat,   &
         &                                 jb_lonlat, jc_lonlat,                   &
-        &                                 rl_start, rl_end, i_nchdom, i_startblk, &
+        &                                 rl_start, rl_end, i_startblk,           &
         &                                 i, j, row_idx(2), ibeg_idx, ibeg_blk,   &
         &                                 iend_idx, iend_blk, tri_idx_pole,       &
         &                                 ibeg_glb
@@ -1339,17 +1392,17 @@
       TYPE(t_cartesian_coordinates)    :: p1, p2
       REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3),   &
         &                                 max_dist, start_radius, rbf_shape_param
-      REAL                             :: time1
+!$    REAL                             :: time1
       LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
 
 
       !-----------------------------------------------------------------------
 
       IF (dbg_level > 1) THEN
-        WRITE(message_text,*) "SETUP : rbf_interpol_lonlat"
+        WRITE(message_text,*) "SETUP : interpol_lonlat"
         CALL message(routine, message_text)
       END IF
-      IF (ptr_patch%cell_type == 6) &
+      IF (ptr_patch%geometry_info%cell_type == 6) &
         &   CALL finish(routine, "Lon-lat interpolation not yet implemented for cell_type == 6!")
 
       nblks_lonlat  = grid%nblks
@@ -1372,7 +1425,6 @@
       ! "randomly chosen" edge length)
       rl_start   = 2
       rl_end     = min_rlcell_int
-      i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
       CALL get_indices_e(ptr_patch, i_startblk, i_startblk, i_startblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
@@ -1499,6 +1551,27 @@
       ! exactly for each PE the number of points
       CALL allocate_int_state_lonlat_grid( ptr_patch%nblks_c, nblks_lonlat, ptr_int_lonlat)
 
+      ! store the geographical coordinates for the lon-lat points
+      !
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,point)
+      DO jb = 1,nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+        DO jc = i_startidx, i_endidx
+          point(1:2) = REAL(in_points(jc,jb,1:2), wp)
+          ptr_int_lonlat%ll_coord(jc,jb)%lon = point(1)
+          ptr_int_lonlat%ll_coord(jc,jb)%lat = point(2)
+        END DO
+      END DO
+!OMP END PARALLEL DO
+
+      ! clean up
+      DEALLOCATE(in_points, pts_flags, rotated_pts, min_dist, stat=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE of working arrays failed')
+
+
       !-- edge indices of stencil
       ! are available through previous calls to SR rbf_vec_index_cell()
       ! and rbf_c2grad_index()
@@ -1573,7 +1646,7 @@
       WRITE(message_text,*) ": chosen rbf_shape_param = ", rbf_shape_param
       CALL message(routine, TRIM(message_text))
 
-      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, &
+      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, nblks_lonlat, &
         &                                npromz_lonlat, rbf_shape_param )
 
       ! -------------------------------------------------------------------------
@@ -1626,7 +1699,7 @@
         WRITE(message_text,*) ": chosen rbf_shape_param = ", rbf_shape_param
         CALL message(routine, TRIM(message_text))
         ! compute coefficients:
-        CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &
+        CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, &
           &                         nblks_lonlat, npromz_lonlat, rbf_shape_param )
 
       END IF ! if (l_intp_c2l)
@@ -1641,9 +1714,7 @@
         IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 
         DO jc=i_startidx,i_endidx
-          point(:)    = REAL(in_points(jc,jb,:), wp)
-          lonlat_pt%lon = point(1)
-          lonlat_pt%lat = point(2)
+          lonlat_pt = ptr_int_lonlat%ll_coord(jc,jb)
           cell_center = ptr_patch%cells%center(ptr_int_lonlat%tri_idx(1,jc,jb),      &
             &                                  ptr_int_lonlat%tri_idx(2,jc,jb))
 
@@ -1653,6 +1724,8 @@
           p1%x(:) = p1%x(:) - p2%x(:)
 
           ! Zonal component
+          point(1) = ptr_int_lonlat%ll_coord(jc,jb)%lon
+          point(2) = ptr_int_lonlat%ll_coord(jc,jb)%lat
           CALL gvec2cvec(1._wp,0._wp, point(1), point(2), &
             &            z_nx1(1),z_nx1(2),z_nx1(3))
           z_norm = SQRT( DOT_PRODUCT(z_nx1(:),z_nx1(:)) )
@@ -1699,10 +1772,391 @@
         IF (errstat /= SUCCESS)  CALL finish (routine, 'DEALLOCATE of working arrays failed')
       END IF
 
-      DEALLOCATE(in_points, pts_flags, rotated_pts, min_dist, stat=errstat)
-      IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE of working arrays failed')
-
     END SUBROUTINE rbf_setup_interpol_lonlat_grid
+
+
+    !-------------------------------------------------------------------------
+
+    !> compute barycentric coordinates u(1...3) for the point pt
+    !> inside the triangle pidx(1...3). The vertex positions are
+    !> provided through the array @p vertex.
+    !
+    SUBROUTINE compute_barycentric_coords(pt, p1,p2,p3, u)
+      TYPE(t_geographical_coordinates), INTENT(IN)  :: pt                  !< query point (longitude/latitude)  
+      REAL(wp),                         INTENT(IN)  :: p1(3), p2(3), p3(3) !< triangle vertices
+      REAL(wp),                         INTENT(OUT) :: u(3)                !< barycentric coordinates (dim: 3)
+      ! local variables
+      TYPE(t_cartesian_coordinates) :: a,b,c,p
+      REAL(wp) :: B1(2), B2(2), r(2), det
+      
+      ! Cartesian coordinates of triangle vertices
+      a%x(:) = p1
+      b%x(:) = p2
+      c%x(:) = p3
+      ! query point
+      p = gc2cc(pt)
+      ! solve linear system for the barycentric coordinates
+      !
+      ! define matrix and right hand side
+      a%x(1:3) = a%x(1:3) - c%x(1:3)
+      b%x(1:3) = b%x(1:3) - c%x(1:3)
+      p%x(1:3) = p%x(1:3) - c%x(1:3)
+      B1(1:2) = (/ cc_dot_product(a,a) , cc_dot_product(a,b) /)   ! (a-c)^2     ,  (a-c)*(b-c)
+      B2(1:2) = (/ B1(2)               , cc_dot_product(b,b) /)   ! (a-c)*(b-c) ,  (b-c)^2
+      r(1:2)  = (/ cc_dot_product(p,a) , cc_dot_product(p,b) /)   ! [ (p-c)*(a-c), (p-c)*(b-c) ]
+      ! solve using Cramer's rule:
+      det     = B2(2)*B1(1) - B1(2)*B2(1) 
+      u(1)    = ( r(1)*B2(2) - r(2)*B1(2) )/det
+      u(2)    = ( r(2)*B1(1) - r(1)*B2(1) )/det
+      u(3)    = 1._wp - (u(1) + u(2))
+    END SUBROUTINE compute_barycentric_coords
+
+
+    !-------------------------------------------------------------------------
+    !> Simple test if a point is inside a triangle on the unit sphere.
+    !
+    FUNCTION inside_triangle(v, v1,v2,v3)
+      LOGICAL :: inside_triangle
+      REAL(wp),       INTENT(IN)     :: v(3)          !< query point
+      TYPE(t_point),  INTENT(IN)     :: v1,v2,v3      !< vertex longitudes/latitudes
+      ! local variables
+      REAL(wp)      :: c1,c2,c3
+      TYPE(t_point) :: p
+      
+      p%x = v(1)
+      p%y = v(2)
+      p%z = v(3)
+      
+      c1      = ccw_spherical(v1,v2,p)
+      c2      = ccw_spherical(v2,v3,p)
+      c3      = ccw_spherical(v3,v1,p)
+      inside_triangle = ((c1>=0._wp) .AND. (c2>=0._wp) .AND. (c3>=0._wp)) .OR. &
+        &               ((c1<=0._wp) .AND. (c2<=0._wp) .AND. (c3<=0._wp))
+    END FUNCTION inside_triangle
+
+
+    !-------------------------------------------------------------------------
+    !> Setup routine for barycentric interpolation at lon-lat grid
+    !  points for an arbitrary grid.
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F. Prill, DWD (2015-01)
+    !
+    SUBROUTINE setup_barycentric_intp_lonlat(ptr_patch, ptr_int_lonlat)
+
+      ! data structure containing grid info:
+      TYPE(t_patch), TARGET, INTENT(IN)            :: ptr_patch
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+      ! Local Parameters:
+      CHARACTER(*), PARAMETER :: routine = modname//"::setup_barycentric_intp_lonlat"
+      ! max. no. of triangle (bounding boxes) containing a single lat-lon point.
+      INTEGER,      PARAMETER :: NMAX_HITS = 99
+      ! enlarge the triangle bounding boxes to prevent empty queries
+      REAL(wp),     PARAMETER :: BBOX_MARGIN = 1.e-3_wp
+      ! enlarge the local triangulation area by this factor
+      REAL(wp),     PARAMETER :: RADIUS_FACTOR = 1.1_wp
+      ! we use the barycentric coords for the "point in triangle
+      ! test"; this is the threshold for this test
+      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
+
+      INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,                 &
+        &                                i_startidx, i_endidx, i_startblk, i_endblk,          &
+        &                                rl_start, rl_end, i_nchdom, i, j, k, errstat,        &
+        &                                nobjects, idx0, idx, nthreads
+      TYPE (t_point_list)             :: p_local, p_global
+      TYPE(t_cartesian_coordinates)   :: p_x
+      INTEGER, ALLOCATABLE            :: permutation(:), g2l_index(:)
+      TYPE (t_spherical_cap)          :: subset
+      TYPE (t_triangulation)          :: tri
+!$    DOUBLE PRECISION                :: time_s, toc
+      REAL(wp)                        :: pp(3),v1(3),v2(3),v3(3)
+      TYPE (t_range_octree)           :: octree               !< octree data structure
+      REAL(wp)                        :: brange(2,3)          !< box range (min/max, dim=1,2,3)
+      REAL(wp), ALLOCATABLE           :: pmin(:,:), pmax(:,:)
+      INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
+      TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
+      TYPE(t_point)                   :: p, centroid
+
+      !-----------------------------------------------------------------------
+
+      CALL message(routine, '')
+
+      ! make sure that the interpolation data structure for the
+      ! barycentric interpolation has been allocated:
+      IF (.NOT. ALLOCATED(ptr_int_lonlat%baryctr_coeff)) THEN
+        CALL finish(routine, "Data structure for the barycentric interpolation not allocated!")
+      END IF
+
+      ! --- create an array-like data structure containing the local
+      ! --- mass points
+
+      CALL p_local%initialize()
+      CALL p_local%reserve(ptr_patch%n_patch_cells)
+      rl_start   = 2
+      rl_end     = min_rlcell_int
+      i_nchdom   = MAX(1,ptr_patch%n_childdom)
+      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+      i = 0
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(ptr_patch, jb,        &
+          &                i_startblk, i_endblk, &
+          &                i_startidx, i_endidx, &
+          &                rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
+          p_x = gc2cc(ptr_patch%cells%center(jc,jb))
+          i = i + 1
+          idx = idx_1d(jc,jb)
+          CALL p_local%push_back(point(p_x%x(1),p_x%x(2),p_x%x(3), &
+            &                          iindex=ptr_patch%cells%decomp_info%glb_index(idx)))
+        END DO
+      END DO
+
+      IF (dbg_level > 1) THEN
+        WRITE (0,*) "min ICON grid coord: ", MINVAL(p_local%a(0:(p_local%nentries-1))%z)
+        WRITE (0,*) "max ICON grid coord: ", MAXVAL(p_local%a(0:(p_local%nentries-1))%z)
+      END IF
+
+      ! --- create a translation table global 1D index -> local index
+      ALLOCATE(g2l_index(ptr_patch%n_patch_cells_g), STAT=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
+      g2l_index(:) = -1
+
+      rl_start   = 2
+      rl_end     = min_rlcell ! note that we include halo cells!
+      i_nchdom   = MAX(1,ptr_patch%n_childdom)
+      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+      i = 0
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,idx)
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(ptr_patch, jb,        &
+          &                i_startblk, i_endblk, &
+          &                i_startidx, i_endidx, &
+          &                rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          idx = idx_1d(jc,jb)
+          g2l_index(ptr_patch%cells%decomp_info%glb_index(idx)) = idx
+        END DO
+      END DO
+!$OMP END PARALLEL DO
+
+      ! --- create a global copy of all points
+      
+      p_global = point_list(p_local)
+      CALL p_global%sync()
+
+      ALLOCATE(permutation(0:(p_global%nentries-1)), STAT=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
+
+      CALL p_global%quicksort()
+      DO i=0,(p_global%nentries-1)
+        IF (p_global%a(i)%gindex /= -1) THEN
+          permutation(i) = g2l_index(p_global%a(i)%gindex)
+        ELSE
+          permutation(i) = -1
+        END IF
+        p_global%a(i)%gindex = i
+      END DO
+      DEALLOCATE(g2l_index, STAT=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
+
+      ! --- create an auxiliary triangulation, where the vertices are
+      ! --- the mass points
+
+      ! create a spherical cap around the centroid of local mass
+      ! points:
+      centroid = point(0._wp, 0._wp, 0._wp)
+      DO i=0,(p_local%nentries-1)
+        centroid = centroid + p_local%a(i)
+      END DO
+      centroid = centroid/REAL(p_local%nentries,wp)
+      subset = spherical_cap(centroid, MIN(RADIUS_FACTOR*point_cloud_diam(p_local, centroid), pi - 1.e-12_wp))      
+      IF (dbg_level > 1) THEN
+        WRITE (0,*) "spherical cap around ", p_local%a(0)%x, p_local%a(0)%y, p_local%a(0)%z, "; radius ", subset%radius
+      END IF
+
+      CALL tri%initialize()
+!$    time_s = omp_get_wtime()
+      nthreads = 1
+!$    nthreads = omp_get_max_threads()
+      IF (nthreads > 1) THEN
+        CALL triangulate_mthreaded(p_global, tri, subset, nthreads)
+      ELSE
+        CALL triangulate(p_global, tri, subset)
+      END IF
+!$    toc = omp_get_wtime() - time_s
+      IF (dbg_level > 1) THEN
+!$      WRITE (0,*) get_my_mpi_work_id()," :: elapsed time: ", toc, " (radius was ", subset%radius, ")"
+        WRITE (0,*) "no. of cells in auxiliary triangulation: ", tri%nentries
+      END IF
+
+      ! --- plotting for debugging purposes:
+      !
+      ! --- write a plot of the local triangulation
+
+      !  IF (dbg_level > 2) THEN
+      !    WRITE (0,'(a,i0,a)') "# formed ", tri%nentries, " triangles."
+      !    IF (dbg_level > 10) THEN
+      !      CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
+      !    END IF
+      !  END IF
+      !  CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
+
+      ! --- write a plot of the global triangulation
+
+      !  CALL tri%quicksort() 
+      !  !     TYPE (t_triangulation)  :: tri_global
+      !  tri_global=triangulation(tri)
+      !  CALL tri_global%sync()
+      !  IF (my_process_is_stdio()) THEN
+      !    CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
+      !  END IF
+
+      ALLOCATE(pmin(tri%nentries,3), pmax(tri%nentries,3), STAT=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
+
+      ! --- build a list of triangle bounding boxes s.t. we can find
+      ! --- the triangles containing our lon-lat points
+
+      DO i=1,tri%nentries
+        pmin(i,:) =  99._wp
+        pmax(i,:) = -99._wp
+        DO j=0,2
+          pp(1) = p_global%a(tri%a(i-1)%p(j))%x
+          pp(2) = p_global%a(tri%a(i-1)%p(j))%y
+          pp(3) = p_global%a(tri%a(i-1)%p(j))%z
+          DO k=1,3
+            pmin(i,k) = MIN(pmin(i,k), pp(k))
+            pmax(i,k) = MAX(pmax(i,k), pp(k))
+          END DO
+        END DO
+
+        ! [FP] enlarge the triangle bounding boxes to prevent empty queries
+        pmin(i,:) = pmin(i,:) - BBOX_MARGIN
+        pmax(i,:) = pmax(i,:) + BBOX_MARGIN
+      END DO
+
+      ! --- insert local triangles into a tree-like data structure
+
+      brange(1,:) = (/ -1._wp, -1._wp, -1._wp /)
+      brange(2,:) = (/  1._wp,  1._wp,  1._wp /)
+      CALL octree_init(octree, brange, pmin, pmax)
+
+      ! --- compute barycentric coordinates
+
+      ! set local values for "nblks" and "npromz"
+      nblks_lonlat  = blk_no(ptr_int_lonlat%nthis_local_pts)
+      npromz_lonlat = ptr_int_lonlat%nthis_local_pts - (nblks_lonlat-1)*nproma
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,ll_point_c,nobjects,obj_list, &
+!$OMP                     idx0, v1,v2,v3,i,j )
+      DO jb=1,nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+        DO jc=i_startidx,i_endidx
+
+          ! --- determine the triangle in our auxiliary triangulation
+          ! --- which contains the lon-lat grid point:
+
+          ! lon-lat point in Cartesian coordinates
+          ll_point_c = gc2cc( ptr_int_lonlat%ll_coord(jc,jb) )
+          ! query triangles whose bounding boxes contain this point:
+          nobjects = octree_count_point(octree, ll_point_c%x(1:3))
+          IF (nobjects > NMAX_HITS) THEN
+            WRITE (0,*) "point ", ll_point_c%x, " hits ", nobjects, " objects."
+            CALL finish(routine, "Internal error!")
+          ELSE
+            CALL octree_query_point(octree, ll_point_c%x(1:3), obj_list)
+          END IF
+
+          ! now test which of the triangles in "obj_list" actually
+          ! contains "ll_point_c":
+          idx0 = -1
+          LOOP: DO i=1,nobjects
+            j = obj_list(i) - 1
+            v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
+            v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
+            v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
+
+            ! --- compute the barycentric interpolation weights for
+            ! --- this triangle
+            CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
+              &                             v1,v2,v3,                             &
+              &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
+
+            IF ( ALL((ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)) >= -1._wp*INSIDETEST_TOL)  .AND. &
+              &  ALL(ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)   <=  1._wp+INSIDETEST_TOL)) THEN
+              idx0 = j
+
+              IF (ALL(permutation(tri%a(idx0)%p(0:2)) /= -1)) THEN
+                ! get indices of the containing triangle
+                ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(permutation(tri%a(idx0)%p(0:2)))
+                ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(permutation(tri%a(idx0)%p(0:2)))
+
+                IF (ANY(ptr_int_lonlat%baryctr_idx(1:3,jc,jb) <= 0)) THEN
+                  WRITE (0,*) "permutation(tri%a(idx0)%p(0:2)) = ", permutation(tri%a(idx0)%p(0:2))
+                  CALL finish(routine, "Internal error!")
+                END IF
+              ELSE
+                ! the containing triangle is not local for this PE?
+                CALL finish(routine, "Internal error!")
+              END IF
+
+              EXIT LOOP
+            END IF
+          END DO LOOP
+
+          ! consistency check:
+          IF (idx0 == -1) THEN
+            WRITE (0,*) "obj_list = ", obj_list(1:nobjects)
+            WRITE (0,*) "ll_point_c = ", ll_point_c
+            DO i=1,nobjects
+              j = obj_list(i) - 1
+            
+              v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
+              v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
+              v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
+              WRITE (0,*) "v1 = ", v1
+              WRITE (0,*) "v2 = ", v2
+              WRITE (0,*) "v3 = ", v3
+
+              p%x = ll_point_c%x(1)
+              p%y = ll_point_c%x(2)
+              p%z = ll_point_c%x(3)
+              WRITE (0,*) "c1 = ",  ccw_spherical(p_global%a(tri%a(j)%p(0)),p_global%a(tri%a(j)%p(1)),p)
+              WRITE (0,*) "c2 = ",  ccw_spherical(p_global%a(tri%a(j)%p(1)),p_global%a(tri%a(j)%p(2)),p)
+              WRITE (0,*) "c3 = ",  ccw_spherical(p_global%a(tri%a(j)%p(2)),p_global%a(tri%a(j)%p(0)),p)
+
+              CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
+                &                             v1,v2,v3,                             &
+                &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
+              WRITE (0,*) "barycentric coords: ", ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)
+            END DO
+            CALL finish(routine, "Internal error!")
+          END IF
+
+          IF (nobjects == 0) THEN
+            WRITE (0,*) "nobjects == 0"
+            WRITE (0,*) "ll_point_c = ", ll_point_c
+            CALL finish(routine, "Internal error!")
+          END IF
+
+        END DO
+      END DO
+!$OMP END PARALLEL DO
+
+      ! clean up
+      CALL octree_finalize(octree)
+      DEALLOCATE(pmin, pmax, permutation, STAT=errstat)
+      IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
+
+    END SUBROUTINE setup_barycentric_intp_lonlat
+
 
 
     !===============================================================
@@ -1714,7 +2168,7 @@
     ! This routine is based on mo_intp_rbf::rbf_vec_interpol_cell()
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !      Initial implementation  by  F. Prill, DWD (2011-08)
     !
     SUBROUTINE rbf_vec_interpol_lonlat( p_vn_in, ptr_int, &
       &                                 grad_x, grad_y,              &
@@ -1808,7 +2262,7 @@
     !> Performs nearest neighbor interpolation, REAL implementation
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2013-02)
+    !      Initial implementation  by  F. Prill, DWD (2013-02)
     !
     SUBROUTINE nnb_interpol_lonlat_real( p_cell_in, ptr_int,                   &
       &                                  p_out, nblks_lonlat, npromz_lonlat,   &
@@ -1864,7 +2318,7 @@
     !> Performs nearest neighbor interpolation, INTEGER implementation
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2013-02)
+    !      Initial implementation  by  F. Prill, DWD (2013-02)
     !
     SUBROUTINE nnb_interpol_lonlat_int( p_cell_in, ptr_int,                   &
       &                                 p_out, nblks_lonlat, npromz_lonlat,   &
@@ -1914,6 +2368,77 @@
 !$OMP END DO
 !$OMP END PARALLEL
     END SUBROUTINE nnb_interpol_lonlat_int
+
+
+    !-------------------------------------------------------------------------
+    !> Performs barycentric interpolation
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F. Prill, DWD (2015-01)
+    !
+    SUBROUTINE baryctr_interpol_lonlat( p_cell_in, ptr_int,                   &
+      &                                 p_out, nblks_lonlat, npromz_lonlat,   &
+      &                                 opt_slev, opt_elev)
+      ! INPUT PARAMETERS
+      !
+      ! input cell-based variable for which gradient at cell center is computed
+      REAL(wp),                      INTENT(IN)    :: p_cell_in(:,:,:) ! dim: (nproma,nlev,nblks_c)
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(IN)    :: ptr_int
+      ! reconstructed scalar value at lon-lat point
+      REAL(wp),                      INTENT(INOUT) :: p_out(:,:,:)     ! dim: (nproma,nlev,nblks_lonlat)
+      ! lon-lat grid blocking info
+      INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat
+      ! optional vertical start/end level
+      INTEGER,                       INTENT(IN), OPTIONAL :: opt_slev, opt_elev
+
+      ! LOCAL VARIABLES
+      INTEGER :: slev, elev,                 & ! vertical start and end level
+        &        i_startidx, i_endidx,       & ! start/end index
+        &        jc, jb, jk                    ! integer over lon-lat points, levels
+
+      slev = 1
+      elev = UBOUND(p_cell_in,2)
+      ! check optional arguments
+      IF ( PRESENT(opt_slev) ) slev = opt_slev
+      IF ( PRESENT(opt_elev) ) elev = opt_elev
+
+      ! initialize output array with zeros
+      p_out(:,slev:elev,:) = 0._wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), SCHEDULE(runtime)
+      DO jb = 1,nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+
+              IF (ptr_int%baryctr_idx(1,jc,jb) < 1) THEN
+                WRITE (0,*) "jc, jb = ", jc, jb
+              END IF
+
+              p_out(jc,jk,jb) = &
+                &    ptr_int%baryctr_coeff(1,jc,jb)*                                            &
+                &    p_cell_in(ptr_int%baryctr_idx(1,jc,jb), jk, ptr_int%baryctr_blk(1,jc,jb))  &
+                &  + ptr_int%baryctr_coeff(2,jc,jb)*                                            &
+                &    p_cell_in(ptr_int%baryctr_idx(2,jc,jb), jk, ptr_int%baryctr_blk(2,jc,jb))  &
+                &  + ptr_int%baryctr_coeff(3,jc,jb)*                                            &
+                &    p_cell_in(ptr_int%baryctr_idx(3,jc,jb), jk, ptr_int%baryctr_blk(3,jc,jb))
+
+            ENDDO
+          ENDDO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    END SUBROUTINE baryctr_interpol_lonlat
       
 
     !-------------------------------------------------------------------------
@@ -1932,7 +2457,7 @@
     !    &                           nblks_lonlat, npromz_lonlat )
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !      Initial implementation  by  F. Prill, DWD (2011-08)
     !      based on "rbf_interpol_c2grad"
     !
     SUBROUTINE rbf_interpol_c2grad_lonlat( p_cell_in, ptr_int,            &
@@ -2105,7 +2630,7 @@
     !    &                           nblks_lonlat, npromz_lonlat )
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !      Initial implementation  by  F. Prill, DWD (2011-08)
     !      based on "rbf_interpol_c2grad"
     !
     SUBROUTINE rbf_interpol_c2l( p_cell_in, ptr_int,                   &
@@ -2346,10 +2871,11 @@
     !  cell-based variables at lon-lat grid points.
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2011-08)
+    !      Initial implementation  by  F. Prill, DWD (2011-08)
     !
-    SUBROUTINE rbf_interpol_lonlat_real( p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
-      &                                  npromz_lonlat, hintp_type)
+    SUBROUTINE interpol_lonlat_real( name, p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
+      &                              npromz_lonlat, hintp_type)
+      CHARACTER(LEN=*),      INTENT(IN)           :: name                !< variable name
       ! input cell-based variable for which gradient at cell center is computed
       REAL(wp),              INTENT(IN)           :: p_cell_in(:,:,:)    ! dim: (nproma,nlev,nblks_c)
       ! Indices of source points and interpolation coefficients
@@ -2362,7 +2888,7 @@
       INTEGER,               INTENT(IN)           :: hintp_type
 
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = modname//"rbf_interpol_lonlat_real"
+      CHARACTER(*), PARAMETER :: routine = modname//"::interpol_lonlat_real"
       INTEGER  :: jb, jk, jc, i_startidx, i_endidx, slev, elev
       REAL(wp) :: grad_x(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3)), &
         &         grad_y(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3))
@@ -2440,12 +2966,21 @@
         CALL nnb_interpol_lonlat( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
           &                       nblks_lonlat, npromz_lonlat, slev, elev)
 
+      CASE (HINTP_TYPE_LONLAT_BCTR)
+
+        ! ---------------------------------------------------------------
+        ! Barycentric interpolation
+        ! ---------------------------------------------------------------
+
+        CALL baryctr_interpol_lonlat( p_cell_in(:,:,:), ptr_int, p_lonlat_out(:,:,:), &
+          &                           nblks_lonlat, npromz_lonlat, slev, elev)
+
       CASE DEFAULT
-        CALL finish(routine, "Internal error!")
+        CALL finish(routine, "Internal error with variable "//TRIM(name))
 
       END SELECT
 
-    END SUBROUTINE rbf_interpol_lonlat_real
+    END SUBROUTINE interpol_lonlat_real
 
 
     !-------------------------------------------------------------------------
@@ -2453,10 +2988,11 @@
     !  cell-based variables at lon-lat grid points.
     !
     ! @par Revision History
-    !      Initial implementation  by  F.Prill, DWD (2013-02)
+    !      Initial implementation  by  F. Prill, DWD (2013-02)
     !
-    SUBROUTINE rbf_interpol_lonlat_int( p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
-      &                                 npromz_lonlat, hintp_type)
+    SUBROUTINE interpol_lonlat_int( name, p_cell_in, ptr_int, p_lonlat_out, nblks_lonlat, &
+      &                             npromz_lonlat, hintp_type)
+      CHARACTER(LEN=*),      INTENT(IN)           :: name                !< variable name
       ! input cell-based variable for which gradient at cell center is computed
       INTEGER,               INTENT(IN)           :: p_cell_in(:,:,:)    ! dim: (nproma,nlev,nblks_c)
       ! Indices of source points and interpolation coefficients
@@ -2469,7 +3005,7 @@
       INTEGER,               INTENT(IN)           :: hintp_type
 
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = modname//"rbf_interpol_lonlat_int"
+      CHARACTER(*), PARAMETER :: routine = modname//"::interpol_lonlat_int"
       INTEGER :: slev, elev
 
       slev = 1
@@ -2493,10 +3029,10 @@
           &                       nblks_lonlat, npromz_lonlat, slev, elev)
 
       CASE DEFAULT
-        CALL finish(routine, "Internal error!")
+        CALL finish(routine, "Internal error with variable "//TRIM(name))
 
       END SELECT
 
-    END SUBROUTINE rbf_interpol_lonlat_int
+    END SUBROUTINE interpol_lonlat_int
 
   END MODULE mo_intp_lonlat

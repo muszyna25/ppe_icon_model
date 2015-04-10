@@ -415,6 +415,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiFileId
     INTEGER                               :: cdiVlistId                       !< cdi vlist handler
     INTEGER                               :: cdiCellGridID
+    INTEGER                               :: cdiSingleGridID
     INTEGER                               :: cdiVertGridID
     INTEGER                               :: cdiEdgeGridID
     INTEGER                               :: cdiLonLatGridID

@@ -36,7 +36,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=120
+dtime=480
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 nsteps=50
@@ -72,7 +72,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &nh_testcase_nml
@@ -116,7 +116,6 @@ inwp_surface    = 0
  vwind_offctr   = 0.12
  damp_height    = 23000.
  rayleigh_coeff = 0.05
- iadv_rcf       = 4
  l_open_ubc     = .false.
 /
 &sleve_nml

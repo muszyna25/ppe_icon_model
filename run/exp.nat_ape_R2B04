@@ -34,7 +34,7 @@ end_date2="2008-09-10T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=120
+dtime=600
 #
 restart_months=12  
 (( dt_checkpoint = restart_months * month )) # checkpointing not yet supported for coupling fields
@@ -80,7 +80,7 @@ cat > ${atmo_namelist} << EOF
 ! use_dycore_barrier = .false.
 /
 &grid_nml
- cell_type = 3        ! triangular cells
+ ! cell_type is not used = 3        ! triangular cells
  dynamics_grid_filename = "$atmo_dyn_grids",
 /
 &run_nml
@@ -135,7 +135,6 @@ cat > ${atmo_namelist} << EOF
 ! vwind_offctr    = 0.5     ! off-centering for time differencing (like alpha in turb)
  damp_height     = 50000.  ! damping height (set about 10km below top)
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
- iadv_rcf        = 5   ! microphysics and turb and sat adj 
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
 ! igradp_method   = 3        ! new default
 /

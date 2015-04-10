@@ -37,7 +37,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-01T00:30:00Z"
+end_date="2008-09-01T00:03:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -59,7 +59,7 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grids_folder='/pool/data/ICON/grids/private/anurag'
+grids_folder="${icon_data_poolFolder}/grids/private/anurag"
 atmo_dyn_grids='torus_grid_r140s68.nc'
 #
 #-----------------------------------------------------------------------------
@@ -80,7 +80,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  corio_lat = 0.0
 / 
@@ -117,7 +117,7 @@ cat > ${atmo_namelist} << EOF
  tran_coeff        = 0.02   !m/s
  ufric             = 0.25
  expname           = 'nh_moist_cbl'
- avg_interval_sec = 900.
+ avg_interval_sec = 90.
  sampl_freq_sec   = 30. 
  ldiag_les_out    = .TRUE.
 /
@@ -167,7 +167,7 @@ const_z0  = 0.0003
  dom              = -1
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT30M"
+ output_interval  = "PT03M"
  file_interval    = "P01D" 
  include_last     = .TRUE.
  remap            = 0   ! triangular grid

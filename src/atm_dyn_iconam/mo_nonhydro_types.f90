@@ -155,8 +155,15 @@ MODULE mo_nonhydro_types
     &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
     &  exner_incr(:,:,:),   & ! exner inrement                   [-]
     &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
-    &  qv_incr   (:,:,:)      ! specific humidity increment      [kg/kg]
+    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
+    &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
+    &  pres_avg (:,:,:),    & ! exner average                    [-]
+    &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
+    &  qv_avg    (:,:,:)      ! specific humidity average        [kg/kg]
 
+    INTEGER, POINTER ::     &
+    &  nsteps_avg(:)          ! number of time steps summed up for averaging
 
 
     REAL(wp), POINTER ::    & !
@@ -235,9 +242,11 @@ MODULE mo_nonhydro_types
      ! e) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
      !
      ! Vertical grid related
-     inv_ddqz_z_half_e(:,:,:)  , & 
+     inv_ddqz_z_full(:,:,:)    , & ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
      inv_ddqz_z_full_e(:,:,:)  , & 
+     inv_ddqz_z_full_v(:,:,:)  , & 
      inv_ddqz_z_half(:,:,:)    , & 
+     inv_ddqz_z_half_e(:,:,:)  , & 
      inv_ddqz_z_half_v(:,:,:)  , & 
      wgtfac_v(:,:,:)           , & 
      ! Mixing length for Smagorinsky model
@@ -259,11 +268,19 @@ MODULE mo_nonhydro_types
      ::                    &
      ! a) Layer thicknesses
      !
-     ddxn_z_full(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
-     ddxt_z_full(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
+     ddxn_z_full(:,:,:)    , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
+     ddxn_z_full_c(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_c)
+     ddxn_z_full_v(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_v)
+     ddxn_z_half_e(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
+     ddxn_z_half_c(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_c)
+     ddxt_z_full(:,:,:)    , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
+     ddxt_z_full_c(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_c)
+     ddxt_z_full_v(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_v)
+     ddxt_z_half_e(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
+     ddxt_z_half_c(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_c)
+     ddxt_z_half_v(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_v)
      ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
      ddqz_z_half(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
-     inv_ddqz_z_full(:,:,:),& ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
      !
      ! b) Interpolation coefficients
      !
@@ -339,6 +356,8 @@ MODULE mo_nonhydro_types
    INTEGER  :: nudge_c_dim, nudge_e_dim ! for grid points on which lateral boundary nudging is applied
    INTEGER  :: bdy_halo_c_dim ! for halo points belonging to the nest boundary region
    INTEGER  :: bdy_mflx_e_dim ! for mass fluxes at lateral nest boundary
+
+   REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
 
    ! Finally, a mask field that excludes boundary halo points

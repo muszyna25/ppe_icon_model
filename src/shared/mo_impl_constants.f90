@@ -268,6 +268,9 @@ MODULE mo_impl_constants
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
+  ! Maximum number of extra model levels added to the reduced radiation grid in case of vertical nesting
+  INTEGER, PARAMETER :: nexlevs_rrg_vnest = 8
+
   ! maximum allowed number of tracers (20 should be enough for the time being) ! DRIEG: For ART, more than 20 tracers are needed
   INTEGER, PARAMETER :: max_ntracer = 200
 
@@ -452,13 +455,15 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   !-----  horizontal interpolation: type of interpolation
-  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(3) = &
-    (/ "HINTP_TYPE_NONE      ",  &
-    &  "HINTP_TYPE_LONLAT_RBF",  &
-    &  "HINTP_TYPE_LONLAT_NNB" /)
+  CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(4) = &
+    (/ "HINTP_TYPE_NONE       ",  &
+    &  "HINTP_TYPE_LONLAT_RBF ",  &
+    &  "HINTP_TYPE_LONLAT_NNB ",  &
+    &  "HINTP_TYPE_LONLAT_BCTR" /)
   INTEGER, PARAMETER :: HINTP_TYPE_NONE        = 1
   INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_RBF  = 2
   INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_NNB  = 3
+  INTEGER, PARAMETER :: HINTP_TYPE_LONLAT_BCTR = 4
 
   !-----  vertical interpolation algorithms
   INTEGER, PARAMETER :: VINTP_METHOD_VN    = 1

@@ -72,12 +72,7 @@ expnum2=05     # experiment number to be used as reference for scores
 #-----------------------------------------------------------------------------
 # model timing
 
-#dtime=100                    # time step in seconds (50,75,90,150,225,450,    dt_conv=1800)
-#dtime=150                    # time step in seconds (50,60,75,100,150,300,    dt_conv=1200)
-#dtime=225                    # time step in seconds (45,75,225,               dt_conv=900)
-#dtime=90                     # time step in seconds (45,60,90,180,            dt_conv=720)
-#dtime=150                    # time step in seconds (45,50,75,150,            dt_conv=600)
-dtime=150
+dtime=600
 dtconv=1800
 ninc_mtgrm=24  #36            # output interval 3600s
 ndays=5                       # number of days to run
@@ -222,7 +217,7 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  iorder_sendrecv= 1
 /
 &grid_nml
- cell_type = 3              ! triangular cells
+ ! cell_type is not used = 3              ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
 !radiation_grid_filename = ${radiation_grid_filename}
  radiation_grid_filename = ' '
@@ -367,7 +362,6 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
  vwind_offctr    = 0.60     ! off-centering for time differencing (like alpha in turb)
  damp_height     = 50000.   ! damping height vertical wind (set about 10km below top, 10 levels)
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
- iadv_rcf        = 4        ! microphysics and turb and sat adj every 2 dynamic steps (1,2,3,4,...)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
  igradp_method   = 3        ! new default
  hbot_qvsubstep  = 24000.   ! height above which qv advection substepping is done

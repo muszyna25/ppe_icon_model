@@ -46,7 +46,7 @@ MODULE mo_nonhydro_state
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                                t_nh_ref, t_nh_metrics
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
-  USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, iadv_rcf
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
@@ -57,7 +57,8 @@ MODULE mo_nonhydro_state
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
-  USE mo_initicon_config,      ONLY: init_mode
+  USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
+    &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
     &                                add_ref, new_var_list, delete_var_list, &
@@ -67,7 +68,7 @@ MODULE mo_nonhydro_state
   USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
     &                                create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
-    &                                groups, vintp_types
+    &                                groups, vintp_types, new_action, actions
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
   USE mo_gribout_config,       ONLY: gribout_config
@@ -78,8 +79,11 @@ MODULE mo_nonhydro_state
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
     &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
-    &                                DATATYPE_PACK24, TSTEP_CONSTANT
+    &                                DATATYPE_PACK24, DATATYPE_INT, TSTEP_CONSTANT,  &
+    &                                TSTEP_AVG
+  USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
+  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE
 
@@ -420,7 +424,7 @@ MODULE mo_nonhydro_state
     INTEGER :: nlev, nlevp1, ktracer
 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_chalf(3), &
-      &        shape4d_c(4)
+      &        shape3d_ehalf(3), shape4d_c(4)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -462,6 +466,7 @@ MODULE mo_nonhydro_state
     shape3d_e     = (/nproma, nlev,   nblks_e  /)
     shape3d_c     = (/nproma, nlev,   nblks_c  /)
     shape3d_chalf = (/nproma, nlevp1, nblks_c  /)
+    shape3d_ehalf = (/nproma, nlevp1, nblks_e /)
     shape4d_c     = (/nproma, nlev,   nblks_c, ntracer /)
 
     ! Suffix (mandatory for time level dependent variables)
@@ -1239,8 +1244,8 @@ MODULE mo_nonhydro_state
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
     shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
-    shape3d_ubcp  = (/nproma, nblks_c, iadv_rcf+2 /)
-    shape3d_ubcp1 = (/nproma, nblks_c, iadv_rcf+1 /)
+    shape3d_ubcp  = (/nproma, nblks_c, ndyn_substeps_max+2 /)
+    shape3d_ubcp1 = (/nproma, nblks_c, ndyn_substeps_max+1 /)
     shape3d_ubcc  = (/nproma, nblks_c, 2  /)
     shape3d_extra = (/nproma, nlev   , nblks_c, inextra_3d  /)
     shape4d_c     = (/nproma, nlev   , nblks_c, ntracer     /)
@@ -1759,7 +1764,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_e, lrestart=.FALSE. )
 
 
-      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,iadv_rcf+2)
+      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
       !
       cf_desc    = t_cf_var('mass_flux_at_parent_interface_level', 'kg m-3',          &
         &                   'mass flux at parent interface level', DATATYPE_FLT32)
@@ -1779,7 +1784,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.FALSE. )
 
 
-      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,iadv_rcf+1)
+      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+1)
       !
       cf_desc    = t_cf_var('theta_at_parent_interface_level', 'K',             &
         &                   'potential temperature at parent interface level', DATATYPE_FLT32)
@@ -1799,7 +1804,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_c, lrestart=.FALSE. )
 
 
-      ! dw_int       p_diag%dw_int(nproma,nblks_c,iadv_rcf+1)
+      ! dw_int       p_diag%dw_int(nproma,nblks_c,ndyn_substeps_max+1)
       !
       cf_desc    = t_cf_var('w_at_parent_interface_level', 'm s-1',             &
         &                   'vertical velocity at parent interface level', DATATYPE_FLT32)
@@ -2116,6 +2121,111 @@ MODULE mo_nonhydro_state
 
     ENDIF  ! init_mode = MODE_DWDANA_INC, MODE_IAU
 
+    IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
+      ! NOTE: the following time-averaged fields are not written into the restart file, 
+      !       meaning that they will contain wrong values in case that a restart is 
+      !       performed during the avaraging phase. Since this averaging procedure 
+      !       will likely be active only during our (short) assimilation runs, we 
+      !       refrain from writing them into the restart file. Normally, we do not 
+      !       write restart files during assimilation runs, anyway.  
+
+      ! u_avg   p_diag%u_avg(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('u_avg', ' ',                   &
+        &                   'u time average for DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'u_avg', p_diag%u_avg,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c,                                         &
+                  & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
+                  & resetval_r=0._wp,                                        &
+                  & action_list=actions(new_action(ACTION_RESET,             &
+                  &             TRIM(iso8601_interval_avg_fg),               &
+                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+
+      ! v_avg   p_diag%v_avg(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('v_avg', ' ',                   &
+        &                   'v time average for DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'v_avg', p_diag%v_avg,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c,                                         &
+                  & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
+                  & resetval_r=0._wp,                                        &
+                  & action_list=actions(new_action(ACTION_RESET,             &
+                  &             TRIM(iso8601_interval_avg_fg),               &
+                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+
+
+
+      ! pres_avg   p_diag%pres_avg(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('pres_avg', ' ',                   &
+        &                   'pressure time average for DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'pres_avg', p_diag%pres_avg,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c,                                         &
+                  & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
+                  & resetval_r=0._wp,                                        &
+                  & action_list=actions(new_action(ACTION_RESET,             &
+                  &             TRIM(iso8601_interval_avg_fg),               &
+                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+
+
+      ! temp_avg   p_diag%temp_avg(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('temp_avg', ' ',                   &
+        &                   'temperature time average for DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'temp_avg', p_diag%temp_avg,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c,                                         &
+                  & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
+                  & resetval_r=0._wp,                                        &
+                  & action_list=actions(new_action(ACTION_RESET,             &
+                  &             TRIM(iso8601_interval_avg_fg),               &
+                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+
+
+      ! qv_avg   p_diag%qv_avg(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('qv_avg', ' ',                   &
+        &                   'specific humidity time average for DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(  0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'qv_avg', p_diag%qv_avg,                    &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c,                                         &
+                  & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
+                  & resetval_r=0._wp,                                        &
+                  & action_list=actions(new_action(ACTION_RESET,             &
+                  &             TRIM(iso8601_interval_avg_fg),               &
+                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+
+
+      ! nsteps_avg  p_diag%nsteps_avg(1)
+      !
+      cf_desc    = t_cf_var('nsteps_avg', ' ',                   &
+        &                   'number of time steps summed up for FG averaging', DATATYPE_INT)
+      grib2_desc = t_grib2_var(192,192,192, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'nsteps_avg', p_diag%nsteps_avg,             &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,  &
+                  & ldims=(/1/),                                              &
+                  & lrestart=.FALSE., loutput=.FALSE.,                        &
+                  & initval_i=0, resetval_i=0,                                & 
+                  & action_list=actions(new_action(ACTION_RESET,              &
+                  &             TRIM(iso8601_interval_avg_fg),                &
+                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))   )
+
+    ENDIF
+
 
     IF(inextra_2d > 0) THEN
 
@@ -2369,6 +2479,30 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
 #ifndef __MIXED_PRECISION
+    ! slope of the terrain in normal direction (half level)
+    ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+      &                   'terrain slope in normal direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxn_z_half_e', p_metrics%ddxn_z_half_e,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                & ldims=shape3d_ehalf, loutput=.TRUE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in normal direction (half level)
+    ! ddxn_z_half_c  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+      &                   'terrain slope in normal direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_metrics_list, 'ddxn_z_half_c', p_metrics%ddxn_z_half_c,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                & ldims=shape3d_chalf, loutput=.TRUE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
     !
@@ -2378,6 +2512,65 @@ MODULE mo_nonhydro_state
     CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+    ! slope of the terrain in normal direction (full level)
+    ! ddxn_z_full_c  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+      &                   'terrain slope in normal direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_metrics_list, 'ddxn_z_full_c', p_metrics%ddxn_z_full_c,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_c, loutput=.TRUE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in normal direction (full level)
+    ! ddxn_z_full_v  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+      &                   'terrain slope in normal direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+    CALL add_var( p_metrics_list, 'ddxn_z_full_v', p_metrics%ddxn_z_full_v,     &
+                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_v, loutput=.TRUE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_half_e  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxt_z_half_e', p_metrics%ddxt_z_half_e,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                & ldims=shape3d_ehalf, loutput=.TRUE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_half_c  p_metrics%ddxt_z_full(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_metrics_list, 'ddxt_z_half_c', p_metrics%ddxt_z_half_c,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                & ldims=shape3d_chalf, loutput=.TRUE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_half_v  p_metrics%ddxt_z_full(nproma,nlevp1,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+    CALL add_var( p_metrics_list, 'ddxt_z_half_v', p_metrics%ddxt_z_half_v,         &
+                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                & ldims=shape3d_vhalf, loutput=.TRUE.,                             &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2390,6 +2583,29 @@ MODULE mo_nonhydro_state
     CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_full_c  p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_metrics_list, 'ddxt_z_full_c', p_metrics%ddxt_z_full_c,     &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_c, loutput=.TRUE.,                              &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_full_v  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+    CALL add_var( p_metrics_list, 'ddxt_z_full_v', p_metrics%ddxt_z_full_v,         &
+                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_v, loutput=.TRUE.,                             &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2416,12 +2632,30 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf, loutput=.FALSE.,                         &
                 & isteptype=TSTEP_CONSTANT )
 #else
-    ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
+    ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
+             p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
+             p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
+             p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
+             p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
+             p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
+             p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
+             p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
              p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
+             p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
+             p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v),  &
              p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
              p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
+    p_metrics%ddxn_z_half_e = 0._vp
+    p_metrics%ddxn_z_half_c = 0._vp
     p_metrics%ddxn_z_full   = 0._vp
+    p_metrics%ddxn_z_full_c = 0._vp
+    p_metrics%ddxn_z_full_v = 0._vp
+    p_metrics%ddxt_z_half_e = 0._vp
+    p_metrics%ddxt_z_half_c = 0._vp
+    p_metrics%ddxt_z_half_v = 0._vp
     p_metrics%ddxt_z_full   = 0._vp
+    p_metrics%ddxt_z_full_c = 0._vp
+    p_metrics%ddxt_z_full_v = 0._vp
     p_metrics%ddqz_z_full_e = 0._vp
     p_metrics%ddqz_z_half   = 0._vp
 #endif
@@ -2920,6 +3154,16 @@ MODULE mo_nonhydro_state
       CALL add_var( p_metrics_list, 'inv_ddqz_z_full_e', p_metrics%inv_ddqz_z_full_e,  &
                   & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,            &
                   & ldims=shape3d_e,                                                   &
+                  & isteptype=TSTEP_CONSTANT )
+
+      ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
+        &                   'metrics functional determinant', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v,         &
+                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_v, loutput=.TRUE.,                              &
                   & isteptype=TSTEP_CONSTANT )
 
       ! inv_ddqz_z_half  p_metrics%inv_ddqz_z_half(nproma,nlevp1,nblks_c)

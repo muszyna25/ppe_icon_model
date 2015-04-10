@@ -1226,10 +1226,10 @@ CONTAINS
       &  max_cfl(nproma,p_patch%nlevp1)
 
     REAL(wp) :: &                        !< linear extrapolation value 1
-      &  z_lext_1(nproma,p_patch%nlevp1)
+      &  z_lext_1
  
     REAL(wp) :: &                        !< linear extrapolation value 2
-      &  z_lext_2(nproma,p_patch%nlevp1)
+      &  z_lext_2
 
     REAL(wp) ::  &                              !< necessary, to make this routine
       &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core 
@@ -1242,6 +1242,9 @@ CONTAINS
 
     REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
       &  z_aux_p(nproma), z_aux_m(nproma)
+
+    REAL(wp) ::   &                      !< auxiliaries for optimization
+      &   zfac, zfac_n(nproma), zden1, zden2, zden3, zden4
 
     REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
                                         !< advection scheme applicable to a height      
@@ -1314,7 +1317,6 @@ CONTAINS
     IF ( PRESENT(opt_elev) ) THEN
       IF ( opt_elev == nlevp1 ) THEN
         elev = nlevp1
-        z_lext_2(:,nlevp1) = 0._wp
         llbc_adv = .FALSE.
       ELSE
         elev = nlev
@@ -1364,6 +1366,7 @@ CONTAINS
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,                 &
 !$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,    &
 !$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,     &
+!$OMP            zfac, zfac_n, zden1, zden2, zden3, zden4,                            &
 !$OMP            z_lext_1,z_lext_2,z_slope,z_face,z_face_up,z_face_low,z_flx_frac_high) ICON_OMP_GUIDED_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1575,20 +1578,27 @@ CONTAINS
         ikp1_ic = jk + 1
         ikp1    = MIN( ikp1_ic, nlev )
 
+        IF (jk == slevp1) THEN
+          DO jc = i_startidx, i_endidx
+            zfac_n(jc) = 1._wp / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikm1,jb))  &
+            &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
+          ENDDO
+        ENDIF
+
         DO jc = i_startidx, i_endidx
+          zfac = 1._wp / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
+            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
           z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
           z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
-          z_slope(jc,jk) = ( p_cellhgt_mc_now(jc,jk,jb)                                &
-            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
-            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
-            &  / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                   &
-            &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb))   &
-            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-            &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
+          z_slope(jc,jk) = ( p_cellhgt_mc_now(jc,jk,jb)                                          &
+            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)                      &
+            &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                                 &
+            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) * zfac    &
+            &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb)) * zfac_n(jc))
+
+          zfac_n(jc) = zfac
 
           z_slope(jc,jk) = SIGN(                                            &
             &  MIN( ABS(z_slope(jc,jk)), ABS(z_slope_u), ABS(z_slope_l) ),  &
@@ -1644,30 +1654,26 @@ CONTAINS
         ikp2 = jk + 2
 
         DO jc = i_startidx, i_endidx
+          zden1 = 1._wp / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
+          zden2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb) &
+            &  + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb))
+          zden3 = 1._wp / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
+          zden4 = 1._wp / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))
 
-          z_face(jc,ikp1) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb)              &
-            &  / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb)))         &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                  &
-            &  + (1._wp/(p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)    &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb)))        &
-            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * p_cellhgt_mc_now(jc,jk,jb) &
-            &  / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb)))         &
-            &  * ( (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))        &
-            &  / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))    &
-            &  - (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb))        &
-            &  / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) )  &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) - p_cellhgt_mc_now(jc,jk,jb)     &
-            &  * z_slope(jc,ikp1) * (p_cellhgt_mc_now(jc,ikm1,jb)                     &
-            &  + p_cellhgt_mc_now(jc,jk,jb)) / (2._wp*p_cellhgt_mc_now(jc,jk,jb)      &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb)) + p_cellhgt_mc_now(jc,ikp1,jb)         &
-            &  * z_slope(jc,jk) * (p_cellhgt_mc_now(jc,ikp1,jb)                       &
-            &  + p_cellhgt_mc_now(jc,ikp2,jb)) / (p_cellhgt_mc_now(jc,jk,jb)          &
-            &  + 2._wp*p_cellhgt_mc_now(jc,ikp1,jb)) )
+          z_face(jc,ikp1) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb) * zden1)              &
+            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) + zden2                                   &
+            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * p_cellhgt_mc_now(jc,jk,jb) * zden1) &
+            &  * ( (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) * zden3         &
+            &  - (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb)) * zden4 )       &
+            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) - p_cellhgt_mc_now(jc,jk,jb)              &
+            &  * z_slope(jc,ikp1) * (p_cellhgt_mc_now(jc,ikm1,jb)                              &
+            &  + p_cellhgt_mc_now(jc,jk,jb)) * zden3 + p_cellhgt_mc_now(jc,ikp1,jb)            &
+            &  * z_slope(jc,jk) * (p_cellhgt_mc_now(jc,ikp1,jb)                                &
+            &  + p_cellhgt_mc_now(jc,ikp2,jb)) * zden4 )
 
         END DO
 
       END DO
-
 
       !
       ! 4. Limitation of first guess parabola (which is based on z_face)
@@ -1732,7 +1738,7 @@ CONTAINS
           z_a11     = p_cc(jc,ikm1,jb)                                  &
             &       - 0.5_wp * (z_face_low(jc,ikm1) + z_face_up(jc,ikm1))
 
-          z_lext_1(jc,jk) = p_cc(jc,ikm1,jb)                            &
+          z_lext_1 = p_cc(jc,ikm1,jb)                                   &
             &  - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb))) &
             &  - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)             &
             &  + 2._wp*z_cflfrac_m(jc,jk,jb)*z_cflfrac_m(jc,jk,jb))
@@ -1747,7 +1753,7 @@ CONTAINS
           z_a12     = p_cc(jc,ik,jb)                                    &
             &       - 0.5_wp * (z_face_low(jc,ik) + z_face_up(jc,ik))
 
-          z_lext_2(jc,ik) = p_cc(jc,ik,jb)                              &
+          z_lext_2 = p_cc(jc,ik,jb)                                     &
             &  + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,ik,jb))) &
             &  - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,ik,jb)             &
             &  + 2._wp*z_cflfrac_p(jc,ik,jb)*z_cflfrac_p(jc,ik,jb))
@@ -1757,13 +1763,12 @@ CONTAINS
           !
           p_upflux(jc,jk,jb) =                                  &
             &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-            &                z_lext_1(jc,jk), z_lext_2(jc,jk),  &
+            &                z_lext_1, z_lext_2,                &
             &                coeff_grid )
 
         END DO ! end loop over cells
 
       ENDDO ! end loop over vertical levels
-
 
 
       !

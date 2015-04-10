@@ -41,9 +41,9 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_operator_coeff, &
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_operator_coeff, &
     & t_verticalAdvection_ppm_coefficients, t_solverCoeff_singlePrecision
-  USE mo_oce_physics,         ONLY: t_ho_params
+  USE mo_ocean_physics,       ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
@@ -73,7 +73,7 @@ MODULE mo_operator_ocean_coeff_3d
   ! flags for computing ocean coefficients
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
   LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
- CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
+  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
   CHARACTER(LEN=16)           :: str_module = 'opcoeff'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 CONTAINS
@@ -890,9 +890,6 @@ CONTAINS
     REAL(wp) :: basin_center_lat_rad, basin_height_rad
     REAL(wp) :: length
     REAL(wp) :: inverse_sphere_radius
-    !REAL(wp) :: dist_edge_cell, dist_edge_cell_basic
-    !INTEGER :: edge_block_cell, edge_index_cell, ictr
-    !INTEGER :: cell_edge, vert_edge
     INTEGER :: edge_block, edge_index
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
@@ -967,8 +964,8 @@ CONTAINS
             & patch_2D%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
             & patch_2D%verts%cartesian(vertex_2_index, vertex_2_block)%x
 
-            prime_edge_length(edge_index,edge_block) = &
-              & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+          prime_edge_length(edge_index,edge_block) = &
+            & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
           !----------------------------------------
 
           !----------------------------------------
@@ -1047,7 +1044,7 @@ CONTAINS
               & patch_2D%cells%edge_orientation(cell_index,cell_block,neigbor)  / &
               & patch_2D%cells%area(cell_index,cell_block)
 
-        ENDDO !neigbor=1,patch_2D%cell_type
+        ENDDO !neigbor=1,patch_2D%num_edges
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
  
@@ -1078,7 +1075,7 @@ CONTAINS
 
           IF (edge_block > 0) THEN
             rot_coeff(vertex_index,vertex_block,neigbor)           &
-            &= patch_2D%edges%dual_edge_length(edge_index,edge_block) &
+            &= patch_2D%edges%dual_edge_length(edge_index,edge_block) &     !PK why not dual_edge_length from above ??
             &* patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
           ENDIF
         ENDDO !neigbor=1,6
@@ -1264,7 +1261,7 @@ CONTAINS
               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
 
           ENDIF !(edge_block > 0 )
-        ENDDO !neigbor=1,patch_2D%cell_type
+        ENDDO !neigbor=1,patch_2D%num_edges
         !-------------------------------
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
@@ -1273,7 +1270,7 @@ CONTAINS
     !-------------------
     ! sync the results
     CALL sync_patch_array(SYNC_C, patch_2D, fixed_vol_norm(:,:))
-    DO neigbor=1,patch_2D%cell_type
+    DO neigbor=1,patch_2D%geometry_info%cell_type
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(1))
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(2))
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(3))
@@ -1287,7 +1284,7 @@ CONTAINS
 
        operators_coefficients%fixed_vol_norm(:,level,cell_block) = fixed_vol_norm(:,cell_block)
 
-       DO neigbor=1,patch_2D%cell_type
+       DO neigbor=1,patch_2D%geometry_info%cell_type
 
          operators_coefficients%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(1)  &
            &= edge2cell_coeff_cc(:,cell_block,neigbor)%x(1)
@@ -1301,7 +1298,7 @@ CONTAINS
          operators_coefficients%variable_vol_norm(:,level,cell_block,neigbor)  &
            &= variable_vol_norm(:,cell_block,neigbor)
 
-        ENDDO ! neigbor=1,patch_2D%cell_type
+        ENDDO ! neigbor=1,patch_2D%geometry_info%cell_type
       ENDDO  !  level = 1, n_zlev
     ENDDO ! cell_block
 ! no need for sync
@@ -1527,17 +1524,16 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch_2D%nblks_v,1:no_dual_edges)
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch_2D%nblks_e,1:2)
     TYPE(t_cartesian_coordinates) :: vertex_position, edge_center, vertex_center
-    TYPE(t_cartesian_coordinates) :: dist_vector, dist_vector_basic
+    TYPE(t_cartesian_coordinates) :: dist_vector,dist_vector2, dist_vector_basic
     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
 
     REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch_2D%nblks_e,1:2*no_dual_edges )
     !REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch_2D%nblks_e,1:no_dual_edges)
     REAL(wp)                      :: norm, orientation, length
 
-    INTEGER :: ictr,edge_block_cell, edge_index_cell
+    INTEGER :: ictr,edge_block_vertex, edge_index_vertex
     INTEGER :: vert_edge
     INTEGER :: edge_block, edge_index
-    !INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
     INTEGER :: start_index, end_index, neigbor
     INTEGER :: level
@@ -1597,20 +1593,16 @@ CONTAINS
               length = SQRT(SUM( dist_vector%x * dist_vector%x ))
             ENDIF
 
-            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
-            orientation = DOT_PRODUCT( dist_vector%x,                         &
-               & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)
+             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
+             orientation = DOT_PRODUCT( dist_vector%x,                         &
+                & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)   
+               
             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
 
               edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
               & dual_edge_length(edge_index, edge_block) 
           ENDIF !(edge_block > 0) THEN
-
-          !rot_coeff(vertex_index,vertex_block,neigbor)     &
-          !    &= patch_2D%edges%dual_edge_length(edge_index,edge_block) * &
-          !    & patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
-
         ENDDO !neigbor=1,6
       ENDDO ! vertex_index = start_index, end_index
     ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
@@ -1639,7 +1631,7 @@ CONTAINS
 
 !          operators_coefficients%variable_dual_vol_norm(:,level,vertex_block,neigbor)&
 !          &=variable_dual_vol_norm(:,vertex_block,neigbor)
-        ENDDO ! neigbor=1,patch_2D%cell_type
+        ENDDO ! neigbor=1,no_dual_edges
       ENDDO  !  level = 1, n_zlev
     ENDDO ! vertex_block
     DO neigbor=1,no_dual_edges
@@ -1667,7 +1659,7 @@ CONTAINS
 
           edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
             & (edge_center%x - patch_2D%verts%cartesian(vertex_index, vertex_block)%x) * &
-            & patch_2D%edges%system_orientation(edge_index, edge_block)                / &
+            & patch_2D%edges%tangent_orientation(edge_index, edge_block)                / &
             & prime_edge_length(edge_index, edge_block)
 
         ENDDO !neigbor=1,2
@@ -1719,37 +1711,65 @@ CONTAINS
           vertex_block   = patch_2D%edges%vertex_blk(edge_index, edge_block, neigbor)
           vertex_center%x= patch_2D%verts%cartesian(vertex_index, vertex_block)%x
 
-          dist_vector_basic%x = (edge_center%x - vertex_center%x)
+          dist_vector_basic%x = (edge_center%x - vertex_center%x) &
+            & * (3 - 2 * neigbor) * patch_2D%edges%tangent_orientation(edge_index, edge_block)
 
           !IF(neigbor==1)ictr = 0
           !IF(neigbor==2)ictr = no_dual_edges
 
           ictr = (neigbor - 1)*no_dual_edges
 
+!           DO vert_edge=1,patch_2D%verts%num_edges(vertex_index,vertex_block)!no_dual_edges
+!             ictr=ictr+1
+!             !actual edge
+!             edge_index_cell = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
+!             edge_block_cell = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
+!             dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x
+! 
+!             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
+!             orientation = DOT_PRODUCT( dist_vector%x,                         &
+!                & patch_2D%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
+!             ! orientation should not be 0, since this would mean that the prime and dual are parallel
+!             ! overall this calculation should be derived from the verts%edge_orientation
+!             ! orientation will recieve a value -1, or 1 based on the previous,
+!             ! then multuplied by -1 if neigbor=2, otherwise unchanged
+!             orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor,wp))
+! 
+!             !The dot product is the cosine of the angle between vectors from dual cell centers
+!             !to dual cell edges 
+!             edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
+!               & = orientation                                           &
+!               & * DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)        &
+!               & * patch_2D%edges%tangent_orientation(edge_index, edge_block)&
+!               & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
+!               &    / prime_edge_length(edge_index, edge_block))
+! 
+!           END DO
+          
           DO vert_edge=1,patch_2D%verts%num_edges(vertex_index,vertex_block)!no_dual_edges
             ictr=ictr+1
             !actual edge
-            edge_index_cell = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
-            edge_block_cell = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
-            dist_vector%x  =  dual_edge_middle(edge_index_cell, edge_block_cell)%x - vertex_center%x
-
-            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_cell, edge_block_cell))
-            orientation = DOT_PRODUCT( dist_vector%x,                         &
-               & patch_2D%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
-            ! orientation should not be 0, since this would mean that the prime and dual are parallel
-            ! overall this calculation should be derived from the verts%edge_orientation
-            ! orientation will recieve a value -1, or 1 based on the previous,
-            ! then multuplied by -1 if neigbor=2, otherwise unchanged
-            orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor,wp))
-
-            !The dot product is the cosine of the angle between vectors from dual cell centers
-            !to dual cell edges 
-            edge2edge_viavert_coeff(edge_index,edge_block,ictr)         &
-              & = orientation                                           &
-              & * DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)        &
-              & * patch_2D%edges%system_orientation(edge_index, edge_block)&
-              & * (dual_edge_length(edge_index_cell, edge_block_cell)   &
-              &    / prime_edge_length(edge_index, edge_block))
+            edge_index_vertex = patch_2D%verts%edge_idx(vertex_index, vertex_block, vert_edge)
+            edge_block_vertex = patch_2D%verts%edge_blk(vertex_index, vertex_block, vert_edge)
+            
+            IF (edge_index == edge_index_vertex .and. edge_block == edge_block_vertex) THEN
+              ! the result is 0, since the external product (see below) by this edge is
+              ! perpedicular to itself, and the dot product is 0
+              edge2edge_viavert_coeff(edge_index,edge_block,ictr) = 0.0_wp
+            ELSE
+              dist_vector%x  =  (dual_edge_middle(edge_index_vertex, edge_block_vertex)%x - vertex_center%x) &
+                & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
+              dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index_vertex, edge_block_vertex))
+              orientation = DOT_PRODUCT( dist_vector%x,                         &
+                & patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x)
+              !The dot product is the cosine of the angle between vectors from dual cell centers
+              !to dual cell edges
+              edge2edge_viavert_coeff(edge_index,edge_block,ictr)             &
+                & = (DOT_PRODUCT(dist_vector_basic%x,dist_vector%x))          &
+                & * SIGN(1.0_wp,orientation)                                  &
+                & * (dual_edge_length(edge_index_vertex, edge_block_vertex)   &
+                &    / prime_edge_length(edge_index, edge_block))
+            ENDIF
 
           END DO
         ENDDO !neigbor=1,2
@@ -1802,19 +1822,17 @@ CONTAINS
     INTEGER :: sea_edges_per_vertex(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: ibnd_edge_idx(4), ibnd_edge_blk(4)  !maximal 4 boundary edges in a dual loop.
     INTEGER :: i_edge_idx(4)
-    !REAL(wp) :: z_orientation(4)!,z_area_scaled 
     REAL(wp) :: zarea_fraction(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     INTEGER :: boundary_counter
-    !INTEGER :: cell_index, cell_block
-    !INTEGER :: edge_index_cell, edge_block_cell
     INTEGER :: neigbor, k
     INTEGER :: cell_index, cell_block, edge_index_of_cell, edge_block_of_cell, k_coeff
 
     !INTEGER :: vertex_edge
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
-
+    REAL(wp) :: earth_radius_squared
+    
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: owned_verts!, in_domain_verts
@@ -1832,6 +1850,7 @@ CONTAINS
 
     sea_edges_per_vertex(:,:,:)                       = 0
     zarea_fraction(1:nproma,1:n_zlev,1:patch_2D%nblks_v) = 0.0_wp
+    earth_radius_squared = earth_radius * earth_radius
 
     !-------------------------------------------------------------
     !0. check the coefficients for edges, these are:
@@ -2127,7 +2146,7 @@ CONTAINS
             ibnd_edge_blk(je) = operators_coefficients%bnd_edge_blk(jv,jk,block,je)
 
             operators_coefficients%rot_coeff(jv,jk,block,i_edge_idx(je) )=&
-              & 0.5_wp*patch_2D%edges%system_orientation(ibnd_edge_idx(je),ibnd_edge_blk(je)) * &
+              & 0.5_wp*patch_2D%edges%tangent_orientation(ibnd_edge_idx(je),ibnd_edge_blk(je)) * &
               & patch_2D%edges%primal_edge_length(ibnd_edge_idx(je),ibnd_edge_blk(je))
 
           ENDDO
@@ -2195,7 +2214,7 @@ CONTAINS
         DO jv = i_startidx_v, i_endidx_v
 
           IF ( sea_edges_per_vertex(jv,jk,block) == no_dual_edges ) THEN ! we have to count for lateral boundaries at the top
-            zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block)/(earth_radius*earth_radius)
+            zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block) / earth_radius_squared
             !zarea_fraction(jv,jk,block)=SUM(operators_coefficients%variable_dual_vol_norm(jv,jk,block,:))
 
             !ELSEIF(operators_coefficients%bnd_edges_per_vertex(jv,jk,block)/=0)THEN!boundary edges are involved
@@ -2246,6 +2265,9 @@ CONTAINS
               
             END DO ! jev = 1, patch_2D%verts%num_edges(jv,block)
             
+            ! this is calculated already on the unit sphere
+            ! zarea_fraction(jv,jk,block) = zarea_fraction(jv,jk,block) / earth_radius_squared 
+            
           ENDIF !( sea_edges_per_vertex(jv,jk,block) == patch_2D%verts%num_edges(jv,block) )
           !The two quantities: 
           !zarea_fraction(jv,jk,block)*(earth_radius*earth_radius)
@@ -2258,7 +2280,7 @@ CONTAINS
           IF(zarea_fraction(jv,jk,block)/=0.0_wp)THEN
 
             operators_coefficients%rot_coeff(jv,jk,block,:)&
-            &=operators_coefficients%rot_coeff(jv,jk,block,:)/(zarea_fraction(jv,jk,block)*(earth_radius*earth_radius))
+            &=operators_coefficients%rot_coeff(jv,jk,block,:)/(zarea_fraction(jv,jk,block)*earth_radius_squared)
             
             DO jev = 1, patch_2D%verts%num_edges(jv,block)
               operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)&
@@ -2285,7 +2307,7 @@ CONTAINS
         CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%edge2vert_coeff_cc(:,jk,:, jev)%x(3))
       ENDDO
     ENDDO
-    DO je=1,patch_2D%cell_type
+    DO je=1,patch_2D%geometry_info%cell_type
       CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%rot_coeff(:,:,:, je))
     ENDDO
 
@@ -2372,7 +2394,6 @@ CONTAINS
 
     !INTEGER :: ile, ibe!, ilc1, ibc1, ilc2, ibc2, ifac, ic, ilnc, ibnc
     !INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
-    !INTEGER, PARAMETER :: i_cell_type = 3
     !TYPE(cartesian_coordinates)::z_pn_k,z_pn_j
     !REAL(wp) :: z_lon, z_lat, z_nu, z_nv, z_proj
     !REAL(wp) :: cell_area
@@ -2470,7 +2491,7 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_2D, operators_coefficients%div_coeff(:,:,:,ie))
     END DO
 
-    DO ie = 1, no_dual_edges!9-i_cell_type
+    DO ie = 1, no_dual_edges
       CALL sync_patch_array(sync_v, patch_2D, operators_coefficients%rot_coeff(:,:,:,ie))
     END DO
 
@@ -3122,7 +3143,7 @@ CONTAINS
 ! 
 !           edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
 !             & (edge_center%x - patch_2D%verts%cartesian(vertex_index, vertex_block)%x) * &
-!             & patch_2D%edges%system_orientation(edge_index, edge_block)                / &
+!             & patch_2D%edges%tangent_orientation(edge_index, edge_block)                / &
 !             & prime_edge_length(edge_index, edge_block)
 ! 
 !         ENDDO !neigbor=1,2

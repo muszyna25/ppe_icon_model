@@ -54,6 +54,7 @@ MODULE mo_surface_les
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl, pseudo_rhos
   USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   IMPLICIT NONE
 
@@ -61,13 +62,11 @@ MODULE mo_surface_les
 
   PUBLIC :: surface_conditions
 
-  !Parameters for surface layer parameterizations: From RB Stull's book
-  REAL(wp), PARAMETER :: bsm = 4.7_wp  !Businger Stable Momentum
-  REAL(wp), PARAMETER :: bum = 15._wp  !Businger Untable Momentum
-  REAL(wp), PARAMETER :: bsh = 4.7_wp  !Businger Stable Heat
-  REAL(wp), PARAMETER :: buh = 9._wp   !Businger Untable Heat
-  REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor  
-  REAL(wp), PARAMETER :: min_wind = 0.01_wp !min wind
+  !Parameters for surface layer parameterizations: From Zeng_etal 1997 J. Clim
+  REAL(wp), PARAMETER :: bsm = 5.0_wp  !Businger Stable Momentum
+  REAL(wp), PARAMETER :: bum = 16._wp  !Businger Untable Momentum
+  REAL(wp), PARAMETER :: bsh = 5.0_wp  !Businger Stable Heat
+  REAL(wp), PARAMETER :: buh = 16._wp  !Businger Untable Heat
 
   !Parameters for surface parameterizations from COSMO docs
   REAL(wp), PARAMETER :: beta_10 = 0.042_wp
@@ -96,7 +95,7 @@ MODULE mo_surface_les
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
-  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
+  SUBROUTINE  surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
                                  prm_diag, theta, qv)
 
@@ -110,12 +109,14 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
+    LOGICAL,           INTENT(in)        :: linit         !indicate first time step
 
-    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind
+    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind, wstar
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
-    REAL(wp), POINTER :: pres_sfc(:,:)
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
-    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, p_sfc, t_sfc, ex_sfc
+    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, p_sfc, t_sfc, ex_sfc, inv_bus_mom
+    REAL(wp) :: ustar_mean
+    REAL(wp), POINTER :: pres_sfc(:,:)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
@@ -189,7 +190,7 @@ MODULE mo_surface_les
             theta_sfc = p_prog_lnd_now%t_g(jc,jb) / exner
 
             !Mean wind at nlev
-            mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+            mwind  = MAX( les_config(jg)%min_sfc_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             !Z height
             z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
@@ -295,7 +296,7 @@ MODULE mo_surface_les
          DO jc = i_startidx, i_endidx
 
             !Mean wind at nlev
-            mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+            mwind  = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
 
@@ -372,9 +373,31 @@ MODULE mo_surface_les
     !Fix SST case
     CASE(5)
 
+
+    IF(linit)prm_diag%tcm(:,:) = 0._wp
+
+!   Get roughness length * grav           
+    IF(turbdiff_config(jg)%lconst_z0 .AND. turbdiff_config(jg)%const_z0 <= 0._wp)THEN
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx           
+           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+           var(jc,jb) = SQRT(prm_diag%tcm(jc,jb))*mwind
+        END DO         
+      END DO
+
+      WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
+      ustar_mean =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
+      
+      prm_diag%gz0(:,:) = MAX(0.001_wp,0.016_wp*ustar_mean**2)   
+    END IF
+
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc, &
-!$OMP            RIB,tcn_mom,tcn_heat,zh,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
+!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,         &
+!$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -389,33 +412,46 @@ MODULE mo_surface_les
 
            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),pres_sfc(jc,jb))
 
-           !Mean wind at nlev
-           mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
-          
-           !Z height to be used as a reference height in surface layer
-           z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
-
-           !Bulk Richardson no at first model level
-           RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
-
-           !Momentum transfer coefficient
-           tcn_mom             = (akt/LOG(z_mc/zrough))**2
-           prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
-
-           !Heat transfer coefficient
-           zh = MIN(zrough,zh_max)
-           tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zh))
-           prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zh,tcn_heat)
-
-           !Get surface fluxes
            !rho at surface: no qc at suface
            rhos   =  pres_sfc(jc,jb)/( rd * &
                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
-           prm_diag%shfl_s(jc,jb)  = rhos*cpd*prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
-           prm_diag%lhfl_s(jc,jb)  = rhos*alv*prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
-           prm_diag%umfl_s(jc,jb)  = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 
-           prm_diag%vmfl_s(jc,jb)  = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb) 
+           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) ) 
+
+           !Z height to be used as a reference height in surface layer
+           z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
+
+           IF(linit)THEN
+             !First guess for ustar and th star using bulk approach
+             RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
+
+             tcn_mom             = (akt/LOG(z_mc/zrough))**2
+             prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
+
+             !Heat transfer coefficient
+             tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
+             prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
+           END IF
+
+           DO itr = 1 , 5
+              shfl = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
+              lhfl = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+              bflx1= shfl + vtmpc1 * theta_sfc * lhfl
+              ustar= SQRT(prm_diag%tcm(jc,jb))*mwind
+             
+              obukhov_length = -ustar**3 * theta_sfc * rgrav / (akt * bflx1)
+
+              inv_bus_mom = 1._wp / businger_mom(zrough,z_mc,obukhov_length)
+              prm_diag%tch(jc,jb) = inv_bus_mom / businger_heat(zrough,z_mc,obukhov_length)
+
+              prm_diag%tcm(jc,jb) = inv_bus_mom * inv_bus_mom
+           END DO
+
+           !Get surface fluxes
+           prm_diag%shfl_s(jc,jb) = rhos*cpd*prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
+           prm_diag%lhfl_s(jc,jb) = rhos*alv*prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+           prm_diag%umfl_s(jc,jb) = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 
+           prm_diag%vmfl_s(jc,jb) = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb) 
            
          END DO
       END DO   
@@ -456,9 +492,15 @@ MODULE mo_surface_les
      IF(L > 0._wp)THEN !Stable
        zeta   = z1/L 
        zeta0  = z0/L 
-       psi    = -bsh*zeta
-       psi0   = -bsh*zeta0
-       factor = Pr * (LOG(z1/z0) - psi + psi0) / akt
+       IF(zeta > 1._wp)THEN !Zeng etal 1997 J. Clim
+         psi    = -bsh*LOG(zeta) - zeta + 1
+         psi0   = -bsh*LOG(zeta0) - zeta0 + 1
+         factor = (LOG(L/z0) + bsh - psi + psi0  ) / akt
+       ELSE
+         psi    = -bsh*zeta
+         psi0   = -bsh*zeta0
+         factor = (LOG(z1/z0) - psi + psi0) / akt
+       END IF
      ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
        zeta0  = z0/L 
@@ -466,9 +508,9 @@ MODULE mo_surface_les
        lamda0 = SQRT(1._wp - buh*zeta0)  
        psi    = 2._wp * ( LOG(1._wp+lamda) - ln2 )
        psi0   = 2._wp * ( LOG(1._wp+lamda0) - ln2 )
-       factor = Pr * (LOG(z1/z0) - psi + psi0) / akt
+       factor = (LOG(z1/z0) - psi + psi0) / akt
      ELSE !Neutral
-       factor = Pr * LOG(z1/z0) / akt
+       factor = LOG(z1/z0) / akt
      END IF 
 
   END FUNCTION businger_heat 
@@ -480,14 +522,18 @@ MODULE mo_surface_les
 
      IF(L > 0._wp)THEN !Stable
        zeta   = z1/L 
-       lamda  = bsh*zeta
-       factor = Pr + lamda
+       IF(zeta > 1._wp)THEN
+         factor = bsh + zeta
+       ELSE     
+         lamda = bsh*zeta
+         factor = 1._wp + lamda
+       END IF
      ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
        lamda  = SQRT(1._wp - buh*zeta)  
-       factor = Pr / lamda
+       factor = 1._wp / lamda
      ELSE !neutral
-       factor = Pr 
+       factor = 1._wp
      END IF 
 
   END FUNCTION phi_heat 
@@ -507,10 +553,15 @@ MODULE mo_surface_les
      IF(L > 0._wp)THEN !Stable
        zeta  = z1/L 
        zeta0 = z0/L 
-       psi  = -bsm*zeta
-       psi0 = -bsm*zeta0
-
-       factor = ( LOG(z1/z0) - psi + psi0 ) / akt
+       IF(zeta > 1._wp)THEN !Zeng etal 1997 J. Clim
+         psi    = -bsm*LOG(zeta) - zeta + 1
+         psi0   = -bsm*LOG(zeta0) - zeta0 + 1
+         factor = (LOG(L/z0) + bsh - psi + psi0  ) / akt
+       ELSE
+         psi  = -bsm*zeta
+         psi0 = -bsm*zeta0
+         factor = ( LOG(z1/z0) - psi + psi0 ) / akt
+       END IF
      ELSEIF(L < 0._wp)THEN !unstable
        zeta   = z1/L 
        zeta0  = z0/L 
@@ -537,7 +588,11 @@ MODULE mo_surface_les
 
      IF(L > 0._wp)THEN !Stable
        zeta   = z1/L 
-       factor = 1._wp + bsm * zeta
+       IF(zeta > 1._wp)THEN
+         factor = bsm + zeta
+       ELSE
+         factor = 1._wp + bsm * zeta
+       END IF
      ELSEIF(L < 0._wp)THEN !unstable 
        zeta   = z1/L 
        lamda  = SQRT(SQRT(1._wp - bum*zeta))  

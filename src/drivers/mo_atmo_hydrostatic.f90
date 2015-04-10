@@ -23,7 +23,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_dynamics_config,   ONLY: iequations, nnow, idiv_method
   USE mo_advection_config,  ONLY: configure_advection
   USE mo_ha_testcases,      ONLY: ctest_name
-  USE mo_io_config,         ONLY: n_diags, n_checkpoints
+  USE mo_io_config,         ONLY: configure_io
   USE mo_grid_config,       ONLY: n_dom
 
   USE mo_model_domain,        ONLY: p_patch
@@ -55,8 +55,6 @@ MODULE mo_atmo_hydrostatic
   PUBLIC :: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
 
 
-  INTEGER :: n_diag, n_chkpt
-
 
 CONTAINS
   !>
@@ -79,8 +77,7 @@ CONTAINS
 
     CALL perform_ha_stepping( p_patch(1:), p_int_state(1:),                  &
                             & p_grf_state(1:),                               &
-                            & p_hydro_state, time_config%cur_datetime,       &
-                            & n_chkpt, n_diag )
+                            & p_hydro_state, time_config%cur_datetime )
 
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.
@@ -152,8 +149,9 @@ CONTAINS
     ! compute time step interval for taking a certain action
     !------------------------------------------------------------------
 
-    n_chkpt = n_checkpoints()       ! number of: write restart files
-    n_diag  = n_diags() ! number of: diagnose of total integrals
+    CALL configure_io()   ! set n_chkpt and n_diag, which control 
+                          ! writing of restart files and tot_int diagnostics.
+
 
     !------------------------------------------------------------------
     ! Initialize output file if necessary;
@@ -169,7 +167,6 @@ CONTAINS
         &                      INT(time_config%dt_restart))
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
-      sim_step_info%iadv_rcf   = 1
       jstep0 = 0
       IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:

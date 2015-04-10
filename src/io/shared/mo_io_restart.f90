@@ -176,6 +176,7 @@ CONTAINS
     CHARACTER(len=132) :: message_text
     LOGICAL                        :: lsuccess, lexists
     INTEGER                        :: idom, total_dom, fileID, vlistID, root_pe
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     ! rank of broadcast root PE
     root_pe = 0
@@ -202,8 +203,9 @@ CONTAINS
       fileID  = streamOpenRead(rst_filename)
       ! check if the file could be opened
       IF (fileID < 0) THEN
+        CALL cdiGetStringError(fileID, cdiErrorText)
         WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), &
-             ' cannot be opened: ', TRIM(cdiStringError(fileID))
+             ' cannot be opened: ', TRIM(cdiErrorText)
         CALL finish(routine, TRIM(message_text))
       ENDIF
 
@@ -479,6 +481,7 @@ CONTAINS
     REAL(wp) :: real_attribute
     INTEGER :: int_attribute
     LOGICAL :: bool_attribute
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     IF (my_process_is_mpi_test()) RETURN
     !
@@ -536,7 +539,8 @@ CONTAINS
         var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
-          WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID_restart)
+          CALL cdiGetStringError(var_lists(i)%p%cdiFileID_restart, cdiErrorText)
+          WRITE(message_text,'(a)') TRIM(cdiErrorText)
           CALL message('',message_text)
           CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
         ELSE
@@ -1101,7 +1105,7 @@ CONTAINS
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
                                 & opt_lcall_phy, opt_sim_time, &
-                                & opt_jstep_adv_ntsteps,       &
+                                & opt_ndyn_substeps,           &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth_lnd,               &
                                 & opt_nlev_snow,               &
@@ -1122,7 +1126,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndyn_substeps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
@@ -1160,7 +1164,7 @@ CONTAINS
     kcell     = patch%n_patch_cells_g
     kvert     = patch%n_patch_verts_g
     kedge     = patch%n_patch_edges_g
-    icelltype = patch%cell_type
+    icelltype = patch%geometry_info%cell_type
 
     CALL set_restart_attribute( 'current_caltime', datetime%caltime )
     CALL set_restart_attribute( 'current_calday' , datetime%calday )
@@ -1197,9 +1201,9 @@ CONTAINS
     ! SET_RESTART_ATTRIBUTE
     !-------------------------------------------------------------
 
-    IF (PRESENT(opt_jstep_adv_ntsteps)) THEN
-        WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
-        CALL set_restart_attribute( TRIM(attname), opt_jstep_adv_ntsteps )
+    IF (PRESENT(opt_ndyn_substeps)) THEN
+        WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
+        CALL set_restart_attribute( TRIM(attname), opt_ndyn_substeps )
     ENDIF
 
     IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN

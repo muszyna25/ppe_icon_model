@@ -33,7 +33,7 @@ end_date="2013-04-24T00:02:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timestep
-dtime=2
+dtime=10
 #
 #restart interval
 dt_checkpoint=60 #1 min
@@ -47,14 +47,14 @@ iforcing=3             # 3 for inwp forcing which then calls the LES physics
 # the grid and other files
 #
 # the grid parameters
-grids_folder="/pool/data/ICON/ICON-DE/GRIDS"
+grids_folder="${icon_data_poolFolder}/ICON-DE/GRIDS"
 grid_1=icoles_IconChecksuite_DOM01_R4996m
 grid_2=icoles_IconChecksuite_DOM02_R2498m
 atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
 dynamics_parent_grid_id="  0,       1"
 #
 # absolute path to directory with LAM data
-LAMDATA=/pool/data/ICON/ICON-DE
+LAMDATA=${icon_data_poolFolder}/ICON-DE
 #
 #LATBC PATH
 LATBC_PATH=$LAMDATA/NUDG_germany/4996/
@@ -96,7 +96,7 @@ cat > ${atmo_namelist} << EOF
  num_io_procs   = 0
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = ${dynamics_grid_filename}
  dynamics_parent_grid_id = ${dynamics_parent_grid_id}
  lfeedback         = .true.
@@ -203,7 +203,6 @@ lsq_high_ord      = 2
  vwind_offctr     =  0.25
  damp_height      =  15000.
  rayleigh_coeff   =  0.25
- iadv_rcf         =  5
  lhdiff_rcf       = .true.
  divdamp_fac      =  0.004
  divdamp_order    =  4

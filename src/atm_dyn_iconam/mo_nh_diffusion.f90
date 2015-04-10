@@ -32,7 +32,7 @@ MODULE mo_nh_diffusion
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff
   USE mo_intp,                ONLY: edges2cells_vector, cells2verts_scalar
-  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, iadv_rcf, lhdiff_rcf
+  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, ndyn_substeps, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_parallel_config,     ONLY: nproma
@@ -143,7 +143,7 @@ MODULE mo_nh_diffusion
 
     ! Normalized diffusion coefficient for boundary diffusion
     IF (lhdiff_rcf) THEN
-      fac_bdydiff_v = SQRT(REAL(iadv_rcf,wp))/denom_diffu_v
+      fac_bdydiff_v = SQRT(REAL(ndyn_substeps,wp))/denom_diffu_v
     ELSE
       fac_bdydiff_v = 1._wp/denom_diffu_v
     ENDIF
@@ -185,17 +185,17 @@ MODULE mo_nh_diffusion
       smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
     ELSE IF (lhdiff_rcf) THEN ! combination with divergence damping inside the dynamical core
       IF (diffu_type == 4) THEN
-        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
+        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)/ &
                                  3._wp*p_nh_metrics%enhfac_diffu(:))
       ELSE ! For Smagorinsky diffusion, the Smagorinsky coefficient rather than the background
            ! diffusion coefficient is enhanced near the model top (see below)
-        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/3._wp)
+        diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)/3._wp)
       ENDIF
       IF (diffu_type == 3) THEN
         smag_offset   = 0._wp
         smag_limit(:) = 0.125_wp
       ELSE
-        smag_offset   = 0.25_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+        smag_offset   = 0.25_wp*diffusion_config(jg)%k4*REAL(ndyn_substeps,wp)
         smag_limit(:) = 0.125_wp-4._wp*diff_multfac_vn(:)
       ENDIF
     ELSE           ! enhanced diffusion near model top only
@@ -212,7 +212,7 @@ MODULE mo_nh_diffusion
     ENDIF
 
     ! Multiplication factor for nabla4 diffusion on vertical wind speed
-    diff_multfac_w = MIN(1._wp/48._wp,diffusion_config(jg)%k4w*REAL(iadv_rcf,wp))
+    diff_multfac_w = MIN(1._wp/48._wp,diffusion_config(jg)%k4w*REAL(ndyn_substeps,wp))
 
     ! Factor for additional nabla2 diffusion in upper damping zone
     diff_multfac_n2w(:) = 0._wp
@@ -254,7 +254,7 @@ MODULE mo_nh_diffusion
       ! empirically determined scaling factor
       diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
 
-      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(iadv_rcf,wp)
+      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,wp)
 
     ELSE
       ltemp_diffu = .FALSE.
@@ -316,7 +316,7 @@ MODULE mo_nh_diffusion
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+            dvt_tang(je,jk) = p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -349,7 +349,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(                           (  &
               (vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb)- &
               dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (         &
-              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*   &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%tangent_orientation(je,jb)*   &
               p_patch%edges%inv_primal_edge_length(je,jb) +                                &
               dvt_norm(je,jk)*p_patch%edges%inv_vert_vert_length(je,jb))**2 )
 
@@ -461,7 +461,7 @@ MODULE mo_nh_diffusion
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+            dvt_tang(je,jk) = p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -514,7 +514,7 @@ MODULE mo_nh_diffusion
                       p_nh_prog%w(iecidx(je,jb,2),jk+1,iecblk(je,jb,2)))   )
 
             dwdt (je,jk) = p_patch%edges%inv_primal_edge_length(je,jb) *                                   &
-                           p_patch%edges%system_orientation(je,jb) * (                                     &
+                           p_patch%edges%tangent_orientation(je,jb) * (                                     &
               0.5_wp*(z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1))+z_w_v(ividx(je,jb,1),jk+1,ivblk(je,jb,1))) - &
               0.5_wp*(z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))+z_w_v(ividx(je,jb,2),jk+1,ivblk(je,jb,2)))   )
 
@@ -522,7 +522,7 @@ MODULE mo_nh_diffusion
               ( (vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb) )**2 + &
               (dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb))**2 + dwdz(je,jk)**2) + &
               0.5_wp *( (p_patch%edges%inv_primal_edge_length(je,jb) *                             &
-              p_patch%edges%system_orientation(je,jb)*(vn_vert2(je,jk)-vn_vert1(je,jk)) +          &
+              p_patch%edges%tangent_orientation(je,jb)*(vn_vert2(je,jk)-vn_vert1(je,jk)) +          &
               p_patch%edges%inv_vert_vert_length(je,jb)*dvt_norm(je,jk) )**2 +                     &
               (dvndz(je,jk) + dwdn(je,jk))**2 + (dvtdz(je,jk) + dwdt(je,jk))**2 ) -                &
               3._wp*grav * dthvdz(je,jk) / (                                                       &
@@ -533,7 +533,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT( MAX(kh_smag3d_e(je,jk), fac2d*( &
               ((vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb)-   &
               dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (            &
-              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*      &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%tangent_orientation(je,jb)*      &
               p_patch%edges%inv_primal_edge_length(je,jb) +                                   &
               dvt_norm(je,jk)*p_patch%edges%inv_vert_vert_length(je,jb) )**2 ) ) )
 
@@ -609,7 +609,7 @@ MODULE mo_nh_diffusion
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+            dvt_tang(je,jk) = p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -643,7 +643,7 @@ MODULE mo_nh_diffusion
             kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(                           (  &
               (vn_cell2(je,jk)-vn_cell1(je,jk))*p_patch%edges%inv_dual_edge_length(je,jb)- &
               dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (         &
-              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*   &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%tangent_orientation(je,jb)*   &
               p_patch%edges%inv_primal_edge_length(je,jb) +                                &
               dvt_norm(je,jk)*p_patch%edges%inv_dual_edge_length(je,jb))**2 )
 

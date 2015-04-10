@@ -538,7 +538,7 @@ CONTAINS
           ilv2 = p_patch%edges%vertex_idx(je,jb,2)
           ibv2 = p_patch%edges%vertex_blk(je,jb,2)
 
-          iorient = p_patch%edges%system_orientation(je,jb)
+          iorient = p_patch%edges%tangent_orientation(je,jb)
 
           ! compute normal wind component
           p_nh_prog%vn(je,jk,jb) = iorient                                &

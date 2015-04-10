@@ -29,7 +29,7 @@ MODULE mo_nonhydrostatic_nml
   USE mo_nonhydrostatic_config, ONLY: &
                                     ! from namelist
                                     & config_itime_scheme     => itime_scheme     , &
-                                    & config_iadv_rcf         => iadv_rcf         , &
+                                    & config_ndyn_substeps    => ndyn_substeps    , &
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
                                     & config_lextra_diffu     => lextra_diffu     , &
                                     & config_divdamp_fac      => divdamp_fac      , &
@@ -74,9 +74,7 @@ MODULE mo_nonhydrostatic_nml
                              !    stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)
                              ! 6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive)
 
-  INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
-                                     ! if 2: adv. and phys. are called every 2nd time step.
-                                     ! if 4: ... every 4th time step.
+  INTEGER :: ndyn_substeps           ! number of dynamics substeps per fast-physics step
   LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion only at the large time step
   LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
                                      ! to the CFL stability limit for vertical advection
@@ -112,7 +110,7 @@ MODULE mo_nonhydrostatic_nml
                                      ! above which temperature diffusion is applied
 
 
-  NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,         &
+  NAMELIST /nonhydrostatic_nml/ itime_scheme, ndyn_substeps, ivctype, htop_moist_proc,    &
                               & hbot_qvsubstep, damp_height, rayleigh_type,               &
                               & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
@@ -155,8 +153,8 @@ CONTAINS
     itime_scheme = 4 ! Predictor-corrector scheme with averaged velocity tendency
                      ! Velocity tendency is recomputed for predictor step only after physics calls
 
-    ! reduced calling frequency for transport
-    iadv_rcf = 5  ! reduced calling frequency (transport time step = 5* dynamics time step)
+    ! number of dynamics substeps per fast-physics timestep
+    ndyn_substeps = 5
 
     ! reduced calling frequency also for horizontal diffusion
     lhdiff_rcf = .TRUE.  ! new default since 2012-05-09 after successful testing
@@ -278,11 +276,10 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF ( iadv_rcf <= 0) THEN
-        CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
+    IF ( ndyn_substeps <= 0) THEN
+        CALL finish( TRIM(routine), 'Invalid number of dynamics substeps '//&
           &'Value must be positive')
     ENDIF
-
 
     ! For backward compatibility with the previous implementation of divergence damping flow control
     IF (divdamp_order == 5) THEN
@@ -310,7 +307,7 @@ CONTAINS
        config_veladv_offctr     = veladv_offctr
        config_igradp_method     = igradp_method
        config_exner_expol       = exner_expol
-       config_iadv_rcf          = iadv_rcf
+       config_ndyn_substeps     = ndyn_substeps
        config_lhdiff_rcf        = lhdiff_rcf
        config_lextra_diffu      = lextra_diffu
        config_divdamp_fac       = divdamp_fac

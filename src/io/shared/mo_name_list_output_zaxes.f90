@@ -213,7 +213,7 @@ CONTAINS
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%phys_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
 
@@ -221,7 +221,7 @@ CONTAINS
     CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE, nlevp1,        &
       &                           levels   = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),     &
       &                           opt_number = get_numberOfVgridUsed(ivctype),       &
-      &                           opt_uuid   = vgrid_buffer(of%phys_patch_id)%uuid )
+      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
 
@@ -231,7 +231,7 @@ CONTAINS
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_set_ubounds_value = 0._dp,                         &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%phys_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
 
@@ -788,6 +788,7 @@ CONTAINS
     TYPE (t_output_file), POINTER   :: p_of
     INTEGER :: i
 
+#ifndef __NO_ICON_ATMO__
     DO i=1,SIZE(output_file)
       p_of => output_file(i)
       SELECT CASE(p_of%ilev_type)
@@ -809,7 +810,8 @@ CONTAINS
         CALL finish(routine, "Internal error!")
       END SELECT
     END DO
-    
+#endif
+
   END SUBROUTINE create_mipz_level_selections
 
 END MODULE mo_name_list_output_zaxes

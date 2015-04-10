@@ -58,7 +58,8 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, ihs_ocean
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
+    &                                     ihs_ocean
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi_constants              ! We need all
   ! utility functions
@@ -94,9 +95,8 @@ MODULE mo_name_list_output
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar,                         &
+    &                                     PROLEPTIC_GREGORIAN, setCalendar, resetCalendar, OPERATOR(-),            &
     &                                     timedelta, newTimedelta, deallocateTimedelta
-  USE mo_mtime_extensions,          ONLY: getTimeDeltaFromDateTime
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -161,16 +161,18 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)       :: filename
+    CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
 
     ! open file:
     filename = TRIM(get_current_filename(of%out_event))
     of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
-      WRITE(message_text,'(a)') cdiStringError(of%cdiFileID)
+      CALL cdiGetStringError(of%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('',message_text,all_print=.TRUE.)
       CALL finish (routine, 'open failed on '//TRIM(filename))
-    ELSE
+    ELSE IF (msg_level >= 8) THEN
       CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)
     END IF
 
@@ -306,7 +308,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
     TYPE(t_output_name_list), POINTER :: p_onl
-    TYPE(datetime),           POINTER :: mtime_datetime
+    TYPE(datetime),           POINTER :: io_datetime => NULL()
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, list_idx
@@ -359,7 +361,7 @@ CONTAINS
       ! -------------------------------------------------
 
       ! Notify user
-      IF (output_file(i)%io_proc_id == p_pe) THEN
+      IF ((output_file(i)%io_proc_id == p_pe) .AND. (msg_level >= 8)) THEN
         WRITE(text,'(a,a,a,a,a,i0)') &
           & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
           & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
@@ -368,24 +370,25 @@ CONTAINS
       END IF
 
       IF (output_file(i)%io_proc_id == p_pe) THEN
+        CALL setCalendar(PROLEPTIC_GREGORIAN)
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
-        CALL setCalendar(PROLEPTIC_GREGORIAN)
-        mtime_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
-        
-        idate = cdiEncodeDate(INT(mtime_datetime%date%year),   &
-          &                   INT(mtime_datetime%date%month),  &
-          &                   INT(mtime_datetime%date%day))
-        itime = cdiEncodeTime(INT(mtime_datetime%time%hour),   &
-          &                   INT(mtime_datetime%time%minute), &
-          &                   INT(mtime_datetime%time%second))
-        CALL deallocateDatetime(mtime_datetime)
+        io_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
+        idate = cdiEncodeDate(INT(io_datetime%date%year),   &
+          &                   INT(io_datetime%date%month),  &
+          &                   INT(io_datetime%date%day))
+        itime = cdiEncodeTime(INT(io_datetime%time%hour),   &
+          &                   INT(io_datetime%time%minute), &
+          &                   INT(io_datetime%time%second))
+        CALL deallocateDatetime(io_datetime)
         CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
+        CALL resetCalendar()
       END IF
+
 
       p_onl => output_file(i)%name_list
       IF(my_process_is_io()) THEN
@@ -406,7 +409,9 @@ CONTAINS
       IF (check_close_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
         CALL close_output_file(output_file(i))
-        CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
+        IF (msg_level >= 8) THEN
+          CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
+        END IF
       END IF
 
       ! -------------------------------------------------
@@ -499,7 +504,7 @@ CONTAINS
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+    forecast_delta = mtime_date - mtime_begin
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
       &                                    forecast_delta%minute, forecast_delta%second 
     CALL deallocateDatetime(mtime_date)
@@ -622,8 +627,8 @@ CONTAINS
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
-      IF(info%used_dimensions(1) /= nproma) &
-        CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
+    ! IF(info%used_dimensions(1) /= nproma) &
+    !   CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
 
       idata_type = iUNKNOWN
 
@@ -670,8 +675,17 @@ CONTAINS
 
       SELECT CASE (info%ndims)
       CASE (1)
-        CALL message(routine, info%name)
-        CALL finish(routine,'1d arrays not handled yet.')
+        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
+        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
+
+        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+          r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+          i_ptr(:,1,1) = of%var_desc(iv)%i_ptr(:,1,1,1,1)
+        ELSE
+          CALL finish(routine, "Internal error!")
+        ENDIF
+        
       CASE (2)
         ! 2D fields: Make a 3D copy of the array
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
@@ -730,7 +744,7 @@ CONTAINS
       END IF
 
       var_ignore_level_selection = .FALSE.
-      IF(info%ndims == 2) THEN
+      IF(info%ndims < 3) THEN
         nlevs = 1
       ELSE
         ! handle the case that a few levels have been selected out of
@@ -771,6 +785,7 @@ CONTAINS
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri  => patch_info(i_dom)%cells
         p_pat => patch_info(i_dom)%p_pat_c
+      CASE (GRID_LONLAT)
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri  => patch_info(i_dom)%edges
         p_pat => patch_info(i_dom)%p_pat_e
@@ -789,7 +804,11 @@ CONTAINS
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
-        n_points = p_ri%n_glb
+        IF (info%hgrid == GRID_LONLAT) THEN
+          n_points = 1
+        ELSE
+          n_points = p_ri%n_glb
+        END IF
 
         IF (idata_type == iREAL) THEN
           ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
@@ -837,35 +856,46 @@ CONTAINS
           !
           ! gather the array on stdio PE and write it out there
 
-          IF (idata_type == iREAL) THEN
-
-            r_out_wp(:) = 0._wp
-
-            lev_idx = lev
-            ! handle the case that a few levels have been selected out of
-            ! the total number of levels:
-            IF (      ASSOCIATED(of%level_selection)   .AND. &
-              & (.NOT. var_ignore_level_selection)     .AND. &
-              & (info%ndims > 2)) THEN
-              lev_idx = of%level_selection%global_idx(lev_idx)
+          IF ( n_points == 1 ) THEN
+            IF (my_process_is_mpi_workroot()) THEN
+              !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
+              IF      (idata_type == iREAL ) THEN
+                r_out_dp(:)  = r_ptr(:,1,1)
+              ELSE IF (idata_type == iINTEGER) THEN
+                r_out_int(:) = i_ptr(:,1,1)
+              END IF
             END IF
-            CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
-          
-          ELSE IF (idata_type == iINTEGER) THEN
+          ELSE ! n_points
+            IF (idata_type == iREAL) THEN
 
-            r_out_int(:) = 0
+              r_out_wp(:)  = 0._wp
 
-            lev_idx = lev
-            ! handle the case that a few levels have been selected out of
-            ! the total number of levels:
-            IF (      ASSOCIATED(of%level_selection)   .AND. &
-              & (.NOT. var_ignore_level_selection)     .AND. &
-              & (info%ndims > 2)) THEN
-              lev_idx = of%level_selection%global_idx(lev_idx)
+              lev_idx = lev
+              ! handle the case that a few levels have been selected out of
+              ! the total number of levels:
+              IF (      ASSOCIATED(of%level_selection)   .AND. &
+                & (.NOT. var_ignore_level_selection)     .AND. &
+                & (info%ndims > 2)) THEN
+                lev_idx = of%level_selection%global_idx(lev_idx)
+              END IF
+              CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
+            
+            ELSE IF (idata_type == iINTEGER) THEN
+
+              r_out_int(:) = 0
+
+              lev_idx = lev
+              ! handle the case that a few levels have been selected out of
+              ! the total number of levels:
+              IF (      ASSOCIATED(of%level_selection)   .AND. &
+                & (.NOT. var_ignore_level_selection)     .AND. &
+                & (info%ndims > 2)) THEN
+                lev_idx = of%level_selection%global_idx(lev_idx)
+              END IF
+              CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
+
             END IF
-            CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
-
-          END IF
+          END IF ! n_points
 
           IF(my_process_is_mpi_workroot()) THEN
 
@@ -1222,7 +1252,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
 
     CALL date_and_time(TIME=ctime)
-    WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    IF (msg_level >= 8) THEN
+      WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    END IF
     CALL interval_start(TRIM(get_current_filename(of%out_event)))
 
     t_get   = 0.d0
@@ -1477,7 +1509,9 @@ CONTAINS
     !-- timing report
     !
     CALL date_and_time(TIME=ctime)
-    WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
+    IF (msg_level >= 8) THEN
+      WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
+    END IF
     CALL interval_end(TRIM(get_current_filename(of%out_event)))
 
     ! Convert mb_get/mb_wr to MB

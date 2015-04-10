@@ -54,7 +54,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=120
+dtime=480
 #ndays=10
 #nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 nsteps=50
@@ -111,7 +111,7 @@ lfeedback="${lfeedback},"
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 cat > ${atmo_namelist} << EOF
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
  ! radiation_grid_filename = ${radiation_grid_filename}
  dynamics_parent_grid_id = ${dynamics_parent_grid_id}
@@ -149,7 +149,6 @@ cat > ${atmo_namelist} << EOF
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 3        ! new default
- iadv_rcf        = 4   ! microphysics and turb and sat adj 
  exner_expol     = 0.60    ! exner function extrapolation?
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = 0.5     ! off-centering for time differencing (like alpha in turb)

@@ -292,7 +292,7 @@ MODULE mo_nwp_phy_types
 #endif
       ::                   &
       z_pbl(:,:)          ,& !> Boundary layer height  (m)
-      buoyancy_prod(:,:,:),& !> Buoyant production/loss term in TKE equation
+      bruvais(:,:,:),&       !> Brunt Vaisala Frequency
       mech_prod(:,:,:)       !> Mechanical production/loss term in TKE equation
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
@@ -346,6 +346,10 @@ MODULE mo_nwp_phy_types
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
       rh(:,:,:)               !> relative humidity
+
+    ! Buffer field needed when vertical nesting is combined with a reduced radiation
+    ! grid and processor splitting
+    REAL(wp), POINTER :: buffer_rrg(:,:,:)
 
     !> Special 1D and 0D diagnostics for LES runs
     REAL(wp), ALLOCATABLE :: &

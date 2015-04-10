@@ -42,7 +42,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 
 #-----------------------------------------------------------------------------
 # model timing
-dtime=420
+dtime=840
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 nsteps=17
@@ -86,7 +86,7 @@ cat > $atmo_namelist << EOF
  nh_stepping_threads     = 1 
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &nh_testcase_nml
@@ -117,7 +117,6 @@ cat > $atmo_namelist << EOF
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 2        ! new default
- iadv_rcf        = 2        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
  exner_expol     = 0.60     ! exner function extrapolation?
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
  damp_height     = 35000.   ! damping height (set about 10km below top)
