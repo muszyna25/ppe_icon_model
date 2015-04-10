@@ -221,6 +221,26 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -module 
         ;;
+    intel-kit)
+        config_compiler=intel
+        compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
+        CC     =  icc
+        CFLAGS      = "$CFLAGS" -DpgiFortran
+        FC          = mpif90 -sox
+        ##FDEBUG      = -check bounds -check pointers -check uninit -debug -g
+        FDEBUG      = -g
+        FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost -g -traceback
+        FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost  -traceback
+        ##FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost -g -traceback
+        ##FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost  -traceback
+        F77         = ifort -sox
+        F77FLAGS    = "$FFLAGS"
+        OMPFLAG     = -openmp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -module 
+        ;;
 esac
 #===============================================
 
