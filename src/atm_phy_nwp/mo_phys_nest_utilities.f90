@@ -1901,11 +1901,11 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   TYPE(t_lnd_diag),             POINTER :: ptr_ldiagc ! child level land diag state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p1=56   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
-  INTEGER, PARAMETER  :: nfields_p2=17   ! Number of remaining 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=59   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p2=18   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=12   ! Number of 2D land state fields
 
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk, nlev_c
 
   LOGICAL :: lsfc_interp
 
@@ -1926,6 +1926,8 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   ptr_pc  => p_patch(jgc)
   ptr_grf => p_grf_state(jg)%p_dom(jn)
   ptr_int => p_int_state(jg)
+
+  nlev_c = ptr_pc%nlev
 
   IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
     lsfc_interp = .TRUE.
@@ -1992,10 +1994,10 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       z_aux3dp1_p(jc,33,jb) = prm_diag(jg)%asod_t(jc,jb)
       z_aux3dp1_p(jc,34,jb) = prm_diag(jg)%asou_t(jc,jb)
       z_aux3dp1_p(jc,35,jb) = prm_diag(jg)%asodird_s(jc,jb)
-      z_aux3dp1_p(jc,36,jb) = prm_diag(jg)%hbas_con(jc,jb)
-      z_aux3dp1_p(jc,37,jb) = prm_diag(jg)%htop_con(jc,jb)
-      z_aux3dp1_p(jc,38,jb) = prm_diag(jg)%htop_dc(jc,jb)
-      z_aux3dp1_p(jc,39,jb) = prm_diag(jg)%hzerocl(jc,jb)
+      z_aux3dp1_p(jc,36,jb) = prm_diag(jg)%htop_con(jc,jb) - prm_diag(jg)%hbas_con(jc,jb)
+      z_aux3dp1_p(jc,37,jb) = prm_diag(jg)%htop_dc(jc,jb)
+      z_aux3dp1_p(jc,38,jb) = prm_diag(jg)%snowlmt(jc,jb) + 999._wp
+      z_aux3dp1_p(jc,39,jb) = prm_diag(jg)%hzerocl(jc,jb) + 999._wp
       z_aux3dp1_p(jc,40,jb) = prm_diag(jg)%clcl(jc,jb)
       z_aux3dp1_p(jc,41,jb) = prm_diag(jg)%clcm(jc,jb)
       z_aux3dp1_p(jc,42,jb) = prm_diag(jg)%clch(jc,jb)
@@ -2007,6 +2009,15 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       z_aux3dp1_p(jc,48,jb) = prm_diag(jg)%tmin_2m(jc,jb)
       z_aux3dp1_p(jc,49:51,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
       z_aux3dp1_p(jc,52:56,jb) = p_nh_state(jg)%diag%tracer_vi(jc,jb,1:5)
+      z_aux3dp1_p(jc,57,jb) = prm_diag(jg)%clct_mod(jc,jb)
+
+      IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+        z_aux3dp1_p(jc,58,jb) = prm_diag(jg)%graupel_gsp(jc,jb)
+        z_aux3dp1_p(jc,59,jb) = prm_diag(jg)%graupel_gsp_rate(jc,jb)
+      ELSE
+        z_aux3dp1_p(jc,58,jb) = 0._wp
+        z_aux3dp1_p(jc,59,jb) = 0._wp
+      ENDIF
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2025,6 +2036,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       z_aux3dp2_p(jc,15,jb) = prm_diag(jg)%lwflxsfc(jc,jb)
       z_aux3dp2_p(jc,16,jb) = prm_diag(jg)%lwflxsfc_a(jc,jb)
       z_aux3dp2_p(jc,17,jb) = prm_diag(jg)%lwflxtoa_a(jc,jb)
+      z_aux3dp2_p(jc,18,jb) = prm_diag(jg)%hbas_con(jc,jb)
     ENDDO
 
     IF (lsfc_interp) THEN
@@ -2111,12 +2123,12 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
                        i_startidx, i_endidx, 1, grf_bdywidth_c)
 
-    DO jc = i_startidx, i_endidx
-      prm_diag(jgc)%tot_prec(jc,jb)       = z_aux3dp1_c(jc,1,jb)
-      prm_diag(jgc)%rain_gsp(jc,jb)       = z_aux3dp1_c(jc,2,jb)
-      prm_diag(jgc)%snow_gsp(jc,jb)       = z_aux3dp1_c(jc,3,jb)
-      prm_diag(jgc)%rain_con(jc,jb)       = z_aux3dp1_c(jc,4,jb)
-      prm_diag(jgc)%snow_con(jc,jb)       = z_aux3dp1_c(jc,5,jb)
+    DO jc = i_startidx, i_endidx          ! to avoid undershoots when taking time differences:
+      prm_diag(jgc)%tot_prec(jc,jb)       = MAX(z_aux3dp1_c(jc,1,jb),prm_diag(jgc)%tot_prec(jc,jb))
+      prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,2,jb),prm_diag(jgc)%rain_gsp(jc,jb))
+      prm_diag(jgc)%snow_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,3,jb),prm_diag(jgc)%snow_gsp(jc,jb))
+      prm_diag(jgc)%rain_con(jc,jb)       = MAX(z_aux3dp1_c(jc,4,jb),prm_diag(jgc)%rain_con(jc,jb))
+      prm_diag(jgc)%snow_con(jc,jb)       = MAX(z_aux3dp1_c(jc,5,jb),prm_diag(jgc)%snow_con(jc,jb))
       prm_diag(jgc)%rain_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,6,jb)
       prm_diag(jgc)%snow_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,7,jb)
       prm_diag(jgc)%rain_con_rate(jc,jb)  = z_aux3dp1_c(jc,8,jb)
@@ -2130,7 +2142,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%t_2m(jc,jb)           = z_aux3dp1_c(jc,16,jb)
       prm_diag(jgc)%qv_2m(jc,jb)          = z_aux3dp1_c(jc,17,jb)
       prm_diag(jgc)%td_2m(jc,jb)          = MIN(prm_diag(jgc)%t_2m(jc,jb),z_aux3dp1_c(jc,18,jb))
-      prm_diag(jgc)%rh_2m(jc,jb)          = MIN(1._wp,z_aux3dp1_c(jc,19,jb))
+      prm_diag(jgc)%rh_2m(jc,jb)          = MIN(100._wp,z_aux3dp1_c(jc,19,jb)) ! unit is %
       prm_diag(jgc)%gust10(jc,jb)         = z_aux3dp1_c(jc,20,jb)
       prm_diag(jgc)%sp_10m(jc,jb)         = z_aux3dp1_c(jc,21,jb)
       prm_diag(jgc)%swflxsfc(jc,jb)       = z_aux3dp1_c(jc,22,jb)
@@ -2147,10 +2159,13 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%asod_t(jc,jb)         = z_aux3dp1_c(jc,33,jb)
       prm_diag(jgc)%asou_t(jc,jb)         = z_aux3dp1_c(jc,34,jb)
       prm_diag(jgc)%asodird_s(jc,jb)      = z_aux3dp1_c(jc,35,jb)
-      prm_diag(jgc)%hbas_con(jc,jb)       = z_aux3dp1_c(jc,36,jb)
-      prm_diag(jgc)%htop_con(jc,jb)       = z_aux3dp1_c(jc,37,jb)
-      prm_diag(jgc)%htop_dc(jc,jb)        = z_aux3dp1_c(jc,38,jb)
-      prm_diag(jgc)%hzerocl(jc,jb)        = z_aux3dp1_c(jc,39,jb)
+      prm_diag(jgc)%htop_dc(jc,jb)        = z_aux3dp1_c(jc,37,jb)
+      prm_diag(jgc)%snowlmt(jc,jb)        = z_aux3dp1_c(jc,38,jb) - 999._wp
+      IF (prm_diag(jgc)%snowlmt(jc,jb) < p_nh_state(jgc)%metrics%z_ifc(jc,nlev_c+1,jb)) &
+        prm_diag(jgc)%snowlmt(jc,jb) = -999._wp
+      prm_diag(jgc)%hzerocl(jc,jb)        = z_aux3dp1_c(jc,39,jb) - 999._wp
+      IF (prm_diag(jgc)%hzerocl(jc,jb) < p_nh_state(jgc)%metrics%z_ifc(jc,nlev_c+1,jb)) &
+        prm_diag(jgc)%hzerocl(jc,jb) = -999._wp
       prm_diag(jgc)%clcl(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,40,jb))
       prm_diag(jgc)%clcm(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,41,jb))
       prm_diag(jgc)%clch(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,42,jb))
@@ -2162,6 +2177,12 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%tmin_2m(jc,jb)        = z_aux3dp1_c(jc,48,jb)
       prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,49:51,jb)
       p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,52:56,jb)
+      prm_diag(jgc)%clct_mod(jc,jb)       = MIN(1._wp,z_aux3dp1_c(jc,57,jb))
+
+      IF (atm_phy_nwp_config(jgc)%inwp_gscp == 2) THEN
+        prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,58,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
+        prm_diag(jgc)%graupel_gsp_rate(jc,jb) = z_aux3dp1_c(jc,59,jb)
+      ENDIF
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
@@ -2180,6 +2201,15 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%lwflxsfc(jc,jb)       = z_aux3dp2_c(jc,15,jb)
       prm_diag(jgc)%lwflxsfc_a(jc,jb)     = z_aux3dp2_c(jc,16,jb)
       prm_diag(jgc)%lwflxtoa_a(jc,jb)     = z_aux3dp2_c(jc,17,jb)
+
+      ! Special treatment for convection base and top height (no convection => - 500 m)
+      prm_diag(jgc)%hbas_con(jc,jb)       = z_aux3dp2_c(jc,18,jb)
+      IF (prm_diag(jgc)%hbas_con(jc,jb) < p_nh_state(jgc)%metrics%z_ifc(jc,nlev_c+1,jb)) THEN
+        prm_diag(jgc)%hbas_con(jc,jb) = -500._wp
+        prm_diag(jgc)%htop_con(jc,jb) = -500._wp
+      ELSE
+        prm_diag(jgc)%htop_con(jc,jb) = z_aux3dp1_c(jc,36,jb) + prm_diag(jgc)%hbas_con(jc,jb)
+      ENDIF
     ENDDO
 
     IF (lsfc_interp) THEN

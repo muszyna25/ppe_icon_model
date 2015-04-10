@@ -25,7 +25,7 @@ MPI_LIB     =
 LAPACKROOT  =
 LAPACK_LIB  =
 
-LIBS        = -L../lib -lsupport
+LIBS        = -L../lib -lsupport $LIBS
 
 # Intel 
 #CC          = gcc

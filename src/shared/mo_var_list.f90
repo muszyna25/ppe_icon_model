@@ -801,6 +801,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -933,6 +939,12 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
     !
     ! and set meta data
     !
@@ -1067,6 +1079,12 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
     !
     ! and set meta data
     !
@@ -1217,6 +1235,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -1362,6 +1386,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -1496,6 +1526,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -1619,6 +1655,12 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
     !
     ! and set meta data
     !
@@ -1745,6 +1787,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -1870,6 +1918,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -1993,6 +2047,12 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
     !
     ! and set meta data
     !
@@ -2120,6 +2180,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -2243,6 +2309,12 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
     !
     ! and set meta data
     !
@@ -2368,6 +2440,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -2492,6 +2570,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
+    !
     ! and set meta data
     !
     IF (PRESENT(p5)) THEN
@@ -2615,6 +2699,12 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! init local fields
+    !
+    missval = new_list_element%field%info%missval
+    initval = new_list_element%field%info%initval
+    resetval= new_list_element%field%info%resetval
     !
     ! and set meta data
     !
@@ -3038,7 +3128,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
     ref_info = default_var_list_metadata(this_list)
-
+    !
+    ! init local fields
+    !
+    missval = ref_info%missval
+    initval = ref_info%initval
+    resetval= ref_info%resetval
     !
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
@@ -3211,7 +3306,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
     ref_info = default_var_list_metadata(this_list)
-
+    !
+    ! init local fields
+    !
+    missval = ref_info%missval
+    initval = ref_info%initval
+    resetval= ref_info%resetval
     !
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
@@ -3383,7 +3483,12 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
     ref_info = default_var_list_metadata(this_list)
-
+    !
+    ! init local fields
+    !
+    missval = ref_info%missval
+    initval = ref_info%initval
+    resetval= ref_info%resetval
     !
     CALL assign_if_present(missval%ival, missval_i)
     CALL assign_if_present(initval%ival, initval_i)

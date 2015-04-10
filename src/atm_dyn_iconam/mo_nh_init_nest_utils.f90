@@ -395,7 +395,8 @@ MODULE mo_nh_init_nest_utils
 !$OMP END PARALLEL
 
     ! Convert wsoil into SMI for interpolation
-    CALL wsoil_to_smi(p_patch(jg), lndvars_par(:,1:nlev_soil,:))
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1) &
+      CALL wsoil_to_smi(p_patch(jg), lndvars_par(:,1:nlev_soil,:))
 
     ! Step 1b: execute boundary interpolation
 
@@ -507,7 +508,8 @@ MODULE mo_nh_init_nest_utils
     ENDIF
 
     ! Convert SMI back to wsoil
-    CALL smi_to_wsoil(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
+    IF (atm_phy_nwp_config(jg)%inwp_surface == 1) &
+      CALL smi_to_wsoil(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
 
     ! Step 3: Add reference state to thermodynamic variables and copy land fields
     ! from the container arrays to the prognostic variables (for the time being,
@@ -562,8 +564,10 @@ MODULE mo_nh_init_nest_utils
           prm_diag(jgc)%snow_con(jc,jb)       = MAX(0._wp,phdiag_chi(jc,5,jb))
           prm_diag(jgc)%rain_gsp_rate(jc,jb)  = phdiag_chi(jc,6,jb)
           prm_diag(jgc)%snow_gsp_rate(jc,jb)  = phdiag_chi(jc,7,jb)
-          prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,8,jb)
-          prm_diag(jgc)%snow_con_rate(jc,jb)  = phdiag_chi(jc,9,jb)
+          IF (atm_phy_nwp_config(jgc)%inwp_convection == 1) THEN
+            prm_diag(jgc)%rain_con_rate(jc,jb)  = phdiag_chi(jc,8,jb)
+            prm_diag(jgc)%snow_con_rate(jc,jb)  = phdiag_chi(jc,9,jb)
+          ENDIF
           prm_diag(jgc)%gz0(jc,jb)            = phdiag_chi(jc,10,jb)
           prm_diag(jgc)%tcm(jc,jb)            = phdiag_chi(jc,11,jb)
           prm_diag(jgc)%tch(jc,jb)            = phdiag_chi(jc,12,jb)

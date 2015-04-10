@@ -17,6 +17,7 @@
 MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_exception,          ONLY: finish
   USE mo_cdi_constants,      ONLY: streamInqVlist,                           &
     &                              vlistInqVarTypeOfGeneratingProcess,       &
     &                              vlistInqVarTsteptype, TSTEP_CONSTANT,     &
@@ -25,7 +26,7 @@ MODULE mo_grib2_util
     &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR 
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_TILE_LAND
-  USE mo_action,             ONLY: ACTION_RESET
+  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
   USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, select_tile, t_tile
   ! calendar operations
@@ -322,10 +323,10 @@ CONTAINS
   !!
   !!  @author D. Reinert, F. Prill (DWD)
   !!
-  !!  TODOs
+  !!  CAVEATs
   !!
-  !!  - we implicitly assume that we always need to INQUIRE the interval from action 1.
-  !!  - we implicitly assume that the time range is always smaller than one month
+  !!  - we implicitly assume that actions are ordered according to increasing forecast time.
+  !!  - we implicitly assume that the statistical process time range is always smaller than one month
   !!
   SUBROUTINE set_GRIB2_timedep_keys(streamID, varID, info, start_date, cur_date)
     INTEGER                             ,INTENT(IN) :: streamID, varID
@@ -343,6 +344,8 @@ CONTAINS
     TYPE(datetime),  POINTER      :: mtime_start                   ! model start (initialization) time
     TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
     TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
+    INTEGER                       :: var_actionId                  ! action from which metainfo is used
+    CHARACTER(len=*), PARAMETER   :: routine = 'set_GRIB2_timedep_keys'
 
     ! special fields for which time-dependent metainfos should be set even though they are not of 
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
@@ -373,18 +376,19 @@ CONTAINS
 
     IF (info%action_list%n_actions > 0) THEN
 
-      ! here we implicitly assume, that action Nr. 1 is the 'nullify'-action.
-      ! Currently this is true, but must not be true for all times. A less 
-      ! ad-hoc solution would be desirable. A warning is issued, if nr. 1 
-      ! is NOT the 'nullify' action.
-      IF (info%action_list%action(1)%actionID /= ACTION_RESET) THEN
-        write(0,*) 'set_timedependent_GRIB2_keys: actionID of action 1 is not equal to ACTION_RESET.'//&
+      ! more than one RESET action may be defined for a single variable.
+      ! get ID of currently active RESET action
+      var_actionId = getActiveAction(info, ACTION_RESET, mtime_cur)
+
+      IF (var_actionId == -1) THEN
+        write(0,*) 'set_timedependent_GRIB2_keys: no active action of type ACTION_RESET found. '//&
           &             'lengthOfTimeRange may not be set correctly'
+        CALL finish (routine, 'Illegal actionId')
       ENDIF
 
       ! get latest (intended) triggering time, which is equivalent to 
       ! the statistical process starting time
-      statProc_startDateTime = info%action_list%action(1)%EventLastTriggerDate
+      statProc_startDateTime = info%action_list%action(var_actionId)%EventLastTriggerDate
 
 
       ! get time interval, over which statistical process has been performed

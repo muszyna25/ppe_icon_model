@@ -591,6 +591,7 @@ CONTAINS
     LOGICAL                                     :: l_error
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
+    INTEGER                                     :: nmiss    ! missing value indicator
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -759,6 +760,7 @@ CONTAINS
         ENDIF
       END IF
 
+
       var_ignore_level_selection = .FALSE.
       IF(info%ndims == 2) THEN
         nlevs = 1
@@ -858,6 +860,19 @@ CONTAINS
             END IF
           END IF ! my_process_is_mpi_test()
         END IF ! my_process_is_mpi_workroot()
+
+
+        ! set missval flag, if applicable
+        !
+        IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
+          IF (of%var_desc(iv)%info%lmiss ) THEN
+            nmiss = 1
+          ELSE
+            nmiss = 0
+          ENDIF
+        ELSE  ! i.e. NETCDF
+          nmiss = 0
+        ENDIF
 
 
         ! For all levels (this needs to be done level-wise in order to reduce 
@@ -961,9 +976,9 @@ CONTAINS
           
           IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
               IF (use_dp_mpi2io .OR. have_GRIB) THEN
-                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), 0)
+                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
               ELSE
-                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), 0)
+                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
               ENDIF
           ENDIF
           
@@ -1262,6 +1277,7 @@ CONTAINS
     TYPE(t_reorder_info) , POINTER :: p_ri
     LOGICAL                        :: have_GRIB
     INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
+    INTEGER                        :: nmiss    ! missing value indicator
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
@@ -1342,6 +1358,18 @@ CONTAINS
         CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID,     &
           &                               gribout_config(of%phys_patch_id) )
       END IF
+
+      ! set missval flag, if applicable
+      !
+      IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
+        IF ( info%lmiss ) THEN
+          nmiss = 1
+        ELSE
+          nmiss = 0
+        ENDIF
+      ELSE  ! i.e. NETCDF
+        nmiss = 0
+      ENDIF
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
@@ -1500,10 +1528,10 @@ CONTAINS
         t_0 = p_mpi_wtime() ! performance measurement
 
         IF (use_dp_mpi2io .OR. have_GRIB) THEN
-          CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, 0)
+          CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, nmiss)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         ELSE
-          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, var3_sp, 0)
+          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, var3_sp, nmiss)
           mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
         ENDIF
         t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement

@@ -173,19 +173,8 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 %\emph{forecast} database categories for step $s[h]=0$ (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}). See Section 
 %\ref{sec_skycat} for more details on the database categories and Section \ref{sec_example} for sample retrievals.
 
-
-\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
- \caption{Time-constant fields (\texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite})}\label{table_constdb}\\
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-\endfirsthead
-\caption[]{\emph{continued}}\\
-\midrule
-\endhead
-\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
-\endfoot
-\endlastfoot
+\begin{vartable}{\caption{Time-constant fields (\texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite})}\label{table_constdb}}
+    
 \multicolumn{8}{c}{\textbf{Date/Time} (YYYY-MM-DDThh) \textbf{D=0001-01-01T00}}\\
 \midrule
 \groups[tri][]   & HSURF                         &  Geometric height of the earths surface above msl                                       &               0                                   &                       3                     &                    6                       &                 1/101                           &                      inst                   &        $\mathrm{m}$   \\ 
@@ -222,9 +211,8 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 \groups[tri][] & ALB\_UV12                     &  UV-visible ($0.3 - 0.7\,\mathrm{\mu m}$) albedo for diffuse radiation (monthly fields) &               0                                   &                      19                     &                   222                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
 \groups[tri][] & ALB\_NI12                     &  Near infrared ($0.7 - 5.0\,\mathrm{\mu m}$) albedo for diffuse radiation (monthly fields) &            0                                   &                      19                     &                   223                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
 \groups[tri][] & NDVI\_MRAT                    &  ratio of monthly mean NDVI (normalized differential vegetation index) to annual max    &               0                                   &                       0                     &                   192                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
-  \bottomrule
-\end{longtable}
 
+\end{vartable}
 
 
 % LaTeX macros that are later used to disable/enable rows in the
@@ -232,23 +220,14 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 \renewcommand{\onlyglb}[1]{#1}
 \renewcommand{\onlyloc}[1]{}
 %
-\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
- \caption{Variables exclusively available for $VV=0$ from the forecast databases (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}, $s[h]=0$)}\label{table_init_output}\\
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-\endfirsthead
-\caption[]{\emph{continued}}\\
-\midrule
-\endhead
-\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
-\endfoot
-\endlastfoot
+\begin{vartable}{\caption{Variables exclusively available for $VV=0$ from the forecast databases (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}, $s[h]=0$)}\label{table_init_output}}
+  
   % --------- include table of variables
   \input{output_GRIB2_vv0}
   % ------------------------------------
-  \bottomrule
-\end{longtable}
+
+\end{vartable}
+
 
 
 % --------------------------------------------------------------------------------
@@ -260,18 +239,13 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 \renewcommand{\onlyglb}[1]{#1}
 \renewcommand{\onlyloc}[1]{}
 %
-\begin{table}[H]
- \caption{Hybrid multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}
- \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
+\begin{vartable}{\caption{Hybrid multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}}
+  
   % --------- include table of variables
   \input{output_GRIB2_forecast}
   % ------------------------------------
-  \bottomrule
- \end{tabular}
-\end{table}
+
+\end{vartable}
 \footnotetext[2]{for the time being, erroneously encoded as mixing ratios instead of specific quantities}
 
 
@@ -280,10 +254,10 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 \subsection{Multi-level fields interpolated to pressure levels}
 % --------------------------------------------------------------------------------
 
-\newcommand{\pressurelevelsTriangular}{$1000$, $950$, $850$, $700$, $500$, $300$ $\mathrm{hPa}$}
+\renewcommand{\pressurelevelsTriangular}{$1000$, $950$, $850$, $700$, $500$, $300$ $\mathrm{hPa}$}
 
-\newcommand{\new}[1]{\textcolor{red}{#1}}
-\newcommand{\pressurelevelsRegular}{$1000$, \new{$975$}, $950$, $925$, $900$, 
+\renewcommand{\new}[1]{\textcolor{red}{#1}}
+\renewcommand{\pressurelevelsRegular}{$1000$, \new{$975$}, $950$, $925$, $900$, 
                                     $875$, $850$, \new{$825$}, $800$, 
                                     \new{$775$}, $750$, \new{$725$}, $700$, $600$, 
                                     $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
@@ -304,42 +278,32 @@ Newly available pressure levels (as compared to GME) are highlighted in red.
 The output fields are listed in Table~\ref{table:output_pressurelevels_regular}.
 I.e.\ note that all $17$ WMO standard pressure levels are included.
 
-\begin{table}
 \renewcommand{\new}[1]{#1}
-\caption{Regular grid output:
-         Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
-         interpolated to pressure levels \pressurelevelsRegular.}
- \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-\groups[][ll] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
-\groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\
-\groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\
-\groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
-\groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
-\groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-  \bottomrule
- \end{tabular}
-\label{table:output_pressurelevels_regular}%
-\end{table}
 
-\begin{table}
-\caption{Native (triangular) grid output:
-         Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels \pressurelevelsTriangular.}
- \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
+\begin{vartable}{\caption{Regular grid output:
+      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
+      interpolated to pressure levels \pressurelevelsRegular.}\label{table:output_pressurelevels_regular}}
+  
+  \groups[][ll] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
+  \groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\
+  \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\
+  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
+  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+\end{vartable}
+
+
+\begin{vartable}{\caption{Native (triangular) grid output:
+      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels \pressurelevelsTriangular.}
+    \label{table:output_pressurelevels_triangular}}
+
 \groups[tri][] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
 \groups[tri][] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\
 \groups[tri][] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
 \groups[tri][] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
 \groups[tri][] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-  \bottomrule
- \end{tabular}
-\label{table:output_pressurelevels_triangular}%
-\end{table}
+\end{vartable}
+
 
 On the native (triangular) grid, output is generated for levels
 \begin{center}
@@ -357,25 +321,18 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 \subsection{Multi-level fields interpolated to height levels}
 % --------------------------------------------------------------------------------
 
-\newcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$ $\mathrm{m}$}
+\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$ $\mathrm{m}$}
 
-\begin{table}[H]
-\caption{Regular grid output:
-         Multi-level forecast ($VV>0$) and initialised analysis ($VV>0$) products interpolated to height levels \heightlevelsRegular
-         ~(above mean sea level).}
- \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-\groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
-\groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-\groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 150/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-\groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
-\groups[][ll] & P                          &  Pressure                                                                                  &               0                                   &                     3                       &                    0                       &                 150/150                         &                      inst                   &        $\mathrm{Pa}$         \\
-  \bottomrule
- \end{tabular}
-\label{table:output_heightlevels_regular}%
-\end{table}
+\begin{vartable}{\caption{Regular grid output:
+      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to height levels \heightlevelsRegular
+      ~(above mean sea level).}\label{table:output_heightlevels_regular}}
+  
+  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+  \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{K}$          \\
+  \groups[][ll] & P                          &  Pressure                                                                                  &               0                                   &                     3                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{Pa}$         \\
+\end{vartable}
 
 
 \newpage
@@ -389,23 +346,13 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 \renewcommand{\onlyglb}[1]{#1}
 \renewcommand{\onlyloc}[1]{}
 %
-\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}\\
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-\endfirsthead
-\caption[]{\emph{continued}}\\
-\midrule
-\endhead
-\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
-\endfoot
-\endlastfoot
+\begin{vartable}{\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}}
+  
   % --------- include table of variables
   \input{output_GRIB2_forecast_singlelvl}
   % ------------------------------------
-  \bottomrule
-\end{longtable}
+  
+\end{vartable}
 
 
 
@@ -418,41 +365,26 @@ unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit dis
 \subsection{Surface fields interpolated to msl}
 % --------------------------------------------------------------------------------
 
-\begin{table}[H]
-\caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}
- \begin{tabular}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-\groups[tri][ll] & PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
-  \bottomrule
- \end{tabular}
-\end{table}
+\begin{vartable}{\caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}}
+  
+  \groups[tri][ll] & PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
+  
+\end{vartable}
 
 
-\newpage
+
 
 % --------------------------------------------------------------------------------
 \subsection{Soil-specific multi-level fields}
 % --------------------------------------------------------------------------------
 
-\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}\\
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-%\endfirsthead
-%\caption[]{\emph{continued}}\\
-%\midrule
-\endhead
-\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
-\endfoot
-\endlastfoot
-\groups[tri][ll] & T\_SO                          &  Soil temperature                                                                      &               2                                   &                     3                       &                    18                       &               106/--                           &                      inst                   &        $\mathrm{K}$   \\
-\groups[tri][ll] & W\_SO                          &  Soil moisture integrated over individual soil layers  (ice + liquid)                  &               2                                   &                     3                       &                    20                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
-\groups[tri][ll] & W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
-  \bottomrule
-\end{longtable}
+\begin{vartable}{\caption[]{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}}
+  
+  \groups[tri][ll] & T\_SO                          &  Soil temperature                                                                      &               2                                   &                     3                       &                    18                       &               106/--                           &                      inst                   &        $\mathrm{K}$   \\
+  \groups[tri][ll] & W\_SO                          &  Soil moisture integrated over individual soil layers  (ice + liquid)                  &               2                                   &                     3                       &                    20                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
+  \groups[tri][ll] & W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
+  
+\end{vartable}
 
 Soil temperature is defined at the soil depths given in Table \ref{tab_soillayer} (column 2). Levels $1$ to $8$ define the full levels of the soil model. A zero gradient 
 condition is assumed between levels $0$ and $1$, meaning that temperatures at the surface-atmosphere interface are set equal to the temperature at the first full level depth.
@@ -481,30 +413,20 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 \end{table}
 
 
-\newpage
 
 % --------------------------------------------------------------------------------
 \subsection{Lake-specific single-level fields}
 % --------------------------------------------------------------------------------
 
-\begin{longtable}{@{}p{0.30cm}@{\hskip 0.05in}p{2.0cm}p{5.0cm}p{0.6cm}p{0.6cm}p{0.6cm}p{1.4cm}p{1cm}p{1cm}}
-\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the lake model model}\\
-  \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
-\midrule
-%%\endfirsthead
-%%\caption[]{\emph{continued}}\\
-%%\midrule
-\endhead
-\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
-\endfoot
-\endlastfoot
-\groups[tri][ll] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
-\groups[tri][ll] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
-\groups[tri][ll] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
-\groups[tri][ll] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
-\groups[tri][ll] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
-  \bottomrule
-\end{longtable}
+\begin{vartable}{\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the lake model model}}
+
+  \groups[tri][ll] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
+  \groups[tri][ll] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
+  \groups[tri][ll] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
+  \groups[tri][ll] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
+  \groups[tri][ll] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
+  
+\end{vartable}
+
 
 

@@ -1,5 +1,8 @@
 \svnInfo $Id$
+% --------------------------------------------------------------------------------
 \chapter[ICON data in the SKY data bases of DWD]{ICON data in the\\SKY data bases of DWD}
+\label{section:icon_in_sky}
+% --------------------------------------------------------------------------------
 
 
 GRIB data of the numerical weather prediction models are stored in the data base
@@ -36,15 +39,20 @@ following values:
                      \textbf{const} for invariant data.
  \item \textbf{type}: \textbf{an} for analysis data,
                       \textbf{fc} for forecast data.
- \item \textbf{suite}: \textbf{rout} for operational data in \emph{db=roma,}
-                       \textbf{para} for pre-operational data in \emph{db=parma},
-                       \textbf{exp} or \textbf{exp1} for data from experiments in
+ \item \textbf{suite}: 
+       \begin{itemize}
+         \item \textbf{rout} for operational data in \emph{db=roma,}
+         \item \textbf{para} or \textbf{para1} for pre-operational data in \emph{db=parma},
+                       The category extension para1 denotes the data with EU nest
+                       (starting at 12 UTC, 2015032612).
+         \item \textbf{exp} or \textbf{exp1} for data from experiments in
                        \emph{db=numex}. The category extension exp1 is used for
                        experiments of the NUMEX wizard, a special NUMEX user.
 
                        Data from experiments is additionally
                        identified by the parameter \emph{exp=}$NUM$ where $NUM$ is
                        the experiment number.
+       \end{itemize}
 \end{itemize}
 
 The categories for ICON start with the string \textbf{ico} for ICON data on the native
@@ -119,10 +127,11 @@ read db=numex cat=icogl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=7/to/9 p=T 
 \item Retrieve a 6 hour forecast on a regular grid on pressure levels. ICON was run on a 40 km
 grid (R2B06).  Write reference date (d),
 forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), and
-store date (stdat) in information file icr.info
+store date (stdat) in information file icr.info.
 \begin{skydb}
 read db=numex cat=icrgl400l90_main_fc_exp exp=9323 d=2012010100 step[h]=6 lv=P f=icr06p bin info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat sort=d,s,p,lv,lv1 infof=icr.info
 \end{skydb}
+In order to retrieve the same forecast on height levels, the level type must be changed to lv=HMSL.
 
 \item Retrieve temperature in 850 hPa from a forecast on 2013-10-05 at 12 UTC:
 

@@ -951,5 +951,4 @@ CONTAINS
   END SUBROUTINE read_cdi_2d_time
 
 
-
 END MODULE mo_util_cdi

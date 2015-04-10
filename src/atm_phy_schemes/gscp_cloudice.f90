@@ -551,7 +551,6 @@ SUBROUTINE cloudice (             &
     zeln27o16qrk(nvec),     & !
     zeln13o8qrk (nvec),     & !
 !    zeln3o16qrk (nvec),     & !
-    zeln13o12qsk(nvec),     & !
     zeln5o24qsk (nvec),     & !
     zeln2o3qsk  (nvec)        !
 
@@ -875,6 +874,8 @@ SUBROUTINE cloudice (             &
       zbsdep(iv) = ccsdep*SQRT(v0snow)
       zvz0s (iv) = ccsvel*EXP(ccsvxp * LOG(zn0s(iv)))
 
+! This IF condition and the two analogous ones below are active in gscp_graupel
+! Which version is correct?
 !      IF (zvzs(iv) == 0.0_wp) THEN
         zvzs(iv) = zvz0s(iv) * EXP (ccswxp * LOG (0.5_wp*zqsk(iv))) * zrho1o2(iv)
 !      ENDIF
@@ -913,8 +914,6 @@ SUBROUTINE cloudice (             &
     zeln7o4qrk   (:) = 0.0_wp !FR
     zeln27o16qrk (:) = 0.0_wp
     zeln13o8qrk  (:) = 0.0_wp
-!!    zeln3o16qrk  (:) = 0.0_wp
-    zeln13o12qsk (:) = 0.0_wp
     zeln5o24qsk  (:) = 0.0_wp
     zeln2o3qsk   (:) = 0.0_wp
 
@@ -1080,9 +1079,6 @@ SUBROUTINE cloudice (             &
       qig = qi(iv,k)
 
       zlnqsk       = LOG (zqsk(iv))
-      IF (qig+qcg > zqmin) THEN
-        zeln13o12qsk(iv) = EXP (x13o12 * zlnqsk)
-      ENDIF
       zeln5o24qsk(iv)  = EXP (x5o24  * zlnqsk)
       zeln2o3qsk(iv)   = EXP (x2o3   * zlnqsk)
     ENDDO loop_over_qs_coeffs
