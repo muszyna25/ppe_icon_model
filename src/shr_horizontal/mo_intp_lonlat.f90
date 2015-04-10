@@ -217,10 +217,13 @@
       TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = &
-        &  modname//"::compute_lonlat_intp_coeffs"
-      INTEGER              :: i, jg, n_points, my_id, nthis_local_pts
-      TYPE(t_gnat_tree)    :: gnat
+      CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_intp_coeffs"
+      INTEGER                :: i, jg, n_points, my_id, nthis_local_pts, &
+        &                       ierrstat
+      TYPE(t_gnat_tree)      :: gnat
+      TYPE (t_triangulation) :: tri
+      INTEGER, ALLOCATABLE   :: permutation(:)
+      TYPE (t_point_list)    :: p_global
 
       ! -----------------------------------------------------------
 
@@ -267,9 +270,12 @@
 
 !            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
             IF (support_baryctr_intp) THEN
-              CALL setup_barycentric_intp_lonlat(       &
-                &         p_patch(jg),                  &
-                &         lonlat_grid_list(i)%intp(jg))
+              CALL compute_auxiliary_triangulation(p_patch(jg), tri, permutation, p_global)
+              CALL setup_barycentric_intp_lonlat(tri, permutation, p_global, lonlat_grid_list(i)%intp(jg))
+              CALL tri%destructor()
+              CALL p_global%destructor()
+              DEALLOCATE(permutation, STAT=ierrstat)
+              IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
             END IF
 
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
@@ -1848,59 +1854,38 @@
 
 
     !-------------------------------------------------------------------------
-    !> Setup routine for barycentric interpolation at lon-lat grid
-    !  points for an arbitrary grid.
+    !> Compute Delaunay triangulation of mass points.
     !
     ! @par Revision History
-    !      Initial implementation  by  F. Prill, DWD (2015-01)
+    !      Initial implementation  by  F. Prill, DWD (2015-04)
     !
-    SUBROUTINE setup_barycentric_intp_lonlat(ptr_patch, ptr_int_lonlat)
-
+    SUBROUTINE compute_auxiliary_triangulation (ptr_patch, tri, permutation, p_global)
       ! data structure containing grid info:
-      TYPE(t_patch), TARGET, INTENT(IN)            :: ptr_patch
-      ! Indices of source points and interpolation coefficients
-      TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+      TYPE(t_patch), TARGET,  INTENT(IN)           :: ptr_patch
+      TYPE (t_triangulation), INTENT(INOUT)        :: tri
+      ! point index permutation: sorted -> ICON ordering
+      INTEGER, ALLOCATABLE,   INTENT(INOUT)        :: permutation(:)
+      TYPE (t_point_list),    INTENT(INOUT)        :: p_global
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = modname//"::setup_barycentric_intp_lonlat"
-      ! max. no. of triangle (bounding boxes) containing a single lat-lon point.
-      INTEGER,      PARAMETER :: NMAX_HITS = 99
-      ! enlarge the triangle bounding boxes to prevent empty queries
-      REAL(wp),     PARAMETER :: BBOX_MARGIN = 1.e-3_wp
+      CHARACTER(*), PARAMETER :: routine = modname//"::compute_auxiliary_triangulation"
       ! enlarge the local triangulation area by this factor
       REAL(wp),     PARAMETER :: RADIUS_FACTOR = 1.1_wp
-      ! we use the barycentric coords for the "point in triangle
-      ! test"; this is the threshold for this test
-      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
 
-      INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,                 &
-        &                                i_startidx, i_endidx, i_startblk, i_endblk,          &
-        &                                rl_start, rl_end, i_nchdom, i, j, k, errstat,        &
-        &                                nobjects, idx0, idx, nthreads, dim
-      TYPE (t_point_list)             :: p_local, p_global
-      TYPE(t_cartesian_coordinates)   :: p_x
-      INTEGER, ALLOCATABLE            :: permutation(:), g2l_index(:)
+      INTEGER                         :: jb, jc, i_nchdom,                            &
+        &                                i_startidx, i_endidx, i_startblk, i_endblk,  &
+        &                                rl_start, rl_end, i, errstat,                &
+        &                                idx, nthreads, dim
+      TYPE (t_point_list)             :: p_local
       TYPE (t_spherical_cap)          :: subset
-      TYPE (t_triangulation)          :: tri
 !$    DOUBLE PRECISION                :: time_s, toc
-      REAL(wp)                        :: pp(3),v1(3),v2(3),v3(3)
-      TYPE (t_range_octree)           :: octree               !< octree data structure
-      REAL(wp)                        :: brange(2,3)          !< box range (min/max, dim=1,2,3)
-      REAL(wp), ALLOCATABLE           :: pmin(:,:), pmax(:,:)
-      INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
-      TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
-      TYPE(t_point)                   :: p, centroid
-      LOGICAL                         :: inside_test1, inside_test2
+      TYPE(t_point)                   :: centroid
+      TYPE(t_cartesian_coordinates)   :: p_x
+      INTEGER, ALLOCATABLE            :: g2l_index(:)
       TYPE (t_triangulation)  :: tri_global
 
       !-----------------------------------------------------------------------
 
       CALL message(routine, '')
-
-      ! make sure that the interpolation data structure for the
-      ! barycentric interpolation has been allocated:
-      IF (.NOT. ALLOCATED(ptr_int_lonlat%baryctr_coeff)) THEN
-        CALL finish(routine, "Data structure for the barycentric interpolation not allocated!")
-      END IF
 
       ! --- create an array-like data structure containing the local
       ! --- mass points
@@ -2042,6 +2027,56 @@
       CALL tri_global%sync()
       IF (my_process_is_stdio()) THEN
         CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
+      END IF
+
+    END SUBROUTINE compute_auxiliary_triangulation
+    
+
+    !-------------------------------------------------------------------------
+    !> Setup routine for barycentric interpolation at lon-lat grid
+    !  points for an arbitrary grid.
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F. Prill, DWD (2015-01)
+    !
+    SUBROUTINE setup_barycentric_intp_lonlat(tri, permutation, p_global, ptr_int_lonlat)
+
+      ! triangulation of mass points.
+      TYPE (t_triangulation),        INTENT(IN)    :: tri
+      ! point index permutation: sorted -> ICON ordering
+      INTEGER,                       INTENT(IN)    :: permutation(0:)
+      TYPE (t_point_list),           INTENT(IN)    :: p_global
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+      ! Local Parameters:
+      CHARACTER(*), PARAMETER :: routine = modname//"::setup_barycentric_intp_lonlat"
+      ! max. no. of triangle (bounding boxes) containing a single lat-lon point.
+      INTEGER,      PARAMETER :: NMAX_HITS = 99
+      ! enlarge the triangle bounding boxes to prevent empty queries
+      REAL(wp),     PARAMETER :: BBOX_MARGIN = 1.e-3_wp
+      ! we use the barycentric coords for the "point in triangle
+      ! test"; this is the threshold for this test
+      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
+
+      INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,    &
+        &                                i_startidx, i_endidx, i, j, k, errstat, &
+        &                                nobjects, idx0
+      REAL(wp)                        :: pp(3),v1(3),v2(3),v3(3)
+      TYPE (t_range_octree)           :: octree               !< octree data structure
+      REAL(wp)                        :: brange(2,3)          !< box range (min/max, dim=1,2,3)
+      REAL(wp), ALLOCATABLE           :: pmin(:,:), pmax(:,:)
+      INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
+      TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
+      LOGICAL                         :: inside_test1, inside_test2
+
+      !-----------------------------------------------------------------------
+
+      CALL message(routine, '')
+
+      ! make sure that the interpolation data structure for the
+      ! barycentric interpolation has been allocated:
+      IF (.NOT. ALLOCATED(ptr_int_lonlat%baryctr_coeff)) THEN
+        CALL finish(routine, "Data structure for the barycentric interpolation not allocated!")
       END IF
 
       ALLOCATE(pmin(tri%nentries,3), pmax(tri%nentries,3), STAT=errstat)
@@ -2205,7 +2240,7 @@
 
       ! clean up
       CALL octree_finalize(octree)
-      DEALLOCATE(pmin, pmax, permutation, STAT=errstat)
+      DEALLOCATE(pmin, pmax, STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
 
     END SUBROUTINE setup_barycentric_intp_lonlat
