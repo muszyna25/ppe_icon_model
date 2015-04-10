@@ -32,16 +32,16 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-05-01T00:00:00Z"        # ISO-format date+time
+  end_date="2009-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
-(( dt_checkpoint =  360 * day))
-(( dt_restart    = 1080 * day))
+(( dt_checkpoint =  300 * day))
+(( dt_restart    = 1200 * day))
 #
 output_interval="PT6H"
 file_interval="P30D"
@@ -114,17 +114,17 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
- lrad             = .TRUE.
  dt_rad           =  7200.      ! [s] radiation time step
+ lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
- lmlo             = .FALSE.
  lice             = .TRUE.
  ljsbach          = .TRUE.
  lebudget         = .TRUE.
+ lmlo             = .FALSE.
  lamip            = .TRUE.
 /
 &radiation_nml
@@ -198,7 +198,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=/pool/data/ICON/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=/pool/data/ICON/setup/ifs_iconremap_amip

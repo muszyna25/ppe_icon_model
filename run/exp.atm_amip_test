@@ -41,6 +41,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
 (( dt_checkpoint =  8 * minute))
+(( dt_restart    = 16 * minute))
 #
 output_interval="PT4M"
 file_interval="PT4M"
@@ -114,17 +115,17 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
- lrad             = .TRUE.
  dt_rad           =  240.       ! [s] radiation time step
+ lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
- lmlo             = .FALSE.
  lice             = .TRUE.
  ljsbach          = .TRUE.
  lebudget         = .TRUE.
+ lmlo             = .FALSE.
  lamip            = .TRUE.
 /
 &radiation_nml
