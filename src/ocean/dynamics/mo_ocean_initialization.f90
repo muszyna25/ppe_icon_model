@@ -38,7 +38,7 @@ MODULE mo_ocean_initialization
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
-    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce
+    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -1294,7 +1294,7 @@ CONTAINS
     INTEGER :: i_startidx_v, i_endidx_v
     TYPE(t_geographical_coordinates) :: gc1,gc2
     TYPE(t_cartesian_coordinates) :: xx1, xx2
-    REAL(wp) :: z_y, z_lat_basin_center
+    REAL(wp) :: z_y, coriolis_lat
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_initialization:init_coriolis_oce')
     TYPE(t_subset_range), POINTER :: all_verts, all_edges
@@ -1310,7 +1310,7 @@ CONTAINS
       
       CALL message (TRIM(routine), 'BETA_PLANE_CORIOLIS: set to linear approximation')
       
-      z_lat_basin_center = basin_center_lat * deg2rad
+      coriolis_lat = basin_center_lat * deg2rad
       gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
       gc1%lon = 0.0_wp
       xx1=gc2cc(gc1)
@@ -1318,15 +1318,15 @@ CONTAINS
       DO jb = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
-          !z_y = grid_sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
+          !z_y = grid_sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - coriolis_lat)
           gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
           xx2=gc2cc(gc2)
           z_y = grid_sphere_radius * arc_length(xx2,xx1)
           ptr_patch%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
-            & ( SIN(z_lat_basin_center) + (COS(z_lat_basin_center)/grid_sphere_radius)*z_y)
-          !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*grid_angular_velocity*sin(z_lat_basin_center),&
-          !  &2.0_wp*grid_angular_velocity*((cos(z_lat_basin_center)/grid_sphere_radius)*z_y)
+            & ( SIN(coriolis_lat) + (COS(coriolis_lat)/grid_sphere_radius)*z_y)
+          !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*grid_angular_velocity*sin(coriolis_lat),&
+          !  &2.0_wp*grid_angular_velocity*((cos(coriolis_lat)/grid_sphere_radius)*z_y)
         END DO
       END DO
       
@@ -1339,20 +1339,20 @@ CONTAINS
           xx2=gc2cc(gc2)
           z_y = grid_sphere_radius*arc_length(xx2,xx1)
           
-          !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
+          !z_y = ptr_patch%edges%center(je,jb)%lat - coriolis_lat
           ptr_patch%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * &
-            & ( SIN(z_lat_basin_center) + &
-            & (COS(z_lat_basin_center)/grid_sphere_radius)*z_y)
+            & ( SIN(coriolis_lat) + &
+            & (COS(coriolis_lat)/grid_sphere_radius)*z_y)
         END DO
       END DO
     CASE(f_plane_coriolis)
       
       CALL message (TRIM(routine), 'F_PLANE_CORIOLIS: set to constant value')
       
-      z_lat_basin_center = basin_center_lat * deg2rad
+      coriolis_lat =  coriolis_fplane_latitude* deg2rad
       
-      ptr_patch%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(z_lat_basin_center)
-      ptr_patch%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(z_lat_basin_center)
+      ptr_patch%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
+      ptr_patch%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       
     CASE(zero_coriolis)
       

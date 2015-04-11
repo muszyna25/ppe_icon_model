@@ -249,6 +249,7 @@ MODULE mo_ocean_nml
                                                  ! 1=full varying Coriolis
                                                  ! 2=beta-plane (linear) approximation to Coriolis
                                                  ! 3=f-plane (constant) approximation to Coriolis
+  REAL(wp) :: coriolis_fplane_latitude = 0.0_wp
   ! The variables below are used to set up in basin configuration the Coriolis (f/beta-plane) and
   !   to adjust the analytic wind forcing, units are degrees
   REAL(wp) :: basin_center_lat      = 30.0_wp    ! lat coordinate of basin center
@@ -314,6 +315,7 @@ MODULE mo_ocean_nml
     &                 cfl_stop_on_violation        , &
     &                 cfl_threshold                , &
     &                 coriolis_type                , &
+    &                 coriolis_fplane_latitude       , &
     &                 dhdtw_abort                  , &
     &                 discretization_scheme        , &
     &                 dzlev_m                      , &
