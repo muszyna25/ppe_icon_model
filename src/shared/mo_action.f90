@@ -81,7 +81,6 @@ MODULE mo_action
   PUBLIC :: reset_action   ! wrapper for CALL reset_act%execute
 
   ! PARAMETER
-  PUBLIC :: ACTION_RESET
   PUBLIC :: ACTION_NAMES
 
   INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be 
