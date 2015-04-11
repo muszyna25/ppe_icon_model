@@ -425,7 +425,7 @@ CONTAINS
 
     CASE(1)!Bottom friction
  
-!ICON_OMP_DO PRIVATE(start_index, end_index, je, bottom_level, norm) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, bottom_level, vn, norm) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         DO je = start_index, end_index
