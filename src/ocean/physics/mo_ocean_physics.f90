@@ -1355,7 +1355,7 @@ CONTAINS
             & (z_vert_density_grad_c(cell_1_idx,jk,cell_1_block) +   &
             &  z_vert_density_grad_c(cell_2_idx,jk,cell_2_block))  * dz
           z_shear_edge = dbl_eps + &
-            & (ocean_state%p_prog(nold(1))%vn(je,jk-1,jb) - &
+            & (ocean_state%p_prog(nold(1))%vn(je,jk,  jb) - &
             &  ocean_state%p_prog(nold(1))%vn(je,jk-1,jb)   )**2
 
           richardson_edge = MAX(dz * z_grav_rho * density_differ_edge / z_shear_edge, 0.0_wp)
