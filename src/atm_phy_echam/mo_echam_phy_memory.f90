@@ -970,7 +970,7 @@ CONTAINS
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+         &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('dlwflxsfc_dT', 'W m-2 K-1', 'longwave net flux T-derivative at surface', &
