@@ -74,7 +74,7 @@ cat > $namelist_filename << EOF
  ! icon_comm_debug = .true.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &gridref_nml

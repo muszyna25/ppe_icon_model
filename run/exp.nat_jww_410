@@ -97,7 +97,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = ${l_log_checks}
 /
 &grid_nml
- cell_type = 3              ! triangular cells
+ ! cell_type is not used = 3              ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  grid_rescale_factor  = ${rescale_factor}
 /

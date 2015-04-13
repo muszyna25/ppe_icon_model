@@ -152,7 +152,7 @@ MODULE mo_name_list_output_init
 
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
   USE mo_coupling_config,                   ONLY: is_coupled_run
-  USE mo_icon_cpl,                          ONLY: comps
+  USE mo_master_control,                    ONLY: get_my_process_name
 #endif
 
   IMPLICIT NONE
@@ -876,7 +876,9 @@ CONTAINS
       &                                     additional_days(MAX_TIME_INTERVALS)
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
-
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+    CHARACTER(LEN=max_char_length)       :: comp_name
+#endif
     l_print_list = .FALSE.
     CALL assign_if_present(l_print_list, opt_lprintlist)
 
@@ -1599,9 +1601,10 @@ CONTAINS
           IF (dom_sim_step_info%jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
+               comp_name = TRIM(get_my_process_name())
                CALL print_output_event(all_events, &
                  ! ASCII file output:
-      & opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") 
+      & opt_filename="output_schedule_"//TRIM(comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") 
              ELSE
                CALL print_output_event(all_events, &
       & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
@@ -1613,7 +1616,8 @@ CONTAINS
           ELSE
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
-                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//".txt") ! ASCII file output
+                comp_name = TRIM(get_my_process_name())
+                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comp_name)//".txt") ! ASCII file output
              ELSE
                 CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
              ENDIF
@@ -2286,6 +2290,15 @@ CONTAINS
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
 
+      ! Single point grid for monitoring
+      of%cdiSingleGridID = gridCreate(GRID_LONLAT, 1)
+      !
+      CALL griddefxsize(of%cdiSingleGridID, 1)                                                                         
+      CALL griddefysize(of%cdiSingleGridID, 1)
+      CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
+      CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
+
+
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -2452,6 +2465,8 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE(GRID_UNSTRUCTURED_CELL)
         info%cdiGridID = of%cdiCellGridID
+      CASE(GRID_LONLAT)
+        info%cdiGridID = of%cdiSingleGridID
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = of%cdiVertGridID
       CASE(GRID_UNSTRUCTURED_EDGE)

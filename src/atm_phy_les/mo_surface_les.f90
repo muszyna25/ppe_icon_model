@@ -54,6 +54,7 @@ MODULE mo_surface_les
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl, pseudo_rhos
   USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   IMPLICIT NONE
 
@@ -112,9 +113,10 @@ MODULE mo_surface_les
 
     REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind, wstar
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
-    REAL(wp), POINTER :: pres_sfc(:,:)
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, p_sfc, t_sfc, ex_sfc, inv_bus_mom
+    REAL(wp) :: ustar_mean
+    REAL(wp), POINTER :: pres_sfc(:,:)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
@@ -371,9 +373,30 @@ MODULE mo_surface_les
     !Fix SST case
     CASE(5)
 
+
+    IF(linit)prm_diag%tcm(:,:) = 0._wp
+
+!   Get roughness length * grav           
+    IF(turbdiff_config(jg)%lconst_z0 .AND. turbdiff_config(jg)%const_z0 <= 0._wp)THEN
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx           
+           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+           var(jc,jb) = SQRT(prm_diag%tcm(jc,jb))*mwind
+        END DO         
+      END DO
+
+      WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
+      ustar_mean =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
+      
+      prm_diag%gz0(:,:) = MAX(0.001_wp,0.016_wp*ustar_mean**2)   
+    END IF
+
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
-!$OMP            RIB,tcn_mom,tcn_heat,rhos,diff,itr,shfl,lhfl,bflx1,ustar,    &
+!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,         &
 !$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -393,7 +416,7 @@ MODULE mo_surface_les
            rhos   =  pres_sfc(jc,jb)/( rd * &
                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
-           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )       
+           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) ) 
 
            !Z height to be used as a reference height in surface layer
            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
@@ -410,9 +433,7 @@ MODULE mo_surface_les
              prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
            END IF
 
-           diff = 1._wp
-           itr  = 0
-           DO WHILE (diff > 1._wp-4 .AND. itr < 5)
+           DO itr = 1 , 5
               shfl = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
               lhfl = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
               bflx1= shfl + vtmpc1 * theta_sfc * lhfl
@@ -424,9 +445,6 @@ MODULE mo_surface_les
               prm_diag%tch(jc,jb) = inv_bus_mom / businger_heat(zrough,z_mc,obukhov_length)
 
               prm_diag%tcm(jc,jb) = inv_bus_mom * inv_bus_mom
- 
-              diff = ABS(1._wp-SQRT(prm_diag%tcm(jc,jb))*mwind/ustar)
-              itr  = itr + 1
            END DO
 
            !Get surface fluxes

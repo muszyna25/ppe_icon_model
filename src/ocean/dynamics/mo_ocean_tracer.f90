@@ -339,6 +339,8 @@ CONTAINS
 
       RETURN
     ENDIF
+    !---------------------------------------------------------------------
+    
     !Shallow water is done with horizontal advection
     IF(iswm_oce == 1) THEN
       div_adv_flux_horz   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
@@ -386,7 +388,9 @@ CONTAINS
         END DO
       END DO
 
-    !The 3D-case: first vertical fluxes than preliminary tracer value and
+      CALL sync_patch_array(sync_c, p_patch, new_ocean_tracer%concentration)
+        
+   !The 3D-case: first vertical fluxes than preliminary tracer value and
     !finally implicit vertical diffusion
     ELSE ! IF( iswm_oce /= 1) THEN
        IF(tracer_update_mode == i_post_step)THEN
@@ -702,7 +706,9 @@ CONTAINS
            ENDDO
          END DO
        END DO
-         CALL sync_patch_array(sync_c, p_patch, new_ocean_tracer%concentration)
+       
+       CALL sync_patch_array(sync_c, p_patch, new_ocean_tracer%concentration)
+       
     ELSE!wrong tracer diffusion configuration
       CALL finish('TRIM(advect tracer)',"This wrong tracer diffusion configuration: neither explicit nor implicit")
 

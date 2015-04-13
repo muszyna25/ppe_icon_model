@@ -88,9 +88,6 @@ MODULE mo_nwp_phy_init
   USE src_turbdiff,           ONLY: organize_turbdiff
 
   ! vertical diffusion
-  USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
-    &                                tke_min
-  USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
