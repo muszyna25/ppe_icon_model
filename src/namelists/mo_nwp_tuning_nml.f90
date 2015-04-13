@@ -66,9 +66,10 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
-  REAL(wp) :: &                    !< (MODIS) albedo tuning
+  INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
-                                   ! 1: dimmed sahara
+                                   ! 1: dimmed Sahara
+                                   ! 2: dimmed Sahara and brighter Antarctica
 
   NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun, &
     &                      tune_zceff_min, tune_v0snow, tune_zvz0i,  &

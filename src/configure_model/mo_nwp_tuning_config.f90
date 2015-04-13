@@ -34,7 +34,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: itune_albedo
 
   !!--------------------------------------------------------------------------
-  !! Basic configuration setup for tracer advection
+  !! Basic configuration setup for physics tuning
   !!--------------------------------------------------------------------------
 !  TYPE :: t_nwp_tuning_config
 
@@ -57,10 +57,11 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
-  REAL(wp) :: &                    !< (MODIS) albedo tuning
-    &  itune_albedo                ! 1: dimmed sahara
-!  END TYPE t_nwp_tuning_config
+  INTEGER :: &                     !< (MODIS) albedo tuning
+    &  itune_albedo                ! 1: dimmed Sahara
+                                   ! 2: dimmed Sahara and brighter Antarctica
 
+!  END TYPE t_nwp_tuning_config
 
 
 !CONTAINS

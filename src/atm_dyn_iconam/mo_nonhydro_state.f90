@@ -2142,7 +2142,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
       ! v_avg   p_diag%v_avg(nproma,nlev,nblks_c)
       !
@@ -2157,7 +2158,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
 
@@ -2174,7 +2176,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! temp_avg   p_diag%temp_avg(nproma,nlev,nblks_c)
@@ -2190,7 +2193,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! qv_avg   p_diag%qv_avg(nproma,nlev,nblks_c)
@@ -2206,7 +2210,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! nsteps_avg  p_diag%nsteps_avg(1)
@@ -2222,7 +2227,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,              &
                   &             TRIM(iso8601_interval_avg_fg),                &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))   )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg), &
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))   )
 
     ENDIF
 

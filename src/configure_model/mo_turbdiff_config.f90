@@ -72,6 +72,8 @@ MODULE mo_turbdiff_config
 
     LOGICAL :: &   ! nonlocal calculation of vertical gradients used for turbul. diff.
       &  lnonloc 
+    LOGICAL :: &   ! free-slip lower boundary condition (use for idealized runs only!)
+      &  lfreeslip 
     LOGICAL :: &   ! consideration of fluctuations of the heat capacity of air
       &  lcpfluc
     LOGICAL :: &   ! lower flux condition for vertical diffusion calculation
@@ -111,6 +113,9 @@ MODULE mo_turbdiff_config
 
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)
+
+    LOGICAL :: &   ! turbulent diffusion of cloud ice QI
+      &  ldiff_qi  ! .TRUE.: ON
 
     !
     ! Switches controlling other physical parameterizations:
