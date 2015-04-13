@@ -10,8 +10,8 @@ start_date="2001-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-(( years_checkpoint  = 25 ))    # write restart file interval [days]
-(( years_restart     = 25 ))    # stop model for restart [days]
+(( years_checkpoint  = 50 ))    # write restart file interval [days]
+(( years_restart     = 50 ))    # stop model for restart [days]
 (( days_data         = 30 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
@@ -161,6 +161,9 @@ cat > ${ocean_namelist} << EOF
 ! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
+  leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
+  leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
+
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! OMIP-type forcing
