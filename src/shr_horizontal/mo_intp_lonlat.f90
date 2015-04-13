@@ -1887,7 +1887,7 @@
 
       CALL p_local%initialize()
       CALL p_local%reserve(ptr_patch%n_patch_cells)
-      rl_start   = 2
+      rl_start   = 1
       rl_end     = min_rlcell_int
       i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
@@ -1987,6 +1987,7 @@
       IF (dbg_level > 1) THEN
         WRITE (0,*) "spherical cap around ", p_local%a(0)%x, p_local%a(0)%y, p_local%a(0)%z, "; radius ", subset%radius
       END IF
+      CALL p_local%destructor()
 
       CALL tri%initialize()
 !$    time_s = omp_get_wtime()
