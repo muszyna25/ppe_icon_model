@@ -101,7 +101,10 @@
 \newcommand{\onlyglb}[1]{#1}
 \newcommand{\onlyloc}[1]{#1}
 
-
+\newcommand{\new}[1]{}
+\newcommand{\pressurelevelsTriangular}{}
+\newcommand{\pressurelevelsRegular}{}
+\newcommand{\heightlevelsRegular}{}
 
 
 \newcolumntype{x}[1]{%
@@ -137,9 +140,21 @@
 % sign function
 \newcommand{\sgn}{\operatorname{sgn}}
 
-\newcommand{\markRed}{\tikz \fill[red!60] (0,0) rectangle (0.08,0.8em);}
-\newcommand{\markBlue}{\tikz \fill[blue!80] (0,0) rectangle (0.08,0.8em);}
-\newcommand{\markWhite}{\tikz \fill[white!100] (0,0) rectangle (0.08,0.8em);}
+% \newcommand{\markRed}{\tikz \fill[red!60] (0,0) rectangle (0.08,0.8em);}
+% \newcommand{\markBlue}{\tikz \fill[blue!80] (0,0) rectangle (0.08,0.8em);}
+% \newcommand{\markWhite}{\tikz \fill[white!100] (0,0) rectangle (0.08,0.8em);}
+
+\newcommand{\markRed}{\begin{tikzpicture}[baseline,scale=0.15] 
+                        \fill[red!60,draw=black] (0.1,0) -- (1,0) -- (1,1.7) -- cycle;
+                        \fill[red!60,draw=black] (0,0.3) -- (0,2) -- (0.9,2) -- cycle;
+                      \end{tikzpicture}}
+\newcommand{\markBlue}{\begin{tikzpicture}[baseline,scale=0.15] 
+                        \fill[blue!60,draw=black] (0,0)  rectangle ++(1,0.9);
+                        \fill[blue!60,draw=black] (0,1.1) rectangle ++(1,0.9);
+                      \end{tikzpicture}}
+\newcommand{\markWhite}{\begin{tikzpicture}[baseline,scale=0.15] 
+                        \fill[white!100,draw=white] (0.0,0) rectangle ++(1,2);
+                      \end{tikzpicture}}
 
 
 %% Macro for indicating whether field is available on native grid
@@ -150,12 +165,12 @@
   \IfEqCase{#1}{%
       {tri}{%
            \IfEqCase{#2}{%
-           {ll}{\markRed\markBlue}}      %group (tri,ll)
-           [\markRed\markWhite]          %group (tri)
+           {ll}{\markRed\hspace*{0.1em}\markBlue}}      %group (tri,ll)
+           [\markRed\hspace*{0.1em}\markWhite]          %group (tri)
       }%
   }[%
            \IfEqCase{#2}{%
-           {ll}{\markWhite\markBlue}}     %group (ll)
+           {ll}{\markWhite\hspace*{0.1em}\markBlue}}     %group (ll)
   ]
 }
 %%% Now we go with LaTeX3
@@ -170,11 +185,41 @@
 \cs_generate_variant:Nn \latex_groups_node:nn { xx }
 \ExplSyntaxOff
 
+% width of column containing grid native/lon-lat marks
+\newcommand{\markcolwidth}{0.50cm}
+% longtable header settings
+\newenvironment{vartable}[1]{%
+\begin{longtable}{%
+@{}p{\markcolwidth}%
+@{\hskip 0.05in}%
+p{2.0cm}%
+>{\small\raggedright}p{5cm}<{\normalsize}%
+p{0.5cm}%
+p{0.5cm}%
+p{0.5cm}%
+p{1.4cm}p{1cm}p{1cm}}#1\\
+  \toprule
+&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\midrule
+
+\endfirsthead
+\caption[]{\emph{continued}}\\
+\midrule
+\endhead
+\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
+\endfoot
+\endlastfoot
+}%
+{%
+  \bottomrule
+\end{longtable}}
+
 %
 %
 % mark Namelists
 % - im Fliesstext:
 \newcommand{\nml}[1]{\texttt{#1}}
+
 
 
 % environment derived from framed.sty: see leftbar environment definition
@@ -214,6 +259,7 @@
              ./appendix,
              ./output_statproc,
              ./output_description,
+             ./quote,
              ./cosmo_eu_fields.tex} 
 
 
@@ -266,6 +312,10 @@
 %---- generate version history page -----------------%
 \include{./preface_versionhistory}
 
+% --------------------------------------------------------------------------------
+\include{./quote}
+% --------------------------------------------------------------------------------
+
 \newpage
 \pdfbookmark{\contentsname}{toc}
 \tableofcontents              %--- generate table of contents
@@ -285,6 +335,7 @@
     \ \thechapter.\ #1}{}}
 
 \mainmatter                   %--- Zurcksetzen der Nummerierung auf arabisch
+
 
 
 % --------------------------------------------------------------------------------
@@ -310,7 +361,7 @@
 
 % --------------------------------------------------------------------------------
 \chapter[EU Nest output fields: Forecast runs]{EU Nest output fields:\\ Forecast runs}
-
+\label{nest:chap_forecast_runs}
 \input{./output_GRIB2_nest}
 \input{./cosmo_eu_fields.tex}
 
@@ -362,12 +413,12 @@
   \item EU nest: ''Urstart'' fields must be contained in the $VV=0$ list.
   \item lake variables: ask Dimitri if these fields could be changed
     from RBF interpolation to nearest-neighbor.
-  \item EU nest, output of wind gusts hourly until 78h, afterwards 3
+  \item \st{EU nest, output of wind gusts hourly until 78h, afterwards 3
     hourly:  Output of VMAX\_10M is 3-hourly for $VV>78h$. The
-    sampling interval should also be changed to 3h after $VV>78h$.
-  \item Create two additional timing diagrams like
-    \ref{fig:forecast_length} for the EU nest: One illustration for
-    native grid and one for the regular output grid.
+    sampling interval should also be changed to 3h after $VV>78h$.}
+  \item \st{Create two additional timing diagrams like}
+    \ref{fig:forecast_length_global} \st{for the EU nest: One illustration for
+    native grid and one for the regular output grid.}
   \item Questions for the ICON migration group:
         \begin{itemize}
           \item QR, QS necessary for lon-lat?

@@ -29,6 +29,7 @@ MODULE mo_ocean_types
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_acc
+  PUBLIC :: t_ocean_monitor
   PUBLIC :: t_pointer_3d_wp
   PUBLIC :: t_oce_config
   PUBLIC :: t_ocean_tracer
@@ -177,6 +178,62 @@ MODULE mo_ocean_types
   !
   !! diagnostic variables
   !
+  
+  TYPE t_ocean_monitor
+    REAL(wp), POINTER :: volume(:)
+    REAL(wp), POINTER :: kin_energy(:)
+    REAL(wp), POINTER :: pot_energy(:)
+    REAL(wp), POINTER :: total_energy(:)
+    REAL(wp), POINTER :: total_salt(:)
+    REAL(wp), POINTER :: vorticity(:)
+    REAL(wp), POINTER :: enstrophy(:)
+    REAL(wp), POINTER :: potential_enstrophy(:)
+    REAL(wp), POINTER :: absolute_vertical_velocity(:)
+    REAL(wp), POINTER :: HeatFlux_ShortWave(:)
+    REAL(wp), POINTER :: HeatFlux_LongWave(:)
+    REAL(wp), POINTER :: HeatFlux_Sensible(:)
+    REAL(wp), POINTER :: HeatFlux_Latent(:)
+    REAL(wp), POINTER :: HeatFlux_Total(:)
+    REAL(wp), POINTER :: FrshFlux_Precipitation(:)
+    REAL(wp), POINTER :: FrshFlux_SnowFall(:)
+    REAL(wp), POINTER :: FrshFlux_Evaporation(:)
+    REAL(wp), POINTER :: FrshFlux_Runoff(:)
+    REAL(wp), POINTER :: FrshFlux_TotalSalt(:)
+    REAL(wp), POINTER :: FrshFlux_TotalOcean(:)
+    REAL(wp), POINTER :: FrshFlux_TotalIce(:)
+    REAL(wp), POINTER :: FrshFlux_VolumeIce(:)
+    REAL(wp), POINTER :: FrshFlux_VolumeTotal(:)
+    REAL(wp), POINTER :: HeatFlux_Relax(:)
+    REAL(wp), POINTER :: FrshFlux_Relax(:)
+    REAL(wp), POINTER :: TempFlux_Relax(:)
+    REAL(wp), POINTER :: SaltFlux_Relax(:)
+    
+    REAL(wp), POINTER :: ice_volume_nh(:)!                                                           [km3]
+    REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]
+    REAL(wp), POINTER :: ice_extent_nh(:)!                                                           [km2]
+    REAL(wp), POINTER :: ice_extent_sh(:)!                                                           [km2]
+    ! throug, POINTER  flows {{{
+    REAL(wp), POINTER :: gibraltar(:)     ! though flow                                               [Sv]
+    REAL(wp), POINTER :: denmark_strait(:)! though flow                                               [Sv]
+    REAL(wp), POINTER :: drake_passage(:) ! though flow                                               [Sv]
+    REAL(wp), POINTER :: indonesian_throughflow(:) !                                                  [Sv]
+    REAL(wp), POINTER :: scotland_iceland(:) !                                                        [Sv]
+    REAL(wp), POINTER :: mozambique(:)
+    REAL(wp), POINTER :: framStrait(:)
+    REAL(wp), POINTER :: beringStrait(:)
+    REAL(wp), POINTER :: barentsOpening(:)
+    REAL(wp), POINTER :: agulhas(:)
+    REAL(wp), POINTER :: agulhas_long(:)
+    REAL(wp), POINTER :: agulhas_longer(:)
+    ! }}}
+    REAL(wp), POINTER :: t_mean_na_200m(:) !                                                        [degC]
+    REAL(wp), POINTER :: t_mean_na_800m(:) !                                                        [degC]
+    REAL(wp), POINTER :: ice_ocean_heat_budget(:)
+    REAL(wp), POINTER :: ice_ocean_salinity_budget(:)
+    REAL(wp), POINTER :: ice_ocean_volume_budget(:)
+    REAL(wp), ALLOCATABLE :: tracer_content(:)
+  END TYPE t_ocean_monitor
+
   TYPE t_hydro_ocean_diag
     
     REAL(wp), POINTER ::        &
@@ -280,8 +337,8 @@ MODULE mo_ocean_types
     ! dummy pointers for prognostic variables:
     REAL(wp), POINTER :: h(:,:),vn(:,:,:),t(:,:,:),s(:,:,:) ! dummy pointer for output variabless
     !-----------------------------------------------------------------------------------
+    TYPE(t_ocean_monitor) :: monitor
   END TYPE t_hydro_ocean_diag
-  
   !
   !! auxiliary data
   !

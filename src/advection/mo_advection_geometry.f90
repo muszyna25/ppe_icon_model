@@ -32,6 +32,7 @@ MODULE mo_advection_geometry
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
+  USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_utilities,      ONLY: lintersect, line_intersect, t_line, &
     &                               t_geographical_coordinates 
   USE mo_advection_utils,     ONLY: t_list2D
@@ -414,8 +415,12 @@ CONTAINS
 
           ! Note: direct write to standard error output is used here by intention
           ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                     p_vn(je,jk,jb),p_vt(je,jk,jb)
+          WRITE(0,'(a,a,i5,a,i5,a,i5,a,f8.2,a,f8.2,a,f10.2,a,f10.2)') &
+               & 'horizontal CFL number exceeded at:',                &
+               & ' je =',je,' jk =',jk,' jb =',jb,                    &
+               & ' lon(deg)=',p_patch%edges%center(je,jb)%lon*rad2deg,&
+               & ' lat(deg)=',p_patch%edges%center(je,jb)%lat*rad2deg,&
+               & ' vn(m/s)=',p_vn(je,jk,jb),' vt(m/s)=',p_vt(je,jk,jb)
         ENDDO
       ENDIF
 
@@ -432,7 +437,7 @@ CONTAINS
         jk = levlist_c1(jl,jb)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
@@ -499,7 +504,7 @@ CONTAINS
         jk = levlist_c2p(jl,jb)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         !
@@ -556,7 +561,7 @@ CONTAINS
         je = idxlist_c2m(jl,jb)
         jk = levlist_c2m(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line2
         !
@@ -613,7 +618,7 @@ CONTAINS
         je = idxlist_c3p(jl,jb)
         jk = levlist_c3p(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
@@ -670,7 +675,7 @@ CONTAINS
         je = idxlist_c3m(jl,jb)
         jk = levlist_c3m(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
         pi2(1:2) = line_intersect(fl_e1(je,jk), tri_line2(je,jk))
@@ -727,7 +732,7 @@ CONTAINS
         je = idxlist_vn0(jl,jb)
         jk = levlist_vn0(jl,jb)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! patch 0 (non-existing)
         !
@@ -1233,8 +1238,12 @@ CONTAINS
 
           ! Note: direct write to standard error output is used here by intention
           ! because warnings are otherwise suppressed for all PEs but PE0
-          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                    p_vn(je,jk,jb),p_vt(je,jk,jb)
+          WRITE(0,'(a,a,i5,a,i5,a,i5,a,f8.2,a,f8.2,a,f10.2,a,f10.2)') &
+               & 'horizontal CFL number exceeded at:',                &
+               & ' je =',je,' jk =',jk,' jb =',jb,                    &
+               & ' lon(deg)=',p_patch%edges%center(je,jb)%lon*rad2deg,&
+               & ' lat(deg)=',p_patch%edges%center(je,jb)%lat*rad2deg,&
+               & ' vn(m/s)=',p_vn(je,jk,jb),' vt(m/s)=',p_vt(je,jk,jb)
         ENDDO
       ENDIF
 
@@ -1252,7 +1261,7 @@ CONTAINS
         jk = levlist_c1(jl)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
@@ -1312,7 +1321,7 @@ CONTAINS
         jk = levlist_c2p(jl)
 
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line1
         !
@@ -1366,7 +1375,7 @@ CONTAINS
         je = idxlist_c2m(jl)
         jk = levlist_c2m(jl)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_line with tri_line2
         !
@@ -1420,7 +1429,7 @@ CONTAINS
         je = idxlist_c3p(jl)
         jk = levlist_c3p(jl)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
@@ -1470,7 +1479,7 @@ CONTAINS
         je = idxlist_c3m(jl)
         jk = levlist_c3m(jl)
 
-        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%system_orientation(je,jb)) >= 0._wp
+        lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
         pi2(1:2) = line_intersect(fl_e1(ie), tri_line2(ie))

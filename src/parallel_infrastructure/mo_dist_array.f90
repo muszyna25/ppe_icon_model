@@ -2516,6 +2516,13 @@ __FILE__
   END SUBROUTINE abort_ppm
 
 END MODULE ppm_distributed_array
+
+#else
+
+! this is for compiling with nag no mpi
+MODULE ppm_distributed_array
+END MODULE ppm_distributed_array
+
 #endif
 !
 ! Local Variables:

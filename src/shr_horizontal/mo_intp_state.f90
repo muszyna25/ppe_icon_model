@@ -242,7 +242,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     &            'allocation for c_lin_e failed')
   ENDIF
 
-  IF (ptr_patch%cell_type == 3) THEN
+  IF (ptr_patch%geometry_info%cell_type == 3) THEN
     !
     ! e_bln_c_s
     !
@@ -312,13 +312,13 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   !
   ! e_inn_c
   !
-  ALLOCATE (ptr_int%e_inn_c(nproma,ptr_patch%cell_type,nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%e_inn_c(nproma,ptr_patch%geometry_info%cell_type,nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state', &
     &            'allocation for e_inn_c failed')
   ENDIF
   !
-  IF (ptr_patch%cell_type == 6) THEN
+  IF (ptr_patch%geometry_info%cell_type == 6) THEN
     !
     ! e_inn_v
     !
@@ -372,7 +372,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   !
   ! verts_aw_cells
   !
-  ALLOCATE (ptr_int%verts_aw_cells(nproma,ptr_patch%cell_type,nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%verts_aw_cells(nproma,ptr_patch%geometry_info%cell_type,nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                     &
       &             'allocation for verts_aw_cells failed')
@@ -380,7 +380,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   !
   ! cells_aw_verts
   !
-  ALLOCATE (ptr_int%cells_aw_verts(nproma,9-ptr_patch%cell_type,nblks_v), STAT=ist )
+  ALLOCATE (ptr_int%cells_aw_verts(nproma,9-ptr_patch%geometry_info%cell_type,nblks_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                     &
       &             'allocation for cells_aw_verts failed')
@@ -388,13 +388,13 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   !
   ! cells_plwa_verts
   !
-  ALLOCATE (ptr_int%cells_plwa_verts(nproma,9-ptr_patch%cell_type,nblks_v), STAT=ist )
+  ALLOCATE (ptr_int%cells_plwa_verts(nproma,9-ptr_patch%geometry_info%cell_type,nblks_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                     &
       &             'allocation for cells_plwa_verts failed')
   ENDIF
   !
-  IF( ptr_patch%cell_type == 6 ) THEN
+  IF( ptr_patch%geometry_info%cell_type == 6 ) THEN
      !
      ! tria_north
      !
@@ -499,7 +499,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
   ENDIF
 
-  IF (ptr_patch%cell_type == 3) THEN
+  IF (ptr_patch%geometry_info%cell_type == 3) THEN
     !
     ! rbf_vec_idx_c, rbf_vec_blk_c
     !
@@ -629,7 +629,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &            'allocation for tplane_e_dotprod failed')
     ENDIF
 
-    IF (ptr_patch%cell_type == 3) THEN
+    IF (ptr_patch%geometry_info%cell_type == 3) THEN
       !
       ! pos_on_tplane_c_edge
       !
@@ -1001,7 +1001,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
   END IF
 
-  IF (ptr_patch%cell_type == 3) THEN
+  IF (ptr_patch%geometry_info%cell_type == 3) THEN
     ALLOCATE (ptr_int%geofac_qdiv(nproma, 4, nblks_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:construct_int_state',                     &
@@ -1053,49 +1053,49 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ENDIF
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_div(nproma, ptr_patch%cell_type, nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%geofac_div(nproma, ptr_patch%geometry_info%cell_type, nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for geofac_div failed')
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_rot(nproma, 9-ptr_patch%cell_type, nblks_v), STAT=ist )
+  ALLOCATE (ptr_int%geofac_rot(nproma, 9-ptr_patch%geometry_info%cell_type, nblks_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state', &
     &             'allocation for geofac_rot failed')
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_n2s(nproma, ptr_patch%cell_type+1, nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%geofac_n2s(nproma, ptr_patch%geometry_info%cell_type+1, nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for geofac_n2s failed')
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_grg(nproma, ptr_patch%cell_type+1, nblks_c, 2), STAT=ist )
+  ALLOCATE (ptr_int%geofac_grg(nproma, ptr_patch%geometry_info%cell_type+1, nblks_c, 2), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for geofac_grg failed')
   ENDIF
 
-  ALLOCATE (ptr_int%primal_normal_ec(nproma, nblks_c,ptr_patch%cell_type, 2), STAT=ist)
+  ALLOCATE (ptr_int%primal_normal_ec(nproma, nblks_c,ptr_patch%geometry_info%cell_type, 2), STAT=ist)
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for primal_normal_ec failed')
   ENDIF
 
-  ALLOCATE (ptr_int%edge_cell_length(nproma, nblks_c, ptr_patch%cell_type), STAT=ist )
+  ALLOCATE (ptr_int%edge_cell_length(nproma, nblks_c, ptr_patch%geometry_info%cell_type), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for edge_cell_length failed')
   ENDIF
 
-  ALLOCATE (ptr_int%cell_vert_dist(nproma, ptr_patch%cell_type, 2, nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%cell_vert_dist(nproma, ptr_patch%geometry_info%cell_type, 2, nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for cell_vert_dist failed')
   ENDIF
 
-  IF (ptr_patch%cell_type == 6) THEN
+  IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
     ALLOCATE (ptr_int%dir_gradh_i1(6, nproma, nblks_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1277,7 +1277,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   !
   ! initialize all components
   !
-  IF (ptr_patch%cell_type == 3 ) THEN
+  IF (ptr_patch%geometry_info%cell_type == 3 ) THEN
     ptr_int%e_bln_c_s     = 0._wp
     ptr_int%e_bln_c_u     = 0._wp
     ptr_int%e_bln_c_v     = 0._wp
@@ -1294,7 +1294,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ptr_int%cells_aw_verts   = 0._wp
   ptr_int%cells_plwa_verts = 0._wp
 
-  IF (ptr_patch%cell_type == 6 ) THEN
+  IF (ptr_patch%geometry_info%cell_type == 6 ) THEN
     ptr_int%e_inn_v     = 0._wp
     ptr_int%tria_aw_rhom= 0._wp
     ptr_int%e_aw_c      = 0._wp
@@ -1313,7 +1313,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%cea_en      = 0.0_wp
   ENDIF
 
-  IF( ptr_patch%cell_type == 3) THEN
+  IF( ptr_patch%geometry_info%cell_type == 3) THEN
     ptr_int%rbf_vec_idx_c     = 0
     ptr_int%rbf_vec_blk_c     = 0
     ptr_int%rbf_vec_stencil_c = 0
@@ -1335,7 +1335,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
   ENDIF
 
-  IF( ptr_patch%cell_type == 6 ) THEN
+  IF( ptr_patch%geometry_info%cell_type == 6 ) THEN
     ptr_int%heli_coeff        = 0._wp
     IF (i_cori_method < 3) THEN
       ptr_int%heli_vn_idx       = 0
@@ -1348,7 +1348,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%pos_on_tplane_e           = 0._wp
     ptr_int%tplane_e_dotprod          = 0._wp
 
-    IF (ptr_patch%cell_type == 3) THEN
+    IF (ptr_patch%geometry_info%cell_type == 3) THEN
       ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lon = 0._wp
       ptr_int%pos_on_tplane_c_edge(:,:,:,:)%lat = 0._wp
     ENDIF
@@ -1376,7 +1376,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%lsq_high%lsq_moments_hat  = 0._wp
   END IF
 
-  IF (ptr_patch%cell_type ==3) THEN
+  IF (ptr_patch%geometry_info%cell_type ==3) THEN
     ptr_int%geofac_qdiv = 0._wp
     ptr_int%geofac_grdiv = 0._wp
     ptr_int%nudgecoeff_c = 0._wp
@@ -1399,7 +1399,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ptr_int%edge_cell_length = 0._wp
   ptr_int%cell_vert_dist = 0._wp
 
-  IF(ptr_patch%cell_type==6) THEN
+  IF(ptr_patch%geometry_info%cell_type==6) THEN
     ptr_int%dir_gradh_i1 = 0
     ptr_int%dir_gradh_i2 = 0
     ptr_int%dir_gradh_b1 = 0
@@ -1473,7 +1473,7 @@ DO jg = n_dom_start, n_dom
 
   CALL complete_patchinfo( ptr_patch(jg), ptr_int_state(jg))
   CALL init_geo_factors(ptr_patch(jg), ptr_int_state(jg))
-  IF (ptr_patch(jg)%cell_type==3)THEN
+  IF (ptr_patch(jg)%geometry_info%cell_type==3)THEN
     CALL init_cellavg_wgt(ptr_patch(jg), ptr_int_state(jg))
     CALL bln_int_coeff_e2c( ptr_patch(jg), ptr_int_state(jg) )
     IF(jg>0) THEN
@@ -1486,7 +1486,7 @@ DO jg = n_dom_start, n_dom
   !
   ! initialization of indices and coefficients for vector rbf interpolation
   !
-  IF (ptr_patch(jg)%cell_type == 3) THEN
+  IF (ptr_patch(jg)%geometry_info%cell_type == 3) THEN
 
     ! ... at cell centers
     CALL rbf_vec_index_cell (ptr_patch(jg), ptr_int_state(jg))
@@ -1514,7 +1514,7 @@ DO jg = n_dom_start, n_dom
   !
   ! initialization of coeffs for hexagon
   !
-  IF (ptr_patch(jg)%cell_type==6) THEN
+  IF (ptr_patch(jg)%geometry_info%cell_type==6) THEN
     CALL compute_heli_bra_coeff_idx(ptr_patch(jg), ptr_int_state(jg))
   ENDIF
   !
@@ -1530,7 +1530,7 @@ DO jg = n_dom_start, n_dom
 
     CALL init_tplane_e(ptr_patch(jg), ptr_int_state(jg))
 
-    IF (ptr_patch(jg)%cell_type==3) THEN
+    IF (ptr_patch(jg)%geometry_info%cell_type==3) THEN
       !
       CALL init_tplane_c(ptr_patch(jg), ptr_int_state(jg))
 
@@ -1856,7 +1856,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
                                   & p_lp%edges%inv_primal_edge_length)
   CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%inv_dual_edge_length, &
                                   & p_lp%edges%inv_dual_edge_length)
-  IF (p_p%cell_type == 3) THEN
+  IF (p_p%geometry_info%cell_type == 3) THEN
   CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%inv_vert_vert_length, &
                                   & p_lp%edges%inv_vert_vert_length)
   ENDIF
@@ -1895,7 +1895,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   ! Transfer interpolation state
 
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%c_lin_e,po%c_lin_e)
-  IF (p_p%cell_type == 3) THEN
+  IF (p_p%geometry_info%cell_type == 3) THEN
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_s,po%e_bln_c_s)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_u,po%e_bln_c_u)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_v,po%e_bln_c_v)
@@ -1909,7 +1909,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 ! Please note: for cell_type == 6 there exists no grid refinement
 !              and thus no local parents!
 !-------------------------------------------------------------------------------
-!  IF (p_p%cell_type == 6) THEN
+!  IF (p_p%geometry_info%cell_type == 6) THEN
 !  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%e_inn_v,po%e_inn_v)
 !  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_aw_c,po%e_aw_c)
 !  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%r_aw_c,po%r_aw_c)
@@ -1920,7 +1920,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%verts_aw_cells,po%verts_aw_cells)
   CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_aw_verts,po%cells_aw_verts)
   CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_plwa_verts,po%cells_plwa_verts)
-!  IF( p_p%cell_type == 6 ) THEN
+!  IF( p_p%geometry_info%cell_type == 6 ) THEN
 !  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_north,po%tria_north)
 !  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_east,po%tria_east)
 !  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%hex_north,po%hex_north)
@@ -1937,7 +1937,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 !                                         & po%heli_vn_idx,po%heli_vn_blk)
 !  ENDIF
 !  ENDIF
-  IF (p_p%cell_type == 3) THEN
+  IF (p_p%geometry_info%cell_type == 3) THEN
   CALL xfer_idx(SYNC_C,SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_idx_c,pi%rbf_vec_blk_c, &
                                          & po%rbf_vec_idx_c,po%rbf_vec_blk_c)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%rbf_vec_stencil_c,po%rbf_vec_stencil_c)
@@ -1955,7 +1955,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_coeff_e,po%rbf_vec_coeff_e)
   ENDIF
 
-  IF (p_p%cell_type == 3) THEN
+  IF (p_p%geometry_info%cell_type == 3) THEN
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%geofac_qdiv,po%geofac_qdiv)
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%geofac_grdiv,po%geofac_grdiv)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%nudgecoeff_c,po%nudgecoeff_c)
@@ -1979,7 +1979,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%primal_normal_ec,po%primal_normal_ec)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%edge_cell_length,po%edge_cell_length)
   CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%cell_vert_dist,po%cell_vert_dist)
-!  IF (p_p%cell_type == 6) THEN
+!  IF (p_p%geometry_info%cell_type == 6) THEN
 !  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradh_i1,po%dir_gradh_i1, &
 !                                         & po%dir_gradh_i1,po%dir_gradh_i1)
 !  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradh_i2,po%dir_gradh_i2, &

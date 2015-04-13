@@ -327,7 +327,9 @@ CONTAINS
             &                                      * (pt_prog_new%w(jc,jk,jb)+pt_prog_new%w(jc,jk+1,jb)) &
             &                                      * pt_prog_new%rho(jc,jk,jb) * grav
           !
-          ! Initialize the tendencies passed to the ECHAM physics
+          ! Tendencies passed to the ECHAM physics for internal upating are set to 0
+          ! because the state passed to physics is already updated with tendencies
+          ! due to dynamics and transport.
           prm_tend(jg)%          u(jc,jk,jb)     = 0.0_wp
           prm_tend(jg)%          v(jc,jk,jb)     = 0.0_wp
           !
@@ -336,6 +338,12 @@ CONTAINS
           prm_tend(jg)%          q(jc,jk,jb,iqv) = 0.0_wp
           prm_tend(jg)%          q(jc,jk,jb,iqc) = 0.0_wp
           prm_tend(jg)%          q(jc,jk,jb,iqi) = 0.0_wp
+          !
+          ! Advective tendencies, already accounted for, but needed
+          ! for diagnostic purposes in the convection scheme
+          prm_tend(jg)%      q_dyn(jc,jk,jb,iqv) = pt_diag% ddt_tracer_adv(jc,jk,jb,iqv)
+          prm_tend(jg)%      q_dyn(jc,jk,jb,iqc) = pt_diag% ddt_tracer_adv(jc,jk,jb,iqc)
+          prm_tend(jg)%      q_dyn(jc,jk,jb,iqi) = pt_diag% ddt_tracer_adv(jc,jk,jb,iqi)
           !
 
         END DO

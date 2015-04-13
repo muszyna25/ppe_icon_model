@@ -19,7 +19,7 @@ export TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_rmb_pl lnd_ml lnd_rmb_ml 
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export DATES='19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'
+export DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'
 
 # RESTART_DATE defines the date and time from which restarts should be performed.
 # 

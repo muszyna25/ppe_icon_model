@@ -35,6 +35,7 @@ MODULE mo_art_clouds_interface
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_prepare_aerosol,           ONLY: art_prepare_dust_KL06
 #endif
 
   IMPLICIT NONE
@@ -95,7 +96,9 @@ SUBROUTINE art_clouds_interface_twomom(isize, ke, jg, jb, is, ie, ks, dt, &
     ! ----------------------------------
     ! --- Call of the coupled ART-twomoment microphysics
     ! ----------------------------------
-    
+    IF (art_config(jg)%iart_aci_cold == 6 .OR. art_config(jg)%iart_aci_cold == 7) THEN
+      CALL art_prepare_dust_KL06(jg,jb,is,ie,ks,ke,rho,p_trac)
+    ENDIF
     CALL art_twomom_mcrph(isize, ke, jg, jb, is, ie, ks, dt,           &
                         & dz, rho, pres, tke, p_trac(:,:,:), tk,    &
                         & w, prec_r, prec_i, prec_s,         &

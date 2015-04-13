@@ -31,13 +31,14 @@ MODULE mo_util_cdi
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata
-  USE mo_action,             ONLY: ACTION_RESET
+  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
     &                              deallocateTimedelta, deallocateDatetime, &
-    &                              MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
+    &                              PROLEPTIC_GREGORIAN, setCalendar,        &
+    &                              MAX_DATETIME_STR_LEN,                    &
+    &                              OPERATOR(-)
   USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
     &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
     &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
@@ -937,10 +938,10 @@ CONTAINS
   !!
   !!  @author D. Reinert, F. Prill (DWD)
   !!
-  !!  TODOs
+  !!  CAVEATs
   !!
-  !!  - we implicitly assume that we always need to INQUIRE the interval from action 1.
-  !!  - we implicitly assume that the time range is always smaller than one month
+  !!  - we implicitly assume that actions are ordered according to increasing forecast time.
+  !!  - we implicitly assume that the statistical process time range is always smaller than one month
   !!
   SUBROUTINE set_timedependent_GRIB2_keys(streamID, varID, info, start_date, cur_date)
     INTEGER                             ,INTENT(IN) :: streamID, varID
@@ -958,11 +959,14 @@ CONTAINS
     TYPE(datetime),  POINTER      :: mtime_start                   ! model start (initialization) time
     TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
     TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
+    INTEGER                       :: var_actionId                  ! action from which metainfo is used
+    CHARACTER(len=*), PARAMETER   :: routine = 'set_timedependent_GRIB2_keys'
 
     ! special fields for which time-dependent metainfos should be set even though they are not of 
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
     ! performed over the entire model run but over only some intervals.
     CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
+
 
     !---------------------------------------------------------
     ! Set time-dependent metainfo
@@ -988,19 +992,21 @@ CONTAINS
 
     IF (info%action_list%n_actions > 0) THEN
 
-      ! here we implicitly assume, that action Nr. 1 is the 'nullify'-action.
-      ! Currently this is true, but must not be true for all times. A less 
-      ! ad-hoc solution would be desirable. A warning is issued, if nr. 1 
-      ! is NOT the 'nullify' action.
-      IF (info%action_list%action(1)%actionID /= ACTION_RESET) THEN
-        write(0,*) 'set_timedependent_GRIB2_keys: actionID of action 1 is not equal to ACTION_RESET.'//&
+      ! more than one RESET action may be defined for a single variable.
+      ! get ID of currently active RESET action
+      var_actionId = getActiveAction(info, ACTION_RESET, mtime_cur)
+
+      IF (var_actionId == -1) THEN
+        write(0,*) 'set_timedependent_GRIB2_keys: no active action of type ACTION_RESET found. '//&
           &             'lengthOfTimeRange may not be set correctly'
+        CALL finish (routine, 'Illegal actionId')
       ENDIF
 
       ! get latest (intended) triggering time, which is equivalent to 
       ! the statistical process starting time
-      statProc_startDateTime = info%action_list%action(1)%EventLastTriggerDate
+      statProc_startDateTime = info%action_list%action(var_actionId)%EventLastTriggerDate
 
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
 
       ! get time interval, over which statistical process has been performed
       ! It is the time difference between the current time (rounded) mtime_cur and 
@@ -1008,7 +1014,7 @@ CONTAINS
       mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
       !
       ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-      CALL getTimeDeltaFromDateTime(mtime_cur, statProc_startDateTime, mtime_lengthOfTimeRange)
+      mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
 
 
       ! time interval over which statistical process has been performed (in secs)    
@@ -1028,8 +1034,9 @@ CONTAINS
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(statProc_startDateTime, mtime_start, forecast_delta)
+    forecast_delta = statProc_startDateTime - mtime_start
 
     ! forecast time in seconds
     forecast_secs =    forecast_delta%second    +   &
@@ -1056,7 +1063,7 @@ CONTAINS
 
     !
     ! set length of time range: current time - statProc_startDateTime
-    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",  ilengthOfTimeRange)
     ! Note that if one of the statistics templates 4.8 or 4.11 is selected, the time unit 
     ! (GRIB2 key "indicatorOfUnitForTimeRange") is set automatically by CDI.
     ! It is always set identical to "indicatorOfUnitOFTimeRange"

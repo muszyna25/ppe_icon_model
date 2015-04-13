@@ -30,6 +30,18 @@ description of the available output fields.
 \end{description}
 
 
+\section{Atmospheric products}
+\begin{description}[leftmargin=3.0cm,style=sameline]
+ \item [HZEROCL] Height of the $0^{\circ}\,\mathrm{C}$ isotherm above MSL. At points where the temperature is below 
+                 $0^{\circ}\,\mathrm{C}$ within the entire atmospheric column, \texttt{HZEROCL} is undefined 
+                 and set to $-999$.
+ \item [SNOWLMT] Height of snow fall limit above MSL. It is defined as the height where the wet bulb 
+                 temperature $T_{w}$ first exceeds $1.3^{\circ}\mathrm{C}$ (scanning mode from top to bottom). 
+                 If this threshold is never reached within the entire atmospheric column, \texttt{SNOWLMT} 
+                 is undefined (GRIB2 bitmap).
+\end{description}
+
+
 \section{Near surface products}
 % uses package enumitem
 %\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
