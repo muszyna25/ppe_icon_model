@@ -40,7 +40,8 @@
     USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                              &
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
       &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,        &
-      &                               min_rlcell
+      &                               min_rlcell, SCALE_MODE_TABLE, SCALE_MODE_AUTO,        &
+      &                               SCALE_MODE_PRESET
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
@@ -1625,18 +1626,24 @@
       ! -------------------------------------------------------------------------
 
       SELECT CASE (rbf_scale_mode_ll)
-      CASE (1) 
+      CASE (SCALE_MODE_TABLE) 
         rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-      CASE (2)
+      CASE (SCALE_MODE_AUTO)
         ! if no shape parameter has been set: compute an estimate 
         CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,              &
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,           &
           &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c,                    &
           &                         ptr_int_lonlat%global_idx, rbf_shape_param)
-        rbf_shape_param = p_min(rbf_shape_param, comm=p_comm_work)
+        rbf_shape_param          = p_min(rbf_shape_param, comm=p_comm_work)
+        ptr_int_lonlat%rbf_scale = rbf_shape_param
         IF (my_process_is_stdio()) THEN
           WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
         END IF
+      CASE (SCALE_MODE_PRESET)
+        IF (ptr_int_lonlat%rbf_scale <= 0._wp) THEN
+          CALL finish(routine, "Explicitly presetting RBF shape parameter... invalid value!")
+        END IF
+        rbf_shape_param = ptr_int_lonlat%rbf_scale
       CASE DEFAULT
         CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
       END SELECT
@@ -1678,18 +1685,21 @@
 !$OMP END PARALLEL
 
         SELECT CASE (rbf_scale_mode_ll)
-        CASE (1) 
+        CASE (SCALE_MODE_TABLE) 
           rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-        CASE (2)
+        CASE (SCALE_MODE_AUTO)
           ! if no shape parameter has been set: compute an estimate 
           CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,              &
             &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,         &
             &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l,                     &
             &                         ptr_int_lonlat%global_idx, rbf_shape_param)
           rbf_shape_param = p_min(rbf_shape_param, comm=p_comm_work)
+          ptr_int_lonlat%rbf_scale = rbf_shape_param
           IF (my_process_is_stdio()) THEN
             WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
           END IF
+        CASE (SCALE_MODE_PRESET)
+          rbf_shape_param = ptr_int_lonlat%rbf_scale
         CASE DEFAULT
           CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
         END SELECT
@@ -1863,7 +1873,7 @@
       INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,                 &
         &                                i_startidx, i_endidx, i_startblk, i_endblk,          &
         &                                rl_start, rl_end, i_nchdom, i, j, k, errstat,        &
-        &                                nobjects, idx0, idx, nthreads
+        &                                nobjects, idx0, idx, nthreads, dim
       TYPE (t_point_list)             :: p_local, p_global
       TYPE(t_cartesian_coordinates)   :: p_x
       INTEGER, ALLOCATABLE            :: permutation(:), g2l_index(:)
@@ -1877,6 +1887,7 @@
       INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
       TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
       TYPE(t_point)                   :: p, centroid
+      LOGICAL                         :: inside_test1, inside_test2
 
       !-----------------------------------------------------------------------
 
@@ -1952,6 +1963,22 @@
       IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
 
       CALL p_global%quicksort()
+
+      ! slightly disturb symmetric coordinates; this should make the
+      ! Delaunay triangulation unique, cf. [Lawson1984]
+      dim = 0
+      DO i=0,(p_global%nentries-1)
+        SELECT CASE(dim)
+        CASE (0)
+          p_global%a(i)%x = p_global%a(i)%x + 1.e-10_wp
+        CASE (1)
+          p_global%a(i)%y = p_global%a(i)%y + 1.e-10_wp
+        CASE (2)
+          p_global%a(i)%z = p_global%a(i)%z + 1.e-10_wp
+        END SELECT
+        dim = MOD(dim+1,3)
+      END DO
+
       DO i=0,(p_global%nentries-1)
         IF (p_global%a(i)%gindex /= -1) THEN
           permutation(i) = g2l_index(p_global%a(i)%gindex)
@@ -2089,8 +2116,15 @@
               &                             v1,v2,v3,                             &
               &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
 
-            IF ( ALL((ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)) >= -1._wp*INSIDETEST_TOL)  .AND. &
-              &  ALL(ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)   <=  1._wp+INSIDETEST_TOL)) THEN
+            ! test if either the barycentric interpolation weights
+            ! indicate that "ll_point_c" lies inside the triangle or
+            ! if the test by dot-product succeeds:
+            inside_test1 = ( ALL((ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)) >= -1._wp*INSIDETEST_TOL)  .AND. &
+              &              ALL(ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)   <=  1._wp+INSIDETEST_TOL))
+            inside_test2 = inside_triangle(ll_point_c%x, p_global%a(tri%a(j)%p(0)), p_global%a(tri%a(j)%p(1)), &
+              &                            p_global%a(tri%a(j)%p(2)))
+
+            IF (inside_test1 .OR. inside_test2) THEN
               idx0 = j
 
               IF (ALL(permutation(tri%a(idx0)%p(0:2)) /= -1)) THEN
@@ -2420,10 +2454,6 @@
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
 #endif
-
-              IF (ptr_int%baryctr_idx(1,jc,jb) < 1) THEN
-                WRITE (0,*) "jc, jb = ", jc, jb
-              END IF
 
               p_out(jc,jk,jb) = &
                 &    ptr_int%baryctr_coeff(1,jc,jb)*                                            &

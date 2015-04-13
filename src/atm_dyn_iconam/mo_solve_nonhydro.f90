@@ -2222,7 +2222,7 @@ MODULE mo_solve_nonhydro
         ENDIF
 
       ENDDO
-!OMP END DO
+!$OMP END DO
 
     ENDIF
 

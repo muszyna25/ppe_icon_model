@@ -472,6 +472,11 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
   INTEGER, PARAMETER :: VINTP_METHOD_LIN_NLEVP1 = 5
 
+  !----- RBF lon-lat interpolation: shape parameter mode
+  INTEGER, PARAMETER :: SCALE_MODE_TABLE   = 1
+  INTEGER, PARAMETER :: SCALE_MODE_AUTO    = 2
+  INTEGER, PARAMETER :: SCALE_MODE_PRESET  = 3
+
   !----- init ICON operation modes -----
   INTEGER, PARAMETER :: MODE_DWDANA      = 1
   INTEGER, PARAMETER :: MODE_IFSANA      = 2
