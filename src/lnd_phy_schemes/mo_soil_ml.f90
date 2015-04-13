@@ -3543,7 +3543,7 @@ ELSE   IF (itype_interception == 2) THEN
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
         ELSEIF (zwsnow(i) == 0.0_ireals .AND.                            &
                (1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) THEN
-          zsprs  (i) = lh_f*zrr(i)
+          zsprs  (i) = MIN(lh_f*zrr(i),(t0_melt-t_s_now(i))*zroc(i,1)/zdt)
           zdwidt (i) = zdwidt (i) - zrr(i)
           zdwsndt(i) = zdwsndt(i) + zrr(i)
         END IF
@@ -4990,7 +4990,7 @@ ENDIF
 !       i=melt_list(ic) 
       DO i = istarts, iends
 
-        IF (t_snow_new(i) > 355._ireals) THEN
+        IF (t_snow_new(i) > 355._ireals .OR. t_s_now(i) > 355._ireals .OR. t_s_new(i) > 355._ireals) THEN
 !        IF (i == 182 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.0499 .AND. plcov(i).LT.0.0501) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&

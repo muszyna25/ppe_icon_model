@@ -281,9 +281,11 @@ MODULE mo_vertical_grid
       CALL sync_patch_array_mult(SYNC_E,p_patch(jg),2,z_ddxt_z_half_e, &
         z_ddxn_z_half_e)
 
-      ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
-      p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
-      p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+        ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
+        p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
+        p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      ENDIF
 
       ! vertically averaged metrics
 !$OMP PARALLEL
@@ -296,10 +298,10 @@ MODULE mo_vertical_grid
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             p_nh(jg)%metrics%ddxn_z_full(je,jk,jb) = 0.5_wp * &
-            & (p_nh(jg)%metrics%ddxn_z_half_e(je,jk,jb) + p_nh(jg)%metrics%ddxn_z_half_e(je,jk+1,jb))
+            & (z_ddxn_z_half_e(je,jk,jb) + z_ddxn_z_half_e(je,jk+1,jb))
 
             p_nh(jg)%metrics%ddxt_z_full(je,jk,jb) = 0.5_wp * &
-            & (p_nh(jg)%metrics%ddxt_z_half_e(je,jk,jb) + p_nh(jg)%metrics%ddxt_z_half_e(je,jk+1,jb))
+            & (z_ddxt_z_half_e(je,jk,jb) + z_ddxt_z_half_e(je,jk+1,jb))
           ENDDO
         ENDDO
 
@@ -493,18 +495,18 @@ MODULE mo_vertical_grid
         jk = nlevp1
         DO jc = i_startidx, i_endidx
 
-          z_maxslope = MAX(ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                           ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                           ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
-                           ABS(p_nh(jg)%metrics%ddxt_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                           ABS(p_nh(jg)%metrics%ddxt_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                           ABS(p_nh(jg)%metrics%ddxt_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
+          z_maxslope = MAX(ABS(z_ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
 
-          z_diff = MAX(ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))                     &
+          z_diff = MAX(ABS(z_ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
-                       ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))                     &
+                       ABS(z_ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
-                       ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))                     &
+                       ABS(z_ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
 
           ! Empirically determined values to ensure stability over steep slopes

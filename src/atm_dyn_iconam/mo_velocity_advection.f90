@@ -141,7 +141,7 @@ MODULE mo_velocity_advection
 
     !Get patch id
     jg = p_patch%id
-    nrdmax_jg     = nrdmax(jg)     ! This shorthand creates large diffs
+    nrdmax_jg     = nrdmax(jg)
     nflatlev_jg   = nflatlev(jg)
 
     ! number of vertical levels
@@ -476,10 +476,10 @@ MODULE mo_velocity_advection
 
       IF (lextra_diffu) THEN
         ! Apply extra diffusion at grid points where w_con is close to or above the CFL stability limit
-        DO jc = i_startidx_2, i_endidx_2
-          IF (p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
-            DO jk = MAX(3,nrdmax_jg-2), nlev-3
-              IF ( cfl_clipping(jc,jk) ) THEN
+        DO jk = MAX(3,nrdmax_jg-2), nlev-3
+          IF (levmask(jb,jk)) THEN
+            DO jc = i_startidx_2, i_endidx_2
+              IF (cfl_clipping(jc,jk) .AND. p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
                 difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
                   ABS(z_w_con_c(jc,jk))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
 

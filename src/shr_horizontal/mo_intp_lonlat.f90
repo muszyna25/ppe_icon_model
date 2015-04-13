@@ -2079,7 +2079,7 @@
       npromz_lonlat = ptr_int_lonlat%nthis_local_pts - (nblks_lonlat-1)*nproma
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, v1,v2,v3,i,j )
+!$OMP                     idx0, v1,v2,v3,i,j,inside_test1,inside_test2 )
       DO jb=1,nblks_lonlat
         i_startidx = 1
         i_endidx   = nproma
