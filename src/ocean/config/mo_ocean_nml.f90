@@ -198,7 +198,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: implicit_diffusion = 1
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
   INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
-  INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
+  INTEGER  :: HorizontalVelocityDiffusion_type  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
@@ -224,10 +224,10 @@ MODULE mo_ocean_nml
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
-                                        !with option HORZ_VELOC_DIFF_TYPE=3. Constanjt has no physical meaning, just trial and error.
+                                        !with option HorizontalVelocityDiffusion_type=3. Constanjt has no physical meaning, just trial and error.
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure                                               
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure                                                 
-  LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
+  LOGICAL  :: smooth_HorizontalVelocityDiffusion = .TRUE.
 
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
                                                  ! 2-dimensional surface relaxation of temperature and salinity:
@@ -373,7 +373,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: RichardsonDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
   
   NAMELIST/ocean_diffusion_nml/&
-    &  HORZ_VELOC_DIFF_TYPE        ,    &
+    &  HorizontalVelocityDiffusion_type,    &
     &  biharmonic_diffusion_factor ,    &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
@@ -383,7 +383,7 @@ MODULE mo_ocean_nml
     &  k_veloc_v                   ,    &
     &  MAX_VERT_DIFF_TRAC          ,    &
     &  MAX_VERT_DIFF_VELOC         ,    &
-    &  l_smooth_veloc_diffusion    ,    &
+    &  smooth_HorizontalVelocityDiffusion    ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
     &  k_tracer_dianeutral_parameter,   &

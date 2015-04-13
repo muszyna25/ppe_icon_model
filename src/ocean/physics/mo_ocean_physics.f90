@@ -29,7 +29,7 @@ MODULE mo_ocean_physics
   USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
     & k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
     & max_vert_diff_veloc, max_vert_diff_trac,                &
-    & horz_veloc_diff_type, veloc_diffusion_order,            &
+    & HorizontalVelocityDiffusion_type, veloc_diffusion_order,            &
     & n_points_in_munk_layer,                                 &
     & biharmonic_diffusion_factor,                            &
     & richardson_tracer, richardson_veloc,                    &
@@ -39,7 +39,7 @@ MODULE mo_ocean_physics
     & physics_parameters_ICON_PP_Edge_type,                    &
     & physics_parameters_MPIOM_PP_type,                       &
     & use_wind_mixing,                                        &
-    & l_smooth_veloc_diffusion,                               &
+    & smooth_HorizontalVelocityDiffusion,                               &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
     & use_convection_parameterization,                        &
@@ -155,15 +155,15 @@ CONTAINS
 
     ! Local variables
     INTEGER :: i, i_no_trac
-    INTEGER :: je,jb
+    INTEGER :: je, jb, jk
     INTEGER :: start_index, end_index
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    REAL(wp) :: minmaxmean_dualEdgeLength(3), maxDualEdgeLength, k_veloc_factor
+    REAL(wp) :: minmaxmean_dualEdgeLength(3), minDualEdgeLength, k_veloc_factor
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
-    REAL(wp):: length_scale(nproma, patch_3D%p_patch_2d(1)%nblks_e)
+    REAL(wp):: length_scale
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -188,12 +188,12 @@ CONTAINS
 
     z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
     minmaxmean_dualEdgeLength = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
-    maxDualEdgeLength = minmaxmean_dualEdgeLength(2)
+    minDualEdgeLength = minmaxmean_dualEdgeLength(1)
 
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
     IF(veloc_diffusion_order==1)THEN
-      SELECT CASE(horz_veloc_diff_type)
+      SELECT CASE(HorizontalVelocityDiffusion_type)
       CASE(0)!no friction
         p_phys_param%k_veloc_h(:,:,:) = 0.0_wp
 
@@ -237,7 +237,7 @@ CONTAINS
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
       !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
-      SELECT CASE(horz_veloc_diff_type)
+      SELECT CASE(HorizontalVelocityDiffusion_type)
 
       CASE(1)
         p_phys_param%k_veloc_h(:,:,:) = p_phys_param%k_veloc_h_back
@@ -267,20 +267,15 @@ CONTAINS
         ! Simple scaling of the backgound diffusion by the dual edge length^4
         ! This is meant to be used with the non-uniform grids
         !This follows the MPI-OM convention
-
-
         C_MPIOM = biharmonic_const*dtime/3600.0_wp
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, start_index, end_index)
           DO je = start_index, end_index
 
-            length_scale(je,jb) = &
+            length_scale = &
             & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))         
 
-            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale(je,jb)**2
-!             k_veloc_factor = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
-!             p_phys_param%k_veloc_h(je,:,jb) = &
-!               & p_phys_param%k_veloc_h_back * k_veloc_factor**3
+            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale**2
           END DO
         END DO
 
@@ -289,6 +284,25 @@ CONTAINS
 
         p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
           & *(points_in_munk_layer*z_largest_edge_length)**3
+          
+      CASE(5)
+        ! Simple scaling of the constant diffusion
+        ! by the ratio of the dual_edge_length / mein_dual_edge_length
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
+          DO je = start_index, end_index
+
+            length_scale = patch_2D%edges%dual_edge_length(je,jb) / minDualEdgeLength 
+            length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
+            
+            DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+              p_phys_param%k_veloc_h(je,:,jb) = p_phys_param%k_veloc_h_back * length_scale
+            END DO
+              
+          END DO
+        END DO
+        
       CASE DEFAULT
          CALL finish ('mo_ocean_physics:init_ho_params',  &
           & 'option not supported')
@@ -297,7 +311,7 @@ CONTAINS
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
 
     ENDIF
-    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h )
+    IF ( smooth_HorizontalVelocityDiffusion ) CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h )
 
 
     DO i=1,no_tracer
@@ -686,7 +700,7 @@ CONTAINS
       CALL finish("update_ho_params", "unknown physics_parameters_type")
     END SELECT
 
-    IF(HORZ_VELOC_DIFF_TYPE==4)THEN
+    IF(HorizontalVelocityDiffusion_type==4)THEN
 
      IF(veloc_diffusion_order==1)THEN!.AND.veloc_diffusion_form==1)THEN
         CALL calculate_leith_closure(patch_3d, ocean_state, params_oce, op_coeffs)
@@ -1305,14 +1319,14 @@ CONTAINS
           & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
           &   richardson_tracer / ((1.0_wp + z_c1_t *    &
           &   z_ri_cell(start_index:end_index, 2:n_zlev))**3), &
-          & z_vert_density_grad_c(start_index:end_index, 2:n_zlev,jb) < convection_InstabilityThreshold)
+          & z_vert_density_grad_c(start_index:end_index, 2:n_zlev,jb) <= convection_InstabilityThreshold)
 
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           DO jk = 2, levels
 
             IF (z_vert_density_grad_c(jc,jk,jb) < RichardsonDiffusion_threshold .AND. &
-                z_vert_density_grad_c(jc,jk,jb) >= convection_InstabilityThreshold) THEN
+                z_vert_density_grad_c(jc,jk,jb) > convection_InstabilityThreshold) THEN
               ! interpolate between convection and richardson diffusion
               diffusion_weight =  &
                 & (z_vert_density_grad_c(jc,jk,jb) - convection_InstabilityThreshold) / &
