@@ -968,6 +968,8 @@ CONTAINS
     CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
 
 
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+
     !---------------------------------------------------------
     ! Set time-dependent metainfo
     !---------------------------------------------------------
@@ -1006,7 +1008,6 @@ CONTAINS
       ! the statistical process starting time
       statProc_startDateTime = info%action_list%action(var_actionId)%EventLastTriggerDate
 
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
 
       ! get time interval, over which statistical process has been performed
       ! It is the time difference between the current time (rounded) mtime_cur and 
@@ -1034,7 +1035,6 @@ CONTAINS
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
     forecast_delta => newTimedelta("P01D")
     forecast_delta = statProc_startDateTime - mtime_start
 
