@@ -183,7 +183,7 @@ case "$fortran_compiler" in
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = 
+        MODDIR      = -J
         ;;
     cray_gpu)
         config_compiler=cce                                                     
@@ -201,7 +201,7 @@ case "$fortran_compiler" in
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      =
+        MODDIR      = -J
         ;; 
     intel)
         config_compiler=intel
