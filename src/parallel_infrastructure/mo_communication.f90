@@ -468,9 +468,10 @@ END SUBROUTINE setup_comm_pattern
 !-------------------------------------------------------------------------
 
 SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
-  &                                  gather_pattern)
+  &                                  gather_pattern, disable_consistency_check)
   INTEGER, INTENT(IN) :: global_size, owner_local(:), glb_index(:)
   TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+  LOGICAL, INTENT(IN), OPTIONAL :: disable_consistency_check
 
   INTEGER :: num_collectors
   LOGICAL, ALLOCATABLE :: pack_mask(:)
@@ -482,6 +483,9 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   INTEGER, ALLOCATABLE :: send_buffer(:), recv_buffer(:)
   INTEGER :: num_recv, num_recv_points
   INTEGER :: i, j, n
+  LOGICAL :: consistency_check
+  CHARACTER(*), PARAMETER :: routine = &
+    "mo_communication:setup_comm_gather_pattern"
 
   ! determine collector ranks and the data associated to each collector
   num_collectors = NINT(SQRT(REAL(p_n_work)))
@@ -603,6 +607,27 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   ALLOCATE(gather_pattern%recv_buffer_reorder(num_recv_points))
   gather_pattern%recv_buffer_reorder(:) = (/(i, i = 1, num_recv_points)/)
   CALL quicksort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
+
+  IF (PRESENT(disable_consistency_check)) THEN
+    consistency_check = .NOT. disable_consistency_check
+  ELSE
+    consistency_check = .TRUE.
+  END IF
+
+  ! consistency check
+  IF (consistency_check) THEN
+
+    ! check whether a point is owned by multiple processes
+    DO i = 2, num_recv_points
+      IF (recv_buffer(i) == recv_buffer(i-1)) &
+        CALL finish(routine, &
+          &         "One or more points are owned by multiple processes")
+    END DO
+
+    ! check if all points have an owner
+    IF (SUM(gather_pattern%collector_size(:)) /= global_size) &
+      CALL finish(routine, "Not all points have an owner.")
+  END IF
 
   DEALLOCATE(send_buffer, recv_buffer)
 
