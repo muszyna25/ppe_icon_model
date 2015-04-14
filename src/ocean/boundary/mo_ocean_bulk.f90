@@ -61,7 +61,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical
   &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
   &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
   &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
-  &                               limit_elevation, limit_seaice, seaice_limit, l_relaxsal_ice
+  &                               limit_elevation, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -75,7 +75,8 @@ USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_slow_slo, ice_fast
+USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
+USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
 USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
 
 USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes

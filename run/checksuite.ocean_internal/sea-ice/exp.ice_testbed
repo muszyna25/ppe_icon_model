@@ -78,7 +78,6 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-! 2
 ! n_zlev             =  10
 ! dzlev_m(1:20)      =  20.0,20.0,20.0,30.0,40.0,50.0,100.0,100.0,100.0,100.0
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
