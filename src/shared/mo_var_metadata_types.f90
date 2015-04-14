@@ -43,7 +43,7 @@ MODULE mo_var_metadata_types
   !
   ! New groups can be added by extending the VAR_GROUPS list.
   !
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(42) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(43) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
