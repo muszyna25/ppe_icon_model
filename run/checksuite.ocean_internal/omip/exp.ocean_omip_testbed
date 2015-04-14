@@ -31,7 +31,7 @@ iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=0
 ocean_vertical_levels=40
-ocean_grids="iconR2B02-ocean_etopo40_planet.nc"   #  R2B02 global grid and forcing data 
+ocean_grids="iconR2B02-ocean_etopo40_planet.nc"   #  R2B02 global grid and forcing data (on oes/testsetup)
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 #-----------------------------------------------------------------------------
 #
@@ -50,16 +50,12 @@ cat > ${ocean_namelist} << EOF
  use_duplicated_connectivity = .false.
 /
 &dynamics_nml
- iequations  = -1       ! -1: hydrost. ocean model
+ iequations           = -1           ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600               ! model timestep in seconds
- output      = 'nml'              ! output mechanism via namelist
+ dtime                = 3600         ! model timestep in seconds
+ output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 2
- msg_timestamp        = .FALSE.
- timers_level         = 10
- debug_check_level    = 1
  test_mode            = 41
 /
 &output_nml

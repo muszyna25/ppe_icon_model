@@ -31,8 +31,8 @@ iforc=11
 forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=0
 ocean_vertical_levels=40
-ocean_grids="iconR2B02-ocean_etopo40_planet.nc"   #  R2B02 global grid and forcing data 
-ocean_grids="ocegridR2B00.nocde.planet.geocc.nc"  #  R2BOO grid, no forcing data
+ocean_grids="iconR2B02-ocean_etopo40_planet.nc"   #  R2B02 global grid and forcing data (on oes/testsetup)
+ocean_grids="ocegridR2B00.nocde.planet.geocc.nc"  #  R2BOO grid, no forcing data (on oes/testsetup)
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 #-----------------------------------------------------------------------------
 #
@@ -50,13 +50,12 @@ cat > ${ocean_namelist} << EOF
  dynamics_grid_filename = "${ocean_grids}",
 /
 &dynamics_nml
- iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
+ iequations           = -1           ! -1: hydrost. ocean model
 /
 &run_nml
  dtime                = 3600         ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 2
  test_mode            = 41
 /
 &output_nml
@@ -65,7 +64,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}
   output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  output_filename  = "${EXPNAME}_oce"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'basin_c', 'regio_c', 'wet_c', 'wet_e', 'group:oce_diag', 'group:oce_prog', 'group:ice_diag'
 /
@@ -80,19 +79,18 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 2
-  n_zlev             =   $ocean_vertical_levels
-  n_zlev             =  10
-  dzlev_m(1:20)      =  20.0,20.0,20.0,30.0,40.0,50.0,100.0,100.0,100.0,100.0
+! n_zlev             =  10
+! dzlev_m(1:20)      =  20.0,20.0,20.0,30.0,40.0,50.0,100.0,100.0,100.0,100.0
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
 ! n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
 ! dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                       180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
-! n_zlev             =   40
-! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-!                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-!                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-!                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+  n_zlev             =   $ocean_vertical_levels
+  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
 ! l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
