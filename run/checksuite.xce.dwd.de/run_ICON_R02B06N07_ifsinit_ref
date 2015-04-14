@@ -1,6 +1,6 @@
 #! /bin/ksh
 # ----------------------------------------------------------------------------
-#PBS -q xc_normal
+#PBS -q xc_norm_h
 #PBS -l select=12:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
@@ -52,10 +52,11 @@ EXTPARDIR=/e/uhome/gzaengl/icon-dev/experiments/Extpar_R2B6N8
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp10
+EXPDIR=$TMPDIR/../experiments/exp10   #_hzeroclmod
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+#MODEL=/e/uhome/dreinert/workdir/debug/icon-nwp-dev/build/x86_64-unknown-linux-gnu/bin/icon
 
 
 # ----------------------------------------------------------------------------
@@ -283,6 +284,34 @@ cat > NAMELIST_NWP << EOF
                                 'group:land_vars', 'group:land_tile_vars',                
                                 'group:multisnow_vars'
 /
+&output_nml
+ filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                         =                         -1         ! write all domains
+ output_bounds               =       0., 10000000., 10800.        ! output: start, end, increment
+ steps_per_file              =                          2         ! number of output steps in one output file
+ mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                =                      .TRUE.        ! flag whether to include the last time step
+ output_filename             =                       'NWP_LL'     ! file name base
+ output_grid                 =                      .TRUE.        ! flag whether grid information is added to output.
+ !
+ ml_varlist                  =  'snowlmt','tot_prec','hzerocl'
+ remap                        = 1
+ reg_lon_def                 = 0.,0.25,359.75
+ reg_lat_def                 = -90.,0.25,90.
+/
+&output_nml
+ filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                         =                         -1         ! write all domains
+ output_bounds               =       0., 10000000., 10800.        ! output: start, end, increment
+ steps_per_file              =                          2         ! number of output steps in one output file
+ mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                =                      .TRUE.        ! flag whether to include the last time step
+ output_filename             =                       'NWP_nat'    ! file name base
+ output_grid                 =                      .TRUE.        ! flag whether grid information is added to output.
+ !
+ ml_varlist                  =  'snowlmt','tot_prec','hzerocl'
+ remap                       = 0
+/
 
 ! meteogram_output_nml: meteogram output for specified locations --------------
 &meteogram_output_nml
@@ -367,4 +396,4 @@ EOF
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 3g   : 3G memory/task
 
-aprun  -n 120 -N 10 -j 2 -d 4 -m 3g icon
+aprun  -n 144 -N 12 -j 2 -d 4 -m 3g icon
