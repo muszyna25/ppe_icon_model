@@ -43,8 +43,8 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 (( dt_checkpoint =  300 * day))
 (( dt_restart    = 1200 * day))
 #
-output_interval="PT6H"
-file_interval="P30D"
+output_interval="PT2H"
+file_interval="P300D"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -338,7 +338,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc'
+ ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc'
 /
 EOF
 fi
