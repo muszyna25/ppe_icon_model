@@ -10,6 +10,8 @@
 #   - simple splitting of MOC result file and plotting using cdo and ncl
 #   - options: give masked file, which can be computed from the input like this:
 #     cdo -setmisstoc,0.0 -div timmean_moc_0185-0190.ext timmean_moc_0185-0190.ext mocMask.nc
+#   - now timmean is done in this script - no attention yet spent for incomplete years,
+#     this might result in wrong MOC due to overestimation of a season
 
 ifile=moc.bliz.r9368.2420-2470ym
 ifile=moc.loc.r9558.2046.2y
@@ -24,19 +26,19 @@ echo "Input file is '$ifile'"
 basename=$(basename $ifile .ext) # ext files expected
 
 if [ -z "$maskfile" ]; then
-  cdo -f nc selvar,var777 $ifile scr_moc_glb.nc 
-  cdo -f nc selvar,var778 $ifile scr_moc_atl.nc
-  cdo -f nc selvar,var779 $ifile scr_moc_pac.nc
+  cdo -f nc timmean -selvar,var777 $ifile scr_moc_glb.nc 
+  cdo -f nc timmean -selvar,var778 $ifile scr_moc_atl.nc
+  cdo -f nc timmean -selvar,var779 $ifile scr_moc_pac.nc
 else
-  cdo -f nc selvar,var777 $ifile scr_moc_glb.nc 
+  cdo -f nc timmean -selvar,var777 $ifile scr_moc_glb.nc 
   cdo -div scr_moc_glb.nc -selname,var777 $maskfile tmp.nc
   mv tmp.nc scr_moc_glb.nc
 
-  cdo -f nc selvar,var778 $ifile scr_moc_atl.nc
+  cdo -f nc timmean -selvar,var778 $ifile scr_moc_atl.nc
   cdo -div scr_moc_atl.nc -selname,var778 $maskfile tmp.nc
   mv tmp.nc scr_moc_atl.nc
 
-  cdo -f nc selvar,var779 $ifile scr_moc_pac.nc
+  cdo -f nc timmean -selvar,var779 $ifile scr_moc_pac.nc
   cdo -div scr_moc_pac.nc -selname,var779 $maskfile tmp.nc
   mv tmp.nc scr_moc_pac.nc
 fi

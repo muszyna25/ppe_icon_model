@@ -147,14 +147,14 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
   USE mo_nonhydro_types,           ONLY: t_nh_state
+  USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap
-  USE mtime,                       ONLY: mtime_datetime => datetime, newDatetime,                  &
-    &                                    deallocateDatetime,                                       &
-    &                                    PROLEPTIC_GREGORIAN, setCalendar,                         &
-    &                                    timedelta, newTimedelta, deallocateTimedelta,             &
-    &                                    MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,         ONLY: getTimeDeltaFromDateTime, get_datetime_string
-
+  USE mtime,                       ONLY: datetime, newDatetime,                        &
+       &                                 deallocateDatetime,                           &
+       &                                 PROLEPTIC_GREGORIAN, setCalendar,             &
+       &                                 timedelta, newTimedelta, deallocateTimedelta, &
+       &                                 MAX_DATETIME_STR_LEN, OPERATOR(-)
+  USE mo_mtime_extensions,         ONLY: get_datetime_string
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -206,7 +206,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE prepare_nh_integration
 !
-  INTEGER :: ntl
+  INTEGER :: ntl, jg
 
 !-----------------------------------------------------------------------
 
@@ -232,6 +232,14 @@ MODULE mo_nh_stepping
     CALL setup_time_ctrl_physics( )
   END IF
 
+  ! init LES
+  DO jg = 1 , n_dom
+   IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
+     CALL init_les_phy_interface(jg, p_patch(jg), p_int_state(jg), &
+       p_nh_state(jg)%metrics)
+   END IF
+  END DO
+
   END SUBROUTINE prepare_nh_integration
   !-------------------------------------------------------------------------
 
@@ -244,9 +252,9 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (datetime)
+  SUBROUTINE perform_nh_stepping (datetime_current)
 !
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime  ! current datetime
+  TYPE(t_datetime), INTENT(INOUT)      :: datetime_current  ! current datetime
   TYPE(t_simulation_status)            :: simulation_status
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -279,7 +287,7 @@ MODULE mo_nh_stepping
       ENDIF
       timeshift%dt_shift = REAL(zdt_shift,wp)
       time_config%sim_time(:) = timeshift%dt_shift
-      CALL add_time(timeshift%dt_shift,0,0,0,datetime)
+      CALL add_time(timeshift%dt_shift,0,0,0,datetime_current)
     ENDIF
   ENDIF
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
@@ -300,7 +308,7 @@ MODULE mo_nh_stepping
   IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
     !  the values from the analysis have to be overwritten
-    CALL set_actual_td_ext_data (.TRUE.,datetime,datetime,sstice_mode,  &
+    CALL set_actual_td_ext_data (.TRUE.,datetime_current,datetime_current,sstice_mode,  &
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF
 
@@ -324,7 +332,7 @@ MODULE mo_nh_stepping
            & phy_params(jg)                         )
 
       IF (.NOT.is_restart_run()) THEN
-        CALL init_cloud_aero_cpl (datetime, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
+        CALL init_cloud_aero_cpl (datetime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
 
     ENDDO
@@ -332,7 +340,7 @@ MODULE mo_nh_stepping
       ! Compute diagnostic physics fields
       CALL aggr_landvars
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
-      CALL init_slowphysics (datetime, 1, dtime, time_config%sim_time)
+      CALL init_slowphysics (datetime_current, 1, dtime, time_config%sim_time)
 
       DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -355,7 +363,7 @@ MODULE mo_nh_stepping
     ENDIF
   CASE (iecham)
     IF (.NOT.is_restart_run()) THEN
-      CALL init_slowphysics (datetime, 1, dtime, time_config%sim_time)
+      CALL init_slowphysics (datetime_current, 1, dtime, time_config%sim_time)
     END IF
   END SELECT ! iforcing
 
@@ -381,7 +389,7 @@ MODULE mo_nh_stepping
     DO jg = 1, n_dom
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
-        CALL meteogram_sample_vars(jg, 0, datetime, ierr)
+        CALL meteogram_sample_vars(jg, 0, datetime_current, ierr)
         IF (ierr /= SUCCESS) THEN
           CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
         ENDIF
@@ -431,7 +439,7 @@ MODULE mo_nh_stepping
 ! !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
 ! !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 ! 
-!     CALL perform_nh_timeloop (datetime, jfile, l_have_output )
+!     CALL perform_nh_timeloop (datetime_current, jfile, l_have_output )
 !     CALL model_end_ompthread()
 ! 
 ! !$OMP SECTION
@@ -443,7 +451,7 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (datetime)
+    CALL perform_nh_timeloop (datetime_current)
 !   ENDIF
 
   CALL deallocate_nh_stepping ()
@@ -483,7 +491,8 @@ MODULE mo_nh_stepping
   INTEGER                              :: kstep   ! step number relative to restart step
   INTEGER                              :: jstep_shift ! start counter for time loop
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
-  TYPE(mtime_datetime),  POINTER       :: mtime_begin, mtime_date
+
+  TYPE(datetime),  POINTER             :: mtime_begin, mtime_date
   TYPE(timedelta), POINTER             :: forecast_delta
   CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_cur_datetime
   CHARACTER(LEN=128)                   :: forecast_delta_str
@@ -589,12 +598,14 @@ MODULE mo_nh_stepping
       CALL get_datetime_string(mtime_sim_start, time_config%ini_datetime)
       mtime_begin    => newDatetime(mtime_sim_start)
       forecast_delta => newTimedelta("P01D")
-      CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+      forecast_delta = mtime_date - mtime_begin
       ! we append the forecast time delta as an ISO 8601 conforming
       ! string (where, for convenience, the 'T' token has been
       ! replaced by a blank character)
-      WRITE (forecast_delta_str,'(4(i2.2,a))') forecast_delta%day, 'D ', forecast_delta%hour, 'H', &
-        &                                      forecast_delta%minute, 'M', forecast_delta%second, 'S'
+      WRITE (forecast_delta_str,'(4(i2.2,a))') forecast_delta%day, 'D ',   &
+           &                                   forecast_delta%hour, 'H',   &
+           &                                   forecast_delta%minute, 'M', &
+           &                                   forecast_delta%second, 'S'
       CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_begin)
       CALL deallocateTimedelta(forecast_delta)
@@ -602,8 +613,6 @@ MODULE mo_nh_stepping
       WRITE(message_text,'(a,i10,a,a,a)') 'TIME STEP n: ', jstep, '      ( ', TRIM(forecast_delta_str), ' )'
       CALL message(TRIM(routine),message_text)
     ENDIF
-
-
 
     ! Update the following surface fields, if a new day is coming
     !
@@ -910,13 +919,13 @@ MODULE mo_nh_stepping
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !!  - optional reduced calling frequency for transport and physics
   !!
-  RECURSIVE SUBROUTINE integrate_nh (datetime, jg, nstep_global,   &
+  RECURSIVE SUBROUTINE integrate_nh (datetime_current, jg, nstep_global,   &
     &                                dt_loc, num_steps )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:integrate_nh'
 
-    TYPE(t_datetime), INTENT(INOUT)         :: datetime
+    TYPE(t_datetime), INTENT(INOUT)         :: datetime_current
 
     INTEGER , INTENT(IN)    :: jg           !< current grid level
     INTEGER , INTENT(IN)    :: nstep_global !< counter of global time step
@@ -1223,7 +1232,7 @@ MODULE mo_nh_stepping
               &      prm_diag(jg),                             &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
-              &      datetime,                                 &!in 
+              &      datetime_current,                         &!in 
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF   
 
@@ -1315,7 +1324,7 @@ MODULE mo_nh_stepping
               &                  t_elapsed_phy(jg,:),                & !in
               &                  time_config%sim_time(jg),           & !in
               &                  nstep_global,                       & !in
-              &                  datetime,                           & !in
+              &                  datetime_current,                   & !in
               &                  p_patch(jg)  ,                      & !in
               &                  p_int_state(jg),                    & !in
               &                  p_nh_state(jg)%metrics ,            & !in
@@ -1346,7 +1355,7 @@ MODULE mo_nh_stepping
                 &                  dt_loc,                             & !in
                 &                  t_elapsed_phy(jg,:),                & !in
                 &                  time_config%sim_time(jg),           & !in
-                &                  datetime,                           & !in
+                &                  datetime_current,                   & !in
                 &                  p_patch(jg)  ,                      & !in
                 &                  p_int_state(jg),                    & !in
                 &                  p_nh_state(jg)%metrics ,            & !in
@@ -1369,7 +1378,7 @@ MODULE mo_nh_stepping
 
               ! echam physics
               CALL interface_iconam_echam( dt_loc                         ,& !in
-                &                          datetime                       ,& !in
+                &                          datetime_current               ,& !in
                 &                          p_patch(jg)                    ,& !in
                 &                          p_int_state(jg)                ,& !in
                 &                          p_nh_state(jg)%metrics         ,& !in
@@ -1429,14 +1438,14 @@ MODULE mo_nh_stepping
             IF (num_prefetch_proc == 1) THEN
 
                ! update the coefficients for the linear interpolation
-               CALL update_lin_interpolation(datetime)
+               CALL update_lin_interpolation(datetime_current)
                CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
                     p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(end_latbc_tlev)%atm,           &
                     p_latbc_new=latbc_data(start_latbc_tlev)%atm)
             ELSE
 
                ! update the coefficients for the linear interpolation
-               CALL update_lin_interc(datetime)
+               CALL update_lin_interc(datetime_current)
                CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
                     p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
                     p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
@@ -1528,7 +1537,7 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( datetime, jgc, nstep_global, dt_sub, nsteps_nest )
+            CALL integrate_nh( datetime_current, jgc, nstep_global, dt_sub, nsteps_nest )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1564,7 +1573,7 @@ MODULE mo_nh_stepping
 
       ! Average atmospheric variables needed as first guess for data assimilation
       !
-      IF ( jg == 1 .AND. is_avgFG_time(datetime))  THEN
+      IF ( jg == 1 .AND. is_avgFG_time(datetime_current))  THEN
         CALL average_first_guess(p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag, &
           p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%prog(nnew_rcf(jg)))
       ENDIF
@@ -1631,7 +1640,8 @@ MODULE mo_nh_stepping
                 & ext_data(jgc)                           ,&
                 & phy_params(jgc), lnest_start=.TRUE.      )
 
-              CALL init_cloud_aero_cpl (datetime, p_patch(jgc), p_nh_state(jgc)%metrics, ext_data(jgc), prm_diag(jgc))
+              CALL init_cloud_aero_cpl (datetime_current, p_patch(jgc), p_nh_state(jgc)%metrics, &
+                &                       ext_data(jgc), prm_diag(jgc))
             ENDIF
 
             CALL compute_airmass(p_patch(jgc),                   &
@@ -1646,7 +1656,7 @@ MODULE mo_nh_stepping
               ENDIF
             ENDIF
 
-            CALL init_slowphysics (datetime, jgc, dt_loc, time_config%sim_time)
+            CALL init_slowphysics (datetime_current, jgc, dt_loc, time_config%sim_time)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',time_config%sim_time(jg)
             CALL message('integrate_nh', TRIM(message_text))
@@ -1842,12 +1852,12 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2013-01-04)
   !!
-  RECURSIVE SUBROUTINE init_slowphysics (datetime, jg, dt_loc, sim_time)
+  RECURSIVE SUBROUTINE init_slowphysics (datetime_current, jg, dt_loc, sim_time)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:init_slowphysics'
 
-    TYPE(t_datetime), INTENT(in)         :: datetime
+    TYPE(t_datetime), INTENT(in)         :: datetime_current
 
     INTEGER , INTENT(IN)    :: jg           !< current grid level
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
@@ -1898,7 +1908,7 @@ MODULE mo_nh_stepping
         &                  dt_phy(jg,:),                       & !in
         &                  time_config%sim_time(jg),           & !in
         &                  nstep,                              & !in
-        &                  datetime,                           & !in
+        &                  datetime_current,                   & !in
         &                  p_patch(jg)  ,                      & !in
         &                  p_int_state(jg),                    & !in
         &                  p_nh_state(jg)%metrics ,            & !in
@@ -1929,7 +1939,7 @@ MODULE mo_nh_stepping
           &                  dt_loc,                             & !in
           &                  dt_phy(jg,:),                       & !in
           &                  time_config%sim_time(jg),           & !in
-          &                  datetime,                           & !in
+          &                  datetime_current,                   & !in
           &                  p_patch(jg)  ,                      & !in
           &                  p_int_state(jg),                    & !in
           &                  p_nh_state(jg)%metrics ,            & !in
@@ -1964,7 +1974,7 @@ MODULE mo_nh_stepping
 
           ! echam physics, slow physics coupling
           CALL interface_iconam_echam( dt_loc                         ,& !in
-            &                          datetime                       ,& !in
+            &                          datetime_current               ,& !in
             &                          p_patch(jg)                    ,& !in
             &                          p_int_state(jg)                ,& !in
             &                          p_nh_state(jg)%metrics         ,& !in
@@ -2008,7 +2018,7 @@ MODULE mo_nh_stepping
 
         IF(p_patch(jgc)%n_patch_cells > 0) THEN
           IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
-          CALL init_slowphysics( datetime, jgc, dt_sub, sim_time)
+          CALL init_slowphysics( datetime_current, jgc, dt_sub, sim_time)
           IF(proc_split) CALL pop_glob_comm()
         ENDIF
 

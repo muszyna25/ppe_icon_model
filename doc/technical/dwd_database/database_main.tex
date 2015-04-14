@@ -361,7 +361,7 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 
 % --------------------------------------------------------------------------------
 \chapter[EU Nest output fields: Forecast runs]{EU Nest output fields:\\ Forecast runs}
-
+\label{nest:chap_forecast_runs}
 \input{./output_GRIB2_nest}
 \input{./cosmo_eu_fields.tex}
 
@@ -416,9 +416,9 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
   \item \st{EU nest, output of wind gusts hourly until 78h, afterwards 3
     hourly:  Output of VMAX\_10M is 3-hourly for $VV>78h$. The
     sampling interval should also be changed to 3h after $VV>78h$.}
-  \item Create two additional timing diagrams like
-    \ref{fig:forecast_length} for the EU nest: One illustration for
-    native grid and one for the regular output grid.
+  \item \st{Create two additional timing diagrams like}
+    \ref{fig:forecast_length_global} \st{for the EU nest: One illustration for
+    native grid and one for the regular output grid.}
   \item Questions for the ICON migration group:
         \begin{itemize}
           \item QR, QS necessary for lon-lat?

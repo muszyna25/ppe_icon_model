@@ -36,6 +36,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_zceff_min => tune_zceff_min, &
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
+    &                               config_tune_entrorg   => tune_entrorg,   &  
     &                               config_itune_albedo   => itune_albedo  
   
   IMPLICIT NONE
@@ -66,6 +67,9 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
+  REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
+    &  tune_entrorg
+
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
                                    ! 1: dimmed Sahara
@@ -73,7 +77,7 @@ MODULE mo_nwp_tuning_nml
 
   NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun, &
     &                      tune_zceff_min, tune_v0snow, tune_zvz0i,  &
-    &                      itune_albedo
+    &                      tune_entrorg, itune_albedo
 
 
 CONTAINS
@@ -113,7 +117,7 @@ CONTAINS
 
     ! Comment: In case we want to draw from a normal distribution, the namelist 
     ! parameters could be extended to arrays of size 2. The first value is the mean, 
-    ! while the second one is the satndard deviation. 
+    ! while the second one is the standard deviation. 
 
     ! SSO tuning
     tune_gkwake     = 1.333_wp     ! original COSMO value 0.5
@@ -125,7 +129,10 @@ CONTAINS
     ! grid scale microphysics
     tune_zceff_min  = 0.075_wp
     tune_v0snow     = 25.0_wp      ! previous ICON value was 20
-    tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29 
+    tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
+    !
+    ! convection
+    tune_entrorg    = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
 
     itune_albedo    = 0            ! original (measured) albedo
 
@@ -178,6 +185,7 @@ CONTAINS
       config_tune_zceff_min = tune_zceff_min 
       config_tune_v0snow    = tune_v0snow
       config_tune_zvz0i     = tune_zvz0i
+      config_tune_entrorg   = tune_entrorg
       config_itune_albedo   = itune_albedo
     ENDDO
 

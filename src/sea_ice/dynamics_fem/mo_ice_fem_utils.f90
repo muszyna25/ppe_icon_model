@@ -33,9 +33,10 @@ MODULE mo_ice_fem_utils
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum
 !    &                               timer_ice_advection, timer_ice_interp
   USE mo_grid_config,         ONLY: n_dom
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec
   USE mo_exception,           ONLY: message
@@ -51,6 +52,7 @@ MODULE mo_ice_fem_utils
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
   USE mo_physical_constants,  ONLY: rhoi, Cd_ia, rho_ref
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
+  USE mo_sea_ice_nml,         ONLY: stress_ice_zero
   USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_util_sort,           ONLY: quicksort
@@ -78,6 +80,9 @@ MODULE mo_ice_fem_utils
   ! These values put the north pole on the Indonesian/Malasian island Kalimantan and the south pole
   ! in north-west Brazil, near the border to Venezuela and Colombia.
   REAL(wp), PARAMETER, PRIVATE :: pollon = 114._wp*deg2rad, pollat = 0._wp
+
+  CHARACTER(len=12)           :: str_module    = 'IceFem'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1         ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -352,6 +357,11 @@ CONTAINS
 
 !    IF (ltimer) CALL timer_stop(timer_ice_interp)
     IF (ltimer) CALL timer_stop(timer_ice_momentum)
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('femIWrap: ice_u' , p_ice%u, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('femIWrap: ice_v' , p_ice%v, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE fem_ice_wrap
 
@@ -1150,19 +1160,29 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 ! Modify oceanic stress
 !--------------------------------------------------------------------------------------------------
+
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, delu, delv, tau) ICON_OMP_DEFAULT_SCHEDULE
+
+  ! wind-stress is either calculated in bulk-formula or from atmosphere via coupling;
+  ! it is stored in stress_xw for open water and stress_x for ice-covered area
+  ! ice velocities are calculated using stress_x in ice dynamics
+  ! difference of ice and ocean velocities determines ocean stress below sea ice
+  ! resulting stress on ocean surface is stored in atmos_fluxes%topBoundCond_windStress_u
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
-      ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does
-      ! not alter drag
-      ! TODO: The ice-ocean drag coefficient should depend on the depth of the upper most ocean
-      ! velocity point: C_d_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
       delu = p_ice%u(jc,jb) - p_os%p_diag%u(jc,1,jb)
       delv = p_ice%v(jc,jb) - p_os%p_diag%v(jc,1,jb)
-
-      ! Should we multiply with concSum here?
-      tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does not alter drag
+      ! TODO: The ice-ocean drag coefficient should depend on the depth of the upper most ocean
+      ! velocity point: C_d_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
+      ! Should we multiply with concSum here? 
+      !tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! #slo# - to avoid stress proportional to concSum**2 it is omitted here
+      tau = density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! set ocean stress below sea ice to zero wrt concentration for forced runs without ice dynamics;
+      ! then ocean gets no stress (no decelleration) below sea ice
+      IF (stress_ice_zero) tau = 0.0_wp
       atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
       atmos_fluxes%topBoundCond_windStress_v(jc,jb) = atmos_fluxes%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
@@ -1171,10 +1191,19 @@ CONTAINS
   ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
+
 !   CALL sync_patch_array_mult(SYNC_C, p_patch, 2, atmos_fluxes%topBoundCond_windStress_u(:,:), &
 !     & atmos_fluxes%topBoundCond_windStress_v(:,:))
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IO-Str: windStr-u', atmos_fluxes%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: stress_xw', atmos_fluxes%stress_xw,                 str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%u'    , p_ice%u,                                str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%concS', p_ice%concSum,                          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: diag%u'   , p_os%p_diag%u,                          str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE ice_ocean_stress
 

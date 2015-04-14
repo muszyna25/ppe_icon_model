@@ -129,7 +129,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .true.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
  radiation_grid_filename = ${radiation_grid_filename}
  dynamics_parent_grid_id = ${dynamics_parent_grid_id}

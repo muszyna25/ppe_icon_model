@@ -56,6 +56,7 @@ MODULE mo_sgs_turbulence
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
+  USE mo_sgs_turbmetric,      ONLY: drive_subgrid_diffusion_m
 
   IMPLICIT NONE
 
@@ -124,7 +125,15 @@ MODULE mo_sgs_turbulence
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
     i_nchdom   = MAX(1,p_patch%n_childdom)
- 
+
+    ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
+    IF (les_config(jg)%les_metric) THEN
+      CALL drive_subgrid_diffusion_m(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+                                     p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
+                                     p_diag_lnd, prm_diag, prm_nwp_tend, dt)
+      RETURN
+    ENDIF
+
    
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v),           &
               v_vert(nproma,nlev,p_patch%nblks_v),           &
@@ -458,7 +467,7 @@ MODULE mo_sgs_turbulence
             D_11       =      2._wp * (vn_vert4-vn_vert3) * &       
                               p_patch%edges%inv_vert_vert_length(je,jb)
 
-            D_12       =     p_patch%edges%system_orientation(je,jb) *  &
+            D_12       =     p_patch%edges%tangent_orientation(je,jb) *  &
                             (vn_vert2-vn_vert1) *                       &
                              p_patch%edges%inv_primal_edge_length(je,jb)&
                              + (vt_vert4-vt_vert3)*                     &
@@ -469,12 +478,12 @@ MODULE mo_sgs_turbulence
                              (w_full_c2 - w_full_c1) *                      &
                               p_patch%edges%inv_dual_edge_length(je,jb)   
 
-            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%system_orientation(je,jb) * &
+            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%tangent_orientation(je,jb) * &
                              p_patch%edges%inv_primal_edge_length(je,jb)
 
             D_23       =    (vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *          &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)  +     &
-                             p_patch%edges%system_orientation(je,jb) *       &
+                             p_patch%edges%tangent_orientation(je,jb) *       &
                             (w_full_v2 - w_full_v1) *                        &
                              p_patch%edges%inv_primal_edge_length(je,jb)   
 
@@ -823,20 +832,20 @@ MODULE mo_sgs_turbulence
          jvn     = ividx(je,jb,2)
          jbn     = ivblk(je,jb,2)
          flux_up_v = 0.5_wp * (visc_smag_iv(jvn,jk,jbn)+visc_smag_iv(jvn,jk+1,jbn)) *     &
-             ( p_patch%edges%system_orientation(je,jb)*(vn_vert2-p_nh_prog%vn(je,jk,jb))* &
+             ( p_patch%edges%tangent_orientation(je,jb)*(vn_vert2-p_nh_prog%vn(je,jk,jb))* &
               p_patch%edges%inv_primal_edge_length(je,jb)*2._wp +                         &
               dvt*p_patch%edges%inv_vert_vert_length(je,jb) )  
 
          jvn     = ividx(je,jb,1)
          jbn     = ivblk(je,jb,1)
          flux_dn_v = 0.5_wp * (visc_smag_iv(jvn,jk,jbn)+visc_smag_iv(jvn,jk+1,jbn)) *     &
-           ( p_patch%edges%system_orientation(je,jb)*(p_nh_prog%vn(je,jk,jb)-vn_vert1) *  &
+           ( p_patch%edges%tangent_orientation(je,jb)*(p_nh_prog%vn(je,jk,jb)-vn_vert1) *  &
              p_patch%edges%inv_primal_edge_length(je,jb)*2._wp +                          &
              dvt*p_patch%edges%inv_vert_vert_length(je,jb) )  
 
 
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
-                        p_patch%edges%system_orientation(je,jb) * (flux_up_v-flux_dn_v)  * &
+                        p_patch%edges%tangent_orientation(je,jb) * (flux_up_v-flux_dn_v)  * &
                         p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp ) * inv_rhoe(je,jk,jb)
 
        END DO
@@ -1367,7 +1376,7 @@ MODULE mo_sgs_turbulence
 
          flux_up_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt2*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
-                     p_patch%edges%system_orientation(je,jb)*(w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
+                     p_patch%edges%tangent_orientation(je,jb)*(w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
                      p_patch%edges%edge_cell_length(je,jb,2) )
 
 
@@ -1383,11 +1392,11 @@ MODULE mo_sgs_turbulence
 
          flux_dn_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt1*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
-                     p_patch%edges%system_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
+                     p_patch%edges%tangent_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
                      p_patch%edges%edge_cell_length(je,jb,1) )
 
          hor_tend(je,jk,jb) = (flux_up_c - flux_dn_c) * p_patch%edges%inv_dual_edge_length(je,jb) + &
-                               p_patch%edges%system_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
+                               p_patch%edges%tangent_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
                                p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp 
 
        END DO

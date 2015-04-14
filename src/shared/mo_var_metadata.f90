@@ -517,9 +517,9 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2014-12-03)
   !! - add optional start and end time arguments
   !!
-  FUNCTION new_action(actionID, intvl, opt_start, opt_end, opt_ref) RESULT(var_action)
+  FUNCTION new_action(actionTyp, intvl, opt_start, opt_end, opt_ref) RESULT(var_action)
 
-    INTEGER                   , INTENT(IN) :: actionID  ! action ID
+    INTEGER                   , INTENT(IN) :: actionTyp ! type of action
     CHARACTER(LEN=*)          , INTENT(IN) :: intvl     ! action interval [ISO_8601]
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_start ! action start time [ISO_8601]
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_end   ! action end time [ISO_8601]
@@ -611,7 +611,7 @@ CONTAINS
 
 
     ! define var_action
-    var_action%actionID   = actionID
+    var_action%actionTyp  = actionTyp
     var_action%intvl      = TRIM(intvl)                ! interval
     var_action%start      = TRIM(start)                ! start
     var_action%end        = TRIM(end)                  ! end

@@ -1425,7 +1425,7 @@ CONTAINS
           DO jk = 1, nlev_c
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
-              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( p_patch(jgp)%edges%tangent_orientation(je,jb) *     &
               ( rot_diff_vn(jk,ievidx(je,jb,2),ievblk(je,jb,2))    &
               - rot_diff_vn(jk,ievidx(je,jb,1),ievblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &
@@ -1440,7 +1440,7 @@ CONTAINS
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
-              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( p_patch(jgp)%edges%tangent_orientation(je,jb) *     &
               ( rot_diff_vn(ievidx(je,jb,2),jk,ievblk(je,jb,2))    &
               - rot_diff_vn(ievidx(je,jb,1),jk,ievblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &

@@ -43,7 +43,7 @@ MODULE mo_cuascn
   USE mo_cuparameters, ONLY: rg   ,rcpd,  retv  ,  &
     &                        rtt   ,rd   , ralfdcp,&
     &                        rtber, rtbercu  ,rticecu   ,&
-    &                        lphylin  ,rlptrc,  entrorg ,&
+    &                        lphylin  ,rlptrc,           &
     &                        entshalp ,rmfcmin,rprcon   ,&
     &                        rmflic   ,rmflia ,rvdifts  ,&
     &                        rmfcmax          ,&
@@ -66,7 +66,7 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & ptsphy,&
+    & entrorg, ptsphy,&
     & paer_ss,&
     & ptenh,    pqenh,   &
     & ptenq,             &
@@ -233,6 +233,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg 
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)
@@ -443,16 +444,16 @@ ENDDO
         zdnoprc(jl) = 0.5E-4_JPRB + 8.75E-13_JPRB * pcloudnum(jl) ! QC autoconversion threshold: 0.065 - 0.35 g/kg ...
         !
         ! Distinction between warm clouds and mixed-phase clouds:
-        ! Increase threshold for cloud depth and QC if cloud top temperature is above -16 C,
+        ! Increase threshold for cloud depth and QC if cloud top temperature is above -19 C,
         ! particularly if the aerosol characteristics are continental
-        zd = MIN(1._jprb,0.166_jprb*MAX(0._jprb,zttop0(jl)-257._jprb))     ! transition starts at about -10 C
+        zd = MIN(1._jprb,0.166_jprb*MAX(0._jprb,zttop0(jl)-254._jprb))     ! transition starts at about -13 C
         zc = MIN(2._jprb,1.e-8_jprb*MAX(0._jprb,pcloudnum(jl)-25.e6_jprb)) ! maximum is reached for a cloud number density of 225e6/m**3
-        zdrain(jl)  = zdrain(jl)  + zc*zd*7.5e3_jprb    ! enhancement by at most 150 hPa
-        zdnoprc(jl) = zdnoprc(jl) + zc*zd*0.75e-4_jprb  ! enhancement by at most 0.15 g/kg
+        zdrain(jl)  = zdrain(jl)  + zc*zd*1.0e4_jprb    ! enhancement by at most 200 hPa
+        zdnoprc(jl) = zdnoprc(jl) + zc*zd*1.25e-4_jprb  ! enhancement by at most 0.25 g/kg
       ENDDO
       DO jl=kidia,kfdia
         IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
-          zdrain(jl)  = MIN(0.4E4_JPRB,  zdrain(jl) ) ! ... but over ocean at most 40 hPa
+          zdrain(jl)  = MIN(0.5E4_JPRB,  zdrain(jl) ) ! ... but over ocean at most 50 hPa
           zdnoprc(jl) = MIN(2.5e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.25 g/kg
         ENDIF
       ENDDO
