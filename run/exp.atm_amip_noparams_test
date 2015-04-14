@@ -338,7 +338,8 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc'
+ ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho',
+                    'zg','zghalf','pfull','phalf','dpres_mc'
 /
 EOF
 fi
