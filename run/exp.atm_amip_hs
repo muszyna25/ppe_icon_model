@@ -210,7 +210,9 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
-                    'sic'     , 'sit'     , 'alb'     ,
+                    'sic'     , 'sit'     ,
+                    'swvis', 'swnir',
+                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
@@ -243,12 +245,13 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
-                    'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
-                    'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'albedo_srf', 't_air', 'q_air',
+                    'lw_srf_down', 'swnir_srf_down', 'swpar_srf_down', 'swvis_srf_down',
+                    'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
                     'evapotrans', 'sensible_hflx', 'latent_hflx' 
                     'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
                     't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
-                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
                     'tte_corr', 'rough_m_srf', 'rough_h_srf'
 /

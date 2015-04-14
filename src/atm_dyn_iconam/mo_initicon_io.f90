@@ -56,7 +56,7 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
     &                               ntiles_water, lmulti_snow
-  USE mo_master_nml,          ONLY: model_base_dir
+  USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
@@ -133,7 +133,7 @@ MODULE mo_initicon_io
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         jlev = p_patch(jg)%level
         ! generate file name
-        dwdfg_file(jg) = generate_filename(dwdfg_filename, model_base_dir, nroot, jlev, jg)
+        dwdfg_file(jg) = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, jlev, jg)
         INQUIRE (FILE=dwdfg_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
@@ -185,7 +185,7 @@ MODULE mo_initicon_io
           IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
           jlev = p_patch(jg)%level
           ! generate file name
-          dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, nroot, jlev, jg)
+          dwdana_file(jg) = generate_filename(dwdana_filename, getModelBaseDir(), nroot, jlev, jg)
           INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
           IF (.NOT.l_exist) THEN
             CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
@@ -460,7 +460,7 @@ MODULE mo_initicon_io
       !
       ! generate file name
       !
-      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
 
@@ -800,7 +800,7 @@ MODULE mo_initicon_io
       !
       ! generate file name
       !
-      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
       ! Read in data from IFS2ICON

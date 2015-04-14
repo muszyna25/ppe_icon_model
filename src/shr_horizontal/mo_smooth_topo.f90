@@ -112,7 +112,7 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
                            i_startidx, i_endidx, 2)
 
-        DO il=1,p_patch%cell_type
+        DO il=1,p_patch%geometry_info%cell_type
           DO jc = i_startidx, i_endidx
             z_hdiffmax(jc,jb) = MAX(z_hdiffmax(jc,jb), ABS(z_topo(jc,1,jb) - &
               &  z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1,              &
@@ -134,7 +134,7 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
                            i_startidx, i_endidx, 3)
 
-        DO il=1,p_patch%cell_type
+        DO il=1,p_patch%geometry_info%cell_type
           DO jc = i_startidx, i_endidx
             IF (z_hdiffmax(p_patch%cells%neighbor_idx(jc,jb,il),                   &
                 p_patch%cells%neighbor_blk(jc,jb,il)) > z_heightdiff_threshold) THEN
@@ -183,7 +183,7 @@ CONTAINS
           zmaxtop = z_topo(p_patch%cells%neighbor_idx(jc,jb,1),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,1))
           zmintop = zmaxtop
-          DO il=2,p_patch%cell_type
+          DO il=2,p_patch%geometry_info%cell_type
 
             IF ( z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,il)) > &
@@ -244,7 +244,7 @@ CONTAINS
           zmaxtop = z_topo(p_patch%cells%neighbor_idx(jc,jb,1),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,1))
           zmintop = zmaxtop
-          DO il=2,p_patch%cell_type
+          DO il=2,p_patch%geometry_info%cell_type
 
             IF ( z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,il)) > &

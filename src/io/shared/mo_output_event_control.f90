@@ -24,7 +24,7 @@ MODULE mo_output_event_control
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_kind,               ONLY: wp, i4, i8
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
     &                              MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
     &                              datetime, setCalendar, resetCalendar,                &
@@ -315,7 +315,7 @@ CONTAINS
       ! otherwise, generate filename
       !
       ! define keywords:
-      CALL associate_keyword("<path>",            TRIM(model_base_dir),                                     keywords)
+      CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),                                  keywords)
       CALL associate_keyword("<output_filename>", TRIM(fname_metadata%filename_pref),                       keywords)
       CALL associate_keyword("<physdom>",         TRIM(int2string(fname_metadata%phys_patch_id, "(i2.2)")), keywords)
       CALL associate_keyword("<levtype>",         TRIM(lev_type_str(fname_metadata%ilev_type)),             keywords)

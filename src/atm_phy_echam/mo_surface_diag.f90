@@ -32,7 +32,7 @@ CONTAINS
                            & kproma, kbdim, klev, ksfc_type,       &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
-                           & pcptv_tile, ptsfc_tile, pqsat_tile,   &! in
+                           & pcptv_tile, pqsat_tile,               &! in
                            & pca, pcs, bb_btm,                     &! in
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
@@ -51,7 +51,6 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pcfh_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pfac_sfc  (kbdim)
     REAL(wp),INTENT(IN) :: pcptv_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: ptsfc_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pca       (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pcs       (kbdim,ksfc_type)

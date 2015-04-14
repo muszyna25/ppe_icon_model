@@ -76,7 +76,7 @@ MODULE mo_ext_data_state
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE
   USE mo_var_metadata,       ONLY: create_hor_interp_metadata,  &
     &                              post_op, groups
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_io_config,          ONLY: default_read_method
@@ -1597,7 +1597,7 @@ CONTAINS
     IF (my_process_is_stdio()) THEN
       ! generate file name
       extpar_file = generate_filename(extpar_filename,                   &
-        &                             model_base_dir,                    &
+        &                             getModelBaseDir(),                 &
         &                             TRIM(p_patch(jg)%grid_filename))
       CALL message(routine, "extpar_file = "//TRIM(extpar_file))
 
@@ -2451,7 +2451,7 @@ CONTAINS
         DO im=1,12
 
          sst_td_file= generate_td_filename(sst_td_filename,                &
-           &                             model_base_dir,                   &
+           &                             getModelBaseDir(),                &
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 
@@ -2473,7 +2473,7 @@ CONTAINS
          CALL closeFile(stream_id)
 
          ci_td_file= generate_td_filename(ci_td_filename,                  &
-           &                             model_base_dir,                   &
+           &                             getModelBaseDir(),                &
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 

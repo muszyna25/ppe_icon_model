@@ -386,7 +386,7 @@ DO jb = i_startblk, i_endblk
       !
       ! compute the tangential derivative
       ! by the finite difference approximation
-      iorient = ptr_patch%edges%system_orientation(je,jb)
+      iorient = ptr_patch%edges%tangent_orientation(je,jb)
       grad_tang_psi_e(je,jk,jb) = iorient  &
         &  * ( psi_v(ilv2(je),jk,ibv2(je)) - psi_v(ilv1(je),jk,ibv1(je)) )  &
         &    / ptr_patch%edges%primal_edge_length(je,jb)

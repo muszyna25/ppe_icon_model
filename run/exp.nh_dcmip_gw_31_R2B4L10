@@ -86,7 +86,7 @@ cat > ${atmo_namelist} << EOF
  n_ghost_rows       = 1
 /
 &grid_nml
- cell_type = 3                ! triangular cells
+ ! cell_type is not used = 3                ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  grid_rescale_factor = 0.008  ! 1/X
 / 

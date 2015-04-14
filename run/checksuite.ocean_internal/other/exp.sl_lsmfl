@@ -128,7 +128,7 @@ cat > ${ocean_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
 /
 &run_nml

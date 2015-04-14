@@ -72,7 +72,7 @@ MODULE mo_name_list_output
     &                                     print_timer
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
-  USE mo_master_nml,                ONLY: model_base_dir
+  USE mo_master_config,             ONLY: getModelBaseDir
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
@@ -512,7 +512,7 @@ CONTAINS
     CALL deallocateTimedelta(forecast_delta)
 
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(model_base_dir),            keywords)
+    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
     rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))
@@ -627,8 +627,8 @@ CONTAINS
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
-      IF(info%used_dimensions(1) /= nproma) &
-        CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
+    ! IF(info%used_dimensions(1) /= nproma) &
+    !   CALL finish(routine,'1st dim is not nproma: '//TRIM(info%name))
 
       idata_type = iUNKNOWN
 
@@ -675,8 +675,17 @@ CONTAINS
 
       SELECT CASE (info%ndims)
       CASE (1)
-        CALL message(routine, info%name)
-        CALL finish(routine,'1d arrays not handled yet.')
+        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
+        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
+
+        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+          r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+          i_ptr(:,1,1) = of%var_desc(iv)%i_ptr(:,1,1,1,1)
+        ELSE
+          CALL finish(routine, "Internal error!")
+        ENDIF
+        
       CASE (2)
         ! 2D fields: Make a 3D copy of the array
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
@@ -735,7 +744,7 @@ CONTAINS
       END IF
 
       var_ignore_level_selection = .FALSE.
-      IF(info%ndims == 2) THEN
+      IF(info%ndims < 3) THEN
         nlevs = 1
       ELSE
         ! handle the case that a few levels have been selected out of
@@ -776,6 +785,7 @@ CONTAINS
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri  => patch_info(i_dom)%cells
         p_pat => patch_info(i_dom)%p_pat_c
+      CASE (GRID_LONLAT)
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri  => patch_info(i_dom)%edges
         p_pat => patch_info(i_dom)%p_pat_e
@@ -794,7 +804,11 @@ CONTAINS
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
-        n_points = p_ri%n_glb
+        IF (info%hgrid == GRID_LONLAT) THEN
+          n_points = 1
+        ELSE
+          n_points = p_ri%n_glb
+        END IF
 
         IF (idata_type == iREAL) THEN
           ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
@@ -842,35 +856,46 @@ CONTAINS
           !
           ! gather the array on stdio PE and write it out there
 
-          IF (idata_type == iREAL) THEN
-
-            r_out_wp(:) = 0._wp
-
-            lev_idx = lev
-            ! handle the case that a few levels have been selected out of
-            ! the total number of levels:
-            IF (      ASSOCIATED(of%level_selection)   .AND. &
-              & (.NOT. var_ignore_level_selection)     .AND. &
-              & (info%ndims > 2)) THEN
-              lev_idx = of%level_selection%global_idx(lev_idx)
+          IF ( n_points == 1 ) THEN
+            IF (my_process_is_mpi_workroot()) THEN
+              !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
+              IF      (idata_type == iREAL ) THEN
+                r_out_dp(:)  = r_ptr(:,1,1)
+              ELSE IF (idata_type == iINTEGER) THEN
+                r_out_int(:) = i_ptr(:,1,1)
+              END IF
             END IF
-            CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
-          
-          ELSE IF (idata_type == iINTEGER) THEN
+          ELSE ! n_points
+            IF (idata_type == iREAL) THEN
 
-            r_out_int(:) = 0
+              r_out_wp(:)  = 0._wp
 
-            lev_idx = lev
-            ! handle the case that a few levels have been selected out of
-            ! the total number of levels:
-            IF (      ASSOCIATED(of%level_selection)   .AND. &
-              & (.NOT. var_ignore_level_selection)     .AND. &
-              & (info%ndims > 2)) THEN
-              lev_idx = of%level_selection%global_idx(lev_idx)
+              lev_idx = lev
+              ! handle the case that a few levels have been selected out of
+              ! the total number of levels:
+              IF (      ASSOCIATED(of%level_selection)   .AND. &
+                & (.NOT. var_ignore_level_selection)     .AND. &
+                & (info%ndims > 2)) THEN
+                lev_idx = of%level_selection%global_idx(lev_idx)
+              END IF
+              CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
+            
+            ELSE IF (idata_type == iINTEGER) THEN
+
+              r_out_int(:) = 0
+
+              lev_idx = lev
+              ! handle the case that a few levels have been selected out of
+              ! the total number of levels:
+              IF (      ASSOCIATED(of%level_selection)   .AND. &
+                & (.NOT. var_ignore_level_selection)     .AND. &
+                & (info%ndims > 2)) THEN
+                lev_idx = of%level_selection%global_idx(lev_idx)
+              END IF
+              CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
+
             END IF
-            CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
-
-          END IF
+          END IF ! n_points
 
           IF(my_process_is_mpi_workroot()) THEN
 

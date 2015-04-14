@@ -38,7 +38,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_nml,                        ONLY: model_base_dir
+  USE mo_master_config,                     ONLY: getModelBaseDir
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
@@ -441,7 +441,7 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
@@ -2272,6 +2272,15 @@ CONTAINS
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
 
+      ! Single point grid for monitoring
+      of%cdiSingleGridID = gridCreate(GRID_LONLAT, 1)
+      !
+      CALL griddefxsize(of%cdiSingleGridID, 1)                                                                         
+      CALL griddefysize(of%cdiSingleGridID, 1)
+      CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
+      CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
+
+
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -2438,6 +2447,8 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE(GRID_UNSTRUCTURED_CELL)
         info%cdiGridID = of%cdiCellGridID
+      CASE(GRID_LONLAT)
+        info%cdiGridID = of%cdiSingleGridID
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = of%cdiVertGridID
       CASE(GRID_UNSTRUCTURED_EDGE)

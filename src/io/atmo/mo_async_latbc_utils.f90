@@ -88,7 +88,7 @@
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
-    USE mo_master_nml,          ONLY: lrestart
+    USE mo_master_config,       ONLY: isRestart
     USE mo_run_config,          ONLY: nsteps, dtime
 
     IMPLICIT NONE
@@ -342,7 +342,7 @@
       ! the data from the new date time of restart file. Below the time at which
       ! restart file starts is calculated and added to mtime_read which is the
       ! time step for reading the boundary data
-      IF(lrestart) THEN
+      IF(isRestart()) THEN
          mtime_current => newDatetime(TRIM(sim_cur_read))
          delta_tstep => newTimedelta(latbc_config%dt_latbc)
          delta_tstep = mtime_read - mtime_current
