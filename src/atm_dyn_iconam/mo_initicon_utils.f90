@@ -94,6 +94,7 @@ MODULE mo_initicon_utils
   PUBLIC :: deallocate_extana_atm 
   PUBLIC :: deallocate_extana_sfc
   PUBLIC :: average_first_guess
+  PUBLIC :: reinit_average_first_guess
   PUBLIC :: fill_tile_points
 
   CONTAINS
@@ -1138,90 +1139,7 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE copy_initicon2prog_atm
 
-!!$  !> !!!!!!! OBSOLETE !!!!!!!!
-!!$  !! SUBROUTINE average_first_guess_obsolete
-!!$  !! Averages atmospheric variables needed as first guess for data assimilation 
-!!$  !!
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! Initial version by Guenther Zaengl, DWD(2014-11-24)
-!!$  !!
-!!$  !!
-!!$  SUBROUTINE average_first_guess_obsolete(p_patch, p_int, p_diag, p_prog_dyn, p_prog, lreset, lfinalize)
-!!$
-!!$    TYPE(t_patch),          INTENT(IN) :: p_patch
-!!$    TYPE(t_int_state),      INTENT(IN) :: p_int
-!!$
-!!$    TYPE(t_nh_diag),     INTENT(INOUT) :: p_diag
-!!$    TYPE(t_nh_prog),     INTENT(INOUT) :: p_prog_dyn, p_prog
-!!$
-!!$    LOGICAL, INTENT(IN)  :: lreset, lfinalize
-!!$
-!!$    INTEGER :: jb, jk, jc
-!!$    INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-!!$    REAL(wp) :: r_nsteps
-!!$
-!!$    CALL rbf_vec_interpol_cell(p_prog_dyn%vn, p_patch, p_int, p_diag%u, p_diag%v, &
-!!$                               opt_rlend=min_rlcell_int)
-!!$
-!!$    nlev = p_patch%nlev
-!!$
-!!$    rl_start = 1
-!!$    rl_end   = min_rlcell_int
-!!$
-!!$    i_startblk = p_patch%cells%start_block(rl_start)
-!!$    i_endblk   = p_patch%cells%end_block(rl_end)
-!!$
-!!$!$OMP PARALLEL
-!!$!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,r_nsteps)
-!!$    DO jb = i_startblk, i_endblk
-!!$
-!!$      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-!!$
-!!$      IF (lreset) THEN ! to be called immediately after writing averaged output
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_diag%u_avg(jc,jk,jb)    = 0._wp
-!!$            p_diag%v_avg(jc,jk,jb)    = 0._wp
-!!$            p_diag%temp_avg(jc,jk,jb) = 0._wp
-!!$            p_diag%pres_avg(jc,jk,jb) = 0._wp
-!!$            p_diag%qv_avg(jc,jk,jb)   = 0._wp
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      IF (lfinalize) THEN ! divide accumulated fields by number of time steps - 
-!!$                          ! to be called immediately before writing output
-!!$        r_nsteps = 1._wp/REAL(p_diag%nsteps_avg,wp)
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_diag%u_avg(jc,jk,jb)    = r_nsteps*p_diag%u_avg(jc,jk,jb)
-!!$            p_diag%v_avg(jc,jk,jb)    = r_nsteps*p_diag%v_avg(jc,jk,jb)
-!!$            p_diag%temp_avg(jc,jk,jb) = r_nsteps*p_diag%temp_avg(jc,jk,jb)
-!!$            p_diag%pres_avg(jc,jk,jb) = r_nsteps*p_diag%pres_avg(jc,jk,jb)
-!!$            p_diag%qv_avg(jc,jk,jb)   = r_nsteps*p_diag%qv_avg(jc,jk,jb)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ELSE   ! accumulate variables - to be called after physics interface
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_diag%u_avg(jc,jk,jb)    = p_diag%u_avg(jc,jk,jb)    + p_diag%u(jc,jk,jb)
-!!$            p_diag%v_avg(jc,jk,jb)    = p_diag%v_avg(jc,jk,jb)    + p_diag%v(jc,jk,jb) 
-!!$            p_diag%temp_avg(jc,jk,jb) = p_diag%temp_avg(jc,jk,jb) + p_diag%temp(jc,jk,jb)
-!!$            p_diag%pres_avg(jc,jk,jb) = p_diag%pres_avg(jc,jk,jb) + p_diag%pres(jc,jk,jb)
-!!$            p_diag%qv_avg(jc,jk,jb)   = p_diag%qv_avg(jc,jk,jb)   + p_prog%tracer(jc,jk,jb,iqv)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$    ENDDO
-!!$!$OMP END DO
-!!$!$OMP END PARALLEL
-!!$
-!!$    IF (lreset) p_diag%nsteps_avg = 0
-!!$    IF (.NOT. lfinalize) p_diag%nsteps_avg = p_diag%nsteps_avg + 1
-!!$
-!!$  END SUBROUTINE average_first_guess_obsolete
+
 
 
   !>
@@ -1247,8 +1165,8 @@ MODULE mo_initicon_utils
     INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
     REAL(wp):: wgt                     ! time average weight
 
+    CHARACTER(len=*), PARAMETER     :: routine = modname//':average_first_guess'
     !------------------------------------------------------------------------------
-
 
     CALL rbf_vec_interpol_cell(p_prog_dyn%vn, p_patch, p_int, p_diag%u, p_diag%v, &
                                opt_rlend=min_rlcell_int)
@@ -1263,7 +1181,6 @@ MODULE mo_initicon_utils
 
 
     p_diag%nsteps_avg = p_diag%nsteps_avg + 1
-
 
     ! compute weight
     wgt = 1._wp/REAL(p_diag%nsteps_avg(1),wp)
@@ -1298,7 +1215,78 @@ MODULE mo_initicon_utils
 !$OMP END DO
 !$OMP END PARALLEL
 
+
+    ! debug output
+    IF(my_process_is_stdio() .AND. msg_level>=13) THEN
+      WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
+      CALL message(TRIM(routine), TRIM(message_text))
+    ENDIF
+
   END SUBROUTINE average_first_guess
+
+
+  !>
+  !! SUBROUTINE reinit_average_first_guess
+  !! Re-Initialization routine for SUBROUTINE average_first_guess.
+  !! Ensures that the average is centered in time. 
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD (2015-02-10)
+  !!
+  !!
+  SUBROUTINE reinit_average_first_guess(p_patch, p_diag, p_prog)
+
+    TYPE(t_patch),       INTENT(IN)    :: p_patch
+
+    TYPE(t_nh_diag),     INTENT(INOUT) :: p_diag
+    TYPE(t_nh_prog),     INTENT(IN)    :: p_prog
+
+    INTEGER :: jb, jk, jc
+    INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+
+    CHARACTER(len=*), PARAMETER     :: routine = modname//':reinit_average_first_guess'
+
+    !------------------------------------------------------------------------------
+
+    nlev = p_patch%nlev
+
+    rl_start = 1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          p_diag%u_avg(jc,jk,jb)    = p_diag%u(jc,jk,jb)
+          p_diag%v_avg(jc,jk,jb)    = p_diag%v(jc,jk,jb)
+          p_diag%temp_avg(jc,jk,jb) = p_diag%temp(jc,jk,jb)
+          p_diag%pres_avg(jc,jk,jb) = p_diag%pres(jc,jk,jb)
+          p_diag%qv_avg(jc,jk,jb)   = p_prog%tracer(jc,jk,jb,iqv)
+        ENDDO
+      ENDDO
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    p_diag%nsteps_avg = 1
+
+    ! debug output
+    IF(my_process_is_stdio() .AND. msg_level>=13) THEN
+      WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
+      CALL message(TRIM(routine), TRIM(message_text))
+    ENDIF
+
+  END SUBROUTINE reinit_average_first_guess
+
 
 
   !-------------

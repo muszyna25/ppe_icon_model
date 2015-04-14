@@ -39,7 +39,7 @@
 
 config_target=mpimac
 config_compiler=gcc
-load_modules=""
+load_modules=
 
 MPIROOT     = /opt/local
 MPI_LIB     = -lmpifort -lmpi -lpmpi
@@ -57,7 +57,8 @@ HDF5_LIB    = -lhdf5_hl -lhdf5
 NETCDF_LIB  = -lnetcdff -lnetcdf
 LAPACK_LIB  =
 
-LIBS        = -L../lib -lsupport -lcurl
+LIBS        = -L../lib -lsupport $LIBS
+OTHER_LIBS  = -lcurl $OTHER_LIBS
 
 FCPP        = -cpp
 FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132

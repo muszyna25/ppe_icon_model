@@ -1339,7 +1339,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'freshsnow', p_diag_lnd%freshsnow,     &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in",&
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_ana_in",&
            &                 "mode_combined_in","mode_cosmode_in") )
 
 
@@ -1482,31 +1482,6 @@ MODULE mo_nwp_lnd_state
            &                 "multisnow_vars","snow_vars"))
 
     ENDIF  ! lmulti_snow
-
-
-
-    !!! OBSOLETE ? !!!
-    ! & p_diag_lnd%w_snow_eff_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('w_snow_eff_t', '- ', 'effective snow-water equivalent', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'w_snow_eff_t', p_diag_lnd%w_snow_eff_t, &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
-
-    ! fill the separate variables belonging to the container snowfrac
-    ALLOCATE(p_diag_lnd%w_snow_eff_ptr(ntiles_total))
-    DO jsfc = 1,ntiles_total
-      WRITE(csfc,'(i2)') jsfc 
-      CALL add_ref( diag_list, vname_prefix//'w_snow_eff_t',                  &
-               & vname_prefix//'w_snow_eff_t_'//ADJUSTL(TRIM(csfc)),          &
-               & p_diag_lnd%w_snow_eff_ptr(jsfc)%p_2d,                        &
-               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-               & t_cf_var('w_snow_eff_t_'//csfc, '', '', DATATYPE_FLT32),     &
-               & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d, lrestart=.FALSE. )
-    END DO
-
-
 
     ENDIF  ! inwp_surface > 0
 
