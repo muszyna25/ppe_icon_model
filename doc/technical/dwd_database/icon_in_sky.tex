@@ -1,5 +1,8 @@
 \svnInfo $Id$
-\chapter{ICON data in the SKY data bases of DWD}
+% --------------------------------------------------------------------------------
+\chapter[ICON data in the SKY data bases of DWD]{ICON data in the\\SKY data bases of DWD}
+\label{section:icon_in_sky}
+% --------------------------------------------------------------------------------
 
 
 GRIB data of the numerical weather prediction models are stored in the data base
@@ -36,15 +39,20 @@ following values:
                      \textbf{const} for invariant data.
  \item \textbf{type}: \textbf{an} for analysis data,
                       \textbf{fc} for forecast data.
- \item \textbf{suite}: \textbf{rout} for operational data in \emph{db=roma,}
-                       \textbf{para} for pre-operational data in \emph{db=parma},
-                       \textbf{exp} or \textbf{exp1} for data from experiments in
+ \item \textbf{suite}: 
+       \begin{itemize}
+         \item \textbf{rout} for operational data in \emph{db=roma,}
+         \item \textbf{para} or \textbf{para1} for pre-operational data in \emph{db=parma},
+                       The category extension para1 denotes the data with EU nest
+                       (starting at 12 UTC, 2015032612).
+         \item \textbf{exp} or \textbf{exp1} for data from experiments in
                        \emph{db=numex}. The category extension exp1 is used for
                        experiments of the NUMEX wizard, a special NUMEX user.
 
                        Data from experiments is additionally
                        identified by the parameter \emph{exp=}$NUM$ where $NUM$ is
                        the experiment number.
+       \end{itemize}
 \end{itemize}
 
 The categories for ICON start with the string \textbf{ico} for ICON data on the native
@@ -61,9 +69,17 @@ Hence, the full category name for data from an operational forecast run of ICON 
 regular grid will be \textbf{icrgl130l90\_main\_fc\_rout}. The initial analysis for this
 run is in category \textbf{icogl130l90\_main\_an\_rout}.
 
+\begin{note}
 Since 2014-08-12 12 UTC ICON is running pre-operationally at DWD. Hence, forecast data
 is available in the sky database \textbf{db=parma} in categories
 \textbf{icogl130l90\_main\_fc\_para} and \textbf{icrgl130l90\_main\_fc\_para}.
+\end{note}
+
+\begin{note}
+Since 2015-01-20 06 UTC the \emph{global} ICON model is running operationally at DWD.
+Forecast data is available in the sky database \textbf{db=roma} in categories
+\textbf{icogl130l90\_main\_fc\_rout} and \textbf{icrgl130l90\_main\_fc\_rout}.
+\end{note}
 
 \section{Retrieving ICON data from SKY}\label{sec_example}
 
@@ -76,12 +92,12 @@ and f the name of the GRIB data file.
  for forecast hours 3 to 78 every 3 hours of today's run at 00 UTC
  on the global domain from an ICON run on a R3B07 grid with 90 levels to file icon2mdat
 \begin{skydb}
- read db=parma cat=icrgl130l90_main_fc_para d=t00 s[h]=3/to/78/by/3 p=t_2m,td_2m bin f=icon2mdat
+ read db=roma cat=icrgl130l90_main_fc_rout d=t00 s[h]=3/to/78/by/3 p=t_2m,td_2m bin f=icon2mdat
 \end{skydb}
 
 \item Retrieve the analysis of T on the native grid from yesterday 18 UTC:
 \begin{skydb}
-read db=parma cat=icogl130l90_main_an_para d=t18-1d p=T gptype=0 bin f=t_icon_ana
+read db=roma cat=icogl130l90_main_an_rout d=t18-1d p=T gptype=0 bin f=t_icon_ana
 \end{skydb}
 
 \item Retrieve the 6, 12, 18, and 24 hour forecast of the 2m temperature from a forecast
@@ -111,10 +127,11 @@ read db=numex cat=icogl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=7/to/9 p=T 
 \item Retrieve a 6 hour forecast on a regular grid on pressure levels. ICON was run on a 40 km
 grid (R2B06).  Write reference date (d),
 forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), and
-store date (stdat) in information file icr.info
+store date (stdat) in information file icr.info.
 \begin{skydb}
 read db=numex cat=icrgl400l90_main_fc_exp exp=9323 d=2012010100 step[h]=6 lv=P f=icr06p bin info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat sort=d,s,p,lv,lv1 infof=icr.info
 \end{skydb}
+In order to retrieve the same forecast on height levels, the level type must be changed to lv=HMSL.
 
 \item Retrieve temperature in 850 hPa from a forecast on 2013-10-05 at 12 UTC:
 
@@ -127,7 +144,7 @@ Write reference date (d), forecast step (s), level type (lv), value of first lev
 and store date (stdat) in information file icr.info. It is important to set \textbf{invar=true}.
 
 \begin{skydb}
-read db=parma cat=icogl130l90_const_an_para invar=true info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat bin infof=icr.info f=const_icongl
+read db=roma cat=icogl130l90_const_an_rout invar=true info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat bin infof=icr.info f=const_icongl
 \end{skydb}
 
 \end{itemize}

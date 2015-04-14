@@ -35,7 +35,7 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, wgtfac_geobal,    &
     &                               rho_incr_filter_wgt, lread_ana,               &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
@@ -56,6 +56,9 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
+  USE mo_math_gradients,      ONLY: grad_fd_norm
+  USE mo_math_constants,      ONLY: rad2deg
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points,                        &
@@ -360,7 +363,7 @@ MODULE mo_initicon
 
       ! read DWD first guess for atmosphere and store to initicon input state variables
       ! (input data are allowed to have a different number of model levels than the current model grid)
-      CALL read_dwdfg_atm_ii (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+      CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
       ! Perform vertical interpolation from input ICON grid to output ICON grid
       !
@@ -612,7 +615,7 @@ MODULE mo_initicon
 
     ! read horizontally interpolated external (currently IFS) analysis for surface/land
     ! 
-    CALL read_extana_sfc(p_patch, initicon, ext_data)
+    CALL read_extana_sfc(p_patch, initicon)
 
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
@@ -1045,6 +1048,10 @@ MODULE mo_initicon
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr, w_incr
 
+    ! Auxiliaries for artificial geostrophic balancing of pressure increments in the tropical stratosphere
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: gradp, dpdx, dpdy
+    REAL(wp) :: uincgeo, zmc, wfac
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_dwdanainc_atm'
 
@@ -1076,7 +1083,8 @@ MODULE mo_initicon
       ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla4_vn_incr(nproma,nlev,nblks_e),   &
                rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),               &
                mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), z_qsum(nproma,nlev),&
-               STAT=ist)
+               gradp(nproma,nlev,nblks_e), dpdx(nproma,nlev,nblks_c),                  &
+               dpdy(nproma,nlev,nblks_c), STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
       ENDIF
@@ -1090,6 +1098,12 @@ MODULE mo_initicon
       p_metrics      => p_nh_state(jg)%metrics
       iidx           => p_patch(jg)%edges%cell_idx
       iblk           => p_patch(jg)%edges%cell_blk
+
+      IF (wgtfac_geobal > 0._wp) THEN
+        CALL grad_fd_norm(initicon(jg)%atm_inc%pres, p_patch(jg), gradp)
+        CALL rbf_vec_interpol_cell(gradp, p_patch(jg), p_int_state(jg), dpdx, dpdy)
+        CALL sync_patch_array(SYNC_C,p_patch(jg),dpdy) ! dpdx is unused
+      ENDIF
 
       ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
       !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
@@ -1108,7 +1122,7 @@ MODULE mo_initicon
 
 
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,rho_incr_smt,exner_ifc_incr,mass_incr_smt,mass_incr, &
-!$OMP            mass_incr_int,mass_incr_smt_int,z_qsum)
+!$OMP            mass_incr_int,mass_incr_smt_int,z_qsum,uincgeo,zmc,wfac)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1230,6 +1244,35 @@ MODULE mo_initicon
             p_diag%rho_incr(jc,jk,jb) = rho_incr_smt(jc,jk)
           ENDDO
         ENDDO
+
+        ! modify zonal wind increment in order to achieve geostrophic balance with the pressure increment
+        IF (wgtfac_geobal > 0._wp) THEN
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              uincgeo = - dpdy(jc,jk,jb)/(p_prog_now%rho(jc,jk,jb)* &
+                          SIGN(MAX(1.e-5_wp,p_patch(jg)%cells%f_c(jc,jb)),p_patch(jg)%cells%f_c(jc,jb)) )
+              zmc = p_metrics%z_mc(jc,jk,jb)
+              IF (zmc >= 20000._wp .AND. zmc <= 40000._wp) THEN
+                wfac = 1._wp
+              ELSE IF (zmc >= 15000._wp .AND. zmc <= 20000._wp) THEN
+                wfac = (zmc - 15000._wp) / 5000._wp
+              ELSE IF (zmc >= 40000._wp .AND. zmc <= 45000._wp) THEN
+                wfac = (45000._wp -  zmc) / 5000._wp
+              ELSE
+                wfac = 0._wp
+              ENDIF
+              IF (rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat) > 15._wp) THEN
+                wfac = 0._wp
+              ELSE IF (rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat) > 10._wp) THEN
+                wfac = wfac*(15._wp-rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat))/5._wp
+              ELSE IF (rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat) < 5._wp) THEN
+                wfac = wfac*rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat)/5._wp
+              ENDIF
+              wfac = wgtfac_geobal*wfac
+              initicon(jg)%atm_inc%u(jc,jk,jb) = wfac*uincgeo + (1._wp-wfac)*initicon(jg)%atm_inc%u(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1634,12 +1677,12 @@ MODULE mo_initicon
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
+             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%fp_count(jb)
            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 
           ! Compute mask field for land points

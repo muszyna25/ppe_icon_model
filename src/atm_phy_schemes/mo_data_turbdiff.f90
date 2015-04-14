@@ -169,7 +169,7 @@ INTEGER (KIND=iintegers) :: &
 !
     itype_tran   =2,       & ! type of surface-atmosphere transfer
     imode_tran   =0,       & ! mode of surface-atmosphere transfer
-    icldm_tran   =-1,      & ! mode of cloud representation in transfer parametr.
+    icldm_tran   =2,       & ! mode of cloud representation in transfer parametr.
 !
     imode_turb   =1,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
@@ -187,6 +187,7 @@ LOGICAL :: &
     lprfcor      =.FALSE., & ! using the profile values of the lowest main level instead of
                              ! the mean value of the lowest layer for surface flux calulations
     lnonloc      =.FALSE., & ! nonlocal calculation of vertical gradients used for turbul. diff.
+    lfreeslip    =.FALSE., & ! .true.: apply a free-slip lower boundary condition (use for idealized runs only!)
     lcpfluc      =.FALSE., & ! consideration of fluctuations of the heat capacity of air
     lsflcnd      =.TRUE.     ! lower flux condition for vertical diffusion calculation
 !DR    limpltkediff =.TRUE.     ! use semi-implicit TKE diffusion
@@ -237,6 +238,7 @@ LOGICAL :: &
      ltmpcor      = turbdiff_config(jg)%ltmpcor
      lprfcor      = turbdiff_config(jg)%lprfcor
      lnonloc      = turbdiff_config(jg)%lnonloc
+     lfreeslip    = turbdiff_config(jg)%lfreeslip
      lcpfluc      = turbdiff_config(jg)%lcpfluc
      lsflcnd      = turbdiff_config(jg)%lsflcnd
 

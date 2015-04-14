@@ -540,6 +540,8 @@ TYPE t_lon_lat_intp
 
   ! --- Radial Basis Function (RBF) interpolation
 
+  REAL(wp)              :: rbf_scale                  ! RBF shape parameter
+
   REAL(wp), ALLOCATABLE :: rbf_vec_coeff(:,:,:,:)     ! array containing the
                                                       ! coefficients used for
                                                       ! vector rbf interpolation
@@ -625,10 +627,10 @@ END TYPE t_lon_lat_intp
 !> gathering.
 !
 TYPE t_lon_lat_data
-  TYPE(t_lon_lat_grid) :: grid
-  LOGICAL              :: l_dom        (max_dom), &
-    &                     l_initialized(max_dom)
-  TYPE(t_lon_lat_intp) :: intp         (max_dom)
+  TYPE(t_lon_lat_grid)        :: grid
+  LOGICAL                     :: l_dom        (max_dom), &
+    &                            l_initialized(max_dom)
+  TYPE(t_lon_lat_intp)        :: intp         (max_dom)
   TYPE(t_comm_gather_pattern) :: p_pat(max_dom)
 END TYPE t_lon_lat_data
 

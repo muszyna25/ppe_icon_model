@@ -83,7 +83,6 @@ MODULE mo_nonhydro_state
     &                                TSTEP_AVG
   USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
-  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE
 
@@ -2142,7 +2141,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
       ! v_avg   p_diag%v_avg(nproma,nlev,nblks_c)
       !
@@ -2157,7 +2157,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
 
@@ -2174,7 +2175,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! temp_avg   p_diag%temp_avg(nproma,nlev,nblks_c)
@@ -2190,7 +2192,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! qv_avg   p_diag%qv_avg(nproma,nlev,nblks_c)
@@ -2206,7 +2209,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! nsteps_avg  p_diag%nsteps_avg(1)
@@ -2222,7 +2226,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,              &
                   &             TRIM(iso8601_interval_avg_fg),                &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))   )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg), &
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))   )
 
     ENDIF
 
@@ -2410,6 +2415,8 @@ MODULE mo_nonhydro_state
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
+    jg     = p_patch%id
+
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
     IF (gribout_config(p_patch%id)%lgribout_24bit) THEN  ! analysis
@@ -2479,6 +2486,30 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
 #ifndef __MIXED_PRECISION
+    ! slope of the terrain in normal direction (full level)
+    ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+      &                   'terrain slope in normal direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
     ! slope of the terrain in normal direction (half level)
     ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
     !
@@ -2503,16 +2534,6 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in normal direction (full level)
-    ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
-                & isteptype=TSTEP_CONSTANT )
 
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full_c  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
@@ -2575,17 +2596,6 @@ MODULE mo_nonhydro_state
 
 
     ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
-                & isteptype=TSTEP_CONSTANT )
-
-    ! slope of the terrain in tangential direction (full level)
     ! ddxt_z_full_c  p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
@@ -2607,6 +2617,7 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_v, loutput=.TRUE.,                             &
                 & isteptype=TSTEP_CONSTANT )
+    ENDIF
 
 
     ! functional determinant of the metrics [sqrt(gamma)]
@@ -2632,32 +2643,35 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf, loutput=.FALSE.,                         &
                 & isteptype=TSTEP_CONSTANT )
 #else
-    ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
-             p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
-             p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
-             p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
-             p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
-             p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
-             p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
-             p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
+    ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
              p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
-             p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
-             p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v),  &
              p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
              p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
-    p_metrics%ddxn_z_half_e = 0._vp
-    p_metrics%ddxn_z_half_c = 0._vp
     p_metrics%ddxn_z_full   = 0._vp
-    p_metrics%ddxn_z_full_c = 0._vp
-    p_metrics%ddxn_z_full_v = 0._vp
-    p_metrics%ddxt_z_half_e = 0._vp
-    p_metrics%ddxt_z_half_c = 0._vp
-    p_metrics%ddxt_z_half_v = 0._vp
     p_metrics%ddxt_z_full   = 0._vp
-    p_metrics%ddxt_z_full_c = 0._vp
-    p_metrics%ddxt_z_full_v = 0._vp
     p_metrics%ddqz_z_full_e = 0._vp
     p_metrics%ddqz_z_half   = 0._vp
+
+    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+      ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
+               p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
+               p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
+               p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
+               p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
+               p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
+               p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
+               p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
+               p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v) )
+      p_metrics%ddxn_z_half_e = 0._vp
+      p_metrics%ddxn_z_half_c = 0._vp
+      p_metrics%ddxn_z_full_c = 0._vp
+      p_metrics%ddxn_z_full_v = 0._vp
+      p_metrics%ddxt_z_half_e = 0._vp
+      p_metrics%ddxt_z_half_c = 0._vp
+      p_metrics%ddxt_z_half_v = 0._vp
+      p_metrics%ddxt_z_full_c = 0._vp
+      p_metrics%ddxt_z_full_v = 0._vp
+    ENDIF
 #endif
 
 
@@ -3133,7 +3147,6 @@ MODULE mo_nonhydro_state
 
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
-    jg = p_patch%id
     IF(atm_phy_nwp_config(jg)%is_les_phy)THEN
 
       ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
@@ -3156,15 +3169,17 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_e,                                                   &
                   & isteptype=TSTEP_CONSTANT )
 
-      ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
-        &                   'metrics functional determinant', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v,         &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_v, loutput=.TRUE.,                              &
-                  & isteptype=TSTEP_CONSTANT )
+      IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+        ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
+        !
+        cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
+          &                   'metrics functional determinant', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+        CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v,         &
+                    & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+                    & ldims=shape3d_v, loutput=.TRUE.,                              &
+                    & isteptype=TSTEP_CONSTANT )
+      ENDIF
 
       ! inv_ddqz_z_half  p_metrics%inv_ddqz_z_half(nproma,nlevp1,nblks_c)
       !
