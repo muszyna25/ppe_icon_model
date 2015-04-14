@@ -1,133 +1,39 @@
 #!/bin/bash
 #=============================================================================
-#
-# This section of the run script containes the specifications of the ocean experiment.
-# The specifications are passed by namelist to the program.
-# For a complete list see Namelist_overview.pdf
-#
-# Default EXPNAME is the suffix of this script after "exp."
-#
-#-----------------------------------------------------------------------------
-# Basic specifications for the hydrostatic ocean model
-# --------------------------------------
-# Stephan Lorenz, MPI-M, 2011-01 / 2012-03
-#
-#-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
-#
-# These variables are set in the header section of the completed run script:
-#
-# EXPNAME = experiment name
-# NPROMA  = array blocking length / inner loop length
-#-----------------------------------------------------------------------------
-# The following values must be set here as shell variables so that they can be used
-# also in the executing section of the completed run script
-#
 #-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
-#
-#-----------------------------------------------------------------------------
-# global resolution
-R=2   # nroot
-B=2   # number of bisections applied
-#-----------------------------------------------------------------------------
-# ocean initialization, forcing, and grid file location specifics:
-  LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
-# specific path of input data is set by exec.iconrun
-#
-#-----------------------------------------------------------------------------
-# prognostic ocean initialization file must match the vertical levels
-# provide name suffix for vertical resolution
-# number of levels and thickness of surface and bottom layer
-#init_oce_suff='L10_50-1000m.nc'  # 10 levels, 10-1000m varying thickness
-#init_oce_suff='L10x500m.nc'      # 10 levels, 500m each
-#   ts_phc_annual-iconR${R}B0{B}-${init_oce_suff}
-#
-#-----------------------------------------------------------------------------
-# surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
-init_relax=0   # 1: use relaxation initialization file
-# provide name suffix for thickness of surface layer
-#   number of levels and thickness of surface and bottom layer
-#init_rel_suff='50m.nc'  # 50m thickness
-#init_rel_suff='20m.nc'  # 20m thickness
-#   ts_surf_annual-iconR${R}B0{B}-${init_rel_suff}
-#
-grid_ext="etopo40_planet"
-#=============================================================================
-# SETUP FOR mpiom-like INPUT
-#external_interpolation_type="mpiom"
-#init_oce_suff='L20.nc'
-#init_rel_suff='surf.nc'
-#-----------------------------------------------------------------------------
-# SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
-# provide an ocean horizontal grid file
-#grid_ext="etopo40_planet_newgeom"
-#use_gridfile_for_grabbing_externale_data='true'
-#-----------------------------------------------------------------------------
-# SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
-#use_gridfile_for_grabbing_externale_data='true'
-#grid_ext="etopo40_planet_newgeom_noinland"
-#-----------------------------------------------------------------------------
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-if [ $B = "0" ] ; then
-  ocean_grids="ocegridR2B00.nocde.planet.geocc.nc"
-fi
-#=============================================================================
-#-----------------------------------------------------------------------------
-# ocean forcing (iforc=12) needs an additional flux file 
-# NO_FORCING                 = 10
-# ANALYT_FORC                = 11  - dependent on testcase
-# FORCING_FROM_FILE_FLUX     = 12  - OMIP or NCEP type forcing
-# FORCING_FROM_FILE_FIELD    = 13  - not yet
-# FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
-# FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=11
-#
-# type of OMIP or NCEP forcing to read (iforc=12 only)
-#  1 = u/v-stress [and temperature relaxation, depending on "type_surfRelax_Temp" below]
-#  2 = use all 12 datasets of full OMIP forcing
-#  3 = u/v-stress [and temperature relaxation], heat and mass flux
-#  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
-forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by forcing_timescale
-#   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
-#   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
-#
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2001-01-03T00:00:00Z"
-#
+start_date="2001-01-01T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"  # test
+# restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 (( years_checkpoint  = 25 ))    # write restart file interval [days]
 (( years_restart     = 25 ))    # stop model for restart [days]
-(( hours_data        =  1 ))    # ocean model output interval hours [hours] - for test runs
-(( days_data         =  1 ))    # ocean model output interval in days
+(( days_data         = 30 ))    # ocean model output interval in days
+(( hours_data        =  6 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
-# calculate model timesteps using $days_data
-zero_hours=""
-zero_days=""
-if [[ $days_data -lt 10 ]] ; then zero_days="0"; fi
-if [[ $hours_data -lt 10 ]] ; then zero_hours="0"; fi
-output_interval="P$zero_days${days_data}D"        # ocean model output interval in days
-output_interval="PT$zero_hours${hours_data}H"
+# calculate model timesteps using $days_data or hours_data
+output_interval="P${days_data}D"                  # ocean model output interval in days
+output_interval="PT${hours_data}H"                # ocean model output interval in hours (alternatively)
 (( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
 (( dt_data        = hours_data        * hour ))   # used for output in hours
 (( dt_checkpoint  = years_checkpoint  * year ))
 (( dt_restart     = years_restart     * year ))
 (( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
-#
+#steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
-# model parameters
-ocean_model_equations=-1     # equation system: -1=hydrost. ocean
-#
-# 
+# global resolution
+iforc=11
+forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+init_relax=0
+ocean_vertical_levels=40
+ocean_grids="iconR2B02-ocean_etopo40_planet.nc"   #  R2B02 global grid and forcing data 
+ocean_grids="ocegridR2B00.nocde.planet.geocc.nc"  #  R2BOO grid, no forcing data
+ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -156,7 +62,7 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "PT0${hours_data}H"
+  output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
@@ -174,6 +80,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 2
+  n_zlev             =   $ocean_vertical_levels
   n_zlev             =  10
   dzlev_m(1:20)      =  20.0,20.0,20.0,30.0,40.0,50.0,100.0,100.0,100.0,100.0
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
@@ -243,9 +150,11 @@ cat > ${ocean_namelist} << EOF
 ! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! i_therm_slo                     =   0       ! 0 (default): old style of thermodynamic sea ice calls (after review)
-  use_IceInitialization_fromTemperature = .false.
 ! use_constant_tfreez             = .TRUE.    ! default: true
-  init_analytic_hi_param          =   0.2
+  leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
+  leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
+  use_IceInitialization_fromTemperature = .false.  ! no automatic sea ice initialization
+  init_analytic_hi_param          =   0.2     ! global sea ice initialization
   init_analytic_hs_param          =   0.1
   init_analytic_conc_param        =   0.4
 /
@@ -261,6 +170,7 @@ cat > ${ocean_namelist} << EOF
   forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 ! forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
 ! zero_freshwater_flux            = .FALSE.   ! freshwater=0 but brine release impacts S
+                                              ! salt-change due to internal fluxes only
   limit_seaice                    = .FALSE.   ! default: true
   seaice_limit                    =   0.8     ! maximum of 8m (0.4*dz) for both, ice and snow
   limit_elevation                 = .FALSE.   ! default: true

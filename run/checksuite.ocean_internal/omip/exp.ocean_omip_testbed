@@ -158,8 +158,8 @@ cat > ${ocean_namelist} << EOF
 ! use_constant_tfreez             = .TRUE.    ! default: true
   leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
   leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
-  use_IceInitialization_fromTemperature = .false.  ! no sea ice initialization
-  init_analytic_hi_param          =   0.0     ! no sea ice initialization
+  use_IceInitialization_fromTemperature = .false.  ! no automatic sea ice initialization
+  init_analytic_hi_param          =   0.0     ! no sea ice at start
   init_analytic_hs_param          =   0.0
   init_analytic_conc_param        =   0.0
 /
