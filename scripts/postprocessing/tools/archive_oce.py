@@ -1017,6 +1017,7 @@ if 'procRegio' in options['ACTIONS']:
 mocMeanFile = '/'.join([options['ARCHDIR'],'mocMean'])
 mocFiles    = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
 if 'procMoc' in options['ACTIONS']:
+  print(' procMoc START ----------------------------------------')
   # collect all MOC files
   dbg(options['MOCPATTERN'])
   mocFiles.pop(0)
@@ -1036,17 +1037,21 @@ if 'procMoc' in options['ACTIONS']:
   mocLog          = {}
   scanFilesForTheirNTime(mocFiles,options['PROCS'],mocLog)
   dbg(mocLog)
-  # check for the numbe rof timesteps in the last moc file
-  mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
-  if ( os.path.exists(mocMeanFile) ):
-      os.remove(mocMeanFile)
-  if mocNeededNSteps <= mocLastNtime:
-    # take the last 120 values for timmeaninput
-    mocMeanFile = cdo.timmean(input = '-seltimestep,{0}/{1} {2}'.format(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
-                              output = mocMeanFile)
+  if not mocFiles:
+    print('no MOC files for processing')
   else:
-    mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
-  dbg(mocMeanFile)
+    # check for the numbe rof timesteps in the last moc file
+    mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
+    if ( os.path.exists(mocMeanFile) ):
+      os.remove(mocMeanFile)
+    if mocNeededNSteps <= mocLastNtime:
+      # take the last 120 values for timmeaninput
+      mocMeanFile = cdo.timmean(input = '-seltimestep,{0}/{1} {2}'.format(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
+                                output = mocMeanFile)
+    else:
+      mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
+    dbg(mocMeanFile)
+  print(' procMoc FINISH ---------------------------------------')
 # }}} -----------------------------------------------------------------------------------
 # PREPARE DATA FOR T,S,RHOPOT BIAS TO INIT {{{ ------------------------------------------
 # target is a year mean file of fldmean data, but mean value computation
