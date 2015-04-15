@@ -39,7 +39,7 @@ MODULE mo_master_control
   PUBLIC ::  init_master_control, master_namelist_filename,               &
     & get_my_namelist_filename, get_my_process_type, get_my_process_name, &
     & atmo_process, ocean_process, radiation_process, testbed_process,    &
-    & my_process_is_ocean, is_restart_run, get_my_model_no,               &
+    & my_process_is_ocean, get_my_model_no,                               &
     & are_multiple_models
    
 
@@ -252,14 +252,6 @@ CONTAINS
     are_multiple_models = multiple_models
 
   END FUNCTION are_multiple_models
-  !------------------------------------------------------------------------
-
-  !------------------------------------------------------------------------
-  LOGICAL FUNCTION is_restart_run()
-
-    is_restart_run = isRestart()
-
-  END FUNCTION is_restart_run
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------

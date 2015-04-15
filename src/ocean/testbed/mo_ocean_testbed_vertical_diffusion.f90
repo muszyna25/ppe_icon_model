@@ -59,7 +59,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_time_config,            ONLY: time_config
-  USE mo_master_control,         ONLY: is_restart_run
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print

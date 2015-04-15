@@ -81,7 +81,7 @@ MODULE mo_nml_crosscheck
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
+  USE mo_master_control,     ONLY: get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
 
   USE mo_art_config,         ONLY: art_config

@@ -3,6 +3,7 @@
 !!        
 !! @par Revision History
 !! Created by Rene Redler (2011-03-22)
+!! Major revision by Luis Kornblueh (2015-04-15)
 !!
 !! @par Copyright and License
 !!
@@ -14,24 +15,26 @@
 !!
 MODULE mo_master_nml
 
-  USE mo_exception,      ONLY: finish
+  USE mo_exception,      ONLY: finish, message, message_text
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
   USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords, tolower
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
   USE mo_mpi,            ONLY: my_process_is_stdio, get_my_global_mpi_communicator
-  USE mtime,             ONLY: max_calendar_str_len, max_datetime_str_len, max_timedelta_str_len, &
-       &                       proleptic_gregorian, year_of_365_days,  year_of_360_days,          &
-       &                       setCalendar
+  USE mtime,             ONLY: max_calendar_str_len, setCalendar,  calendarToString,         &
+       &                       proleptic_gregorian, year_of_365_days,  year_of_360_days,     &
+       &                       max_datetime_str_len, datetimeToString,                       &
+       &                       datetime, newDatetime, deallocateDatetime,                    &
+       &                       max_timedelta_str_len, timedeltaToString, OPERATOR(+)
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
        &                       setRestart, setModelBaseDir,                                  &
        &                       setExpRefdate,                                                &
        &                       setExpStartdate, setExpStopdate,                              &
        &                       setStartdate, setStopdate,                                    &
-       &                       setCheckpointTimeInterval,  setRestartTimeInterval
+       &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &
+       &                       tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate,            &
+       &                       tc_startdate, tc_stopdate, tc_dt_checkpoint, tc_dt_restart
 
-
-  
   IMPLICIT NONE
   
   PRIVATE
@@ -55,27 +58,27 @@ CONTAINS
     
     ! Namelist variables
 
-    LOGICAL :: lRestart
-    CHARACTER(len=filename_max) :: modelBaseDir
+    LOGICAL :: lRestart = .FALSE.
+    CHARACTER(len=filename_max) :: modelBaseDir = ''
     
-    CHARACTER(len=132)          :: modelName
-    CHARACTER(len=filename_max) :: modelNamelistFilename
+    CHARACTER(len=132)          :: modelName = ''
+    CHARACTER(len=filename_max) :: modelNamelistFilename = ''
     
-    INTEGER :: modelType
+    INTEGER :: modelType 
     INTEGER :: modelMinRank
     INTEGER :: modelMaxRank
     INTEGER :: modelIncRank
     
-    CHARACTER(len=max_calendar_str_len) :: calendar
+    CHARACTER(len=max_calendar_str_len) :: calendar = ''
     
-    CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate   
-    CHARACTER(len=max_datetime_str_len) :: experimentStartDate
-    CHARACTER(len=max_datetime_str_len) :: experimentStopDate
-    CHARACTER(len=max_datetime_str_len) :: startdate
-    CHARACTER(len=max_datetime_str_len) :: stopdate
+    CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate = ''   
+    CHARACTER(len=max_datetime_str_len) :: experimentStartDate = ''
+    CHARACTER(len=max_datetime_str_len) :: experimentStopDate = ''
+    CHARACTER(len=max_datetime_str_len) :: startdate = ''
+    CHARACTER(len=max_datetime_str_len) :: stopdate = ''
     
-    CHARACTER(len=max_timedelta_str_len) :: checkpointTimeIntval
-    CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval
+    CHARACTER(len=max_timedelta_str_len) :: checkpointTimeIntval = ''
+    CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval = ''
     
     NAMELIST /master_nml/              &
          &    lRestart,                &
@@ -86,8 +89,8 @@ CONTAINS
          &    experimentReferenceDate, &   
          &    experimentStartDate,     &
          &    experimentStopDate,      &
-         &    startdate,               &
-         &    stopdate,                &
+         &    startDate,               &
+         &    stopDate,                &
          &    checkpointTimeIntval,    &
          &    restartTimeIntval        
     
@@ -103,16 +106,15 @@ CONTAINS
     INTEGER :: istat
     INTEGER :: iunit
     LOGICAL :: lrewind
+
+    CHARACTER(len=max_datetime_str_len) :: dstring
+    TYPE(datetime), POINTER :: calculatedStopDate => NULL() 
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_master_nml:read_master_namelist'
     
     TYPE (t_keyword_list), POINTER :: keywords         => NULL()
-!    TYPE (t_keyword_list), POINTER :: keywords_restart => NULL()
     
     ! Read  master_nml (done so far by all MPI processes)
-    
-    lRestart     = .FALSE.
-    modelBaseDir = ''
     
     istat = 0
     CALL open_nml(namelist_filename, lwarn=.TRUE., istat=istat)
@@ -136,6 +138,8 @@ CONTAINS
       READ (nnml, master_time_control_nml)
     ENDIF
 
+    ! set calendar (singleton, so do not change later!)
+    
     SELECT CASE (toLower(calendar))
     CASE ('proleptic gregorian')
       icalendar  = proleptic_gregorian
@@ -144,22 +148,141 @@ CONTAINS
     CASE ('360 day year')  
       icalendar = year_of_360_days
     CASE default
-      CALL finish(routine,'Selected calendar unknown.')
+      CALL finish(routine,'No calendar selected or selected is unknown.')
     END SELECT
     CALL setCalendar(icalendar)
-    CALL setExpRefdate(experimentReferenceDate)
-    CALL setExpStartdate(experimentStartDate)
-    CALL setExpStopdate(experimentStopDate)
-    CALL setStartdate(startdate)
-    CALL setStopdate(stopdate)
-    CALL setCheckpointTimeInterval(checkpointTimeIntval)
-    CALL setRestartTimeInterval(restartTimeIntval)
+      
+    ! take care that the reference date and start date strings are set 
+    
+    IF (experimentReferenceDate /= '') THEN
+      CALL setExpRefdate(experimentReferenceDate)
+      IF (experimentStartDate /= '') THEN
+        CALL setExpStartdate(experimentStartDate)
+      ELSE
+        CALL setExpStartdate(experimentReferenceDate)
+      ENDIF
+    ELSE
+      IF (experimentStartDate /= '') THEN
+        CALL setExpRefdate(experimentStartDate)
+        CALL setExpStartdate(experimentStartDate)
+        IF (startDate /= '') THEN
+          CALL setStartdate(startDate)
+        ELSE
+          CALL setStartdate(experimentStartDate)
+        ENDIF
+      ELSE
+        IF (startDate /= '') THEN
+          CALL setExpRefdate(startDate)
+          CALL setExpStartdate(startDate)
+          CALL setStartdate(startDate)
+        ELSE
+          CALL message('','No start date given: depend on restart file.')
+        ENDIF
+      ENDIF
+    ENDIF
 
-    ! Read  master namelist (done so far by all MPI processes)
+    ! next check for given restart, checkpoint interval
+
+    IF (checkpointTimeIntval /= '') THEN
+      CALL setCheckpointTimeInterval(checkpointTimeIntval)
+      IF (restartTimeIntval /= '') THEN
+        CALL setRestartTimeInterval(restartTimeIntval)
+      ELSE
+        CALL setRestartTimeInterval(checkpointTimeIntval)
+      ENDIF
+    ELSE
+      IF (restartTimeIntval /= '') THEN
+        CALL setRestartTimeInterval(restartTimeIntval)
+        CALL setCheckpointTimeInterval(restartTimeIntval)        
+      ELSE
+        CALL message('','No restart and checkpoint time interval given: depend on restart file.')
+      ENDIF
+    ENDIF
+
+    ! check for stop dates
+    
+    IF (experimentStopDate /= '') THEN
+      CALL setExpStopdate(experimentStopDate)
+      IF (stopDate /= '') THEN
+        CALL setStopdate(stopDate)
+      ELSE
+        CALL setStopdate(experimentStopDate)
+      ENDIF
+    ELSE
+      IF (stopDate /= '') THEN
+        CALL setExpStopdate(stopDate)
+        CALL setStopdate(stopDate)
+      ELSE
+        IF (ASSOCIATED(tc_startdate) .AND. ASSOCIATED(tc_dt_restart)) THEN
+          calculatedStopDate => newDatetime('0001-01-01T00:00:00')
+          calculatedStopDate = tc_startdate + tc_dt_restart 
+          call datetimeToString(calculatedStopDate, dstring)
+          CALL setExpStopdate(dstring)
+          CALL setStopdate(dstring)
+          CALL deallocateDatetime(calculatedStopDate)
+        ELSE
+          CALL finish('','No stop date given or calculatable.')
+        ENDIF
+      ENDIF
+    ENDIF
+
+    ! inform about time setup
+
+    call message('','')
+    
+    CALL calendarToString(dstring)
+    CALL message('','Calendar: '//TRIM(dstring))
+
+    call message('','')
+    
+    IF (ASSOCIATED(tc_exp_refdate)) THEN
+      CALL datetimeToString(tc_exp_refdate, dstring)
+      WRITE(message_text,'(a,a)') 'Experiment reference date: ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    IF (ASSOCIATED(tc_exp_startdate)) THEN    
+      CALL datetimeToString(tc_exp_startdate, dstring)
+      WRITE(message_text,'(a,a)') 'Experiment start date    : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    IF (ASSOCIATED(tc_exp_stopdate)) THEN
+      CALL datetimeToString(tc_exp_stopdate, dstring)
+      WRITE(message_text,'(a,a)') 'Experiment stop date     : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    IF (ASSOCIATED(tc_startdate)) THEN
+      CALL datetimeToString(tc_startdate, dstring)
+      WRITE(message_text,'(a,a)') 'Start date               : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    IF (ASSOCIATED(tc_stopdate)) THEN
+      CALL datetimeToString(tc_stopdate, dstring)
+      WRITE(message_text,'(a,a)') 'Stop date                : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    call message('','')
+    
+    IF (ASSOCIATED(tc_dt_restart)) THEN
+      CALL timedeltaToString(tc_dt_restart, dstring)
+      WRITE(message_text,'(a,a)') 'Restart interval         : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    IF (ASSOCIATED(tc_dt_checkpoint)) THEN
+      CALL timedeltaToString(tc_dt_checkpoint, dstring)
+      WRITE(message_text,'(a,a)') 'Checkpointing interval   : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    call message('','')
     
     ! for positioning to the first entry of the namelist 
     lrewind = .TRUE.
-
     DO
       CALL position_nml('master_model_nml', lrewind=lrewind, status=istat)
       IF ( istat /= POSITIONED ) EXIT

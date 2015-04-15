@@ -29,7 +29,8 @@ MODULE mo_atmo_model
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,               &
     &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
-  USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
+  USE mo_master_config,           ONLY: isRestart
+  USE mo_master_control,          ONLY: get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -250,9 +251,9 @@ CONTAINS
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
 
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       CALL read_restart_header("atm")
-    END IF ! is_restart_run()
+    END IF ! isRestart()
 
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the
@@ -348,7 +349,7 @@ CONTAINS
           CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
           sim_step_info%dtime      = dtime
           jstep0 = 0
-          IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+          IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
             ! get start counter for time loop from restart file:
             CALL get_restart_attribute("jstep", jstep0)
           END IF

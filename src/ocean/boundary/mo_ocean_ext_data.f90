@@ -73,8 +73,6 @@ MODULE mo_ocean_ext_data
     &                              DATATYPE_FLT32, DATATYPE_PACK16,                &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
 
-  USE mo_master_control,        ONLY: is_restart_run
-
   IMPLICIT NONE
 
   ! required for reading external data

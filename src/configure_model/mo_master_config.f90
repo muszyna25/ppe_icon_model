@@ -30,6 +30,13 @@ MODULE mo_master_config
   PUBLIC :: setCheckpointTimeInterval
   PUBLIC :: setRestartTimeInterval
   PUBLIC :: master_component_models
+  PUBLIC :: tc_exp_refdate
+  PUBLIC :: tc_exp_startdate
+  PUBLIC :: tc_exp_stopdate
+  PUBLIC :: tc_startdate
+  PUBLIC :: tc_stopdate
+  PUBLIC :: tc_dt_checkpoint
+  PUBLIC :: tc_dt_restart
   
   ! component model configuration
   !_______________________________________________________________________________________________

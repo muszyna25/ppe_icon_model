@@ -107,7 +107,7 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_control,           ONLY: is_restart_run
+  USE mo_master_config,            ONLY: isRestart
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -276,7 +276,7 @@ MODULE mo_nh_stepping
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   CALL diag_for_output_dyn ()
 
-  IF (.NOT. is_restart_run()) THEN
+  IF (.NOT. isRestart()) THEN
     IF (timeshift%dt_shift < 0._wp) THEN
       ! Round dt_shift to the nearest integer multiple of the advection time step
       zdt_shift = NINT(timeshift%dt_shift/dtime)*dtime
@@ -301,7 +301,7 @@ MODULE mo_nh_stepping
       &                  p_nh_state(jg)%diag, itlev = 2)
 
     ! initialize exner_old if the model domain is active
-    IF (p_patch(jg)%ldom_active .AND. .NOT. is_restart_run()) CALL init_exner_old(jg, nnow(jg))
+    IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_old(jg, nnow(jg))
   ENDDO
 
 
@@ -331,12 +331,12 @@ MODULE mo_nh_stepping
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
 
-      IF (.NOT.is_restart_run()) THEN
+      IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (datetime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
 
     ENDDO
-    IF (.NOT.is_restart_run()) THEN
+    IF (.NOT.isRestart()) THEN
       ! Compute diagnostic physics fields
       CALL aggr_landvars
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
@@ -362,7 +362,7 @@ MODULE mo_nh_stepping
 
     ENDIF
   CASE (iecham)
-    IF (.NOT.is_restart_run()) THEN
+    IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (datetime_current, 1, dtime, time_config%sim_time)
     END IF
   END SELECT ! iforcing
@@ -370,7 +370,7 @@ MODULE mo_nh_stepping
   !------------------------------------------------------------------
   !  get and write out some of the initial values
   !------------------------------------------------------------------
-  IF (.NOT.is_restart_run() .AND. time_config%sim_time(1) >= 0._wp) THEN
+  IF (.NOT.isRestart() .AND. time_config%sim_time(1) >= 0._wp) THEN
 
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
@@ -420,7 +420,7 @@ MODULE mo_nh_stepping
 !    CALL messy_write_output
 #endif
 
-  END IF ! not is_restart_run()
+  END IF ! not isRestart()
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -528,7 +528,7 @@ MODULE mo_nh_stepping
   ENDIF
   
   jstep0 = 0
-  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+  IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF
@@ -701,7 +701,7 @@ MODULE mo_nh_stepping
     ! Calculations for enhanced sound-wave and gravity-wave damping during the spinup phase
     ! if mixed second-order/fourth-order divergence damping (divdamp_order=24) is chosen.
     ! Includes increased vertical wind off-centering during the first 2 hours of integration.
-    IF (divdamp_order==24 .AND. .NOT. is_restart_run()) THEN
+    IF (divdamp_order==24 .AND. .NOT. isRestart()) THEN
       elapsed_time_global = (REAL(jstep,wp)-0.5_wp)*dtime
       IF (elapsed_time_global <= 7200._wp+0.5_wp*dtime .AND. .NOT. ltestcase) THEN
         CALL update_spinup_damping(elapsed_time_global)
@@ -2514,7 +2514,7 @@ MODULE mo_nh_stepping
   ENDIF
   !
   ! initialize
-  IF (is_restart_run()) THEN
+  IF (isRestart()) THEN
     !
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
     DO jg = 1,n_dom

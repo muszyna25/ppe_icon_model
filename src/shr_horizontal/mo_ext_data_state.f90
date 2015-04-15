@@ -99,7 +99,7 @@ MODULE mo_ext_data_state
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
   USE mo_real_timer,         ONLY: new_timer, timer_start, timer_stop
 
   IMPLICIT NONE
@@ -300,12 +300,12 @@ CONTAINS
         ! When restarting, the target interpolation time must be set to cur_datetime 
         ! midnight. 
         ! 
-        IF (.NOT. is_restart_run()) THEN
+        IF (.NOT. isRestart()) THEN
           datetime     = time_config%ini_datetime
           IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
         ELSE
           datetime     = time_config%cur_datetime
-        END IF  ! is_restart_run
+        END IF  ! isRestart
         !
         datetime%hour= 0   ! always assume midnight
 
