@@ -269,9 +269,9 @@ MODULE mo_hdiff
 
                kh_smag_e(je,jk,jb) = diff_multfac* SQRT(( dvn_cell *    &
                  pt_patch%edges%inv_dual_edge_length(je,jb) -           &
-                 dvt_vert*pt_patch%edges%system_orientation(je,jb)*     &
+                 dvt_vert*pt_patch%edges%tangent_orientation(je,jb)*     &
                  pt_patch%edges%inv_primal_edge_length(je,jb) )**2 + (  &
-                 dvn_vert*pt_patch%edges%system_orientation(je,jb)*     &
+                 dvn_vert*pt_patch%edges%tangent_orientation(je,jb)*     &
                  pt_patch%edges%inv_primal_edge_length(je,jb) +         &
                  dvt_cell*pt_patch%edges%inv_dual_edge_length(je,jb))**2 )
              ENDDO
@@ -736,7 +736,7 @@ MODULE mo_hdiff
 #endif
                    IF (je > pt_patch%cells%num_edges(jc,jb)) CYCLE
 
-                   zhelp = pt_patch%edges%system_orientation(icei(jc,jb,je),iceb(jc,jb,je)) &
+                   zhelp = pt_patch%edges%tangent_orientation(icei(jc,jb,je),iceb(jc,jb,je)) &
                    &      *pt_patch%cells%edge_orientation(jc,jb,je)
 
                    ! i) frictional heating at centers
@@ -809,7 +809,7 @@ MODULE mo_hdiff
                pt_new%vn(je,jk,jb) = pt_new%vn(je,jk,jb) - dtime  &
                & *((z_turb_flx_c2(je,jk,jb)- z_turb_flx_c1(je,jk,jb)) &
                &   *pt_patch%edges%inv_dual_edge_length(je,jb)    &
-               &   *pt_patch%edges%system_orientation(je,jb)      &
+               &   *pt_patch%edges%tangent_orientation(je,jb)      &
                &  +(z_turb_flx_v2(je,jk,jb)- z_turb_flx_v1(je,jk,jb)) &
                &   *pt_patch%edges%inv_primal_edge_length(je,jb)  &
                &  )/pt_diag%delp_e(je,jk,jb)

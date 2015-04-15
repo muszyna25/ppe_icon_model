@@ -361,9 +361,9 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 
 % --------------------------------------------------------------------------------
 \chapter[EU Nest output fields: Forecast runs]{EU Nest output fields:\\ Forecast runs}
-
+\label{nest:chap_forecast_runs}
 \input{./output_GRIB2_nest}
-\input{./cosmo_eu_fields.tex}
+%\input{./cosmo_eu_fields.tex}
 
 
 % --------------------------------------------------------------------------------
@@ -404,31 +404,37 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 
 % --------------------------------------------------------------------------------
 % --------------------------------------------------------------------------------
-\cleardoublepage
-\section*{Database documentation: list of todos}
+%\cleardoublepage
+% \section*{Database documentation: list of todos}
 % --------------------------------------------------------------------------------
 % --------------------------------------------------------------------------------
 
-\begin{itemize}
-  \item EU nest: ''Urstart'' fields must be contained in the $VV=0$ list.
-  \item lake variables: ask Dimitri if these fields could be changed
-    from RBF interpolation to nearest-neighbor.
-  \item \st{EU nest, output of wind gusts hourly until 78h, afterwards 3
-    hourly:  Output of VMAX\_10M is 3-hourly for $VV>78h$. The
-    sampling interval should also be changed to 3h after $VV>78h$.}
-  \item Create two additional timing diagrams like
-    \ref{fig:forecast_length} for the EU nest: One illustration for
-    native grid and one for the regular output grid.
-  \item Questions for the ICON migration group:
-        \begin{itemize}
-          \item QR, QS necessary for lon-lat?
-          \item Q\_SEDIM required?
-          \item REL\_HUM on height levels required?
-          \item CAPE\_ML required?
-          \item How should DTKE\_CON be treated on the EU nest, native grid?
-        \end{itemize}
-  \item \st{Height-level interpolated pressure: L1/L2 are 102/255 in the COSMO documentation.}
-\end{itemize}
+% \begin{itemize}
+%   \item EU nest: ''Urstart'' fields must be contained in the $VV=0$ list.
+%   \item lake variables: ask Dimitri if these fields could be changed
+%     from RBF interpolation to nearest-neighbor.
+%   \item \st{EU nest, output of wind gusts hourly until 78h, afterwards 3
+%     hourly:  Output of VMAX\_10M is 3-hourly for $VV>78h$. The
+%     sampling interval should also be changed to 3h after $VV>78h$.}
+%   \item \st{Create two additional timing diagrams like}
+%     \ref{fig:forecast_length_global} \st{for the EU nest: One illustration for
+%     native grid and one for the regular output grid.}
+%   \item Questions for the ICON migration group:
+%         \begin{itemize}
+%           \item QR, QS necessary for lon-lat?
+%           \item Q\_SEDIM required?
+%           \item QV\_2M (lat-lon) required?
+%           \item SOBS\_RAD, THBS\_RAD (lat-lon) required?
+%           \item TQC\_DIA, TQI\_DIA ?
+%           \item REL\_HUM on height levels required?
+%           \item CAPE\_ML required?
+%           \item CAPE\_CON (lat-lon) required?
+%           \item FR\_ICE (lat-lon) required?
+%           \item How should DTKE\_CON be treated on the EU nest, native grid?
+%         \end{itemize}
+%   \item \st{Height-level interpolated pressure: L1/L2 are 102/255 in the COSMO documentation.}
+%   \item DTKE\_CON: not consistent with namelist.
+% \end{itemize}
 
 
 \end{document}

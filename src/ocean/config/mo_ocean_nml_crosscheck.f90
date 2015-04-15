@@ -29,16 +29,16 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_run_config,        ONLY: nsteps, dtime
   USE mo_time_config,       ONLY: time_config, restart_experiment
   USE mo_datetime,          ONLY: add_time, print_datetime_all
-  USE mo_io_config,         ONLY: dt_checkpoint
+  USE mo_io_config,         ONLY: dt_checkpoint, write_initial_state
   USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
   USE mo_ocean_nml
-  USE mo_sea_ice_nml,       ONLY: i_ice_dyn
+  USE mo_master_control,    ONLY: is_restart_run
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: oce_crosscheck
+  PUBLIC :: ocean_crosscheck
 
 CONTAINS
 
@@ -146,6 +146,8 @@ CONTAINS
 
   END SUBROUTINE resize_ocean_simulation_length
 
+  
+
 !<Optimize:inUse>
   SUBROUTINE check_thicknesses
 
@@ -159,21 +161,26 @@ CONTAINS
   END SUBROUTINE check_thicknesses
 
 !<Optimize:inUse>
-  SUBROUTINE oce_crosscheck()
+  SUBROUTINE ocean_crosscheck()
 
-    CHARACTER(len=*), PARAMETER :: method_name =  'mo_ocean_nml_crosscheck:oce_crosscheck'
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_ocean_nml_crosscheck:ocean_crosscheck'
 
     CALL check_parallel_configuration()
     CALL resize_ocean_simulation_length()
     CALL init_grid_configuration
 
+    IF (p_test_run .AND. l_fast_sum ) THEN
+       CALL warning(method_name, "p_test_run sets l_fast_sum=.false.")
+       l_fast_sum = .false.
+    ENDIF
+    
     SELECT CASE (select_solver)
       CASE (select_gmres)
 
       CASE (select_restart_gmres, select_restart_mixedPrecision_gmres)
 
         IF (p_test_run .OR. .NOT. l_fast_sum ) THEN
-           CALL message(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
+           CALL warning(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
            CALL message(method_name, "Using the standard gmres solver")
            select_solver = select_gmres
 !        ELSE
@@ -184,9 +191,10 @@ CONTAINS
         CALL finish(method_name, "Unknown solver")
 
     END SELECT
-
+    
+    
     IF (no_tracer < 1) THEN
-      CALL warning("oce_crosscheck", "no_tracer < 1, use_constant_mixing")
+      CALL warning("ocean_crosscheck", "no_tracer < 1, use_constant_mixing")
       physics_parameters_type = physics_parameters_Constant_type
     ENDIF
 
@@ -204,14 +212,14 @@ CONTAINS
       use_duplicated_connectivity = .FALSE.
       CALL message(method_name, "Set use_duplicated_connectivity to FALSE")
     ENDIF
-      
-    IF (i_ice_dyn == 1 ) THEN
-      i_ice_dyn = 0
-      CALL warning(method_name,"Disable sea-icea dynamics. It does not work.")
-    ENDIF
     
+    IF (is_restart_run() .AND. write_initial_state) THEN
+      CALL warning(method_name, "write_initial_state is disbaled for restarts")
+      write_initial_state = .false.
+    ENDIF
 
-  END SUBROUTINE oce_crosscheck
+
+  END SUBROUTINE ocean_crosscheck
 
 
 END MODULE mo_ocean_nml_crosscheck

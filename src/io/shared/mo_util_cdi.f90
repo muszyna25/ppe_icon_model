@@ -36,8 +36,9 @@ MODULE mo_util_cdi
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
     &                              deallocateTimedelta, deallocateDatetime, &
-    &                              MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
+    &                              PROLEPTIC_GREGORIAN, setCalendar,        &
+    &                              MAX_DATETIME_STR_LEN,                    &
+    &                              OPERATOR(-)
   USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
     &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
     &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
@@ -967,6 +968,8 @@ CONTAINS
     CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
 
 
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+
     !---------------------------------------------------------
     ! Set time-dependent metainfo
     !---------------------------------------------------------
@@ -1012,7 +1015,7 @@ CONTAINS
       mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
       !
       ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-      CALL getTimeDeltaFromDateTime(mtime_cur, statProc_startDateTime, mtime_lengthOfTimeRange)
+      mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
 
 
       ! time interval over which statistical process has been performed (in secs)    
@@ -1033,7 +1036,7 @@ CONTAINS
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
     forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(statProc_startDateTime, mtime_start, forecast_delta)
+    forecast_delta = statProc_startDateTime - mtime_start
 
     ! forecast time in seconds
     forecast_secs =    forecast_delta%second    +   &

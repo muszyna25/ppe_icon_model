@@ -6,21 +6,34 @@
 % --------------------------------------------------------------------------------
 
 This section contains a list of output fields that are available with
-the launch of the ICON-EU nest, see Fig.~\ref{fig:EU_nest} on
-page~\pageref{fig:EU_nest}.
+the launch of the ICON-EU nest. See Fig.~\ref{fig:EU_nest} on page~\pageref{fig:EU_nest} 
+for details regarding the nest location and extent.
 %
+Forecasts on the EU-nest are performed multiple times a day with varying forecast times. Forecasts reaching out to $120\,\mathrm{h}$ 
+are performed at 0, 6, 12, and 18~UTC. Additional short-range forecasts reaching out to $30\,\mathrm{h}$ are performed at 3, 9, 15 and 21~UTC. 
+Its main purpose is to provide boundary data for the high resolution COSMO-DE runs. A schematic overview of the various forecasts, including its 
+forecast time and output intervals is provided in Figure \ref{fig:forecast_length_nest}.
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[width=0.92\textwidth]{forecast_length_nest.png}
+ \caption{Time span covered by the various EU nest forecasts. A forecast run is launched every three hours.
+          Output fields are available hourly up to $VV=78\,\mathrm{h}$ and 3-hourly for larger forecast times. 
+          The vertical rules indicate the time until when output is generally available on the native grid 
+          (\protect\markRed) and/or on the lat-lon grid (\protect\markBlue). I.e.\ output on the native grid is 
+          limited to $VV=48\,\mathrm{h}$.}\label{fig:forecast_length_nest}
+\end{figure}
+
 Output is available on two distinct horizontal grids: 
 \begin{itemize}
   \item a native triangular grid with an average resolution of $6.5\,\mathrm{km}$, and
   \item a regular latitude-longitude grid with a resolution of $\Delta \lambda = \Delta \Phi=0.0625^{\circ}$. 
 \end{itemize}
 %
-Again, the availabity of the field variable on the native grid
-($\,$\markRed$\,$), on the lat-lon grid($\,$\markBlue$\,$), or on both
-grids($\,$\markRed\markBlue$\,$) is marked in the leftmost column.
+Note that output on the native (triangular) grid is limited to $48\,\mathrm{h}$, whereas output on the regular 
+grid is generally available til forecast end. See also Figure \ref{fig:forecast_length_nest}.
 
-Main forecasts are limited to 120~h on the regular grid and to 48~h on
-the native (triangular) grid.
+Again, in the subsequent tables the availability of specific field on the native grid ($\,$\markRed$\,$), 
+on the lat-lon grid($\,$\markBlue$\,$), or on both grids ($\,$\markRed\markBlue$\,$) is marked in the leftmost column.
 
 
 % --------------------------------------------------------------------------------
@@ -143,9 +156,10 @@ On the native (triangular) grid no output is generated for pressure levels.
   % --------- include table of variables
   \input{output_GRIB2_forecast_singlelvl}
   % ------------------------------------
-  
+
 \end{vartable}
 
+\footnotetext[5]{Planned, but not yet available}
 
 % --------------------------------------------------------------------------------
 \subsection{Surface fields interpolated to msl}
@@ -163,7 +177,6 @@ On the native (triangular) grid no output is generated for pressure levels.
 \end{vartable}
 
 
-\newpage
 
 
 % --------------------------------------------------------------------------------
@@ -213,7 +226,6 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 \end{table}
 
 
-\newpage
 
 
 % --------------------------------------------------------------------------------

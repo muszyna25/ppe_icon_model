@@ -355,8 +355,15 @@ CONTAINS
       atmos_fluxes%data_SurfRelax_Temp(:,:)       = p_as%data_SurfRelax_Temp(:,:)
       !atmos_fluxes%data_SurfRelax_Salt(:,:)      = p_as%data_SurfRelax_Salt(:,:)
 
-      ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
       CALL dbg_print('UpdSfcBeg: SST',t_top,str_module, 3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module, 4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:atmflx%stress_xw',atmos_fluxes%stress_xw, str_module, 4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:atmflx%windStr-u',atmos_fluxes%topBoundCond_windStress_u, &
+        &  str_module, 4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcBeg:sfcflx%windStr-u',p_sfc_flx%topBoundCond_windStress_u, &
+        &  str_module, 4, in_subset=p_patch%cells%owned)
+
+      ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
       CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
@@ -649,10 +656,7 @@ CONTAINS
          
         ELSE   !  no sea ice
          
-          !  - apply wind stress
-          ! #slo# 2014-04-30: these lines are unclear - different results
-          ! TODO: check wind stress with/without sea ice model and with/without sea ice dynamics
-          !       is it OMIP windstress (over open water) or the calculated atmos_fluxes%stress_xw from calc_bulk_flux_oce
+          !  - apply wind stress to forcing variable since no ice_ocean_stress routine is called
           atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
           atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
          
@@ -712,6 +716,7 @@ CONTAINS
 
       ELSE
 
+        !  apply wind stress to forcing variable since no ice_ocean_stress routine is called
         atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
         atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
 
@@ -782,13 +787,13 @@ CONTAINS
     p_sfc_flx%cellThicknessUnderIce         => atmos_fluxes%cellThicknessUnderIce
   
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('TopBC : WS_u'         , p_sfc_flx%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('TopBC : WS_v'         , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : windStr-u'    , p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : windStr-v'    , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_ShortWave' , p_sfc_flx%HeatFlux_ShortWave       , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_LongWave'  , p_sfc_flx%HeatFlux_LongWave        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_Sensible'  , p_sfc_flx%HeatFlux_Sensible        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_Latent'    , p_sfc_flx%HeatFlux_Latent          , str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('TopBC : HF_Total'     , p_sfc_flx%HeatFlux_Total           , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : HF_Total'     , p_sfc_flx%HeatFlux_Total           , str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : Precipitation', p_sfc_flx%FrshFlux_Precipitation   , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : SnowFall'     , p_sfc_flx%FrshFlux_SnowFall        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : Evaporation'  , p_sfc_flx%FrshFlux_Evaporation     , str_module, 3, in_subset=p_patch%cells%owned)
@@ -826,13 +831,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: windStr u'       ,p_sfc_flx%topBoundCond_windStress_u      , str_module, 2, &
-        &  in_subset=p_patch%cells%owned)                                                              
-      CALL dbg_print('UpdSfc: windStr v'       ,p_sfc_flx%topBoundCond_windStress_v      , str_module, 3, &
-        &  in_subset=p_patch%cells%owned)                                                              
-      CALL dbg_print('UpdSfc: windStr cc%x(1)' ,p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 4, &
-        &  in_subset=p_patch%cells%owned)                                                              
-      CALL dbg_print('UpdSfc: windStr cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 4, &
+      CALL dbg_print('UpdSfc: windStr-cc%x(1)',p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 4, &
+        &  in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: windStr-cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 4, &
         &  in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
@@ -1251,18 +1252,34 @@ CONTAINS
           &                              rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
       ENDIF
 
+ !    ! for test only - introduced temporarily
+ !    p_as%tafo(:,:)  = 292.9_wp
+ !    !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+ !    p_as%tafo(:,:)  = p_as%tafo(:,:) - 273.15
+ !    p_as%ftdew(:,:) = 289.877
+ !    p_as%fu10(:,:)  = 7.84831
+ !    p_as%fclou(:,:) = 0.897972
+ !    p_as%fswr(:,:)  = 289.489
+ !    p_as%u(:,:)     = 0.0_wp
+ !    p_as%v(:,:)     = 0.0_wp
+ !    p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
+ !    p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
+ !    p_as%FrshFlux_Precipitation(:,:) = 1.04634e-8
+ !    p_as%FrshFlux_Runoff(:,:) = 0.0_wp
+ !    p_as%pao(:,:)   = 101300.0_wp
+
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-      CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Ext data4-ta/mon1' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-      CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Ext data4-ta/mon2' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: p_as%tafo'         ,p_as%tafo   ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: p_as%windStr-v',p_as%topBoundCond_windStress_v, str_module,4,in_subset=p_patch%cells%owned)
 
       IF (forcing_enable_freshwater) THEN
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfcFlxFil: Precipitation',p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfcFlxFil: Runoff'       ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Precipitation',p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil: Runoff'       ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
       ENDIF
       !---------------------------------------------------------------------
 
@@ -1941,8 +1958,8 @@ CONTAINS
              END IF
            ELSE
              atmos_fluxes%topBoundCond_windStress_cc(jc,jb)%x(:) = 0.0_wp
-             atmos_fluxes%topBoundCond_windStress_u(jc,jb)       = 0.0_wp
-             atmos_fluxes%topBoundCond_windStress_v(jc,jb)       = 0.0_wp
+!            atmos_fluxes%topBoundCond_windStress_u(jc,jb)       = 0.0_wp
+!            atmos_fluxes%topBoundCond_windStress_v(jc,jb)       = 0.0_wp
            ENDIF 
        END DO
       END DO
@@ -2071,7 +2088,7 @@ CONTAINS
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jtime, jt !, jc, jb
+    INTEGER :: jg, i_lev, no_cells, no_tst, jtime, jt !, jc, jb
     INTEGER :: ncid, dimid,mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: i_start(2),i_count(2), jcells
@@ -2088,13 +2105,12 @@ CONTAINS
 
     !CALL message (TRIM(routine), 'start')
 
-    IF (iforc_oce == 12) THEN
+    IF (iforc_oce == OMIP_FluxFromFile) THEN
 
     !DO jg = 1,n_dom
       jg = 1
 
       i_lev       = p_patch%level
-      i_cell_type = p_patch%cell_type
 
       ! WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
       ncep_file='ocean-flux.nc'
@@ -2339,7 +2355,7 @@ CONTAINS
       IF (idbg_mxmn >= idt_src) &
         & CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
 
-    END IF ! iforc_oce=12
+    END IF ! iforc_oce=OMIP_FluxFromFile
 
   END SUBROUTINE read_forc_data_oce
   !-------------------------------------------------------------------------

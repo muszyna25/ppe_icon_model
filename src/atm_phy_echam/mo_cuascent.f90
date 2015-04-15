@@ -16,7 +16,7 @@ MODULE mo_cuascent
 USE mo_kind,         ONLY : wp
 USE mo_physical_constants,ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
 USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid, cmfcmin, cmfcmax,   &
-                            cprcon, entrmid,   &
+                            cprcon, entrmid, dlev_lnd, dlev_oce,         &
                             cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy
 USE mo_cuadjust,     ONLY : cuadjtq
 
@@ -134,7 +134,7 @@ REAL(wp) :: zcons2, zmfmax, zfac, zmftest, zqeen, zseen       &
           , zqude, zmfusk, zmfuqk, zmfulk, zxteen, zxtude, zmfuxtk     &
           , zbuo, zdnoprc, zprcon, zlnew, zz, zdmfeu, zdmfdu, zzdmf    &
           , zdz, zdrodz, zdprho, zalvs, zmse, znevn, zodmax, zga, zdt  &
-          , zscod, zqcod, zbuoyz, zscde, zdlev, zlift
+          , zscod, zqcod, zbuoyz, zscde, zlift
 !
 !---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04, UL, 28.3.07):-------
 REAL(wp) :: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
@@ -159,7 +159,6 @@ pmrateprecip(1:kproma,:)=0._wp
 !
   zcons2=1._wp/(grav*time_step_len)
   zqold(1:kproma) = 0.0_wp
-  zdlev=3.0E4_wp
 !
 !
 !----------------------------------------------------------------------
@@ -471,7 +470,7 @@ pmrateprecip(1:kproma,:)=0._wp
                        jk.GE.kctop0(jl)) THEN
              kctop(jl)=jk
              ldcum(jl)=.TRUE.
-             zdnoprc=MERGE(zdlev,1.5e4_wp,ldland(jl))
+             zdnoprc=MERGE(dlev_lnd,dlev_oce,ldland(jl))
              zprcon=MERGE(0._wp,cprcon,                                &
                                    zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
              zlnew=plu(jl,jk)/                                         &
@@ -715,7 +714,7 @@ REAL(wp) :: pxtenh(kbdim,klev,ktrac),pxten(kbdim,klev,ktrac),          &
 REAL(wp) :: zcons2, zmfmax, zfac, zmftest, zqeen, zseen       &
           , zscde, zqude, zmfusk, zmfuqk, zmfulk, zxteen, zxtude       &
           , zmfuxtk, zbuo, zdnoprc, zprcon, zlnew, zz, zdmfeu, zdmfdu  &
-          , zzdmf, zdlev, zlift
+          , zzdmf, zlift
 !
 !---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
 REAL(wp) :: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
@@ -738,7 +737,6 @@ pmrateprecip(1:kproma,:)=0._wp
 !                  ------------------
 !
   zcons2=1._wp/(grav*time_step_len)
-  zdlev=3.0E4_wp
 !
 !
 !----------------------------------------------------------------------
@@ -964,7 +962,7 @@ pmrateprecip(1:kproma,:)=0._wp
            IF(zbuo.GT.0._wp.AND.pmfu(jl,jk).GE.0.1_wp*pmfub(jl)) THEN
               kctop(jl)=jk
               ldcum(jl)=.TRUE.
-              zdnoprc=MERGE(zdlev,1.5e4_wp,ldland(jl))
+              zdnoprc=MERGE(dlev_lnd,dlev_oce,ldland(jl))
               zprcon=MERGE(0._wp,cprcon,                               &
                                zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
               zlnew=plu(jl,jk)/                                        &

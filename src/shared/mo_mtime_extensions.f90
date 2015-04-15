@@ -18,22 +18,22 @@ MODULE mo_mtime_extensions
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_char, c_ptr, c_f_pointer, c_associated, c_bool, &
     &               c_loc, c_int64_t, c_null_char, c_int, c_double
-  USE mo_kind,     ONLY: wp
+  USE mo_kind,     ONLY: wp, i8
   USE mtime,       ONLY: datetime, event, MAX_TIMEDELTA_STR_LEN, MAX_DATETIME_STR_LEN, &
     &                    newDatetime, deallocateDatetime, datetimeToString, timedelta, &
     &                    newTimedelta, deallocateTimedelta, OPERATOR(+),               &
-    &                    setCalendar, PROLEPTIC_GREGORIAN
+    &                    setCalendar, PROLEPTIC_GREGORIAN, getPTStringFromMS
   USE mo_datetime, ONLY: t_datetime
   USE mo_exception,ONLY: message,finish
   IMPLICIT NONE
   
   PRIVATE
-  PUBLIC :: getPTStringFromMS
-  PUBLIC :: getTimeDeltaFromDateTime
+!  PUBLIC :: getPTStringFromMS
+!  PUBLIC :: getTimeDeltaFromDateTime
   PUBLIC :: get_duration_string
   PUBLIC :: get_duration_string_real
   PUBLIC :: get_datetime_string
-  PUBLIC :: getTriggeredPreviousEventAtDateTime
+!  PUBLIC :: getTriggeredPreviousEventAtDateTime
 
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_mtime_extensions'
@@ -41,35 +41,35 @@ MODULE mo_mtime_extensions
 
   INTERFACE
 
-    SUBROUTINE my_getptstringfromms(ms, ptstr) BIND(c, name='getPTStringFromMS')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_ptr, c_char
-#else
-      import :: c_int64_t, c_ptr, c_char
-#endif
-      INTEGER(c_int64_t), VALUE :: ms
-      CHARACTER(c_char), DIMENSION(*) :: ptstr
-    END SUBROUTINE my_getptstringfromms
+!    SUBROUTINE my_getptstringfromms(ms, ptstr) BIND(c, name='getPTStringFromMS')
+!#ifdef __SX__
+!      USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_ptr, c_char
+!#else
+!      import :: c_int64_t, c_ptr, c_char
+!#endif
+!      INTEGER(c_int64_t), VALUE :: ms
+!      CHARACTER(c_char), DIMENSION(*) :: ptstr
+!    END SUBROUTINE my_getptstringfromms
 
-    SUBROUTINE my_gettimedeltafromdatetime(dt1, dt2, td_return) BIND(c, name='getTimeDeltaFromDateTime')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr
-#else
-      IMPORT :: c_ptr
-#endif
-      TYPE(c_ptr), value :: dt1, dt2
-      TYPE(c_ptr), value :: td_return
-    END SUBROUTINE my_gettimedeltafromdatetime
+!    SUBROUTINE my_gettimedeltafromdatetime(dt1, dt2, td_return) BIND(c, name='getTimeDeltaFromDateTime')
+!#ifdef __SX__
+!      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr
+!#else
+!      IMPORT :: c_ptr
+!#endif
+!      TYPE(c_ptr), value :: dt1, dt2
+!      TYPE(c_ptr), value :: td_return
+!    END SUBROUTINE my_gettimedeltafromdatetime
 
-    SUBROUTINE my_gettriggeredpreviouseventatdatetime(my_event, my_datetime) BIND(c, name='getTriggeredPreviousEventAtDateTime')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr
-#else
-      IMPORT :: c_ptr
-#endif
-      TYPE(c_ptr), value :: my_event
-      TYPE(c_ptr), value :: my_datetime
-    END SUBROUTINE my_gettriggeredpreviouseventatdatetime
+!    SUBROUTINE my_gettriggeredpreviouseventatdatetime(my_event, my_datetime) BIND(c, name='getTriggeredPreviousEventAtDateTime')
+!#ifdef __SX__
+!      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr
+!#else
+!      IMPORT :: c_ptr
+!#endif
+!      TYPE(c_ptr), value :: my_event
+!      TYPE(c_ptr), value :: my_datetime
+!    END SUBROUTINE my_gettriggeredpreviouseventatdatetime
   END INTERFACE
 
 
@@ -78,46 +78,46 @@ MODULE mo_mtime_extensions
     MODULE PROCEDURE get_datetime_string_str
   END INTERFACE
 
-  INTERFACE getPTStringFromMS
-    MODULE PROCEDURE getPTStringFromMS_int
-    MODULE PROCEDURE getPTStringFromMS_real
-  END INTERFACE
+!  INTERFACE getPTStringFromMS
+!    MODULE PROCEDURE getPTStringFromMS_int
+!    MODULE PROCEDURE getPTStringFromMS_real
+!  END INTERFACE
 
 CONTAINS 
   
-  SUBROUTINE getPTStringFromMS_int(ms, string)
-    INTEGER, INTENT(in) :: ms
-    CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string
-    INTEGER :: i
-    INTEGER(c_int64_t) :: ms_int64
+  ! SUBROUTINE getPTStringFromMS_int(ms, string)
+  !   INTEGER, INTENT(in) :: ms
+  !   CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string
+  !   INTEGER :: i
+  !   INTEGER(c_int64_t) :: ms_int64
 
-    ms_int64 = INT(ms,c_int64_t)
-    CALL my_getptstringfromms(ms_int64, string)
-    char_loop: DO i = 1 , LEN(string)
-      IF (string(i:i) == c_null_char) EXIT char_loop
-    END DO char_loop
-    string(i:LEN(string)) = ' '
-  END SUBROUTINE getPTStringFromMS_int
+  !   ms_int64 = INT(ms,c_int64_t)
+  !   CALL my_getptstringfromms(ms_int64, string)
+  !   char_loop: DO i = 1 , LEN(string)
+  !     IF (string(i:i) == c_null_char) EXIT char_loop
+  !   END DO char_loop
+  !   string(i:LEN(string)) = ' '
+  ! END SUBROUTINE getPTStringFromMS_int
 
-  SUBROUTINE getPTStringFromMS_real(ms, string)
-    REAL, INTENT(in) :: ms
-    CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string
-    CALL getPTStringFromMS_int(NINT(ms), string)
-  END SUBROUTINE getPTStringFromMS_real
+  ! SUBROUTINE getPTStringFromMS_real(ms, string)
+  !   REAL, INTENT(in) :: ms
+  !   CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string
+  !   CALL getPTStringFromMS_int(NINT(ms), string)
+  ! END SUBROUTINE getPTStringFromMS_real
 
-  SUBROUTINE getTimeDeltaFromDateTime(dt1, dt2, td_return)
-    TYPE(datetime),  INTENT(IN),    TARGET   :: dt1,dt2 
-    TYPE(timedelta), INTENT(INOUT), TARGET   :: td_return     !< OUT
+  ! SUBROUTINE getTimeDeltaFromDateTime(dt1, dt2, td_return)
+  !   TYPE(datetime),  INTENT(IN),    TARGET   :: dt1,dt2 
+  !   TYPE(timedelta), INTENT(INOUT), TARGET   :: td_return     !< OUT
 
-    CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
-  END SUBROUTINE getTimeDeltaFromDateTime
+  !   CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
+  ! END SUBROUTINE getTimeDeltaFromDateTime
 
-  SUBROUTINE getTriggeredPreviousEventAtDateTime(my_event, my_datetime)
-    TYPE(event)   , TARGET                ::  my_event
-    TYPE(datetime), TARGET, INTENT(INOUT) ::  my_datetime    !< OUT
+!  SUBROUTINE getTriggeredPreviousEventAtDateTime(my_event, my_datetime)
+!    TYPE(event)   , TARGET                ::  my_event
+!    TYPE(datetime), TARGET, INTENT(INOUT) ::  my_datetime    !< OUT
 
-    CALL my_gettriggeredpreviouseventatdatetime(C_LOC(my_event), C_LOC(my_datetime))
-  END SUBROUTINE getTriggeredPreviousEventAtDateTime
+!   CALL my_gettriggeredpreviouseventatdatetime(C_LOC(my_event), C_LOC(my_datetime))
+! END SUBROUTINE getTriggeredPreviousEventAtDateTime
 
 
   !> compute an ISO 8601 datetime string from a "t_datetime" object
@@ -137,7 +137,7 @@ CONTAINS
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
     mtime_datetime => newDatetime(timestamp%year, timestamp%month, timestamp%day, &
-      &                           timestamp%hour, timestamp%minute, NINT(timestamp%second), ims=0)
+      &                           timestamp%hour, timestamp%minute, NINT(timestamp%second), 0)
 
     IF (PRESENT(opt_add_seconds)) THEN
       IF (opt_add_seconds>0) THEN
@@ -190,7 +190,7 @@ CONTAINS
     IF (seconds <= 8640) THEN
       ! for small durations: use mtime's conversion routine
       seconds = seconds*1000
-      CALL getPTStringFromMS(seconds, td_string)
+      CALL getPTStringFromMS(INT(seconds,i8), td_string)
     ELSE
       ! for larger durations: convert seconds to duration string
        additional_days = seconds/86400
@@ -256,7 +256,7 @@ CONTAINS
     IF (seconds <= 8640) THEN
       ! for small durations: use mtime's conversion routine
       seconds = seconds*1000
-      CALL getPTStringFromMS(seconds, td_string)
+      CALL getPTStringFromMS(NINT(seconds,i8), td_string)
     ENDIF
   END SUBROUTINE get_duration_string_real
 

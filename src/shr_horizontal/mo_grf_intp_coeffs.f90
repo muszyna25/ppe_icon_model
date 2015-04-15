@@ -297,10 +297,10 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
 
       ! The distance in tangential direction is needed normalized with the primal edge length
-      p_grfs%grf_dist_pe2ce(je,1,jb) = grid_sphere_radius*p_ep%system_orientation(je,jb)* &
+      p_grfs%grf_dist_pe2ce(je,1,jb) = grid_sphere_radius*p_ep%tangent_orientation(je,jb)* &
         arc_length(cc_center,cc_ch1)*DOT_PRODUCT(z_nx(1:3),cc_dis1%x(1:3))/&
         (p_ep%primal_edge_length(je,jb)*ABS(DOT_PRODUCT(z_nx(1:3),cc_dis1%x(1:3))))
-      p_grfs%grf_dist_pe2ce(je,2,jb) = grid_sphere_radius*p_ep%system_orientation(je,jb)* &
+      p_grfs%grf_dist_pe2ce(je,2,jb) = grid_sphere_radius*p_ep%tangent_orientation(je,jb)* &
         arc_length(cc_center,cc_ch2)*DOT_PRODUCT(z_nx(1:3),cc_dis2%x(1:3))/&
         (p_ep%primal_edge_length(je,jb)*ABS(DOT_PRODUCT(z_nx(1:3),cc_dis2%x(1:3))))
 

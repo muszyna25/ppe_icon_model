@@ -3255,6 +3255,21 @@ run\_nml:iforcing = inwp
 
 \hline
 \hline
+\multicolumn{6}{|l|}{\textbf{Convection scheme}} 
+\tabularnewline
+
+
+\hline
+tune\_entrorg&
+R&
+1.825e-3&
+1/m&
+Entrainment parameter valid for dx=20 km&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+\hline
 \multicolumn{6}{|l|}{\textbf{Misc}} 
 \tabularnewline
 
@@ -3782,7 +3797,10 @@ sets of common variables can be added to the output:
 \texttt{group:additional\_precip\_vars}\>                                                                           \\
 \texttt{group:dwd\_fg\_atm\_vars}      \>     DWD first guess fields (atmosphere)                                   \\
 \texttt{group:dwd\_fg\_sfc\_vars}      \>     DWD first guess fields (surface/soil)                                 \\
-
+\texttt{group:ART\_AERO\_VOLC}         \>     ART volcanic ash fields                                               \\
+\texttt{group:ART\_AERO\_RADIO}        \>     ART radioactive tracer fields                                         \\
+\texttt{group:ART\_AERO\_DUST}         \>     ART mineral dust aerosol fields                                       \\
+\texttt{group:ART\_AERO\_SEAS}         \>     ART sea salt aerosol fields                                           \\
 \end{tabbing}
 
 
