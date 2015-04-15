@@ -686,10 +686,10 @@ CONTAINS
     ! Initialise the coupler
     xml_filename = "coupling.xml"
     xsd_filename = "coupling.xsd"
-    CALL yac_finit ( xml_filename, xsd_filename )
+    CALL yac_finit ( TRIM(xml_filename), TRIM(xsd_filename) )
 
     ! Inform the coupler about what we are
-    CALL yac_fdef_comp ( comp_name, comp_id )
+    CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
@@ -701,7 +701,7 @@ CONTAINS
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
-    CALL yac_fdef_subdomain ( comp_id, grid_name, subdomain_id )
+    CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
 
     subdomain_ids(1) = subdomain_id
 
@@ -872,13 +872,13 @@ CONTAINS
     field_name(10) = "ocean_sea_ice_bundle"              ! bundled field containing five components
 
     DO i = 1, no_of_fields
-      CALL yac_fdef_field ( &
-        & field_name(i),    &
-        & comp_id,          &
-        & domain_id,        &
-        & cell_point_ids,   &
-        & cell_mask_ids,    &
-        & 1,                &
+      CALL yac_fdef_field (    &
+        & TRIM(field_name(i)), &
+        & comp_id,             &
+        & domain_id,           &
+        & cell_point_ids,      &
+        & cell_mask_ids,       &
+        & 1,                   &
         & field_id(i) )
     ENDDO
 
