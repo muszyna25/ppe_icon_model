@@ -33,7 +33,7 @@ expfile=${5:-$datglob}
 #datfile=dat.$expname.icets.$suffix.${selyear}y.nc
 #datfile=dat.$brfname.icets.$suffix.${selyear}y.nc
 
-calc=y     # calculate nh or sh ice + ts variables
+calc=n     # calculate nh or sh ice + ts variables
 ncsl=y     # plot using nclsh
 conv=y     # convert plots 4 in 1
 mvpl=y     # move plots of sea ice to xplot.seaice
