@@ -906,8 +906,10 @@ schedulers/ecmwf/gen/case_setup.B-matrix -text
 schedulers/ecmwf/gen/case_setup_amip_ifs -text
 schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_clim_tsoil -text
-schedulers/ecmwf/gen/case_setup_default -text
-schedulers/ecmwf/gen/case_setup_default_r2b5 -text
+schedulers/ecmwf/gen/case_setup_default_icon -text
+schedulers/ecmwf/gen/case_setup_default_ifs -text
+schedulers/ecmwf/gen/case_setup_default_r2b5_icon -text
+schedulers/ecmwf/gen/case_setup_default_r2b5_ifs -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
 schedulers/ecmwf/gen/case_setup_oper -text
