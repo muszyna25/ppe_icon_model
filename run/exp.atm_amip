@@ -43,7 +43,8 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 (( dt_checkpoint = 300 * day))
 (( dt_restart    = 900 * day))
 #
-output_interval="PT2H"
+output_interval_2d="PT2H"
+output_interval_3d="PT6H"
 file_interval="P300D"
 
 # namelist files
@@ -335,7 +336,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
+ output_interval  = "${output_interval_3d}"          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho',
@@ -357,7 +358,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
+ output_interval  = "${output_interval_2d}"          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
@@ -402,7 +403,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
+ output_interval  = "${output_interval_3d}"          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -435,7 +436,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
+ output_interval  = "${output_interval_3d}"          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
@@ -459,7 +460,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
+ output_interval  = "${output_interval_2d}"          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
