@@ -894,6 +894,7 @@ schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
 schedulers/ecmwf/def/icon_B-matrix.def -text
 schedulers/ecmwf/def/icon_clim.def -text
+schedulers/ecmwf/def/icon_clim_amip.def -text
 schedulers/ecmwf/def/icon_clim_tsoil.def -text
 schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/icon_oper.def -text
@@ -902,6 +903,7 @@ schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/build.job -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_amip_ifs -text
 schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_clim_tsoil -text
 schedulers/ecmwf/gen/case_setup_default -text
