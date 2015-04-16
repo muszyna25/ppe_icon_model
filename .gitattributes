@@ -954,6 +954,7 @@ schedulers/ecmwf/sms/getmeans.sms -text
 schedulers/ecmwf/sms/init_build.sms -text
 schedulers/ecmwf/sms/init_cp_binary.sms -text
 schedulers/ecmwf/sms/init_data.sms -text
+schedulers/ecmwf/sms/init_data_nest.sms -text
 schedulers/ecmwf/sms/init_svn.sms -text
 schedulers/ecmwf/sms/meteogram.sms -text
 schedulers/ecmwf/sms/meteogram_tsoil.sms -text
