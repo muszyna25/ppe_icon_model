@@ -141,8 +141,8 @@ cat > ${atmo_namelist} << EOF
 
 ! grid_nml: horizontal grid --------------------------------------------------
 &grid_nml
- dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
- radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
+ dynamics_grid_filename      =  ${dynamics_grid_filename}
+ radiation_grid_filename     =          ${atmo_rad_grids}
  dynamics_parent_grid_id     =              0, 1, 2, 1, 4         ! array of the indexes of the parent grid filenames
  lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
@@ -263,6 +263,7 @@ cat > ${atmo_namelist} << EOF
 /
 EOF
 #-----------------------------------------------------------------------------
+cat ${atmo_namelist}
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_non-hydrostatic_files
