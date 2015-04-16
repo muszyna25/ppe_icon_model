@@ -21,22 +21,19 @@ expname=$(basename $(pwd))
 datfile=$1
 suffix=$2     # nh or sh
 selyear=$3
-datglob=dat.$brfname.icets.glb.${selyear}y.nc
 brfname=${4:-$expname}
+datglob=dat.$brfname.icets.glb.${selyear}y.nc
 expfile=${5:-$datglob}
 
 #echo $selyear
 #brfname=${expname##.}
-#brfname=r16289.leadcl025
-#brfname=r16462.iceth.lc25
-#brfname=r19026.newro
 #brfname=$expname
 #brfname=sice.wGMR
-
 #datfile=dat.r16207.def.icets.$suffix.${selyear}y.nc
 #datfile=dat.$expname.icets.$suffix.${selyear}y.nc
 #datfile=dat.$brfname.icets.$suffix.${selyear}y.nc
-calc=n     # calculate nh or sh ice + ts variables
+
+calc=y     # calculate nh or sh ice + ts variables
 ncsl=y     # plot using nclsh
 conv=y     # convert plots 4 in 1
 mvpl=y     # move plots of sea ice to xplot.seaice
@@ -62,15 +59,24 @@ if [[ $calc = y ]]; then
   cdo chname,hs_acc,hsxc_acc -mul -selvar,hs_acc xscr.icets.nc -selvar,conc_acc xscr.icets.nc xscr.hsXconc.nc
   rm -f xscr.hihsXconc.nc
   cdo merge xscr.hiXconc.nc xscr.hsXconc.nc xscr.hihsXconc.nc
+
+  # calculate magnitude of velocity
+  cdo chname,ice_u_acc,ice_magv_acc -sqrt \
+     -add -sqr -selvar,ice_u_acc xscr.icets.nc -sqr -selvar,ice_v_acc xscr.icets.nc xscr.magv.nc
+
+  # merge
   rm -f $datglob
-  cdo merge xscr.icets.nc xscr.hihsXconc.nc $datglob
+  cdo merge xscr.icets.nc xscr.hihsXconc.nc xscr.magv.nc $datglob
   rm -f xscr.*nc
 
   # select upper 5 levels of S and T and collect to NH and SH
-  datfhem=dat.$brfname.icets.nh.${selyear}y.nc
-  cdo -sellonlatbox,0,360,50,90 -sellevidx,1/5 $datglob $datfhem
-  datfhem=dat.$brfname.icets.sh.${selyear}y.nc
-  cdo -sellonlatbox,0,360,-90,-50 -sellevidx,1/5 $datglob $datfhem
+  datnhem=dat.$brfname.icets.nh.${selyear}y.nc
+  datshem=dat.$brfname.icets.sh.${selyear}y.nc
+  cdo -sellonlatbox,0,360,50,90 -sellevidx,1/5 $datglob $datnhem
+  cdo -sellonlatbox,0,360,-90,-50 -sellevidx,1/5 $datglob $datshem
+
+  if [[ "$suffix" = "nh" ]]; then datfile=$datnhem; fi
+  if [[ "$suffix" = "sh" ]]; then datfile=$datshem; fi
   
 fi  # calculate
   
@@ -83,8 +89,8 @@ if [[ $ncsl = y ]]; then
   vari=${vi}_acc
   iceplot=pl.$brfname.$suffix.${selyear}y.$vi.$ts
 
-  TIT="MPIOM - ice depth"
-  TIT="ICON - ice depth"
+  TIT="MPIOM - ice thickness"
+  TIT="ICON - ice thickness"
 
   if [[ "$suffix" = "nh" ]]; then mapt=NHps; fi
   if [[ "$suffix" = "sh" ]]; then mapt=SHps; fi
