@@ -686,7 +686,7 @@ MODULE mo_nonhydro_state
         END IF ! iqs
 
         !CK>
-        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==2) THEN
+        IF (ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp==2)) THEN
           !QG
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
