@@ -471,8 +471,10 @@ REAL(KIND=jprb), PARAMETER :: zcapethresh = 7000._jprb
 ldcum(:)=.FALSE.
 pqsen(:,:)=pqen(:,:)
 
-CALL satur (kidia, kfdia, klon, phy_params%kcon2, klev,&
-  & pap,    pten, pqen, pqsen, 1  )
+! GZ, 2015-02-17: Change start level of qsat computation from 60 hPa (phy_params%kcon2) to ktdia,
+! i.e. the general start level of moisture physics, because the previous implementation led to a crash
+! in a pathological case of anomalously deep convection
+CALL satur (kidia, kfdia, klon, ktdia, klev, pap, pten, pqen, pqsen, 1)
 
 
 !*UPG

@@ -51,7 +51,9 @@ MODULE mo_nwp_diagnosis
   USE mo_advection_config,   ONLY: advection_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
+  USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
+  USE mo_util_phys,          ONLY: calsnowlmt
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mo_datetime,           ONLY: date_to_time, rdaylen
   USE mo_time_config,        ONLY: time_config
@@ -816,6 +818,7 @@ CONTAINS
   !! - height of convection base and top: hbas_con, htop_con
   !! - height of the top of dry convection: htop_dc
   !! - height of 0 deg C level: hzerocl
+  !! - height of snow fall limit above MSL
   !! - CLDEPTH: modified cloud depth for media
   !! - CLCT_MOD: modified total cloud cover (between 0 and 1) 
   !! - t_ice is filled with t_so(0) for non-ice points (h_ice=0)
@@ -925,7 +928,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           IF ( prm_diag%locum(jc,jb)) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
-            prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
+            prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
           ELSE
             prm_diag%hbas_con(jc,jb) = -500._wp
             prm_diag%htop_con(jc,jb) = -500._wp
@@ -1003,6 +1006,18 @@ CONTAINS
       ENDDO
 
 
+      !
+      !  Height of snow fall limit above MSL (snow line)
+      !
+      CALL calsnowlmt ( snowlmt = prm_diag%snowlmt(:,jb)        , & !inout
+        &               temp    = pt_diag%temp(:,:,jb)          , & !in
+        &               pres    = pt_diag%pres(:,:,jb)          , & !in
+        &               qv      = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
+        &               hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
+        &               hhlr    = vct_a(pt_patch%nshift_total+1:),& !in
+        &               istart  = i_startidx                    , & !in
+        &               iend    = i_endidx                      , & !in
+        &               wbl     = 1.3_wp )
 
 
       ! Fill t_ice with t_so(1) for ice-free points (h_ice<=0)

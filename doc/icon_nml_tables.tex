@@ -1635,8 +1635,15 @@ Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_
 \tabularnewline
 
 rho\_incr\_filter\_wgt &
-R & 0 & s &
+R & 0 &  &
 Vertical filtering weight on density increments &
+init\_mode=5,6
+\tabularnewline
+
+wgtfac\_geobal &
+R & 0 &  &
+Weighting factor for artificial geostrophic balancing of meridional gradients of DA pressure increments in the tropical stratosphere.
+Use with caution! According to preliminary experience, the weight should not be much larger than 0.1 &
 init\_mode=5,6
 \tabularnewline
 
@@ -1885,6 +1892,7 @@ determined for lon-lat interpolation.\\
 1 : lookup table based on grid level\\
 2 : determine automatically.\\
 So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
+3 : explicitly set shape parameter in each output namelist
 &
 \tabularnewline
 
@@ -2064,14 +2072,6 @@ C&' '& &
 &
 \texttt{output\_nml} namelists,
 NetCDF output
-\tabularnewline
-
-%\hline
-lzaxis\_reference&
-L& .TRUE. & &
-FALSE: encode vertical axis as ZAXIS\_HYBRID for 3D atmospheric fields\\
-TRUE: encode vertical axis as ZAXIS\_REFERENCE for 3D atmospheric fields &
-GRIB2-output (ZAXIS\_HYBRID will be removed after some testing phase)
 \tabularnewline
 
 %\hline
@@ -2392,7 +2392,8 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
 idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis:\\ 
 1 = based on SWE only\\
-2--4 = more advanced experimental methods &
+2--4 = more advanced experimental methods \\ 
+20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow&
 \tabularnewline
 
 %\hline
@@ -3655,6 +3656,16 @@ See namelist parameter \texttt{stream\_partitions\_ml} for details.
 &
 \tabularnewline
 
+
+%\hline
+ rbf\_scale &
+R&-1.& &
+Explicit setting of RBF shape parameter for interpolated lon-lat output. 
+This namelist parameter is only active in combination with interpol\_nml:rbf\_scale\_mode\_ll=3.
+&
+interpol\_nml:rbf\_scale\_mode\_ll=3
+\tabularnewline
+
 %\hline
 \end{longtab}
 
@@ -4825,6 +4836,12 @@ value for horizontally homogeneous roughness length z0 & lconst\_z0=.TRUE.
 \tabularnewline
 
 
+%\hline
+ldiff\_qi &
+L                &     .FALSE.     &  &
+Turbulent diffusion of cloud ice, if .TRUE.
+\tabularnewline
+
 
 
 
@@ -4844,6 +4861,12 @@ using the profile values of the lowest main level instead of the mean value of t
 lnonloc &
 L                &     .FALSE.      & &
 nonlocal calculation of vertical gradients used for turbul. diff. & 
+\tabularnewline
+
+%\hline
+lfreeslip &
+L                &     .FALSE.      & &
+.TRUE.: use a free-slip lower boundary condition, i.e. neither momentum nor heat/moisture fluxes (use for idealized runs only!) & 
 \tabularnewline
 
 %\hline

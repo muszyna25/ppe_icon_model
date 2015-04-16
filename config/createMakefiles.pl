@@ -299,7 +299,7 @@ foreach my $dir ( @directories ) {
     }
     
     print MAKEFILE "clean:\n";
-    print MAKEFILE "\trm -f *.o ../module/*.mod\n";
+    print MAKEFILE "\trm -f *.o *.mod ../module/*.mod\n";
     print MAKEFILE "\n";
     
 #__________________________________________________________________________________________________________________________________

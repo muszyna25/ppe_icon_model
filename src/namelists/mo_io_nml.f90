@@ -42,7 +42,6 @@ MODULE mo_io_nml
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
                                  & config_netcdf_dict             => netcdf_dict            , &
-                                 & config_lzaxis_reference        => lzaxis_reference       , &
                                  & config_itype_rh                => itype_rh               , &
                                  & config_restart_file_type       => restart_file_type      , &
                                  & config_write_initial_state     => write_initial_state
@@ -183,7 +182,6 @@ CONTAINS
     config_itype_rh                = itype_rh
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
-    config_lzaxis_reference        = lzaxis_reference
     config_restart_file_type       = restart_file_type
     config_write_initial_state     = write_initial_state
     !-----------------------------------------------------
@@ -199,6 +197,15 @@ CONTAINS
     !-----------------------------------------------------
     IF(my_process_is_stdio()) THEN
       WRITE(nnml_output,nml=io_nml)
+    END IF
+
+
+    ! Throw a warning for deprecated parameters: ---------
+    IF (lzaxis_reference .EQV. .FALSE.) THEN
+      ! default value has been modified; inform the user that this
+      ! switch has no effect:
+      IF (my_process_is_stdio()) &
+        WRITE (0,*) "WARNING: Namelist switch 'lzaxis_reference' has no effect any more and will soon be removed!"
     END IF
 
   END SUBROUTINE read_io_namelist

@@ -145,3 +145,15 @@ void util_get_maxrss(int* maxrss)
     /* do nothing */
 #endif
 }
+
+
+void util_compiler_release(char *release_str, int *rstr_len)
+{
+#ifdef _CRAYC
+  strcpy(release_str, _RELEASE_STRING);
+#else
+  strcpy(release_str, "unknown");
+#endif
+  *rstr_len = strlen(release_str);
+  return;
+}

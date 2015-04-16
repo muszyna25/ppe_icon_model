@@ -46,6 +46,15 @@ MODULE mo_delaunay_types
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_delaunay_types'
 
+  ! quadruple precision, needed for some determinant computations
+
+#ifndef NAGFOR
+  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
+#else
+  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
+#endif
+
+
   ! --------------------------------------------------------------------
   ! OBJECT DECLARATIONS
   ! --------------------------------------------------------------------
@@ -286,7 +295,53 @@ CONTAINS
     ccw_spherical = v3%x*(v1%y*v2%z - v2%y*v1%z) &
       &        -    v3%y*(v1%x*v2%z - v2%x*v1%z) &
       &        +    v3%z*(v1%x*v2%y - v2%x*v1%y)
+
+    ! we apply a static error of
+    !   | e - e'| <= 3*2^-48
+    ! to decide if a floating-point evaluation e' of an expression e
+    ! has the correct sign, see Section 2.2 of
+    !
+    ! Burnikel, C.; Funke, S. & Seel, M. 
+    ! "Exact geometric computation using cascading"
+    ! International Journal of Computational Geometry & Applications, 
+    ! World Scientific, 2001, 11, 245-266
+    IF (ABS(ccw_spherical) <= 1.1e-14_wp) THEN
+      ccw_spherical = ccw_spherical_q128(v1,v2,v3)
+    END IF
   END FUNCTION ccw_spherical
+
+
+  ! --------------------------------------------------------------------
+  !> Locates a point relative to a directed arc. Let v1, v2, and v3 be
+  !  distinct points on the sphere, and denote by v1 -> v2 the
+  !  geodesic connecting v1 and v2 and directed toward v2. This test
+  !  determines which of the two hemispheres defined by v1 -> v2
+  !  contains v3, or, in other words, if we "turn left" when going
+  !  from v1 to v2 to v3.
+  PURE FUNCTION ccw_spherical_q128(v1,v2,v3)
+    REAL(wp) :: ccw_spherical_q128
+    TYPE (t_point), INTENT(IN)  :: v1,v2,v3
+    REAL(QR_K) :: v1_x, v1_y, v1_z,v2_x, v2_y, v2_z,v3_x, v3_y, v3_z
+
+    ! det(v1,v2,v3) = <v1 x v2, v3> = | v1 x v2 | cos(a) 
+    !  
+    ! where a is the angle between v3 and the normal to the plane
+    ! defined by v1 and v2.
+    
+    v1_x = v1%x
+    v1_y = v1%y
+    v1_z = v1%z
+    v2_x = v2%x
+    v2_y = v2%y
+    v2_z = v2%z
+    v3_x = v3%x
+    v3_y = v3%y
+    v3_z = v3%z
+
+    ccw_spherical_q128 = v3_x*(v1_y*v2_z - v2_y*v1_z) &
+      &             -    v3_y*(v1_x*v2_z - v2_x*v1_z) &
+      &             +    v3_z*(v1_x*v2_y - v2_x*v1_y)
+  END FUNCTION ccw_spherical_q128
 
 
   ! --------------------------------------------------------------------
