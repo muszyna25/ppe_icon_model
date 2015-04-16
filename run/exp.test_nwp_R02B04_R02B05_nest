@@ -142,7 +142,7 @@ cat > ${atmo_namelist} << EOF
  msg_level               = 12                   ! detailed report during integration
  output                  = 'nml'
  check_uuid_gracefully   = .true.
- nsteps                  = 10
+ nsteps                  = 5
 /
 &dynamics_nml
  iequations              = ${atmo_model_equations}
@@ -164,7 +164,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection         = 1
  inwp_radiation          = 0
  inwp_cldcover           = 3
- inwp_turb               = 10
+ inwp_turb               = 0
  inwp_satad              = 1
  inwp_surface            = 1
 /
@@ -241,45 +241,10 @@ cat > ${atmo_namelist} << EOF
  lsnowtile               = .false.
 /
 &meteogram_output_nml
- lmeteogram_enabled      = .true.
+ lmeteogram_enabled      = .false.
  ldistributed            = .false.
  n0_mtgrm                = 1
  ninc_mtgrm              = 1
- stationlist_tot=  50.050,  8.600, 'Frankfurt-Flughafen',
-                   52.220, 14.135, 'Lindenberg_Obs',
-                   52.167, 14.124, 'Falkenberg',
-                   52.182, 13.954, 'Waldstation_Kehrigk',
-                   47.800, 10.900, 'Hohenpeissenberg',
-                   50.783,  6.100, 'Aachen',
-                   48.433, 10.933, 'Augsburg',
-                   49.980, 11.682, 'Bayreuth',
-                   52.300, 10.450, 'Braunschweig',
-                   51.967,  4.933, 'Cabauw',
-                   50.283, 10.983, 'Coburg',
-                   47.419, 10.982, 'Schneefernerhaus',
-                   49.920,  7.960, 'Geisenheim',
-                   53.633,  9.983, 'Hamburg',
-                   54.750, 17.533, 'Leba',
-                   51.200, 16.200, 'Legnica',
-                   53.780, 21.580, 'Mikolajki',
-                   37.122, -5.579, 'Moron_la_Frontera',
-                   53.779,  8.669, 'Nordholz',
-                   48.067, 11.267, 'Oberpfaffenhofen',
-                   57.425, 18.983, 'Oestergarsholm',
-                   46.817,  6.935, 'Payerne',
-                   53.133, 16.750, 'Pila',
-                   52.383, 13.067, 'Potsdam',
-                   54.533,  9.550, 'Schleswig',
-                   48.833,  9.200, 'Stuttgart',
-                   51.350, 19.870, 'Sulejow',
-                   45.217,  7.650, 'Turin-Caselle',
-                   63.086, 25.980, 'Viitasaari',
-                   54.633, 25.100, 'Vilnius',
-                   52.167, 20.967, 'Warschau',
-                   48.400, 11.700, 'Weihenstephan',
-                   51.217, 18.567, 'Wielund',
-                   51.550, 23.530, 'Wlodawa',
-                   53.311, 11.838, 'Ziegendorf',
 /
 EOF
 #-----------------------------------------------------------------------------
