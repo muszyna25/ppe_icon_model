@@ -37,7 +37,8 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
     &                               config_tune_entrorg   => tune_entrorg,   &  
-    &                               config_itune_albedo   => itune_albedo  
+    &                               config_itune_albedo   => itune_albedo,   &
+    &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
   PRIVATE
@@ -75,9 +76,12 @@ MODULE mo_nwp_tuning_nml
                                    ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
 
+  REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
+    &  max_freshsnow_inc
+
   NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun, &
     &                      tune_zceff_min, tune_v0snow, tune_zvz0i,  &
-    &                      tune_entrorg, itune_albedo
+    &                      tune_entrorg, itune_albedo, max_freshsnow_inc
 
 
 CONTAINS
@@ -135,6 +139,9 @@ CONTAINS
     tune_entrorg    = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
 
     itune_albedo    = 0            ! original (measured) albedo
+    !
+    ! IAU increment tuning
+    max_freshsnow_inc = 0.025_wp   ! maximum allowed positive freshsnow increment
 
 
     !------------------------------------------------------------------
@@ -179,14 +186,15 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      config_tune_gkwake    = tune_gkwake
-      config_tune_gkdrag    = tune_gkdrag
-      config_tune_gfluxlaun = tune_gfluxlaun
-      config_tune_zceff_min = tune_zceff_min 
-      config_tune_v0snow    = tune_v0snow
-      config_tune_zvz0i     = tune_zvz0i
-      config_tune_entrorg   = tune_entrorg
-      config_itune_albedo   = itune_albedo
+      config_tune_gkwake       = tune_gkwake
+      config_tune_gkdrag       = tune_gkdrag
+      config_tune_gfluxlaun    = tune_gfluxlaun
+      config_tune_zceff_min    = tune_zceff_min 
+      config_tune_v0snow       = tune_v0snow
+      config_tune_zvz0i        = tune_zvz0i
+      config_tune_entrorg      = tune_entrorg
+      config_itune_albedo      = itune_albedo
+      config_max_freshsnow_inc = max_freshsnow_inc
     ENDDO
 
 
