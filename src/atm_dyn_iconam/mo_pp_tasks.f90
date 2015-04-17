@@ -429,6 +429,9 @@ CONTAINS
           IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
             &  CALL finish(routine, "Inconsistent dimension info!")
 
+          IF (dbg_level >= 10) & 
+               CALL message(routine, "synchronize variable "//TRIM(p_info%name))
+
           SELECT CASE (p_info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
             IF (is_2d_field(p_info%vgrid)) THEN

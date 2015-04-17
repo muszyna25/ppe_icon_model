@@ -499,7 +499,7 @@ CONTAINS
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
-    & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
+    & ,tk_sfc            ,pp_hl            ,pp_fl                          &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
     & ,cdnc              ,cld_frc                                          &
@@ -536,7 +536,6 @@ CONTAINS
       &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
       &  emis_rad(kbdim),    & !< longwave surface emissivity
       &  tk_sfc(kbdim),      & !< Surface temperature
-      &  z_mc(kbdim,klev),   & !< height at full levels [m]
       &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
       &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
       &  tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
@@ -733,7 +732,7 @@ CONTAINS
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-      & emis_rad        ,z_mc                                              ,&
+      & emis_rad                                                           ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
@@ -791,7 +790,7 @@ CONTAINS
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
-    & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
+    & ,tk_sfc            ,pp_hl            ,pp_fl                          &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
     & ,cdnc              ,cld_frc                                          &
@@ -823,7 +822,6 @@ CONTAINS
       &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
       &  emis_rad(kbdim),    & !< longwave surface emissivity
       &  tk_sfc(kbdim),      & !< Surface temperature
-      &  z_mc(kbdim,klev),   & !< height at full levels [m]
       &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
       &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
       &  tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
@@ -978,7 +976,7 @@ CONTAINS
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0                                                            ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-      & emis_rad        ,z_mc                                              ,&
+      & emis_rad                                                           ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
@@ -1125,7 +1123,7 @@ CONTAINS
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
     & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-    & emis_rad        ,z_mc                                              ,&
+    & emis_rad                                                           ,&
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
@@ -1160,7 +1158,6 @@ CONTAINS
       &  alb_vis_dif(kbdim),              & !< surface albedo for vis range and dif light
       &  alb_nir_dif(kbdim),              & !< surface albedo for NIR range and dif light
       &  emis_rad(kbdim),                 & !< longwave surface emissivity
-      &  z_mc(kbdim,klev),                & !< height at full levels [m]
       &  pp_fl(kbdim,klev),               & !< full level pressure in Pa
       &  pp_hl(kbdim,klev+1),             & !< half level pressure in Pa
       &  pp_sfc(kbdim),                   & !< surface pressure in Pa
@@ -1502,7 +1499,7 @@ CONTAINS
       &    col_dry_vr      ,wkl_vr                                           ,&
       &    cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    ,cld_piz_sw_vr  ,&
       &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
-      &    ssi_radt        ,z_mc                                             ,&
+      &    ssi_radt                                                          ,&
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
       !    optional output
