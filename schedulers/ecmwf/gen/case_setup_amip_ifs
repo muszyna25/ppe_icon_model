@@ -60,17 +60,22 @@ ln -sf ${SSTICEDIR}/*/*SST**${res}* .
 ln -sf ${SSTICEDIR}/*/*CI**${res}*  .
 
 # global timing
-start_date="${INITIME_FMT}"
-ndays_restart=500
+start_date="${INITIME_FMT}"        # ISO-format date+time
+last_date="${LASTIME_FMT}"         # ISO-format date+time
+ndays_restart=11100                # save restart file and stop
 dt_restart=`expr ${ndays_restart} \* 86400`
 
-# model timing                          (EDMF, safer 90s)
-dtime=90      # dyn            R2B4:150  R2B5:90 (144) R2B6:72   R2B7:36   R2B8:18
-dtconv=900    # conv, SSO, GWD R2B4:600  R2B5:900(720) R2B6:720  R2B7:360  R2B8:360
-dtrad=3600    # rad            R2B4:3600 R2B5:3600     R2B6:3600 R2B7:1800 R2B8:1800
-iadv_rcf=5    # adv, turb      R2B4:4    R2B5:5  (5)   R2B6:5    R2B7:5    R2B8:5
-ninc_mtgrm=40 # output interval 3600s            (25)
-ndays=410     # number of days to run
+ndays_checkpoint=400             # save restart file and continue
+dt_checkpoint=`expr ${ndays_checkpoint} \* 86400`
+
+# model timing
+dtime=150     # dyn            R2B4:150  R2B5:90   R2B6:72   R2B7:36   R2B8:18
+dtconv=450    # conv, SSO, GWD R2B4:600  R2B5:900  R2B6:720  R2B7:360  R2B8:360
+dtrad=3600    # rad            R2B4:3600 R2B5:3600 R2B6:3600 R2B7:1800 R2B8:1800
+iadv_rcf=3    # adv, turb      R2B4:4    R2B5:5    R2B6:5    R2B7:5    R2B8:5
+ninc_mtgrm=1152 # output interval 48h
+ndays=11000   # number of days to run
+#ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 
 # model parameters
@@ -84,12 +89,15 @@ model_equations=3      #  3=non-hydrost. atm.,
 
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
+# either NSTEP or END_DATETIME_STRING (NSTEP overwrites, when exist)
+
 cat > icon_master.namelist << EOF
 &master_nml
  lrestart                     = .FALSE.
 /
 &time_nml
  ini_datetime_string          = "$start_date"
+ end_datetime_string          = "$last_date"
  dt_restart                   = $dt_restart
 /
 &master_model_nml
@@ -146,7 +154,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks                 = .FALSE.
  num_io_procs                 = 1
  itype_comm                   = 1
- iorder_sendrecv              = 3
+ iorder_sendrecv              = 1
 /
 &grid_nml
  dynamics_grid_filename       = ${dynamics_grid_filename}
@@ -166,7 +174,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev                      = 90
  lvert_nest                   = .TRUE.
- nsteps                       = ${nsteps}
+!nsteps                       = ${nsteps}
  dtime                        = ${dtime}    ! timestep in seconds
  ldynamics                    = .TRUE.      ! dynamics
  ltransport                   = .TRUE.
@@ -183,17 +191,27 @@ cat > ${atmo_namelist} << EOF
                                             ! 4: IFS method with bug fix for self-consistency between SLP and geopotential
  itype_rh                     = 1           ! RH w.r.t. water
  lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
+ dt_checkpoint                = ${dt_checkpoint}
 /
 ! OUTPUT: Regular grid, model levels, all domains
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          = -1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
- output_bounds                =  0., 100000000., 86400.   ! start, end, increment
- steps_per_file               =  500
- mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
- taxis_tunit                  =  3  ! output time unit, 3: hours, 2:min, 1:sec
+!---
+!output_time_unit             =  1                        ! 1: seconds, 4: days
+!output_bounds                =  0., 100000000., 86400.   ! start, end, increment
+!steps_per_file               =  500
+!mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+!taxis_tunit                  =  3  ! output time unit, 3: hours, 2:min, 1:sec
+!include_last                 = .TRUE.
+!---
+ output_start                 = "1979-01-01T00:00:00Z"    ! start
+ output_end                   = "2009-01-10T00:00:00Z"    ! end
+ output_interval              = "P02D"                    ! increment
+ file_interval                = "P0001Y"                  ! yearly output files
+ mode                         =  2  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
+!---
  output_filename              = '${basename}'             ! file name base
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
@@ -204,9 +222,9 @@ cat > ${atmo_namelist} << EOF
                                 10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
- reg_lon_def                  = 0.,2.,358.
- reg_lat_def                  = 90.,-2., -90.
-!namespace                    = "ECMWF"                   ! may give problems with metview
+ reg_lon_def                  =  0., 2.0, 358.
+ reg_lat_def                  = 90.,-2.0, -90.
+!namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
 /
 &gribout_nml
  generatingCenter             = 78                        ! ECMWF 98, DWD 78

@@ -24,12 +24,13 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "193"                #---experiment number---
-set EXPNUM2       "192"                #---experiment number used for score comparison---
+set EXPNUM        "216"                #---experiment number---
+set EXPNUM2       "212"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
-set LAST_DATE     20120731
-set MONTHS        201201_201207        #---months to be run e.g. 201201_201207
+set LAST_DATE     20130131
+set MONTHS        201201_201207_201301 #---months to be run e.g. 201201_201207
+set MON_IFS_ICON  ifs_ifs_icon
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
@@ -37,20 +38,20 @@ set RES           "R02B06"             #---ICON resolution dynamics
 set RESRAD        "R02B05"             #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
-set NSTEPS       12000   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
+set NSTEPS        9600   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
 #set NSTEPS       6000   # grey zone 48h: R2B7-3600, R2B8-7200
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year), 4:B-matrix
-set SIMMODE      2
+set SIMMODE       2
 
 # no. of ensemble members (dummies here)
 #set NENS         10
-set NENS         0   # default for no ensemble run
-set NMEM         0   # default for no ensemble run
+set NENS          0   # default for no ensemble run
+set NMEM          0   # default for no ensemble run
 
 # Processors: CRAY totaltasks: 12 x nodes (for 2 hyperthreads and 4 openMP threads)
                           # EDMF: 384        768
-set ICONTOTALTASKS  768   # R2B5: 192, R2B6: 384, R2B7: ? ,  R2B8: ?
+set ICONTOTALTASKS  384   # R2B5: 192, R2B6: 384, R2B7: ? ,  R2B8: ?
 set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
 set ICONTASKSPERNODE 32   #       32         32         32          8
 set ICONTHREADS       2   #        2          2          2          8
@@ -208,6 +209,7 @@ suite $USER
     edit ECTEMP     $ECTEMP
     edit SCSOFT     $SCSOFT
     edit MONTHS     $MONTHS
+    edit MON_IFS_ICON $MON_IFS_ICON
 
     edit ICONNODES        $ICONNODES        
     edit ICONTOTALTASKS   $ICONTOTALTASKS
@@ -236,6 +238,8 @@ suite $USER
             on_ecgate
             event time_eom
             event time_domonth
+            meter time_ifs_icon 0 2 2
+
 
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
@@ -295,7 +299,7 @@ suite $USER
 
         task init_data
             trigger (get_data == complete) and (build == complete)
-            complete ($ENABLE_INIT_DATA == 0) or (testday==complete) and not (testday:time_domonth)
+            complete (testday:time_ifs_icon == 2) or ($ENABLE_INIT_DATA == 0) or (testday==complete) and not (testday:time_domonth)
             on_hpc_parallel
             edit ICONTOTALTASKS 6
             edit SCJOBTYPE    parallel

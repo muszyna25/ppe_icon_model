@@ -151,6 +151,7 @@ REAL (KIND=wp), PARAMETER ::  &
     zar,       & !
     zceff_min, & ! Minimum value for sticking efficiency
     v0snow,    & ! factor in the terminal velocity for snow
+    v0snow_gr, & ! factor in the terminal velocity for snow (graupel scheme)
     zvz0i        ! Terminal fall velocity of ice  (original value of Heymsfield+Donner 1990: 3.29)
 
 
@@ -197,6 +198,7 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   zadi   = 0.217_wp,     & ! Formfactor in the size-mass relation of ice particles
   zbdi   = 0.302_wp,     & ! Exponent in the size-mass relation of ice particles
   zams   = 0.069_wp,     & ! Formfactor in the mass-size relation of snow particles
+  zams_gr= 0.038_wp,     & ! Formfactor in the mass-size relation of snow particles for graupel scheme
   zbms   = 2.000_wp,     & ! Exponent in the mass-size relation of snow particles
 
   zv1s   = 0.50_wp,      & ! Exponent in the terminal velocity for snow
@@ -331,6 +333,7 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   ELSE
     v0snow = 25.0_wp         ! COSMO default
   ENDIF
+  v0snow_gr = 20.0_wp        ! COSMO-DE default for graupel scheme
 
   IF (PRESENT(tune_zvz0i)) THEN
     zvz0i = tune_zvz0i

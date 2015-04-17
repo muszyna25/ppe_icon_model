@@ -59,17 +59,27 @@ fi
 
 ssh cca-log ls -l
 
+
 ## -------------------------------------------------
 # test for monthly mean runs if current month is selected
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
 MONTHS=`echo %MONTHS% | sed 's/_/ /g'`
+set -A MON_IFS_ICON `echo %MON_IFS_ICON% | sed 's/_/ /g'`
+iii=0
 for month in ${MONTHS[*]} ; do
   if [[ ${YYYYMM} -eq ${month} ]]
   then
     echo "Calculate this month!"
     smsevent time_domonth
+    if [[ ${MON_IFS_ICON[${iii}]} = 'ifs' ]]
+    then
+      smsmeter time_ifs_icon 1
+    else
+      smsmeter time_ifs_icon 2
+    fi
   fi
+  iii=`expr ${iii} + 1`
 done
 
 
