@@ -5,20 +5,12 @@
 #==========================================================================
 
 #==========================================================================
-#  Loadleveler Directives
-#==========================================================================
-#@ job_name         = ICON_BUILD
-#@ output           = /scratch/ms/de/dei2/icon_build.out
-#@ error            = /scratch/ms/de/dei2/icon_build.err
-#@ notification     = error
-#@ shell            = /usr/bin/ksh
-#@ job_type         = parallel
-#@ class            = np
-#@ total_tasks      = 8
-#@ wall_clock_limit = 1:00:00
-#@ resources        = ConsumableMemory(6200MB) ConsumableCpus(8)
-#@ queue
-#@ core_limit = unlimited
+#PBS -S /usr/bin/ksh
+#PBS -l EC_job_name=ICON_BUILD
+#PBS -o /scratch/ms/de/${USER}/icon_build.out
+#PBS -j oe
+#PBS -m n
+#PBS -q ns
 
 
 #==========================================================================
@@ -29,15 +21,18 @@ set -e
 set -u
 set -x
 
-module swap fortran fortran/xlf/14.1.0.3
-module swap grib_api grib_api/1.11.0
+cd ${PERM}/icon-nwp-dev
 
-arch=rs6000-ibm-aix
+arch=x86_64-unknown-linux-gnu
 
-cd ${PERM}/icon-dev
+module swap cce cce/8.3.1
+    
+module load subversion
+module swap grib_api grib_api/1.12.3
+module load netcdf
 
-./configure --with-openmp            # --with-flags=hiopt
+./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
 
-gmake -j8
+gmake -j16
 
 exit

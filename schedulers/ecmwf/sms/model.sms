@@ -87,6 +87,8 @@ sstice_dir=%SCTEMP%/%SUITE%/%EXPNUM%/input/sstice
 outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
+# icon-dev name
+user_icon_dir=%USER_ICON_DIR%
 
 res=%RES%
 resrad=%RESRAD%
@@ -153,10 +155,10 @@ cp -p ${outbasedir}/bin/icon ./icon.exe
 arch=x86_64-unknown-linux-gnu
 
 # copy binary alternatively from individual user - option 1 - automatic - applies to all runs
-# cp -p /perm/ms/de/dei2/icon-dev/build/${arch}/bin/icon ./icon.exe
+# cp -p /perm/ms/de/dei2/icon-nwp-dev/build/${arch}/bin/icon ./icon.exe
 
 # copy binary alternatively from individual user - option 2 - by hand (replace expid XXX)
-# cp /perm/ms/de/dei2/icon-dev/build/${arch}/bin/icon /scratch/ms/de/deia/icon/dei2/XXX/output/bin
+# cp /perm/ms/de/dei2/icon-nwp-dev/build/${arch}/bin/icon /scratch/ms/de/deia/icon/dei2/XXX/output/bin
 
 echo "job::start"
 date
@@ -165,7 +167,7 @@ export USE_SIGNAL_HANDLING=yes
 debug=0
 if [[ ${debug} = 1 ]] ; then                  # optional totalview debugging (max tasks: 256! better 64)
   export DISPLAY=ecaccess.ecmwf.int:1631.0    # open nxclient on cca and get DISPLAY
-  totalview -searchpath='/perm/ms/de/dei2/icon-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-dev/src/atm_phy_nwp/' \
+  totalview -searchpath='/perm/ms/de/dei2/icon-nwp-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-nwp-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-nwp-dev/src/atm_phy_nwp/' \
     poe -a ./icon.exe
 else
  #aprun  -N $EC_tasks_per_node -n $EC_total_tasks -j $EC_hyperthreads icon.exe

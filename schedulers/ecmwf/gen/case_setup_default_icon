@@ -164,7 +164,7 @@ cat > ${atmo_namelist} << EOF
  zpbl2                        = 1000.
  dwdfg_filename               = '${ifs2icon_filename}'
  lread_ana                    = .false.
- ana_varnames_map_file        = '/perm/ms/de/dei2/icon-dev/run/ana_varnames_map_file.txt'
+ ana_varnames_map_file        = '${basedir}/${user_icon_dir}/run/ana_varnames_map_file.txt'
  filetype                     = 2
 &run_nml
  num_lev                      = 90
