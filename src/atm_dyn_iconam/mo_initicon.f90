@@ -50,7 +50,7 @@ MODULE mo_initicon
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
-    &                               isub_lake, isub_water, isub_seaice
+    &                               isub_lake, isub_water
   USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
