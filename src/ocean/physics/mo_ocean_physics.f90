@@ -29,7 +29,7 @@ MODULE mo_ocean_physics
   USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
     & k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
     & max_vert_diff_veloc, max_vert_diff_trac,                &
-    & HorizontalVelocityDiffusion_type, veloc_diffusion_order,            &
+    & HorizontalViscosity_type, veloc_diffusion_order,            &
     & n_points_in_munk_layer,                                 &
     & biharmonic_diffusion_factor,                            &
     & richardson_tracer, richardson_veloc,                    &
@@ -39,7 +39,7 @@ MODULE mo_ocean_physics
     & physics_parameters_ICON_PP_Edge_type,                    &
     & physics_parameters_MPIOM_PP_type,                       &
     & use_wind_mixing,                                        &
-    & smooth_HorizontalVelocityDiffusion,                               &
+    & SmoothHorizontalViscosity_Iterations,                               &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
     & use_convection_parameterization,                        &
@@ -160,10 +160,10 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    REAL(wp) :: minmaxmean_dualEdgeLength(3), minDualEdgeLength, k_veloc_factor
+    REAL(wp) :: minmaxmean_length(3), minDualEdgeLength, minEdgeLength, k_veloc_factor
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
-    REAL(wp):: length_scale
+    REAL(wp):: length_scale, dual_length_scale
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -187,13 +187,15 @@ CONTAINS
     ENDIF
 
     z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
-    minmaxmean_dualEdgeLength = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
-    minDualEdgeLength = minmaxmean_dualEdgeLength(1)
+    minmaxmean_length = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
+    minDualEdgeLength = minmaxmean_length(1)
+    minmaxmean_length = global_minmaxmean(patch_2D%edges%primal_edge_length, owned_edges)
+    minEdgeLength = minmaxmean_length(1)
 
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
     IF(veloc_diffusion_order==1)THEN
-      SELECT CASE(HorizontalVelocityDiffusion_type)
+      SELECT CASE(HorizontalViscosity_type)
       CASE(0)!no friction
         p_phys_param%k_veloc_h(:,:,:) = 0.0_wp
 
@@ -235,9 +237,11 @@ CONTAINS
 
       END SELECT
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
+      
+      
       !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
-      SELECT CASE(HorizontalVelocityDiffusion_type)
+      SELECT CASE(HorizontalViscosity_type)
 
       CASE(1)
         p_phys_param%k_veloc_h(:,:,:) = p_phys_param%k_veloc_h_back
@@ -292,12 +296,15 @@ CONTAINS
           CALL get_index_range(all_edges, jb, start_index, end_index)
           p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
           DO je = start_index, end_index
-
-            length_scale = patch_2D%edges%dual_edge_length(je,jb) / minDualEdgeLength 
-            length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
             
-            DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_veloc_h(je,:,jb) = p_phys_param%k_veloc_h_back * length_scale
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / minDualEdgeLength 
+            length_scale = patch_2D%edges%primal_edge_length(je,jb) / minEdgeLength 
+                        
+!             length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
+            length_scale = SQRT(length_scale * dual_length_scale) * dual_length_scale**2
+            
+            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+              p_phys_param%k_veloc_h(je,jk,jb) = p_phys_param%k_veloc_h_back * length_scale
             END DO
               
           END DO
@@ -311,7 +318,10 @@ CONTAINS
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
 
     ENDIF
-    IF ( smooth_HorizontalVelocityDiffusion ) CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h )
+
+    DO i=1, SmoothHorizontalViscosity_Iterations
+       CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h )
+    ENDDO
 
 
     DO i=1,no_tracer
@@ -387,11 +397,12 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)    :: k_h(:,:,:)
     ! Local variables
-    INTEGER :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
+    INTEGER :: je,jv,jb,jk, jev, ile, ibe
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index
     INTEGER :: i_startidx_v, i_endidx_v
-    REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v), z_k_max
+    REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v)
+    INTEGER  :: sea_edges_onLevel(n_zlev)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, verts_in_domain
     !-------------------------------------------------------------------------
@@ -400,29 +411,21 @@ CONTAINS
 
     z_k_ave_v(:,:,:) = 0.0_wp
 
-    DO jk = 1, n_zlev
-      DO jb = verts_in_domain%start_block, verts_in_domain%end_block
-        CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
-          i_edge_ctr = 0
-          z_k_max    = 0.0_wp
-          DO jev = 1, patch_2D%verts%num_edges(jv,jb)
-            ile = patch_2D%verts%edge_idx(jv,jb,jev)
-            ibe = patch_2D%verts%edge_blk(jv,jb,jev)
-            !             write(0,*) jv,jb, patch_2D%verts%num_edges(jv,jb), ":", ile, ibe
-            IF ( patch_3d%lsm_e(ile,jk,ibe) == sea) THEN
-              z_k_ave_v(jv,jk,jb)= z_k_ave_v(jv,jk,jb) + k_h(ile,jk,ibe)
-              i_edge_ctr=i_edge_ctr+1
-              IF(k_h(ile,jk,ibe)>z_k_max)THEN
-                z_k_max=k_h(ile,jk,ibe)
-              ENDIF
-            ENDIF
+    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        DO jev = 1, patch_2D%verts%num_edges(jv,jb)
+          ile = patch_2D%verts%edge_idx(jv,jb,jev)
+          ibe = patch_2D%verts%edge_blk(jv,jb,jev)
+          sea_edges_onLevel(:) = 0
+          !             write(0,*) jv,jb, patch_2D%verts%num_edges(jv,jb), ":", ile, ibe
+          DO jk = 1, patch_3D%p_patch_1D(1)%dolic_e(ile,ibe)
+            z_k_ave_v(jv,jk,jb)= z_k_ave_v(jv,jk,jb) + k_h(ile,jk,ibe)
+            sea_edges_onLevel(jk) = sea_edges_onLevel(jk) + 1
           END DO
-          IF(i_edge_ctr/=0)THEN!.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN
-            z_k_ave_v(jv,jk,jb)= z_k_ave_v(jv,jk,jb)/REAL(i_edge_ctr,wp)
-          ELSEIF(i_edge_ctr==0)THEN
-            z_k_ave_v(jv,jk,jb)=0.0_wp
-          ENDIF
+            
+          IF(sea_edges_onLevel(jk) /= 0) & !.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN
+            & z_k_ave_v(jv,jk,jb) = z_k_ave_v(jv,jk,jb) / REAL(sea_edges_onLevel(jk),wp)
           !IF(patch_2D%verts%num_edges(jv,jb)== 5)THEN
           !  z_K_ave_v(jv,jk,jb)=80000_wp!°z_K_max
           !ENDIF
@@ -430,24 +433,19 @@ CONTAINS
       ENDDO
     END DO
 
-    DO jk = 1, n_zlev
-      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, start_index, end_index)
-        DO je = start_index, end_index
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      DO je = start_index, end_index
 
-          il_v1 = patch_2D%edges%vertex_idx(je,jb,1)
-          ib_v1 = patch_2D%edges%vertex_blk(je,jb,1)
-          il_v2 = patch_2D%edges%vertex_idx(je,jb,2)
-          ib_v2 = patch_2D%edges%vertex_blk(je,jb,2)
+        il_v1 = patch_2D%edges%vertex_idx(je,jb,1)
+        ib_v1 = patch_2D%edges%vertex_blk(je,jb,1)
+        il_v2 = patch_2D%edges%vertex_idx(je,jb,2)
+        ib_v2 = patch_2D%edges%vertex_blk(je,jb,2)
 
-          IF ( patch_3d%lsm_e(je,jk,jb) == sea) THEN
-            k_h(je,jk,jb)= 0.5_wp*(z_k_ave_v(il_v1,jk,ib_v1) + z_k_ave_v(il_v2,jk,ib_v2))
-          ELSE
-            k_h(je,jk,jb)=0.0_wp
-          ENDIF
-          !          IF(patch_2D%verts%num_edges(il_v1,ib_v1)== 5.OR.patch_2D%verts%num_edges(il_v2,ib_v2)==5)THEN
-          !            K_h(je,jk,jb)=max(z_K_ave_v(il_v1,jk,ib_v1),z_K_ave_v(il_v2,jk,ib_v2))
-          !          ENDIF
+        DO jk = 1, patch_3D%p_patch_1D(1)%dolic_e(je,jb)
+          
+          k_h(je,jk,jb)= 0.25_wp * (z_k_ave_v(il_v1,jk,ib_v1) + z_k_ave_v(il_v2,jk,ib_v2)) + &
+            & 0.5_wp * k_h(je,jk,jb)
         END DO
       ENDDO
     END DO
@@ -700,7 +698,7 @@ CONTAINS
       CALL finish("update_ho_params", "unknown physics_parameters_type")
     END SELECT
 
-    IF(HorizontalVelocityDiffusion_type==4)THEN
+    IF(HorizontalViscosity_type==4)THEN
 
      IF(veloc_diffusion_order==1)THEN!.AND.veloc_diffusion_form==1)THEN
         CALL calculate_leith_closure(patch_3d, ocean_state, params_oce, op_coeffs)
@@ -1375,7 +1373,7 @@ CONTAINS
           richardson_edge = MAX(dz * z_grav_rho * density_differ_edge / z_shear_edge, 0.0_wp)
           
           params_oce%a_veloc_v(je,jk,jb) = &
-            & params_oce%a_veloc_v_back +  &
+            & params_oce%a_veloc_v_back * dz +  &
             & richardson_veloc /                      &
             & ((1.0_wp + z_c1_v * richardson_edge)**2)
 
