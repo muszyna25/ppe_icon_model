@@ -30,7 +30,7 @@ MODULE mo_initicon
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
@@ -38,10 +38,12 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, wgtfac_geobal,    &
     &                               rho_incr_filter_wgt, lread_ana,               &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA, MODE_ICONVREMAP, &
-    &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,           &
-    &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
+  USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
+    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,        &
+    &                               MODE_IFSANA, MODE_ICONVREMAP, MODE_COMBINED,    &
+    &                               MODE_COSMODE, min_rlcell, INWP, min_rledge_int, &
+    &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom
@@ -49,7 +51,8 @@ MODULE mo_initicon
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
     &                               isub_lake, isub_water, isub_seaice
-  USE mo_phyparam_soil,       ONLY: cporv, crhosmin_ml
+  USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -171,7 +174,8 @@ MODULE mo_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) == init_mode)) THEN ! read in DWD analysis
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) &
+      &  == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -219,7 +223,7 @@ MODULE mo_initicon
     CASE (MODE_DWDANA_INC)
 
       CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
-        &                        ' incremental analysis update')
+        &                        'incremental analysis update')
 
       ! process DWD atmosphere analysis increments
       CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
@@ -230,7 +234,18 @@ MODULE mo_initicon
     CASE (MODE_IAU)
 
       CALL message(TRIM(routine),'MODE_IAU: perform initialization with '// &
-        &                        ' incremental analysis update')
+        &                        'incremental analysis update, including snow increments')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+
+      ! process DWD land/surface analysis (increments)
+      CALL process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_IAU_OLD)
+
+      CALL message(TRIM(routine),'MODE_IAU_OLD: perform initialization with '// &
+        &                        'incremental analysis update (retained for backward compat.)')
 
       ! process DWD atmosphere analysis increments
       CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
@@ -319,7 +334,7 @@ MODULE mo_initicon
 
     ! close first guess and analysis files and corresponding inventory lists
     ! 
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 
@@ -1488,10 +1503,10 @@ MODULE mo_initicon
   !!
   !! Add increments to time-shifted first guess in one go.
   !! Increments are added for: 
-  !! W_SO, H_SNOW, W_SNOW, FRESHSNW
+  !! W_SO, H_SNOW, FRESHSNW
   !!
   !! Additioanl sanity checks are performed for 
-  !! W_SO 
+  !! W_SO, H_SNOW, FRESHSNW, RHO_SNOW 
   !!
   !! @par Revision History
   !! Initial version by D. Reinert, DWD (2014-07-17)
@@ -1512,6 +1527,9 @@ MODULE mo_initicon
     LOGICAL :: lerr                      ! error flag
 
     TYPE(t_lnd_prog), POINTER :: lnd_prog_now      ! shortcut to prognostic land state
+    TYPE(t_lnd_diag), POINTER :: lnd_diag          ! shortcut to diagnostic land state
+
+    REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_iau_sfc'
@@ -1527,10 +1545,10 @@ MODULE mo_initicon
 
       ! save some paperwork
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-
+      lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,jc,i_startidx,i_endidx,lerr)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1598,6 +1616,73 @@ MODULE mo_initicon
         IF (lerr) THEN
           CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")
         ENDIF
+
+
+        IF (init_mode == MODE_IAU) THEN
+
+          ! store a copy of FG field for subsequent consistency checks
+          h_snow_t_fg(:,:) = lnd_diag%h_snow_t(:,jb,:)
+
+          ! add h_snow and freshsnow increments onto respective first guess fields
+          DO jt = 1, ntiles_total
+
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+              ! minimum height: 0m; maximum height: 40m
+              lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
+                &                                             + initicon(jg)%sfc_inc%h_snow(jc,jb)))
+              ! maximum freshsnow factor: 1
+              ! maximum positive freshsnow increment is limited to max_freshsnow_inc (tuning parameter)
+              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) &
+                &                                  + MIN(max_freshsnow_inc,initicon(jg)%sfc_inc%freshsnow(jc,jb)))
+            ENDDO  ! ic
+          ENDDO  ! jt
+
+          ! consistency checks for rho_snow
+          DO jt = 1, ntiles_total
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+              ! fresh snow 'missed' by the model
+              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                .AND. &
+                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp) .AND. &
+                &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) > 0._wp) ) THEN
+
+                lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmaxf   ! maximum density of fresh snow (150 kg/m**3)
+              ENDIF
+
+              ! old snow that is re-created by the analysis (i.e. snow melted away too fast in the model)
+              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                .AND. &
+                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp) .AND. &
+                &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) <= 0._wp) ) THEN
+
+                ! it is then assumed that we have 'old' snow in the model
+                lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmax_ml   ! maximum density of snow (400 kg/m**3)
+                lnd_diag%freshsnow_t(jc,jb,jt)    = 0._wp
+              ENDIF
+
+              ! update rho_snow for glacier points (missing)
+
+            ENDDO  ! ic
+
+
+            ! Re-diagnose w_snow
+            ! This is done in terra_multlay_init anyway, however it is more save to have consistent fields right 
+            ! from the beginning.
+            lnd_prog_now%w_snow_t(i_startidx:i_endidx,jb,jt) = 0._wp
+
+            CALL get_wsnow(h_snow    = lnd_diag%h_snow_t(:,jb,jt),          &
+              &            rho_snow  = lnd_prog_now%rho_snow_t(:,jb,jt),    &
+              &            t_snow    = lnd_prog_now%t_snow_t(:,jb,jt),      &
+              &            istart    = i_startidx,                          &
+              &            iend      = i_endidx,                            &
+              &            soiltyp   = ext_data(jg)%atm%soiltyp_t(:,jb,jt), &
+              &            w_snow    = lnd_prog_now%w_snow_t(:,jb,jt) )
+
+          ENDDO  ! jt
+
+        ENDIF  ! MODE_IAU
 
       ENDDO  ! jb
 !$OMP END DO

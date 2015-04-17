@@ -262,14 +262,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), shape3dsubsw(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
-    INTEGER :: jsfc, ist
+    INTEGER :: jsfc, ist, jg
     CHARACTER(len=NF_MAX_NAME) :: long_name
     CHARACTER(len=21) :: name
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    LOGICAL :: lrestart
+    LOGICAL :: lrestart, lhave_graupel
 
     TYPE(t_var_action) :: action_list_reset
 
@@ -306,6 +306,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL default_var_list_settings( diag_list,                 &
                                   & lrestart=.TRUE.  )
 
+    lhave_graupel = .FALSE.
+    DO jg = 1, n_dom
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE (2,4,5,6)
+        lhave_graupel = .TRUE.
+      END SELECT
+    ENDDO
+
     !------------------------------
     ! Meteorological quantities
     !------------------------------
@@ -338,8 +346,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_INSTANT )
 
     ! For graupel scheme 
-    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (2,4,5,6)
+    IF (lhave_graupel) THEN
       
       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
@@ -349,7 +356,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d,                                             &
                   & isteptype=TSTEP_INSTANT )
-    END SELECT
+    ENDIF
 
     !For two moment microphysics
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
@@ -532,8 +539,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
 
     !Surface precipitation variables for graupel scheme and two moment microphysics
-    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (2,4,5,6)
+    IF (lhave_graupel) THEN
        ! &      diag%graupel_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
         &                   DATATYPE_FLT32)
@@ -542,7 +548,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
                   & isteptype=TSTEP_ACCUM )
-    END SELECT
+    ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
     CASE (4,5,6)
@@ -1817,7 +1823,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & ldims=shape2d,                                                    &
           & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,                   &
           &                 new_cf=new_cf_desc),                              &
-          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in"), &
+          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in",               &
+          &                 "mode_iau_fg_in","mode_iau_old_fg_in"),           &
           & initval_r=0.01_wp )
 
 
