@@ -1630,10 +1630,12 @@ MODULE mo_initicon
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
               ! minimum height: 0m; maximum height: 40m
-              lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) + initicon(jg)%sfc_inc%h_snow(jc,jb)))
+              lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
+                &                                             + initicon(jg)%sfc_inc%h_snow(jc,jb)))
               ! maximum freshsnow factor: 1
               ! maximum positive freshsnow increment is limited to max_freshsnow_inc (tuning parameter)
-              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) + MIN(max_freshsnow_inc,initicon(jg)%sfc_inc%freshsnow(jc,jb)))
+              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) &
+                &                                  + MIN(max_freshsnow_inc,initicon(jg)%sfc_inc%freshsnow(jc,jb)))
             ENDDO  ! ic
           ENDDO  ! jt
 
