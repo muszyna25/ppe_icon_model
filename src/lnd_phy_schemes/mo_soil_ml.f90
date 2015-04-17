@@ -4461,6 +4461,16 @@ ENDIF
 !      END IF          ! land-points only
      END DO
 
+  ! Reset t_snow_new to t_so(0) if no snow was present at the beginning of the time step
+  ! The heat balance calculation is incomplete in this case and sometimes yields unreasonable results
+  DO i = istarts, iends
+    IF (w_snow_now(i) < zepsi .AND. w_snow_new(i) >= zepsi) THEN
+      t_snow_new(i) = MIN(t0_melt,t_so_new(i,0))
+      IF (lmulti_snow) THEN
+        t_snow_mult_new(i,:) = t_snow_new(i)
+      ENDIF
+    ENDIF
+  ENDDO
 
 !>JH New solution of heat conduction for snow points which melted completly 
 !    during time step
