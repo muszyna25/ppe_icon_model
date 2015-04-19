@@ -36,10 +36,10 @@ MODULE mo_ocean_physics
     & physics_parameters_type,                                &
     & physics_parameters_Constant_type,                       &
     & physics_parameters_ICON_PP_type,                        &
-    & physics_parameters_ICON_PP_Edge_type,                    &
+    & physics_parameters_ICON_PP_Edge_type,                   &
     & physics_parameters_MPIOM_PP_type,                       &
     & use_wind_mixing,                                        &
-    & SmoothHorizontalViscosity_Iterations,                               &
+    & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
     & use_convection_parameterization,                        &
@@ -50,7 +50,8 @@ MODULE mo_ocean_physics
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
     &leith_closure, leith_closure_gamma,                      & 
-    &veloc_diffusion_form, biharmonic_const   
+    &veloc_diffusion_form, biharmonic_const,                  &
+    & HorizontalViscosity_SmoothFactor
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -319,8 +320,8 @@ CONTAINS
 
     ENDIF
 
-    DO i=1, SmoothHorizontalViscosity_Iterations
-       CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h )
+    DO i=1, HorizontalViscosity_SmoothIterations
+       CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SmoothFactor )
     ENDDO
 
 
@@ -392,10 +393,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
 !<Optimize:inUse:initOnly>
-  SUBROUTINE smooth_lapl_diff( patch_2D,patch_3d, k_h )
+  SUBROUTINE smooth_lapl_diff( patch_2D,patch_3d, k_h, smoothFactor )
     TYPE(t_patch), TARGET, INTENT(in)  :: patch_2D
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)    :: k_h(:,:,:)
+    REAL(wp), INTENT(in)       ::smoothFactor
     ! Local variables
     INTEGER :: je,jv,jb,jk, jev, ile, ibe
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
@@ -444,8 +446,8 @@ CONTAINS
 
         DO jk = 1, patch_3D%p_patch_1D(1)%dolic_e(je,jb)
           
-          k_h(je,jk,jb)= 0.25_wp * (z_k_ave_v(il_v1,jk,ib_v1) + z_k_ave_v(il_v2,jk,ib_v2)) + &
-            & 0.5_wp * k_h(je,jk,jb)
+          k_h(je,jk,jb)= 0.5_wp * smoothFactor * (z_k_ave_v(il_v1,jk,ib_v1) + z_k_ave_v(il_v2,jk,ib_v2)) + &
+            & (1.0_wp - smoothFactor) * k_h(je,jk,jb)
         END DO
       ENDDO
     END DO

@@ -207,27 +207,6 @@ MODULE mo_ocean_nml
                                                  !1: Laplace=curlcurl-graddiv
                                                  !2: Laplace=div k  grad
                                                  !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
-  REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
-  REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
-  REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
-  REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
-  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity  
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
-  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
-  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
-  REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
-                                      !has to be adjusted for each resolution, the bigger this number 
-                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
-                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
-                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
-                                        !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
-  INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure                                               
-  REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure                                                 
-  INTEGER  :: SmoothHorizontalViscosity_Iterations = 0
 
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
                                                  ! 2-dimensional surface relaxation of temperature and salinity:
@@ -371,9 +350,33 @@ MODULE mo_ocean_nml
 
   REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
   REAL(wp) :: RichardsonDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
+  REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
+  REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
+  REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
+  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
+  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
+  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
+  REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
+                                      !has to be adjusted for each resolution, the bigger this number
+                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
+                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
+                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
+                                        !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
+  INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
+  REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
+  INTEGER  :: HorizontalViscosity_SmoothIterations = 0
+  REAL(wp) :: HorizontalViscosity_SmoothFactor = 0.5_wp 
   
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
+    &  HorizontalViscosity_SmoothIterations,    &
+    &  HorizontalViscosity_SmoothFactor,    &
     &  biharmonic_diffusion_factor ,    &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
@@ -383,7 +386,6 @@ MODULE mo_ocean_nml
     &  k_veloc_v                   ,    &
     &  MAX_VERT_DIFF_TRAC          ,    &
     &  MAX_VERT_DIFF_VELOC         ,    &
-    &  SmoothHorizontalViscosity_Iterations    ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
     &  k_tracer_dianeutral_parameter,   &

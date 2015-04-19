@@ -310,14 +310,14 @@ CONTAINS
         & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
         
-      CALL add_var(ocean_diagnostics_list, 'vn_u', vn_v, &
+      CALL add_var(ocean_diagnostics_list, 'vn_u', vn_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('vn_u','m/s','edge velocity zonal', &
         & DATATYPE_FLT32),&
         & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
-      CALL add_var(ocean_diagnostics_list, 'vn_v', vn_u, &
+      CALL add_var(ocean_diagnostics_list, 'vn_v', vn_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('vn_v','m/s','edge velocity meridional', &
         & DATATYPE_FLT32),&
