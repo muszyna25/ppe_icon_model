@@ -208,7 +208,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     ccswxp,    zconst,    zcev,      zbev,      zcevxp,    zbevxp,       &
     zvzxp,     zvz0r,                                                    &
 
-    v0snow,    mu_rain,   rain_n0_factor,       cloud_num,               &
+    v0snow => v0snow_gr,  mu_rain,   rain_n0_factor,       cloud_num,    &
 
     x13o8,     x1o2,      x27o16,    x3o4,      x7o4,      x7o8,         &
     zbms,      zbvi,      zcac,      zccau,     zciau,     zcicri,       &
@@ -216,8 +216,8 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zkphi1,    zkphi2,    zkphi3,    zmi0,      zmimax,    zmsmin,       &
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
-    zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
-    zbsmel,    zcsmel,                                                   &
+    zvz0i,     x13o12,    x2o3,      x5o24,     zasmel,                  &
+    zbsmel,    zcsmel,    x1o3,      zams => zams_gr,                    &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb
@@ -248,10 +248,11 @@ PRIVATE
 PUBLIC :: graupel
 
 LOGICAL, PARAMETER :: &
-  lsedi_ice    = .FALSE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
-  lstickeff    = .FALSE. , &  ! switch for sticking coeff. (work from Guenther Zaengl)
-  lsuper_coolw = .FALSE.      ! switch for supercooled liquid water (work from Felix Rieper)
-
+  lsedi_ice    = .TRUE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
+  lstickeff    = .TRUE. , &  ! switch for sticking coeff. (work from Guenther Zaengl)
+  lsuper_coolw = .TRUE. , &  ! switch for supercooled liquid water (work from Felix Rieper)
+  lred_depgrow = .FALSE.     ! separate switch for reduced depositional growth near tops of water clouds
+                             ! (part of Felix' modifications for supercooled liquid water but not used in ICON)
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
 !------------------------------------------------------------------------------
@@ -274,7 +275,7 @@ SUBROUTINE graupel     (             &
   ivstart,ivend, kstart,             & !! optional start/end indicies
   idbg,                              & !! optional debug level
   zdt, dz,                           & !! numerics parameters
-  t,p,rho,qv,qc,qi,qr,qs,qg,         & !! prognostic variables
+  t,p,rho,qv,qc,qi,qr,qs,qg,qnc,     & !! prognostic variables
 #ifdef __ICON__
   !xxx: this should become a module variable, e.g. in a new module mo_gscp_data.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
@@ -405,7 +406,8 @@ SUBROUTINE graupel     (             &
 #endif
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
-    prg_gsp                !! precipitation rate of graupel, grid-scale     (kg/(m2*s))
+    prg_gsp,             & !! precipitation rate of graupel, grid-scale     (kg/(m2*s))
+    qnc                    !! cloud number concentration
 
 #ifdef __xlC__
   ! LL: xlc has trouble optimizing with the assumed shape, define the shape
@@ -515,9 +517,9 @@ SUBROUTINE graupel     (             &
     zqgt      ! layer tendency of graupel
 
   REAL    (KIND=wp   ) ::  &
-    zlnqrk,zlnqsk,     & !
-    zlnlogmi, zlnqgk, zln1o2,               & !
-    qcg,tg,qvg,qrg,qsg,qgg,qig,rhog,ppg,alf,bet,m2s,m3s,hlp, &
+    zlnqrk,zlnqsk,zlnqik,     & !
+    zlnlogmi,zlnqgk,ccswxp_ln1o2,zvzxp_ln1o2,zbvi_ln1o2,zexpsedg_ln1o2, &
+    qcg,tg,qvg,qrg,qsg,qgg,qig,rhog,ppg,alf,bet,m2s,m3s,hlp,            &
     qcgk_1,maxevap,temp_c
 
   LOGICAL :: &
@@ -586,6 +588,7 @@ SUBROUTINE graupel     (             &
     zdtdh             ,     & !
     z1orhog           ,     & ! 1/rhog
     zrho1o2           ,     & ! (rho0/rhog)**1/2
+    zrho1o3           ,     & ! (rho0/rhog)**1/3
     zeln7o8qrk        ,     & !
     zeln7o4qrk        ,     & ! FR new  
     zeln27o16qrk      ,     & !
@@ -679,6 +682,12 @@ SUBROUTINE graupel     (             &
   zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
   zlog_10 = LOG(10._wp) ! logarithm of 10
   
+  ! Precomputations for optimization
+  ccswxp_ln1o2   = EXP (ccswxp * LOG (0.5_wp))
+  zvzxp_ln1o2    = EXP (zvzxp * LOG (0.5_wp))
+  zbvi_ln1o2     = EXP (zbvi * LOG (0.5_wp))
+  zexpsedg_ln1o2 = EXP (zexpsedg * LOG (0.5_wp))
+
 ! Optional arguments
 
   IF (PRESENT(ddt_tend_t)) THEN
@@ -824,7 +833,9 @@ SUBROUTINE graupel     (             &
 
       !..for density correction of fall speeds
       z1orhog = 1.0_wp/rhog
-      zrho1o2 = EXP(LOG(zrho0*z1orhog)*x1o2)
+      hlp     = LOG(zrho0*z1orhog)
+      zrho1o2 = EXP(hlp*x1o2)
+      zrho1o3 = EXP(hlp*x1o3)
 
       zqrk = qrg * rhog
       zqsk = qsg * rhog
@@ -847,8 +858,6 @@ SUBROUTINE graupel     (             &
       zpks(iv) = 0.0_wp
       zpkg(iv) = 0.0_wp
       zpki(iv) = 0.0_wp
-
-      zln1o2=EXP (ccswxp * LOG (0.5_wp))
 
       !-------------------------------------------------------------------------
       ! qs_prepare:
@@ -898,12 +907,11 @@ SUBROUTINE graupel     (             &
         zlnqsk = zvz0s * EXP (ccswxp * LOG (zqsk)) * zrho1o2
         zpks(iv) = zqsk * zlnqsk
         IF (zvzs(iv) == 0.0_wp) THEN
-          zvzs(iv) = zlnqsk * zln1o2
+          zvzs(iv) = zlnqsk * ccswxp_ln1o2
         ENDIF
       ENDIF ! qs_prepare
     
       ! sedimentation fluxes
-      zln1o2=EXP (zvzxp * LOG (0.5_wp))
 
       !-------------------------------------------------------------------------
       ! qr_sedi:
@@ -913,11 +921,9 @@ SUBROUTINE graupel     (             &
         zlnqrk = zvz0r * EXP (zvzxp * LOG (zqrk)) * zrho1o2
         zpkr(iv) = zqrk * zlnqrk
         IF (zvzr(iv) == 0.0_wp) THEN
-          zvzr(iv) = zlnqrk * zln1o2
+          zvzr(iv) = zlnqrk * zvzxp_ln1o2
         ENDIF
       ENDIF
-
-      zln1o2=EXP (zexpsedg * LOG (0.5_wp))
 
       !-------------------------------------------------------------------------
       ! qg_sedi:
@@ -927,7 +933,7 @@ SUBROUTINE graupel     (             &
         zlnqgk = zvz0g * EXP (zexpsedg * LOG (zqgk)) * zrho1o2
         zpkg(iv) = zqgk * zlnqgk
         IF (zvzg(iv) == 0.0_wp) THEN
-          zvzg(iv) = zlnqgk * zln1o2
+          zvzg(iv) = zlnqgk * zexpsedg_ln1o2
         ENDIF
       ENDIF ! qg_sedi
 
@@ -936,9 +942,10 @@ SUBROUTINE graupel     (             &
       !-------------------------------------------------------------------------
 
       IF (llqi) THEN
+        zlnqik = zvz0i * EXP (zbvi * LOG (zqik)) * zrho1o3
+        zpki(iv) = zqik * zlnqik
         IF (zvzi(iv) == 0.0_wp) THEN
-          !! density correction not needed zrho1o2
-          zvzi(iv) = zvz0i * EXP (zbvi  * LOG (0.5_wp*zqik))
+          zvzi(iv) = zlnqik * zbvi_ln1o2
         ENDIF
       ENDIF  ! qi_sedi
 
@@ -1028,7 +1035,7 @@ SUBROUTINE graupel     (             &
 
       IF (llqr) THEN
         zlnqrk   = LOG (zqrk)
-        zsrmax   = zzar/rhog*zdtr
+        zsrmax   = zzar/rhog*zdtr  ! GZ: shifting this computation ahead of the IF condition changes results!
         IF ( qig+qcg > zqmin ) THEN
           zeln7o8qrk   = EXP (x7o8   * zlnqrk)
         ENDIF
@@ -1045,9 +1052,10 @@ SUBROUTINE graupel     (             &
       !! 2.5: IF (llqs): ic2
       !!----------------------------------------------------------------------------
 
+! ** GZ: the following computation differs substantially from the corresponding code in cloudice **
       IF (llqs) THEN
         zlnqsk   = LOG (zqsk)
-        zssmax   = zzas / rhog*zdtr
+        zssmax   = zzas / rhog*zdtr  ! GZ: shifting this computation ahead of the IF condition changes results!
         IF (qig+qcg > zqmin) THEN
           zeln3o4qsk = EXP (x3o4 *zlnqsk)
         ENDIF
@@ -1116,14 +1124,19 @@ SUBROUTINE graupel     (             &
             scac = zcac  * qcg * zeln7o8qrk
           ELSEIF (iautocon == 1) THEN
             ! Seifert and Beheng (2001) autoconversion rate
-            ! with constant cloud droplet number concentration cloud_num
+            ! with constant cloud droplet number concentration qnc
             IF (qcg > 1.0E-6) THEN
-              ztau  = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
-              zphi  = zkphi1 * ztau**zkphi2 * (1.0_wp - ztau**zkphi2)**3
-              scau = zconst * qcg*qcg*qcg*qcg &
+              ztau = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
+              ztau = MAX(ztau,1.E-30_wp)
+              hlp  = EXP(zkphi2*LOG(ztau))
+              zphi = zkphi1 * hlp * (1.0_wp - hlp)**3
+              scau = zconst * qcg*qcg*qcg*qcg/(qnc(iv)*qnc(iv)) &
                    * (1.0_wp + zphi/(1.0_wp - ztau)**2)
               zphi = (ztau/(ztau+zkphi3))**4
               scac = zkcac * qcg * qrg * zphi
+            ELSE
+              scau = 0.0_wp
+              scac = 0.0_wp
             ENDIF
           ENDIF
           IF (llqr) THEN
@@ -1181,7 +1194,7 @@ SUBROUTINE graupel     (             &
           END IF
         ENDIF
         !FR>>> Calculation of reduction of depositional growth at cloud top (Forbes 2012)
-        IF( k>1 .AND. k<ke .AND. lsuper_coolw ) THEN
+        IF( k>1 .AND. k<ke .AND. lred_depgrow ) THEN
           znin = MIN(fxna_cooper(tg), znimax )
           fnuc = MIN(znin/znimix, 1.0_wp)
 
@@ -1222,6 +1235,11 @@ SUBROUTINE graupel     (             &
           zsvmax    = zqvsidiff * zdtr
           IF (llqi) THEN
 
+            IF( lsuper_coolw) THEN
+              znin   = MIN( fxna_cooper(tg), znimax )
+            ELSE
+              znin   = MIN( fxna(tg), znimax )
+            END IF
             ! Change in sticking efficiency needed in case of cloud ice sedimentation
             ! (based on Guenther Zaengls work)
             IF (lstickeff) THEN
@@ -1234,7 +1252,6 @@ SUBROUTINE graupel     (             &
             sagg      = zeff * qig * zcagg * EXP(ccsaxp*LOG(zcslam))
             sagg2     = zeff * qig * zcagg_g * zelnrimexp_g
             siau      = zeff * zciau * MAX( qig - qi0, 0.0_wp )
-            znin      = MIN( fxna(tg), znimax )
             zmi       = MIN( rhog*qig/znin, zmimax )
             zmi       = MAX( zmi0, zmi )
             znid      = rhog * qig/zmi
@@ -1244,8 +1261,8 @@ SUBROUTINE graupel     (             &
             zsvisub   = 0.0_wp
             zsimax    = qig*zdtr
             IF( sidep > 0.0_wp ) THEN
-              IF (lsuper_coolw ) THEN
-                sidep = sidep * reduce_dep  !FR new: SLW reduction
+              IF (lred_depgrow ) THEN
+                sidep = sidep * reduce_dep  !FR new: depositional growth reduction
               END IF
               zsvidep = MIN( sidep, zsvmax )
             ELSEIF ( sidep < 0.0_wp ) THEN
@@ -1265,10 +1282,14 @@ SUBROUTINE graupel     (             &
 
           zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
           ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
-          !FR new: SLW reduction
-          IF (lsuper_coolw .AND. ssdep > 0.0_wp) THEN
+          !FR new: depositional growth reduction
+          IF (lred_depgrow .AND. ssdep > 0.0_wp) THEN
             ssdep = ssdep*reduce_dep
           END IF
+          ! GZ: This limitation, which was missing in the original graupel scheme,
+          ! is crucial for numerical stability in the tropics!
+          IF (ssdep > 0.0_wp) ssdep = MIN(ssdep, zsvmax-zsvidep)
+! ** GZ: this numerical fit should be replaced with a physically more meaningful formulation **
           sgdep = (0.398561_wp-0.00152398_wp*tg                 &
                    + 2554.99_wp/ppg+ 2.6531E-7_wp*ppg) *        &
                  zqvsidiff * zeln6qgk
@@ -1304,10 +1325,10 @@ SUBROUTINE graupel     (             &
 #endif
 
 #ifdef __ICON__
-          zqvsw0     = sat_pres_water(t0)/(rhog * r_v *t0)
+          zqvsw0     = zpvsw0/(rhog * r_v *t0)
 #endif
           zqvsw0diff = qvg-zqvsw0
-
+! ** GZ: several numerical fits in this section should be replaced with physically more meaningful formulations **
           IF ( tg > (t0-ztcrit*zqvsw0diff) ) THEN
             !calculate melting rate
             zx1         = (tg - t0) + zasmel*zqvsw0diff
@@ -1437,9 +1458,9 @@ SUBROUTINE graupel     (             &
       ELSE
         qig = MAX ( 0.0_wp, qig + zqit*zdt)
       END IF
-      qrg = MAX ( 0.0_wp, (zzar/rhog + zqrt*zdt)*zimr)
-      qsg = MAX ( 0.0_wp, (zzas/rhog + zqst*zdt)*zims)
-      qgg = MAX ( 0.0_wp, (zzag/rhog + zqgt*zdt)*zimg)
+      qrg = MAX ( 0.0_wp, (zzar*z1orhog + zqrt*zdt)*zimr)
+      qsg = MAX ( 0.0_wp, (zzas*z1orhog + zqst*zdt)*zims)
+      qgg = MAX ( 0.0_wp, (zzag*z1orhog + zqgt*zdt)*zimg)
 
       
       !----------------------------------------------------------------------
@@ -1480,18 +1501,17 @@ SUBROUTINE graupel     (             &
         IF (qsg+qs(iv,k+1) <= zqmin) THEN
           zvzs(iv)= 0.0_wp
         ELSE
-          zvzs(iv)= zvz0s * EXP(zv1s/(zbms+1.0_wp)*LOG((qsg+qs(iv,k+1))*0.5_wp*rhog)) * zrho1o2
+          zvzs(iv)= zvz0s * EXP(ccswxp*LOG((qsg+qs(iv,k+1))*0.5_wp*rhog)) * zrho1o2
         ENDIF
         IF (qgg+qg(iv,k+1) <= zqmin ) THEN
           zvzg(iv)= 0.0_wp
         ELSE
-          zvzg(iv)=zvz0g * EXP(zexpsedg*LOG((qgg+qg(iv,k+1))*0.5_wp*rhog))* zrho1o2
+          zvzg(iv)=zvz0g * EXP(zexpsedg*LOG((qgg+qg(iv,k+1))*0.5_wp*rhog)) * zrho1o2
         ENDIF
         IF (qig+qi(iv,k+1) <= zqmin ) THEN
           zvzi(iv)= 0.0_wp
         ELSE
-          !! density correction not needed
-          zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog))
+          zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrho1o3
         ENDIF
           
       ELSE

@@ -215,7 +215,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
     zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
-    zbsmel,    zcsmel,                                                   &
+    zbsmel,    zcsmel,    x1o3,                                          &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb
@@ -254,7 +254,7 @@ LOGICAL, PARAMETER :: &
 
   lsedi_ice    = .FALSE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
   lstickeff    = .FALSE. , &  ! switch for sticking coeff. (work from Guenther Zaengl)
-  lsuper_coolw = .FALSE.      ! switch for supercooled liquid water (work from Felix Rieper)
+  lsuper_coolw = .TRUE.       ! switch for supercooled liquid water (work from Felix Rieper)
 
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
@@ -493,8 +493,8 @@ SUBROUTINE cloudice (             &
     zqst      ! layer tendency of snow
 
   REAL    (KIND=wp   ) ::  &
-    zlnqrk,zlnqsk,     & !
-    zlnlogmi,               & !
+    zlnqrk,zlnqsk,zlnqik,     & !
+    zlnlogmi,ccswxp_ln1o2,zvzxp_ln1o2,zbvi_ln1o2,  & !
     qcg,tg,qvg,qrg, qsg,qig,rhog,ppg, alf,bet,m2s,m3s,hlp,maxevap,temp_c,stickeff
 
   LOGICAL :: &
@@ -546,12 +546,12 @@ SUBROUTINE cloudice (             &
     zdtdh       (nvec),     & !
     z1orhog     (nvec),     & ! 1/rhog
     zrho1o2     (nvec),     & ! (rho0/rhog)**1/2
+    zrho1o3     (nvec),     & ! (rho0/rhog)**1/3
     zeln7o8qrk  (nvec),     & !
     zeln7o4qrk  (nvec),     & ! FR new     
     zeln27o16qrk(nvec),     & !
     zeln13o8qrk (nvec),     & !
 !    zeln3o16qrk (nvec),     & !
-    zeln13o12qsk(nvec),     & !
     zeln5o24qsk (nvec),     & !
     zeln2o3qsk  (nvec)        !
 
@@ -647,6 +647,11 @@ SUBROUTINE cloudice (             &
 
   zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
   zlog_10 = LOG(10._wp) ! logarithm of 10
+
+  ! Precomputations for optimization
+  ccswxp_ln1o2 = EXP (ccswxp * LOG (0.5_wp))
+  zvzxp_ln1o2  = EXP (zvzxp * LOG (0.5_wp))
+  zbvi_ln1o2   = EXP (zbvi * LOG (0.5_wp))
 
 ! Delete precipitation fluxes from previous timestep
 !CDIR BEGIN COLLAPSE
@@ -793,7 +798,9 @@ SUBROUTINE cloudice (             &
 
         !..for density correction of fall speeds
         z1orhog(iv) = 1.0_wp/rhog
-        zrho1o2(iv) = EXP(LOG(zrho0*z1orhog(iv))*x1o2)
+        hlp         = LOG(zrho0*z1orhog(iv))
+        zrho1o2(iv) = EXP(hlp*x1o2) ! exponent 0.5 for rain and snow
+        zrho1o3(iv) = EXP(hlp*x1o3) ! exponent 1/3 for cloud ice
 
         zqrk(iv) = qrg * rhog
         zqsk(iv) = qsg * rhog
@@ -812,16 +819,21 @@ SUBROUTINE cloudice (             &
         IF (llqs) THEN
           ic1 = ic1 + 1
           ivdx1(ic1) = iv
+        ELSE
+          zpks(iv) = 0._wp
         ENDIF
         IF (llqr) THEN
           ic2 = ic2 + 1
           ivdx2(ic2) = iv
-       ENDIF
-       IF (llqi) THEN
-         ic3 = ic3 + 1
-         ivdx3(ic3) = iv
-       ENDIF
-
+        ELSE
+          zpkr(iv) = 0._wp
+        ENDIF
+        IF (llqi) THEN
+          ic3 = ic3 + 1
+          ivdx3(ic3) = iv
+        ELSE
+          zpki(iv) = 0._wp
+        ENDIF
     
      ENDDO
 
@@ -875,9 +887,12 @@ SUBROUTINE cloudice (             &
       zbsdep(iv) = ccsdep*SQRT(v0snow)
       zvz0s (iv) = ccsvel*EXP(ccsvxp * LOG(zn0s(iv)))
 
-!      IF (zvzs(iv) == 0.0_wp) THEN
-        zvzs(iv) = zvz0s(iv) * EXP (ccswxp * LOG (0.5_wp*zqsk(iv))) * zrho1o2(iv)
-!      ENDIF
+      zlnqsk = zvz0s(iv) * EXP (ccswxp * LOG (zqsk(iv))) * zrho1o2(iv)
+      zpks(iv) = zqsk (iv) * zlnqsk
+
+      IF (zvzs(iv) == 0.0_wp) THEN
+        zvzs(iv) = zlnqsk * ccswxp_ln1o2
+      ENDIF
     ENDDO loop_over_qs_prepare
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -885,11 +900,12 @@ SUBROUTINE cloudice (             &
     loop_over_qr_sedi: DO i1d = 1, ic2
       iv = ivdx2(i1d)
 
-!      IF (zvzr(iv) == 0.0_wp) THEN
-!replaced: zvzr(iv) = zvz0r * EXP (x1o8  * LOG (0.5_wp*zqrk(iv))) * zrho1o2(iv)
-        zvzr(iv) = zvz0r * EXP (zvzxp  * LOG (0.5_wp*zqrk(iv))) * zrho1o2(iv)
+      zlnqrk = zvz0r * EXP (zvzxp * LOG (zqrk(iv))) * zrho1o2(iv)
+      zpkr(iv) = zqrk(iv) * zlnqrk
 
-!      ENDIF
+      IF (zvzr(iv) == 0.0_wp) THEN
+        zvzr(iv) = zlnqrk * zvzxp_ln1o2
+      ENDIF
     ENDDO loop_over_qr_sedi
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -897,10 +913,12 @@ SUBROUTINE cloudice (             &
     loop_over_qi_sedi: DO i1d = 1, ic3
       iv = ivdx3(i1d)
       
-!      IF (zvzi(iv) == 0.0_wp .AND. lnew_ice_sedi) THEN
-        !! density correction not needed zrho1o2(iv)
-        zvzi(iv) = zvz0i * EXP (zbvi  * LOG (0.5_wp*zqik(iv)))
-!      ENDIF
+      zlnqik = zvz0i * EXP (zbvi * LOG (zqik(iv))) * zrho1o3(iv)
+      zpki(iv) = zqik (iv) * zlnqik
+
+      IF (zvzi(iv) == 0.0_wp) THEN
+        zvzi(iv) = zlnqik * zbvi_ln1o2
+      ENDIF
     ENDDO loop_over_qi_sedi
 
 
@@ -913,8 +931,6 @@ SUBROUTINE cloudice (             &
     zeln7o4qrk   (:) = 0.0_wp !FR
     zeln27o16qrk (:) = 0.0_wp
     zeln13o8qrk  (:) = 0.0_wp
-!!    zeln3o16qrk  (:) = 0.0_wp
-    zeln13o12qsk (:) = 0.0_wp
     zeln5o24qsk  (:) = 0.0_wp
     zeln2o3qsk   (:) = 0.0_wp
 
@@ -968,29 +984,6 @@ SUBROUTINE cloudice (             &
         zqvsi(iv) = sat_pres_ice(tg)/(rhog * r_v * tg)
 #endif
 
-        llqr = zqrk(iv) > zqmin
-        llqs = zqsk(iv) > zqmin
-        llqi = zqik(iv) > zqmin
-
-        IF (llqr) THEN
-          !US reported by Thorsten Reinhardt: Multiplication with zrho1o2 was missing
-          zpkr(iv) = zqrk(iv) * zvz0r * EXP (zvzxp * LOG (zqrk(iv))) * zrho1o2(iv)
-        ELSE
-          zpkr(iv) = 0.0_wp
-        ENDIF
-
-        IF (llqs) THEN
-          !US reported by Thorsten Reinhardt: Multiplication with zrho1o2 was missing
-          zpks(iv) = zqsk (iv) * zvz0s(iv) * EXP (ccswxp * LOG (zqsk(iv))) * zrho1o2(iv)
-        ELSE
-          zpks(iv) = 0.0_wp
-        ENDIF
-
-        IF (llqi) THEN
-          zpki(iv) = zqik (iv) * zvz0i * EXP (zbvi * LOG (zqik(iv))) * zrho1o2(iv)
-        ELSE
-          zpki(iv) = 0.0_wp
-        ENDIF
 
         zpkr(iv)   = MIN( zpkr(iv) , zzar(iv) )
         zpks(iv)   = MIN( zpks(iv) , zzas(iv) )
@@ -1080,9 +1073,6 @@ SUBROUTINE cloudice (             &
       qig = qi(iv,k)
 
       zlnqsk       = LOG (zqsk(iv))
-      IF (qig+qcg > zqmin) THEN
-        zeln13o12qsk(iv) = EXP (x13o12 * zlnqsk)
-      ENDIF
       zeln5o24qsk(iv)  = EXP (x5o24  * zlnqsk)
       zeln2o3qsk(iv)   = EXP (x2o3   * zlnqsk)
     ENDDO loop_over_qs_coeffs
@@ -1227,7 +1217,7 @@ SUBROUTINE cloudice (             &
       ENDIF
       
 !FR>>> Calculation of reduction of depositional growth at cloud top (Forbes 2012)
-      IF( k>1 .AND. k<ke .AND. lsuper_coolw ) THEN
+      IF( k>1 .AND. k<ke .AND. lsuper_coolw .AND. .NOT. lorig_icon ) THEN
         znin  = MIN( fxna_cooper(tg), znimax )
         fnuc = MIN(znin/znimix, 1.0_wp)
         
@@ -1299,7 +1289,7 @@ SUBROUTINE cloudice (             &
         zsvisub   = 0.0_wp
         zsimax    = qig*zdtr 
         IF( zsidep > 0.0_wp ) THEN
-          IF (lsuper_coolw ) THEN
+          IF (lsuper_coolw .AND. .NOT. lorig_icon ) THEN
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
           END IF
           zsvidep = MIN( zsidep, zsvmax )
@@ -1321,7 +1311,7 @@ SUBROUTINE cloudice (             &
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_wp) THEN
-          IF (lsuper_coolw) THEN
+          IF (lsuper_coolw .AND. .NOT. lorig_icon) THEN
             zssdep = zssdep*reduce_dep(iv)!FR new: SLW reduction
           END IF
           zssdep = MIN(zssdep, zsvmax-zsvidep)
@@ -1504,13 +1494,12 @@ SUBROUTINE cloudice (             &
           IF (qsg+qs(iv,k+1) <= zqmin) THEN
             zvzs(iv)= 0.0_wp
           ELSE
-            zvzs(iv)= zvz0s(iv) * EXP(zv1s/(zbms+1.0_wp)*LOG((qsg+qs(iv,k+1))*0.5_wp*rhog)) * zrho1o2(iv)
+            zvzs(iv)= zvz0s(iv) * EXP(ccswxp*LOG((qsg+qs(iv,k+1))*0.5_wp*rhog)) * zrho1o2(iv)
           ENDIF
           IF (qig+qi(iv,k+1) <= zqmin ) THEN
             zvzi(iv)= 0.0_wp
           ELSE
-            !! density correction not needed
-            zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog))
+            zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrho1o3(iv)
           ENDIF
 
         ELSE

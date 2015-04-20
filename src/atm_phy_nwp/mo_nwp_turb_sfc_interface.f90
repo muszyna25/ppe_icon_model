@@ -683,7 +683,6 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , t_g_ex          = lnd_prog_new%t_g_t       (:,jb,:)   & ! -
         & , qv_s_ex         = lnd_diag%qv_s_t          (:,jb,:)   & ! -
         & , w_snow_ex       = lnd_prog_new%w_snow_t    (:,jb,:)   & ! -
-        & , w_snow_eff_ex   = lnd_diag%w_snow_eff_t    (:,jb,:)   & ! -
         & , rho_snow_ex     = lnd_prog_new%rho_snow_t  (:,jb,:)   & ! -
         & , rho_snow_mult_ex= lnd_prog_new%rho_snow_mult_t(:,:,jb,:) & ! -
         & , h_snow_ex       = lnd_diag%h_snow_t        (:,jb,:)   & ! -

@@ -561,7 +561,6 @@ CONTAINS
           & tk_sfc     = field%tsfc_radt(:,jb)    ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
-          & z_mc       = zheight(:,:)             ,&!< in     height at full levels [m]
           & pp_hl  =field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
           & pp_fl  =field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
           & tk_fl  =field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt

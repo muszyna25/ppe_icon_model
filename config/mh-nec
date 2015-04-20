@@ -362,8 +362,8 @@ MPI_LIB =
 
 LAPACK_LIB  = -llapack -lblas
 
-LIBS        = -L../lib -lsupport \
-              -L/usr/local/pkg-sx9/grib_api/prerelease-1.11.0/lib -lgrib_api_f90 -lgrib_api
+LIBS        = -L../lib -lsupport $LIBS
+OTHER_LIBS  = -L/usr/local/pkg-sx9/grib_api/prerelease-1.11.0/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
 
 AR       = sxar
 AS       = sxas

@@ -72,10 +72,21 @@ MODULE mo_util_sysinfo
     END SUBROUTINE private_util_get_maxrss
   END INTERFACE
 
+
+  INTERFACE
+    SUBROUTINE private_util_compiler_release(release_str, rstr_len) BIND(C,NAME='util_compiler_release') 
+      IMPORT :: C_INT, C_CHAR
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(out) :: release_str
+      INTEGER(C_INT), INTENT(out) :: rstr_len
+    END SUBROUTINE private_util_compiler_release
+  END INTERFACE
+
+
   PUBLIC :: util_user_name
   PUBLIC :: util_os_system
   PUBLIC :: util_node_name
   PUBLIC :: util_get_maxrss
+  PUBLIC :: util_compiler_release
 
 CONTAINS
 
@@ -101,5 +112,11 @@ CONTAINS
     INTEGER, INTENT(out) :: maxrss
     CALL private_util_get_maxrss(maxrss)
   END SUBROUTINE util_get_maxrss
+
+  SUBROUTINE util_compiler_release(release_str, rstr_len)
+    CHARACTER(len=*), INTENT(out) :: release_str
+    INTEGER, INTENT(out) :: rstr_len
+    CALL private_util_compiler_release(release_str, rstr_len)
+  END SUBROUTINE util_compiler_release
 
 END MODULE mo_util_sysinfo

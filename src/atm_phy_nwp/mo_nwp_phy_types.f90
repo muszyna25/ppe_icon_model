@@ -221,10 +221,10 @@ MODULE mo_nwp_phy_types
       &  athu_s    (:,:),      & !! Surface up thermal radiation [W/m2], accumulated or mean since model start
       &  asodird_s (:,:),      & !! Surface down solar direct rad. [W/m2], accumulated or mean since model start 
       &  asodifd_s (:,:),      & !! Surface down solar diff. rad. [W/m2], accumulated or mean since model start 
-      &  asodifu_s (:,:)         !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
+      &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
-
+      &  snowlmt   (:,:)         !! height of snowfall limit above MSL
 
 
 
