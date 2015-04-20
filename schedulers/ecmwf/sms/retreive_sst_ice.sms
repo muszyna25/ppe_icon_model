@@ -22,7 +22,8 @@
 
 
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-SSTICEDIR=%SCPERMIII%/icon_input/sstice/%YYYY%
+#SSTICEDIR=%SCPERMIII%/icon_input/sstice/%YYYY%
+SSTICEDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/sstice/%YYYY%
 mkdir -p $SSTICEDIR
 TMPDIR="${TEMP}"
 export SSTICEDIR TMPDIR

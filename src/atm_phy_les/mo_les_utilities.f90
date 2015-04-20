@@ -56,7 +56,8 @@ MODULE mo_les_utilities
     ddxn_z_full_c,&
     ddxn_z_full_v,&
     ddxn_z_half_e,&
-    ddxn_z_half_c
+    ddxn_z_half_c,&
+    inv_ddqz_z_full
 
   PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_hor_mean
   PUBLIC :: vertical_derivative, brunt_vaisala_freq, init_vertical_grid_for_les
@@ -110,12 +111,14 @@ MODULE mo_les_utilities
     ddxn_z_full_c(nproma,p_patch%nlev,p_patch%nblks_c),&
     ddxn_z_full_v(nproma,p_patch%nlev,p_patch%nblks_v),&
     ddxn_z_half_e(nproma,p_patch%nlevp1,p_patch%nblks_e),&
-    ddxn_z_half_c(nproma,p_patch%nlevp1,p_patch%nblks_c))
+    ddxn_z_half_c(nproma,p_patch%nlevp1,p_patch%nblks_c),&
+    inv_ddqz_z_full(nproma,p_patch%nlev,p_patch%nblks_c))
 
     ddxt_z_full(:,:,:)   = p_metrics%ddxt_z_full(:,:,:)
     ddxt_z_half_e(:,:,:) = p_metrics%ddxt_z_half_e(:,:,:)
     ddxn_z_full(:,:,:)   = p_metrics%ddxn_z_full(:,:,:)
     ddxn_z_half_e(:,:,:) = p_metrics%ddxn_z_half_e(:,:,:)
+    inv_ddqz_z_full(:,:,:) = p_metrics%inv_ddqz_z_full(:,:,:)
 
     CALL sync_patch_array(SYNC_E, p_patch, ddxn_z_full)
     CALL sync_patch_array(SYNC_E, p_patch, ddxn_z_half_e)
@@ -168,7 +171,7 @@ MODULE mo_les_utilities
       ddxt_z_full_v)
     CALL sync_patch_array(SYNC_V, p_patch, ddxt_z_full_v)
 
-    CALL cells2verts_scalar(p_metrics%inv_ddqz_z_full, p_patch, p_int%cells_aw_verts, &
+    CALL cells2verts_scalar(inv_ddqz_z_full, p_patch, p_int%cells_aw_verts, &
       p_metrics%inv_ddqz_z_full_v)
     CALL sync_patch_array(SYNC_V, p_patch, p_metrics%inv_ddqz_z_full_v)
     CALL sync_patch_array(SYNC_E, p_patch, p_metrics%inv_ddqz_z_full_e)

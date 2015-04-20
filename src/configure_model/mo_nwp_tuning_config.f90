@@ -31,11 +31,15 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zceff_min
   PUBLIC :: tune_v0snow
   PUBLIC :: tune_zvz0i
+  PUBLIC :: tune_entrorg
   PUBLIC :: itune_albedo
+  PUBLIC :: max_freshsnow_inc
+
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for physics tuning
   !!--------------------------------------------------------------------------
+
 !  TYPE :: t_nwp_tuning_config
 
     ! namelist variables
@@ -57,9 +61,16 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
+  REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
+    &  tune_entrorg
+
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
+
+
+  REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
+    &  max_freshsnow_inc
 
 !  END TYPE t_nwp_tuning_config
 
