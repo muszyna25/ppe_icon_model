@@ -1375,7 +1375,7 @@ MODULE mo_initicon
 
       ! deallocate temporary arrays
       DEALLOCATE( tempv_incr, nabla4_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
-                  mass_incr, z_qsum, STAT=ist )
+                  mass_incr, z_qsum, gradp, dpdx, dpdy, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
