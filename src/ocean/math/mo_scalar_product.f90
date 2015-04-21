@@ -420,15 +420,15 @@ CONTAINS
               
               vort_global = (vort_v(il_v,level,ib_v) + patch_2d%verts%f_v(il_v,ib_v))
               
-              thick_vert=0.0_wp
-              DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
-                il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
-                ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
-                
-                thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_vert = thick_vert+thick_edge/patch_2d%verts%num_edges(il_v,ib_v)
-              
-              END DO
+!               thick_vert=0.0_wp
+!               DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
+!                 il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
+!                 ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
+!                 
+!                 thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+!                 thick_vert = thick_vert+thick_edge/patch_2d%verts%num_edges(il_v,ib_v)
+!               
+!               END DO
               
               DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
                 
@@ -437,9 +437,9 @@ CONTAINS
                 il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
                 ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
                 
-                thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+!                 thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
                 vort_flux(je,level,blockNo) =  vort_flux(je,level,blockNo)+vn(il_e,level,ib_e)*vort_global&
-                  & *operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)*(thick_edge/thick_vert)
+                  & *operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)!*(thick_edge/thick_vert)
               END DO
             END DO
           ELSE
