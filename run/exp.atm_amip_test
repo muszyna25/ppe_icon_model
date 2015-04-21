@@ -212,8 +212,11 @@ add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_lan
 #
 # range of years for yearly files
 # assume start_date and end_date have the format yyyy-...
-start_year=$[${start_date%%-*}-1]
-end_year=$[${end_date%%-*}+1]
+start_year=$(( ${start_date%%-*} - 1 ))
+end_year=$(( ${end_date%%-*} + 1 ))
+
+echo $start_year
+echo $end_year
 #
 # - well mixed greenhouse gases
 datadir=$INDATA/global/atm
