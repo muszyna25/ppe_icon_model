@@ -170,7 +170,6 @@ if [[ ${debug} = 1 ]] ; then                  # optional totalview debugging (ma
   totalview -searchpath='/perm/ms/de/dei2/icon-nwp-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-nwp-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-nwp-dev/src/atm_phy_nwp/' \
     poe -a ./icon.exe
 else
- #aprun  -N $EC_tasks_per_node -n $EC_total_tasks -j $EC_hyperthreads icon.exe
   export OMP_NUM_THREADS=$EC_threads_per_task
   export ATP_ENABLED=1               # for debugging with GNU compile with -fno-backtrace in mh-linux
  #export FOR_IGNORE_EXCEPTIONS=true  # for debugging with INTEL compiler

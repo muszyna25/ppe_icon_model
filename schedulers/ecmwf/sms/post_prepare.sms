@@ -199,6 +199,10 @@ if [[ $lsplitdata = 1 ]] ; then
   grib_copy   ${basename}_DOM01_HL_0001.grb  \
      grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
 
+# change 150 to ml:
+  for ml_file in grb_data/${basename}_DOM01_0001_*_150.grb ; do
+    mv ${ml_file} `echo ${ml_file} | sed 's/150.grb/ml.grb/'`
+  done
 
 # fixes
   for levtype2 in sfc ml pl zl 114; do    # 114: multi-level snow variables
@@ -236,6 +240,7 @@ if [[ $lsplitdata = 1 ]] ; then
   fi
 
 fi
+
 #-----------------------------------------------------------------------------
 # delete data
 

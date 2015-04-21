@@ -219,6 +219,7 @@ suite $USER
     edit ECTEMP     $ECTEMP
     edit SCSOFT     $SCSOFT
     edit MONTHS     $MONTHS
+    edit LDATE_S    0                    # variable used for AMIP runs
 
     edit ICONNODES        $ICONNODES        
     edit ICONTOTALTASKS   $ICONTOTALTASKS

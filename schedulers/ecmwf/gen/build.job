@@ -1,7 +1,9 @@
 #==========================================================================
-#  compile ICON under individual user
-#  submit on cca as: llsubmit build.job
-#  ATTENTION: change user (e.g. "dei2") to your own ID!
+#  configure and compile ICON under individual user
+#  ATTENTION: change cd to branch location
+#
+#  - submit on cca as: llsubmit build.job (use explicit branch location!)
+#  - run interactively (use pwd branch)
 #==========================================================================
 
 #==========================================================================
@@ -12,7 +14,6 @@
 #PBS -m n
 #PBS -q ns
 
-
 #==========================================================================
 #  configure and compile
 #==========================================================================
@@ -21,7 +22,15 @@ set -e
 set -u
 set -x
 
-cd ${PERM}/icon-nwp-dev
+
+# --- select branch to compile --------------------------------------------
+ 
+#cd ${PERM}/icon-nwp-dev                             # compile icon-nwp-dev
+
+pwd | awk 'BEGIN { FS = "/" } ; { print $6 }'        # compile local branch
+
+
+# --- setup and configure -------------------------------------------------
 
 arch=x86_64-unknown-linux-gnu
 
@@ -32,6 +41,9 @@ module swap grib_api grib_api/1.12.3
 module load netcdf
 
 ./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
+
+
+# --- compile -------------------------------------------------------------
 
 gmake -j16
 
