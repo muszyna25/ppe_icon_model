@@ -330,7 +330,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
   #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_3d"
+ output_filename  = "${EXPNAME}_atm_3d_fl"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
@@ -339,8 +339,23 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval_3d}"          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','zghalf','pfull','phalf','dpres_mc'
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
+                    'zg','pfull','dpres_mc'
+/
+EOF
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_hl"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "${output_interval_3d}"          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'wa','phalf'
 /
 EOF
 fi
@@ -391,7 +406,7 @@ EOF
 fi
 
 
-output_phy_3d=yes
+output_phy_3d=no  # "yes" increases the output volume significantly!
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
