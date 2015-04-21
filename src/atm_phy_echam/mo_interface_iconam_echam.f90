@@ -71,7 +71,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-  USE mo_run_config            ,ONLY: nlev, ntracer, ltimer, iqv, iqc, iqi
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -94,9 +94,10 @@ MODULE mo_interface_iconam_echam
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
 
-  USE mo_timer                 ,ONLY: timer_start, timer_stop,        &
-    &                                 timer_dyn2phy, timer_phy2dyn,   &
-    &                                 timer_echam_phy, timer_coupling
+  USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
+    &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
+    &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
+    &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
   IMPLICIT NONE
 
@@ -196,6 +197,8 @@ CONTAINS
     !
     ! Update prognostic variables
     !
+    IF (ltimer) CALL timer_start(timer_d2p_prep)
+
     SELECT CASE (echam_phy_config%idcphycpl)
       !
     CASE (1) ! idcphycpl
@@ -256,11 +259,17 @@ CONTAINS
       &                      opt_calc_temp=.TRUE.     ,&
       &                      opt_calc_pres=.TRUE.     ,&
       &                      opt_rlend=min_rlcell_int )
+
+    IF (ltimer) CALL timer_stop(timer_d2p_prep)
     !
     ! - pt_diag%u
     ! - pt_diag%v
+    IF (ltimer) CALL timer_start(timer_d2p_sync)
     CALL sync_patch_array( SYNC_E, patch, pt_prog_new%vn )
+    IF (ltimer) CALL timer_stop(timer_d2p_sync)
     !
+    IF (ltimer) CALL timer_start(timer_d2p_prep)
+
     CALL rbf_vec_interpol_cell( pt_prog_new%vn       ,&! in
       &                         patch                ,&! in
       &                         pt_int_state         ,&! in
@@ -268,6 +277,8 @@ CONTAINS
       &                         pt_diag%v            ,&! out
       &                         opt_rlstart=rl_start ,&! in
       &                         opt_rlend  =rl_end   ) ! in
+
+    IF (ltimer) CALL timer_stop(timer_d2p_prep)
     !
     ! Now the new prognostic and diagnostic state variables (pt_prog_new, pt_prog_new_rcf,
     ! pt_diag) of the dynamical core are ready to be used in the phyiscs.
@@ -290,6 +301,7 @@ CONTAINS
     !
 
     ! Loop over cells
+    IF (ltimer) CALL timer_start(timer_d2p_couple)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -363,25 +375,27 @@ CONTAINS
     END DO ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+    IF (ltimer) CALL timer_stop(timer_d2p_couple)
 
     !
     !=====================================================================================
 
-    IF (ltimer) THEN
-      CALL timer_stop (timer_dyn2phy)
-      CALL timer_start(timer_echam_phy)
-    END IF
+    IF (ltimer)  CALL timer_stop (timer_dyn2phy)
 
     !=====================================================================================
     !
     ! (3) Prepare boundary conditions for ECHAM physics
     !     
+    IF (ltimer) CALL timer_start(timer_echam_bcs)
+
     CALL echam_phy_bcs_global( datetime     ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
       &                        time_radtran ) ! out
+
+    IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
     !=====================================================================================
 
@@ -392,6 +406,8 @@ CONTAINS
     !     the land processes, which are vertically implicitly coupled
     !     to the parameterization of vertical turbulent fluxes.
     !
+    IF (ltimer) CALL timer_start(timer_echam_phy)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
 
@@ -424,10 +440,10 @@ CONTAINS
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-    !
-    !=====================================================================================
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
+    !
+    !=====================================================================================
 
     !=====================================================================================
     !
@@ -453,29 +469,30 @@ CONTAINS
     !     (a) (dT/dt|phy, dqv/dt|phy, dqc/dt|phy, dqi/dt|phy) --> dexner/dt|phy
 
     ! Loop over cells
+    IF (ltimer) CALL timer_start(timer_p2d_prep)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
-        DO jk = 1,nlev
-          DO jc = jcs, jce
+      DO jk = 1,nlev
+        DO jc = jcs, jce
 
-            z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-            z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi) 
-            !
-            pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
-              &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
-              &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
-              &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
-              &     + pt_diag%temp(jc,jk,jb)                                                &
-              &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
-            !
-            ! Additionally use this loop also to set the dynamical exner increment to zero.
-            ! (It is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+          z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
+          z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi) 
+          !
+          pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
+            &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
+            &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
+            &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
+            &     + pt_diag%temp(jc,jk,jb)                                                &
+            &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
+          !
+          ! Additionally use this loop also to set the dynamical exner increment to zero.
+          ! (It is accumulated over one advective time step in solve_nh)
+          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
 
         END DO
       END DO
@@ -507,9 +524,15 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    IF (ltimer) CALL timer_stop(timer_p2d_prep)
+
     ! Now derive the physics-induced normal wind tendency, and add it to the
     ! total tendency.
+    IF (ltimer) CALL timer_start(timer_p2d_sync)
     CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
+    IF (ltimer) CALL timer_stop(timer_p2d_sync)
+
+    IF (ltimer) CALL timer_start(timer_p2d_prep)
 
     jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
     jbe   = patch%nblks_e
@@ -544,6 +567,8 @@ CONTAINS
 !$OMP END PARALLEL
 
     DEALLOCATE(zdudt, zdvdt)
+
+    IF (ltimer) CALL timer_stop(timer_p2d_prep)
     !
     !=====================================================================================
 
@@ -552,6 +577,7 @@ CONTAINS
     !
     ! (7) Couple dynamics+transport and physics
       
+    IF (ltimer) CALL timer_start(timer_p2d_couple)
     !     
     SELECT CASE (echam_phy_config%idcphycpl)
 
@@ -668,15 +694,17 @@ CONTAINS
       !   done here.
 
     END SELECT ! idcphycpl
+
+    IF (ltimer) CALL timer_stop(timer_p2d_couple)
     !
     !=====================================================================================
-
-    IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
     !=====================================================================================
     !
     ! Finally do some synchronization for the next dynamics and transport time step(s)
     !
+    IF (ltimer) CALL timer_start(timer_p2d_sync)
+
     CALL sync_patch_array_mult( SYNC_E, patch, 2, pt_prog_new%vn, pt_diag%ddt_vn_phy )
 
     IF      (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
@@ -707,8 +735,12 @@ CONTAINS
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
     ENDIF
+
+    IF (ltimer) CALL timer_stop(timer_p2d_sync)
     !
     !=====================================================================================
+
+    IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
     !=====================================================================================
     !
