@@ -418,64 +418,65 @@ CONTAINS
  
       IDX_LOOP: DO jv =  i_startidx_v, i_endidx_v
  
-        rdeno =  1._wp/MAX( TINY(rdeno),                                &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
-
-        c2v_wgt(jv,1,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno 
-        c2v_wgt(jv,2,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno 
-        c2v_wgt(jv,3,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno 
-        c2v_wgt(jv,4,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno 
-        c2v_wgt(jv,5,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno 
-        c2v_wgt(jv,6,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno 
+!        rdeno =  1._wp/MAX( TINY(rdeno),                                &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!
+!        c2v_wgt(jv,1,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno
+!        c2v_wgt(jv,2,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno
+!        c2v_wgt(jv,3,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno
+!        c2v_wgt(jv,4,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno
+!        c2v_wgt(jv,5,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno
+!        c2v_wgt(jv,6,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno
 
    !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
    !     -> this code leads to other error in CELLS2VERTS_SCALAR
    !    rsum = 0.0_wp
 
-   !    DO ji = 1, 6
-   !      cell_index = iidx(jv,jb,ji)
-   !      cell_block = iblk(jv,jb,ji)
-   !      IF (cell_index > 0)                                      &
-   !        & rsum = rsum +                                        &
-   !        &      p_patch_3D%wet_c  (cell_index,1,cell_block) *   &
-   !        &      p_patch%cells%area(cell_index,  cell_block)
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                      &
+            & rsum = rsum +                                        &
+            &      p_patch_3D%wet_c  (cell_index,1,cell_block) *   &
+            &      p_patch%cells%area(cell_index,  cell_block)
 
-   !    ENDDO
+        ENDDO
 
-   !    IF (rsum > 0.0_wp) rsum = 1.0_wp/rsum
+        rdeno =  1._wp/MAX( TINY(rdeno), rsum )
+        c2v_wgt(jv,:,jb) = 0
 
-   !    DO ji = 1, 6
-   !      cell_index = iidx(jv,jb,ji)
-   !      cell_block = iblk(jv,jb,ji)
-   !      IF (cell_index > 0)                                 &
-   !        & c2v_wgt(jv,ji,jb) =                             &
-   !        &   p_patch_3D%wet_c  (cell_index,1,cell_block) * &
-   !        &   p_patch%cells%area(cell_index,  cell_block) * rsum 
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                 &
+            & c2v_wgt(jv,ji,jb) =                             &
+            &   p_patch_3D%wet_c  (cell_index,1,cell_block) * &
+            &   p_patch%cells%area(cell_index,  cell_block) * rdeno
 
-   !    ENDDO
+        ENDDO
 
       ENDDO  IDX_LOOP
  

@@ -901,6 +901,29 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
       DO jv = i_startidx, i_endidx
 #endif
 
+    ! Sea-ice module calls this funciton to interpolate from ICON grid to FEM P1P1 grid
+    ! An indexing error used to occur because of zeros in iidx(jv,jb,:) at the pentagons centers and boundary vertices
+    !
+    ! A quick fix: fill these indices with dummy value =1, given the coefficient is zero
+    ! Note, however, that related multiplication factors c_int must be zero for consistency
+
+    ! In the atmosphere module this is done by calling this function somewhere at the initialization step
+    !    CALL move_dummies_to_end_idxblk( &
+    !        ptr_patch%verts%cell_idx(:,:,1:max_verts_connectivity), &
+    !        ptr_patch%n_patch_verts, max_verts_connectivity, &
+    !        use_duplicated_connectivity)
+
+!    if ( (iidx(jv,jb,6)==0) .or. (iblk(jv,jb,6)==0) ) then
+!        print *, 'lat, lon =', ptr_patch%verts%vertex(jv,jb)
+!    !    print *, '6 interp coeff =', c_int(jv,1:6,jb)
+!        print *, 'iidx(jv,jb,:)', iidx(jv,jb,:)
+!        print *, 'iblk(jv,jb,:)', iblk(jv,jb,:)
+!        print *, 'max_connectivity', ptr_patch%verts%max_connectivity
+!        print *, 'ptr_patch%verts%num_edges(jv,jb)', ptr_patch%verts%num_edges(jv,jb)
+!    endif
+
+    WHERE (iidx(jv,jb,:)==0) iidx(jv,jb,:)=1
+
          p_vert_out(jv,jk,jb) =                       &
            c_int(jv,1,jb) * p_cell_in(iidx(jv,jb,1),jk,iblk(jv,jb,1)) + &
            c_int(jv,2,jb) * p_cell_in(iidx(jv,jb,2),jk,iblk(jv,jb,2)) + &
