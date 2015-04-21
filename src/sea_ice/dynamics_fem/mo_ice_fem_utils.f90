@@ -466,7 +466,6 @@ CONTAINS
         ENDDO
 
         rdeno =  1._wp/MAX( TINY(rdeno), rsum )
-        c2v_wgt(jv,:,jb) = 0
 
         DO ji = 1, 6
           cell_index = iidx(jv,jb,ji)
