@@ -29,7 +29,8 @@ MODULE mo_ocean_veloc_advection
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_impl_constants,      ONLY: boundary, min_dolic
-  USE mo_ocean_nml,           ONLY: n_zlev!, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
+  USE mo_ocean_nml,           ONLY: n_zlev,NONLINEAR_CORIOLIS,&
+    &                               NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID !, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,         ONLY: t_hydro_ocean_diag
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d_onBlock, &
@@ -85,12 +86,25 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
-      ! inUse
-      CALL veloc_adv_horz_mimetic_rot( patch_3D,        &
-        & vn_old,          &
-        & p_diag,          &
-        & veloc_adv_horz_e,&
-        & p_op_coeff)
+    
+    
+      IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+        ! inUse
+        CALL veloc_adv_horz_mimetic_rot( patch_3D,        &
+          & vn_old,          &
+          & p_diag,          &
+          & veloc_adv_horz_e,&
+          & p_op_coeff)
+      ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+      
+        CALL veloc_adv_horz_mimetic_classicCgrid( patch_3D, &
+          & vn_old,          &
+          & p_diag,          &
+          & veloc_adv_horz_e,&
+          & p_op_coeff)      
+      ENDIF
+          
+          
     ELSEIF (velocity_advection_form == divergence_form) THEN
       ! notInUse
       CALL veloc_adv_horz_mimetic_div( patch_3D,      &
@@ -121,10 +135,13 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
+		
       CALL veloc_adv_vert_mimetic_rot( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
-
+	  
     ELSEIF (velocity_advection_form == divergence_form) THEN
+		
       CALL veloc_adv_vert_mimetic_div( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+
     ENDIF
 
   END SUBROUTINE veloc_adv_vert_mimetic
@@ -237,6 +254,171 @@ CONTAINS
   END SUBROUTINE veloc_adv_horz_mimetic_rot
   !-------------------------------------------------------------------------  
 
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes horizontal advection of a (edge based) vector field.
+  !!
+  !! Computes rotational term of a vector field given by its components in
+  !! the directions normal to triangle edges and the gradient of the kinetic energy
+  !! which is calculated using the reconstructed velocity at cell centers. Both
+  !! terms are combined and constitute the horizontal velocity advection.
+  !!
+  !!IMPORTANT: It is assumed that the reconstruction of the tangential velocity
+  !!           has been done before.
+  !1
+  !! input:  lives on edges (velocity points)
+  !! output: lives on edges (velocity points)
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2010).
+  !!
+  !! veloc_adv_horz_e is on edges%in_domain
+  !! p_diag%vort is on all vertices
+!<Optimize:inUse>
+  SUBROUTINE veloc_adv_horz_mimetic_classicCgrid( patch_3D,     &
+    & vn,              &
+    & p_diag,          &
+    & veloc_adv_horz_e,&
+    & p_op_coeff)
+    !
+    !
+    !  patch on which computation is performed
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
+    REAL(wp), INTENT(inout)  :: vn(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
+    !REAL(wp), INTENT(inout) :: vn_new(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_hydro_ocean_diag) :: p_diag
+    REAL(wp), INTENT(inout)  :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e) ! out
+    !
+    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
+    INTEGER :: jk, blockNo, je, jc
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    INTEGER :: il_v1, ib_v1, il_v2, ib_v2	
+    REAL(wp) :: veloc_tangential
+    !REAL(wp) :: z_vort_flx(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, all_cells
+    TYPE(t_patch), POINTER         :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    all_cells => patch_2D%cells%all
+    !-----------------------------------------------------------------------
+     CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, p_op_coeff, p_diag%vort)
+    !--------------------------------------------------------------
+    !calculate nonlinear coriolis term by 
+    !1) projection cell reconstructed velocity vector in tangential direction
+    !2) averaging the result from 1) from two adjecent cells to an edge
+    !3) multiplying the result by the averaged vorticity 
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      DO jk = 1, n_zlev
+        DO je = start_edge_index, end_edge_index
+
+          IF(patch_3D%lsm_e(je,jk,blockNo)<= boundary)THEN
+            !Neighbouring cells
+            il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+            ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+            il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+            ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+            !Neighbouring verts			
+            il_v1 = patch_2D%edges%vertex_idx(je,blockNo,1)
+            ib_v1 = patch_2D%edges%vertex_blk(je,blockNo,1)
+            il_v2 = patch_2D%edges%vertex_idx(je,blockNo,2)
+            ib_v2 = patch_2D%edges%vertex_blk(je,blockNo,2)
+
+            !calculation of tangential velocity
+            veloc_tangential=0.5_wp*&
+            dot_product(p_diag%p_vn(il_c1,jk,ib_c1)%x+p_diag%p_vn(il_c2,jk,ib_c2)%x,patch_2D%edges%dual_cart_normal(je,blockNo)%x)
+
+!           !This is an upwind version of the nonlinear coriolis.
+!           !Not recommended just for testing purposes
+!           IF(patch_2D%edges%system_orientation(je,blockNo)==1.0_wp)THEN
+!           !dual normal vector points from vertex 1 to vertex 2
+!             IF(veloc_tangential>0.0_wp)THEN
+!              veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
+!              &*(patch_2d%edges%f_e(je,blockNo)+p_diag%vort(il_v1,jk,ib_v1))
+!             ELSE
+!               veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
+!               &*(patch_2d%edges%f_e(je,blockNo)+p_diag%vort(il_v2,jk,ib_v2))
+!             ENDIF
+
+!           ELSEIF(patch_2D%edges%system_orientation(je,blockNo)==-1.0_wp)THEN
+            !!dual normal vector points from vertex 2 to vertex 1
+!             IF(veloc_tangential>0.0)THEN
+!               veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
+!               &*(patch_2d%edges%f_e(je,blockNo)+p_diag%vort(il_v2,jk,ib_v2))
+!             ELSE
+!               veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
+!               &*(patch_2d%edges%f_e(je,blockNo)+p_diag%vort(il_v1,jk,ib_v1))  
+!             ENDIF
+!           ENDIF
+
+            !calculation of nonlinear Coriolis 
+            veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
+            &*(patch_2d%edges%f_e(je,blockNo)&!*0.1_wp&
+            &+0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
+
+          ENDIF
+        END DO
+      END DO
+    END DO
+
+
+ !   DO blockNo = all_cells%start_block, all_cells%end_block
+ !     CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+ !     DO jk = 1, n_zlev
+ !       DO jc = start_cell_index, end_cell_index
+ !         p_diag%kin(jc,jk,blockNo)= 0.5_wp*(&
+ !         & p_diag%u(jc,jk,blockNo)*p_diag%u(jc,jk,blockNo)&
+ !          &+p_diag%v(jc,jk,blockNo)*p_diag%v(jc,jk,blockNo))
+ !       END DO
+ !     END DO
+ !   END DO
+ !  CALL sync_patch_array(SYNC_C, patch_2D, p_diag%kin)
+
+
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      
+      !calculate gradient of kinetic energy
+      CALL grad_fd_norm_oce_3d_onBlock ( &
+        & p_diag%kin,                    &
+        & patch_3D,                    &
+        & p_op_coeff%grad_coeff(:,:,blockNo), &
+        & p_diag%grad(:,:,blockNo),           &
+        & start_edge_index, end_edge_index, blockNo)
+    ! the result is on edges_in_domain
+      
+    END DO ! blocks
+!ICON_OMP_END_PARALLEL_DO
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
+          patch_2D%verts%owned )
+    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
+          patch_2D%edges%owned )
+    !---------------------------------------------------------------------
+    !idt_src=2  ! output print level (1-5, fix)
+    !CALL dbg_print('HorzMimRot: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src, &
+    !      patch_2D%edges%owned )
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE veloc_adv_horz_mimetic_classicCgrid
+  !-------------------------------------------------------------------------  
+
+
+
+
+
+
   !-------------------------------------------------------------------------
   SUBROUTINE veloc_adv_horz_mimetic_div( patch_3D,   &
     & vn,             &
@@ -288,40 +470,64 @@ CONTAINS
 
           IF(patch_3D%lsm_e(je,jk,blockNo)<= boundary)THEN
             !Neighbouring cells
-            il_c1 = patch_2D%edges%vertex_idx(je,blockNo,1)
-            ib_c1 = patch_2D%edges%vertex_blk(je,blockNo,1)
-            il_c2 = patch_2D%edges%vertex_idx(je,blockNo,2)
-            ib_c2 = patch_2D%edges%vertex_blk(je,blockNo,2)
-            
-            u_v_cc_v(il_c1,jk,ib_c1)=vector_product(patch_2D%verts%cartesian(il_c1,ib_c1),&
-                                &p_diag%p_vn(il_c1,jk,ib_c1))
-            
-            u_v_cc_v(il_c2,jk,ib_c2)=vector_product(patch_2D%verts%cartesian(il_c2,ib_c2),&
-                                &p_diag%p_vn(il_c2,jk,ib_c2))
-            
-            u_v_cc_e(je,jk,blockNo)%x=&
-            &0.5_wp*(patch_2D%verts%f_v(il_c1,ib_c1)*u_v_cc_v(il_c1,jk,ib_c1)%x&
-            &       +patch_2D%verts%f_v(il_c2,ib_c2)*u_v_cc_v(il_c2,jk,ib_c2)%x)         
+
             il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
             ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
             il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
             ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+
+            u_v_cc_c(il_c1,jk,ib_c1)=vector_product(patch_2D%cells%cartesian_center(il_c1,ib_c1),&
+                                &p_diag%p_vn(il_c1,jk,ib_c1))
             
-             u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
-             &+ 0.5_wp *(p_diag%vn_time_weighted(je,jk,blockNo)* (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
-             & p_diag%p_vn(il_c2,jk,ib_c2)%x)&
-             &-ABS(p_diag%vn_time_weighted(je,jk,blockNo))* (p_diag%p_vn(il_c2,jk,ib_c2)%x - &
-             & p_diag%p_vn(il_c1,jk,ib_c1)%x))
+            u_v_cc_c(il_c2,jk,ib_c2)=vector_product(patch_2D%cells%cartesian_center(il_c2,ib_c2),&
+                                &p_diag%p_vn(il_c2,jk,ib_c2))
+u_v_cc_e(je,jk,blockNo)%x=&
+&0.5_wp*(patch_2D%cells%f_c(il_c1,ib_c1)*u_v_cc_c(il_c1,jk,ib_c1)%x&
+&       +patch_2D%cells%f_c(il_c2,ib_c2)*u_v_cc_c(il_c2,jk,ib_c2)%x) 
+u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
+&+ 0.5_wp *(p_diag%vn_time_weighted(je,jk,blockNo)* (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
+& p_diag%p_vn(il_c2,jk,ib_c2)%x)&
+&-ABS(p_diag%vn_time_weighted(je,jk,blockNo))* (p_diag%p_vn(il_c2,jk,ib_c2)%x - &
+& p_diag%p_vn(il_c1,jk,ib_c1)%x))
+
+
+!------------------------------------------------------------------------
+!            il_c1 = patch_2D%edges%vertex_idx(je,blockNo,1)
+!            ib_c1 = patch_2D%edges%vertex_blk(je,blockNo,1)
+!            il_c2 = patch_2D%edges%vertex_idx(je,blockNo,2)
+!            ib_c2 = patch_2D%edges%vertex_blk(je,blockNo,2)
+
+            
+!            u_v_cc_v(il_c1,jk,ib_c1)=vector_product(patch_2D%verts%cartesian(il_c1,ib_c1),&
+!                                &p_diag%p_vn_dual(il_c1,jk,ib_c1))
+!            
+ !           u_v_cc_v(il_c2,jk,ib_c2)=vector_product(patch_2D%verts%cartesian(il_c2,ib_c2),&
+ !                               &p_diag%p_vn_dual(il_c2,jk,ib_c2))
+            
+ !           u_v_cc_e(je,jk,blockNo)%x=&
+ !           &0.5_wp*(patch_2D%verts%f_v(il_c1,ib_c1)*u_v_cc_v(il_c1,jk,ib_c1)%x&
+ !           &       +patch_2D%verts%f_v(il_c2,ib_c2)*u_v_cc_v(il_c2,jk,ib_c2)%x) 
+			        
+  !          il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+  !          ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+  !          il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+  !          ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+            
+  !           u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
+  !           &+ 0.5_wp *(p_diag%vn_time_weighted(je,jk,blockNo)* (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
+  !           & p_diag%p_vn(il_c2,jk,ib_c2)%x)&
+  !           &-ABS(p_diag%vn_time_weighted(je,jk,blockNo))* (p_diag%p_vn(il_c2,jk,ib_c2)%x - &
+  !           & p_diag%p_vn(il_c1,jk,ib_c1)%x))
               
-!             il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
-!             ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
-!             il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
-!             ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)              
-!             !velocity vector at edges
-!             u_v_cc_e(je,jk,blockNo)%x = 0.5_wp * (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
-!               & p_diag%p_vn(il_c2,jk,ib_c2)%x)
+!  !           il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+!   !          ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+!    !         il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+!     !        ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)              
+!      !       !velocity vector at edges
+!      !       u_v_cc_e(je,jk,blockNo)%x = 0.5_wp * (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
+!      !         & p_diag%p_vn(il_c2,jk,ib_c2)%x)
 ! 
-!             u_v_cc_e(je,jk,blockNo)%x = p_diag%vn_time_weighted(je,jk,blockNo) * u_v_cc_e(je,jk,blockNo)%x
+!       !      u_v_cc_e(je,jk,blockNo)%x = p_diag%vn_time_weighted(je,jk,blockNo) * u_v_cc_e(je,jk,blockNo)%x
           ENDIF
         END DO
       END DO

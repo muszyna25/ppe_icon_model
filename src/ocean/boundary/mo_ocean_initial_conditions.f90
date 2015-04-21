@@ -77,7 +77,8 @@ MODULE mo_ocean_initial_conditions
   PRIVATE
   INCLUDE 'netcdf.inc'
 
-  PUBLIC :: apply_initial_conditions, init_ocean_bathymetry
+  PUBLIC :: apply_initial_conditions, init_ocean_bathymetry,&
+  & SST_LinearMeridional, increaseTracerLevelsLinearly
   
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
@@ -545,10 +546,19 @@ CONTAINS
     CASE (214)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
       !  exponential temperature profile following Abernathey et al., 2011
-!       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
-!         &                                    initial_temperature_scale_depth)
+      ! CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+      !   &                                    initial_temperature_scale_depth)
       CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & bottom_value=initial_temperature_bottom)
+    CASE (215)
+      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+      !  exponential temperature profile following Abernathey et al., 2011
+
+      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & bottom_value=initial_temperature_bottom)
+
+      CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
@@ -1449,14 +1459,14 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-        lat_deg = patch_2d%cells%center(jc,jb)%lat
-        lon_deg = patch_2d%cells%center(jc,jb)%lon
+        lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
 
         IF(ABS(lon_deg) < 2.5_wp .AND. &
            ABS(lat_deg-basin_center_lat) < 0.25_wp*basin_height_deg) THEN
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-            ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) * 1.1_wp
+            ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) * 0.75_wp
           END DO
 
         ENDIF
@@ -1465,6 +1475,53 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     END DO
   END SUBROUTINE temperature_AddLocalPerturbation
   !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_AddLocalPerturbation'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
+
+!        IF(ABS(lon_deg) < 2.5_wp .AND. &
+!          ABS(lat_deg-basin_center_lat) < 0.25_wp*basin_height_deg) THEN
+!        write(123,*)'t-perturb',ocean_temperature(jc,1,jb),ocean_temperature(jc,2,jb)*&
+!            &0.01_wp*sin(50.0_wp*patch_2d%cells%center(jc,jb)%lon)
+          IF(  lat_deg<= basin_center_lat+ 0.5_wp*basin_height_deg)THEN    
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) +ocean_temperature(jc,jk,jb)*&
+            &0.01_wp*sin(50.0_wp*patch_2d%cells%center(jc,jb)%lon)
+          END DO
+
+        ENDIF
+
+      END DO
+    END DO
+	
+  END SUBROUTINE temperature_AddSinusoidalPerturbation
+  !-------------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------------
   SUBROUTINE temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
@@ -2569,24 +2626,30 @@ stop
           ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
           ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
           ocean_temperature(jc,1:levels,jb) = 20.0_wp
+		  !stratification
+          DO jk = 1, levels
+            ocean_temperature(jc,jk,jb) =          &
+              & ocean_temperature(jc,jk,jb)-0.5_wp*jk          
+          END DO
+		  
+		  
           distan = SQRT((cell_center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
             & (cell_center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
 
-          !Local hot perturbation
-          IF(distan<=5.0_wp*deg2rad)THEN
-            DO jk = 1, levels
-              ocean_temperature(jc,jk,jb) =          &
-                & ocean_temperature(jc,jk,jb)          &
-                & + max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
-              !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
-                & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
-            END DO
-          ENDIF !Local hot perturbation
+  !Commented out PK 4/2015        !Local hot perturbation
+ !         IF(distan<=5.0_wp*deg2rad)THEN
+ !           DO jk = 1, levels
+ !             ocean_temperature(jc,jk,jb) =          &
+ !               & ocean_temperature(jc,jk,jb)        &
+ !               & + max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
+ !            !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
+ !               & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
+ !           END DO
+ !         ENDIF !Local hot perturbation
 
         END IF !(levels > 0)
       END DO
     END DO
-
   END SUBROUTINE temperature_DanilovsMunkGyre
   !-------------------------------------------------------------------------------
 

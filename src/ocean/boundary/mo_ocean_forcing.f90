@@ -32,14 +32,15 @@ MODULE mo_ocean_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: no_tracer,                                &
-    & basin_height_deg, basin_width_deg, basin_center_lat,                    &
+    & basin_height_deg, basin_width_deg, basin_center_lat, basin_center_lon,  &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,       &
     & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp,               &
     & type_surfRelax_Salt, type_surfRelax_Temp,                               &
     & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,         &
     & forcing_windstress_u_type, forcing_windstress_v_type,                   &
     & forcing_windspeed_type, forcing_windspeed_amplitude,                    &
-    & relax_temperature_min, relax_temperature_max,                           &
+    & relax_temperature_min, relax_temperature_max, initial_temperature_type, &
+	& initial_temperature_bottom,initial_temperature_north,initial_temperature_south,&
 #ifdef __SX__                                                                
     & forcing_windstress_zonalWavePhas,                                       &
 #else                                                                        
@@ -56,6 +57,7 @@ MODULE mo_ocean_forcing
   USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
+  USE mo_ocean_initial_conditions, ONLY: SST_LinearMeridional, increaseTracerLevelsLinearly
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref
@@ -498,6 +500,12 @@ CONTAINS
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_surfRelax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: temperature_difference, poleLat, waveNo
+	
+    REAL(wp):: distan
+    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
+    REAL(wp) :: basin_northBoundary, basin_southBoundary, lat_diff
+    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+ 	
 
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
@@ -644,7 +652,65 @@ CONTAINS
           END DO
         END DO
       END DO
+      CASE(5)
+	  !Only valid for this specific testcase: temperature is resored to initial tempertaure without perturbation
+	  IF(initial_temperature_type==215.OR.initial_temperature_type==214)THEN
+		  
+	      lat(:,:) = patch_2d%cells%center(:,:)%lat
 
+	      atmos_fluxes%data_surfRelax_Temp(:,:) = 0.0_wp!initial_temperature_south
+
+	      temperature_difference = initial_temperature_north - initial_temperature_south
+	      basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+	      basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+	      lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+
+	      DO jb = all_cells%start_block, all_cells%end_block
+	        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+	        DO jc = start_cell_index, end_cell_index
+	          jk=1
+	          atmos_fluxes%data_surfRelax_Temp(jc,jb) = initial_temperature_north &
+			  &- temperature_difference*((basin_northBoundary-lat(jc,jb))/lat_diff)
+			  
+	          atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
+			  &initial_temperature_north, lat(jc,jb)>basin_southBoundary)
+			  
+	        END DO
+	      END DO
+		  		  
+		  
+		  
+        !CALL SST_LinearMeridional(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
+		!atmos_fluxes%data_surfRelax_Temp(:,:)=ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
+	  ENDIF
+	  
+	  IF(initial_temperature_type==203)THEN
+	      perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+	      perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
+	      max_perturbation  = 0.1_wp!20.1_wp
+	      perturbation_width  = 10.0_wp!1.5_wp
+		  
+	      DO jb = all_cells%start_block, all_cells%end_block
+	        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+	        DO jc = start_cell_index, end_cell_index
+	            distan = SQRT((patch_2d%cells%center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
+	              & (patch_2d%cells%center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
+				  
+                atmos_fluxes%data_surfRelax_Temp(jc,jb)=ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
+	            !Local cold perturbation
+	            IF(distan<=5.0_wp*deg2rad)THEN
+	                 atmos_fluxes%data_surfRelax_Temp(jc,jb) =          &
+	                  & ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)        &
+	                  & - 2.0_wp*max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
+	                !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
+	                  & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(1) / patch_3d%p_patch_1d(1)%zlev_i(2))
+	            ENDIF !Local cold perturbation
+	        END DO
+	      END DO
+		  
+		  
+	  ENDIF
+	  
     END SELECT
 
     IF (type_surfRelax_Salt == 3) THEN

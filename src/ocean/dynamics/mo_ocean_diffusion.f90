@@ -115,7 +115,7 @@ CONTAINS
     ELSEIF(veloc_diffusion_order==2)THEN
       
       IF(veloc_diffusion_form==2)THEN
-        CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
+        !CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
         CALL veloc_diff_biharmonic_div_grad( patch_3D,   &
           & p_param,      &
           & p_diag,       &
@@ -913,10 +913,10 @@ CONTAINS
       END DO
     END DO
 
-    !  DO level=1,n_zlev
-    !   write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
-    !   &minval(nabla4_vec_e(:,level,:))
-    !  END DO
+      DO level=1,INT(0.5*n_zlev)
+       write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
+       &minval(nabla4_vec_e(:,level,:))
+      END DO
 
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl

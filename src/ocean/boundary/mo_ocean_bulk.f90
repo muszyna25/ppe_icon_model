@@ -61,7 +61,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical
   &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
   &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
   &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
-  &                               limit_elevation, limit_seaice, seaice_limit, l_relaxsal_ice
+  &                               limit_elevation, limit_seaice, seaice_limit, l_relaxsal_ice, initial_temperature_type
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -1539,7 +1539,7 @@ CONTAINS
     TYPE(t_patch), POINTER        :: p_patch
     REAL(wp),      POINTER        :: t_top(:,:), s_top(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
-
+	REAL(wp) :: lat_deg, lon_deg
     !-----------------------------------------------------------------------  
     p_patch   => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
@@ -1585,6 +1585,48 @@ CONTAINS
     
         END DO
       END DO
+	  IF(initial_temperature_type==215.OR.initial_temperature_type==203)THEN
+		  
+	    DO jb = all_cells%start_block, all_cells%end_block
+	      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+	      DO jc = i_startidx_c, i_endidx_c
+	        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+				  
+		      lat_deg = p_patch%cells%center(jc,jb)%lat*rad2deg
+		      lon_deg = p_patch%cells%center(jc,jb)%lon*rad2deg
+
+              relax_strength = 1.0_wp / (para_surfRelax_Temp*seconds_per_month)
+
+			  !upper channel boudary
+              IF(lat_deg<= basin_center_lat+ 0.5_wp*basin_height_deg-5.0_wp)THEN    				  		
+
+
+	            !calculate additional temperature restoring rate F_T due to relaxation [K/s]
+	            atmos_fluxes%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-atmos_fluxes%data_surfRelax_Temp(jc,jb))
+
+	            thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+	            atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
+  		      !lower channel boudary
+              ELSEIF(lat_deg<= basin_center_lat- 0.5_wp*basin_height_deg+5.0_wp)THEN 
+
+  	            !calculate additional temperature restoring rate F_T due to relaxation [K/s]
+  	            atmos_fluxes%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-atmos_fluxes%data_surfRelax_Temp(jc,jb))
+
+  	            thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+  	            atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
+
+
+				  
+			  ELSE!channel interior		  
+    			atmos_fluxes%HeatFlux_Relax(jc,jb)=0.0_wp		
+					   				  				  
+   	          ENDIF	
+
+	          ENDIF
+	        END DO
+	      END DO
+		  
+	  ENDIF
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('UpdSfcRlx:HeatFlx_Rlx[W/m2]',atmos_fluxes%HeatFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)

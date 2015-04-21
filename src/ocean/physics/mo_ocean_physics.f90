@@ -275,8 +275,9 @@ CONTAINS
 
             length_scale(je,jb) = &
             & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))         
-
-            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale(je,jb)**2
+!length_scale(je,jb) = &
+!& max(patch_2D%edges%primal_edge_length(je,jb) , patch_2D%edges%dual_edge_length(je,jb))         
+            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale(je,jb)**3
 !             k_veloc_factor = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
 !             p_phys_param%k_veloc_h(je,:,jb) = &
 !               & p_phys_param%k_veloc_h_back * k_veloc_factor**3
@@ -376,7 +377,7 @@ CONTAINS
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index
     INTEGER :: i_startidx_v, i_endidx_v
-    REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v), z_k_max
+    REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v)!, z_k_max
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, verts_in_domain
     !-------------------------------------------------------------------------
@@ -390,7 +391,7 @@ CONTAINS
         CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
           i_edge_ctr = 0
-          z_k_max    = 0.0_wp
+          !z_k_max    = 0.0_wp
           DO jev = 1, patch_2D%verts%num_edges(jv,jb)
             ile = patch_2D%verts%edge_idx(jv,jb,jev)
             ibe = patch_2D%verts%edge_blk(jv,jb,jev)
@@ -398,9 +399,9 @@ CONTAINS
             IF ( patch_3d%lsm_e(ile,jk,ibe) == sea) THEN
               z_k_ave_v(jv,jk,jb)= z_k_ave_v(jv,jk,jb) + k_h(ile,jk,ibe)
               i_edge_ctr=i_edge_ctr+1
-              IF(k_h(ile,jk,ibe)>z_k_max)THEN
-                z_k_max=k_h(ile,jk,ibe)
-              ENDIF
+              !IF(k_h(ile,jk,ibe)>z_k_max)THEN
+              !  z_k_max=k_h(ile,jk,ibe)
+              !ENDIF
             ENDIF
           END DO
           IF(i_edge_ctr/=0)THEN!.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN

@@ -418,8 +418,7 @@ CONTAINS
               il_v = patch_2d%edges%vertex_idx(je,blockNo,neighbor)
               ib_v = patch_2d%edges%vertex_blk(je,blockNo,neighbor)
               
-              vort_global = (vort_v(il_v,level,ib_v) + patch_2d%verts%f_v(il_v,ib_v))
-              
+              vort_global = (vort_v(il_v,level,ib_v) + 0.1_wp*patch_2d%verts%f_v(il_v,ib_v))
               thick_vert=0.0_wp
               DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
                 il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
@@ -450,8 +449,7 @@ CONTAINS
     END DO ! blockNo = edges_inDomain%start_blockold, edges_inDomain%end_block
     ! !$OMP END DO NOWAIT
     ! !$OMP END PARALLEL
-    
-    
+      
 !     !Diagnostic of energetic neutrality
 !     vort_flux_budget_perlevel(1:n_zlev)=0.0_wp
 !     vort_flux_budget_perlevel_pos(1:n_zlev)=0.0_wp
