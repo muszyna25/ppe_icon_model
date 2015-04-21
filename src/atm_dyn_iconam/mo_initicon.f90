@@ -1662,8 +1662,6 @@ MODULE mo_initicon
                 lnd_diag%freshsnow_t(jc,jb,jt)    = 0._wp
               ENDIF
 
-              ! update rho_snow for glacier points (missing)
-
             ENDDO  ! ic
 
 
