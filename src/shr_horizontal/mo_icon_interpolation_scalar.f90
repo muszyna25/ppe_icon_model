@@ -812,9 +812,10 @@ INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
 REAL(wp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
 
 INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: jv, jk, jb
+INTEGER :: jv, jk, jb, ji
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+INTEGER :: cell_index, cell_block
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
@@ -903,9 +904,6 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
     ! Sea-ice module calls this funciton to interpolate from ICON grid to FEM P1P1 grid
     ! An indexing error used to occur because of zeros in iidx(jv,jb,:) at the pentagons centers and boundary vertices
-    !
-    ! A quick fix: fill these indices with dummy value =1, given the coefficient is zero
-    ! Note, however, that related multiplication factors c_int must be zero for consistency
 
     ! In the atmosphere module this is done by calling this function somewhere at the initialization step
     !    CALL move_dummies_to_end_idxblk( &
@@ -922,15 +920,24 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !        print *, 'ptr_patch%verts%num_edges(jv,jb)', ptr_patch%verts%num_edges(jv,jb)
 !    endif
 
-    WHERE (iidx(jv,jb,:)==0) iidx(jv,jb,:)=1
+        p_vert_out(jv,jk,jb) = 0.0_wp
 
-         p_vert_out(jv,jk,jb) =                       &
-           c_int(jv,1,jb) * p_cell_in(iidx(jv,jb,1),jk,iblk(jv,jb,1)) + &
-           c_int(jv,2,jb) * p_cell_in(iidx(jv,jb,2),jk,iblk(jv,jb,2)) + &
-           c_int(jv,3,jb) * p_cell_in(iidx(jv,jb,3),jk,iblk(jv,jb,3)) + &
-           c_int(jv,4,jb) * p_cell_in(iidx(jv,jb,4),jk,iblk(jv,jb,4)) + &
-           c_int(jv,5,jb) * p_cell_in(iidx(jv,jb,5),jk,iblk(jv,jb,5)) + &
-           c_int(jv,6,jb) * p_cell_in(iidx(jv,jb,6),jk,iblk(jv,jb,6))
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                      &
+            & p_vert_out(jv,jk,jb) = p_vert_out(jv,jk,jb) +                                        &
+            &      c_int(jv,ji,jb) * p_cell_in(cell_index,jk,cell_block)
+        ENDDO
+
+!       Old version of the code that relies on non-zero values in iidx => ptr_patch%verts%cell_idx
+!         p_vert_out(jv,jk,jb) =                       &
+!           c_int(jv,1,jb) * p_cell_in(iidx(jv,jb,1),jk,iblk(jv,jb,1)) + &
+!           c_int(jv,2,jb) * p_cell_in(iidx(jv,jb,2),jk,iblk(jv,jb,2)) + &
+!           c_int(jv,3,jb) * p_cell_in(iidx(jv,jb,3),jk,iblk(jv,jb,3)) + &
+!           c_int(jv,4,jb) * p_cell_in(iidx(jv,jb,4),jk,iblk(jv,jb,4)) + &
+!           c_int(jv,5,jb) * p_cell_in(iidx(jv,jb,5),jk,iblk(jv,jb,5)) + &
+!           c_int(jv,6,jb) * p_cell_in(iidx(jv,jb,6),jk,iblk(jv,jb,6))
 
       ENDDO
     ENDDO
