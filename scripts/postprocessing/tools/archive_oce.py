@@ -953,14 +953,6 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
   psiGlobalFile = '/'.join([options['ARCHDIR'],'_'.join([psiModelVariableName,yearInfo])+'.nc'])
   cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],ymFile),
               output = psiGlobalFile)
-  psiSelectionConfig = {
-          'indonesian_throughflow' : { 'lonlatbox' : '90,150,-20,40',},
-          'gibraltar'              : { 'lonlatbox' : '-20,10,25,50',},
-          'north_atlantic'         : { 'lonlatbox' : '-60,20,50,80',},
-          'drake_passage'          : { 'lonlatbox' : '-90,-30,-80,-40',},
-          'beringStrait'           : { 'lonlatbox' : '-180,-100,30,80',},
-          'agulhas'                : { 'lonlatbox' : '10,50,-55,-15',},
-          }
 
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR PROFILES {{{
@@ -1076,6 +1068,16 @@ if 'procTSR' in options['ACTIONS']:
 # PSI {{{
 if 'plotPsi' in options['ACTIONS']:
   print(' plotPsi START ----------------------------------------')
+  psiSelectionConfig = {
+          'indonesian_throughflow' : { 'lonlatbox' : '90,150,-20,40',},
+          'gibraltar'              : { 'lonlatbox' : '-20,10,25,50',},
+          'north_atlantic'         : { 'lonlatbox' : '-60,20,50,80',},
+          'drake_passage'          : { 'lonlatbox' : '-90,-30,-80,-40',},
+          'beringStrait'           : { 'lonlatbox' : '-180,-100,30,80',},
+          'agulhas'                : { 'lonlatbox' : '10,50,-55,-15',},
+          }
+  psiSelectionConfig = {}
+
   plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
   title    = "Bar. Streamfunction for %s\n (file: %s)"%(options['EXP'],psiGlobalFile)
   cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA={0} TITLE='{1}' PLOT={2}".format(options['GRID'],title,plotFile))
