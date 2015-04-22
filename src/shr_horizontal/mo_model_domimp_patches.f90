@@ -2150,18 +2150,18 @@ CONTAINS
     gridfile_has_cartesian_info = &
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
 
-    IF (gridfile_has_cartesian_info) THEN
-
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-        
-      gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-
-    END IF
+!     IF (gridfile_has_cartesian_info) THEN
+! 
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
+!         
+!       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
+! 
+!     END IF
 
   END FUNCTION gridfile_has_cartesian_info
   !-------------------------------------------------------------------------

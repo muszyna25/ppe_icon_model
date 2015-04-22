@@ -104,8 +104,8 @@ cat > ${ocean_namelist} << EOF
   threshold_max_T       =  6.0   ! abort due to temperature maximum threshold
 /
 &ocean_diffusion_nml
-  HorizontalVelocityDiffusion_type = 1       ! 1: use constant horizontal viscosity coefficient according to namelist
-  k_veloc_h            = 3.0E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HorizontalViscosity_type = 1       ! 1: use constant horizontal viscosity coefficient according to namelist
+  HorizontalVelocity_DiffusionFactor            = 3.0E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5   ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC = 2.2E-3 ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h         =  200.0   ! [m2/s] constant horizontal diffusion coefficient for temperature

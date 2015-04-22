@@ -104,8 +104,8 @@ cat > ${ocean_namelist} << EOF
   threshold_min_T       = -4.0   ! to avoid abort
 /
 &ocean_diffusion_nml
-  k_veloc_h                  = 0.0   ! [m2/s] constant horizontal viscosity coefficient for velocity
-  HorizontalVelocityDiffusion_type       = 0         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalVelocity_DiffusionFactor                  = 0.0   ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HorizontalViscosity_type       = 0         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v                  = 0.0       ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC        = 0.0       ! 1.2E-3   ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h               = 0.0       ! 800.0   ! [m2/s] constant horizontal diffusion coefficient for temperature

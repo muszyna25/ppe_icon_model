@@ -29,9 +29,9 @@ MODULE mo_ocean_physics
   USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
     & k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
     & max_vert_diff_veloc, max_vert_diff_trac,                &
-    & HorizontalViscosity_type, veloc_diffusion_order,            &
+    & HorizontalViscosity_type, veloc_diffusion_order,        &
     & n_points_in_munk_layer,                                 &
-    & biharmonic_diffusion_factor,                            &
+    & HorizontalVelocity_DiffusionFactor,                     &
     & richardson_tracer, richardson_veloc,                    &
     & physics_parameters_type,                                &
     & physics_parameters_Constant_type,                       &
@@ -251,7 +251,7 @@ CONTAINS
         !The number that controls all that the "z_diff_efdt_ratio"
         !is different. Higher z_diff_efdt_ratio decreases the final
         !diffusion coefficient
-        z_diff_efdt_ratio = 10000.0_wp * biharmonic_diffusion_factor
+        z_diff_efdt_ratio = 10000.0_wp * HorizontalVelocity_DiffusionFactor
         z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, start_index, end_index)
@@ -1091,6 +1091,7 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
+    z_av0 = richardson_veloc
     z_grav_rho                   = grav/rho_ref
     z_inv_rho_ref                = 1.0_wp/rho_ref
     !-------------------------------------------------------------------------

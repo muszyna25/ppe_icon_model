@@ -760,6 +760,7 @@ CONTAINS
     CASE (0) ! NO FORCING, SET TO ZERO ========================================
       windstress = 0.0_wp
     CASE (1:100)      ! FILE INPUT, DONE ELSEWHERE ============================
+      windstress = 0.0_wp
       CALL message('windstress forcing','file input')
     CASE (101:200)    ! ANALYTIC SETUP ========================================
       SELECT CASE (control)
@@ -789,7 +790,6 @@ CONTAINS
         CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)
       END SELECT
     END SELECT
-    
 
   END SUBROUTINE set_windstress
 
