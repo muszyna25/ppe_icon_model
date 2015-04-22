@@ -33,7 +33,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &  t_geographical_coordinates, vector_product, &
-    &  arc_length
+    &  arc_length, triangle_area
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &
     & select_solver, select_restart_mixedPrecision_gmres
@@ -57,7 +57,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_grid_geometry_info
   IMPLICIT NONE
 
-#define d_norma_3d(v) SQRT(DOT_PRODUCT(v%x,v%x))
+#define d_norma_3d(v) SQRT(SUM(v%x * v%x))
 #define d_normalize(v) v%x=v%x/d_norma_3d(v)
 
   PRIVATE
@@ -119,13 +119,21 @@ CONTAINS
     TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
 
     TYPE(t_cartesian_coordinates) :: d_vector_1, d_vector_2, p_vector
+!     REAL(wp) :: test_planar_triangle_area
     !-----------------------------------------------------------------------
-
     d_vector_1 = distance_vector(x2, x1, geometry_info)
     d_vector_2 = distance_vector(x3, x1, geometry_info)
     ! the area is the one defined by the points 0, d_vector_1,  d_vector_2
-    planar_triangle_area = ABS((d_vector_1%x(1) * d_vector_2%x(2)) - &
-                               (d_vector_1%x(2) * d_vector_1%x(2)))
+    p_vector = vector_product(d_vector_1, d_vector_2)
+    planar_triangle_area = 0.5_wp * d_norma_3d(p_vector)
+
+!     test_planar_triangle_area  = triangle_area(x1, x2, x3)
+!     write(0,*) "point 1:", x1%x
+!     write(0,*) "point 2:", x2%x
+!     write(0,*) "point 3:", x3%x
+!     write(0,*) "vector 2-1:", d_vector_1%x
+!     write(0,*) "vector 3-1:", d_vector_2%x
+!     write(0,*) "triangle_area:",  test_planar_triangle_area, planar_triangle_area
 
   END FUNCTION planar_triangle_area
   !-------------------------------------------------------------------------
@@ -155,7 +163,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: d_vector
 
     d_vector = distance_vector(y, x, geometry_info)
-    planar_distance  = SQRT(SUM( d_vector%x * d_vector%x))
+    planar_distance  = d_norma_3d(d_vector)
 
   END FUNCTION planar_distance
   !-------------------------------------------------------------------------
@@ -176,7 +184,7 @@ CONTAINS
     CASE (planar_torus_geometry)
       CALL finish(method_name, "planar_torus_geometry is not implemented yet")
     CASE (sphere_geometry)
-      z_vector%x = x%x
+      z_vector%x = x%x !/ d_norma_3d(x)
     CASE ( planar_channel_geometry )
       z_vector%x = (/0.0_wp, 0.0_wp, 1.0_wp/)
     CASE DEFAULT
@@ -1674,7 +1682,7 @@ CONTAINS
                & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
                & vertex_center, patch_2D%geometry_info)
               z = get_surface_normal(z, patch_2D%geometry_info) ! get_surface_normal has to do d_normalize(z)
-              ! d_normalize(z)
+              d_normalize(z)
               dist_vector = vector_product(dist_vector, z)
               ! the dist_vector has still dual_edge_middle-vertex length
 
@@ -2119,12 +2127,13 @@ CONTAINS
 !CDIR nextscalar
         DO jv = i_startidx_v, i_endidx_v
 
-          IF ( sea_edges_per_vertex(jv,jk,block) == no_dual_edges ) THEN ! we have to count for lateral boundaries at the top
-            zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block) / earth_radius_squared
-            !zarea_fraction(jv,jk,block)=SUM(operators_coefficients%variable_dual_vol_norm(jv,jk,block,:))
-
-            !ELSEIF(operators_coefficients%bnd_edges_per_vertex(jv,jk,block)/=0)THEN!boundary edges are involved
-          ELSEIF ( sea_edges_per_vertex(jv,jk,block) /= 0 ) THEN
+!           IF ( sea_edges_per_vertex(jv,jk,block) == no_dual_edges ) THEN ! we have to count for lateral boundaries at the top
+!             zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block) / earth_radius_squared
+!             !zarea_fraction(jv,jk,block)=SUM(operators_coefficients%variable_dual_vol_norm(jv,jk,block,:))
+! 
+!             !ELSEIF(operators_coefficients%bnd_edges_per_vertex(jv,jk,block)/=0)THEN!boundary edges are involved
+!           ELSEIF ( sea_edges_per_vertex(jv,jk,block) /= 0 ) THEN
+          IF ( sea_edges_per_vertex(jv,jk,block) /= 0 ) THEN
 
             !Modified area calculation
             vertex_cc = patch_2D%verts%cartesian(jv,block)
@@ -2297,12 +2306,6 @@ CONTAINS
     INTEGER :: ie
     !INTEGER :: rl_start, rl_end
     INTEGER :: i_nchdom!,i_startblk, i_endblk, i_startidx, i_endidx
-
-    !INTEGER :: ile, ibe!, ilc1, ibc1, ilc2, ibc2, ifac, ic, ilnc, ibnc
-    !INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
-    !TYPE(cartesian_coordinates)::z_pn_k,z_pn_j
-    !REAL(wp) :: z_lon, z_lat, z_nu, z_nv, z_proj
-    !REAL(wp) :: cell_area
   
     TYPE(t_subset_range), POINTER :: all_edges, owned_cells, owned_verts
     INTEGER :: edge_block, edge_index

@@ -426,12 +426,14 @@ CONTAINS
             sea_edges_onLevel(jk) = sea_edges_onLevel(jk) + 1
           END DO
             
-          IF(sea_edges_onLevel(jk) /= 0) & !.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN
-            & z_k_ave_v(jv,jk,jb) = z_k_ave_v(jv,jk,jb) / REAL(sea_edges_onLevel(jk),wp)
           !IF(patch_2D%verts%num_edges(jv,jb)== 5)THEN
           !  z_K_ave_v(jv,jk,jb)=80000_wp!°z_K_max
           !ENDIF
-        END DO
+        END DO ! jev = 1, patch_2D%verts%num_edges(jv,jb)
+        DO jk = 1, patch_3D%p_patch_1D(1)%dolic_e(ile,ibe)
+          IF(sea_edges_onLevel(jk) /= 0) & !.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN
+            & z_k_ave_v(jv,jk,jb) = z_k_ave_v(jv,jk,jb) / REAL(sea_edges_onLevel(jk),wp)
+        ENDDO
       ENDDO
     END DO
 
@@ -1364,7 +1366,7 @@ CONTAINS
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
           ! TODO: the following expect equally sized cells
           ! compute density gradient at edges
-          dz = 0.5_wp * (patch_3d%p_patch_1d(1)%prism_thick_e(je,jk+1,jb) + &
+          dz = 0.5_wp * (patch_3d%p_patch_1d(1)%prism_thick_e(je,jk-1,jb) + &
             &            patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb))
           density_differ_edge = 0.5_wp * &
             & (z_vert_density_grad_c(cell_1_idx,jk,cell_1_block) +   &
