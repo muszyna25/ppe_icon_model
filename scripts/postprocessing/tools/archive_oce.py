@@ -1185,7 +1185,6 @@ if 'plotX' in options['ACTIONS']:
              '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
-             '-makeYLinear',
              '-withLineLabels',
              '-tStrg="%s"'%(title),
              '-oFile=%s'%(oFile)]
@@ -1209,7 +1208,6 @@ if 'plotX' in options['ACTIONS']:
              '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
-             '-makeYLinear',
              '-minVar=%s'%(XSectionPlotConfig[varname]['minVar']),
              '-maxVar=%s'%(XSectionPlotConfig[varname]['maxVar']),
              '-numLevs=%s'%(XSectionPlotConfig[varname]['numLevs']),
@@ -1386,7 +1384,6 @@ if 'plotTSR' in options['ACTIONS']:
            '-lStrg=%s'%(varname),
   #        '-withLineLabels',
            '+withLines',
-           '-makeYLinear',
            '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
            '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
            '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
