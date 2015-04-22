@@ -30,7 +30,9 @@
   wap                omega
 #
   zg                 z_mc
+  zghalf             z_ifc
   pfull              pres
+  phalf              pres_ifc
   gpfull             geopot
 
 # variables from the external data (no prefix)

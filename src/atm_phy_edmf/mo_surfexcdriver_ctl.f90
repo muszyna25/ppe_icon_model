@@ -54,7 +54,7 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , ext_data                                                           & !in
  & , jb, jg                                                             & ! -
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
- & , w_snow_ex, w_snow_eff_ex                                           & ! -
+ & , w_snow_ex                                                          & ! -
  & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex, u_10m_ex, v_10m_ex                  & ! -
  & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
@@ -376,7 +376,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   t_g_ex         ,qv_s_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   t_snow_ex      ,t_s_ex         ,                                            & 
-  w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex       ,           &
+  w_snow_ex      ,rho_snow_ex    ,h_snow_ex       ,                           &
   w_i_ex         ,w_p_ex         ,w_s_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
   t_so_ex             
@@ -808,7 +808,6 @@ IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
     t_g_ex           = t_g_ex          , & ! surface temperature                           (  K  )
     qv_s_ex          = qv_s_ex         , & ! specific humidity at the surface              (kg/kg)
     w_snow_ex        = w_snow_ex       , & ! water content of snow                         (m H2O)
-    w_snow_eff_ex    = w_snow_eff_ex   , & ! water content of snow, effective              (m H2O)
     rho_snow_ex      = rho_snow_ex     , & ! snow density                                  (kg/m**3)
     rho_snow_mult_ex = rho_snow_mult_ex, & ! snow density                                  (kg/m**3)
     h_snow_ex        = h_snow_ex       , & ! snow height                                   (  m  )

@@ -271,7 +271,16 @@
   \begin{itemize}
    \item Removed namelist parameter \texttt{iadv\_rcf} in namelist
          \texttt{nonhydrostatic\_nml}. The number of dynamics substeps per advective step are now specified 
-         via \texttt{ndyn\_substeps}.
+         via \texttt{ndyn\_substeps}. 
+         The meaning of \texttt{run\_nml:dtime} has changed and denotes the advective time step.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{io\_nml}{2015-03-25 }{21501}
+  \begin{itemize}
+   \item Namelist parameter \texttt{lzaxis\_reference} is deprecated and has no effect anymore.
+         However, users are not forced to modify their scripts instantaneously: \texttt{lzaxis\_reference=.FALSE.} 
+         is still a valid namelist setting, but it has no effect and a warning will be issued.
   \end{itemize}
 \end{changeitem}
 % --------------------------------------------------------------------------------------------

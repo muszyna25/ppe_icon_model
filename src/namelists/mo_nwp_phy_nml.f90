@@ -308,8 +308,8 @@ CONTAINS
         itype_z0 = 1
       ENDIF
 
-      IF (icpl_aero_gscp > 0 .AND. inwp_gscp(jg) /= 1) THEN
-        CALL finish( TRIM(routine), 'Aerosol-microphysics coupling currently available only for inwp_gscp=1')
+      IF (icpl_aero_gscp > 0 .AND. inwp_gscp(jg) > 2) THEN
+        CALL finish( TRIM(routine), 'Aerosol-microphysics coupling currently available only for inwp_gscp=1,2')
       ENDIF
 
       ! Check whether the radiation time step is a multiple of the convection time step.
