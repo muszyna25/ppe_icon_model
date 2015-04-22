@@ -55,7 +55,7 @@ else
   cd -;
 fi
 
-$archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=false  FORCE=1
+$archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true  FORCE=1
 
 check_error $? "${EXPNAME}"
 
