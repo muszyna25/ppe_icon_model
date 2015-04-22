@@ -160,7 +160,7 @@ def scanFilesForTheirYears(fileList,procs,log):
 
 
   for ifile in fileList:
-    years = pool.apply_async(showyear,[ifile])
+    years = pool.apply_async(showyear,[str(ifile)])
     results.append([ifile,years])
 
   for result in results:
