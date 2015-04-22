@@ -133,7 +133,8 @@ CONTAINS
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF
 
-    CALL ice_growth_zero_slo (p_patch, p_os, ice, atmos_fluxes%rpreci)
+    IF ( i_ice_therm == 1 ) &
+      & CALL ice_growth_zero_slo (p_patch, p_os, ice, atmos_fluxes%rpreci)
 
     sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
     !---  energy  -----------------------------------------------------------
