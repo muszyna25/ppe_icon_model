@@ -453,7 +453,7 @@ CONTAINS
 
    !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
    !     -> this code leads to other error in CELLS2VERTS_SCALAR
-   !    rsum = 0.0_wp
+        rsum = 0.0_wp
 
         DO ji = 1, 6
           cell_index = iidx(jv,jb,ji)
