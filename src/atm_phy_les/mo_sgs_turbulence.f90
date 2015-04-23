@@ -1176,15 +1176,18 @@ MODULE mo_sgs_turbulence
       CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, &
                                  opt_rlend=min_rlcell_int)
 
+      !u sgs flux
       CALL levels_horizontal_mean(unew, p_patch%cells%area, p_patch%cells%owned, outvar)
-      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
-
       prm_diag%turb_diag_1dvar(1,idx_sgs_u_flx) = 0._wp
-      prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp
       DO jk = 2 , nlevp1
         prm_diag%turb_diag_1dvar(jk,idx_sgs_u_flx) =  &
               prm_diag%turb_diag_1dvar(jk,idx_sgs_u_flx)+outvar(jk-1)
+      END DO
 
+      !v sgs flux
+      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
+      prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp
+      DO jk = 2 , nlevp1
         prm_diag%turb_diag_1dvar(jk,idx_sgs_v_flx) =  &
               prm_diag%turb_diag_1dvar(jk,idx_sgs_v_flx)+outvar(jk-1)
       END DO
