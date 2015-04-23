@@ -48,7 +48,7 @@ MODULE mo_name_list_output_init
   USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
-  USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
+  USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, one_of
@@ -2827,7 +2827,11 @@ CONTAINS
     ! the vertical grid UUID
     !
     ! get buffer size and broadcast
-    nvgrid = SIZE(vgrid_buffer)
+    IF (ALLOCATED(vgrid_buffer)) THEN
+       nvgrid = SIZE(vgrid_buffer)
+    ELSE
+       nvgrid = 0
+    END IF
     CALL p_bcast(nvgrid, bcast_root, p_comm_work_2_io)
     !
     ! allocate on asynchronous PEs

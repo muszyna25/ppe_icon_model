@@ -31,7 +31,7 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                     ONLY: wp, vp
   USE mo_nonhydro_state,           ONLY: p_nh_state
-  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
+  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, divdamp_order,                     &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
@@ -124,7 +124,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
-    &                                    interval_avg_fg, is_avgFG_time
+    &                                    is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
