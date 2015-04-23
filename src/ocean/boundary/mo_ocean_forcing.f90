@@ -51,7 +51,6 @@ MODULE mo_ocean_forcing
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, pi_2
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
-  USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec, t_cartesian_coordinates
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes
   USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state

@@ -20,7 +20,7 @@
 MODULE mo_ocean_diffusion
   
   USE mo_kind,                ONLY: wp
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec !, gc2cc
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form

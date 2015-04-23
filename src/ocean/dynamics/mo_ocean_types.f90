@@ -20,7 +20,7 @@ MODULE mo_ocean_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,cvec2gvec,      &
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   
   PUBLIC :: t_hydro_ocean_base

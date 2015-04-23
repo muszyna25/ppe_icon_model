@@ -46,7 +46,7 @@ MODULE mo_ocean_initialization
     & use_dummy_cell_closure
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_dynamics_config,     ONLY: nnew,nold
-  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
+  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
     & t_geographical_coordinates, &!vector_product, &
     & arc_length, set_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg

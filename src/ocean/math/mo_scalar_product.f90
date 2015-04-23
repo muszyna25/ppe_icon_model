@@ -34,8 +34,9 @@ MODULE mo_scalar_product
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
-  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
+    & Get3DVectorToPlanarLocal
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
@@ -185,11 +186,8 @@ CONTAINS
       !for output, sea-ice and coupling
       DO cell_index =  start_cell_index, end_cell_index
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-          CALL cvec2gvec ( p_diag%p_vn(cell_index,level,blockNo)%x(1),     &
-            & p_diag%p_vn(cell_index,level,blockNo)%x(2),     &
-            & p_diag%p_vn(cell_index,level,blockNo)%x(3),     &
-            & patch_2d%cells%center(cell_index,blockNo)%lon,&
-            & patch_2d%cells%center(cell_index,blockNo)%lat,&
+          CALL Get3DVectorToPlanarLocal(p_diag%p_vn(cell_index,level,blockNo), &
+            & patch_2d%cells%center(cell_index,blockNo), patch_2d%geometry_info, &
             & p_diag%u(cell_index,level,blockNo), p_diag%v(cell_index,level,blockNo) )
         END DO
       END DO

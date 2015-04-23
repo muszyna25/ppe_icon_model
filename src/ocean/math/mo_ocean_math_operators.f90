@@ -42,7 +42,7 @@ MODULE mo_ocean_math_operators
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
     & t_verticaladvection_ppm_coefficients, t_operator_coeff
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product
 !   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array
@@ -1299,8 +1299,8 @@ CONTAINS
       DO jc = cell_StartIndex, cell_EndIndex
         IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
           
-          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
-            & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
+!           patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
+!             & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
           
           patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
             & patch_2D%cells%area(jc,blockNo)

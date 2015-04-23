@@ -71,7 +71,7 @@ USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
-USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
+USE mo_math_utilities,      ONLY: gvec2cvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff

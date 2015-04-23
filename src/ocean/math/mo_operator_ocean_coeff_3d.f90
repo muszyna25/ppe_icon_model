@@ -33,7 +33,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &  t_geographical_coordinates, vector_product, &
-    &  arc_length, triangle_area
+    &  arc_length, triangle_area, cvec2gvec 
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &
     & select_solver, select_restart_mixedPrecision_gmres
@@ -65,6 +65,7 @@ MODULE mo_operator_ocean_coeff_3d
   PUBLIC  :: t_operator_coeff
   PUBLIC  :: construct_operators_coefficients
   PUBLIC  :: destruct_operators_coefficients
+  PUBLIC  :: Get3DVectorToPlanarLocal
   ! PUBLIC  :: update_diffusion_matrices
 
 
@@ -81,6 +82,35 @@ MODULE mo_operator_ocean_coeff_3d
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE Get3DVectorToPlanarLocal(vector, position_local, geometry_info, x, y)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: vector  ! endpoints
+    TYPE(t_geographical_coordinates) , INTENT(in) :: position_local
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    REAL(wp), INTENT(out) ::  x, y
+    
+    CHARACTER(LEN=*), PARAMETER :: method_name='Get3DVectorToPlanarLocal'
+    
+    SELECT CASE(geometry_info%geometry_type)
+
+    CASE (planar_torus_geometry)
+      CALL finish(method_name, "planar_torus_geometry is not implemented yet")
+      
+    CASE (sphere_geometry)
+      CALL cvec2gvec ( vector%x(1), vector%x(2), vector%x(3),     &
+        & position_local%lon, position_local%lat, &
+        & x, y)
+    CASE ( planar_channel_geometry )
+      ! just a projection
+      x = vector%x(1)
+      y = vector%x(2)
+      
+    CASE DEFAULT
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+  END SUBROUTINE Get3DVectorToPlanarLocal
+  !-------------------------------------------------------------------------
+            
   !-------------------------------------------------------------------------
   !>
   !! returns the vector from x to y
