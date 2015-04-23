@@ -14,6 +14,7 @@ MODULE mo_srtm
   USE mo_exception,   ONLY: finish
 
   USE mo_kind, ONLY : wp, i4
+  USE mo_physical_constants, ONLY : rd, rgrav
 
   USE mo_srtm_config, ONLY : delwave, wavenum2, wavenum1,            &
     &    ngc, jpinpx, jpb1, jpb2, preflog, tref, repclc, replog,     &
@@ -53,7 +54,7 @@ CONTAINS
     &  col_dry_vr      , wkl_vr                                              , &
     &  cld_frc_vr      , cld_tau_sw_vr   , cld_cg_sw_vr    , cld_piz_sw_vr   , &
     &  aer_tau_sw_vr   , aer_cg_sw_vr    , aer_piz_sw_vr                     , &
-    &  ssi             , z_mc                                                , &
+    &  ssi                                                                   , &
                                 !  output
     &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
                                 ! optional output
@@ -104,7 +105,6 @@ CONTAINS
     REAL(wp), INTENT(in)    :: aer_cg_sw_vr(kbdim,klev,ksw)
     REAL(wp), INTENT(in)    :: aer_piz_sw_vr(kbdim,klev,ksw)
     REAL(wp), INTENT(in)    :: ssi(ksw)
-    REAL(wp), INTENT(in)    :: z_mc(kbdim,klev)          !< height at full levels [m]
 
     !-- Output arguments
 
@@ -181,7 +181,7 @@ CONTAINS
     INTEGER(i4) :: idx(kbdim)
     INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
     REAL(wp) :: zrmu0(kbdim)
-    REAL(wp) :: ccmax, ccran, alpha
+    REAL(wp) :: ccmax, ccran, alpha, deltaz
     LOGICAL  :: lcomp_fractions
 
     !-----------------------------------------------------------------------
@@ -294,8 +294,11 @@ CONTAINS
           ccran =      zfrcl(ic,jk) + zcloud(ic) - &
                    & ( zfrcl(ic,jk) * zcloud(ic) )
           IF ( zfrcl_above(ic) > 0.0_wp ) THEN
-            alpha = exp( - (z_mc(ic,jk-1)-z_mc(ic,jk)) / zdecorr )
-          ELSE             ! layer thickness ???
+            ! layer thickness [m] between level jk and next lower (!) level jk-1
+            deltaz = (zpm_fl_vr(ic,jk-1)-zpm_fl_vr(ic,jk))/(zpm_fl_vr(ic,jk-1)+zpm_fl_vr(ic,jk)) * &
+                     (ztk_fl_vr(ic,jk-1)+ztk_fl_vr(ic,jk))*rd*rgrav
+            alpha = exp( - deltaz / zdecorr )
+          ELSE
             alpha = 0.0_wp
           ENDIF
           zfrcl_above(ic) = zfrcl(ic,jk)

@@ -242,7 +242,6 @@ MODULE mo_nonhydro_types
      ! e) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
      !
      ! Vertical grid related
-     inv_ddqz_z_full(:,:,:)    , & ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
      inv_ddqz_z_full_e(:,:,:)  , & 
      inv_ddqz_z_full_v(:,:,:)  , & 
      inv_ddqz_z_half(:,:,:)    , & 
@@ -279,8 +278,9 @@ MODULE mo_nonhydro_types
      ddxt_z_half_e(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
      ddxt_z_half_c(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_c)
      ddxt_z_half_v(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_v)
-     ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-     ddqz_z_half(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
+     ddqz_z_full_e(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
+     ddqz_z_half(:,:,:)    , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
+     inv_ddqz_z_full(:,:,:), & ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
      !
      ! b) Interpolation coefficients
      !

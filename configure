@@ -3835,7 +3835,7 @@ if test -n "$NETCDFROOT" ; then
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB="-Lmake$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
+         NETCDF_LIB="-L$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1

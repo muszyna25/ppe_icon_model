@@ -1391,6 +1391,8 @@ END SUBROUTINE message
       icount_rockice=icount_rockice+1
       rockice_list(icount_rockice)=i
     END IF
+    ! ensure that glaciers are covered with at least 1 m of snow
+    IF (mstyp == 1) h_snow(i) = MAX(1._ireals, h_snow(i))
     zdw   (i,:)  = cdw0  (mstyp)
     zdw1  (i,:)  = cdw1  (mstyp)
     zkw   (i,:)  = ckw0  (mstyp)
@@ -4459,6 +4461,16 @@ ENDIF
 !      END IF          ! land-points only
      END DO
 
+  ! Reset t_snow_new to t_so(0) if no snow was present at the beginning of the time step
+  ! The heat balance calculation is incomplete in this case and sometimes yields unreasonable results
+  DO i = istarts, iends
+    IF (w_snow_now(i) < zepsi .AND. w_snow_new(i) >= zepsi) THEN
+      t_snow_new(i) = MIN(t0_melt,t_so_new(i,0))
+      IF (lmulti_snow) THEN
+        t_snow_mult_new(i,:) = t_snow_new(i)
+      ENDIF
+    ENDIF
+  ENDDO
 
 !>JH New solution of heat conduction for snow points which melted completly 
 !    during time step
