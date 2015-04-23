@@ -25,7 +25,7 @@ echo "INIT_BUILD.SMS"
 # Change directory --------------------------------
 cd %SCPERMIII%
 ls -lrt
-cd icon-dev
+cd %DEIA_ICON_DIR%
 
 # Compiler setup and configure --------------------
 
@@ -73,9 +73,9 @@ smsevent make
 
 # Store revision number of successful compilation 
 module load subversion
-#revision=`ssh $WSHOST svn info %ECPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
-revision=`svn info %SCPERMIII%/icon-dev | grep Revision | awk '{print $2}'`
-echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
+#revision=`ssh $WSHOST svn info %ECPERMIII%/%DEIA_ICON_DIR% | grep Revision | awk '{print $2}'`
+revision=`svn info %SCPERMIII%/%DEIA_ICON_DIR% | grep Revision | awk '{print $2}'`
+echo $revision > %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
 
 
 # Compile dwd_icon_tools for remap_mpi ------------
@@ -96,7 +96,7 @@ case ${compiler} in
     ;;
 esac
 
-echo $toolstag >> %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
+echo $toolstag >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
 
 
 # -------------------------------------------------

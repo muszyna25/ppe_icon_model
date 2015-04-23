@@ -33,7 +33,7 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
 outdir_mtg=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 outfile_mtg=${basename}_meteogram.nc
-dir_mtgrm=%ECPERM%/icon-dev/scripts/postprocessing/tools
+dir_mtgrm=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/tools
 cd ${outdir_mtg}
 cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot_sfc.ncl .
 

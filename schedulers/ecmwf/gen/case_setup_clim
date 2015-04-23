@@ -64,13 +64,13 @@ start_date="${INITIME_FMT}"
 ndays_restart=500
 dt_restart=`expr ${ndays_restart} \* 86400`
 
-# model timing                          (EDMF, safer 90s)
-dtime=90      # dyn            R2B4:150  R2B5:90 (144) R2B6:72   R2B7:36   R2B8:18
-dtconv=900    # conv, SSO, GWD R2B4:600  R2B5:900(720) R2B6:720  R2B7:360  R2B8:360
-dtrad=3600    # rad            R2B4:3600 R2B5:3600     R2B6:3600 R2B7:1800 R2B8:1800
-iadv_rcf=5    # adv, turb      R2B4:4    R2B5:5  (5)   R2B6:5    R2B7:5    R2B8:5
-ninc_mtgrm=40 # output interval 3600s            (25)
-ndays=410     # number of days to run
+# model timing                             (EDMF, safer 450s)
+dtime=450       # advect, phys   R2B4:600  R2B5:450 (720) R2B6:360  R2B7:180  R2B8:90
+dtconv=900      # conv, SSO, GWD R2B4:600  R2B5:900 (720) R2B6:720  R2B7:360  R2B8:360
+dtrad=3600      # rad            R2B4:3600 R2B5:3600      R2B6:3600 R2B7:1800 R2B8:1800
+ndyn_substeps=5 # dyn/adv        R2B4:4    R2B5:5   (5)   R2B6:5    R2B7:5    R2B8:5
+ninc_mtgrm=8    # output interval 3600s             (25)
+ndays=410       # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 
 # model parameters
@@ -127,10 +127,10 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia',
 'clct','clch','clcm','clcl', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
-'u_10m','v_10m', 'sp_10m', 't_2m', 'td_2m',
+'u_10m','v_10m','sp_10m', 't_2m', 'td_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t',
-'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc',
-'dzh_snow', 'cape'"
+'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc', 'cape',
+'dzh_snow'"
 #'z_pbl'
 
 pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','rh'"      
@@ -146,7 +146,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks                 = .FALSE.
  num_io_procs                 = 1
  itype_comm                   = 1
- iorder_sendrecv              = 3
+ iorder_sendrecv              = 1
 /
 &grid_nml
  dynamics_grid_filename       = ${dynamics_grid_filename}
@@ -182,7 +182,6 @@ cat > ${atmo_namelist} << EOF
  itype_pres_msl               = 4           ! 3: new IFS T and pressure calculation below ground
                                             ! 4: IFS method with bug fix for self-consistency between SLP and geopotential
  itype_rh                     = 1           ! RH w.r.t. water
- lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
 /
 ! OUTPUT: Regular grid, model levels, all domains
 &output_nml
@@ -273,7 +272,6 @@ cat > ${atmo_namelist} << EOF
  itype_sher = 3    
  ltkeshs    = .true.
  a_hshr     = 2.0
-
 /
 &lnd_nml
  ntiles                       = 3

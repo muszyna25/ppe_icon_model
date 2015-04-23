@@ -945,7 +945,7 @@ CONTAINS
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
       CALL nwp_seaice(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-        &             lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
+        &             lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
     !
@@ -1057,15 +1057,16 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
-  SUBROUTINE nwp_seaice (p_patch, p_diag, prm_diag, p_prog_wtr_now, &
-    &                    p_prog_wtr_new, lnd_prog_new, ext_data,    &
-    &                    p_lnd_diag, dtime)
+  SUBROUTINE nwp_seaice (p_patch, p_diag, prm_diag, p_prog_wtr_now,  &
+    &                    p_prog_wtr_new, lnd_prog_now, lnd_prog_new, &
+    &                    ext_data, p_lnd_diag, dtime)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
     TYPE(t_nh_diag),      TARGET,INTENT(in)   :: p_diag         !< diag vars
     TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
+    TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now   !< prog vars for sfc
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new   !< prog vars for sfc
     TYPE(t_external_data),       INTENT(inout):: ext_data       !< external data
     TYPE(t_lnd_diag),            INTENT(inout):: p_lnd_diag     !< diag vars for sfc
@@ -1197,6 +1198,8 @@ CONTAINS
         &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
         &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
+        &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
+        &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
         &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water)       )!inout
 
 

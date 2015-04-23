@@ -44,7 +44,7 @@ cd ${EXPDIR}
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
-dirscripts=%ECPERM%/icon-dev/scripts/postprocessing/climplot
+dirscripts=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/climplot
 cp -f $dirscripts/climplot_batch .
 chmod a+x climplot_batch
 #cp $dirscripts/dates.met .

@@ -50,7 +50,7 @@ MODULE mo_initicon
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
-    &                               isub_lake, isub_water, isub_seaice
+    &                               isub_lake, isub_water
   USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
@@ -1375,7 +1375,7 @@ MODULE mo_initicon
 
       ! deallocate temporary arrays
       DEALLOCATE( tempv_incr, nabla4_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
-                  mass_incr, z_qsum, STAT=ist )
+                  mass_incr, z_qsum, gradp, dpdx, dpdy, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
@@ -1661,8 +1661,6 @@ MODULE mo_initicon
                 lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmax_ml   ! maximum density of snow (400 kg/m**3)
                 lnd_diag%freshsnow_t(jc,jb,jt)    = 0._wp
               ENDIF
-
-              ! update rho_snow for glacier points (missing)
 
             ENDDO  ! ic
 
