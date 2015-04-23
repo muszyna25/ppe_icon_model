@@ -127,13 +127,13 @@ CONTAINS
     p_vector = vector_product(d_vector_1, d_vector_2)
     planar_triangle_area = 0.5_wp * d_norma_3d(p_vector)
 
-!     test_planar_triangle_area  = triangle_area(x1, x2, x3)
+    !test_planar_triangle_area  = triangle_area(x1, x2, x3)
 !     write(0,*) "point 1:", x1%x
 !     write(0,*) "point 2:", x2%x
 !     write(0,*) "point 3:", x3%x
 !     write(0,*) "vector 2-1:", d_vector_1%x
 !     write(0,*) "vector 3-1:", d_vector_2%x
-!     write(0,*) "triangle_area:",  test_planar_triangle_area, planar_triangle_area
+!     write(0,*) "triangle_area:", planar_triangle_area ! test_planar_triangle_area
 
   END FUNCTION planar_triangle_area
   !-------------------------------------------------------------------------

@@ -120,7 +120,7 @@ MODULE mo_model_domimp_patches
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
-    & parallel_read_geometry_info, triangular_cell
+    & parallel_read_geometry_info, triangular_cell, planar_channel_geometry
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, &
     & allocate_pre_patch, allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi
@@ -926,7 +926,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     SELECT CASE(patch%geometry_info%geometry_type)
 
-    CASE (planar_torus_geometry)
+    CASE (planar_torus_geometry, planar_channel_geometry)
 
       CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
 
