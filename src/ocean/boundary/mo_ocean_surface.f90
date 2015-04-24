@@ -8,7 +8,7 @@
 !!
 !! @par Revision History
 !!  Original version by Peter Korn, MPI-M (2009)
-!!  restructured code by Stephan Lorenz, MPI-M: (2015-04)
+!!  Restructured code by Stephan Lorenz, MPI-M: (2015-04)
 !!
 !! @par Copyright and License
 !!
@@ -69,6 +69,7 @@ USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+!USE mo_ocean_surface_types, ONLY: t_ocean_surface_types
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
 USE mo_sea_ice_refactor,    ONLY: ice_slow_slo

@@ -9,6 +9,7 @@
 !!
 !! @par Revision History
 !!  Original version by Peter Korn, MPI-M (2009)
+!!  Restructured code by Stephan Lorenz, MPI-M: (2015-04)
 !!
 !! @par Copyright and License
 !!
