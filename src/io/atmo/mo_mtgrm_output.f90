@@ -669,7 +669,6 @@ CONTAINS
         ELSE
           WRITE(message_text,*) ">>> meteogram: REL_HUM could not be computed (T, QV, and/or PEXNER missing)"
           CALL message(routine, TRIM(message_text))
-          WRITE (0,*) 
         END IF
       END DO
     END IF
