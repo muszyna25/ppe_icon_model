@@ -24,7 +24,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell, dzsoil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
@@ -41,7 +41,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
-  USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
+  USE mo_phyparam_soil,       ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_sum_array
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
@@ -1070,6 +1070,7 @@ CONTAINS
     LOGICAL :: lmask(nproma)  ! mask array (TRUE for landpoint)
     INTEGER :: icount         ! index list length per block
     INTEGER :: ic
+    INTEGER :: styp           ! soil type index
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -1082,7 +1083,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac,lmask,icount) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac,lmask,icount,styp) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1314,6 +1315,18 @@ CONTAINS
           &                                      ext_data%atm%t_cl(jc,jb),         &
           &                                      lmask(jc))
       ENDDO  ! jc
+
+
+      ! Make sure that aggregated w_so is always larger that air dryness point 
+      ! at points where the soiltype allows infiltration of water.
+      DO jk=1,nlev_soil
+        DO jc = i_startidx, i_endidx
+          styp = ext_data%atm%soiltyp(jc,jb)
+          IF ( (styp>=3) .AND. (styp<=8)) THEN   ! 3:sand; 8:peat
+            lnd_diag%w_so(jc,jk,jb) = MAX(lnd_diag%w_so(jc,jk,jb),dzsoil(jk)*cadp(styp)) 
+          ENDIF
+        ENDDO
+      ENDDO
 
     ENDDO  ! jb
 !$OMP END DO
