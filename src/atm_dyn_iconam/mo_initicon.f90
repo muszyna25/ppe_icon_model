@@ -71,6 +71,7 @@ MODULE mo_initicon
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
   USE mo_util_string,         ONLY: one_of                                    
+  USE mo_phyparam_soil,       ONLY: cporv, cadp
 
   IMPLICIT NONE
 
@@ -1523,6 +1524,7 @@ MODULE mo_initicon
     INTEGER :: nblks_c                   ! number of blocks
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
+    INTEGER :: ist
 
     LOGICAL :: lerr                      ! error flag
 
@@ -1548,7 +1550,7 @@ MODULE mo_initicon
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,ist)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1577,33 +1579,14 @@ MODULE mo_initicon
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
-              SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
+              SELECT CASE(ist)
 
-                CASE(3)  !sand
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.364_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.012_wp) &
-                  &                                )
-                CASE(4)  !sandyloam
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.445_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.03_wp)  &
-                  &                                )
-                CASE(5)  !loam
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.455_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.035_wp) &
-                  &                                )
-                CASE(6)  !clayloam
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.475_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.06_wp)  &
-                  &                                )
-                CASE(7)  !clay
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.507_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.065_wp) &
-                  &                                )
-                CASE(8)  !peat
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.863_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.098_wp) &
-                  &                                )          
-                CASE(9,10)!sea water, sea ice
+                CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*cporv(ist),                                  &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*cadp(ist)) )
+
+                CASE (9,10) ! sea water, sea ice
                 ! ERROR landpoint has soiltype sea water or sea ice
                 lerr = .TRUE.
               END SELECT
