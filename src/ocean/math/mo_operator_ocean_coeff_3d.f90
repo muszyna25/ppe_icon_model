@@ -1132,6 +1132,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: owned_edges, all_edges         
     TYPE(t_subset_range), POINTER :: owned_cells, all_cells        
+    CHARACTER(*), PARAMETER :: method_name = "init_operator_coeffs_cell"
     !-----------------------------------------------------------------------
     owned_edges => patch_2D%edges%owned
     all_edges   => patch_2D%edges%all
@@ -1266,8 +1267,10 @@ CONTAINS
               & patch_2D%geometry_info)
 
             orientation = DOT_PRODUCT(dist_vector%x, &
-              & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)
+              & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)              
             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
+            IF (orientation * (1.5_wp - REAL(neigbor, wp)) <=0) &
+              & CALL finish(method_name, "wrong orientation in edge2cell_coeff_cc_t")
 
             edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
               dist_vector%x / dual_edge_length(edge_index, edge_block)
@@ -1340,7 +1343,8 @@ CONTAINS
           orientation = DOT_PRODUCT(dist_vector_basic%x, &
           & patch_2D%edges%primal_cart_normal(edge_index,edge_block)%x)
           IF (orientation < 0.0_wp) dist_vector_basic%x = - dist_vector_basic%x
-
+          IF (orientation * (1.5_wp - REAL(neigbor, wp)) <=0) &
+            & CALL finish(method_name, "wrong orientation in edge2edge_viacell_coeff_2D")
           !loop over the edges of neighbor 1 and 2
           DO cell_edge=1,patch_2D%cells%num_edges(cell_index,cell_block)!no_primal_edges!patch_2D%cell_type
 
@@ -1441,7 +1445,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch_2D%nblks_v,1:no_dual_edges)
     TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch_2D%nblks_e,1:2)
     TYPE(t_cartesian_coordinates) :: vertex_position, edge_center, vertex_center
-    TYPE(t_cartesian_coordinates) :: dist_vector,dist_vector2, dist_vector_basic
+    TYPE(t_cartesian_coordinates) :: dist_vector,rot_dist_vector, dist_vector_basic
     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
 
     REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch_2D%nblks_e,1:2*no_dual_edges )
@@ -1512,15 +1516,25 @@ CONTAINS
               length = SQRT(SUM( dist_vector%x * dist_vector%x ))
             ENDIF
 
-             z = get_surface_normal(dual_edge_middle(edge_index, edge_block), patch_2D%geometry_info)
-             dist_vector = vector_product(dist_vector, z)
-             orientation = DOT_PRODUCT( dist_vector%x,                         &
-                & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)   
-               
-            IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
+            z = get_surface_normal(dual_edge_middle(edge_index, edge_block), patch_2D%geometry_info)
+            rot_dist_vector = vector_product(z, dist_vector)
+            orientation = DOT_PRODUCT( rot_dist_vector%x,                         &
+              & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x)
 
-              edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
-              & dist_vector%x *                                           &
+            IF ( orientation * patch_2D%verts%edge_orientation(vertex_index, vertex_block, neigbor) <=0) THEN
+               write(0,*) "vertex, edgeInVertexList=", vertex_index, vertex_block, neigbor
+               write(0,*) "Edge center:", dual_edge_middle(edge_index, edge_block)%x
+               write(0,*) "vertex location:", vertex_position%x
+               write(0,*) "dist_vector:", dist_vector%x
+               write(0,*) "rot_dist_vector:", rot_dist_vector%x
+               write(0,*) "orientations", orientation, patch_2D%verts%edge_orientation(vertex_index, vertex_block, neigbor)               
+               CALL finish("init_operator_coeffs_vertex", "wrong orientation foredge2vert_coeff_cc" )
+            ENDIF
+            
+            IF (orientation < 0.0_wp) rot_dist_vector%x = - rot_dist_vector%x
+
+            edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
+              & rot_dist_vector%x *                                     &
               & dual_edge_length(edge_index, edge_block)
               
           ENDIF !(edge_block > 0) THEN
@@ -2364,7 +2378,7 @@ CONTAINS
           edge_index = patch_2D%cells%edge_idx(cell_index, cell_block, neigbor)
           edge_block = patch_2D%cells%edge_blk(cell_index, cell_block, neigbor)
 
-          operators_coefficients%div_coeff(cell_index, 1, cell_block, neigbor)               = &
+          operators_coefficients%div_coeff(cell_index, 1, cell_block, neigbor) = &
             & patch_2D%edges%primal_edge_length(edge_index, edge_block)        * &
             & patch_2D%cells%edge_orientation(cell_index, cell_block, neigbor) / &
             & patch_2D%cells%area(cell_index, cell_block)
