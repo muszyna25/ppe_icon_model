@@ -31,12 +31,13 @@ MODULE mo_ocean_physics
     & max_vert_diff_veloc, max_vert_diff_trac,                &
     & HorizontalViscosity_type, veloc_diffusion_order,        &
     & n_points_in_munk_layer,                                 &
-    & HorizontalVelocity_DiffusionFactor,                     &
+    & HorizontalViscosityBackground_Biharmonic,               &
     & richardson_tracer, richardson_veloc,                    &
     & physics_parameters_type,                                &
     & physics_parameters_Constant_type,                       &
     & physics_parameters_ICON_PP_type,                        &
     & physics_parameters_ICON_PP_Edge_type,                   &
+    & physics_parameters_ICON_PP_Edge_vnPredict_type,         &
     & physics_parameters_MPIOM_PP_type,                       &
     & use_wind_mixing,                                        &
     & HorizontalViscosity_SmoothIterations,                   &
@@ -51,7 +52,8 @@ MODULE mo_ocean_physics
     & GM_only,Redi_only,                                      &
     &leith_closure, leith_closure_gamma,                      & 
     &veloc_diffusion_form, biharmonic_const,                  &
-    & HorizontalViscosity_SmoothFactor
+    & HorizontalViscosity_SpatialSmoothFactor,                &
+    & HorizontalViscosity_TimeWeight
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -102,6 +104,7 @@ MODULE mo_ocean_physics
   PUBLIC :: destruct_ho_params
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
+  PUBLIC :: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
   PRIVATE :: calculate_leith_closure
 
   ! variables
@@ -174,8 +177,8 @@ CONTAINS
     points_in_munk_layer = REAL(n_points_in_munk_layer,wp)
     !Init from namelist
     p_phys_param%k_veloc_h_back = k_veloc_h
-    p_phys_param%a_veloc_v_back = k_veloc_v
     p_phys_param%k_veloc_h      = k_veloc_h
+    p_phys_param%a_veloc_v_back = k_veloc_v
     p_phys_param%a_veloc_v      = k_veloc_v
 
    IF(GMRedi_configuration==GMRedi_combined&
@@ -196,6 +199,8 @@ CONTAINS
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
     IF(veloc_diffusion_order==1)THEN
+      p_phys_param%k_veloc_h_back = k_veloc_h
+      p_phys_param%k_veloc_h      = k_veloc_h
       SELECT CASE(HorizontalViscosity_type)
       CASE(0)!no friction
         p_phys_param%k_veloc_h(:,:,:) = 0.0_wp
@@ -242,6 +247,8 @@ CONTAINS
       
       !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
+      p_phys_param%k_veloc_h_back = HorizontalViscosityBackground_Biharmonic
+!       p_phys_param%k_veloc_h      = HorizontalViscosityBackground_Biharmonic
       SELECT CASE(HorizontalViscosity_type)
 
       CASE(1)
@@ -251,7 +258,7 @@ CONTAINS
         !The number that controls all that the "z_diff_efdt_ratio"
         !is different. Higher z_diff_efdt_ratio decreases the final
         !diffusion coefficient
-        z_diff_efdt_ratio = 10000.0_wp * HorizontalVelocity_DiffusionFactor
+        z_diff_efdt_ratio = 10000.0_wp * HorizontalViscosityBackground_Biharmonic
         z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, start_index, end_index)
@@ -321,7 +328,7 @@ CONTAINS
     ENDIF
 
     DO i=1, HorizontalViscosity_SmoothIterations
-       CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SmoothFactor )
+       CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SpatialSmoothFactor )
     ENDDO
 
 
@@ -697,6 +704,10 @@ CONTAINS
 
     CASE (physics_parameters_ICON_PP_Edge_type)
       CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
+      
+    CASE (physics_parameters_ICON_PP_Edge_vnPredict_type)
+      CALL update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state)
+      ! the velovity friction will be calculated during dynamics
       
     CASE default
       CALL finish("update_ho_params", "unknown physics_parameters_type")
@@ -1390,6 +1401,217 @@ CONTAINS
 !     IF (ltimer) CALL timer_stop(timer_extra11)
 
   END SUBROUTINE update_physics_parameters_ICON_PP_Edge_scheme
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! As in the update_physics_parameters_ICON_PP_scheme, but
+  !! velocity gradients for the vertical viscocity are clculated on edges
+  !!
+  !! @par Revision History
+  !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
+  !<Optimize:inUse:done>
+  SUBROUTINE update_physics_parameters_ICON_PP_Edge_vnPredict_scheme(patch_3d, &
+    & blockNo, start_index, end_index, ocean_state, vn_predict) !, calculate_density_func)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    INTEGER, INTENT(in) :: blockNo, start_index, end_index
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    REAL(wp) :: vn_predict(:,:)
+
+    ! Local variables
+    INTEGER :: je,jk
+    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
+    INTEGER :: cell_1_idx, cell_1_block, cell_2_idx,cell_2_block
+    INTEGER :: levels
+
+    !Below is a set of variables and parameters for tracer and velocity
+    REAL(wp), PARAMETER :: z_0               = 40.0_wp
+    REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
+    REAL(wp) :: diffusion_weight
+    REAL(wp) :: z_grav_rho, z_inv_rho_ref
+    REAL(wp) :: density_differ_edge, dz, richardson_edge, z_shear_edge, vn_diff, new_velocity_friction
+    !-------------------------------------------------------------------------
+    REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
+    TYPE(t_patch), POINTER :: patch_2D
+    TYPE(t_ho_params), POINTER :: params_oce
+
+    !-------------------------------------------------------------------------
+    params_oce      => v_params
+    patch_2D        => patch_3d%p_patch_2d(1)
+    z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho ! already calculated
+    levels = n_zlev
+
+    !-------------------------------------------------------------------------
+    z_grav_rho                   = grav/rho_ref
+    z_inv_rho_ref                = 1.0_wp/rho_ref
+    !-------------------------------------------------------------------------
+
+    DO je = start_index, end_index
+
+      cell_1_idx = patch_2D%edges%cell_idx(je,blockNo,1)
+      cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
+      cell_2_idx = patch_2D%edges%cell_idx(je,blockNo,2)
+      cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
+
+      DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
+        ! TODO: the following expect equally sized cells
+        ! compute density gradient at edges
+        dz = 0.5_wp * (patch_3d%p_patch_1d(1)%prism_thick_e(je,jk-1,blockNo) + &
+          &            patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,blockNo))
+        density_differ_edge = 0.5_wp * &
+          & (z_vert_density_grad_c(cell_1_idx,jk,cell_1_block) +   &
+          &  z_vert_density_grad_c(cell_2_idx,jk,cell_2_block))  * dz
+        vn_diff = MAX( &
+          & ABS(ocean_state%p_prog(nold(1))%vn(je,jk,  blockNo) - &
+          &      ocean_state%p_prog(nold(1))%vn(je,jk-1,blockNo)), &
+          & ABS(vn_predict(je,jk) - &
+          &     vn_predict(je,jk-1)))
+
+        z_shear_edge = dbl_eps + vn_diff**2
+
+        richardson_edge = MAX(dz * z_grav_rho * density_differ_edge / z_shear_edge, 0.0_wp)
+
+        new_velocity_friction = & 
+          & params_oce%a_veloc_v_back * dz +  &
+          & richardson_veloc /                      &
+          & ((1.0_wp + z_c1_v * richardson_edge)**2)
+          
+        params_oce%a_veloc_v(je,jk,blockNo) = &
+          & HorizontalViscosity_TimeWeight * MAX(params_oce%a_veloc_v(je,jk,blockNo), new_velocity_friction) + &
+          & (1.0_wp - HorizontalViscosity_TimeWeight) * new_velocity_friction
+
+      END DO ! jk = 2, levels
+    ENDDO ! je = start_index, end_index
+
+  END SUBROUTINE update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
+  !-------------------------------------------------------------------------
+
+  !>
+  !! As in the update_physics_parameters_ICON_PP_scheme, but
+  !! velocity gradients for the vertical viscocity are clculated on edges
+  !!
+  !! @par Revision History
+  !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
+  !<Optimize:inUse:done>
+  SUBROUTINE update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state) !, calculate_density_func)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+
+    ! Local variables
+    INTEGER :: jc, jb, je,jk, tracer_index
+    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
+    INTEGER :: cell_1_idx, cell_1_block, cell_2_idx,cell_2_block
+    INTEGER :: start_index, end_index
+    INTEGER :: levels
+
+    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
+    REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
+    REAL(wp) :: z_shear_cell
+    REAL(wp) :: z_ri_cell               (nproma, n_zlev)
+    REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
+
+    !Below is a set of variables and parameters for tracer and velocity
+    REAL(wp), PARAMETER :: z_0               = 40.0_wp
+    REAL(wp), PARAMETER :: z_c1_t            = 5.0_wp    !  PP diffusivity tuning constant
+    REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
+    REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
+    REAL(wp) :: diffusion_weight
+    REAL(wp) :: z_grav_rho, z_inv_rho_ref
+    REAL(wp) :: density_differ_edge, dz, richardson_edge, z_shear_edge
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    TYPE(t_ho_params), POINTER  :: params_oce
+
+    !-------------------------------------------------------------------------
+    params_oce      => v_params
+    patch_2D        => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    !cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
+    z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho
+    levels = n_zlev
+
+    !-------------------------------------------------------------------------
+    z_grav_rho                   = grav/rho_ref
+    z_inv_rho_ref                = 1.0_wp/rho_ref
+    !-------------------------------------------------------------------------
+!     IF (ltimer) CALL timer_start(timer_extra10)
+
+!ICON_OMP_PARALLEL PRIVATE(salinity)
+    salinity(1:levels) = sal_ref
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
+!ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      z_ri_cell(:,:) = 0.0_wp
+      z_vert_density_grad_c(:,:, jb) = 0.0_wp
+      DO jc = start_index, end_index
+
+        levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+        IF (levels < 2) CYCLE
+
+        IF(no_tracer >= 2) THEN
+            salinity(1:levels) = ocean_state%p_prog(nold(1))%tracer(jc,1:levels,jb,2)
+        ENDIF
+
+        !--------------------------------------------------------
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * rho_ref * sitodbar
+        z_rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
+          & salinity(1:levels-1), pressure(2:levels), levels-1)
+        z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
+          & salinity(2:levels), pressure(2:levels), levels-1)
+
+        DO jk = 2, levels
+          z_shear_cell = dbl_eps + &
+            & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
+            & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
+                                                                     ! this is canceled out in this formula
+        END DO ! levels
+
+      END DO ! index
+
+      DO tracer_index = 1, no_tracer
+
+        params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, jb, tracer_index) =   &
+          & MERGE(max_vert_diff_trac,                    & ! activate convection
+          & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
+          &   richardson_tracer / ((1.0_wp + z_c1_t *    &
+          &   z_ri_cell(start_index:end_index, 2:n_zlev))**3), &
+          & z_vert_density_grad_c(start_index:end_index, 2:n_zlev,jb) <= convection_InstabilityThreshold)
+
+        DO jc = start_index, end_index
+          levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          DO jk = 2, levels
+
+            IF (z_vert_density_grad_c(jc,jk,jb) < RichardsonDiffusion_threshold .AND. &
+                z_vert_density_grad_c(jc,jk,jb) > convection_InstabilityThreshold) THEN
+              ! interpolate between convection and richardson diffusion
+              diffusion_weight =  &
+                & (z_vert_density_grad_c(jc,jk,jb) - convection_InstabilityThreshold) / &
+                & (RichardsonDiffusion_threshold - convection_InstabilityThreshold)
+              params_oce%a_tracer_v(jc,jk,jb,tracer_index) = &
+                & max_vert_diff_trac * (1.0_wp - diffusion_weight) +&
+                & diffusion_weight * params_oce%a_tracer_v(jc,jk,jb,tracer_index)
+            ENDIF
+
+          ENDDO ! levels
+        ENDDO !  block index
+      ENDDO ! tracer_index]
+
+    END DO ! blocks
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
+  END SUBROUTINE update_physics_parameters_ICON_PP_Tracer
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

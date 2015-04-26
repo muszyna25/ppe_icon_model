@@ -361,23 +361,25 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
-  REAL(wp) :: HorizontalVelocity_DiffusionFactor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
-                                      !has to be adjusted for each resolution, the bigger this number
-                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
-                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
-                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
                                         !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
+  REAL(wp) :: HorizontalViscosityBackground_Biharmonic = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
+                                      !has to be adjusted for each resolution, the bigger this number
+                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
+                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
+                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   INTEGER  :: HorizontalViscosity_SmoothIterations = 1
-  REAL(wp) :: HorizontalViscosity_SmoothFactor = 0.5_wp 
+  REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
+  REAL(wp) :: HorizontalViscosity_TimeWeight = 0.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
-    &  HorizontalViscosity_SmoothIterations,    &
-    &  HorizontalViscosity_SmoothFactor,    &
-    &  HorizontalVelocity_DiffusionFactor ,    &
+    &  HorizontalViscosity_SmoothIterations,       &
+    &  HorizontalViscosity_SpatialSmoothFactor,    &
+    &  HorizontalViscosityBackground_Biharmonic,   &
+    &  HorizontalViscosity_TimeWeight,  &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
     &  k_sal_h                     ,    &
@@ -427,6 +429,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER  :: physics_parameters_ICON_PP_type    = 1
   INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
   INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_vnPredict_type = 4
   INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
   REAL(wp) :: lambda_wind           = 0.03_wp    !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
@@ -657,6 +660,9 @@ MODULE mo_ocean_nml
 
   NAMELIST/octst_nml/  h_val, t_val, rlat_in, rlon_in
 
+  ! namelist diagnostics
+  LOGICAL :: use_omip_windstress, use_omip_fluxes, use_omip_forcing
+
   CONTAINS
 
  !-------------------------------------------------------------------------
@@ -675,7 +681,7 @@ MODULE mo_ocean_nml
  !!      setup_run subroutine (which is moved to mo_run_nml)
  !!
 !<Optimize:inUse>
- SUBROUTINE setup_ocean_nml( filename )
+ SUBROUTINE read_ocean_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
@@ -687,7 +693,7 @@ MODULE mo_ocean_nml
     INTEGER :: iunit
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-            routine = 'mo_ocean_nml/setup_ocean_nml:'
+            routine = 'mo_ocean_nml/read_ocean_namelist:'
 
     CALL message(TRIM(routine),'running the hydrostatic ocean model')
 
@@ -996,7 +1002,11 @@ MODULE mo_ocean_nml
 
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
+     
+    use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
+    use_omip_fluxes     = ( forcing_fluxes_type == 1 )
+    use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
 
-END SUBROUTINE setup_ocean_nml
+END SUBROUTINE read_ocean_namelist
 
 END MODULE mo_ocean_nml

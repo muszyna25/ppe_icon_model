@@ -1184,7 +1184,7 @@ CONTAINS
 
       !------------------------------------
       ! Fill triangular matrix
-      ! b is diagonal, a is the lower diagonal, c is the upper
+      ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
       c(1) = -a_v(cell_index,2,blockNo) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
@@ -1214,7 +1214,7 @@ CONTAINS
       !------------------------------------
       ! solver from lapack
       !
-      ! eliminate upper diagonal
+      ! eliminate lower diagonal
       DO level=bottom_level-1, 1, -1
         fact(level+1)  = c( level ) / b( level+1 )
         b( level ) = b( level ) - fact(level+1) * a( level +1 )
@@ -1334,7 +1334,7 @@ CONTAINS
 
       !------------------------------------
       ! Fill triangular matrix
-      ! b is diagonal, a is the lower diagonal, c is the upper
+      ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
       c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
@@ -1364,7 +1364,7 @@ CONTAINS
       !------------------------------------
       ! solver from lapack
       !
-      ! eliminate upper diagonal
+      ! eliminate lower diagonal
       DO level = bottom_level-1, 1, -1
         fact(level+1)  = c( level ) / b( level+1 )
         b( level ) = b( level ) - fact(level+1) * a( level +1 )

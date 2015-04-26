@@ -16,8 +16,8 @@ MODULE mo_ocean_model
   USE mo_exception,           ONLY: message, finish
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
-  USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size
-  USE mo_mpi,                 ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+  USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
+    & stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     & set_mpi_work_communicators, p_pe_work, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime, datetime_to_string
@@ -43,7 +43,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
 
@@ -527,8 +527,8 @@ CONTAINS
     CALL construct_patch_3d(patch_3d)
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
-    CALL init_ho_base     (patch_3d%p_patch_2d(1), external_data(1), v_base)
-    CALL init_ho_basins   (patch_3d%p_patch_2d(1),                 v_base)
+    CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
+    IF (use_omip_forcing) CALL init_ho_basins(patch_3d%p_patch_2d(1),  v_base)
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)

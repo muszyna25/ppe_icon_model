@@ -1144,6 +1144,12 @@ MODULE mo_model_domain
       &  depth_CellMiddle(:,:,:),      & ! depth of the middle of the prism, update according to the current h
       &  depth_CellInterface(:,:,:)      ! depths at the interface (size is levels + 1)
 
+    !! the vertical distance between the prism centers, dim = n_zlev+1
+    !! constantPrismCenters_zDistance(2) = vertical distance between prisms at 1 and 2 levels
+    REAL(wp), POINTER :: constantPrismCenters_Zdistance(:,:,:)
+    !!the inverse of the above
+    REAL(wp), POINTER :: constantPrismCenters_invZdistance(:,:,:)
+    
   END TYPE t_patch_vert
 
 

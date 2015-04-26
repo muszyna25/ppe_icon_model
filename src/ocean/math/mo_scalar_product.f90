@@ -1767,9 +1767,8 @@ CONTAINS
 !     vec_center(1:nproma,1:n_zlev,blockNo)%x(2)=0.0_wp
 !     vec_center(1:nproma,1:n_zlev,blockNo)%x(3)=0.0_wp
    !-------------------------------------------------------------------------------    
-    ! this includes the height
-    prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)   
-    ! this does not include the height
+    ! these do not include the height
+    prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
     prism_thick           => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
     DO jc = start_cell_index, end_cell_index
@@ -1823,9 +1822,9 @@ CONTAINS
 !ICON_OMP prism_center_distance,prism_thick, jc) ICON_OMP_DEFAULT_SCHEDULE  
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
-      ! this includes the height
-      prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
-      ! this does not include the height
+      ! these do not include the height
+      ! if they are used for the GM-Redi then we should re-consider if height is needed
+      prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
       prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
