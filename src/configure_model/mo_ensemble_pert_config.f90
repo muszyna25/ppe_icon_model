@@ -33,7 +33,7 @@ MODULE mo_ensemble_pert_config
 
   PUBLIC :: use_ensemble_pert, configure_ensemble_pert
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
-            range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, use_ensemble_pert
+            range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
