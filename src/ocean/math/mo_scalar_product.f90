@@ -34,8 +34,9 @@ MODULE mo_scalar_product
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
-  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
+    & Get3DVectorToPlanarLocal
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
@@ -185,11 +186,8 @@ CONTAINS
       !for output, sea-ice and coupling
       DO cell_index =  start_cell_index, end_cell_index
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-          CALL cvec2gvec ( p_diag%p_vn(cell_index,level,blockNo)%x(1),     &
-            & p_diag%p_vn(cell_index,level,blockNo)%x(2),     &
-            & p_diag%p_vn(cell_index,level,blockNo)%x(3),     &
-            & patch_2d%cells%center(cell_index,blockNo)%lon,&
-            & patch_2d%cells%center(cell_index,blockNo)%lat,&
+          CALL Get3DVectorToPlanarLocal(p_diag%p_vn(cell_index,level,blockNo), &
+            & patch_2d%cells%center(cell_index,blockNo), patch_2d%geometry_info, &
             & p_diag%u(cell_index,level,blockNo), p_diag%v(cell_index,level,blockNo) )
         END DO
       END DO
@@ -419,16 +417,6 @@ CONTAINS
               ib_v = patch_2d%edges%vertex_blk(je,blockNo,neighbor)
               
               vort_global = (vort_v(il_v,level,ib_v) + 0.1_wp*patch_2d%verts%f_v(il_v,ib_v))
-              thick_vert=0.0_wp
-              DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
-                il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
-                ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
-                
-                thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_vert = thick_vert+thick_edge/patch_2d%verts%num_edges(il_v,ib_v)
-              
-              END DO
-              
               DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
                 
                 ictr =ictr+1
@@ -436,9 +424,9 @@ CONTAINS
                 il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
                 ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
                 
-                thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+!                 thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
                 vort_flux(je,level,blockNo) =  vort_flux(je,level,blockNo)+vn(il_e,level,ib_e)*vort_global&
-                  & *operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)*(thick_edge/thick_vert)
+                  & *operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)!*(thick_edge/thick_vert)
               END DO
             END DO
           ELSE
@@ -1767,9 +1755,8 @@ CONTAINS
 !     vec_center(1:nproma,1:n_zlev,blockNo)%x(2)=0.0_wp
 !     vec_center(1:nproma,1:n_zlev,blockNo)%x(3)=0.0_wp
    !-------------------------------------------------------------------------------    
-    ! this includes the height
-    prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)   
-    ! this does not include the height
+    ! these do not include the height
+    prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
     prism_thick           => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
     DO jc = start_cell_index, end_cell_index
@@ -1823,9 +1810,9 @@ CONTAINS
 !ICON_OMP prism_center_distance,prism_thick, jc) ICON_OMP_DEFAULT_SCHEDULE  
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
-      ! this includes the height
-      prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
-      ! this does not include the height
+      ! these do not include the height
+      ! if they are used for the GM-Redi then we should re-consider if height is needed
+      prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
       prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)

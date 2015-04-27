@@ -35,8 +35,7 @@ MODULE mo_ocean_veloc_advection
   USE mo_ocean_types,         ONLY: t_hydro_ocean_diag
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d_onBlock, &
     &                               rot_vertex_ocean_3d,         &
-    &                               verticalDeriv_vec_midlevel_on_block,&
-    &                               verticalDeriv_scalar_midlevel_on_block
+    &                               verticalDeriv_vec_midlevel_on_block
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,map_vec_prismtop2center_on_block
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -681,7 +680,7 @@ u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
 
       ! this includes the height
-      inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(:,:,blockNo)
+!       inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(:,:,blockNo)
       ! this does not include the height
       ! prism_thick           => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
@@ -708,8 +707,8 @@ u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
 !             & (p_diag%p_vn(jc,start_level,blockNo)%x - p_diag%p_vn(jc,start_level+1,blockNo)%x)&!/del_zlev_i(slev)
 !             & * inv_prism_center_distance(jc,start_level)          
            z_adv_u_i(jc,start_level)%x =               &
-             & -vertical_velocity(jc,start_level,blockNo) * p_diag%p_vn(jc,start_level+1,blockNo)%x &
-              & * inv_prism_center_distance(jc,start_level)
+             & -vertical_velocity(jc,start_level,blockNo) * p_diag%p_vn(jc,start_level,blockNo)%x &
+              & * patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(jc,start_level,blockNo)
             
           ! 1b) ocean interior
           DO jk = start_level+1, end_level-1

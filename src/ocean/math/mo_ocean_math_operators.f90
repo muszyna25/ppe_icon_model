@@ -42,7 +42,7 @@ MODULE mo_ocean_math_operators
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
     & t_verticaladvection_ppm_coefficients, t_operator_coeff
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product
 !   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array
@@ -926,7 +926,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE calculates vertical derivative for a vector that is located at cell center and at midelevel, i.e. at the center of a 3D prism.
-  !!    start level has to be specifed, at end level value zero is assigned to vert. derivative   
+  !!    start level has to be specifed, at end level value zero is assigned to vert. derivative
+  !!    start_level should be > 1
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
@@ -938,26 +939,24 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_in(nproma, n_zlev)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)       :: vertDeriv_vec(nproma, n_zlev)    ! out
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vertDeriv_vec(nproma, n_zlev)    ! out
     
     !Local variables
     INTEGER :: jk, jc!,jb
-    ! REAL(wp), POINTER ::  prism_center_distance(:,:)
+    REAL(wp), POINTER ::  inv_prism_center_distance(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
-    ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
-!       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-!      IF ( end_level >=min_dolic ) THEN
+        
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_vec(jc,jk)%x &
           & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & !/ prism_center_distance(jc,jk)
-              & * patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+              & * inv_prism_center_distance(jc,jk)
               
         END DO    
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed 
-!      ENDIF
     END DO
     
   END SUBROUTINE verticalDeriv_vec_midlevel_on_block
@@ -983,18 +982,16 @@ CONTAINS
 
     !Local variables
     INTEGER :: jk, jc!,jb
-    ! REAL(wp), POINTER ::  prism_center_distance(:,:)
+    REAL(wp), POINTER ::  inv_prism_center_distance(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
-    ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c  (:,:,blockNo)
 
     DO jc = start_index, end_index
-!       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-!      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_scalar(jc,jk) &
           & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & 
-              & * patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+              & * inv_prism_center_distance(jc,jk)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed

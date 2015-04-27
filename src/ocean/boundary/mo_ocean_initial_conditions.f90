@@ -131,7 +131,7 @@ CONTAINS
 !                check_salinity(nproma,n_zlev, patch_2d%alloc_cell_blocks))
 !       check_temp     = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
 !       check_salinity = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-      use_IceInitialization_fromTemperature = .true.
+!      use_IceInitialization_fromTemperature = .true.
       
     ELSE
     

@@ -688,7 +688,8 @@ run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
-run/checksuite.ocean_internal/buildbot/exp.ocean_omip_ptest -text
+run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
+run/checksuite.ocean_internal/eddies/exp.Channel_10km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
@@ -725,10 +726,7 @@ run/checksuite.ocean_internal/other/post.test_oce_default -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric_tracerconservation -text
 run/checksuite.ocean_internal/other/variations.rb -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0039km -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0079km -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0158km -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp2_WavePropagation -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp3_WindDrivenBasin -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp4_CheckerBoardBasin -text
@@ -736,7 +734,7 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6a_Instability_Barotropi
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6b_Instability_KelvinHelmholtz -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityChannel_10km -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
-run/checksuite.ocean_internal/paper_dycore/make_ShallowWater_runs -text
+run/checksuite.ocean_internal/paper_dycore/make_runs_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_testbed -text
@@ -832,7 +830,6 @@ run/exp.nh_rce -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
-run/exp.ocean_omip_long -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
 run/exp.pure_adv -text
@@ -856,7 +853,6 @@ run/post.nh35_tri_jws -text
 run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
-run/post.ocean_omip_long -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
@@ -1194,6 +1190,7 @@ scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
+scripts/run_scripts/sed_change_namelist -text
 scripts/run_scripts/test/test_experiments.rb -text
 src/CMakeLists.txt -text
 src/advection/mo_advection_geometry.f90 -text

@@ -40,13 +40,13 @@ MODULE mo_ocean_boundcond
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_ocean_physics,        ONLY: t_ho_params
+  USE mo_ocean_physics,        ONLY: t_ho_params, v_params
 !   USE mo_ocean_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
   USE mo_master_control,     ONLY: is_restart_run
-  
+
   IMPLICIT NONE
   
   PRIVATE
@@ -54,6 +54,7 @@ MODULE mo_ocean_boundcond
   
   PUBLIC :: bot_bound_cond_horz_veloc
   PUBLIC :: top_bound_cond_horz_veloc
+  PUBLIC :: VelocityBottomBoundaryCondition_onBlock
   !PUBLIC :: bot_bound_cond_vert_veloc
   !PUBLIC :: top_bound_cond_vert_veloc
   
@@ -368,6 +369,53 @@ CONTAINS
   END SUBROUTINE top_bound_cond_horz_veloc_fromCells
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE VelocityBottomBoundaryCondition_onBlock(patch_3d, &
+    & blockNo, start_edge_index, end_edge_index, &
+    & vn_old, vn_pred, &
+    & bc_bot_vn)
+      
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)     :: patch_3D
+    INTEGER, INTENT(in)                      :: blockNo, start_edge_index, end_edge_index
+    REAL(wp)                                 :: vn_old(:,:), vn_pred(:,:)
+    REAL(wp)                                 :: bc_bot_vn(:)
+    ! Local variables
+    INTEGER :: bottom_level, je
+    REAL(wp) :: norm, vn_max
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = ('mo_ocean_boundcond:VelocityBottomBoundaryCondition_onBlock')
+    !-----------------------------------------------------------------------
+
+    SELECT CASE (i_bc_veloc_bot)
+
+    CASE(0)
+      DO je = start_edge_index, end_edge_index
+        bc_bot_vn(je) = 0.0_wp
+      END DO
+
+    CASE(1)!Bottom friction
+
+      DO je = start_edge_index, end_edge_index
+        bottom_level =  patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+        IF ( bottom_level > 0 ) THEN  ! wet points only
+          vn_max = MAX(ABS(vn_old(je,bottom_level)), ABS(vn_pred(je,bottom_level)), &
+            & ABS(vn_old(je,bottom_level) - vn_pred(je,bottom_level)))
+          norm  = SQRT(vn_max * vn_max)
+          bc_bot_vn(je) = v_params%bottom_drag_coeff * &
+            & norm * vn_pred(je,bottom_level)
+        ENDIF
+      END DO
+
+    CASE(2) !Bottom friction and topographic slope
+      CALL message (TRIM(routine), &
+        & 'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet')
+      CALL finish (TRIM(routine), 'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet')
+    CASE default
+      CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions')
+    END SELECT
+
+  END SUBROUTINE VelocityBottomBoundaryCondition_onBlock
+  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
   !>
@@ -383,11 +431,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
 !<Optimize:inUse>
-  SUBROUTINE bot_bound_cond_horz_veloc( patch_3D, ocean_state, p_phys_param, p_op_coeff)
+  SUBROUTINE bot_bound_cond_horz_veloc( patch_3D, ocean_state, physics_parameters, p_op_coeff)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state            ! ocean state variable
-    TYPE(t_ho_params), INTENT(in)            :: p_phys_param    ! physical parameters
+    TYPE(t_ho_params), INTENT(in)            :: physics_parameters    ! physical parameters
     TYPE(t_operator_coeff), INTENT(IN)       :: p_op_coeff
     !REAL(wp), INTENT(in)                     :: div_coeff(:,:,:,:)
     
@@ -425,7 +473,7 @@ CONTAINS
 
     CASE(1)!Bottom friction
  
-!ICON_OMP_DO PRIVATE(start_index, end_index, je, bottom_level, norm) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, bottom_level, vn, norm) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         DO je = start_index, end_index
@@ -433,7 +481,7 @@ CONTAINS
           IF ( bottom_level > 0 ) THEN  ! wet points only
             vn = ocean_state%p_prog(nold(1))%vn(je,bottom_level,jb)
             norm  = SQRT(vn * vn)
-            ocean_state%p_aux%bc_bot_vn(je,jb) = p_phys_param%bottom_drag_coeff * &
+            ocean_state%p_aux%bc_bot_vn(je,jb) = physics_parameters%bottom_drag_coeff * &
               & norm * vn
           ENDIF
         END DO
@@ -447,7 +495,7 @@ CONTAINS
 !           IF ( bottom_level > 0 ) THEN  ! wet points only
 !             z_norm  = SQRT(2.0_wp * ocean_state%p_diag%kin(jc,bottom_level,jb))
 !             ocean_state%p_aux%bc_bot_veloc_cc(jc,jb)%x = &
-!               & p_phys_param%bottom_drag_coeff * z_norm * ocean_state%p_diag%p_vn(jc,bottom_level,jb)%x
+!               & physics_parameters%bottom_drag_coeff * z_norm * ocean_state%p_diag%p_vn(jc,bottom_level,jb)%x
 ! 
 !           END IF
 !         END DO
@@ -468,13 +516,13 @@ CONTAINS
 ! !             z_norm  = SQRT(2.0_wp*ocean_state%p_diag%kin(jc,bottom_level,jb))
 ! !             
 ! !             ocean_state%p_aux%bc_bot_veloc_cc(jc,jb)%x =&
-! !               & p_phys_param%bottom_drag_coeff*z_norm*ocean_state%p_diag%p_vn(jc,bottom_level,jb)%x
+! !               & physics_parameters%bottom_drag_coeff*z_norm*ocean_state%p_diag%p_vn(jc,bottom_level,jb)%x
 ! !             
 ! !             !Only for RBF relevant: there should be an if, PK
 ! !             ocean_state%p_aux%bc_bot_u(jc,jb)=&
-! !               & p_phys_param%bottom_drag_coeff*z_norm*ocean_state%p_diag%u(jc,bottom_level,jb)
+! !               & physics_parameters%bottom_drag_coeff*z_norm*ocean_state%p_diag%u(jc,bottom_level,jb)
 ! !             ocean_state%p_aux%bc_bot_v(jc,jb)=&
-! !               & p_phys_param%bottom_drag_coeff*z_norm*ocean_state%p_diag%v(jc,bottom_level,jb)
+! !               & physics_parameters%bottom_drag_coeff*z_norm*ocean_state%p_diag%v(jc,bottom_level,jb)
 ! !             
 ! !           END IF
 ! !         END DO
