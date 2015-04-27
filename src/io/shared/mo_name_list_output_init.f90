@@ -134,7 +134,8 @@ MODULE mo_name_list_output_init
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             sfs_name_list, ffs_name_list, second_tos,       &
     &                                             first_tos, GRP_PREFIX, t_fname_metadata,        &
-    &                                             all_events, t_patch_info_ll
+    &                                             all_events, t_patch_info_ll,GRB2_GRID_INFO,     &
+    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME
   USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2,                             &
     &                                             set_grid_info_netcdf, collect_all_grid_info,    &
     &                                             copy_grid_info, bcast_grid_info,                &
@@ -276,6 +277,8 @@ CONTAINS
 
     !> RBF shape parameter.
     REAL(wp)                              :: rbf_scale
+
+    INTEGER                               :: i,j
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
@@ -596,6 +599,73 @@ CONTAINS
       
       p_onl%next => NULL()
 
+      ! -- if the namelist switch "output_grid" has been enabled: add
+      !    "clon, "clat", "elon", "elat", etc. to the list of
+      !    variables:
+      !
+      IF (p_onl%output_grid) THEN
+        ! model levels
+        IF (TRIM(p_onl%ml_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+        ! pressure levels
+        IF (TRIM(p_onl%pl_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+        ! height levels
+        IF (TRIM(p_onl%hl_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+        ! isentropic levels
+        IF (TRIM(p_onl%il_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+      END IF
+
       ! -- write the contents of the namelist to an ASCII file
 
       IF(my_process_is_stdio()) WRITE(nnml_output,nml=output_nml)
@@ -605,6 +675,27 @@ CONTAINS
     CALL close_nml
 
   END SUBROUTINE read_name_list_output_namelists
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Utility routine: searches for the end of a list of variable name
+  !  and appends another entry.
+  SUBROUTINE append_varname(p_varlist, new_varname)
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: p_varlist(:)
+    CHARACTER(len=*),         INTENT(IN)    :: new_varname
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::append_varname"
+    INTEGER :: ivar
+
+    ! Get the number of variables in varlist
+    DO ivar = 1, SIZE(p_varlist)
+      IF (p_varlist(ivar) == ' ') EXIT ! Last one reached
+    ENDDO
+    IF (ivar > SIZE(p_varlist)) THEN
+      CALL finish(routine, "Insufficient array size!")
+    END IF
+    p_varlist(ivar) = TRIM(tolower(TRIM(new_varname)))
+  END SUBROUTINE append_varname
 
 
   !------------------------------------------------------------------------------------------------
@@ -806,7 +897,6 @@ CONTAINS
         END DO
         ! remove variables
         CALL difference(in_varlist, nvars, varlist, nsubtract_vars)
-
       END DO ! i_typ = 1,4
       p_onl => p_onl%next
 
@@ -1662,7 +1752,7 @@ CONTAINS
     CHARACTER(LEN=*),     INTENT(IN)    :: varlist(:)
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    INTEGER                       :: ivar, i, iv, tl, grid_of, grid_var
+    INTEGER                       :: ivar, nvars, i, iv, tl, grid_of, grid_var
     LOGICAL                       :: found
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc),     TARGET  :: var_desc   !< variable descriptor
@@ -1671,15 +1761,17 @@ CONTAINS
 
 
     ! Get the number of variables in varlist
+    nvars = 0
     DO ivar = 1, SIZE(varlist)
       IF(varlist(ivar) == ' ') EXIT ! Last one reached
+      IF (.NOT. is_grid_info_var(varlist(ivar)))  nvars = nvars + 1
     ENDDO
 
     ! Allocate a list of variable descriptors:
-    p_of%max_vars = ivar-1
+    p_of%max_vars = nvars
     p_of%num_vars = 0
     ALLOCATE(p_of%var_desc(p_of%max_vars))
-    DO ivar = 1,(ivar-1)
+    DO ivar = 1,nvars
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
       p_of%var_desc(ivar)%i_ptr => NULL()
@@ -1690,7 +1782,8 @@ CONTAINS
     END DO ! ivar
 
     ! Allocate array of variable descriptions
-    DO ivar = 1,(ivar-1)
+    DO ivar = 1,nvars
+      IF (is_grid_info_var(varlist(ivar)))  CYCLE
 
       found = .FALSE.
       ! Nullify pointers
@@ -1823,7 +1916,7 @@ CONTAINS
       ! append variable descriptor to list
       CALL add_var_desc(p_of, var_desc)
 
-    ENDDO ! ivar = 1,(ivar-1)
+    ENDDO ! ivar = 1,nvars
 
   END SUBROUTINE add_varlist_to_output_file
 
