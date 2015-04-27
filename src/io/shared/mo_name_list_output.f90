@@ -99,11 +99,11 @@ MODULE mo_name_list_output
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
-  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
+  USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, num_io_procs
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
-  USE mo_name_list_output_types,    ONLY: t_output_name_list, t_output_file, t_reorder_info,        &
+  USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info,                            &
   &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
@@ -326,11 +326,11 @@ CONTAINS
   !
   SUBROUTINE write_name_list_output(jstep, opt_lhas_output)
     INTEGER,           INTENT(IN)   :: jstep             !< model step
-    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output   !< (Optional) Flag: .TRUE. if this async I/O PE has written during this step.
+    !> (Optional) Flag: .TRUE. if this async I/O PE has written during this step:
+    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
-    TYPE(t_output_name_list), POINTER :: p_onl
     TYPE(datetime),           POINTER :: io_datetime => NULL()
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
@@ -412,8 +412,6 @@ CONTAINS
         CALL resetCalendar()
       END IF
 
-
-      p_onl => output_file(i)%name_list
       IF(my_process_is_io()) THEN
 #ifndef NOMPI
         IF(output_file(i)%io_proc_id == p_pe) THEN
