@@ -160,7 +160,7 @@ def scanFilesForTheirYears(fileList,procs,log):
 
 
   for ifile in fileList:
-    years = pool.apply_async(showyear,[ifile])
+    years = pool.apply_async(showyear,[str(ifile)])
     results.append([ifile,years])
 
   for result in results:
@@ -953,14 +953,6 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
   psiGlobalFile = '/'.join([options['ARCHDIR'],'_'.join([psiModelVariableName,yearInfo])+'.nc'])
   cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],ymFile),
               output = psiGlobalFile)
-  psiSelectionConfig = {
-          'indonesian_throughflow' : { 'lonlatbox' : '90,150,-20,40',},
-          'gibraltar'              : { 'lonlatbox' : '-20,10,25,50',},
-          'north_atlantic'         : { 'lonlatbox' : '-60,20,50,80',},
-          'drake_passage'          : { 'lonlatbox' : '-90,-30,-80,-40',},
-          'beringStrait'           : { 'lonlatbox' : '-180,-100,30,80',},
-          'agulhas'                : { 'lonlatbox' : '10,50,-55,-15',},
-          }
 
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR PROFILES {{{
@@ -1017,6 +1009,7 @@ if 'procRegio' in options['ACTIONS']:
 mocMeanFile = '/'.join([options['ARCHDIR'],'mocMean'])
 mocFiles    = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
 if 'procMoc' in options['ACTIONS']:
+  print(' procMoc START ----------------------------------------')
   # collect all MOC files
   dbg(options['MOCPATTERN'])
   mocFiles.pop(0)
@@ -1036,17 +1029,21 @@ if 'procMoc' in options['ACTIONS']:
   mocLog          = {}
   scanFilesForTheirNTime(mocFiles,options['PROCS'],mocLog)
   dbg(mocLog)
-  # check for the numbe rof timesteps in the last moc file
-  mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
-  if ( os.path.exists(mocMeanFile) ):
-      os.remove(mocMeanFile)
-  if mocNeededNSteps <= mocLastNtime:
-    # take the last 120 values for timmeaninput
-    mocMeanFile = cdo.timmean(input = '-seltimestep,{0}/{1} {2}'.format(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
-                              output = mocMeanFile)
+  if not mocFiles:
+    print('no MOC files for processing')
   else:
-    mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
-  dbg(mocMeanFile)
+    # check for the numbe rof timesteps in the last moc file
+    mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
+    if ( os.path.exists(mocMeanFile) ):
+      os.remove(mocMeanFile)
+    if mocNeededNSteps <= mocLastNtime:
+      # take the last 120 values for timmeaninput
+      mocMeanFile = cdo.timmean(input = '-seltimestep,{0}/{1} {2}'.format(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
+                                output = mocMeanFile)
+    else:
+      mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
+    dbg(mocMeanFile)
+  print(' procMoc FINISH ---------------------------------------')
 # }}} -----------------------------------------------------------------------------------
 # PREPARE DATA FOR T,S,RHOPOT BIAS TO INIT {{{ ------------------------------------------
 # target is a year mean file of fldmean data, but mean value computation
@@ -1071,6 +1068,16 @@ if 'procTSR' in options['ACTIONS']:
 # PSI {{{
 if 'plotPsi' in options['ACTIONS']:
   print(' plotPsi START ----------------------------------------')
+  psiSelectionConfig = {
+          'indonesian_throughflow' : { 'lonlatbox' : '90,150,-20,40',},
+          'gibraltar'              : { 'lonlatbox' : '-20,10,25,50',},
+          'north_atlantic'         : { 'lonlatbox' : '-60,20,50,80',},
+          'drake_passage'          : { 'lonlatbox' : '-90,-30,-80,-40',},
+          'beringStrait'           : { 'lonlatbox' : '-180,-100,30,80',},
+          'agulhas'                : { 'lonlatbox' : '10,50,-55,-15',},
+          }
+  psiSelectionConfig = {}
+
   plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
   title    = "Bar. Streamfunction for %s\n (file: %s)"%(options['EXP'],psiGlobalFile)
   cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA={0} TITLE='{1}' PLOT={2}".format(options['GRID'],title,plotFile))
@@ -1178,7 +1185,6 @@ if 'plotX' in options['ACTIONS']:
              '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
-             '-makeYLinear',
              '-withLineLabels',
              '-tStrg="%s"'%(title),
              '-oFile=%s'%(oFile)]
@@ -1202,7 +1208,6 @@ if 'plotX' in options['ACTIONS']:
              '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
-             '-makeYLinear',
              '-minVar=%s'%(XSectionPlotConfig[varname]['minVar']),
              '-maxVar=%s'%(XSectionPlotConfig[varname]['maxVar']),
              '-numLevs=%s'%(XSectionPlotConfig[varname]['numLevs']),
@@ -1379,7 +1384,6 @@ if 'plotTSR' in options['ACTIONS']:
            '-lStrg=%s'%(varname),
   #        '-withLineLabels',
            '+withLines',
-           '-makeYLinear',
            '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
            '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
            '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
