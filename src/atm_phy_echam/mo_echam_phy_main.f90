@@ -582,13 +582,15 @@ CONTAINS
             CALL psrad_radiation(      &
             & jg                      ,&!< in  domain index
             & jb                      ,&!< in  block index
-            & jce        = jce        ,&!< in  end index for loop over block
+            & kproma     = jce        ,&!< in  end index for loop over block
             & kbdim      = nbdim      ,&!< in  dimension of block over cells
             & klev       = nlev       ,&!< in  number of full levels = number of layers
             & klevp1     = nlevp1     ,&!< in  number of half levels = number of layer interfaces
+            & ktrac      = ntrac      ,&!< in  number of non-water tracers
             & ktype      = itype(:)   ,&!< in  type of convection
             & loland     = lland      ,&!< in  land-sea mask. (logical)
             & loglac     = lglac      ,&!< in  glacier mask (logical)
+            & pcos_mu0   = field%cosmu0(:,jb)      ,&!< in  solar zenith angle
             & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
             & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
             & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
@@ -601,7 +603,7 @@ CONTAINS
             & qm_liq =field%q(:,:,jb,iqc)    ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
             & qm_ice =field%q(:,:,jb,iqi)    ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
             & geom1  =field%geom(:,:,jb)     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
-            & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cld_frac = cloud fraction [m2/m2]
+            & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
             & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
             & pxtm1  =field% q(:,:,jb,iqt:)   &! in     xtm1
             &                           )

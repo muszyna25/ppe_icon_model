@@ -83,7 +83,9 @@ MODULE mo_psrad_radiation
   USE mo_psrad_orbit,     ONLY: cecc, cobld, clonp, &
                               & orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
-  USE mo_psrad_radiation_parameters, ONLY: solar_parameters
+  USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
+                              & l_interp_rad_in_time,        &
+                              & zepzen
 ! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
 !  USE mo_solar_irradiance,ONLY: get_solar_irradiance, set_solar_irradiance, &
 !                                get_solar_irradiance_m, set_solar_irradiance_m
@@ -730,13 +732,15 @@ MODULE mo_psrad_radiation
   SUBROUTINE psrad_radiation ( &
     & jg         ,&!< in  domain index
     & jb         ,&!< in  block index
-    & jce        ,&!< in  end index for loop over block
+    & kproma     ,&!< in  end index for loop over block
     & kbdim      ,&!< in  dimension of block over cells
     & klev       ,&!< in  number of full levels = number of layers
     & klevp1     ,&!< in  number of half levels = number of layer interfaces
+    & ktrac      ,&!< in number of non-water tracers
     & ktype      ,&!< in  type of convection
     & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac     ,&!< in  fraction of land covered by glaciers
+    & pcos_mu0   ,&!< in  cosine of solar zenith angle
     & alb_vis_dir,&!< in  surface albedo for visible range, direct
     & alb_nir_dir,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
@@ -745,18 +749,22 @@ MODULE mo_psrad_radiation
     & pp_hl      ,&!< in  pressure at half levels at t-dt [Pa]
     & pp_fl      ,&!< in  pressure at full levels at t-dt [Pa]
     & tk_fl      ,&!< in  tk_fl  = temperature at full level at t-dt
-    & qm_vap     ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
-    & qm_liq     ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
-    & qm_ice     ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
-    & geom1       &!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
-    &                        )
+    & qm_vap     ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
+    & qm_liq     ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
+    & qm_ice     ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
+    & geom1      ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
+    & cdnc       ,&!< in  cloud droplet number concentration
+    & cld_frc    ,&!< in  cloud fraction
+    & pxtm1       &!< tracer concentration
+    &              )
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
     & jb,             & !< block index
-    & jce,            & !< end   index for loop over block
+    & kproma,         & !< end   index for loop over block
     & kbdim,          & !< dimension of block over cells
     & klev,           & !< number of full levels = number of layers
     & klevp1,         & !< number of half levels = number of layer interfaces 
+    & ktrac,          & !< number of non-water tracers
     & ktype(kbdim)      !< convection type
 
     LOGICAL, INTENT(IN)  :: &
@@ -764,6 +772,7 @@ MODULE mo_psrad_radiation
     & loglac(kbdim)        !< glacier mask
 
     REAL(wp), INTENT(IN) :: &
+    & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
     & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
@@ -775,7 +784,67 @@ MODULE mo_psrad_radiation
     & qm_vap(kbdim,klev), & !< Water vapor mixing ratio
     & qm_liq(kbdim,klev), & !< Liquid water mixing ratio
     & qm_ice(kbdim,klev), & !< Ice water mixing ratio
-    & geom1(kbdim,klev)     !< Geopotential height at t-dt
+    & geom1(kbdim,klev),  & !< Geopotential height at t-dt
+    & cdnc(kbdim,klev),   & !< Cloud drop number concentration
+    & cld_frc(kbdim,klev),& !< Cloud fraction
+    & pxtm1(kbdim,klev,ktrac)!< non-water tracers
+    INTEGER              :: jk, jl, idx(kbdim)
+    REAL(wp)             ::         &
+    & cos_mu0(kbdim),               &
+    & pp_sfc(kbdim),                &
+    & ppd_hl(kbdim,klev),           &
+    & tk_hl(kbdim,klevp1),          &
+    & xq_vap(kbdim,klev),           &
+    & za(kbdim),                    & !< Spline interpolation arrays for qsat
+    & ua(kbdim),                    &
+    & xq_sat(kbdim,klev)              !< Saturation mixing ratio 
+
+    !
+    ! 1.0 calculate variable input parameters (location and state variables)
+    ! --------------------------------
+    ! 
+    ! --- solar zenith angle
+    !
+    ! Get the local cosine of the solar zenith angle, setting a minimum positive definite 
+    ! value for smooth interpretation in time (if desired(
+    !
+    cos_mu0(1:kproma) = pcos_mu0(1:kproma)
+    IF (l_interp_rad_in_time) cos_mu0(1:kproma) = MAX(cos_mu0(1:kproma), zepzen) 
+    !
+    ! --- Pressure (surface and distance between half levels)
+    !
+    pp_sfc(1:kproma)   = pp_hl(1:kproma,klevp1)
+    ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
+    !
+    ! --- temperature at half levels
+    !
+    DO jk=2,klev
+      DO jl = 1, kproma
+        tk_hl(jl,jk) = (tk_fl(jl,jk-1)*pp_fl(jl,jk-1)*( pp_fl(jl,jk)          &
+             & - pp_hl(jl,jk) ) + tk_fl(jl,jk)*pp_fl(jl,jk)*( pp_hl(jl,jk)    &
+             & - pp_fl(jl,jk-1))) /(pp_hl(jl,jk)*(pp_fl(jl,jk) -pp_fl(jl,jk-1)))
+      END DO
+    END DO
+    DO jl = 1, kproma
+      tk_hl(jl,klevp1) = tk_sfc(jl)
+      tk_hl(jl,1)      = tk_fl(jl,1)-pp_fl(jl,1)*(tk_fl(jl,1) - tk_hl(jl,2))  &
+           &             / (pp_fl(jl,1)-pp_hl(jl,2))
+    END DO
+    !
+    ! --- phases of water substance
+    !
+    xq_vap(1:kproma,:) = MAX(qm_vap(1:kproma,:),EPSILON(1.0_wp))
+    DO jk = 1, klev
+      CALL prepare_ua_index_spline('radiation', kproma, tk_fl(:,jk), idx(:),za(:))
+      CALL lookup_ua_spline(kproma, idx(:), za(:), ua(:))
+      xq_sat(1:kproma,jk) = ua(1:kproma)/pp_fl(1:kproma,jk)
+      xq_sat(1:kproma,jk) = MIN(xq_sat(1:kproma,jk),0.5_wp)
+      xq_sat(1:kproma,jk) = xq_sat(1:kproma,jk)/(1.0_wp-vtmpc1                &
+           &                * xq_sat(1:kproma,jk))
+      xq_sat(1:kproma,jk) = MAX(2.0_wp*EPSILON(1.0_wp),xq_sat(1:kproma,jk))
+    END DO
+
+
 
   END SUBROUTINE psrad_radiation
 
