@@ -935,6 +935,124 @@ Defined and used in: \verb+src/namelists/mo_echam_phy_nml.f90+
 
 
 %------------------------------------------------------------------------------
+% ensemble_pert_nml:
+%------------------------------------------------------------------------------
+\subsection{ensemble\_pert\_nml}
+
+
+\begin{longtab}
+
+
+\hline
+use\_ensemble\_pert&
+L&
+.FALSE.&
+&
+Main switch to activate physics parameter perturbations for ensemble forecasts / ensemble data assimilation; 
+the perturbations are applied via random numbers depending on the perturbationNumber 
+(ensemble member ID) specified in gribout\_nml    &
+run\_nml:iforcing = inwp
+\tabularnewline
+
+
+\hline
+range\_gkwake&
+R&
+0.1666&
+&
+Variability range for low level wake drag constant&
+\tabularnewline
+
+\hline
+range\_gkdrag&
+R&
+0.02&
+&
+Variability range for orographic gravity wave drag constant&
+\tabularnewline
+
+
+\hline
+range\_gfluxlaun&
+R&
+0.50e-3&
+&
+Variability range for non-orographic gravity wave launch momentum flux &
+\tabularnewline
+
+
+\hline
+range\_zvz0i&
+R&
+0.125&
+m/s&
+Variability range for terminal fall velocity of ice&
+inwp\_gscp = 1 or 2
+\tabularnewline
+
+
+\hline
+range\_entrorg&
+R&
+0.125e-3&
+1/m&
+Variability range for entrainment parameter in convection scheme &
+\tabularnewline
+
+
+\hline
+range\_capdcfac\_et&
+R&
+0.1&
+&
+Maximum fraction of CAPE diurnal cycle correction applied in the extratropics &
+icapdcycl = 3
+\tabularnewline
+
+
+\hline
+range\_box\_liq&
+R&
+0.01&
+&
+Variability range for box width scale of liquid clouds in cloud cover scheme &
+inwp\_cldcover = 1
+\tabularnewline
+
+
+\hline
+range\_tkhmin&
+R&
+0.15&
+&
+Variability range for minimum vertical diffusion for heat/moisture &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_tkmmin&
+R&
+0.15&
+&
+Variability range for minimum vertical diffusion for momentum &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_rlam\_heat&
+R&
+1.5&
+&
+Variability range (multiplicative!) of laminar transport resistance parameter &
+inwp\_turb = 1
+\tabularnewline
+
+\end{longtab}
+
+
+Defined and used in: \verb+src/namelists/mo_ensemble_pert_nml.f90+
+
+%------------------------------------------------------------------------------
 % gribout_nml:
 %------------------------------------------------------------------------------
 \subsection{gribout\_nml}
@@ -3202,7 +3320,7 @@ Please note: These tuning parameters are NOT domain specific.
 \hline
 tune\_gkwake&
 R&
-1.333&
+1.5&
 &
 low level wake drag constant&
 run\_nml:iforcing = inwp
@@ -3211,7 +3329,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_gkdrag&
 R&
-0.1&
+0.075&
 &
 gravity wave drag constant&
 run\_nml:iforcing = inwp
