@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os,sys,glob,shutil,json,subprocess,multiprocessing
 from cdo import *
+from itertools import chain
 import matplotlib
 matplotlib.use('Agg')
 import pylab,numpy,dateutil.parser
@@ -598,6 +599,9 @@ def createOutputDocument(plotdir,firstPage,docname,doctype,debug):
 def yearMeanFileName(archdir,exp,firstYear,lastYear):
     return  '/'.join([archdir,'_'.join([exp,'%s-%s'%(firstYear,lastYear),'yearmean.nc'])])
 
+def last30yearFileName(archdir,exp,firstYear,lastYear):
+    return  '/'.join([archdir,'_'.join([exp,'%s-%s'%(firstYear,lastYear),'allData.nc'])])
+
 def yearMonMeanFileName(archdir,exp,firstYear,lastYear):
     return  '/'.join([archdir,'_'.join([exp,'%s-%s'%(firstYear,lastYear),'yearmonmean.nc'])])
 
@@ -735,6 +739,30 @@ def plotHorizontal(plotConfig,options,hasNewFiles):
 
   executeInParallel(plots,options['PROCS'])
   return
+
+def maskCellVariables(ifile,maskfile,ofile,force):
+  # get variable lists for each vertical grid type
+  # this has to be done, because the masking cannot be done for 2d abd 3d in the same file
+  #
+  groups = {
+      'cellVars_2d'  : cdo.showname(input = '-selzaxis,1 -selgrid,1 -seltimestep,1 {0}'.format(ifile))[0].split(' '),
+      'cellVars_3d'  : cdo.showname(input = '-selzaxis,2 -selgrid,1 -seltimestep,1 {0}'.format(ifile))[0].split(' '),
+      'cellVars_ice' : cdo.showname(input = '-selzaxis,4 -selgrid,1 -seltimestep,1 {0}'.format(ifile))[0].split(' ')
+      }
+
+  print(groups)
+
+  # apply the mask for each group of variables
+  masked_groups = {}
+  for group, groupVars in groups.iteritems():
+    if group in ['cellVars_2d','cellVars_ice']:
+      sellevel = ' -sellevidx,1'
+    else:
+      sellevel = ''
+    masked_groups[group] = cdo.div(input = '-selname,{0} {1} {2} {3}'.format(','.join(groupVars),ifile,sellevel, maskfile), output = '{0}_{1}_masked'.format(ifile,group))
+  # merge groups together
+  cdo.merge(input = '{0}'.format(' '.join(masked_groups.values())),output = ofile)
+  return list(chain(*groups.values()))
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -893,15 +921,15 @@ LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), outpu
 LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 # }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
-ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
-if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
-# if (os.path.exists(ymFile)):
-#   os.remove(ymFile)
-  cdo.cat(input=" ".join(yearMeanFiles),output=ymFile)
-  # rm ymFiles
-  #map(lambda x: os.remove(x),ymFiles)
-#else:
-# print("Use existing ymFile: "+ymFile)
+#ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
+#if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
+## if (os.path.exists(ymFile)):
+##   os.remove(ymFile)
+#  cdo.cat(input=" ".join(yearMeanFiles),output=ymFile)
+#  # rm ymFiles
+#  #map(lambda x: os.remove(x),ymFiles)
+##else:
+## print("Use existing ymFile: "+ymFile)
 # }}} ===================================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
 lastYearsPeriod    = min(30,len(LOG['years'])/2)
@@ -920,23 +948,31 @@ print('#====================================================================')
 lastYearsFiles = []
 for y in LOG['years'][lastYearsStartYear:lastYearsEndYear]:
     lastYearsFiles.append(LOG[str(y)])
-yearMonMeanFile    = yearMonMeanFileName(options['ARCHDIR'],
-                                         options['EXP'],
+yearMonMeanFile    = yearMonMeanFileName(options['ARCHDIR'], options['EXP'],
                                          LOG['years'][lastYearsStartYear],
                                          LOG['years'][lastYearsEndYear])
-LOG['last30YearsMonMean']   = cdo.ymonmean(input = cdo.cat(input = ' '.join(lastYearsFiles),
-                                                           output = str(yearMonMeanFile+'tmp')),
+last30yearFile    = last30yearFileName(options['ARCHDIR'], options['EXP'],
+                                       LOG['years'][lastYearsStartYear],
+                                       LOG['years'][lastYearsEndYear])
+# compute the varname list for variables which can be masked by wet_c
+#TODO: this implementation depends on the internal ordering of the netcdf file
+_last30Years         = cdo.cat(input = ' '.join(lastYearsFiles), output = str(last30yearFile+'_all'))
+cellVars = maskCellVariables(_last30Years,LOG['mask'],last30yearFile,False)
+#LOG['last30Years']         = cdo.selname(','.join(_cellVars),input = _last30Years, output = str(last30yearFile))
+LOG['last30Years']         = str(last30yearFile)
+LOG['last30YearsMonMean']  = cdo.ymonmean(input = LOG['last30Years'],
                                            output = yearMonMeanFile)
-LOG['last30YearsMean']     = cdo.timmean(input = str('-selyear,'+sssss+' '+ymFile),
+LOG['last30YearsMean']     = cdo.timmean(input = str(yearMonMeanFile),
                                          output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],
                                                                                     options['EXP'],
                                                                                     str(LOG['years'][lastYearsStartYear]),
                                                                                     str(LOG['years'][lastYearsEndYear])))
-LOG['last30YearsMeanBias'] = cdo.sub(input = ' %s %s'%(LOG['last30YearsMean'],LOG['init']),
+LOG['last30YearsMeanBias'] = cdo.sub(input = ' {0} -selname,{1} {2}'.format(LOG['last30YearsMean'],','.join(cellVars),LOG['init']),
                                      output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],
                                                                                     options['EXP'],
                                                                                     LOG['years'][lastYearsStartYear],
-                                                                                    LOG['years'][lastYearsEndYear]))
+                                                                                    LOG['years'][lastYearsEndYear]),
+                                     options = "-Q")
 # }}} ===================================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
@@ -951,7 +987,7 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
   yearInfo  = '-'.join([years4Psi[0],years4Psi[-1]])
   psiModelVariableName = "u_vint_acc"
   psiGlobalFile = '/'.join([options['ARCHDIR'],'_'.join([psiModelVariableName,yearInfo])+'.nc'])
-  cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],ymFile),
+  cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],LOG['last30Years']),
               output = psiGlobalFile)
 
 # }}} ----------------------------------------------------------------------------------
@@ -1169,6 +1205,7 @@ if 'plotX' in options['ACTIONS']:
       oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
       iFile4XSection = str(LOG['last30YearsMean']) # take last 30 year mean file
       # mask by devision
+      #TODO:
       iFile4XSection = cdo.div(input  = '-selname,{0} {1} {2}'.format(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                                output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
       if ( 'rhopot_acc' == varname ):
@@ -1197,6 +1234,7 @@ if 'plotX' in options['ACTIONS']:
       oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
       iFile4XSection = str(LOG['last30YearsMeanBias']) # take last 30 yearmean bias to init
       # mask by devision
+      #TODO:
       iFile4XSection = cdo.div(input  = '-selname,{0} {1} {2}'.format(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                                output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
       title = '%s: last 30 year mean bias to init '%(options['EXP'])
