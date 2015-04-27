@@ -885,7 +885,10 @@ CONTAINS
           nmiss = 0
         ENDIF
 
-        ! 
+        ! Handling of lon-lat grid output in synchronous output mode:
+        ! Global indices must be exchanged explicitly because for
+        ! local nests the ICON gather pattern does not fill the global
+        ! positions correctly.
         IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
           SELECT CASE (info%ndims)
           CASE(2)
@@ -921,10 +924,10 @@ CONTAINS
                 END IF
               END DO
             ELSE IF (idata_type == iINTEGER) THEN
-              r_out_int(:) = -1._wp
-              r_out_int(gather_reorder_idx(:)) = 1._wp
+              r_out_int(:) = -1
+              r_out_int(gather_reorder_idx(:)) = 1
               DO j=1,SIZE(gather_reorder_idx)
-                IF (r_out_int(j) < 0.) THEN
+                IF (r_out_int(j) < 0) THEN
                   i = i + 1
                   gather_reorder_idx(i) = j
                 END IF
