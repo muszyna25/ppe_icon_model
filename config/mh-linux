@@ -450,6 +450,7 @@ case "$ac_sitename" in
                 config_target = bullx
                 make_command  = make -j4
                 submit        = sbatch
+                sync_submit   = sbatch
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
@@ -478,6 +479,7 @@ case "$ac_sitename" in
       		        MPIROOT     = $software_tree/intel/impi/4.1.3.049/intel64
                         SYS_LIBS    = -ldl -lrt -lpthread 
                         MPI_LIB     = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+                        mpi_startrun = srun               
                         ;;
                     *)
                         echo
