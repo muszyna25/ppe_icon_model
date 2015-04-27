@@ -385,11 +385,12 @@ CONTAINS
 
     ! Indexing
     INTEGER :: ist, nblks_v
-    INTEGER :: jb, jv
+    INTEGER :: jb, jv, ji
     INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: cell_index, cell_block
 
     ! The denominator
-    REAL(wp) :: rdeno
+    REAL(wp) :: rdeno, rsum
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
@@ -449,6 +450,32 @@ CONTAINS
         c2v_wgt(jv,6,jb) =                              &
           &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
           &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno 
+
+   !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
+   !     -> this code leads to other error in CELLS2VERTS_SCALAR
+   !    rsum = 0.0_wp
+
+   !    DO ji = 1, 6
+   !      cell_index = iidx(jv,jb,ji)
+   !      cell_block = iblk(jv,jb,ji)
+   !      IF (cell_index > 0)                                      &
+   !        & rsum = rsum +                                        &
+   !        &      p_patch_3D%wet_c  (cell_index,1,cell_block) *   &
+   !        &      p_patch%cells%area(cell_index,  cell_block)
+
+   !    ENDDO
+
+   !    IF (rsum > 0.0_wp) rsum = 1.0_wp/rsum
+
+   !    DO ji = 1, 6
+   !      cell_index = iidx(jv,jb,ji)
+   !      cell_block = iblk(jv,jb,ji)
+   !      IF (cell_index > 0)                                 &
+   !        & c2v_wgt(jv,ji,jb) =                             &
+   !        &   p_patch_3D%wet_c  (cell_index,1,cell_block) * &
+   !        &   p_patch%cells%area(cell_index,  cell_block) * rsum 
+
+   !    ENDDO
 
       ENDDO  IDX_LOOP
  

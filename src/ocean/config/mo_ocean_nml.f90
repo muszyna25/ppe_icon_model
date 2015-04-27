@@ -86,7 +86,9 @@ MODULE mo_ocean_nml
                       ! i_bc_veloc_lateral = 1: boundary condition for velocity is free-slip: 
                       !                         normal velocity components at lateral boundariea is
                       !                         set to zero, tangential not.
-  INTEGER            :: i_bc_veloc_lateral = 0   
+  INTEGER,PARAMETER  :: i_bc_veloc_lateral_noslip   = 0                         
+  INTEGER,PARAMETER  :: i_bc_veloc_lateral_freeslip = 1                           
+  INTEGER            :: i_bc_veloc_lateral = i_bc_veloc_lateral_noslip   
 
   INTEGER            :: i_bc_veloc_top = 1  !Top boundary condition for velocity: 
                                             ! i_bc_veloc_top =0 : zero value at top boundary,no wind stress
@@ -107,7 +109,12 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: i_post_step   =2
   !default value
   INTEGER :: tracer_update_mode = i_post_step
-  
+
+  !Options for non-linear corilois term in vector invariant velocity equations
+  INTEGER            :: NONLINEAR_CORIOLIS            =200
+  INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
+  INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
+
   !Identifiers for advection schemes
   INTEGER, PARAMETER :: upwind                     = 1
   INTEGER, PARAMETER :: central                    = 2  
@@ -323,7 +330,8 @@ MODULE mo_ocean_nml
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
     &                 fast_performance_level       , &
-    &                 MASS_MATRIX_INVERSION_TYPE
+    &                 MASS_MATRIX_INVERSION_TYPE   , &
+    &                 NONLINEAR_CORIOLIS
 
 
   NAMELIST/ocean_tracer_transport_nml/&

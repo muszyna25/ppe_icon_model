@@ -43,7 +43,7 @@ MODULE mo_sea_ice
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
-    &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature, &
+    &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
     &                               i_Qio_type, use_constant_tfreez, &
     &                               use_calculated_ocean_stress, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
@@ -1283,7 +1283,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: energyCheck, sst, zuipsnowf
     REAL(wp), POINTER             :: flat(:,:)
-    INTEGER                       :: jb, jc, i_startidx_c, i_endidx_c
+    INTEGER                       :: k, jb, jc, i_startidx_c, i_endidx_c
 
     !-------------------------------------------------------------------------------
 
@@ -1361,7 +1361,8 @@ CONTAINS
     !---------------------------------------------------------------------
 
     ! Ocean Heat Flux
-    CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
+    IF ( i_ice_therm >= 1 ) &
+      & CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
 
     sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)  !  add corresponding flux or calculate zUnderIce
  !  ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
@@ -1392,7 +1393,15 @@ CONTAINS
     CALL dbg_print('IceSlow: energy aft. upUPTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
 
     ! Ice Concentration Change
-    CALL ice_conc_change(p_patch,ice,p_os)
+    IF ( i_ice_therm >= 1 ) THEN
+      CALL ice_conc_change(p_patch,ice,p_os)
+    ELSE
+      ! This is needed since vol and vols are calculated in ice_conc_change and cleanup will set all to zero!
+      DO k=1,ice%kice
+        ice%vol (:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
+        ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
+      ENDDO
+    ENDIF
 
     ! #slo# 2015-01 - Test: update draft, zunderice now includes totalsnowfall as in ocets, inconsistent with h
     !               - update of draft/zunderice should be done whenever draft is changed
@@ -2644,6 +2653,8 @@ CONTAINS
  !  REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
+ !  REAL(wp) :: leadclose_2n
+
     CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Calculate the sea surface freezing temperature                        [C]
@@ -2675,10 +2686,17 @@ CONTAINS
 
       ! Hibler's way to change the concentration 
       !  - the formulation here uses the default values of leadclose parameters 2 and 3 in MPIOM:
-      !    1 and 0 respectively
+      !    1 and 0 respectively, which recovers the Hibler model: conc=conc+newice/hnull
       ! Fixed 2. April (2014) - we don't need to multiply with 1-A here, like Hibler does, because it's
       ! already included in newice (we use volume, but Hibler growth rate)
-      ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
+      !ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
+
+      ! New formulation of leadclose parameter leadclose_2n includes parameters 2 and 3 of MPIOM:
+      ! leadclose_2n (=mpiom_leadclose(3)/mpiom_leadclose(2)
+      ! standard value of mpiom is: mpiom_leadclose(3)=2. mpiom_leadclose(2)=mpiom_leadclose(3)+1.
+      ! i.e. leadclose_2n=2./3. according to mpiom default
+      ice%conc(:,1,:) = min( 1._wp, ice%conc(:,1,:) + &
+        &                           ice%newice(:,:)/(hnull+leadclose_2n*(ice%hi(:,1,:)-hnull)) )
 
       ! New ice and snow thickness
       ice%hi   (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )

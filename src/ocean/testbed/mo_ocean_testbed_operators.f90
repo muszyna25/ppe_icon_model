@@ -91,6 +91,8 @@ CONTAINS
 
       CASE (101)
         CALL test_nonlinear_coriolis_3d(patch_3D, ocean_state(1), operators_coefficients)
+      CASE (102)
+          CALL operator_test(patch_3D, ocean_state(1), operators_coefficients)
       
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
@@ -102,13 +104,11 @@ CONTAINS
 
 
   !-----------------------------------------------------------------------
-  SUBROUTINE operator_test( patch_3d, ocean_state, operators_coefficients, vn_e, trac_c)
+  SUBROUTINE operator_test( patch_3d, ocean_state, operators_coefficients)!, vn_e, trac_c)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     TYPE(t_operator_coeff),TARGET, INTENT(in)   :: operators_coefficients
-    REAL(wp)                             :: vn_e(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
-    REAL(wp)                             :: trac_c(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
     
     !
     !
@@ -123,12 +123,18 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain, verts_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_cartesian_coordinates) :: vn_dual(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)    
+	REAL(wp), POINTER :: vn_e(:,:,:)!(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+	REAL(wp), POINTER :: trac_c(:,:,:)!(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
+		
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
     cells_in_domain => patch_2D%cells%in_domain
     verts_in_domain => patch_2D%verts%in_domain
     !-------------------------------------------------------------------------------
+	vn_e  => ocean_state%p_prog(1)%vn
+	trac_c=>ocean_state%p_prog(1)%tracer(:,:,:,1) 	
+	
     grad    (1:nproma,1:n_zlev,1:patch_2D%nblks_e)=0.0_wp
     div     (1:nproma,1:n_zlev,1:patch_2D%nblks_c)=0.0_wp
     curl    (1:nproma,1:n_zlev,1:patch_2D%nblks_v)=0.0_wp
@@ -136,8 +142,8 @@ CONTAINS
     
     
     !vn_e=0.0_wp
-    !vn_e(1:5,1,1)=10.0_wp
-    !trac_c=35.0_wp
+    vn_e(1:5,1,1)=10.0_wp
+    trac_c=35.0_wp
     CALL map_edges2vert_3d(patch_2D, vn_e, operators_coefficients%edge2vert_coeff_cc, vn_dual)
     
     !calculate gradient of curl and curl

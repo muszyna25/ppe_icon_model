@@ -35,7 +35,7 @@ MODULE mo_ocean_math_operators
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, &
-    & select_solver, select_restart_mixedprecision_gmres
+    & select_solver, select_restart_mixedprecision_gmres, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip
   
   USE mo_dynamics_config,    ONLY: nold
   USE mo_util_dbg_prnt,      ONLY: dbg_print
@@ -867,48 +867,54 @@ CONTAINS
         ENDDO ! verts%num_edges
 
         !Finalize vorticity calculation by closing the dual loop along boundary edges
-        z_vort_boundary(start_level:end_level) = 0.0_wp
-        z_vt(:) = 0.0_wp
-        DO level = start_level, end_level
+        IF(i_bc_veloc_lateral/=i_bc_veloc_lateral_noslip)THEN
+          z_vort_boundary(start_level:end_level) = 0.0_wp
+          z_vt(:) = 0.0_wp
+          DO level = start_level, end_level
 !           IF ( .NOT. (p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo) == 0 .or. &
 !                       p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo) == 2 .or. &
 !                       p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo) == 4)) &
 !             CALL finish("rot_vertex_ocean_3D", "wrong bnd_edges_per_vertex")
-          DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
-            boundaryEdge_index = vertex_boundaryEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex)
-            boundaryEdge_block = vertex_boundaryEdgeBlock(vertexIndex,level,blockNo,boundaryEdge_inVertex)
-            !calculate tangential velocity
-            il_v1 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,1)
-            ib_v1 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,1)
-            il_v2 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,2)
-            ib_v2 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,2)
+            DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
+              boundaryEdge_index = vertex_boundaryEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex)
+              boundaryEdge_block = vertex_boundaryEdgeBlock(vertexIndex,level,blockNo,boundaryEdge_inVertex)
+              !calculate tangential velocity
+              il_v1 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,1)
+              ib_v1 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,1)
+              il_v2 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,2)
+              ib_v2 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,2)
 
-            z_vt(boundaryEdge_inVertex)=   &
-              & - DOT_PRODUCT(vn_dual(il_v1,level,ib_v1)%x,                                               &
-              &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,1)%x)     &
-              & + DOT_PRODUCT(vn_dual(il_v2,level,ib_v2)%x,                                               &
-              &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,2)%x)
+              z_vt(boundaryEdge_inVertex)=   &
+                & - DOT_PRODUCT(vn_dual(il_v1,level,ib_v1)%x,                                               &
+                &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,1)%x)     &
+                & + DOT_PRODUCT(vn_dual(il_v2,level,ib_v2)%x,                                               &
+                &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,2)%x)
 
-          ENDDO
-          DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
+            ENDDO
+            DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
 
-            z_vort_boundary(level) = z_vort_boundary(level) + &
-              & z_vt(boundaryEdge_inVertex) * &
-              &    p_op_coeff%rot_coeff(vertexIndex,level,blockNo, &
-              &       coeffs_VertexEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex))
+              z_vort_boundary(level) = z_vort_boundary(level) + &
+                & z_vt(boundaryEdge_inVertex) * &
+                &    p_op_coeff%rot_coeff(vertexIndex,level,blockNo, &
+                &       coeffs_VertexEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex))
 
-          ENDDO ! boundaryEdge_inVertex
-        ENDDO ! levels
+            ENDDO ! boundaryEdge_inVertex
+          ENDDO ! levels
 
-        DO level = start_level, end_level
+          DO level = start_level, end_level
           !Final vorticity calculation
-          !TODO ram
-          !       rot_vec_v(vertexIndex,level,blockNo) = (z_vort_internal + z_vort_boundary(vertexIndex,level,blockNo)) / &
-          !         & patch_2D%verts%dual_area(vertexIndex,blockNo)
           rot_vec_v(vertexIndex,level,blockNo) = z_vort_internal(level) + z_vort_boundary(level)
 
-        END DO ! levels
+          END DO ! levels
+        ELSEIF(i_bc_veloc_lateral==i_bc_veloc_lateral_noslip)THEN
+          !In the no-slip case the velocity in normal and tengential direction vanishes. 
+          !Therefore the calculations above with tangential velocity and vorticity at boundary are are not necessary. 
+          DO level = start_level, end_level
+          !Final vorticity calculation
+          rot_vec_v(vertexIndex,level,blockNo) = z_vort_internal(level)
 
+          END DO ! levels      
+        ENDIF
       END DO ! vertexIndex
     END DO ! vertexBlock
 !ICON_OMP_END_PARALLEL_DO
