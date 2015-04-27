@@ -64,6 +64,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_seaice_nwp,            ONLY: frsi_min
   USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
   USE mo_flake,                 ONLY: flake_coldinit
+  USE mo_phyparam_soil,         ONLY: cporv, cadp
 
   IMPLICIT NONE
 
@@ -151,7 +152,7 @@ MODULE mo_nh_init_nest_utils
 
     LOGICAL :: l_parallel, l_limit(ntracer)
 
-    INTEGER :: i_count, ic
+    INTEGER :: i_count, ic, ist
 
     !-----------------------------------------------------------------------
 
@@ -528,7 +529,7 @@ MODULE mo_nh_init_nest_utils
     i_startblk = p_pc%cells%start_blk(1,1)
     i_endblk   = p_pc%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,jk1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,jk1,ist) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, &
@@ -595,24 +596,10 @@ MODULE mo_nh_init_nest_utils
               p_child_lprog%w_so_t(jc,jk,jb,jt)  = MAX(0._wp,lndvars_chi(jc,jk,jb))
               p_child_lprog%t_so_t(jc,jk,jb,jt)  = lndvars_chi(jc,jk1,jb) + tsfc_ref_c(jc,jb)
               ! limit w_so_t to pore volume and dryness point - TERRA crashes otherwise
-              IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 3) THEN
-                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.012_wp, &
-                  MIN(dzsoil(jk)*0.364_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
-              ELSE IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 4) THEN
-                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.030_wp, &
-                  MIN(dzsoil(jk)*0.445_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
-              ELSE IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 5) THEN
-                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.035_wp, &
-                  MIN(dzsoil(jk)*0.455_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
-              ELSE IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 6) THEN
-                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.060_wp, &
-                  MIN(dzsoil(jk)*0.475_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
-              ELSE IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 7) THEN
-                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.065_wp, &
-                  MIN(dzsoil(jk)*0.507_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
-              ELSE IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 8) THEN
-                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.098_wp, &
-                  MIN(dzsoil(jk)*0.863_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
+              ist = ext_data(jgc)%atm%soiltyp(jc,jb)
+              IF (ist >= 3 .AND. ist <= 8) THEN ! soil types with non-zero water content
+                p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*cadp(ist), &
+                  MIN(dzsoil(jk)*cporv(ist),p_child_lprog%w_so_t(jc,jk,jb,jt)))
               ENDIF
               p_child_lprog2%t_so_t(jc,jk,jb,jt) = p_child_lprog%t_so_t(jc,jk,jb,jt)
               p_child_lprog2%w_so_t(jc,jk,jb,jt) = p_child_lprog%w_so_t(jc,jk,jb,jt)

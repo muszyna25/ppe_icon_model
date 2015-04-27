@@ -36,7 +36,7 @@ lmetview=1
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
 EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
-METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
+METDIR=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/tools/metview
 cd ${EXPDIR}
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_$YYYYMM

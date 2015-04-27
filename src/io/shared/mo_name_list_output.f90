@@ -1542,6 +1542,7 @@ CONTAINS
         t_0 = p_mpi_wtime() ! performance measurement
 
         IF (use_dp_mpi2io) THEN
+          var3_dp(:) = 0._wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
@@ -1572,6 +1573,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
           ELSE
+            var3_sp(:) = 0._sp
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
             DO np = 0, num_work_procs-1

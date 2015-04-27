@@ -45,7 +45,7 @@ MODULE mo_cuinit
   USE mo_cuparameters,  ONLY : rkap,  r4les, r4ies   ,&
     &                          r5les ,r5ies ,ralfdcp ,&
     &                          lphylin               ,&
-    &                       lmfdudv, entrorg, rdepths,&
+    &                          lmfdudv,  rdepths     ,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
     &                          lhook,   dr_hook      ,&
@@ -168,21 +168,21 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: pvervel(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
-    INTEGER(KIND=jpim),INTENT(out)   :: klwmin(klon)
-    INTEGER(KIND=jpim),INTENT(out)   :: klab(klon,klev)
+    INTEGER(KIND=jpim),INTENT(inout)   :: klwmin(klon)
+    INTEGER(KIND=jpim),INTENT(inout)   :: klab(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: ptenh(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqenh(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pqenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqsenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
-    REAL(KIND=jprb)   ,INTENT(out)   :: ptu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: ptd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: ptu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pqu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: ptd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: puu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pvu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pud(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pvd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: plu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: puu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pvu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pud(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pvd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: plu(klon,klev)
     REAL(KIND=jprb) ::     zwmax(klon)
     REAL(KIND=jprb) ::     zph(klon)
     LOGICAL ::  llflag(klon)
@@ -301,7 +301,7 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & ptenh,    pqenh,    pgeoh,    paph,                    &
+ & entrorg,  ptenh,    pqenh,    pgeoh,    paph,          &
  & pqhfl,    pahfs,                                       &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
@@ -455,6 +455,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
