@@ -21,10 +21,10 @@ ocean_model_equations=-1     # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 #
-LOC='POOL'
+LOC='othr'
 # grids_folder=/pool/data/ICON/grids/private/leonidas/grids.ocean
 #ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
-grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
+#grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
 ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
 
 #-----------------------------------------------------------------------------
