@@ -380,14 +380,14 @@ MODULE mo_ocean_nml
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   INTEGER  :: HorizontalViscosity_SmoothIterations = 1
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
-  REAL(wp) :: HorizontalViscosity_TimeWeight = 0.0_wp
+  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
     &  HorizontalViscosity_SmoothIterations,       &
     &  HorizontalViscosity_SpatialSmoothFactor,    &
     &  HorizontalViscosityBackground_Biharmonic,   &
-    &  HorizontalViscosity_TimeWeight,  &
+    &  VerticalViscosity_TimeWeight,  &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
     &  k_sal_h                     ,    &

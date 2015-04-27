@@ -53,7 +53,7 @@ MODULE mo_ocean_physics
     &leith_closure, leith_closure_gamma,                      & 
     &veloc_diffusion_form, biharmonic_const,                  &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & HorizontalViscosity_TimeWeight
+    & VerticalViscosity_TimeWeight
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -1482,8 +1482,8 @@ CONTAINS
           & ((1.0_wp + z_c1_v * richardson_edge)**2)
           
         params_oce%a_veloc_v(je,jk,blockNo) = &
-          & HorizontalViscosity_TimeWeight * MAX(params_oce%a_veloc_v(je,jk,blockNo), new_velocity_friction) + &
-          & (1.0_wp - HorizontalViscosity_TimeWeight) * new_velocity_friction
+          & VerticalViscosity_TimeWeight * MAX(params_oce%a_veloc_v(je,jk,blockNo), new_velocity_friction) + &
+          & (1.0_wp - VerticalViscosity_TimeWeight) * new_velocity_friction
 
       END DO ! jk = 2, levels
     ENDDO ! je = start_index, end_index
