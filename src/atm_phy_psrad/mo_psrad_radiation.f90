@@ -727,7 +727,56 @@ MODULE mo_psrad_radiation
     ENDIF
   END SUBROUTINE setup_psrad_radiation
 
-  SUBROUTINE psrad_radiation
+  SUBROUTINE psrad_radiation ( &
+    & jg         ,&!< in  domain index
+    & jb         ,&!< in  block index
+    & jce        ,&!< in  end index for loop over block
+    & kbdim      ,&!< in  dimension of block over cells
+    & klev       ,&!< in  number of full levels = number of layers
+    & klevp1     ,&!< in  number of half levels = number of layer interfaces
+    & ktype      ,&!< in  type of convection
+    & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
+    & loglac     ,&!< in  fraction of land covered by glaciers
+    & alb_vis_dir,&!< in  surface albedo for visible range, direct
+    & alb_nir_dir,&!< in  surface albedo for near IR range, direct
+    & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
+    & alb_nir_dif,&!< in  surface albedo for near IR range, diffuse
+    & tk_sfc     ,&!< in  grid box mean surface temperature
+    & pp_hl      ,&!< in  pressure at half levels at t-dt [Pa]
+    & pp_fl      ,&!< in  pressure at full levels at t-dt [Pa]
+    & tk_fl      ,&!< in  tk_fl  = temperature at full level at t-dt
+    & qm_vap     ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
+    & qm_liq     ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
+    & qm_ice     ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
+    & geom1       &!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
+    &                        )
+    INTEGER, INTENT(in)  :: &
+    & jg,             & !< domain index
+    & jb,             & !< block index
+    & jce,            & !< end   index for loop over block
+    & kbdim,          & !< dimension of block over cells
+    & klev,           & !< number of full levels = number of layers
+    & klevp1,         & !< number of half levels = number of layer interfaces 
+    & ktype(kbdim)      !< convection type
+
+    LOGICAL, INTENT(IN)  :: &
+    & loland(kbdim),     & !< land mask
+    & loglac(kbdim)        !< glacier mask
+
+    REAL(wp), INTENT(IN) :: &
+    & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
+    & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
+    & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
+    & alb_nir_dif(kbdim),& !< surface albedo for NIR range and diffuse light
+    & tk_sfc(kbdim),     & !< Surface temperature
+    & pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
+    & pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
+    & tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
+    & qm_vap(kbdim,klev), & !< Water vapor mixing ratio
+    & qm_liq(kbdim,klev), & !< Liquid water mixing ratio
+    & qm_ice(kbdim,klev), & !< Ice water mixing ratio
+    & geom1(kbdim,klev)     !< Geopotential height at t-dt
+
   END SUBROUTINE psrad_radiation
 
   END MODULE mo_psrad_radiation

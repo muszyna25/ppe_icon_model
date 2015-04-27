@@ -206,7 +206,7 @@ CONTAINS
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
-    LOGICAL  :: lland, lglac
+    LOGICAL  :: lland(nbdim), lglac(nbdim)
 
     CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
     INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
@@ -318,14 +318,17 @@ CONTAINS
     !      (1/M**3) USED IN RADLSW AND CLOUD
     !---------------------------------------------------------------------
 
+    DO jc=jcs,jce
+      lland(jc) = field%lfland(jc,jb)
+      lglac(jc) = lland(jc).AND.field%glac(jc,jb).GT.0._wp
+    END DO
+
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
 
-        lland = field%lfland(jc,jb)
-        lglac = lland.AND.field%glac(jc,jb).GT.0._wp
-        IF (lland.AND.(.NOT.lglac)) THEN
+        IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
           zn1= 20._wp
           zn2=180._wp
         ELSE
@@ -576,6 +579,32 @@ CONTAINS
             CALL message('radiation','irad_type=1, default radiation')
           CASE (2) 
             CALL message('radiation','irad_type=2, psrad radiation')
+            CALL psrad_radiation(      &
+            & jg                      ,&!< in  domain index
+            & jb                      ,&!< in  block index
+            & jce        = jce        ,&!< in  end index for loop over block
+            & kbdim      = nbdim      ,&!< in  dimension of block over cells
+            & klev       = nlev       ,&!< in  number of full levels = number of layers
+            & klevp1     = nlevp1     ,&!< in  number of half levels = number of layer interfaces
+            & ktype      = itype(:)   ,&!< in  type of convection
+            & loland     = lland      ,&!< in  land-sea mask. (logical)
+            & loglac     = lglac      ,&!< in  glacier mask (logical)
+            & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
+            & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
+            & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
+            & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
+            & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
+            & pp_hl  =field%presi_old(:,:,jb)      ,&!< in  pressure at half levels at t-dt [Pa]
+            & pp_fl  =field%presm_old(:,:,jb)      ,&!< in  pressure at full levels at t-dt [Pa]
+            & tk_fl  =field%temp(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
+            & qm_vap =field%q(:,:,jb,iqv)    ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
+            & qm_liq =field%q(:,:,jb,iqc)    ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
+            & qm_ice =field%q(:,:,jb,iqi)    ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
+            & geom1  =field%geom(:,:,jb)     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
+            & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cld_frac = cloud fraction [m2/m2]
+            & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
+            & pxtm1  =field% q(:,:,jb,iqt:)   &! in     xtm1
+            &                           )
           CASE DEFAULT
             CALL finish('radiation','irad_type neither 1 nor 2, not supported')
         END SELECT
