@@ -1192,6 +1192,7 @@ scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
+scripts/run_scripts/sed_change_namelist -text
 scripts/run_scripts/test/test_experiments.rb -text
 src/CMakeLists.txt -text
 src/advection/mo_advection_geometry.f90 -text

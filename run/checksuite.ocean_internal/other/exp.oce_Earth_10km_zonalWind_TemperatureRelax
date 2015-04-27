@@ -109,7 +109,7 @@ cat > ${ocean_namelist} << EOF
   !k_sal_h            = 1.0E+3     ! [m2/s] constant horizontal diffusion coefficient for salinity
   !k_sal_v            = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for salinity
   !k_veloc_v          = 5.0E-5     ! [m/s]  vertical background viscosity coefficient for velocity
-  HorizontalVelocity_DiffusionFactor           = 40.0      ! 15.0     ! [m2/s] constant horizontal viscosity coefficient for velocity
+  k_veloc_h           = 40.0      ! 15.0     ! [m2/s] constant horizontal viscosity coefficient for velocity
 /
 &ocean_physics_nml
   !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner

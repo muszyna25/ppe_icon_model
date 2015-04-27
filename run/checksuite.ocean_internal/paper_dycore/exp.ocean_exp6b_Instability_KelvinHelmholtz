@@ -119,7 +119,7 @@ dzlev_m(1:20)      =   14.0,   12.0,   15.0,   18.0,   21.0,   25.0,   30.0,   4
 /
 &ocean_diffusion_nml
   HorizontalViscosity_type = 1        ! 1: use constant horizontal viscosity coefficient according to namelist
-  HorizontalVelocity_DiffusionFactor            = 1.0E10 !1.0E13 !3.0E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HorizontalViscosityBackground_Biharmonic = 1.0E10 !1.0E13 !3.0E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5 !5.0E-4   ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC  =  0.0   ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h         =  400.0   ! [m2/s] constant horizontal diffusion coefficient for temperature

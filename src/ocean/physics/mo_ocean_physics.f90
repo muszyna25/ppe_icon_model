@@ -247,6 +247,7 @@ CONTAINS
       
       !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
+    
       p_phys_param%k_veloc_h_back = HorizontalViscosityBackground_Biharmonic
 !       p_phys_param%k_veloc_h      = HorizontalViscosityBackground_Biharmonic
       SELECT CASE(HorizontalViscosity_type)
