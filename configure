@@ -3639,12 +3639,16 @@ if test -n "$ZLIBROOT" ; then
   if test -r "$ZLIBROOT/lib/libz.a" ; then
      ZLIB_LIB='-L$(ZLIBROOT)/lib -lz'
   else
-    if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
-       ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
-    else
-       echo "cannot read $ZLIBROOT/lib/libz.a"
-       exit 1
-    fi
+     if test -r "$ZLIBROOT/lib64/libz.a" -o -r "$ZLIBROOT/lib64/libz.so" ; then
+        ZLIB_LIB='-L$(ZLIBROOT)/lib64 -lz'
+     else
+        if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
+           ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
+        else
+           echo "cannot read $ZLIBROOT/lib/libz.a"
+           exit 1
+        fi
+     fi
   fi
   if test -d "$ZLIBROOT/include" ; then
      ZLIB_INCLUDE='-I$(ZLIBROOT)/include'
@@ -4219,7 +4223,14 @@ fi
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
-      mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+      case "$MPIROOT" in
+      *impi*)
+        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        ;;
+      *)
+        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        ;;
+      esac
       ;;
     esac
     if test -r $mod_file ; then
@@ -6019,7 +6030,11 @@ fi
 if [ "x$target_os" = xsuperux ] ; then
     MODDIR=""
 else
-    MODDIR="${MODDIR}../module"
+    if [ "x$FC" = xifort ] ; then
+        MODDIR="${MODDIR} ../module"
+    else
+        MODDIR="${MODDIR}../module"
+    fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
 
