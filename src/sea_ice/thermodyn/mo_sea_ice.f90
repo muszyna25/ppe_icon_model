@@ -2973,7 +2973,7 @@ CONTAINS
             &                - (p_ice%draftave(cell,block)*rho_ref*alf) &
             &                + (Tf - t_base)*p_ice%draftave(cell,block)*rho_ref*clw
         CASE (1)
-          !  compute energy content - use zUnderIce and hi, hs
+          !  compute energy content - use zUnderIce and hi, hs, conc
           !  = (sst-t_base)*zUnderIce*rhow*clw - (hi*rhoi+hs*rhos)*alf*conc + (Tf-t_base)*(hi*rhoi+hs*rhos)*conc*clw
           energy(cell,block) = (sst(cell,block) - t_base) * p_ice%zUnderIce(cell,block)*rho_ref*clw &
             &                - ((p_ice%hi(cell,1,block)*rhoi + p_ice%hs(cell,1,block)*rhos)*p_ice%conc(cell,1,block)*alf) &

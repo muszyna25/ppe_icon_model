@@ -239,11 +239,23 @@ CONTAINS
     ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) &
       &                - (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
     energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
-      &             ice, sst(:,:), 0, info='AFT CONCCH')
+      &             ice, sst(:,:), 0, info='AFT CONCCH-0')
 
     CALL dbg_print('IceSlow: energy aft. ConcCh',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: zUnderIce a.ConcCh',ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: zUI+snowf a.ConcCh',zuipsnowf,    str_module, 4, in_subset=p_patch%cells%owned)
+
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 1, info='AFT CONCCH-1')
+    CALL dbg_print('IceSlow: energy typ1 ConcCh',energyCheck  ,str_module, 4, in_subset=p_patch%cells%owned)
+
+    ! update draftave for comparison to energy using type 0 - difference by snowfall, see above: 
+    ice%draftave (:,:) = (rhos * ice%hs(:,1,:) + rhoi * ice%hi(:,1,:)) * ice%conc(:,1,:) / rho_ref
+    ice%zUnderIce(:,:) = flat(:,:) + p_os%p_prog(nold(1))%h(:,:) - ice%draftave(:,:)
+
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 0, info='AFT CONCCH-corr0')
+    CALL dbg_print('IceSlow: energy typ0 draft',energyCheck  ,str_module, 4, in_subset=p_patch%cells%owned)
 
     ! ocean stress calculated independent of ice dynamics
     CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
@@ -257,7 +269,17 @@ CONTAINS
       ice%v = 0._wp
     ENDIF
 
+    ! check after ice dynamics, method 1 since draftave is not yet updated
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 1, info='AFT ICEDYN')
+    CALL dbg_print('IceSlow: energy aftIceAdv',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+
     CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+
+    !  last check after cleanup with draftave update:
+    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+      &             ice, sst(:,:), 1, info='AFT ICEDYN')
+    CALL dbg_print('IceSlow: energy aft CleanUp',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module, 3, in_subset=p_patch%cells%owned)

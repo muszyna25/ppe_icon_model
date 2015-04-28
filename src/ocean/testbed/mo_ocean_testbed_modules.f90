@@ -1104,10 +1104,10 @@ ENDIF
       !---------------------------------------------------------------------
 
       ! hack for writing energy/salt budgets on ice%u/v:
-      p_ice%u(:,:) = energyDits(:,:)
-      p_ice%v(:,:) = saltBudget(:,:)
-      CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+   !  p_ice%u(:,:) = energyDits(:,:)
+   !  p_ice%v(:,:) = saltBudget(:,:)
+   !  CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+   !  CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
 
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
