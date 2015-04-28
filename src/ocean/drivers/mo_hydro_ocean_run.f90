@@ -68,9 +68,8 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_ocean_statistics
   USE mo_ocean_output
-#ifdef YAC_coupling
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
-#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -364,10 +363,9 @@ CONTAINS
       ! #slo#-2015-04-15: call to coupling routine at the end of time stepping loop - TODO: check location
       ! old call is uncommented in mo_ocean_bulk.f90, line 258
 
-#ifdef YAC_coupling
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
         &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), p_ice, p_atm_f, jstep, datetime)
-#endif
+
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop

@@ -84,12 +84,7 @@ MODULE mo_echam_phy_init
                                    & prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
-#ifdef YAC_coupling
-  USE mo_yac_finterface,       ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
-#else
-  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
-  USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-#endif
+
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
 
@@ -442,16 +437,10 @@ CONTAINS
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
     !----
 
-    ! in case of coupling
-    INTEGER               :: nbr_fields
-    INTEGER               :: nbr_points
-    INTEGER               :: nbr_hor_points
-
     INTEGER               :: field_shape(3)
     INTEGER, ALLOCATABLE  :: field_id(:)
     REAL(wp), ALLOCATABLE :: buffer(:,:)
 
-    INTEGER               :: info, ierror !< return values form cpl_put/get calls
 
       field => prm_field(jg)
       tend  => prm_tend (jg)
@@ -565,177 +554,6 @@ CONTAINS
           field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-
-#ifndef YAC_coupling
-
-! This shouldn't be necessary!
-
-          IF ( is_coupled_run() ) THEN
-
-             ALLOCATE(buffer(nproma*nblks_c,5))
-
-             nbr_hor_points = p_patch%n_patch_cells
-             nbr_points     = nproma * p_patch%nblks_c
-
-             !
-             !  see drivers/mo_atmo_model.f90:
-             !
-             !   field_id(1) represents "TAUX"   wind stress component
-             !   field_id(2) represents "TAUY"   wind stress component
-             !   field_id(3) represents "SFWFLX" surface fresh water flux
-             !   field_id(4) represents "SFTEMP" surface temperature
-             !   field_id(5) represents "THFLX"  total heat flux
-             !   field_id(6) represents "ICEATM" ice temperatures and melt potential
-             !
-             !   field_id(7) represents "SST"    sea surface temperature
-             !   field_id(9) represents "OCEANU" u component of ocean surface current
-             !   field_id(9) represents "OCEANV" v component of ocean surface current
-             !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
-             !
-             !
-             CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-             ALLOCATE(field_id(nbr_fields))
-             CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-             !
-             field_shape(1) = 1
-             field_shape(2) = nbr_hor_points
-             field_shape(3) = 1
-             !
-             ! Send fields away
-             ! ----------------
-             !
-             ! Is there really anything to send or can the ocean live without?
-             !
-             ! Send fields away
-             ! ----------------
-             !
-             ! TAUX
-             !
-             buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-             buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
-             field_shape(3) = 2
-
-             CALL ICON_cpl_put_init ( field_id(1), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
-             !
-             ! TAUY
-             !
-             buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-             buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
-
-             CALL ICON_cpl_put_init ( field_id(2), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
-             !
-             ! SFWFLX Note: the evap_tile should be properly updated and added
-             !
-             buffer(:,1) = RESHAPE ( field%rsfl(:,:), (/ nbr_points /) ) + &
-                  &        RESHAPE ( field%rsfc(:,:), (/ nbr_points /) ) 
-             buffer(:,2) = RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
-                  &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
-             buffer(:,3) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
-
-             field_shape(3) = 3
-
-             CALL ICON_cpl_put_init ( field_id(3), field_shape, &
-                                      buffer(1:nbr_hor_points,1:3), ierror )
-             !
-             ! SFTEMP
-             !
-             buffer(:,1) =  RESHAPE ( field%temp(:,nlev,:), (/ nbr_points /) )
-             field_shape(3) = 1
-
-             CALL ICON_cpl_put_init ( field_id(4), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), ierror )
-             !
-             ! THFLX, total heat flux
-             !
-             buffer(:,1) =  RESHAPE ( field%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
-             buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) ! sensible heat flux
-             buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
-
-             field_shape(3) = 4
-
-             CALL ICON_cpl_put_init ( field_id(5), field_shape, &
-                                      buffer(1:nbr_hor_points,1:4), ierror )
-             !
-             ! ICEATM, Ice state determined by atmosphere
-             !
-             buffer(:,1) =  RESHAPE ( field%Qtop(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - top
-             buffer(:,2) =  RESHAPE ( field%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
-             buffer(:,3) =  RESHAPE ( field%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
-             buffer(:,4) =  RESHAPE ( field%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
-
-             field_shape(3) = 4
-             CALL ICON_cpl_put_init ( field_id(6), field_shape, &
-                                      buffer(1:nbr_hor_points,1:4), ierror )
-
-             ! Receive fields, only assign values if something was received ( info > 0 )
-             ! -------------------------------------------------------------------------
-             !
-             ! I guess that only the SST is really needed.
-             !
-             !
-             ! SST
-             !
-             field_shape(3) = 1
-             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
-                CALL sync_patch_array(sync_c, p_patch, field%tsfc_tile(:,:,iwtr))
-                CALL sync_patch_array(sync_c, p_patch, field%tsfc     (:,:))
-             ENDIF
-             !
-             ! OCEANU
-             !
-             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                CALL sync_patch_array(sync_c, p_patch, field%ocu(:,:))
-             ENDIF
-             !
-             ! OCEANV
-             !
-
-             CALL ICON_cpl_get_init ( field_id(9), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                CALL sync_patch_array(sync_c, p_patch, field%ocv(:,:))
-             ENDIF
-
-             !
-             ! ICEOCE
-             !
-             field_shape(3) = 5
-             CALL ICON_cpl_get_init ( field_id(10), field_shape, &
-                                      buffer(1:nbr_hor_points,1:5), info, ierror )
-             IF ( info > 0 ) THEN
-               buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-               field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-               field%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
-               field%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
-               field%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
-               field%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, nblks_c /) )
-               CALL sync_patch_array(sync_c, p_patch, field%hi  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch, field%hs  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch, field%seaice(:,:))
-               CALL sync_patch_array(sync_c, p_patch, field%T1  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch, field%T2  (:,1,:))
-               field%seaice(:,:) = field%conc(:,1,:)
-             ENDIF
-
-             DEALLOCATE(field_id)
-             DEALLOCATE(buffer)
-
-          ENDIF
-#endif
 
         CASE('JWw-Moist','LDF-Moist','jabw_m')
 

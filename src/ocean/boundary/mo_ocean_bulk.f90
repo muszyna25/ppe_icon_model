@@ -78,10 +78,6 @@ USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_slow_slo, ice_fast
 USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
 
-#ifndef YAC_coupling
-USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
-#endif
-
 IMPLICIT NONE
 
 ! required for reading netcdf files
@@ -250,16 +246,9 @@ CONTAINS
       CALL message(TRIM(routine), 'STOP: Ocean Forcing option 13 not implemented yet' )
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
 
-#ifndef YAC_coupling
     CASE (Coupled_FluxFromAtmo)                                       !  14
 
-      !  Driving the ocean in a coupled mode:
-      !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
-      !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
-      !  and do a direct assignment of atmospheric state to surface fluxes.
-      !
-      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, atmos_fluxes, jstep, datetime)
-#endif
+      ! CALL couple_ocean_toatmo_fluxes ihas been moved to mo_hydro_ocean_run.f90
 
     CASE (Coupled_FluxFromFile)                                       !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction
