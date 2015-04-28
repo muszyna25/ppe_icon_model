@@ -13,7 +13,7 @@ MODULE mo_ocean_coupling
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: warning
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rho_ref
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
@@ -182,11 +182,12 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
-    CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
+    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
+      & INT(time_config%dt_restart))
 
-    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%sim_start), &
-      &                      end_datetime   = TRIM(sim_step_info%sim_end)   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start), &
+      &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
@@ -546,31 +547,28 @@ CONTAINS
     
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(7), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
-    IF ( info > 0 ) WRITE ( 6 , * ) "ocean CPL SST", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
 #else
     CALL icon_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info > 1 ) write_coupler_restart = .TRUE.
     !
     ! zonal velocity
     buffer(:,1) = RESHAPE(ocean_state%p_diag%u(:,1,:), (/nbr_points /) )
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(8), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
-    IF ( info > 0 ) WRITE ( 6 , * ) "ocean CPL U", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
 #else
     CALL icon_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info > 2 ) write_coupler_restart = .TRUE.
     !
     ! meridional velocity
     buffer(:,1) = RESHAPE(ocean_state%p_diag%v(:,1,:), (/nbr_points /) )
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(9), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
-    IF ( info > 0 ) WRITE ( 6 , * ) "ocean CPL V", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
 #else
     CALL icon_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info > 2 ) write_coupler_restart = .TRUE.
     !
     ! Ice thickness, concentration, T1 and T2
     buffer(:,1) = RESHAPE(ice%hi  (:,1,:), (/nbr_points /) )
@@ -581,24 +579,18 @@ CONTAINS
     field_shape(3) = 5
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(10), nbr_hor_points, 5, 1, 1, buffer(1:nbr_hor_points,1:5), info, ierror )
-    IF ( info > 0 ) THEN
-        WRITE ( 6 , * ) "ocean CPL ice 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-        WRITE ( 6 , * ) "ocean CPL ice 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
-        WRITE ( 6 , * ) "ocean CPL ice 3", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
-        WRITE ( 6 , * ) "ocean CPL ice 4", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
-        WRITE ( 6 , * ) "ocean CPL ice 5", minval(buffer(1:nbr_hor_points,5:5)), maxval(buffer(1:nbr_hor_points,5:5))
-    ENDIF
 #else
     CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info > 2 ) write_coupler_restart = .TRUE.
 
+    IF ( write_coupler_restart ) THEN
 #ifdef YAC_coupling
-    IF ( write_coupler_restart ) &
-      & CALL finish ( 'couple_ocean_toatmo_fluxes', 'ERROR: restart not supported yet for YAC')
+       CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is put for restart')
 #else
-    IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
+       CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
 #endif
+    ENDIF
     !
     ! Receive fields from atmosphere
     ! ------------------------------
@@ -624,6 +616,7 @@ CONTAINS
     ! meridional wind stress
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(2), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
+    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
@@ -641,6 +634,7 @@ CONTAINS
     field_shape(3) = 3
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_points, 3, 1, 1, buffer(1:nbr_hor_points,1:3), info, ierror )
+    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
 #endif
@@ -667,6 +661,7 @@ CONTAINS
     field_shape(3) = 1
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
+    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
@@ -686,6 +681,7 @@ CONTAINS
     field_shape(3) = 4
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(5), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
+    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif
@@ -712,6 +708,7 @@ CONTAINS
     field_shape(3) = 4
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
+    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif

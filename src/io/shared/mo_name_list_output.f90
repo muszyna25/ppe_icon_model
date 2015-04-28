@@ -409,7 +409,7 @@ CONTAINS
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
-        CALL resetCalendar()
+        !rr CALL resetCalendar()
       END IF
 
 

@@ -343,9 +343,6 @@ CONTAINS
           ! compute sim_start, sim_end
           CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
           CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-          CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
-            &                      INT(time_config%dt_restart))
-          CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
           sim_step_info%dtime      = dtime
           jstep0 = 0
           IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
@@ -693,11 +690,12 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
-    CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
+    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
+      & INT(time_config%dt_restart))
 
-    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%sim_start),  &
-      &                      end_datetime   = TRIM(sim_step_info%sim_end)   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start),  &
+      &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
