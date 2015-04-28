@@ -116,6 +116,11 @@ def loadLog(options):
 
   return LOG
 
+""" show output names from the LOG """
+def showLogEntries(log,keys):
+  for key in keys:
+    print(':'.join([key,log[key]]))
+
 """ append list of image together """ #{{{
 def collectImageToMapByRows(images,columns,ofile):
   imageMap     = {}
@@ -798,6 +803,12 @@ for cdopath in cdo164:
 # }}}
 # -----------------------------------------------------------------------------
 # INPUT HANDLING: {{{
+# logging or post-processing
+if 'LOG' in options.keys():
+  keys = options['LOG'].split(',')
+  showLogEntries(loadLog(options),keys)
+
+  doExit()
 # are the files accessable?
 iFiles = glob.glob(options['FILEPATTERN'])
 dbg("All available files: "+','.join(iFiles))
@@ -973,6 +984,7 @@ LOG['last30YearsMeanBias'] = cdo.sub(input = ' {0} -selname,{1} {2}'.format(LOG[
                                                                                     LOG['years'][lastYearsStartYear],
                                                                                     LOG['years'][lastYearsEndYear]),
                                      options = "-Q")
+dumpLog()
 # }}} ===================================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
@@ -1098,6 +1110,7 @@ if 'procTSR' in options['ACTIONS']:
                                 '/'.join([options['ARCHDIR'],'TSR_2D_{0}_complete_timmean_masked.nc'.format(options['EXP'])]))
   dbg(t_s_rho_Output_2D)
 
+  dumpLog()
   print(' procTSR FINISH ---------------------------------------')
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================

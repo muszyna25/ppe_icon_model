@@ -7,6 +7,7 @@ postProcPath="${basePath}/scripts/postprocessing/tools"
       plotTS="${postProcPath}/ocean/plot_timeser"
  convert2png="${postProcPath}/ocean/create_plot_browser"
 convert2html="${postProcPath}/ocean/mk_index_html"
+  iceplotter="${postProcPath}/plotSeaIce_nclsh.bash"
 # ================================================================================
 # plotting
 ## find the last input file
@@ -56,6 +57,11 @@ else
 fi
 
 $archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true ACTIONS='archive,preproc,procMoc,plotMoc,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce'
+
+last30YearsMonMeanFile=$($archiver LOG='last30YearsMonMean' | cut -d ':' -f 2)
+
+$iceplotter $last30YearsMonMeanFile nh 2199 ${EXPNAME}_nh.nc
+$iceplotter $last30YearsMonMeanFile sh 2199 ${EXPNAME}_sh.nc
 
 check_error $? "${EXPNAME}"
 
