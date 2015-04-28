@@ -217,7 +217,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
 
-    INTEGER                               :: istat, i
+    INTEGER                               :: istat, i, j
     TYPE(t_output_name_list), POINTER     :: p_onl
     INTEGER                               :: nnamelists
     LOGICAL                               :: lrewind
@@ -277,8 +277,6 @@ CONTAINS
 
     !> RBF shape parameter.
     REAL(wp)                              :: rbf_scale
-
-    INTEGER                               :: i,j
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
