@@ -1,7 +1,8 @@
+#========================================
 #!/bin/bash
 #-----------------------------------------------------------------------------
 export dtime=360
-export HorizontalViscosityBackground_Biharmonic=4.5E10
+export HorizontalViscosityBackground_Biharmonic=1.0E9
 #-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
@@ -20,8 +21,8 @@ start_date="2001-01-01T00:00:00Z"
 output_interval="P04D"     # ocean model output interval in days
 steps_per_file="60" 
 
-grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/grids/Idealized"
-ocean_grids="Ocean_Channel_3360x1680x10km.nc"
+grids_folder="/scratch/mpi/CC/mh0287/oes/grids/Idealized"
+ocean_grids="Ocean_Channel_3360x1680_10km.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -74,11 +75,12 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
- n_zlev             =   40
- dzlev_m(1:40)      =   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,
-                        18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,   18.0,
+ n_zlev             =   48
+ dzlev_m(1:48)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
+                        12.0,   13.0,   13.0,   14.0,   14.0,   15.0,   16.0,   17.0,   18.0,   18.0,
                         19.0,   20.0,   21.0,   22.0,   24.0,   26.0,   28.0,   32.0,   36.0,   40.0,
-                        46.0,   56.0,   70.0,   90.0,  120.0,  160.0,  180.0,  200.0,  220.0,  240.0
+                        45.0,   50.0,   55.0,   60.0,   65.0,   70.0,   80.0,   90.0,  100.0,  110.0,
+                       120.0,  130.0,  140.0,  150.0,  160.0,  170.0,  190.0,  210.0
   l_edge_based    = .false.           ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.           ! partial bottom cells=true: local varying bottom depth
   i_bc_veloc_bot     = 1              !  0/1=bottom friction off/on
@@ -109,8 +111,8 @@ cat > ${ocean_namelist} << EOF
   HorizontalViscosity_SmoothIterations = 0
   HorizontalViscosity_SpatialSmoothFactor = 0.5
   HorizontalViscosityBackground_Biharmonic = ${HorizontalViscosityBackground_Biharmonic}
-  HorizontalViscosity_TimeWeight = 0.25
-  k_veloc_v            = 4.0E-4   ! [m/s]  vertical background viscosity coefficient for velocity
+  VerticalViscosity_TimeWeight = 0.25
+  k_veloc_v            = 3.0E-4   ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC  =   0.0   ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h         =  350.0   ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v         = 1.0E-5   ! [m/s]  vertical background diffusion coefficient for temperature
@@ -124,8 +126,8 @@ cat > ${ocean_namelist} << EOF
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   physics_parameters_type = 4 
   richardson_veloc   = 4.0e-3    ! factor for vertical viscosity coefficient in PP scheme
-  richardson_tracer  = 4.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-  bottom_drag_coeff  = 1.0E-2
+  richardson_tracer  = 3.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+  bottom_drag_coeff  = 8.0E-3
 /
 &ocean_forcing_nml
   iforc_oce = 11
@@ -158,3 +160,4 @@ EOF
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
+#-----------------------------------------------------------------------------
