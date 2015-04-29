@@ -466,8 +466,8 @@ CONTAINS
       ENDDO
     END DO
 
-    ! we need to sync edge coefficients
-    CALL sync_patch_array(sync_e, patch_2D, k_h)   
+    ! we do not need to sync edge coefficients
+    ! CALL sync_patch_array(sync_e, patch_2D, k_h)   
     
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print levels - 0: print in any case
