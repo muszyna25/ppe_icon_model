@@ -414,9 +414,9 @@ CONTAINS
     REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v)
     INTEGER  :: sea_edges_onLevel(n_zlev)
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: edges_in_domain, verts_in_domain
+    TYPE(t_subset_range), POINTER ::all_edges, verts_in_domain
     !-------------------------------------------------------------------------
-    edges_in_domain => patch_2D%edges%in_domain
+    all_edges => patch_2D%edges%all
     verts_in_domain => patch_2D%verts%in_domain
 
     z_k_ave_v(:,:,:) = 0.0_wp
@@ -445,12 +445,12 @@ CONTAINS
       ENDDO
     END DO
 
-    ! we need to sync here
+    ! we do need to sync here
     CALL sync_patch_array(sync_v, patch_2D, z_k_ave_v)    
     
     
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, start_index, end_index)
       DO je = start_index, end_index
 
         il_v1 = patch_2D%edges%vertex_idx(je,jb,1)
@@ -466,7 +466,7 @@ CONTAINS
       ENDDO
     END DO
 
-    ! we also need to sync edge coefficients
+    ! we need to sync edge coefficients
     CALL sync_patch_array(sync_e, patch_2D, k_h)   
     
     !---------Debug Diagnostics-------------------------------------------

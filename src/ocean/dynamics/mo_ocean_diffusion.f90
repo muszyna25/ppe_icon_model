@@ -735,8 +735,7 @@ CONTAINS
             !              write(0,*)  "9",  patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
             !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
 
-            nabla2_vec_e(edge_index,level,blockNo) = &
-              & patch_3D%wet_e(edge_index,level,blockNo)*                                     &
+            nabla2_vec_e(edge_index,level,blockNo) = &   ! patch_3D%wet_e(edge_index,level,blockNo)* &
               & k_h(edge_index,level,blockNo) * (                                             &
               & patch_2D%edges%tangent_orientation(edge_index,blockNo) *                      &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
@@ -760,7 +759,7 @@ CONTAINS
         DO edge_index = start_index, end_index
           DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
           
-            nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)*&
+            nabla2_vec_e(edge_index,level,blockNo) = & !patch_3D%wet_e(edge_index,level,blockNo)*&
               & (   &
               & patch_2D%edges%tangent_orientation(edge_index,blockNo) *     &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))     &
@@ -892,17 +891,16 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       DO edge_index = start_index, end_index
-        DO level = start_level, end_level
+        DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
           
-          nabla4_vec_e(edge_index,level,blockNo) =  &
-            & patch_3D%wet_e(edge_index,level,blockNo)&
-            &* k_h(edge_index,level,blockNo)  &
+          nabla4_vec_e(edge_index,level,blockNo) =  &    ! patch_3D%wet_e(edge_index,level,blockNo) *&
+            &  k_h(edge_index,level,blockNo)  &
             & *(patch_2D%edges%tangent_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
             & - z_rot_v(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )  &
             & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo))   &
-            & +patch_3D%wet_e(edge_index,level,blockNo)                      &
-            &* k_h(edge_index,level,blockNo) * &            
+            & + & !patch_3D%wet_e(edge_index,level,blockNo)  *                    &
+            &  k_h(edge_index,level,blockNo) * &            
             & (( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))    &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )  &
             & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
