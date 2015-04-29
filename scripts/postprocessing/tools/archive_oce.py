@@ -768,21 +768,41 @@ def maskCellVariables(ifile,maskfile,ofile,force):
   # merge groups together
   cdo.merge(input = '{0}'.format(' '.join(masked_groups.values())),output = ofile)
   return list(chain(*groups.values()))
+
+""" collect yearmean values and remove single yearmean files """
+def collectYearMeanData():
+  # find out which years have been processed
+  #
+  # find out which year mean files have already been packed together
+  #
+  # pack the remaining year mean files
+  #
+  # remove singe mean files for alle years which have just been packed
+  #
+  # return the name of file
+  collectYearMeanDataFile = ''
+  return collectYearMeanDataFile
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
 # script for archiving (suprise,surpise):
 #
 # [a] transform output to
-#   ymean
-#   mommean
-#   yealy
-# [b] compute diagnostics:
-#   psi from 20ym
-#   moc from 20ym
+#   yealy (model output does not do this, yet)
+#   ymean (collected in chunks of restart interval, but complete years only)
+#   ymommean (last 30 years by default, shorter in case of shorter simulation)
+# [b] compute diagnostics/plots (optionally):
+#   psi from 30ym
+#   moc from 30ym
 #   throughflows from total ym 
 #   glob. vertical mixing form total monmean
+#   vertical cross-sections: s,t,rhopot
+#   horizontal: s,t,rhopot,h,u,v
+#   reginal mean for s,t
+#   sea ice mean thickness and concentration (march, september)
+#   mixed-layer-depth
 #
+# most steps can be (de)activated by the ACTIONS key in the options dictionary
 #=============================================================================== 
 # INTERNALS {{{ ================================================================
 options         = parseOptions()
@@ -803,13 +823,14 @@ for cdopath in cdo164:
 # }}}
 # -----------------------------------------------------------------------------
 # INPUT HANDLING: {{{
-# logging or post-processing
+#   LOGGING requested
+#   print out used defined log entries
 if 'LOG' in options.keys():
   keys = options['LOG'].split(',')
   showLogEntries(loadLog(options),keys)
-
   doExit()
-# are the files accessable?
+#   POST-PROCESSINg
+# Check for files accessablility
 iFiles = glob.glob(options['FILEPATTERN'])
 dbg("All available files: "+','.join(iFiles))
 
@@ -842,9 +863,9 @@ if hasNewFiles:
 
 # get the data dir from iFiles for later use
 LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
-
+# }}}
 #------------------------------------------------------------------------------
-# BASIC PLOTSETUP FOR MAIN VARIABLES
+# BASIC PLOTSETUP FOR MAIN VARIABLES {{{ ======================================
 PlotConfig =  {
   't_acc'      : {'plotLevs' : '-2,-1,-0,1,2,5,10,15,20,25,30'},
   's_acc'      : {'plotLevs' : '20,25,28,30,32,33,34,34.5,35,35.5,36,36.5,37,38,40'},
@@ -858,9 +879,8 @@ PlotConfigBias =  {
   's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
   'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
   }
-# }}}
-# =======================================================================================
-# DATA SPLITTING {{{ ====================================================================
+# }}} # =======================================================================
+# DATA SPLITTING {{{ ==========================================================
 if 'preproc' in options['ACTIONS']:
   if options['FORCE']:
     scanFilesForTheirYears(iFiles,options['PROCS'],LOG)
@@ -921,17 +941,17 @@ LOG['years']      = years
 yearMeanFiles.sort()
 dumpLog()
 dbg(LOG)
-# }}} ===================================================================================
-# COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
+# }}} ==========================================================================
+# COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ ============================
 LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init.nc'%(options['EXP'])]))
-# }}} ===================================================================================
-# COMPUTE CELL MASK FOR LATER APPLICATION {{{ ===========================================
+# }}} ==========================================================================
+# COMPUTE CELL MASK FOR LATER APPLICATION {{{ ==================================
 LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
-# }}} ===================================================================================
-# COMPUTE NUMBER OF VERTICAL LEVELS {{{ =================================================
+# }}} ==========================================================================
+# COMPUTE NUMBER OF VERTICAL LEVELS {{{ ========================================
 LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
-# }}} ===================================================================================
-# COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
+# }}} ==========================================================================
+# COMPUTE SINGLE YEARMEAN FILES {{{ ============================================
 #ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
 #if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
 ## if (os.path.exists(ymFile)):
@@ -941,8 +961,8 @@ LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 #  #map(lambda x: os.remove(x),ymFiles)
 ##else:
 ## print("Use existing ymFile: "+ymFile)
-# }}} ===================================================================================
-# COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
+# }}} ==========================================================================
+# COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =================
 lastYearsPeriod    = min(30,len(LOG['years'])/2)
 lastYearsStartYear = -1*lastYearsPeriod - 2
 lastYearsEndYear   = lastYearsStartYear + lastYearsPeriod
@@ -985,7 +1005,7 @@ LOG['last30YearsMeanBias'] = cdo.sub(input = ' {0} -selname,{1} {2}'.format(LOG[
                                                                                     LOG['years'][lastYearsEndYear]),
                                      options = "-Q")
 dumpLog()
-# }}} ===================================================================================
+# }}} ==========================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
 if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
@@ -1002,7 +1022,7 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
   cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],LOG['last30Years']),
               output = psiGlobalFile)
 
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # PREPARE INPUT FOR PROFILES {{{
 # TODO: SWITCHED OFF
 #varNames = ['t_acc','s_acc','u_acc','v_acc']
@@ -1028,7 +1048,7 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
 #profileData = cdo.merge(input='%s %s'%(varData,velocityData),output=profileOutputFile)
 #if subprocess.check_call("ncrename -d depth_2,depth -O %s"%(profileOutputFile),shell=True,env=os.environ):
 #  print("ERROR: ncrename failed")
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # PREPARE INPUT FOR REGIONAL MEANS from yearMean output {{{
 # for global grid only
 if 'procRegio' in options['ACTIONS']:
@@ -1052,7 +1072,7 @@ if 'procRegio' in options['ACTIONS']:
   dbg(len(LOG['depths']))
   regioMeanData = processRegionMean(options,LOG['mask'],LOG['init'],ymFile,regioCodes,regioDepths,regioVars,regioMaskVar)
   print(' procRegio mask FINISH -----------------------------------------------------')
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
 mocMeanFile = '/'.join([options['ARCHDIR'],'mocMean'])
 mocFiles    = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
@@ -1092,8 +1112,8 @@ if 'procMoc' in options['ACTIONS']:
       mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
     dbg(mocMeanFile)
   print(' procMoc FINISH ---------------------------------------')
-# }}} -----------------------------------------------------------------------------------
-# PREPARE DATA FOR T,S,RHOPOT BIAS TO INIT {{{ ------------------------------------------
+# }}} --------------------------------------------------------------------------
+# PREPARE DATA FOR T,S,RHOPOT BIAS TO INIT {{{ ---------------------------------
 # target is a year mean file of fldmean data, but mean value computation
 # should come at the very end of the processing chain
 if 'procTSR' in options['ACTIONS']:
@@ -1112,8 +1132,8 @@ if 'procTSR' in options['ACTIONS']:
 
   dumpLog()
   print(' procTSR FINISH ---------------------------------------')
-# }}} -----------------------------------------------------------------------------------
-# DIAGNOSTICS ===========================================================================
+# }}} --------------------------------------------------------------------------
+# DIAGNOSTICS ==================================================================
 # PSI {{{
 if 'plotPsi' in options['ACTIONS']:
   print(' plotPsi START ----------------------------------------')
@@ -1144,7 +1164,7 @@ if 'plotPsi' in options['ACTIONS']:
     if subprocess.check_call(cmd,shell=True,env=os.environ):
       print("ERROR: CALCPSI failed")
   print(' plotPsi FINISH ---------------------------------------')
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
 if 'plotHorz' in options['ACTIONS']:
   print(' plotHorz START ----------------------------------------')
@@ -1189,7 +1209,7 @@ if 'plotHorz' in options['ACTIONS']:
   }
   plotHorizontal(horizontalConfig,options,hasNewFiles)
   print(' plotHorz FINISH ---------------------------------------')
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # THROUGH FLOWS / ONLINE DIAGNOSTICS {{{
 # for global grid only
 if ('plotTf' in options['ACTIONS']):
@@ -1202,8 +1222,8 @@ if ('plotTf' in options['ACTIONS']):
   else:
     diagnosticTable = ''
   print(' plotTf FINISH ---------------------------------------')
-# }}} ----------------------------------------------------------------------------------
-# ATLANTIC X-Section: t,s,rhopot  {{{ ================================
+# }}} --------------------------------------------------------------------------
+# ATLANTIC X-Section: t,s,rhopot  {{{ ==========================================
 # for global grid only
 XSectionPlotConfig = PlotConfigBias
 XSectionPlotConfig['s_acc']['minVar'] = '-1.0'
@@ -1272,8 +1292,8 @@ if 'plotX' in options['ACTIONS']:
       subprocess.check_call(cmd,shell=True,env=os.environ)
 
   print(' plotX FINISH ---------------------------------------')
-# }}} ----------------------------------------------------------------------------------
-# SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
+# }}} --------------------------------------------------------------------------
+# SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ =================================
 #  create hovmoeller-like plots
 #for varname in ['t_acc','s_acc','u_acc','v_acc','velocity']:
 #  # run icon_plot.ncl
@@ -1292,7 +1312,7 @@ if 'plotX' in options['ACTIONS']:
 #           '-oFile=%s'%(oFile)]
 #    dbg(' '.join(cmd))
 #    subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # REGIO MEAN PROFILES {{{ ================================
 # for global grids only
 if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
@@ -1326,7 +1346,7 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
                               2,
                               '/'.join([options['PLOTDIR'],'_'.join(['regioMean',location,varname,options['EXP'],options['TAG']+'.png'])])) 
   print(' procRegio FINISH -----------------------------------------------------')
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # MOC PLOT {{{
 if 'plotMoc' in options['ACTIONS']:
   mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
@@ -1347,7 +1367,7 @@ if 'plotMoc' in options['ACTIONS']:
   # environment cleanup
   for k in mocPlotSetup.keys():
     os.environ.pop(k)
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # MIXED LAYER PLOT PLOT {{{
 # take march and septempber from the last couple of years and just plot is
 if ('procMld' in options['ACTIONS']):
@@ -1372,7 +1392,7 @@ if ('plotMld' in options['ACTIONS']):
 
   # nclsh /pool/data/ICON/tools/icon_plot.ncl -iFile=$fslo -varName=mld -oType=png -colormap=WhiteBlueGreenYellowRed -timeStep=$t -oFile=mld_LIN_$t -maxVar=5000 -minVar=0 -maskName=wet_c
   # nclsh /pool/data/ICON/tools/icon_plot.ncl -iFile=$fslo -varName=mld -oType=png -colormap=WhiteBlueGreenYellowRed -timeStep=$t -oFile=mld_LOG_$t -maxVar=5000 -minVar=0 -selMode=halflog -maskName=wet_c
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # SEA ICE PLOT {{{
 # take march and septempber from the last 30 year mean
 if ('procIce' in options['ACTIONS']):
@@ -1416,7 +1436,7 @@ if ('plotIce' in options['ACTIONS']):
     }
     plotHorizontal(icePlotConfig,options,hasNewFiles)
 
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 # take march and septempber from the last couple of years and just plot is
 # T S RHOPOT BIAS PLOT {{{
 if 'plotTSR' in options['ACTIONS']:
@@ -1447,11 +1467,11 @@ if 'plotTSR' in options['ACTIONS']:
     if subprocess.check_call(cmd,shell=True,env=os.environ):
       print('CMD: %s has failed!')
 
-# }}} ----------------------------------------------------------------------------------
-# FINAL DOCUMENT CREATION {{{ ===========================================================
+# }}} --------------------------------------------------------------------------
+# FINAL DOCUMENT CREATION {{{ ==================================================
 if 'finalDoc' in options['ACTIONS']:
   createOutputDocument(options['PLOTDIR'],diagnosticTable,'_'.join(['ALL',options['EXP'],options['TAG']]),options['DOCTYPE'],options['DEBUG'])
-# }}} ----------------------------------------------------------------------------------
+# }}} --------------------------------------------------------------------------
 for plotcmd in plotCommands:
   print(plotcmd)
 
