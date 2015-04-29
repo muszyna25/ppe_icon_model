@@ -402,6 +402,7 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating c2v_wgt failed')
     ENDIF
+    c2v_wgt=0.0_wp
 
     ! Weights for the cells2verts_scalar call
 !     i_startblk = p_patch%verts%all%start_block
