@@ -119,6 +119,8 @@ MODULE mo_psrad_radiation
                                            mmr_o2,             &
                                            vmr_cfc11,          &
                                            vmr_cfc12,          &
+                                           ch4_v,              &
+                                           n2o_v,              &
                                            nmonth,             &
                                            isolrad,            &
                                            ldiur,              &
@@ -797,8 +799,18 @@ MODULE mo_psrad_radiation
     & xq_vap(kbdim,klev),           &
     & za(kbdim),                    & !< Spline interpolation arrays for qsat
     & ua(kbdim),                    &
-    & xq_sat(kbdim,klev)              !< Saturation mixing ratio 
-
+    & xq_sat(kbdim,klev),           & !< Saturation mixing ratio 
+    & xq_liq(kbdim,klev),           & !< cloud water
+    & xq_ice(kbdim,klev),           & !< cloud ice
+    & xc_frc(kbdim,klev),           & !< cloud fraction
+    & cld_cvr(kbdim),               & !< cloud cover
+    & xm_co2(kbdim,klev),           & !< CO2 mixing ratio
+    & xm_o3(kbdim,klev),            & !< Ozone mixing ratio
+    & xm_o2(kbdim,klev),            & !< O2 mixing ratio
+    & xm_ch4(kbdim,klev),           & !< Methane mixing ratio
+    & xm_n2o(kbdim,klev),           & !< Nitrous Oxide mixing ratio
+    & xm_cfc(kbdim,klev,2),         & !< CFC mixing ratio
+    & ozone(kbdim,klev)
     !
     ! 1.0 calculate variable input parameters (location and state variables)
     ! --------------------------------
@@ -843,9 +855,141 @@ MODULE mo_psrad_radiation
            &                * xq_sat(1:kproma,jk))
       xq_sat(1:kproma,jk) = MAX(2.0_wp*EPSILON(1.0_wp),xq_sat(1:kproma,jk))
     END DO
+    xq_liq(1:kproma,:) = MAX(qm_liq(1:kproma,:),0.0_wp)       ! cloud liquid
+    xq_ice(1:kproma,:) = MAX(qm_ice(1:kproma,:),0.0_wp)       ! cloud ice
+    !
+    ! --- cloud cover
+    ! 
+    xc_frc(1:kproma,1:klev) = MERGE(cld_frc(1:kproma,1:klev), 0._wp, &
+         xq_liq(1:kproma,1:klev) > 0.0_wp .OR. xq_ice(1:kproma,1:klev) > 0.0_wp)
+    !
+    cld_cvr(1:kproma) = 1.0_wp - xc_frc(1:kproma,1)
+    DO jk = 2, klev
+      cld_cvr(1:kproma) = cld_cvr(1:kproma)                                    &
+           &        *(1.0_wp-MAX(xc_frc(1:kproma,jk),xc_frc(1:kproma,jk-1))) &
+           &        /(1.0_wp-MIN(xc_frc(1:kproma,jk-1),1.0_wp-EPSILON(1.0_wp)))
+    END DO
+    cld_cvr(1:kproma) = 1.0_wp-cld_cvr(1:kproma)   
+    !
+    ! --- gases
+    ! 
+    xm_co2(1:kproma,:)   = gas_profile(kproma, klev, ico2, gas_mmr = mmr_co2     &
+!         &  gas_scenario = ghg_co2mmr, &
+!         &  gas_val = co2 &
+          & )
+    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, ich4, gas_mmr = mmr_ch4,    &
+!         &  gas_scenario = ghg_ch4mmr, &
+         &  pressure = pp_fl, xp = ch4_v)
+    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, in2o, gas_mmr = mmr_n2o,    &
+!         &  gas_scenario = ghg_n2ommr, &
+         &  pressure = pp_fl, xp = n2o_v)
+    xm_cfc(1:kproma,:,1) =  gas_profile(kproma, klev, icfc11, gas_mmr=vmr_cfc11   &
+!         &  gas_scenario = ghg_cfcvmr(1) &
+         &  )
+    xm_cfc(1:kproma,:,2) =  gas_profile(kproma, klev, icfc12, gas_mmr=vmr_cfc12   &
+!         &  gas_scenario = ghg_cfcvmr(2) &
+         &  )
+    xm_o2(1:kproma,:)    = gas_profile(kproma, klev, io2,  gas_mmr = mmr_o2)     
+
+    ozon: SELECT CASE (io3)
+    CASE (0)
+      xm_o3(1:kproma,:) = EPSILON(1.0_wp)
+!!$    CASE (2)
+!!$      xm_o3(1:kproma,:) = o3_lwb(krow,ppd_hl,pp_hl)
+!!$    CASE (3)
+!!$      xm_o3(1:kproma,:) = o3clim(krow,kproma,kbdim,klev,pp_hl,pp_fl)
+!!$    CASE (4)
+!!$      xm_o3(1:kproma,:) = o3clim(krow,kproma,kbdim,klev,pp_hl,pp_fl)
+    CASE default
+      CALL finish('radiation','o3: this "io3" is not supported')
+    END SELECT ozon
+    ozone(1:kproma,:) = xm_o3(1:kproma,:)
 
 
 
   END SUBROUTINE psrad_radiation
+
+  !---------------------------------------------------------------------------
+  !>
+  !! GAS_PROFILE:  Determines Gas distributions based on case specification
+  !! 
+  !! @par Revsision History 
+  !! B. Stevens (2009-08). 
+  !! H. Schmidt (2010-08): profile calculation added for scenario case.
+  !!
+  !! Description: This routine calculates the gas distributions for one of
+  !! five cases:  (0) no gas present; (1) prognostic gas; (2) specified 
+  !! mixing ratio; (3) mixing ratio decaying with height given profile;
+  !! (4) scenario run with different mixing ratio, if profile parameters are
+  !! given a vertical profile is calculated as in (3).
+  !
+  FUNCTION gas_profile (kproma, klev, igas, gas_mmr, gas_scenario, gas_mmr_v, &
+       &                gas_scenario_v, gas_val, xp, pressure)
+
+    INTEGER, INTENT (IN) :: kproma, klev, igas
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr, gas_scenario
+    REAL (wp), OPTIONAL, INTENT (IN) :: pressure(:,:), xp(3)
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr_v(:,:)
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario_v(:,:)
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_val(:,:)
+
+    REAL (wp) :: gas_profile(kproma,klev), zx_d, zx_m
+    LOGICAL :: gas_initialized
+
+    gas_initialized = .FALSE.
+    SELECT CASE (igas)
+    CASE (0)
+      gas_profile(1:kproma,:) = EPSILON(1.0_wp)
+      gas_initialized = .TRUE.
+    CASE (1)
+      IF (PRESENT(gas_val)) THEN
+        gas_profile(1:kproma,:) = MAX(gas_val(1:kproma,:), EPSILON(1.0_wp))
+        gas_initialized = .TRUE.
+      END IF
+    CASE (2)
+      IF (PRESENT(gas_mmr)) THEN
+        gas_profile(1:kproma,:) = gas_mmr
+        gas_initialized = .TRUE.
+      ELSE IF (PRESENT(gas_mmr_v)) THEN
+        gas_profile(1:kproma,:) = gas_mmr_v(1:kproma,:)
+        gas_initialized = .TRUE.
+      END IF
+    CASE (3)
+      IF (PRESENT(gas_mmr) .AND. PRESENT(xp) .AND. PRESENT(pressure)) THEN
+        zx_m = (gas_mmr+xp(1)*gas_mmr)*0.5_wp
+        zx_d = (gas_mmr-xp(1)*gas_mmr)*0.5_wp
+        gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                  /xp(2)) /xp(3))) * zx_m
+        gas_initialized = .TRUE.
+      END IF
+    CASE (4)
+      IF (PRESENT(gas_scenario)) THEN
+        IF (PRESENT(xp) .AND. PRESENT(pressure)) THEN
+          ! comment H. Schmidt: If the respective parameters are present, a vertical 
+          ! profile is calculated as in option (3). This allows a seamless
+          ! continuation of preindustrial control with scenarios. The treatment here is
+          ! inconsistent with having two different options for the constant
+          ! concentration cases (2 without and 3 with profile). However, instead
+          ! of adding a fifth option, it seems more advisable to clean up the 
+          ! complete handling of radiation switches (including ighg), later.
+          zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
+          zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
+          gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                  /xp(2)) /xp(3))) * zx_m
+        ELSE
+          gas_profile(1:kproma,:) = gas_scenario
+        ENDIF
+        gas_initialized = .TRUE.
+      ELSE IF (PRESENT(gas_scenario_v)) THEN
+        gas_profile(1:kproma,:) = gas_scenario_v(1:kproma,:)
+        gas_initialized = .TRUE.
+      END IF
+    END SELECT
+    IF (.NOT. gas_initialized) &
+         CALL finish('radiation','gas_profile options not supported')
+
+  END FUNCTION gas_profile
+  !---------------------------------------------------------------------------
+
 
   END MODULE mo_psrad_radiation
