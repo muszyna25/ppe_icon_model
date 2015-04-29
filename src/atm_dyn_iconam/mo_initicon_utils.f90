@@ -205,6 +205,8 @@ MODULE mo_initicon_utils
   !! - For MODE_DWDANA, MODE_COMBINED, and MODE_COSMODE check validity of 
   !!   analysis validity time:  The analysis field's validity time must match 
   !!   the model start time
+  !! - MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC:  check for matching 
+  !!   typeOfGeneratingProcess.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
@@ -230,13 +232,56 @@ MODULE mo_initicon_utils
     TYPE(datetime),  POINTER :: mtime_inidatetime  ! INI-datetime in mtime format
     TYPE(datetime)           :: start_datetime     ! true start date (includes timeshift)
     !
+    INTEGER :: index_inc, index_ful
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_inc(20)
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_inc(20)
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_inc(20)
+    !
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_ful(SIZE(grp_vars_ana))
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_ful(SIZE(grp_vars_ana))
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_ful(SIZE(grp_vars_ana))
+    !
+    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful, nvars_mode_dwdana_inc_grp_ful
+    CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_inc(:)  ! pointer to mode-specific 'inc' group
+    CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_ful(:)  ! pointer to mode-specific 'full' group
+    !
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_input_validity'
 
   !-------------------------------------------------------------------
 
+    !*************
 
     ! initialization
     !
+
+    ! setup groups for checking the generating process type of analysis fields
+    !
+    ! MODE_IAU: mandatory increments
+    mode_iau_grp_inc(1:8)        = (/'u        ','v        ','pres     ','temp     ', &
+      &                              'qv       ','w_so     ','h_snow   ','freshsnow'/)
+    ! MODE_IAU_OLD: mandatory increments
+    mode_iau_old_grp_inc(1:6)    = (/'u        ','v        ','pres     ','temp     ', &
+      &                              'qv       ','w_so     '/)
+    ! MODE_DWDANA_INC: mandatory increments
+    mode_dwdana_inc_grp_inc(1:5) = (/'u        ','v        ','pres     ','temp     ', &
+      &                              'qv       '/)
+    !
+    ! groups containing mandatory full fields (= grp_vars_ana - inc fields)
+    mode_iau_grp_ful        = grp_vars_ana
+    mode_iau_old_grp_ful    = grp_vars_ana
+    mode_dwdana_inc_grp_ful = grp_vars_ana
+    !
+    nvars_mode_iau_grp_ful        = ngrp_vars_ana
+    nvars_mode_iau_old_grp_ful    = ngrp_vars_ana
+    nvars_mode_dwdana_inc_grp_ful = ngrp_vars_ana
+
+    ! Remove mandatory 'inc' fields to arrrive at list of mandatory 'full' fields
+    CALL difference(mode_iau_grp_ful, nvars_mode_iau_grp_ful, mode_iau_grp_inc, 8)
+    CALL difference(mode_iau_old_grp_ful, nvars_mode_iau_old_grp_ful, mode_iau_old_grp_inc, 6)
+    CALL difference(mode_dwdana_inc_grp_ful, nvars_mode_dwdana_inc_grp_ful, mode_dwdana_inc_grp_inc, 5)
+
+
+
     lmatch_uuid  = .FALSE. 
     lmatch_vtime = .FALSE.
 
@@ -302,7 +347,7 @@ MODULE mo_initicon_utils
 
 
     !
-    ! Analysis (increments)
+    ! Analysis (full fields/increments)
     !
     DO ivar = 1,ngrp_vars_ana
       ! find matching list element
@@ -348,6 +393,57 @@ MODULE mo_initicon_utils
       CASE default
         !
       END SELECT
+
+
+      !****************************************!
+      !  Check typeOfGeneratingProcess         !
+      !   (quick hack)                         !
+      !****************************************!
+      SELECT CASE (init_mode)
+      CASE(MODE_IAU)
+        !
+        grp_inc => mode_iau_grp_inc
+        grp_ful => mode_iau_grp_ful
+      CASE(MODE_IAU_OLD)
+        !
+        grp_inc => mode_iau_old_grp_inc
+        grp_ful => mode_iau_old_grp_ful
+      CASE(MODE_DWDANA_INC)
+        !
+        grp_inc => mode_dwdana_inc_grp_inc
+        grp_ful => mode_dwdana_inc_grp_ful
+      CASE default
+        !
+        grp_inc => NULL()
+        grp_ful => NULL()
+      END SELECT
+
+      IF (ASSOCIATED(grp_inc) .AND. ASSOCIATED(grp_ful)) THEN
+        ! determine whether the field is required as inc- or full- field
+        index_inc = one_of(TRIM(this_list_element%field%name),grp_inc(:))
+        index_ful = one_of(TRIM(this_list_element%field%name),grp_ful(:))
+
+        IF ( index_inc /= -1) THEN  ! field required as increment
+          IF (this_list_element%field%typeOfGeneratingProcess /=201) THEN
+            WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
+              &                       //TRIM(this_list_element%field%name)//'.'
+            CALL finish(routine, TRIM(message_text))
+          ENDIF
+        
+        ELSE IF ( index_ful /= -1) THEN  ! field required as full field
+          IF (this_list_element%field%typeOfGeneratingProcess /=0) THEN
+            WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
+              &                       //TRIM(this_list_element%field%name)//'.'
+            CALL finish(routine, TRIM(message_text))
+          ENDIF
+        ELSE   ! index_inc = index_ful = -1
+          WRITE(message_text,'(a)') 'Unidentified field: '//TRIM(this_list_element%field%name)// &
+            &                       ' typeOfGeneratingProcess could not be checked'
+          CALL finish(routine, TRIM(message_text))
+        ENDIF
+        !
+      ENDIF  ! associated
+
     ENDDO
 
 
