@@ -763,10 +763,10 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! DA increments of humidity are limited to positive values if RH < 2% or QV < 2.5e-6
+        ! DA increments of humidity are limited to positive values if RH < 2% or QV < 5.e-7
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            IF (zrhw(jc,jk) < 0.02_wp .OR. pt_prog_rcf%tracer(jc,jk,jb,iqv) < 2.5e-6_wp) THEN
+            IF (zrhw(jc,jk) < 0.02_wp .OR. pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
               zqin = MAX(0._wp, pt_diag%qv_incr(jc,jk,jb))
             ELSE
               zqin = pt_diag%qv_incr(jc,jk,jb)
