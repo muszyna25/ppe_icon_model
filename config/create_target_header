@@ -533,6 +533,8 @@ EOF
 
 set_run_target_bullx()
 {
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 8
   set_default use_nodes 1
@@ -542,8 +544,8 @@ set_run_target_bullx()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 6
-      set_default use_openmp_threads 4
+      set_default use_mpi_procs_pernode 12
+      set_default use_openmp_threads 2
     else
       set_default use_mpi_procs_pernode 24
     fi
@@ -607,17 +609,13 @@ export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 # =====================================
 # btc batch job parameters
 #-----------------------------------------------------------------------------
+#SBATCH --account=$use_account_no
 #SBATCH --job-name=$job_name
+#SBATCH --partition=$queue
+#SBATCH --nodes=$use_nodes
+#SBATCH --threads-per-core=2
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
-# #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
-#$SBATCH_ntasks_per_node
-#SBATCH --threads-per-core=2
-#SBATCH --exclusive
-# #$s_cpu_time
-# #SBATCH --time=30
 #========================================
 EOF
 }

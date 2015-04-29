@@ -291,10 +291,14 @@
             my_id = get_my_mpi_work_id()
             nthis_local_pts = lonlat_grid_list(i)%intp(jg)%nthis_local_pts
 
+            ! MoHa: Not all points of the lonlat grid are assigned to a process.
+            !       This pattern will gather all points that have an owner and
+            !       will store them (sorted by their global id) to the beginning
+            !       of the receiving array.
             CALL setup_comm_gather_pattern(n_points, &
               (/(my_id, i = 1, nthis_local_pts)/), &
               lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
-              lonlat_grid_list(i)%p_pat(jg))
+              lonlat_grid_list(i)%p_pat(jg),.true.)
 
             ! resize global data structures, after the setup only
             ! local information is needed:

@@ -618,6 +618,10 @@ CONTAINS
              buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
 #ifdef YAC_coupling
              CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "TAUX 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "TAUX 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+             ENDIF
 #else
              field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(1), field_shape, &
@@ -630,6 +634,10 @@ CONTAINS
              buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
 #ifdef YAC_coupling
              CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "TAUY 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "TAUY 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+             ENDIF
 #else
 
              CALL ICON_cpl_put_init ( field_id(2), field_shape, &
@@ -645,6 +653,11 @@ CONTAINS
              buffer(:,3) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
 #ifdef YAC_coupling
              CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "SFW 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "SFW 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+                WRITE ( 6 , * ) "SFW 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+             ENDIF
 #else
              field_shape(3) = 3
              CALL ICON_cpl_put_init ( field_id(3), field_shape, &
@@ -656,6 +669,9 @@ CONTAINS
              buffer(:,1) =  RESHAPE ( field%temp(:,nlev,:), (/ nbr_points /) )
 #ifdef YAC_coupling
              CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "SFT   ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+             ENDIF
 #else
              field_shape(3) = 1
              CALL ICON_cpl_put_init ( field_id(4), field_shape, &
@@ -670,6 +686,12 @@ CONTAINS
              buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
 #ifdef YAC_coupling
              CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "THF 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "THF 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+                WRITE ( 6 , * ) "THF 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+                WRITE ( 6 , * ) "THF 4 ", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
+             ENDIF
 #else
              field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
@@ -684,6 +706,12 @@ CONTAINS
              buffer(:,4) =  RESHAPE ( field%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
 #ifdef YAC_coupling
              CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "ICE 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "ICE 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+                WRITE ( 6 , * ) "ICE 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+                WRITE ( 6 , * ) "ICE 4 ", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
+             ENDIF
 #else
 
              field_shape(3) = 4

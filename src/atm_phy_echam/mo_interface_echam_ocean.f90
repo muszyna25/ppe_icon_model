@@ -161,6 +161,10 @@ CONTAINS
     buffer(:,2)     = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iice), (/ nbr_points /) )
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+    IF ( info > 0 ) THEN
+       WRITE ( 6 , * ) "TAUX 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+       WRITE ( 6 , * ) "TAUX 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+    ENDIF
 #else
     field_shape(3) = 2
     CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
@@ -173,6 +177,10 @@ CONTAINS
     buffer(:,2)     = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iice), (/ nbr_points /) )
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+    IF ( info > 0 ) THEN
+       WRITE ( 6 , * ) "TAUY 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+       WRITE ( 6 , * ) "TAUY 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+    ENDIF
 #else
     CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
@@ -193,6 +201,11 @@ CONTAINS
     buffer(:,3)     = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
+    IF ( info > 0 ) THEN
+       WRITE ( 6 , * ) "SFW 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+       WRITE ( 6 , * ) "SFW 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+       WRITE ( 6 , * ) "SFW 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+    ENDIF
 #else
     field_shape(3)  = 3
     CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
@@ -204,6 +217,9 @@ CONTAINS
     buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+    IF ( info > 0 ) THEN
+       WRITE ( 6 , * ) "SFT   ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+    ENDIF
 #else
     field_shape(3) = 1
     CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
@@ -218,6 +234,12 @@ CONTAINS
     buffer(:,4)     =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+    IF ( info > 0 ) THEN
+       WRITE ( 6 , * ) "THF 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+       WRITE ( 6 , * ) "THF 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+       WRITE ( 6 , * ) "THF 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+       WRITE ( 6 , * ) "THF 4 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,4:4))
+    ENDIF
 #else
     field_shape(3)  = 4
     CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
@@ -231,16 +253,25 @@ CONTAINS
     buffer(:,4)     =  RESHAPE ( prm_field(jg)%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+    IF ( info > 0 ) THEN
+       WRITE ( 6 , * ) "ICE 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+       WRITE ( 6 , * ) "ICE 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+       WRITE ( 6 , * ) "ICE 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+       WRITE ( 6 , * ) "ICE 4 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,4:4))
+    ENDIF
 #else
     field_shape(3)  = 4
     CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif
     IF ( info == 2 ) write_coupler_restart = .TRUE.
+
+    IF ( write_coupler_restart ) THEN
 #ifdef YAC_coupling
-    CALL finish('interface_echam_ocean', 'ERROR: restart not supported yet for YAC')
+       CALL finish('interface_echam_ocean', 'ERROR: restart not supported yet for YAC')
 #else
-    IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 6, field_id(1:6), ierror )
+       CALL icon_cpl_write_restart ( 6, field_id(1:6), ierror )
 #endif
+    ENDIF
     !
     ! Receive fields, only assign values if something was received ( info > 0 )
     ! -------------------------------------------------------------------------
