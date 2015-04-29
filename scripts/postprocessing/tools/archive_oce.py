@@ -114,6 +114,9 @@ def loadLog(options):
     options['FORCE'] = True
     LOG = {}
 
+  if not 'packedYears' in LOG.keys():
+    LOG['packedYears'] = []
+
   return LOG
 
 """ show output names from the LOG """
@@ -151,8 +154,8 @@ def showyear(file):
 def ntime(file):
   return cdo.ntime(input = file)[0]
 """ wrapper of 'cdo.yearmean' """
-def yearmean(ifile,ofile):
-  cdo.yearmean(input = ifile, output = ofile)
+def yearmean(ifile,ofile,forceOutput):
+  cdo.yearmean(input = ifile, output = ofile,forceOutput = forceOutput)
 # }}}
 
 """ collect the years/ntime, which aree stored in to files """ #{{{
@@ -225,7 +228,7 @@ def globalTempSalRho2D(ifile,initfile,varNames,archdir):
               output = ofile)
 
 """ write a single file for a given years from a list of input files """ #{{{
-def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInfo):
+def grepYear(ifiles,year,archdir,forceOutput,experimentInfo):
   yearFile, yearMeanFile = getFileNamesForYears(year,archdir,experimentInfo)
 
   if (not os.path.exists(yearFile) or forceOutput):
@@ -242,28 +245,27 @@ def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInf
 
     cdo.cat(input = ' '.join(catFiles), output = yearFile)
 
-    if (shouldComputeYearMean):
-      cdo.yearmean(input = yearFile,output = yearMeanFile,forceOutput = forceOutput)
-    else:
-      yearMeanFile = None
-
     map(lambda x: os.remove(x),catFiles)
   else:
     print("Use existing yearFile '{0}'".format(yearFile))
 #}}}
 
 """ split input files into yearly files - compute yearmean if desired """
-def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
-  pool      = multiprocessing.Pool(procs)
+def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,packedYears,procs):
+  pool          = multiprocessing.Pool(procs)
+  pool4yearmean = multiprocessing.Pool(procs)
   yearFiles = []
   for year,files in filesOfYears.iteritems():
-    yearFile               = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,True,expInfo])
- #  yearFile               = pool.apply_async(grepYear,[[files],str(year),archdir,forceOutput,True,expInfo])
+    yearFile               = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,expInfo])
     yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
     yearFiles.append([year,yearFile,yearMeanFile])
+    if not year in packedYears:
+      pool4yearmean.apply_async(yearmean,[yearFile,yearMeanFile,forceOutput])
 
   pool.close()
   pool.join()
+  pool4yearmean.close()
+  pool4yearmean.join()
 
   return yearFiles
 
@@ -272,10 +274,10 @@ def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
   pool    = multiprocessing.Pool(procs)
   results = []
 
-  initFile  = cdo.selname(','.join(varList),input = initFile, output = '/'.join([archdir,'TSR_{0}_init'.format(exp)]))
+  initFile  = cdo.selname(','.join(varList),input = initFile, output = '/'.join([archdir,'.TSR_{0}_init'.format(exp)]))
   # compute the 1d (vertical) year mean variance to the initial state
   for ifile in ifiles:
-    _ofile = '/'.join([archdir,'TSR_1D_{0}'.format(os.path.basename(ifile))])
+    _ofile = '/'.join([archdir,'.TSR_1D_{0}'.format(os.path.basename(ifile))])
     ofile  = pool.apply_async(globalTempSalRho1D,[ifile,initFile,maskFile,','.join(varList),_ofile])
     ofile  = _ofile
     results.append(ofile)
@@ -770,17 +772,29 @@ def maskCellVariables(ifile,maskfile,ofile,force):
   return list(chain(*groups.values()))
 
 """ collect yearmean values and remove single yearmean files """
-def collectYearMeanData():
+def collectYearMeanData(years,archdir,exp,log):
   # find out which years have been processed
-  #
-  # find out which year mean files have already been packed together
+  availableYears, availableYearMeanFiles = [], []
+  for year in years:
+    yfile, ymeanfile = getFileNamesForYears(year,archdir,exp)
+    if os.path.exists(ymeanfile):
+      availableYears.append(year)
+      availableYearMeanFiles.append(str(ymeanfile))
   #
   # pack the remaining year mean files
+  if (len(availableYears) < 1):
+    return None
+
+  collectYearMeanDataFile = '{0}/{1}_{2}-{3}_yearmean.nc'.format(archdir,exp,availableYears[0],availableYears[-1])
+  cdo.cat(input = ' '.join(availableYearMeanFiles),output = collectYearMeanDataFile,options = '-f nc4 -z zip9')
   #
-  # remove singe mean files for alle years which have just been packed
+  # remove singe mean files for alle years which have just been packed and log this
+  for _i, _file in enumerate(availableYearMeanFiles):
+    os.remove(_file)
+    log['packedYears'].append(availableYears[_i])
+
   #
   # return the name of file
-  collectYearMeanDataFile = ''
   return collectYearMeanDataFile
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
@@ -839,7 +853,7 @@ if options['JOBISRUNNING']:
   iFiles.pop()
 dbg("Files to be used: "+','.join(iFiles))
 if 0 == len(iFiles):
-  print usage()
+  print(usage())
   print("Could not find any result files!")
   doExit(1)
 else:
@@ -850,7 +864,7 @@ for location in ['ARCHDIR','PLOTDIR']:
   if not os.path.isdir(options[location]):
     os.makedirs(options[location])
 
-# look for new files (process only those, unless the FORCE options is not set
+# look for new files (process only those, unless the FORCE options is not set)
 if LOG.has_key('yearsOfFiles'):
   processedFiles = LOG['yearsOfFiles'].keys()
 else:
@@ -918,6 +932,7 @@ if 'preproc' in options['ACTIONS']:
                                   options['ARCHDIR'],
                                   options['FORCE'],
                                   options['EXP'],
+                                  LOG['packedYears'],
                                   options['PROCS'])
 
   years, yearMeanFiles = [],[]
@@ -951,16 +966,10 @@ LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), outpu
 # COMPUTE NUMBER OF VERTICAL LEVELS {{{ ========================================
 LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 # }}} ==========================================================================
-# COMPUTE SINGLE YEARMEAN FILES {{{ ============================================
-#ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
-#if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
-## if (os.path.exists(ymFile)):
-##   os.remove(ymFile)
-#  cdo.cat(input=" ".join(yearMeanFiles),output=ymFile)
-#  # rm ymFiles
-#  #map(lambda x: os.remove(x),ymFiles)
-##else:
-## print("Use existing ymFile: "+ymFile)
+# COMPUTE YEARMEAN FILE {{{ ====================================================
+yearMeanCollection = collectYearMeanData(LOG['years'], options['ARCHDIR'], options['EXP'],LOG)
+dbg('last yearMeanCollection: {0}'.format(yearMeanCollection))
+#TODO doExit()
 # }}} ==========================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =================
 lastYearsPeriod    = min(30,len(LOG['years'])/2)
