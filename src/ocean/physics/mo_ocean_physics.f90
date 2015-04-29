@@ -81,7 +81,7 @@ MODULE mo_ocean_physics
     & za_depth_below_sea, za_depth_below_sea_half,    &
     & datatype_pack16, datatype_flt32, filetype_nc2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: sync_c, sync_e, sync_patch_array, global_max
+  USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max
   USE  mo_ocean_thermodyn,      ONLY: calculate_density_onColumn
   USE mo_ocean_math_operators,  ONLY: div_oce_3d
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_upd_phys, &
@@ -445,6 +445,10 @@ CONTAINS
       ENDDO
     END DO
 
+    ! we need to sync here
+    CALL sync_patch_array(sync_v, patch_2D, z_k_ave_v)    
+    
+    
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
@@ -462,6 +466,9 @@ CONTAINS
       ENDDO
     END DO
 
+    ! we also need to sync edge coefficients
+    CALL sync_patch_array(sync_e, patch_2D, k_h)   
+    
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print levels - 0: print in any case
     CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
