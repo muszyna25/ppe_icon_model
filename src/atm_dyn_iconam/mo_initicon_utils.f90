@@ -83,7 +83,7 @@ MODULE mo_initicon_utils
 
 
   PUBLIC :: initicon_inverse_post_op
-  PUBLIC :: check_input_validity
+  PUBLIC :: validate_input
   PUBLIC :: create_input_groups
   PUBLIC :: copy_initicon2prog_atm
   PUBLIC :: copy_initicon2prog_sfc
@@ -211,9 +211,9 @@ MODULE mo_initicon_utils
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
   !!
-  SUBROUTINE check_input_validity(p_patch, inventory_list_fg, inventory_list_ana, &
-    &                             grp_vars_fg, grp_vars_ana, ngrp_vars_fg,        &
-    &                             ngrp_vars_ana)
+  SUBROUTINE validate_input(p_patch, inventory_list_fg, inventory_list_ana, &
+    &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg,        &
+    &                       ngrp_vars_ana)
 
     TYPE(t_patch)                , INTENT(IN) :: p_patch
     TYPE(t_inventory_list)       , INTENT(IN) :: inventory_list_fg
@@ -245,7 +245,7 @@ MODULE mo_initicon_utils
     CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_inc(:)  ! pointer to mode-specific 'inc' group
     CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_ful(:)  ! pointer to mode-specific 'full' group
     !
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_input_validity'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':validate_input'
 
   !-------------------------------------------------------------------
 
@@ -426,14 +426,14 @@ MODULE mo_initicon_utils
         IF ( index_inc /= -1) THEN  ! field required as increment
           IF (this_list_element%field%typeOfGeneratingProcess /=201) THEN
             WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
-              &                       //TRIM(this_list_element%field%name)//'.'
+              &                       //TRIM(this_list_element%field%name)//'. 201 expected'
             CALL finish(routine, TRIM(message_text))
           ENDIF
         
         ELSE IF ( index_ful /= -1) THEN  ! field required as full field
           IF (this_list_element%field%typeOfGeneratingProcess /=0) THEN
             WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
-              &                       //TRIM(this_list_element%field%name)//'.'
+              &                       //TRIM(this_list_element%field%name)//'. 0 expected'
             CALL finish(routine, TRIM(message_text))
           ENDIF
         ELSE   ! index_inc = index_ful = -1
@@ -450,7 +450,7 @@ MODULE mo_initicon_utils
     ! cleanup
     CALL deallocateDatetime(mtime_inidatetime)
 
-  END SUBROUTINE check_input_validity
+  END SUBROUTINE validate_input
 
 
 
@@ -916,8 +916,8 @@ MODULE mo_initicon_utils
       ! additional sanity checks for input fields
       !
       IF ( lconsistency_checks ) THEN
-        CALL check_input_validity(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
-          &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
+        CALL validate_input(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
+          &                 grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
       ENDIF
 
     ENDIF  ! my_process_is_stdio()
