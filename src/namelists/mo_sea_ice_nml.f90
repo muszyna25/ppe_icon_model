@@ -125,7 +125,7 @@ CONTAINS
     hmin        = 0.05_wp
     hci_layer   = 0.10_wp
     leadclose_1 = 0.5_wp
-    leadclose_2n = 0.0_wp
+    leadclose_2n= 1.0_wp
 
     ramp_wind   = 1.0_wp
 
