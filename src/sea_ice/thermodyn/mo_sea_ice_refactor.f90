@@ -260,6 +260,10 @@ CONTAINS
     ! ocean stress calculated independent of ice dynamics
     CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
+    CALL dbg_print('IceSlow: hi    bef.icedyn',ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs    bef.icedyn',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. bef.icedyn',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
+
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
@@ -273,6 +277,10 @@ CONTAINS
     energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
       &             ice, sst(:,:), 1, info='AFT ICEDYN')
     CALL dbg_print('IceSlow: energy aftIceAdv',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+
+    CALL dbg_print('IceSlow: hi    bef.cleanup',ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs    bef.cleanup',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. bef.cleanup',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
 
     CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
 

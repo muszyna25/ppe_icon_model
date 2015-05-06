@@ -1430,6 +1430,10 @@ CONTAINS
     ! ocean stress calculated independent of ice dynamics
     CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
+    CALL dbg_print('IceSlow: hi    bef.icedyn',ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs    bef.icedyn',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. bef.icedyn',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
+
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
@@ -1438,6 +1442,10 @@ CONTAINS
       ice%u = 0._wp
       ice%v = 0._wp
     ENDIF
+
+    CALL dbg_print('IceSlow: hi    bef.cleanup',ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs    bef.cleanup',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. bef.cleanup',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
 
     CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
 
@@ -1506,26 +1514,26 @@ CONTAINS
         ENDIF
 
         ! Fix over shoots - ONLY for the one-ice-class case
-        IF ( p_ice%conc(jc,1,jb) > 1._wp ) p_ice%conc(jc,1,jb) = 1._wp
+        !IF ( p_ice%conc(jc,1,jb) > 1._wp ) p_ice%conc(jc,1,jb) = 1._wp
 
         ! Fix under shoots and remove ice where there's almost none left
         DO k = 1, p_ice%kice
-          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
-            &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
-            ! Tracer flux due to removal
-            atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
-              & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  & ! Ice
-              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
-            ! Heat flux due to removal
-            atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
-              & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
-              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
-            p_ice%conc(jc,k,jb) = 0._wp
-            p_ice%hi  (jc,k,jb) = 0._wp
-            p_ice%vol (jc,k,jb) = 0._wp
-            p_ice%hs  (jc,k,jb) = 0._wp
-            p_ice%vols(jc,k,jb) = 0._wp
-          ENDIF
+        ! IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
+        !   &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
+        !   ! Tracer flux due to removal
+        !   atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
+        !     & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  & ! Ice
+        !     & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
+        !   ! Heat flux due to removal
+        !   atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
+        !     & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
+        !     & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
+        !   p_ice%conc(jc,k,jb) = 0._wp
+        !   p_ice%hi  (jc,k,jb) = 0._wp
+        !   p_ice%vol (jc,k,jb) = 0._wp
+        !   p_ice%hs  (jc,k,jb) = 0._wp
+        !   p_ice%vols(jc,k,jb) = 0._wp
+        ! ENDIF
     ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
           IF (limit_seaice) THEN
             z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
