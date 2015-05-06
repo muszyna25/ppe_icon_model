@@ -21,14 +21,15 @@ setenv -i USER
 setenv -i HOST
 setenv -i TMPDIR
 set UID `id -u`
+set USER_ICON_DIR icon-nwp-dev         #---location of script, plot and sms files
 
 # global definitions:
 
 # place where suite and tasks are defined
-set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/sms"
+set SMSFILES    "$ECPERM/$USER_ICON_DIR/schedulers/ecmwf/sms"
 
 # place where include files are stored
-set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/include"
+set SMSINCLUDE  "$ECPERM/$USER_ICON_DIR/schedulers/ecmwf/include"
 
 # place where generated job scripts are stored
 set SMSHOME     "$HOME/sms"

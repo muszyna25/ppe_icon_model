@@ -10,6 +10,9 @@
 #PBS -l EC_threads_per_task=4
 #PBS -l EC_hyperthreads=2
 
+# for job times longer than 24h use this setup!!
+#PBS -l EC_EXCEPTION_exceed_walltime_limit=0
+
 ##PBS -l EC_nodes=32
 ##PBS -l EC_tasks_per_node=%ICONTASKSPERNODE%
 ##PBS -l EC_memory_per_task=1550MB

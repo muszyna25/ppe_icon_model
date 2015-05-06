@@ -2768,6 +2768,21 @@ CONTAINS
     
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
+
+                 ! consistency corrections for partly glaciered points
+                 ! a) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
+                 IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) &
+                   & ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 1
+                 ! b) set soiltype to rock or sandy loam if landuse /= ice and soiltype = ice
+                 IF (ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) == 1 .AND. &
+                   & ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) /= ext_data(jg)%atm%i_lc_snow_ice) THEN
+                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_bare_soil) THEN
+                     ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 2 ! assume rock in case of bare soil
+                   ELSE
+                     ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 4 ! otherwise assume sandy loam
+                   ENDIF
+                 ENDIF
+
                END DO
              END IF ! ntiles
            ELSE  ! fr_land(jc,jb)<= frlnd_thrhld

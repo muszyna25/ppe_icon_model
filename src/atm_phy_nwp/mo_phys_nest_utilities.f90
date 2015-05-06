@@ -2174,7 +2174,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%swflx_up_toa(jc,jb)   = z_aux3dp1_c(jc,45,jb)
       prm_diag(jgc)%swflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,46,jb)
       prm_diag(jgc)%tmax_2m(jc,jb)        = z_aux3dp1_c(jc,47,jb)
-      prm_diag(jgc)%tmin_2m(jc,jb)        = z_aux3dp1_c(jc,48,jb)
+      prm_diag(jgc)%tmin_2m(jc,jb)        = MIN(z_aux3dp1_c(jc,48,jb),prm_diag(jgc)%tmax_2m(jc,jb))
       prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,49:51,jb)
       p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,52:56,jb)
       prm_diag(jgc)%clct_mod(jc,jb)       = MIN(1._wp,z_aux3dp1_c(jc,57,jb))
@@ -2367,7 +2367,7 @@ END SUBROUTINE interpol_rrg_grf
 
 !>
 !! This routine copies additional model levels to the local parent grid if vertical nesting
-!! is combined with processor splitting and the option latm_above_top = .TRUE.
+!! is combined with a reduced radiation grid and the option latm_above_top = .TRUE.
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2015-01-26

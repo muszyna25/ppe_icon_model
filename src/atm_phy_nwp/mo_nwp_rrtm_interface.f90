@@ -639,7 +639,6 @@ CONTAINS
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
-        & z_mc       =p_metrics%z_mc    (:,:,jb)     ,&!< in  height at full levels [m]
         & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
         & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
         & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
@@ -1108,7 +1107,6 @@ CONTAINS
           & tk_sfc     =zrg_tsfc     (:,jb)       ,&!< in    surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
-          & z_mc       =p_metrics%z_mc(:,:,jb)  ,&!< in    height at full levels [m]
           & pp_hl      =zrg_pres_ifc(:,:,jb)    ,&!< in    pressure at half levels at t-dt [Pa]
           & pp_fl      =zrg_pres    (:,:,jb)    ,&!< in    pressure at full levels at t-dt [Pa]
           & tk_fl      =zrg_temp    (:,:,jb)    ,&!< in    temperature at full level at t-dt
@@ -1336,7 +1334,6 @@ CONTAINS
           & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
-          & z_mc       =p_metrics%z_mc    (:,:,jb)     ,&!< in  height at full levels [m]
           & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
           & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
           & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
@@ -1461,7 +1458,6 @@ CONTAINS
         & tk_sfc     = rrtm_data%tsfctrad       (:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
-        & z_mc       = p_metrics%z_mc      (:,:,jb)    ,&!< in  height at full levels [m]
         & pp_hl      = rrtm_data%pres_ifc  (:,:,jb)    ,&!< in  pres at half levels at t-dt [Pa]
         & pp_fl      = rrtm_data%pres      (:,:,jb)    ,&!< in  pres at full levels at t-dt [Pa]
         & tk_fl      = rrtm_data%temp      (:,:,jb)    ,&!< in  temperature at full level at t-dt

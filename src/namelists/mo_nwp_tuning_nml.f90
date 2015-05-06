@@ -24,7 +24,6 @@ MODULE mo_nwp_tuning_nml
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -37,7 +36,10 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
     &                               config_tune_entrorg   => tune_entrorg,   &  
-    &                               config_itune_albedo   => itune_albedo  
+    &                               config_tune_capdcfac_et => tune_capdcfac_et, &  
+    &                               config_tune_box_liq   => tune_box_liq,   &  
+    &                               config_itune_albedo   => itune_albedo,   &
+    &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
   PRIVATE
@@ -70,15 +72,24 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
 
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
+    &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
+    &  tune_box_liq                ! (in case of inwp_cldcover = 1)
+
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
                                    ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
 
-  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun, &
-    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,  &
-    &                      tune_entrorg, itune_albedo
+  REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
+    &  max_freshsnow_inc
 
+  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,      &
+    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,       &
+    &                      tune_entrorg, itune_albedo, max_freshsnow_inc, &
+    &                      tune_capdcfac_et, tune_box_liq
 
 CONTAINS
 
@@ -120,8 +131,8 @@ CONTAINS
     ! while the second one is the standard deviation. 
 
     ! SSO tuning
-    tune_gkwake     = 1.333_wp     ! original COSMO value 0.5
-    tune_gkdrag     = 0.1_wp       ! original COSMO value 0.075
+    tune_gkwake     = 1.5_wp       ! original COSMO value 0.5
+    tune_gkdrag     = 0.075_wp     ! original COSMO value 0.075
     !
     ! GWD tuning
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
@@ -133,8 +144,15 @@ CONTAINS
     !
     ! convection
     tune_entrorg    = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
+    tune_capdcfac_et = 0._wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    !
+    ! cloud cover
+    tune_box_liq    = 0.05_wp      ! box width scale of liquid clouds
 
     itune_albedo    = 0            ! original (measured) albedo
+    !
+    ! IAU increment tuning
+    max_freshsnow_inc = 0.025_wp   ! maximum allowed positive freshsnow increment
 
 
     !------------------------------------------------------------------
@@ -178,16 +196,17 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
-    DO jg= 0,max_dom
-      config_tune_gkwake    = tune_gkwake
-      config_tune_gkdrag    = tune_gkdrag
-      config_tune_gfluxlaun = tune_gfluxlaun
-      config_tune_zceff_min = tune_zceff_min 
-      config_tune_v0snow    = tune_v0snow
-      config_tune_zvz0i     = tune_zvz0i
-      config_tune_entrorg   = tune_entrorg
-      config_itune_albedo   = itune_albedo
-    ENDDO
+    config_tune_gkwake       = tune_gkwake
+    config_tune_gkdrag       = tune_gkdrag
+    config_tune_gfluxlaun    = tune_gfluxlaun
+    config_tune_zceff_min    = tune_zceff_min 
+    config_tune_v0snow       = tune_v0snow
+    config_tune_zvz0i        = tune_zvz0i
+    config_tune_entrorg      = tune_entrorg
+    config_tune_capdcfac_et  = tune_capdcfac_et
+    config_tune_box_liq      = tune_box_liq
+    config_itune_albedo      = itune_albedo
+    config_max_freshsnow_inc = max_freshsnow_inc
 
 
 

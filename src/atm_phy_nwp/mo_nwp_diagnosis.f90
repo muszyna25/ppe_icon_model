@@ -997,9 +997,9 @@ CONTAINS
             CYCLE
           ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
            &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
-            prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,jk-1,jb) -  &
-           &      ( p_metrics%z_ifc(jc,jk-1,jb) - p_metrics%z_ifc(jc,jk,jb) )*  &
-           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                     &
+            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -  &
+           &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
+           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
            &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
           END IF
         ENDDO

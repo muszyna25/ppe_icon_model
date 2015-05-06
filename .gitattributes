@@ -188,6 +188,7 @@ doc/technical/cloud_variables.tex -text
 doc/technical/dwd_database/Makefile -text
 doc/technical/dwd_database/analysis.tex -text
 doc/technical/dwd_database/appendix.tex -text
+doc/technical/dwd_database/build_varlists.py -text
 doc/technical/dwd_database/cosmo_eu_fields.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
@@ -866,6 +867,8 @@ run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
+run/exp.test_nwp_R02B04N06multi -text
+run/exp.test_nwp_R02B04_R02B05_nest -text
 run/exp.test_oce_testbed_read -text
 run/exp.test_ocean_omip_10days -text
 run/exp.test_ocean_omip_parallel -text
@@ -892,6 +895,7 @@ schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
 schedulers/ecmwf/def/icon_B-matrix.def -text
 schedulers/ecmwf/def/icon_clim.def -text
+schedulers/ecmwf/def/icon_clim_amip.def -text
 schedulers/ecmwf/def/icon_clim_tsoil.def -text
 schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/icon_oper.def -text
@@ -900,10 +904,13 @@ schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/build.job -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_amip_ifs -text
 schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_clim_tsoil -text
-schedulers/ecmwf/gen/case_setup_default -text
-schedulers/ecmwf/gen/case_setup_default_r2b5 -text
+schedulers/ecmwf/gen/case_setup_default_icon -text
+schedulers/ecmwf/gen/case_setup_default_ifs -text
+schedulers/ecmwf/gen/case_setup_default_r2b5_icon -text
+schedulers/ecmwf/gen/case_setup_default_r2b5_ifs -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
 schedulers/ecmwf/gen/case_setup_oper -text
@@ -948,6 +955,7 @@ schedulers/ecmwf/sms/getmeans.sms -text
 schedulers/ecmwf/sms/init_build.sms -text
 schedulers/ecmwf/sms/init_cp_binary.sms -text
 schedulers/ecmwf/sms/init_data.sms -text
+schedulers/ecmwf/sms/init_data_nest.sms -text
 schedulers/ecmwf/sms/init_svn.sms -text
 schedulers/ecmwf/sms/meteogram.sms -text
 schedulers/ecmwf/sms/meteogram_tsoil.sms -text
@@ -1460,6 +1468,7 @@ src/configure_model/mo_diffusion_config.f90 -text
 src/configure_model/mo_dynamics_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
+src/configure_model/mo_ensemble_pert_config.f90 -text
 src/configure_model/mo_extpar_config.f90 -text
 src/configure_model/mo_gribout_config.f90 -text
 src/configure_model/mo_grid_config.f90 -text
@@ -1588,6 +1597,7 @@ src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
+src/namelists/mo_ensemble_pert_nml.f90 -text
 src/namelists/mo_extpar_nml.f90 -text
 src/namelists/mo_gribout_nml.f90 -text
 src/namelists/mo_grid_nml.f90 -text

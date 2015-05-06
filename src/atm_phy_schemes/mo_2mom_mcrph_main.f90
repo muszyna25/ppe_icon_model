@@ -1682,7 +1682,7 @@ CONTAINS
             n_g = graupel%n(i,k)          
             x_g = graupel%meanmass(q_g,n_g)
             d_g = graupel%diameter(x_g)
-            v_g = graupel%velocity(x_g)
+            v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
 
             !..note that a_f includes more than just ventilation, do never ever set f_v=1
             f_v = a_f + b_f * sqrt(v_g*d_g)   
@@ -1751,7 +1751,7 @@ CONTAINS
             n_h = hail%n(i,k)            
             x_h = hail%meanmass(q_h,n_h)
             d_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h)
+            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
 
             f_v  = a_f + b_f * sqrt(v_h*D_h)
 
@@ -2380,7 +2380,7 @@ CONTAINS
                q_g = graupel%q(i,k)  
                x_g = graupel%meanmass(q_g,n_g)
                d_g = graupel%diameter(x_g)
-               v_g = graupel%velocity(x_g)
+               v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
                
                f_v  = a_f + b_f * sqrt(v_g*d_g)
                f_v  = MAX(f_v,a_f/graupel%a_ven)  
@@ -3273,7 +3273,7 @@ CONTAINS
 
             x_i = ice%meanmass(q_i,n_i)
             d_i = ice%diameter(x_i)
-            v_i = ice%velocity(x_i) * graupel%rho_v(i,k)
+            v_i = ice%velocity(x_i) * ice%rho_v(i,k)
                               
             coll_n = pi4 * n_g * n_i * e_coll * dt & 
                  & *     (delta_n_gg * D_g**2 + delta_n_gi * D_g*D_i + delta_n_ii * D_i**2) &
@@ -4885,7 +4885,7 @@ CONTAINS
          delta_n_ii = coll_delta_11(ice,rain,0)
          delta_n_ir = coll_delta_12(ice,rain,0)
          delta_n_rr = coll_delta_22(ice,rain,0)
-         delta_q_ii = coll_delta_11(ice,rain,0) 
+         delta_q_ii = coll_delta_11(ice,rain,1) ! here mass weighted 
          delta_q_ir = coll_delta_12(ice,rain,1)
          delta_q_ri = coll_delta_12(rain,ice,1)
          delta_q_rr = coll_delta_22(ice,rain,1)
@@ -4893,7 +4893,7 @@ CONTAINS
          theta_n_ii = coll_theta_11(ice,rain,0)
          theta_n_ir = coll_theta_12(ice,rain,0)
          theta_n_rr = coll_theta_22(ice,rain,0)
-         theta_q_ii = coll_theta_11(ice,rain,0)
+         theta_q_ii = coll_theta_11(ice,rain,1) ! here mass weighted 
          theta_q_ir = coll_theta_12(ice,rain,1)
          theta_q_ri = coll_theta_12(rain,ice,1)
          theta_q_rr = coll_theta_22(ice,rain,1)
@@ -5241,7 +5241,7 @@ CONTAINS
         delta_n_ss = coll_delta_11(snow,rain,0)
         delta_n_sr = coll_delta_12(snow,rain,0)
         delta_n_rr = coll_delta_22(snow,rain,0)
-        delta_q_ss = coll_delta_11(snow,rain,0) 
+        delta_q_ss = coll_delta_11(snow,rain,1) ! mass weighted
         delta_q_sr = coll_delta_12(snow,rain,1)
         delta_q_rs = coll_delta_12(rain,snow,1)
         delta_q_rr = coll_delta_22(snow,rain,1)
@@ -5249,7 +5249,7 @@ CONTAINS
         theta_n_ss = coll_theta_11(snow,rain,0)
         theta_n_sr = coll_theta_12(snow,rain,0)
         theta_n_rr = coll_theta_22(snow,rain,0)
-        theta_q_ss = coll_theta_11(snow,rain,0)
+        theta_q_ss = coll_theta_11(snow,rain,1) ! mass weighted
         theta_q_sr = coll_theta_12(snow,rain,1)
         theta_q_rs = coll_theta_12(rain,snow,1)
         theta_q_rr = coll_theta_22(snow,rain,1)
