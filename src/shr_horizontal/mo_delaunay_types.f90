@@ -18,7 +18,7 @@
 MODULE mo_delaunay_types
 
 #if !defined(NOMPI)
-#if (defined(__SX__) || defined(__xlC__) || defined(_CRAYFTN) || defined(__INTEL_COMPILER))
+#if !defined (__SUNPRO_F95)
   USE MPI
 #endif
 #endif
@@ -41,7 +41,7 @@ MODULE mo_delaunay_types
   PUBLIC :: ccw_spherical, circum_circle_spherical
 
 #if !defined(NOMPI)
-#if (!defined(__SX__) && !defined(_CRAYFTN) && !defined(__INTEL_COMPILER))
+#if defined (__SUNPRO_F95)
   INCLUDE "mpif.h"
 #endif
 #endif
@@ -1233,17 +1233,17 @@ CONTAINS
       ! local sort on each PE
       CALL this%quicksort()
 !$  toc = omp_get_wtime() - time_s
-      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sorting: ", toc
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sorting: ", toc
       ! recursive call, gather stage 1
 !$  time_s = omp_get_wtime()
       CALL sync_triangulation(this, comm1)
 !$  toc = omp_get_wtime() - time_s
-      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 1: ", toc
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 1: ", toc
       ! recursive call, gather stage 2
 !$  time_s = omp_get_wtime()
       CALL sync_triangulation(this, comm2)
 !$  toc = omp_get_wtime() - time_s
-      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 2: ", toc
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 2: ", toc
 !$  time_s = omp_get_wtime()
       IF (irank /= 0) THEN
         local_nentries = 0
@@ -1254,7 +1254,7 @@ CONTAINS
       ! broadcast buffer size from PE "irank == 0"
       CALL MPI_BCAST(alloc_size, 1, MPI_INTEGER, 0, mpi_comm, ierr)
 !$  toc = omp_get_wtime() - time_s
-      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 1: ", toc
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 1: ", toc
     ELSE
       local_nentries = this%nentries
       alloc_size     = local_nentries
@@ -1272,7 +1272,7 @@ CONTAINS
 !$  time_s = omp_get_wtime()
       CALL MPI_BCAST(tmp, alloc_size, mpi_t_triangle, 0, mpi_comm, ierr)
 !$  toc = omp_get_wtime() - time_s
-      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "bcast: ", toc
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "bcast: ", toc
 !$  time_s = omp_get_wtime()
       IF (irank /= 0) THEN
         CALL this%resize(alloc_size)
@@ -1284,7 +1284,7 @@ CONTAINS
       DEALLOCATE(tmp, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 !$  toc = omp_get_wtime() - time_s
-      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 2: ", toc
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 2: ", toc
     ELSE
       ! communicate max. number of points
       ALLOCATE(recv_count(0:(nranks-1)), recv_displs(0:(nranks-1)), STAT=ierrstat)
