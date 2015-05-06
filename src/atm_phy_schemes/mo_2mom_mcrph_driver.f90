@@ -423,6 +423,8 @@ CONTAINS
       ! (see COSMO documentation for details)
       !
 
+      integer :: i,k
+
       ! a few 1d arrays, maybe we can reduce this later or we keep them ...
       real(wp), dimension(isize) :: &
            & qr_flux_now,qr_flux_new,qr_sum,qr_flux_sum,vr_sedq_new,vr_sedq_now,qr_impl,qr_star,xr_now, &
@@ -435,10 +437,8 @@ CONTAINS
            & nh_flux_now,nh_flux_new,nh_sum,nh_flux_sum,vh_sedn_new,vh_sedn_now,nh_impl,nh_star,xh_new, &
            & qi_flux_now,qi_flux_new,qi_sum,qi_flux_sum,vi_sedq_new,vi_sedq_now,qi_impl,qi_star,xi_now, &
            & ni_flux_now,ni_flux_new,ni_sum,ni_flux_sum,vi_sedn_new,vi_sedn_now,ni_impl,ni_star,xi_new
-      real(wp), dimension(isize)    :: xr_up,xi_up,xs_up,xg_up,xh_up
-      real(wp), dimension(isize,ke) :: rdzdt
 
-      integer :: i,k
+      real(wp), dimension(isize,ke) :: rdzdt
 
       logical, parameter :: lmicro_impl = .true.  ! microphysics within semi-implicit sedimentation loop?
 
@@ -451,13 +451,12 @@ CONTAINS
          q_vap_old(:,:) = qv(:,:)
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
+         ! .. this subroutine calculates all the microphysical sources and sinks
          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
 
-         ! .. this subroutine calculates all the microphysical sources and sinks
          DO kk=kts,kte
-         
-            ! .. latent heat term for temperature equation
             DO ii = its, ite
+               ! .. latent heat term for temperature equation
                q_vap_new = qv(ii,kk)
                q_liq_new = qr(ii,kk) + qc(ii,kk)
                tk(ii,kk) = tk(ii,kk) - convice * rho_r(ii,kk) * (q_vap_new - q_vap_old(ii,kk))  &
@@ -510,11 +509,11 @@ CONTAINS
       convliq = z_heat_cap_r * (alv-als)
 
       do i=its,ite
-         xr_up(i) = rain%meanmass(qr(i,kts),qnr(i,kts))
-         xi_up(i) = ice%meanmass(qi(i,kts),qni(i,kts))
-         xs_up(i) = snow%meanmass(qs(i,kts),qns(i,kts))
-         xg_up(i) = graupel%meanmass(qg(i,kts),qng(i,kts))
-         xh_up(i) = hail%meanmass(qh(i,kts),qnh(i,kts))
+         vr_sedn_new(i) = rain%vsedi_min
+         vi_sedn_new(i) = ice%vsedi_min
+         vs_sedn_new(i) = snow%vsedi_min
+         vg_sedn_new(i) = graupel%vsedi_min
+         vh_sedn_new(i) = hail%vsedi_min
       end do
 
       ! here we simply assume that there is no cloud or precip in the uppermost level
@@ -529,32 +528,19 @@ CONTAINS
            xs_now(i) = snow%meanmass(qs(i,k),qns(i,k))                       
            xg_now(i) = graupel%meanmass(qg(i,k),qng(i,k))                       
            xh_now(i) = hail%meanmass(qh(i,k),qnh(i,k))                       
-
-           xr_new(i) = 0.5*(xr_up(i) + xr_now(i))
-           xi_new(i) = 0.5*(xi_up(i) + xi_now(i))
-           xs_new(i) = 0.5*(xs_up(i) + xs_now(i))
-           xg_new(i) = 0.5*(xg_up(i) + xg_now(i))
-           xh_new(i) = 0.5*(xh_up(i) + xh_now(i))
         end do
 
-        call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_new,vr_sedn_new,vr_sedq_new,its,ite,qc(:,k))
         call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
-
-        call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_new,vi_sedn_new,vi_sedq_new,its,ite)
         call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_now,vi_sedn_now,vi_sedq_now,its,ite)
-
-        call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_new,vs_sedn_new,vs_sedq_new,its,ite)
         call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_now,vs_sedn_now,vs_sedq_now,its,ite)
-
-        call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_new,vg_sedn_new,vg_sedq_new,its,ite)
         call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,vg_sedn_now,vg_sedq_now,its,ite)
-
-        call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_new,vh_sedn_new,vh_sedq_new,its,ite)
         call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,vh_sedn_now,vh_sedq_now,its,ite)
 
         do i=its,ite
 
            ! .... rain ....
+           vr_sedn_new(i) = 0.5 * (vr_sedn_now(i) + vr_sedn_new(i))
+           vr_sedq_new(i) = 0.5 * (vr_sedq_now(i) + vr_sedq_new(i))
 
            ! qflux_new, nflux_new are the updated flux values from the level above
            ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
@@ -584,6 +570,8 @@ CONTAINS
            qr_sum(i) = qr_sum(i) - qr_star(i)   ! but source/sinks work on star-values
 
            ! .... ice ....
+           vi_sedn_new(i) = 0.5 * (vi_sedn_now(i) + vi_sedn_new(i))
+           vi_sedq_new(i) = 0.5 * (vi_sedq_now(i) + vi_sedq_new(i))
 
            ! qflux_new, nflux_new are the updated flux values from the level above
            ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
@@ -613,6 +601,8 @@ CONTAINS
            qi_sum(i) = qi_sum(i) - qi_star(i)   ! but source/sinks work on star-values
 
            ! .... snow ....
+           vs_sedn_new(i) = 0.5 * (vs_sedn_now(i) + vs_sedn_new(i))
+           vs_sedq_new(i) = 0.5 * (vs_sedq_now(i) + vs_sedq_new(i))
 
            ! qflux_new, nflux_new are the updated flux values from the level above
            ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
@@ -642,6 +632,8 @@ CONTAINS
            qs_sum(i) = qs_sum(i) - qs_star(i)   ! but source/sinks work on star-values
 
            ! .... graupel ....
+           vg_sedn_new(i) = 0.5 * (vg_sedn_now(i) + vg_sedn_new(i))
+           vg_sedq_new(i) = 0.5 * (vg_sedq_now(i) + vg_sedq_new(i))
 
            ! qflux_new, nflux_new are the updated flux values from the level above
            ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
@@ -671,6 +663,8 @@ CONTAINS
            qg_sum(i) = qg_sum(i) - qg_star(i)   ! but source/sinks work on star-values
 
            ! .... hail ....
+           vh_sedn_new(i) = 0.5 * (vh_sedn_now(i) + vh_sedn_new(i))
+           vh_sedq_new(i) = 0.5 * (vh_sedq_now(i) + vh_sedq_new(i))
 
            ! qflux_new, nflux_new are the updated flux values from the level above
            ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
@@ -750,11 +744,17 @@ CONTAINS
            qg_flux_new(i) = qg(i,k)  * vg_sedq_new(i)     ! 
            qh_flux_new(i) = qh(i,k)  * vh_sedq_new(i)     ! 
 
-           xr_up(i) = xr_now(i) ! (k-1) values for next level
-           xi_up(i) = xi_now(i)
-           xs_up(i) = xs_now(i)
-           xg_up(i) = xg_now(i)
-           xh_up(i) = xh_now(i)
+           vr_sedn_new(i) = vr_sedn_now(i)
+           vi_sedn_new(i) = vi_sedn_now(i)
+           vs_sedn_new(i) = vs_sedn_now(i)
+           vg_sedn_new(i) = vg_sedn_now(i)
+           vh_sedn_new(i) = vh_sedn_now(i)
+           vr_sedq_new(i) = vr_sedq_now(i)
+           vi_sedq_new(i) = vi_sedq_now(i)
+           vs_sedq_new(i) = vs_sedq_now(i)
+           vg_sedq_new(i) = vg_sedq_now(i)
+           vh_sedq_new(i) = vh_sedq_now(i)
+
         end do
 
      END DO
