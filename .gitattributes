@@ -1469,6 +1469,7 @@ src/configure_model/mo_diffusion_config.f90 -text
 src/configure_model/mo_dynamics_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
+src/configure_model/mo_ensemble_pert_config.f90 -text
 src/configure_model/mo_extpar_config.f90 -text
 src/configure_model/mo_gribout_config.f90 -text
 src/configure_model/mo_grid_config.f90 -text
@@ -1596,6 +1597,7 @@ src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
+src/namelists/mo_ensemble_pert_nml.f90 -text
 src/namelists/mo_extpar_nml.f90 -text
 src/namelists/mo_gribout_nml.f90 -text
 src/namelists/mo_grid_nml.f90 -text

@@ -46,6 +46,7 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
@@ -140,6 +141,8 @@ CONTAINS
       ! index lists for ice-covered and non-ice covered ocean points 
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
+
+      CALL configure_ensemble_pert()
 
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
 

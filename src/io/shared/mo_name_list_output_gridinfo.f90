@@ -28,7 +28,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_intp_data_strc,                    ONLY: lonlat_grid_list
   USE mo_math_constants,                    ONLY: pi_180, pi
   USE mo_impl_constants,                    ONLY: SUCCESS, min_rlcell_int, min_rledge_int,  &
-    &                                             min_rlvert
+    &                                             min_rlvert, vname_len
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
     &                                             my_process_is_mpi_test, my_process_is_io, &
     &                                             my_process_is_mpi_workroot, p_bcast
@@ -36,12 +36,14 @@ MODULE mo_name_list_output_gridinfo
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
+  USE mo_util_string,                       ONLY: one_of
 
   USE mo_name_list_output_types,            ONLY: t_patch_info, t_grid_info, t_output_file, &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,         &
     &                                             ILATLON, ICELL, IEDGE, IVERT, IRLAT,      &
-    &                                             IRLON
-
+    &                                             IRLON, GRB2_GRID_INFO_NAME
+  USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
+    &                                             level_type_il
   IMPLICIT NONE
 
   PRIVATE
@@ -519,6 +521,28 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> Depending on the vertical interpolation type of an output file,
+  !  this function returns the list of variable names (ml_varlist,
+  !  pl_varlist, etc.)
+  !
+  SUBROUTINE get_varlist(of, p_varlist)
+    TYPE (t_output_file), INTENT(INOUT) :: of
+    CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
+
+    SELECT CASE(of%ilev_type)
+    CASE(level_type_ml)
+      p_varlist => of%name_list%ml_varlist
+    CASE(level_type_pl)
+      p_varlist => of%name_list%pl_varlist
+    CASE(level_type_hl)
+      p_varlist => of%name_list%hl_varlist
+    CASE(level_type_il)
+      p_varlist => of%name_list%il_varlist
+    END SELECT
+  END SUBROUTINE get_varlist
+
+
+  !------------------------------------------------------------------------------------------------
   !> Declaration of the grid information (RLAT/RLON) in output file, GRIB2 format.
   !
   SUBROUTINE set_grid_info_grb2(of)
@@ -544,6 +568,7 @@ CONTAINS
       /)
 
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
+    CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
     vlistID = of%cdiVlistID
     zaxisID = of%cdiZaxisID(ZA_surface)
@@ -928,6 +953,7 @@ CONTAINS
     TYPE (t_lon_lat_grid), POINTER :: grid
     REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
     TYPE(t_grid_info_ptr)          :: gptr(3)
+    CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
     ! skip this on test PE...
     IF (my_process_is_mpi_test()) RETURN
@@ -947,11 +973,18 @@ CONTAINS
         ! allocate data buffer:
         ALLOCATE(r_out_dp_1D(isize(igrid)), stat=errstat)
         IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+
         ! write RLON, RLAT
-        r_out_dp_1D(:) = gptr(igrid)%ptr%lon(1:isize(igrid)) / pi_180
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
-        r_out_dp_1D(:) = gptr(igrid)%ptr%lat(1:isize(igrid)) / pi_180
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
+        CALL get_varlist(of, p_varlist)
+        IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLON), p_varlist) /= -1) THEN
+          r_out_dp_1D(:) = gptr(igrid)%ptr%lon(1:isize(igrid)) / pi_180
+          CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
+        END IF
+        IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLAT), p_varlist) /= -1) THEN
+          r_out_dp_1D(:) = gptr(igrid)%ptr%lat(1:isize(igrid)) / pi_180
+          CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
+        END IF
+
         ! clean up
         DEALLOCATE(r_out_dp_1D, stat=errstat)
         IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
@@ -967,11 +1000,18 @@ CONTAINS
       IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
       ! compute grid points of rotated lon/lat grid
       CALL rotate_latlon_grid(grid, rotated_pts)
+
       ! write RLON, RLAT
-      r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
-      r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
+      CALL get_varlist(of, p_varlist)
+      IF (one_of(GRB2_GRID_INFO_NAME(0,IRLON), p_varlist) /= -1) THEN
+        r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
+        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
+      END IF
+      IF (one_of(GRB2_GRID_INFO_NAME(0,IRLAT), p_varlist) /= -1) THEN
+        r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
+        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
+      END IF
+
       ! clean up
       DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
       IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')

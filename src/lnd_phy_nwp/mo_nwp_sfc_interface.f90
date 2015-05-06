@@ -632,7 +632,9 @@ CONTAINS
           lnd_prog_new%t_snow_t  (jc,jb,isubs) = t_snow_new_t  (ic)         
           lnd_prog_new%t_s_t     (jc,jb,isubs) = t_s_new_t     (ic)              
           lnd_prog_new%t_g_t     (jc,jb,isubs) = t_g_t         (ic)
-          lnd_diag%qv_s_t        (jc,jb,isubs) = qv_s_t        (ic)                
+          ! qv_s may violate the saturation constraint in cases of numerical instability
+          lnd_diag%qv_s_t        (jc,jb,isubs) = MIN(qv_s_t    (ic), &
+            spec_humi(sat_pres_water(t_g_t(ic)),ps_t(ic)) )
           lnd_prog_new%w_snow_t  (jc,jb,isubs) = w_snow_new_t  (ic)          
           lnd_prog_new%rho_snow_t(jc,jb,isubs) = rho_snow_new_t(ic)        
           lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic)

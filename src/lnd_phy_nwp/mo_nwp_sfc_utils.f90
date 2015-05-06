@@ -1317,7 +1317,7 @@ CONTAINS
       ENDDO  ! jc
 
 
-      ! Make sure that aggregated w_so is always larger that air dryness point 
+      ! Make sure that aggregated w_so is always larger than air dryness point 
       ! at points where the soiltype allows infiltration of water.
       DO jk=1,nlev_soil
         DO jc = i_startidx, i_endidx
