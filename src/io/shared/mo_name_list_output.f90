@@ -575,8 +575,7 @@ CONTAINS
                                                
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
-      &                                            idata_type, lev_idx, lev, ierrstat, dim1,  &
-      &                                            dim2, nrecv, j
+      &                                            idata_type, lev_idx, lev
     INTEGER(i8)                                 :: ioff
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
@@ -592,8 +591,6 @@ CONTAINS
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
-    INTEGER, ALLOCATABLE                        :: global_idx(:,:), gather_reorder_idx(:)
-    TYPE(t_lon_lat_data),  POINTER              :: lonlat
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -885,57 +882,6 @@ CONTAINS
           nmiss = 0
         ENDIF
 
-        ! Handling of lon-lat grid output in synchronous output mode:
-        ! Global indices must be exchanged explicitly because for
-        ! local nests the ICON gather pattern does not fill the global
-        ! positions correctly.
-        IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
-          SELECT CASE (info%ndims)
-          CASE(2)
-            dim1 = info%used_dimensions(1)
-            dim2 = info%used_dimensions(2)
-          CASE(3)
-            dim1 = info%used_dimensions(1)
-            dim2 = info%used_dimensions(3)
-          END SELECT
-
-          ALLOCATE(global_idx(dim1, dim2),                                                  &
-            &      gather_reorder_idx(MERGE(p_ri%n_glb, 0, my_process_is_mpi_workroot())),  &
-            &      STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-          lonlat => lonlat_grid_list(lonlat_id)
-
-          global_idx(:,:) = RESHAPE(lonlat%intp(i_log_dom)%global_idx, &
-            &                       (/ dim1, dim2 /), pad=(/ 0 /) )
-          gather_reorder_idx(:) = 1
-          CALL exchange_data(global_idx, gather_reorder_idx, p_pat)
-          DEALLOCATE(global_idx, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-          nrecv = SUM(p_pat%collector_size(:))
-          IF (my_process_is_mpi_workroot()) THEN
-            i = nrecv
-            IF (idata_type == iREAL) THEN
-              r_out_wp(:) = -1._wp
-              r_out_wp(gather_reorder_idx(:)) = 1._wp
-              DO j=1,SIZE(gather_reorder_idx)
-                IF (r_out_wp(j) < 0.) THEN
-                  i = i + 1
-                  gather_reorder_idx(i) = j
-                END IF
-              END DO
-            ELSE IF (idata_type == iINTEGER) THEN
-              r_out_int(:) = -1
-              r_out_int(gather_reorder_idx(:)) = 1
-              DO j=1,SIZE(gather_reorder_idx)
-                IF (r_out_int(j) < 0) THEN
-                  i = i + 1
-                  gather_reorder_idx(i) = j
-                END IF
-              END DO
-            END IF
-          END IF
-        END IF
-
         ! For all levels (this needs to be done level-wise in order to reduce 
         !                 memory consumption)
         DO lev = 1, nlevs
@@ -968,11 +914,7 @@ CONTAINS
               END IF
               CALL exchange_data(in_array=r_ptr(:,lev_idx,:), &
                 &                out_array=r_out_wp(:), gather_pattern=p_pat)
-
-              IF ((info%hgrid == GRID_REGULAR_LONLAT) .AND. my_process_is_mpi_workroot()) THEN
-                r_out_wp(gather_reorder_idx(:))= r_out_wp(:)
-              END IF
-            
+           
             ELSE IF (idata_type == iINTEGER) THEN
               r_out_int(:) = 0
 
@@ -989,9 +931,6 @@ CONTAINS
 
             END IF
           END IF ! n_points
-            IF ((info%hgrid == GRID_REGULAR_LONLAT) .AND. my_process_is_mpi_workroot()) THEN
-              r_out_int(gather_reorder_idx(:))  = r_out_int(:)
-            END IF
 
           IF(my_process_is_mpi_workroot()) THEN
 
@@ -1038,19 +977,14 @@ CONTAINS
           ! ----------
           
           IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-              IF (use_dp_mpi2io .OR. have_GRIB) THEN
-                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
-              ELSE
-                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
-              ENDIF
+            IF (use_dp_mpi2io .OR. have_GRIB) THEN
+              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
+            ELSE
+              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
+            ENDIF
           ENDIF
           
         END DO ! lev = 1, nlevs
-
-        IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
-          DEALLOCATE(gather_reorder_idx, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-        END IF
 
         IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
           & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
