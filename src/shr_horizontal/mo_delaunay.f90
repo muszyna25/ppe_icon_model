@@ -73,11 +73,12 @@ CONTAINS
 
   ! --------------------------------------------------------------------
   !> Triangulation subroutine
-  SUBROUTINE triangulate(points, tri, subset)
+  SUBROUTINE triangulate(points, tri, subset, ignore_completeness)
 
     TYPE(t_point_list),    INTENT(IN)            :: points
     TYPE(t_triangulation), INTENT(INOUT), TARGET :: tri
     TYPE(t_spherical_cap), INTENT(IN)            :: subset
+    LOGICAL,               INTENT(IN)            :: ignore_completeness
     ! local variables
 
     !> triangle count that triggers clean-up of "tri" data structure
@@ -155,7 +156,9 @@ CONTAINS
         END IF
       END IF
       ipoint       = pxyz%a(ipt)
-      IF ((ipoint%ps > cos_radius) .AND. (ndiscard==0))  EXIT LOOP
+      IF (ipoint%ps > cos_radius) THEN
+        IF ((ndiscard==0) .OR. ignore_completeness)  EXIT LOOP
+      END IF
 
       j   = j0
       j0  = -1
@@ -297,12 +300,13 @@ CONTAINS
   ! --------------------------------------------------------------------
   !> Triangulation subroutine - multi-threaded version.
   !
-  SUBROUTINE triangulate_mthreaded(points, tri, subset, nthreads)
+  SUBROUTINE triangulate_mthreaded(points, tri, subset, nthreads, ignore_completeness)
 
     TYPE(t_point_list),    INTENT(IN)            :: points
     TYPE(t_triangulation), INTENT(INOUT), TARGET :: tri
     TYPE(t_spherical_cap), INTENT(IN)            :: subset
     INTEGER,               INTENT(IN)            :: nthreads
+    LOGICAL,               INTENT(IN)            :: ignore_completeness
     ! local variables
 
     !> triangle count that triggers clean-up of "tri" data structure
@@ -388,7 +392,9 @@ CONTAINS
           WRITE (0,*) "ipt = ", ipt
         END IF
       END IF
-      IF ((ipoint%ps > cos_radius) .AND. (ndiscard==0))  EXIT LOOP
+      IF (ipoint%ps > cos_radius) THEN
+        IF ((ndiscard==0) .OR. ignore_completeness)  EXIT LOOP
+      END IF
 
       ipoint = pxyz%a(ipt)
       ! Set up the edge buffer.
@@ -620,7 +626,8 @@ CONTAINS
       pts0%a(i)%gindex = i
     END DO
     CALL tri0%initialize()
-    CALL triangulate(pts0, tri0, spherical_cap(point(-1._wp, 0._wp, 0._wp), -1._wp))
+    CALL triangulate(pts0, tri0, spherical_cap(point(-1._wp, 0._wp, 0._wp), -1._wp), &
+      &              ignore_completeness = .FALSE.)
 
     IF ((dbg_level >= 10) .AND. (this_rank == 0)) THEN
       ! debugging output to file

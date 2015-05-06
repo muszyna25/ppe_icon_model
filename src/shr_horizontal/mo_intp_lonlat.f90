@@ -1993,10 +1993,16 @@
 !$    time_s = omp_get_wtime()
       nthreads = 1
 !$    nthreads = omp_get_max_threads()
+
+      ! for local domains we do not force complete Delaunay
+      ! triangulations, since these domains contain pathological
+      ! triangles near the boundary which would lead to a
+      ! time-consuming triangulation process.
       IF (nthreads > 1) THEN
-        CALL triangulate_mthreaded(p_global, tri, subset, nthreads)
+        CALL triangulate_mthreaded(p_global, tri, subset, nthreads, &
+          &                        ignore_completeness = (ptr_patch%id > 1))
       ELSE
-        CALL triangulate(p_global, tri, subset)
+        CALL triangulate(p_global, tri, subset, ignore_completeness = (ptr_patch%id > 1))
       END IF
 !$    toc = omp_get_wtime() - time_s
       IF (dbg_level > 1) THEN
@@ -2020,13 +2026,12 @@
           CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
         END IF
       END IF
-      CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
 
       ! --- write a plot of the global triangulation
       CALL tri%quicksort() 
       tri_global=triangulation(tri)
       CALL tri_global%sync()
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_stdio() .AND. (dbg_level > 10)) THEN
         CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
       END IF
 
