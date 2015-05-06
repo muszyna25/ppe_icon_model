@@ -61,7 +61,6 @@ MODULE mo_delaunay
 
   PUBLIC :: triangulate
   PUBLIC :: triangulate_mthreaded
-  PUBLIC :: triangulate_parallel
   PUBLIC :: write_triangulation_vtk
   PUBLIC :: point_cloud_diam
   PUBLIC :: create_thin_covering
@@ -574,114 +573,6 @@ CONTAINS
     CALL pxyz%destructor()
   END SUBROUTINE triangulate_mthreaded
 
-
-  !> perform triangulation in parallel
-  SUBROUTINE triangulate_parallel(p_global, this_rank, nparallel, nsubsets_local, tri)
-    TYPE(t_point_list),    INTENT(IN)             :: p_global
-    INTEGER,               INTENT(IN)             :: this_rank       !< local MPI rank no.
-    INTEGER,               INTENT(IN)             :: nparallel
-    INTEGER,               INTENT(IN)             :: nsubsets_local  !< triangulation tasks/rank
-    TYPE(t_triangulation), INTENT(INOUT)          :: tri
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//":triangulate_parallel"
-    INTEGER                             :: itri, i,j, npivot, isubset, n1,n2
-    TYPE (t_triangulation)              :: tri_list(0:(nparallel-1))
-    TYPE (t_point_list)                 :: pivot_points, pts0
-    TYPE (t_sphcap_list)                :: subset
-    TYPE (t_point)                      :: default_direction
-!$  DOUBLE PRECISION                :: time_s, toc
-    
-    ! --- select "pivot points" out of the local point set
-    !     each point generates an independent Delaunay triangulation.
-
-    npivot = nsubsets_local
-
-    CALL pivot_points%initialize()
-    default_direction = point(-1._wp, 0._wp, 0._wp)
-    j = this_rank*npivot*MAX(INT(p_global%nentries)/(npivot*nparallel),1)
-    DO i=0,(npivot-1)
-      CALL pivot_points%push_back(p_global%a(j))
-      pivot_points%a(i)%gindex = this_rank
-      pivot_points%a(i)%ps     = pivot_points%a(i) * default_direction
-      j = j + MAX(INT(p_global%nentries)/(npivot*nparallel),1)
-    END DO
-
-    ! --- merge pivot points into a global set
-
-    pts0 = point_list(pivot_points)
-    IF (dbg_level >= 10)  WRITE (0,'(a,i0)') "# total no. of local pivot points: ", pivot_points%nentries
-    CALL pts0%sync()
-    IF (dbg_level >= 10)  WRITE (0,'(a,i0)') "# total no. of pivot points: ", pts0%nentries
-
-    ! --- build a coarse auxiliary triangulation 
-    !     based on the pivot points
-    IF (dbg_level >= 2)  WRITE (0,'(a)') "# build a small auxiliary triangulation"
-    CALL subset%initialize()
-    CALL create_thin_covering( pts0, subset, this_rank )
-
-    ! --- parallel triangulation phase
-    IF (dbg_level >= 2)  WRITE (0,'(a)') "# parallel triangulation phase"
-
-    DO i=0,(nparallel-1) 
-      CALL tri_list(i)%initialize()
-    END DO
-
-    isubset = 0
-    DO 
-      IF (isubset >= subset%nentries)  EXIT
-
-      DO i=0,(nparallel-1)
-        tri_list(i)%nentries = 0
-      END DO
-!$omp parallel do schedule(runtime)
-      DO itri=isubset,(isubset + nparallel - 1)
-        IF (itri >= subset%nentries)  CYCLE
-        
-!        IF (dbg_level >= 10) THEN
-          WRITE (0,'(a,f10.3)') "# subset radius: ", subset%a(itri)%radius
-          WRITE (0,*) "# triangulating ", p_global%nentries, " points."
-!        END IF
-!$  time_s = omp_get_wtime()
-        CALL triangulate(p_global, tri_list(itri-isubset), subset%a(itri))
-!$  toc = omp_get_wtime() - time_s
-!$    WRITE (0,*) "local elapsed time: ", toc
-!    END IF
-!        CALL triangulate_mthreaded(p_global, tri_list(itri-isubset), subset%a(itri), 1)
-        CALL tri_list(itri-isubset)%quicksort() ! re-order triangles for global merge
-!        IF (dbg_level >= 1)  
-WRITE (0,'(a,i0,a)') "# formed ", tri_list(itri-isubset)%nentries, " triangles."
-      END DO
-!$omp end parallel do
-      isubset = (isubset + nparallel)
-
-      ! --- merge process: translate point indices into global ones:
-      DO itri=0,(nparallel-1)
-        IF (tri_list(itri)%nentries == 0) CYCLE
-
-        n1 = tri%nentries
-        n2 = tri_list(itri)%nentries
-        CALL tri%merge(tri_list(itri))
-      
-        IF ((dbg_level >= 1) .AND. (n1 > 0)) THEN
-          WRITE (0,'(a,i0,a,i0,a,i0,a)')                                                     &
-            &           "# merge with triangulation ", itri,                                 &
-            &           "; resulting triangulation of size ", tri%nentries,                  &
-            &           " (overlap: ", (n1+n2-tri%nentries), ")"
-        END IF
-      END DO
-    END DO
-    DO i=0,(nparallel-1)
-      CALL tri_list(i)%destructor()
-    END DO
-    CALL tri%sync()
-!    IF (dbg_level >= 1)  
-WRITE (0,'(a,i0,a)') "Resulting triangulation: ", tri%nentries, " triangles."
-
-    ! clean up
-    CALL pivot_points%destructor()
-    CALL subset%destructor()
-  END SUBROUTINE triangulate_parallel
-
   
   !> Upper bound for point cloud diameter
   REAL(wp)  FUNCTION point_cloud_diam(pts, p0)
@@ -708,7 +599,7 @@ WRITE (0,'(a,i0,a)') "Resulting triangulation: ", tri%nentries, " triangles."
     INTEGER,             INTENT(IN)    :: this_rank !< local MPI rank no.
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":create_thin_covering"
-    INTEGER               :: i, j, j1, j2, p1, p1_local, ierrstat
+    INTEGER               :: i, j, j1, p1, p1_local, ierrstat
     INTEGER, ALLOCATABLE  :: local_idx(:)
     TYPE(t_triangulation) :: tri0
     TYPE(t_point_list)    :: pts0
@@ -794,6 +685,3 @@ WRITE (0,'(a,i0,a)') "Resulting triangulation: ", tri%nentries, " triangles."
   END SUBROUTINE write_triangulation_vtk
   
 END MODULE mo_delaunay
-
-
-

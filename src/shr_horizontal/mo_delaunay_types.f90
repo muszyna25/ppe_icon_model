@@ -17,11 +17,13 @@
 
 MODULE mo_delaunay_types
 
-#ifndef NOMPI
-#if !defined (__SUNPRO_F95)
+#if !defined(NOMPI)
+#if (defined(__SX__) || defined(__xlC__) || defined(_CRAYFTN) || defined(__INTEL_COMPILER))
   USE MPI
 #endif
 #endif
+
+!$  USE OMP_LIB
 
   USE mo_exception,         ONLY: finish
   USE mo_impl_constants,    ONLY: SUCCESS
@@ -38,8 +40,8 @@ MODULE mo_delaunay_types
   PUBLIC :: OPERATOR(<), OPERATOR(/), OPERATOR(*), OPERATOR(==), OPERATOR(+)
   PUBLIC :: ccw_spherical, circum_circle_spherical
 
-#ifndef NOMPI
-#if defined (__SUNPRO_F95)
+#if !defined(NOMPI)
+#if (!defined(__SX__) && !defined(_CRAYFTN) && !defined(__INTEL_COMPILER))
   INCLUDE "mpif.h"
 #endif
 #endif
@@ -142,7 +144,6 @@ MODULE mo_delaunay_types
   CONTAINS
     PROCEDURE :: swap       => swap_triangulation
     PROCEDURE :: cmp        => cmp_triangulation
-    PROCEDURE :: merge      => merge_triangulation
     PROCEDURE :: destructor => destructor_triangulation
     PROCEDURE :: reserve    => reserve_triangulation
     PROCEDURE :: resize     => resize_triangulation
@@ -227,7 +228,6 @@ MODULE mo_delaunay_types
     MODULE PROCEDURE t_edge_equal
     MODULE PROCEDURE t_point_equal
     MODULE PROCEDURE t_triangle_equal
-    MODULE PROCEDURE t_mpi_triangle_equal
   END INTERFACE
 
   !> operator: subtraction of two points
@@ -254,7 +254,6 @@ MODULE mo_delaunay_types
   INTERFACE OPERATOR ( < )
     MODULE PROCEDURE t_point_cmp
     MODULE PROCEDURE t_triangle_cmp
-    MODULE PROCEDURE t_mpi_triangle_cmp
   END INTERFACE
 
 CONTAINS
@@ -443,15 +442,6 @@ CONTAINS
 
 
   ! --------------------------------------------------------------------
-  !> operator: comparison of two mpi_triangles
-  LOGICAL PURE FUNCTION t_mpi_triangle_equal(t1,t2)
-    TYPE(t_mpi_triangle), INTENT(IN) :: t1,t2
-    t_mpi_triangle_equal =                                        &
-      &    ( (t1%p(0) == t2%p(0)) .AND. (t1%p(1) == t2%p(1)) .AND. (t1%p(2) == t2%p(2)) )
-  END FUNCTION t_mpi_triangle_equal
-
-
-  ! --------------------------------------------------------------------
   !> operator: subtraction of two points
   TYPE(t_point) PURE FUNCTION t_point_minus(a1,a2)
     TYPE(t_point), INTENT(IN) :: a1,a2
@@ -485,45 +475,6 @@ CONTAINS
     t_point_div = t_point(x=t%x/v, y=t%y/v, z=t%z/v, &
       &                   ps=t%ps, gindex=t%gindex)
   END FUNCTION t_point_div
-
-
-  ! --------------------------------------------------------------------
-  !> merge two triangulation into a single, sorted one.
-  SUBROUTINE merge_triangulation(this,t2)
-    CLASS(t_triangulation), INTENT(INOUT)  :: this
-    TYPE(t_triangulation),  INTENT(IN)     :: t2
-    ! local variables
-    INTEGER               :: i1,i2,j
-    TYPE(t_triangulation) :: t3
-
-    CALL t3%initialize()
-
-    i1 = 0
-    i2 = 0
-    CALL t3%reserve(this%nentries + t2%nentries)
-    LOOP0 : DO
-      IF ((i1 >= this%nentries) .OR. (i2 >= t2%nentries))  EXIT LOOP0
-      IF (t2%a(i2) < this%a(i1)) THEN
-        CALL t3%push_back(t2%a(i2))
-        i2 = i2 + 1
-      ELSE
-        IF (this%a(i1) == t2%a(i2))  i2 = i2 + 1
-        CALL t3%push_back(this%a(i1))
-        i1 = i1 + 1
-      END IF
-    END DO LOOP0
-    LOOP1 : DO j=i1,(this%nentries-1)
-      CALL t3%push_back(this%a(j))
-    END DO LOOP1
-    LOOP2 : DO j=i2,(t2%nentries-1)
-      CALL t3%push_back(t2%a(j))
-    END DO LOOP2
-    SELECT TYPE(this)
-    TYPE IS(t_triangulation)
-      this = triangulation(t3)
-    END SELECT
-    CALL t3%destructor()
-  END SUBROUTINE merge_triangulation
 
 
   ! --------------------------------------------------------------------
@@ -625,16 +576,6 @@ CONTAINS
       &        ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) < a2%p(1)))  .OR.                       &
       &        ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) == a2%p(1)) .AND. (a1%p(2) < a2%p(2)))
   END FUNCTION t_triangle_cmp
-
-
-  ! --------------------------------------------------------------------
-  !> operator: comparison of triangles (wrt. point indices)
-  LOGICAL PURE FUNCTION t_mpi_triangle_cmp(a1,a2)
-    TYPE(t_mpi_triangle), INTENT(IN) :: a1,a2
-    t_mpi_triangle_cmp =  (a1%p(0) < a2%p(0))                        .OR.                       &
-      &            ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) < a2%p(1)))  .OR.                       &
-      &            ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) == a2%p(1)) .AND. (a1%p(2) < a2%p(2)))
-  END FUNCTION t_mpi_triangle_cmp
 
 
   ! --------------------------------------------------------------------
@@ -1103,7 +1044,7 @@ CONTAINS
 
 
   ! utility function to swap two elements
-  SUBROUTINE heap_swap(heap, i, j)
+  ELEMENTAL SUBROUTINE heap_swap(heap, i, j)
     TYPE(t_min_heap),      INTENT(INOUT)   :: heap
     INTEGER,               INTENT(IN)      :: i,j
     TYPE(t_min_heap_node) :: tmp
@@ -1120,13 +1061,6 @@ CONTAINS
   END FUNCTION heap_left
 
  
-  ! to get index of right child of node at index i
-  ELEMENTAL INTEGER FUNCTION heap_right(i) 
-    INTEGER, INTENT(IN) :: i
-    heap_right = (2*i + 2)
-  END FUNCTION heap_right
-
-
   ! build a heap from a given array a[] of given size
   SUBROUTINE construct_heap(heap, a)
     TYPE(t_min_heap),      INTENT(INOUT)  :: heap
@@ -1149,17 +1083,13 @@ CONTAINS
     INTEGER,          INTENT(IN)      :: i
     INTEGER :: l,r,smallest
 
-    l = heap_left(i)
-    r = heap_right(i)
+    l        = heap_left(i)
     smallest = i
     IF (l < heap%isize) THEN
-      IF (heap%harr(l)%elt%p < heap%harr(i)%elt%p) THEN
-        smallest = l
-      END IF
-    END IF
-    IF (r < heap%isize) THEN
-      IF (heap%harr(r)%elt%p < heap%harr(smallest)%elt%p) THEN
-        smallest = r
+      IF (heap%harr(l)%elt%p < heap%harr(i)%elt%p)           smallest = l
+      r = l+1
+      IF (r < heap%isize) THEN
+        IF (heap%harr(r)%elt%p < heap%harr(smallest)%elt%p)  smallest = r
       END IF
     END IF
     IF (smallest /= i) THEN
@@ -1197,10 +1127,10 @@ CONTAINS
     ! Create a min heap with k heap nodes. Every heap node has first
     ! element of an array.
     istart(0) = 0
+    heap_init(0:(k-1))%j = 1                       ! index of next element to be stored from array
+    heap_init(0:(k-1))%i = (/ ( i, i=0,(k-1) ) /)  ! index of array
     DO i=0,(k-1)
       heap_init(i)%elt%p%p = arr(istart(i))%p ! Store the first element
-      heap_init(i)%i   = i    ! index of array
-      heap_init(i)%j   = 1    ! index of next element to be stored from array
       IF (i /= (k-1)) THEN
         istart(i+1) = istart(i) + isize(i)
       END IF
@@ -1240,84 +1170,167 @@ CONTAINS
   ! --------------------------------------------------------------------
   !> Synchronizes a triangulation between different processors with MPI.
   !
-  !  Duplicate triangles are removed. Alas, there is no usr-defined
-  !  "reduction" operation available for MPIALLGATHER, thus we have to
-  !  communicate all data first and then do the removal on each MPI
-  !  task.
+  !  Duplicate triangles are removed.
   !
-  SUBROUTINE sync_triangulation(this)
+  !  First, this subroutine first calls itself recursively with a
+  !  split MPI communicator, followed by a second call with the
+  !  communicator that contains all worker PEs. This way, the gather
+  !  process is processed in two stages which reqires smaller MPI
+  !  buffers.
+  !
+  RECURSIVE SUBROUTINE sync_triangulation(this, opt_mpi_comm)
     CLASS(t_triangulation) :: this
+    INTEGER, INTENT(IN), OPTIONAL :: opt_mpi_comm
 #if (!defined(NOMPI))
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":sync_triangulation"
+    INTEGER,      PARAMETER :: root_pe      = 0
+    LOGICAL,      PARAMETER :: print_timers = .FALSE.
+
     INTEGER                           :: ierr, mpi_t_triangle, local_nentries,   &
       &                                  global_nentries, mpi_comm, oldtypes(2), &
       &                                  blockcounts(2), ierrstat, nranks, i,    &
-      &                                  endtri, count
+      &                                  count, ngroups, comm1, comm2,           &
+      &                                  irank, irank2, color1, color2,          &
+      &                                  alloc_size
     INTEGER(MPI_ADDRESS_KIND)         :: offsets(2)
     INTEGER, ALLOCATABLE              :: recv_count(:), recv_displs(:)
     TYPE(t_mpi_triangle), ALLOCATABLE :: tmp(:), recv_tmp(:)
     TYPE(t_min_heap_elt), ALLOCATABLE :: kway_merge_array_out(:)
+!$  DOUBLE PRECISION                  :: time_s, toc
 
     mpi_comm = p_comm_work
+    IF (PRESENT(opt_mpi_comm))  mpi_comm = opt_mpi_comm
 
-    ! get no. of available MPI ranks:
+    IF (mpi_comm /= MPI_COMM_NULL) THEN
+      ! create an MPI type for a single triangle
+      offsets(1)     = 0_MPI_ADDRESS_KIND
+      oldtypes(1)    = MPI_INTEGER
+      blockcounts(1) = 3
+      CALL MPI_TYPE_CREATE_STRUCT(1, blockcounts, offsets, oldtypes, mpi_t_triangle, ierr) 
+      CALL MPI_TYPE_COMMIT(mpi_t_triangle, ierr) 
+    ELSE
+      RETURN
+    END IF
+
+    ! get no. of available MPI ranks
     CALL MPI_COMM_SIZE (mpi_comm, nranks, ierr)
+    ! determine this worker's rank
+    CALL MPI_COMM_RANK (mpi_comm, irank, ierr)
 
-    ! communicate max. number of points
-    local_nentries = this%nentries
-    ALLOCATE(recv_count(0:(nranks-1)), recv_displs(0:(nranks-1)), STAT=ierrstat)
+    IF (.NOT. PRESENT(opt_mpi_comm)) THEN
+      ! we form SQRT(nranks) different groups
+      ngroups = INT( SQRT(REAL(nranks)) )
+      ! split MPI communicator: communicator for gather stage 1
+      color1 = INT(irank/ngroups)
+      CALL MPI_COMM_SPLIT(mpi_comm, color1, irank, comm1, ierr)
+      ! split MPI communicator: communicator for gather stage 2
+      CALL MPI_COMM_RANK (comm1, irank2, ierr)
+      color2 = MPI_UNDEFINED
+      IF (MOD(irank2, ngroups) == root_pe)  color2 = 1
+      CALL MPI_COMM_SPLIT(mpi_comm, color2, irank, comm2, ierr)
+!$  time_s = omp_get_wtime()
+      ! local sort on each PE
+      CALL this%quicksort()
+!$  toc = omp_get_wtime() - time_s
+      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sorting: ", toc
+      ! recursive call, gather stage 1
+!$  time_s = omp_get_wtime()
+      CALL sync_triangulation(this, comm1)
+!$  toc = omp_get_wtime() - time_s
+      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 1: ", toc
+      ! recursive call, gather stage 2
+!$  time_s = omp_get_wtime()
+      CALL sync_triangulation(this, comm2)
+!$  toc = omp_get_wtime() - time_s
+      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 2: ", toc
+!$  time_s = omp_get_wtime()
+      IF (irank /= 0) THEN
+        local_nentries = 0
+      ELSE
+        local_nentries = this%nentries
+      END IF
+      alloc_size = local_nentries
+      ! broadcast buffer size from PE "irank == 0"
+      CALL MPI_BCAST(alloc_size, 1, MPI_INTEGER, 0, mpi_comm, ierr)
+!$  toc = omp_get_wtime() - time_s
+      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 1: ", toc
+    ELSE
+      local_nentries = this%nentries
+      alloc_size     = local_nentries
+    END IF
+
+    ! create an MPI-sendable copy of the triangle list
+    ALLOCATE(tmp(0:(alloc_size-1)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    CALL MPI_ALLGATHER(local_nentries, 1, MPI_INTEGER, recv_count, 1, MPI_INTEGER, mpi_comm, ierr)
-    global_nentries = SUM(recv_count(:))
+    tmp(0:(local_nentries-1))%p(0) = this%a(0:(local_nentries-1))%p(0)
+    tmp(0:(local_nentries-1))%p(1) = this%a(0:(local_nentries-1))%p(1)
+    tmp(0:(local_nentries-1))%p(2) = this%a(0:(local_nentries-1))%p(2)
 
-    CALL this%quicksort() ! local sort on each PE
+    IF (.NOT. PRESENT(opt_mpi_comm)) THEN
+      ! broadcast result from PE "irank == 0"
+!$  time_s = omp_get_wtime()
+      CALL MPI_BCAST(tmp, alloc_size, mpi_t_triangle, 0, mpi_comm, ierr)
+!$  toc = omp_get_wtime() - time_s
+      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "bcast: ", toc
+!$  time_s = omp_get_wtime()
+      IF (irank /= 0) THEN
+        CALL this%resize(alloc_size)
+        this%a(0:(alloc_size-1))%p(0) = tmp(0:(alloc_size-1))%p(0)
+        this%a(0:(alloc_size-1))%p(1) = tmp(0:(alloc_size-1))%p(1)
+        this%a(0:(alloc_size-1))%p(2) = tmp(0:(alloc_size-1))%p(2)
+      END IF
 
-    ! create an MPI-sendable copy of the point list
-    ALLOCATE(tmp(0:(local_nentries-1)), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    tmp(0:(local_nentries-1))%p(0)  = this%a(0:(local_nentries-1))%p(0)
-    tmp(0:(local_nentries-1))%p(1)  = this%a(0:(local_nentries-1))%p(1)
-    tmp(0:(local_nentries-1))%p(2)  = this%a(0:(local_nentries-1))%p(2)
-    tmp(local_nentries:)%p(0) = -1
+      DEALLOCATE(tmp, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+!$  toc = omp_get_wtime() - time_s
+      IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 2: ", toc
+    ELSE
+      ! communicate max. number of points
+      ALLOCATE(recv_count(0:(nranks-1)), recv_displs(0:(nranks-1)), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      CALL MPI_GATHER(local_nentries, 1, MPI_INTEGER, recv_count, 1, MPI_INTEGER, root_pe, mpi_comm, ierr)
+      IF (irank == root_pe) THEN
+        global_nentries = SUM(recv_count(:)) ! gather a total of "global_nentries" entries
+      
+        ! perform gather operation
+        ALLOCATE(recv_tmp(0:(global_nentries-1)), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        recv_displs(0) = 0
+        DO i=1,(nranks-1)
+          recv_displs(i) = recv_displs(i-1) + recv_count(i-1)
+        END DO
+      END IF
+        
+      CALL MPI_GATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
+        &              mpi_t_triangle, root_pe, mpi_comm, ierr)
 
-    ! create an MPI type for a single triangle
-    offsets(1)     = 0_MPI_ADDRESS_KIND
-    oldtypes(1)    = MPI_INTEGER
-    blockcounts(1) = 3
-    CALL MPI_TYPE_CREATE_STRUCT(1, blockcounts, offsets, oldtypes, mpi_t_triangle, ierr) 
-    CALL MPI_TYPE_COMMIT(mpi_t_triangle, ierr) 
+      DEALLOCATE(tmp, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+               
+      IF (irank == root_pe) THEN
+        ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      
+        ! perform a k-way merging of the sorted arrays from the k MPI
+        ! processes, merge this to "count" entries.
+        CALL kway_merge(recv_tmp, recv_count, kway_merge_array_out, count)
 
-    ! perform gather operation
-    ALLOCATE(recv_tmp(0:(global_nentries-1)), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    recv_displs(0) = 0
-    DO i=1,(nranks-1)
-      recv_displs(i) = recv_displs(i-1) + recv_count(i-1)
-    END DO
+        DEALLOCATE(recv_tmp, recv_count, recv_displs, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-    CALL MPI_ALLGATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
-      &                 mpi_t_triangle, mpi_comm, ierr)
-
-    CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
-    DEALLOCATE(tmp, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-
-    ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-    ! perform a k-way merging of the sorted arrays from the k MPI
-    ! processes:
-    CALL kway_merge(recv_tmp, recv_count, kway_merge_array_out, count)
-
-    CALL this%resize(count)
-    this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0) 
-    this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1) 
-    this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2) 
+        CALL this%resize(count)
+        this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0)
+        this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1)
+        this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
+        
+        DEALLOCATE(kway_merge_array_out, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      END IF
+    END IF
 
     ! clean up
-    DEALLOCATE(recv_tmp, recv_count, recv_displs, kway_merge_array_out, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
 #endif
   END SUBROUTINE sync_triangulation
 
