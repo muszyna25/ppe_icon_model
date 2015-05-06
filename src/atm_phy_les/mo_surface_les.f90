@@ -52,7 +52,7 @@ MODULE mo_surface_les
   USE mo_util_phys,           ONLY: nwp_dyn_gust
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl, pseudo_rhos
+  USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 
@@ -171,7 +171,7 @@ MODULE mo_surface_les
     CASE(2)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,mwind,z_mc,RIB, &
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,mwind,z_mc,RIB,rhos, &
 !$OMP            ustar,obukhov_length,theta_sfc),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -221,11 +221,15 @@ MODULE mo_surface_les
             p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + les_config(jg)%lhflx / ustar * &
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
+            !rho at surface: no qc at suface
+            rhos   =  psfc_cbl/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
             !Get surface fluxes
-            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * pseudo_rhos * cpd
-            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * pseudo_rhos * alv
-            prm_diag%umfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%u(jc,jk,jb) / mwind
-            prm_diag%vmfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%v(jc,jk,jb) / mwind
+            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
+            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
+            prm_diag%umfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%u(jc,jk,jb) / mwind
+            prm_diag%vmfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
          END DO  
       END DO
@@ -288,7 +292,7 @@ MODULE mo_surface_les
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,z_mc,mwind,RIB,ustar, &
-!$OMP            obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP            obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -323,12 +327,16 @@ MODULE mo_surface_les
             !Get surface qv 
             p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),psfc_cbl)
 
-            prm_diag%shfl_s(jc,jb) = pseudo_rhos*cpd*les_config(jg)%tran_coeff* &
+            !rho at surface: no qc at suface
+            rhos   =  psfc_cbl/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
+            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff* &
                                      (theta_sfc-theta(jc,jk,jb))
-            prm_diag%lhfl_s(jc,jb) = pseudo_rhos*alv*les_config(jg)%tran_coeff* &
+            prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff* &
                                      (p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
-            prm_diag%umfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%u(jc,jk,jb) / mwind
-            prm_diag%vmfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%v(jc,jk,jb) / mwind
+            prm_diag%umfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%u(jc,jk,jb) / mwind
+            prm_diag%vmfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
          END DO  
       END DO
