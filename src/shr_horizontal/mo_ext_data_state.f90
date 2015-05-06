@@ -34,7 +34,7 @@
 
 MODULE mo_ext_data_state
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, vp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
@@ -107,6 +107,7 @@ MODULE mo_ext_data_state
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize, &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,  &
     &                              vlistInqVarIntKey, CDI_GLOBAL
+  USE mo_math_gradients,     ONLY: grad_fe_cell, grad_green_gauss_cell
 
   IMPLICIT NONE
 
@@ -180,6 +181,12 @@ CONTAINS
     TYPE(t_datetime) :: datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':init_ext_data'
+
+    INTEGER :: nlev          !< number of vertical levels
+    INTEGER :: nblks_c       !< number of cell blocks to allocate
+    REAL(wp), ALLOCATABLE :: topography_c_3d(:,:,:)       !  (nproma,nlev,nblks_c)
+    REAL(vp), ALLOCATABLE :: grad_topo_4d (:,:,:,:)       !(2,nproma,nlev,nblks_c)
+
 
     !-------------------------------------------------------------------------
     CALL message (TRIM(routine), 'Start')
@@ -290,7 +297,36 @@ CONTAINS
             &                      p_int_state(jg)               ,&
             &                      ext_data(jg)%atm%topography_c ,&
             &                      ext_data(jg)%atm%sso_stdh     )
+ 
+          ! calculate gradient of orography for resolved surface drag
+
+          !--------------------------
+          ! Use grad_fe_cell or grad_green_gauss_cell in mo_math_gradients. 
+          ! Both should give similar results.
+          !
+          ! Input: 3D (nproma,nlev,nblocks_c), output: 4D (2,nproma,nlev,nblocks_c).
+          ! Simple solution: create temporary input output fields with extra dimensions.
+          !--------------------------
+
+         !nlev    = p_patch(jg)%nlev
+          nblks_c = p_patch(jg)%nblks_c
+          
+          ALLOCATE(topography_c_3d  (nproma,1,nblks_c))
+          ALLOCATE(grad_topo_4d   (2,nproma,1,nblks_c))
+          
+          topography_c_3d(:,:,:) = 0.0
+          topography_c_3d(:,1,:) = ext_data(jg)%atm%topography_c
+          
+         !call grad_fe_cell         ( topography_c_3d, p_patch(jg), p_int_state(jg), grad_topo_4d )
+          call grad_green_gauss_cell( topography_c_3d, p_patch(jg), p_int_state(jg), grad_topo_4d )
+          
+          ext_data(jg)%atm%grad_topo(:,:,:) = grad_topo_4d(:,:,1,:)
+          
+          DEALLOCATE(topography_c_3d)
+          DEALLOCATE(grad_topo_4d   )
+
         END DO
+
       END IF
 
       CALL message( TRIM(routine),'Finished reading external data' )
@@ -445,6 +481,7 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2)
+    INTEGER :: shape3d_grd(3)
     INTEGER :: shape3d_c(3)
     INTEGER :: shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
 
@@ -470,6 +507,7 @@ CONTAINS
 
     ! predefined array shapes
     shape2d_c  = (/ nproma, nblks_c /)
+    shape3d_grd= (/ 2, nproma, nblks_c /)
     shape3d_c  = (/ nproma, nlev, nblks_c       /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
     shape3d_nt = (/ nproma, nblks_c, ntiles_total     /) 
@@ -494,6 +532,19 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
       &           isteptype=TSTEP_CONSTANT )
+
+
+    ! gradient of topography height at cell center
+    !
+    ! grad_topo     p_ext_atm%grad_topo(2,nproma,nblks_c)
+    cf_desc    = t_cf_var('grad_surface_height', 'm m-1', &
+      &                   'gradient of geometric height of the earths surface above sea level', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 192, 128, 199, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'grad_topo', p_ext_atm%grad_topo,        &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+      &           grib2_desc, ldims=shape3d_grd, loutput=.TRUE.,           &
+      &           isteptype=TSTEP_CONSTANT )
+
 
     ! geopotential (s)
     !

@@ -224,7 +224,15 @@ MODULE mo_nwp_phy_types
       &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
-      &  snowlmt   (:,:)         !! height of snowfall limit above MSL
+      &  snowlmt     (:,:),    & !! height of snowfall limit above MSL
+      &  drag_u_grid (:,:),    & !! zonal resolved surface stress [N/m2]
+      &  drag_v_grid (:,:),    & !! meridional resolved surface stress [N/m2]
+      &  adrag_u_grid(:,:),    & !! zonal resolved surface stress, accumulated or mean since model start
+      &  adrag_v_grid(:,:),    & !! meridional resolved surface stress, accumulated or mean since model start
+      &  str_u_sso   (:,:),    & !! zonal sso surface stress [N/m2]
+      &  str_v_sso   (:,:),    & !! meridional sso surface stress [N/m2]
+      &  astr_u_sso  (:,:),    & !! zonal sso surface stress, accumulated or mean since model start
+      &  astr_v_sso  (:,:)       !! meridional sso surface stress, accumulated or mean since model start
 
 
 

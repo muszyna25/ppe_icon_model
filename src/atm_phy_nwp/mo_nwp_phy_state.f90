@@ -2291,6 +2291,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
             varunits= "Ns/m**2"    ! or "kg/(m*s)"
             a_steptype= TSTEP_ACCUM     
         END IF
+
         WRITE(name,'(A,A6)') TRIM(prefix),"umfl_s"
         WRITE(long_name,'(A26,A4,A18)') "u-momentum flux flux at surface ", meaning, &
                                       & " since model start"
@@ -2312,6 +2313,68 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         CALL add_var( diag_list, TRIM(name), diag%avmfl_s,                         &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
           & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+
+
+    !------------------------------
+    ! SSO surface stress
+    !------------------------------
+
+    cf_desc    = t_cf_var('str_u_sso', 'N m-2', 'zonal sso surface stress', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'str_u_sso', diag%str_u_sso,                     &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('str_v_sso', 'N m-2', 'meridional sso surface stress', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 196, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'str_v_sso', diag%str_v_sso,                     &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    WRITE(name,'(A,A9)') TRIM(prefix),"str_u_sso"
+    WRITE(long_name,'(A25,A4,A18)') "zonal sso surface stress ", meaning, " since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%astr_u_sso,                      &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+
+    WRITE(name,'(A,A9)') TRIM(prefix),"str_v_sso"
+    WRITE(long_name,'(A30,A4,A18)') "meridional sso surface stress ", meaning, " since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 196, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%astr_v_sso,                      &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+
+
+    !------------------------------
+    ! grid-scale surface stress
+    !------------------------------
+
+    cf_desc    = t_cf_var('drag_u_grid', 'N m-2', 'zonal resolved surface stress', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 197, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'drag_u_grid', diag%drag_u_grid,                 &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    cf_desc    = t_cf_var('drag_v_grid', 'N m-2', 'meridional resolved surface stress', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 198, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'drag_v_grid', diag%drag_v_grid,                 &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    WRITE(name,'(A,A11)') TRIM(prefix),"drag_u_grid"
+    WRITE(long_name,'(A30,A4,A18)') "zonal resolved surface stress ", meaning, " since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 197, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%adrag_u_grid,                    &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+
+    WRITE(name,'(A,A11)') TRIM(prefix),"drag_v_grid"
+    WRITE(long_name,'(A35,A4,A18)') "meridional resolved surface stress ", meaning, " since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(192, 128, 198, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%adrag_v_grid,                    &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
 
 
   !
@@ -2489,12 +2552,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
+    INTEGER :: shape2d(2), shape3d(3), shape3dkp1(3), shape4d(4)
     INTEGER :: ibits, ktracer, ist
     LOGICAL :: lrestart
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
+    shape2d    = (/nproma,         kblks            /)
     shape3d    = (/nproma, klev  , kblks            /)
     shape3dkp1 = (/nproma, klev+1, kblks            /)
 
@@ -2624,6 +2688,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     CALL add_var( phy_tend_list, 'ddt_v_pconv', phy_tend%ddt_v_pconv,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+
     !------------------------------
     ! Vertical Wind tendencies
     !------------------------------
@@ -2638,6 +2703,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                   & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
                   & initval_r=0._wp)
     END IF
+
 
     !------------------------------
     ! Moist tracer tendencies
