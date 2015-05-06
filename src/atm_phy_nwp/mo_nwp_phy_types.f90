@@ -348,8 +348,13 @@ MODULE mo_nwp_phy_types
       rh(:,:,:)               !> relative humidity
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
-    ! grid and processor splitting
+    ! grid and latm_above_top = .TRUE.
     REAL(wp), POINTER :: buffer_rrg(:,:,:)
+
+    ! Buffer field needed for RTTOV calculations on a vertical nested grid
+    REAL(wp), POINTER :: buffer_rttov(:,:,:)
+
+    REAL(wp), POINTER :: synsat_arr(:,:,:)
 
     !> Special 1D and 0D diagnostics for LES runs
     REAL(wp), ALLOCATABLE :: &

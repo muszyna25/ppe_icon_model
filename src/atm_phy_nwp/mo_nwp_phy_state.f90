@@ -57,7 +57,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, lart
 USE mo_exception,           ONLY: message, finish !,message_text
-USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
+USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_linked_list,         ONLY: t_list_element, t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv
@@ -88,6 +88,7 @@ USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 USE mo_advection_config,     ONLY: advection_config
+USE mo_synsat_config,        ONLY: nlev_rttov, lsynsat, num_images
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action_types,         ONLY: t_var_action
@@ -2465,6 +2466,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
     IF (k_jg > n_dom_start) THEN
       ALLOCATE(diag%buffer_rrg(nproma, 3*nexlevs_rrg_vnest, p_patch_local_parent(k_jg)%nblks_c))
+    ENDIF
+
+    ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
+    IF (lsynsat(k_jg) .AND. k_jg > n_dom_start .AND. p_patch(k_jg)%nshift > 0) THEN
+      ALLOCATE(diag%buffer_rttov(nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c))
+    ENDIF
+
+    IF (lsynsat(k_jg)) THEN
+      ALLOCATE(diag%synsat_arr(nproma, num_images, p_patch_local_parent(k_jg)%nblks_c))
     ENDIF
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &

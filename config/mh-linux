@@ -377,7 +377,10 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
-                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      RTTOV_LIBS      = -L/e/uhome/rfaulwet/cosmo/libradiance/10.2 -lradiance10.2 -L/e/uhome/rfaulwet/rttov/official/rttov/rttov10.2 -lrttov10.2 -L/e/uhome/rfaulwet/hrit_tools/build/xc/cray/Release/src -lhrit
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
+                      STD_FLAGS       = -D__USE_RTTOV
+                      FFLAGS          = ${FFLAGS} -I/e/uhome/rfaulwet/rttov/official/rttov/rttov10.2 -I/e/uhome/rfaulwet/cosmo/libradiance/10.2
                       ;;
                     default|gcc)
                       load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
