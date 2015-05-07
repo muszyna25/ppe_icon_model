@@ -67,7 +67,7 @@ MODULE mo_expression
       USE, INTRINSIC :: iso_c_binding
       IMPORT t_list
       CHARACTER(c_char), DIMENSION(*) :: in_parse_line
-      TYPE(t_list), BIND(c)           :: queue
+      TYPE(t_list)                    :: queue
       INTEGER(c_int)                  :: ierr
     END FUNCTION my_do_parse_infix
   END INTERFACE
@@ -334,29 +334,29 @@ CONTAINS
     rstack%dim3 = dim3
   END FUNCTION t_result_stack_3D_init
 
-  FUNCTION result_stack_pop_0D(this) RESULT(res)
+  SUBROUTINE result_stack_pop_0D(this, res)
     CLASS(t_result_stack_0D), INTENT(INOUT) :: this
     REAL(real_kind), POINTER :: res
     res => this%rstack(this%ridx)%ptr_0D
     NULLIFY(this%rstack(this%ridx)%ptr_0D)
     this%ridx = this%ridx - 1
-  END FUNCTION result_stack_pop_0D
+  END SUBROUTINE result_stack_pop_0D
 
-  FUNCTION result_stack_pop_2D(this) RESULT(res)
+  SUBROUTINE result_stack_pop_2D(this, res) 
     CLASS(t_result_stack_2D), INTENT(INOUT) :: this
     REAL(real_kind), POINTER :: res(:,:)
     res => this%rstack(this%ridx)%ptr_2D
     NULLIFY(this%rstack(this%ridx)%ptr_2D)
     this%ridx = this%ridx - 1
-  END FUNCTION result_stack_pop_2D
+  END SUBROUTINE result_stack_pop_2D
 
-  FUNCTION result_stack_pop_3D(this) RESULT(res)
+  SUBROUTINE result_stack_pop_3D(this, res)
     CLASS(t_result_stack_3D), INTENT(INOUT) :: this
     REAL(real_kind), POINTER :: res(:,:,:)
     res => this%rstack(this%ridx)%ptr_3D
     NULLIFY(this%rstack(this%ridx)%ptr_3D)
     this%ridx = this%ridx - 1
-  END FUNCTION result_stack_pop_3D
+  END SUBROUTINE result_stack_pop_3D
 
   SUBROUTINE result_stack_push_0D(this, val)
     CLASS(t_result_stack_0D), INTENT(INOUT) :: this
@@ -797,8 +797,8 @@ CONTAINS
     CLASS(t_op_plus),         INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 + arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -808,8 +808,8 @@ CONTAINS
     CLASS(t_op_plus),         INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 + arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -819,8 +819,8 @@ CONTAINS
     CLASS(t_op_plus),         INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 + arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -830,8 +830,8 @@ CONTAINS
     CLASS(t_op_minus),        INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 - arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -841,8 +841,8 @@ CONTAINS
     CLASS(t_op_minus),        INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 - arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -852,8 +852,8 @@ CONTAINS
     CLASS(t_op_minus),        INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 - arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -863,8 +863,8 @@ CONTAINS
     CLASS(t_op_mul),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 * arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -874,8 +874,8 @@ CONTAINS
     CLASS(t_op_mul),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 * arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -885,8 +885,8 @@ CONTAINS
     CLASS(t_op_mul),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 * arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -896,8 +896,8 @@ CONTAINS
     CLASS(t_op_div),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 / arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -907,8 +907,8 @@ CONTAINS
     CLASS(t_op_div),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 / arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -918,8 +918,8 @@ CONTAINS
     CLASS(t_op_div),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = arg1 / arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -929,8 +929,8 @@ CONTAINS
     CLASS(t_op_pow),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = EXP(arg2*LOG(arg1))
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -940,8 +940,8 @@ CONTAINS
     CLASS(t_op_pow),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = EXP(arg2*LOG(arg1))
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -951,8 +951,8 @@ CONTAINS
     CLASS(t_op_pow),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = EXP(arg2*LOG(arg1))
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
@@ -962,8 +962,8 @@ CONTAINS
     CLASS(t_op_gt),           INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     IF (arg1 > arg2) THEN
       arg1 = 1._real_kind
     ELSE
@@ -977,8 +977,8 @@ CONTAINS
     CLASS(t_op_gt),           INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     WHERE (arg1(:,:) > arg2(:,:))
       arg1 = 1._real_kind
     ELSEWHERE
@@ -992,8 +992,8 @@ CONTAINS
     CLASS(t_op_gt),           INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     WHERE (arg1(:,:,:) > arg2(:,:,:))
       arg1 = 1._real_kind
     ELSEWHERE
@@ -1007,8 +1007,8 @@ CONTAINS
     CLASS(t_op_lt),           INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     IF (arg1 < arg2) THEN
       arg1 = 1._real_kind
     ELSE
@@ -1022,8 +1022,8 @@ CONTAINS
     CLASS(t_op_lt),           INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     WHERE (arg1(:,:) < arg2)
       arg1(:,:) = 1._real_kind
     ELSEWHERE
@@ -1037,8 +1037,8 @@ CONTAINS
     CLASS(t_op_lt),           INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     WHERE (arg1(:,:,:) < arg2(:,:,:))
       arg1 = 1._real_kind
     ELSEWHERE
@@ -1052,7 +1052,7 @@ CONTAINS
     CLASS(t_op_exp),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = EXP(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_exp_eval_0D
@@ -1061,7 +1061,7 @@ CONTAINS
     CLASS(t_op_exp),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = EXP(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_exp_eval_2D
@@ -1070,7 +1070,7 @@ CONTAINS
     CLASS(t_op_exp),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = EXP(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_exp_eval_3D
@@ -1079,7 +1079,7 @@ CONTAINS
     CLASS(t_op_log),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = LOG(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_log_eval_0D
@@ -1088,7 +1088,7 @@ CONTAINS
     CLASS(t_op_log),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = LOG(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_log_eval_2D
@@ -1097,7 +1097,7 @@ CONTAINS
     CLASS(t_op_log),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = LOG(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_log_eval_3D
@@ -1106,7 +1106,7 @@ CONTAINS
     CLASS(t_op_sin),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = SIN(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_sin_eval_0D
@@ -1115,7 +1115,7 @@ CONTAINS
     CLASS(t_op_sin),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = SIN(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_sin_eval_2D
@@ -1124,7 +1124,7 @@ CONTAINS
     CLASS(t_op_sin),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = SIN(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_sin_eval_3D
@@ -1133,7 +1133,7 @@ CONTAINS
     CLASS(t_op_cos),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = COS(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_cos_eval_0D
@@ -1142,7 +1142,7 @@ CONTAINS
     CLASS(t_op_cos),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = COS(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_cos_eval_2D
@@ -1151,7 +1151,7 @@ CONTAINS
     CLASS(t_op_cos),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg1)
     arg1 = COS(arg1)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_cos_eval_3D
@@ -1160,8 +1160,8 @@ CONTAINS
     CLASS(t_op_min),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = MIN(arg1,arg2)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_min_eval_0D
@@ -1170,8 +1170,8 @@ CONTAINS
     CLASS(t_op_min),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = MIN(arg1,arg2)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_min_eval_2D
@@ -1180,8 +1180,8 @@ CONTAINS
     CLASS(t_op_min),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = MIN(arg1,arg2)
     CALL result_stack%push(arg1)
   END SUBROUTINE stack_op_min_eval_3D
@@ -1190,8 +1190,8 @@ CONTAINS
     CLASS(t_op_max),          INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = MAX(arg1,arg2)
     DEALLOCATE(arg2)
     CALL result_stack%push(arg1)
@@ -1201,8 +1201,8 @@ CONTAINS
     CLASS(t_op_max),          INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = MAX(arg1,arg2)
     DEALLOCATE(arg2)
     CALL result_stack%push(arg1)
@@ -1212,8 +1212,8 @@ CONTAINS
     CLASS(t_op_max),          INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     arg1 = MAX(arg1,arg2)
     DEALLOCATE(arg2)
     CALL result_stack%push(arg1)
@@ -1223,9 +1223,9 @@ CONTAINS
     CLASS(t_op_if),           INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: arg1,arg2,arg3
-    arg3 => result_stack%pop()
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg3)
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     IF (arg1 > 0.) THEN
       CALL result_stack%push(arg2)
       DEALLOCATE(arg3)
@@ -1240,9 +1240,9 @@ CONTAINS
     CLASS(t_op_if),           INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2,arg3
-    arg3 => result_stack%pop()
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg3)
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     WHERE (arg1(:,:) <= 0._real_kind)
       arg2(:,:) = arg3(:,:)
     END WHERE
@@ -1254,9 +1254,9 @@ CONTAINS
     CLASS(t_op_if),           INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2,arg3
-    arg3 => result_stack%pop()
-    arg2 => result_stack%pop()
-    arg1 => result_stack%pop()
+    CALL result_stack%pop(arg3)
+    CALL result_stack%pop(arg2)
+    CALL result_stack%pop(arg1)
     WHERE (arg1(:,:,:) <= 0._real_kind)
       arg2(:,:,:) = arg3(:,:,:)
     END WHERE
@@ -1268,7 +1268,7 @@ CONTAINS
     CLASS(t_op_sqrt),         INTENT(INOUT) :: this
     CLASS(t_result_stack_0D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: p
-    p => result_stack%pop()
+    CALL result_stack%pop(p)
     p = SQRT(p)
     CALL result_stack%push(p)
   END SUBROUTINE stack_op_sqrt_eval_0D
@@ -1277,7 +1277,7 @@ CONTAINS
     CLASS(t_op_sqrt),         INTENT(INOUT) :: this
     CLASS(t_result_stack_2D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: p(:,:)
-    p => result_stack%pop()
+    CALL result_stack%pop(p)
     p = SQRT(p)
     CALL result_stack%push(p)
   END SUBROUTINE stack_op_sqrt_eval_2D
@@ -1286,7 +1286,7 @@ CONTAINS
     CLASS(t_op_sqrt),         INTENT(INOUT) :: this
     CLASS(t_result_stack_3D), INTENT(INOUT) :: result_stack
     REAL(real_kind), POINTER :: p(:,:,:)
-    p => result_stack%pop()
+    CALL result_stack%pop(p)
     p = SQRT(p)
     CALL result_stack%push(p)
   END SUBROUTINE stack_op_sqrt_eval_3D

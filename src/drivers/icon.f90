@@ -217,7 +217,8 @@ PROGRAM icon
       z_sfc(2,:) = (/ 3, 4 /)
       
       ! --- scalar example:
-      formula = expression("sin(45*pi/180.) * 10 + 5")
+      formula = expression("[z_sfc] + sin(45*pi/180.) * 10 + 5")
+      CALL formula%link("z_sfc", z_sfc)
       CALL formula%evaluate(val_2D)
       WRITE (0,*) "formula: result = ", val_2D
       DEALLOCATE(val_2D)
