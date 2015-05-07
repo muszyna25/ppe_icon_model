@@ -1145,7 +1145,7 @@ CONTAINS
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23
-       ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
+      ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
                 p_ext_atm%z0_lcc_min(num_lcc),     & ! Minimum land-cover related roughness length
                 p_ext_atm%plcovmax_lcc(num_lcc),   & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(num_lcc),     & ! Maximum leaf area index for each land-cover class

@@ -471,7 +471,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE perform_nh_timeloop (datetime_current)
 !
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime_current
@@ -903,6 +903,8 @@ MODULE mo_nh_stepping
   IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
 
   END SUBROUTINE perform_nh_timeloop
+
+
   !-------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
