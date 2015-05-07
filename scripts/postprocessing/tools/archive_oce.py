@@ -122,7 +122,8 @@ def loadLog(options):
 """ show output names from the LOG """
 def showLogEntries(log,keys):
   for key in keys:
-    print(':'.join([key,log[key]]))
+    if key in log.keys():
+      print(':'.join([key,log[key]]))
 
 """ append list of image together """ #{{{
 def collectImageToMapByRows(images,columns,ofile):
@@ -151,11 +152,16 @@ def collectImageToMapByRows(images,columns,ofile):
 """ warpper around cdo commands for multiprocessing """ #{{{
 def showyear(file):
   return cdo.showyear(input = file)[0].split(' ')
+
 def ntime(file):
   return cdo.ntime(input = file)[0]
+
 """ wrapper of 'cdo.yearmean' """
 def yearmean(ifile,ofile,forceOutput):
-  cdo.yearmean(input = ifile, output = ofile,forceOutput = forceOutput)
+  cdo.yearmean(input = ifile,
+               output = ofile,
+               forceOutput = forceOutput,
+               options = '-f nc4c -z zip_1')
 # }}}
 
 """ collect the years/ntime, which aree stored in to files """ #{{{
@@ -243,31 +249,40 @@ def grepYear(ifiles,year,archdir,forceOutput,experimentInfo):
 
     dbg(['catFiles'] + catFiles)
 
-    cdo.cat(input = ' '.join(catFiles), output = yearFile)
+    cdo.cat(input = ' '.join(catFiles), output = yearFile, options = '-f nc4c -z zip_1' if cdo.version() == '1.6.9' else '')
 
     map(lambda x: os.remove(x),catFiles)
   else:
     print("Use existing yearFile '{0}'".format(yearFile))
 #}}}
 
-""" split input files into yearly files - compute yearmean if desired """
+""" split input files into yearly files """
 def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,packedYears,procs):
   pool          = multiprocessing.Pool(procs)
-  pool4yearmean = multiprocessing.Pool(procs)
   yearFiles = []
   for year,files in filesOfYears.iteritems():
     yearFile               = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,expInfo])
     yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
     yearFiles.append([year,yearFile,yearMeanFile])
-    if not year in packedYears:
-      pool4yearmean.apply_async(yearmean,[yearFile,yearMeanFile,forceOutput])
 
   pool.close()
   pool.join()
-  pool4yearmean.close()
-  pool4yearmean.join()
 
   return yearFiles
+
+"""compute yearly mean files """
+def computeYearMeanFiles(log,yearmeanfiles,procs):
+  years = log['filesOfYears'].keys()
+  years.sort()
+  log['years'] = years
+
+  pool = multiprocessing.Pool(procs)
+  for year in log['years']:
+    pool.apply_async(yearmean,[log[year],yearmeanfiles[year],False])
+    log['meansOfYears'][year] = yearmeanfiles[year]
+
+  pool.close()
+  pool.join()
 
 """ compute timmean + fldmean of masked temperature, salinity and potential density """
 def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
@@ -772,7 +787,7 @@ def maskCellVariables(ifile,maskfile,ofile,force):
   return list(chain(*groups.values()))
 
 """ collect yearmean values and remove single yearmean files """
-def collectYearMeanData(years,archdir,exp,log):
+def collectAllYearMeanData(years,archdir,exp,log):
   # find out which years have been processed
   availableYears, availableYearMeanFiles = [], []
   for year in years:
@@ -796,6 +811,35 @@ def collectYearMeanData(years,archdir,exp,log):
   #
   # return the name of file
   return collectYearMeanDataFile
+
+""" create yearmean and yearmonmean files for a given list of years """
+def createYmonmeanForYears(years, log):
+  # separate model output into files for each year for latet cat
+  #
+  # cat together
+  #
+  # produce masked yearmonmean file
+  #
+  # produce masked yearmean
+
+""" compute the list of years to select for plotting: last 30,20,10,5 years of run or given plotyear """
+def computePlotYears(availableYears,givenPlotYear):
+  # skip the last year, because it might be unfished
+  #
+  # compute simulation length L
+  #
+  # plotYearCount is
+  #   30 if L >= 100
+  #   20 if 100 < L < 50
+  #   10 if 50  < L < 30
+  #    5 if 30  < L
+  #
+  # if plotYears is given
+  #   check if it is available
+  #     return the last plotYears before plotYears
+  #   else error
+  # else
+  #   return the last available plotYears from simulation
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -831,7 +875,8 @@ cdo.cdfMod = 'netcdf4'
 cdo.debug       = options['DEBUG']
 cdo.forceOutput = options['FORCE']
 cdo164          = ['/sw/squeeze-x64/cdo-1.6.4/bin/cdo','/sw/aix61/cdo-1.6.7/bin/cdo']
-for cdopath in cdo164:
+cdo169          = ['/sw/squeeze-x64/cdo-1.6.9/bin/cdo','/sw/aix61/cdo-1.6.9/bin/cdo']
+for cdopath in cdo169:
   if os.path.exists(cdopath):
     cdo.setCdo(cdopath)
 # }}}
@@ -852,6 +897,7 @@ dbg("All available files: "+','.join(iFiles))
 if options['JOBISRUNNING']:
   iFiles.pop()
 dbg("Files to be used: "+','.join(iFiles))
+
 if 0 == len(iFiles):
   print(usage())
   print("Could not find any result files!")
@@ -869,7 +915,7 @@ if LOG.has_key('yearsOfFiles'):
   processedFiles = LOG['yearsOfFiles'].keys()
 else:
   processedFiles = []
-newFiles = set(iFiles) ^ set(processedFiles)
+newFiles = set(iFiles) - set(processedFiles)
 hasNewFiles = (len(newFiles) != 0)
 if hasNewFiles:
   dbg("New Files found:")
@@ -912,6 +958,7 @@ if 'preproc' in options['ACTIONS']:
   if options['JOBISRUNNING']:
     allYears.pop()
   dbg(allYears)
+
   # collect all files, which contain data for given years
   filesOfYears = {}
   for year in allYears:
@@ -935,15 +982,19 @@ if 'preproc' in options['ACTIONS']:
                                   LOG['packedYears'],
                                   options['PROCS'])
 
-  years, yearMeanFiles = [],[]
+  years, yearMeanFiles = [],{}
   LOG['meansOfYears'] = {}
   for _info in splitInfo:
     year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
     LOG[year] = yearlyFile
     years.append(year)
-    yearMeanFiles.append(yearMeanFile)
-    LOG['meansOfYears'][year] = yearMeanFile
+    yearMeanFiles.update({year : yearMeanFile})
+
   years.sort()
+
+  # compute yearly mean files in parallel
+  #computeYearMeanFiles(LOG,yearMeanFiles,options['PROCS'])
+
 else:
   years = LOG['filesOfYears'].keys()
   years.sort()
@@ -952,8 +1003,9 @@ else:
     yearMeanFile = LOG['meansOfYears'][year]
     yearMeanFiles.append(yearMeanFile)
   LOG['splityear?'] = True
+
 LOG['years']      = years
-yearMeanFiles.sort()
+
 dumpLog()
 dbg(LOG)
 # }}} ==========================================================================
@@ -967,8 +1019,8 @@ LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), outpu
 LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 # }}} ==========================================================================
 # COMPUTE YEARMEAN FILE {{{ ====================================================
-yearMeanCollection = collectYearMeanData(LOG['years'], options['ARCHDIR'], options['EXP'],LOG)
-dbg('last yearMeanCollection: {0}'.format(yearMeanCollection))
+#yearMeanCollection = collectAllYearMeanData(LOG['years'], options['ARCHDIR'], options['EXP'],LOG)
+#dbg('last yearMeanCollection: {0}'.format(yearMeanCollection))
 #TODO doExit()
 # }}} ==========================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =================
