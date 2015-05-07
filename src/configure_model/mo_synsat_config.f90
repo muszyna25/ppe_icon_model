@@ -248,7 +248,10 @@ MODULE mo_synsat_config
   !!
   SUBROUTINE configure_synsat
 
-    INTEGER :: i, istatus
+    INTEGER :: i
+#ifdef __USE_RTTOV
+    INTEGER :: istatus
+#endif
 
     numchans(1) = 8
     numchans(2:) = 0
@@ -263,11 +266,11 @@ MODULE mo_synsat_config
     sat_compute(1)%num_chan           = 8
     sat_compute(1)%nchan_list(1:numchans(1)) = (/ (i, i=1,8) /)
     sat_compute(1)%chan_name(1:numchans(1))  = &
-                (/ 'IR3.9', &
-                   'WV6.2', &
-                   'WV7.3', &
-                   'IR8.7', &
-                   'IR9.7', &
+                (/ 'IR3.9 ', &
+                   'WV6.2 ', &
+                   'WV7.3 ', &
+                   'IR8.7 ', &
+                   'IR9.7 ', &
                    'IR10.8', &
                    'IR12.1', &
                    'IR13.4' /)
@@ -288,6 +291,7 @@ MODULE mo_synsat_config
     channels(1:8,1) = (/ (i, i=1,8) /)
     n_chans = 8
 
+#ifdef __USE_RTTOV
     istatus = rttov_init(  &
          instruments     , &
          channels        , &
@@ -298,6 +302,7 @@ MODULE mo_synsat_config
          p_comm_work     , &
          appRegLim=.TRUE., &
          readCloud=addclouds)
+#endif
 
   END SUBROUTINE configure_synsat
 
