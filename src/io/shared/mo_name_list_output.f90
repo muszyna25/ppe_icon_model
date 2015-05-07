@@ -912,8 +912,9 @@ CONTAINS
                 & (info%ndims > 2)) THEN
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
-              CALL exchange_data(in_array=r_ptr(:,lev_idx,:), &
-                &                out_array=r_out_wp(:), gather_pattern=p_pat)
+              CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
+                &                out_array=r_out_wp(:), gather_pattern=p_pat, &
+                &                fill_value=0._wp)
            
             ELSE IF (idata_type == iINTEGER) THEN
               r_out_int(:) = 0
@@ -926,8 +927,9 @@ CONTAINS
                 & (info%ndims > 2)) THEN
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
-              CALL exchange_data(in_array=i_ptr(:,lev_idx,:), &
-                &                out_array=r_out_int(:), gather_pattern=p_pat)
+              CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
+                &                out_array=r_out_int(:), gather_pattern=p_pat, &
+                &                fill_value=0._wp)
 
             END IF
           END IF ! n_points
