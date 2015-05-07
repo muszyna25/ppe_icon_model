@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(44) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(45) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -85,7 +85,8 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_VOLC         ",  &  ! ICON-ART fields for volcanic ash
     &  "ART_AERO_RADIO        ",  &  ! ICON-ART fields for radioactive tracers
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
-    &  "ART_AERO_SEAS         " /)   ! ICON-ART fields for sea salt aerosol
+    &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
+    &  "RTTOV                 " /)
 
   ! list of vertical interpolation types
   ! 
