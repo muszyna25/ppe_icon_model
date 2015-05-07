@@ -1357,6 +1357,9 @@ src/atm_phy_nwp/mo_util_phys.f90 -text
 src/atm_phy_psrad/mo_psrad_cloud_optics.f90 -text
 src/atm_phy_psrad/mo_psrad_fastmath.f90 -text
 src/atm_phy_psrad/mo_psrad_interface.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_kgs.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_netcdf.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_setup.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation_parameters.f90 -text

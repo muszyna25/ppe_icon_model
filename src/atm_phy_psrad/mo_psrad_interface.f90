@@ -16,8 +16,8 @@ module mo_psrad_interface
 !!$  USE mo_aero_kinne,      ONLY: set_aop_kinne  
 !!$  USE mo_aero_volc,       ONLY: add_aop_volc
 !!$  USE mo_aero_volc_tab,   ONLY: add_aop_volc_ham, add_aop_volc_crow
-  USE mo_lrtm_setup,      ONLY: lrtm_setup
-!!$  USE mo_lrtm_setup,      ONLY: setup_lrtm
+!!$  USE mo_lrtm_setup,      ONLY: lrtm_setup
+  USE mo_psrad_lrtm_setup,ONLY: setup_lrtm
   USE mo_psrad_srtm_setup,ONLY: setup_srtm ! here, the new name is chosen to 
                              ! distinguish it from lrtm_setup in the "old"
                              ! version
@@ -55,7 +55,8 @@ CONTAINS
 !                    ! the longwave part did not really change (?) -> reuse
 !                    ! the "old" lrtm_setup
 !--jsr
-    CALL lrtm_setup('rrtmg_lw.nc')
+!!$    CALL lrtm_setup('rrtmg_lw.nc')
+    CALL setup_lrtm
     CALL setup_srtm
     IF(seed_size_random() > rng_seed_size) THEN 
       CALL finish('setup_psrad','Random number seed size (rng_seed_size) is smaller than true size')
