@@ -99,11 +99,11 @@ MODULE mo_name_list_output
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
-  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
+  USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, num_io_procs
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
-  USE mo_name_list_output_types,    ONLY: t_output_name_list, t_output_file, t_reorder_info,        &
+  USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info,                            &
   &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
@@ -144,7 +144,7 @@ MODULE mo_name_list_output
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
+  USE mo_intp_data_strc,            ONLY: lonlat_grid_list, t_lon_lat_data
 #endif
 
   IMPLICIT NONE
@@ -326,11 +326,11 @@ CONTAINS
   !
   SUBROUTINE write_name_list_output(jstep, opt_lhas_output)
     INTEGER,           INTENT(IN)   :: jstep             !< model step
-    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output   !< (Optional) Flag: .TRUE. if this async I/O PE has written during this step.
+    !> (Optional) Flag: .TRUE. if this async I/O PE has written during this step:
+    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
-    TYPE(t_output_name_list), POINTER :: p_onl
     TYPE(datetime),           POINTER :: io_datetime => NULL()
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
@@ -412,8 +412,6 @@ CONTAINS
         CALL resetCalendar()
       END IF
 
-
-      p_onl => output_file(i)%name_list
       IF(my_process_is_io()) THEN
 #ifndef NOMPI
         IF(output_file(i)%io_proc_id == p_pe) THEN
@@ -884,7 +882,6 @@ CONTAINS
           nmiss = 0
         ENDIF
 
-
         ! For all levels (this needs to be done level-wise in order to reduce 
         !                 memory consumption)
         DO lev = 1, nlevs
@@ -905,7 +902,6 @@ CONTAINS
             END IF
           ELSE ! n_points
             IF (idata_type == iREAL) THEN
-
               r_out_wp(:)  = 0._wp
 
               lev_idx = lev
@@ -916,10 +912,11 @@ CONTAINS
                 & (info%ndims > 2)) THEN
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
-              CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
-            
+              CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
+                &                out_array=r_out_wp(:), gather_pattern=p_pat, &
+                &                fill_value=0._wp)
+           
             ELSE IF (idata_type == iINTEGER) THEN
-
               r_out_int(:) = 0
 
               lev_idx = lev
@@ -930,7 +927,9 @@ CONTAINS
                 & (info%ndims > 2)) THEN
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
-              CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
+              CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
+                &                out_array=r_out_int(:), gather_pattern=p_pat, &
+                &                fill_value=0._wp)
 
             END IF
           END IF ! n_points
@@ -980,11 +979,11 @@ CONTAINS
           ! ----------
           
           IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-              IF (use_dp_mpi2io .OR. have_GRIB) THEN
-                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
-              ELSE
-                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
-              ENDIF
+            IF (use_dp_mpi2io .OR. have_GRIB) THEN
+              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
+            ELSE
+              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
+            ENDIF
           ENDIF
           
         END DO ! lev = 1, nlevs
