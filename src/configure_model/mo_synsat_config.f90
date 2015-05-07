@@ -290,6 +290,7 @@ MODULE mo_synsat_config
     instruments(1:3,1) = (/ 12, 2,21/)
     channels(1:8,1) = (/ (i, i=1,8) /)
     n_chans = 8
+    addclouds(:) = .TRUE.
 
 #ifdef __USE_RTTOV
     istatus = rttov_init(  &
