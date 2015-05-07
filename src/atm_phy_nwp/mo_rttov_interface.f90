@@ -46,7 +46,7 @@ USE mo_math_constants,      ONLY: rad2deg
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_synsat
 USE mo_synsat_config
 #ifdef __USE_RTTOV
-USE mo_rttov_ifc,           ONLY: rttov_fill_input, rttov_direct_ifc
+USE mo_rttov_ifc,           ONLY: rttov_fill_input, rttov_direct_ifc, NO_ERROR, rttov_ifc_errMsg
 #endif
 
 IMPLICIT NONE
@@ -95,7 +95,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
 
   ! Local variables for RTTOV calls (with RTTOV-specific memory layout)
   REAL(wp), DIMENSION(nlev_rttov,nproma) :: temp, pres, qv
-  REAL(wp), DIMENSION(6,nlev_rttov,nproma) :: clc, cld
+  REAL(wp), DIMENSION(6,nlev_rttov-1,nproma) :: clc, cld
 
   INTEGER,  DIMENSION(nproma*MAXVAL(numchans(:))) :: iprof, ichan
   REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, t_b, t_b_clear, rad, rad_clear
@@ -138,30 +138,39 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
   ! Define RTTOV levels
   CALL define_rttov_levels (nlev_rttov, pres_rttov)
 
-  ! Choices for RTTOV ice cloud scheme and ice crystal shape
-  idg(:) = iwc2effdiam ! McFarquhar et al. (2003); seems to the only numerically stable option
-  ish(:) = iceshape    ! hexagonal crystals
-
-  ! Call RTTOV library - hopefully it is threadsafe
+  ! Call RTTOV library
   !
   i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
   i_endblk   = p_gcp%end_block(min_rlcell_int)
 
 #ifdef __USE_RTTOV
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jc,jk,j,k,pres,temp,qv,clc,cld,isens,n_profs,ncalc,iprof,ichan,emiss,lon, &
-!$OMP           alpha_e,r_atm,sat_z,sat_a,t_b,t_b_clear,rad,rad_clear,iprint,istatus)
+! GZ: It seems that the RTTOV library is not threadsafe. Bummer!!
+
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,is,ie,jc,jk,j,k,pres,temp,qv,clc,cld,isens,n_profs,ncalc,iprof,ichan,emiss,lon, &
+!!$OMP           alpha_e,r_atm,sat_z,sat_a,t_b,t_b_clear,rad,rad_clear,iprint,istatus,idg,ish)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, is, ie, grf_bdyintp_start_c, min_rlcell_int)
 
 
+    ! Choices for RTTOV ice cloud scheme and ice crystal shape
+    idg(:) = iwc2effdiam ! McFarquhar et al. (2003); seems to the only numerically stable option
+    ish(:) = iceshape    ! hexagonal crystals
+
     ! Copy input variables into RTTOV buffer
+    clc(:,:,:) = 0._wp
+    cld(:,:,:) = 0._wp
     DO jk = 1, nlev_rttov
       DO jc = is, ie
         pres(jk,jc) = pres_rttov(jk)
         temp(jk,jc) = temp_rttov(jc,jk,jb)
         qv(jk,jc)   = qv_rttov(jc,jk,jb)
+      ENDDO
+    ENDDO
+
+    DO jk = 1, nlev_rttov-1
+      DO jc = is, ie
         ! cld(1) = stratiform cloud water, computed as total - convective
         cld(1,jk,jc) = MAX(0._wp, qc_rttov(jc,jk,jb) - qcc_rttov(jc,jk,jb))
         ! cld(3) = convective cloud water
@@ -169,10 +178,12 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
         ! cld(6) = cloud ice
         cld(6,jk,jc) = qi_rttov(jc,jk,jb)
         ! clc(1) = cloud fraction
-        clc(1,jk,jc) = clc_rttov(jc,jk,jb)
+        clc(1,jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
+        IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
+          clc(1,jk,jc) = MAX(1.e-8_wp,clc(1,jk,jc))
+        ENDIF
       ENDDO
     ENDDO
-
 
     istatus = rttov_fill_input(                            &
           press      = pres(:,is:ie) ,                     &
@@ -200,6 +211,9 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
           addinterp  = .false.,                            &
           ivect      = 1)
 
+    IF (istatus /= NO_ERROR) THEN
+      WRITE(0,*) 'RTTOV fill_input ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+    ENDIF
 
     sensor_loop: DO isens = 1, num_sensors
 
@@ -248,28 +262,10 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
              radClear  = rad_clear(1:numchans(isens), 1:n_profs), &
              iprint    = iprint)
 
- !     IF (istatus /= NO_ERROR) THEN
- !       CALL print_profile(idims,j)
- !       WRITE(*,*) '*** RTTOV ERROR (rttov_direct_ifc, proc ', &
- !            my_cart_id,') ',TRIM(rttov_ifc_errMsg(istatus))
- !       WRITE(yerror,'(" ERROR *** while computing synthetic satellite &
- !            &images: rttov_fill_input ",I3)') istatus
- !       ierror = 9006
- !       RETURN
- !     ENDIF
+    IF (istatus /= NO_ERROR) THEN
+      WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+    ENDIF
 
- !     IF ((sat_compute(isens)%satellite == 'METEOSAT').and.&
- !         (sat_compute(isens)%nsat_id == 7)) THEN
- !       syn => synme7
- !     ELSEIF ((sat_compute(isens)%satellite == 'MSG').and.&
- !             (sat_compute(isens)%nsat_id == 2)) THEN
- !       syn => synmsg
- !     ELSE
- !       PRINT *,'*** ERROR in src_sat_tbs: satellite '//&
- !               TRIM(sat_compute(isens)%satellite), &
- !               sat_compute(isens)%nsat_id,' not implemented.'
- !       CYCLE
- !     ENDIF
 
       IF (sat_compute(isens)%lcloud_tem) THEN
         DO k = 1, numchans(isens)
@@ -295,8 +291,8 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
     END DO sensor_loop
 
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 #endif
 
   CALL downscale_rttov_output(jg, jgp, nimg, rg_synsat, prm_diag(jg)%synsat_arr)
@@ -735,21 +731,34 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
       DO jc = i_startidx, i_endidx
         qc_rttov(jc,jk,jb)  = (qc_vi_rttov(jc,jk,jb)-qc_vi_rttov(jc,jk+1,jb)) / &
                               (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
-        IF (qc_rttov(jc,jk,jb) < 1.e-8_wp) qc_rttov(jc,jk,jb) = 0._wp
+        IF (ABS(qc_rttov(jc,jk,jb)) < 1.e-8_wp) qc_rttov(jc,jk,jb) = 0._wp
         qcc_rttov(jc,jk,jb) = (qcc_vi_rttov(jc,jk,jb)-qcc_vi_rttov(jc,jk+1,jb)) / &
                               (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
-        IF (qcc_rttov(jc,jk,jb) < 1.e-8_wp) qcc_rttov(jc,jk,jb) = 0._wp
+        IF (ABS(qcc_rttov(jc,jk,jb)) < 1.e-8_wp) qcc_rttov(jc,jk,jb) = 0._wp
         qi_rttov(jc,jk,jb)  = (qi_vi_rttov(jc,jk,jb)-qi_vi_rttov(jc,jk+1,jb)) / &
                               (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
-        IF (qi_rttov(jc,jk,jb) < 1.e-8_wp) qi_rttov(jc,jk,jb) = 0._wp
+        IF (ABS(qi_rttov(jc,jk,jb)) < 1.e-8_wp) qi_rttov(jc,jk,jb) = 0._wp
         qs_rttov(jc,jk,jb)  = (qs_vi_rttov(jc,jk,jb)-qs_vi_rttov(jc,jk+1,jb)) / &
                               (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
-        IF (qs_rttov(jc,jk,jb) < 1.e-8_wp) qs_rttov(jc,jk,jb) = 0._wp
+        IF (ABS(qs_rttov(jc,jk,jb)) < 1.e-8_wp) qs_rttov(jc,jk,jb) = 0._wp
         clc_rttov(jc,jk,jb) = MIN(1._wp,(clc_vi_rttov(jc,jk,jb)-clc_vi_rttov(jc,jk+1,jb)) / &
                               (100._wp*(pres_rttov(jk+1)-pres_rttov(jk))) )
+        IF (ABS(clc_rttov(jc,jk,jb)) < 1.e-8_wp) clc_rttov(jc,jk,jb) = 0._wp
+        ! Fix clouds at levels below ground
+        IF (rg_psfc(jc,jb) < pres_rttov(jk)) THEN
+          qc_rttov(jc,jk,jb)  = 0._wp
+          qcc_rttov(jc,jk,jb) = 0._wp
+          qi_rttov(jc,jk,jb)  = 0._wp
+          qs_rttov(jc,jk,jb)  = 0._wp
+          clc_rttov(jc,jk,jb) = 0._wp  
+        ENDIF
       ENDDO
     ENDDO
-
+    qc_rttov(:,nlev_rttov,jb)  = 0._wp
+    qcc_rttov(:,nlev_rttov,jb) = 0._wp
+    qi_rttov(:,nlev_rttov,jb)  = 0._wp
+    qs_rttov(:,nlev_rttov,jb)  = 0._wp
+    clc_rttov(:,nlev_rttov,jb) = 0._wp
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

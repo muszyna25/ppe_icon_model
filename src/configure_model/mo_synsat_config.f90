@@ -278,13 +278,14 @@ MODULE mo_synsat_config
     sat_compute(1)%lcloud_tem         = .true.
 
     num_images = 4*SUM(numchans(:))
+    mchans = MAXVAL(numchans)
 
     ALLOCATE(instruments(3,num_sensors),addclouds(num_sensors))
     ALLOCATE(channels(mchans, num_sensors))
     ALLOCATE(n_chans(num_sensors))
 
     instruments(1:3,1) = (/ 12, 2,21/)
-    channels(1:8) = (/ (i, i=1,8) /)
+    channels(1:8,1) = (/ (i, i=1,8) /)
     n_chans = 8
 
     istatus = rttov_init(  &
