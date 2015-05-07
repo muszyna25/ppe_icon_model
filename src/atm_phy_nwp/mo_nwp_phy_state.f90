@@ -2474,7 +2474,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDIF
 
     IF (lsynsat(k_jg)) THEN
-      ALLOCATE(diag%synsat_arr(nproma, num_images, p_patch_local_parent(k_jg)%nblks_c))
+      ALLOCATE(diag%synsat_arr(nproma, num_images, p_patch(k_jg)%nblks_c))
     ENDIF
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
