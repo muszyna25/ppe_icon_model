@@ -1718,6 +1718,7 @@ src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_exception.f90 -text
+src/shared/mo_expression.f90 -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
 src/shared/mo_fortran_tools.f90 -text
 src/shared/mo_get_utc_date_tr.f90 -text
@@ -1851,6 +1852,9 @@ support/cfortran.h -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
 support/rtc_sx.s -text
+support/util_arithmetic_expr.c -text
+support/util_arithmetic_expr.h -text
+support/util_arithmetic_expr.rl -text
 support/util_backtrace.c -text
 support/util_convert.c -text
 support/util_file.c -text
