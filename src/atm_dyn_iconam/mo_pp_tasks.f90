@@ -226,7 +226,6 @@ CONTAINS
     ! --------------------------------------------------------------------------
     !
     ! IMPORTANT: Currently, barycentric interpolation supported only
-    !            - for patch #1 and
     !            - if the namelist parameter "interpol_nml/support_baryctr_intp"
     !              has been set to .TRUE.
     !
