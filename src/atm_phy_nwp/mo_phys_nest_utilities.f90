@@ -2368,7 +2368,7 @@ END SUBROUTINE interpol_rrg_grf
 
 !>
 !! This routine copies additional model levels to the local parent grid if vertical nesting
-!! is combined with processor splitting and the option latm_above_top = .TRUE.
+!! is combined with a reduced radiation grid and the option latm_above_top = .TRUE.
 !!
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2015-01-26
