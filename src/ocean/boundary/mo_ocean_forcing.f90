@@ -233,56 +233,56 @@ CONTAINS
         &          t_cf_var('topBoundCond_Temp_vdiff', 'K*m/s', 'topBoundCond_Temp_vdiff', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'topBoundCond_Salt_vdiff', p_sfc_flx%topBoundCond_Salt_vdiff, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('topBoundCond_Salt_vdiff', 'psu*m/s', 'topBoundCond_Salt_vdiff', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Temp', p_sfc_flx%data_surfRelax_Temp, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Temp', 'C', 'data_surfRelax_Temp', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Salt', p_sfc_flx%data_surfRelax_Salt, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Salt', 'psu', 'data_surfRelax_Salt', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'topBoundCond_Temp_vdiff_acc', p_sfc_flx%topBoundCond_Temp_vdiff_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('topBoundCond_Temp_vdiff_acc', 'K*m/s', 'topBoundCond_Temp_vdiff_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'topBoundCond_Salt_vdiff_acc', p_sfc_flx%topBoundCond_Salt_vdiff_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('topBoundCond_Salt_vdiff_acc', 'psu*m/s', 'topBoundCond_Salt_vdiff_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Temp_acc', p_sfc_flx%data_surfRelax_Temp_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Temp_acc', 'C', 'data_surfRelax_Temp_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Salt_acc', p_sfc_flx%data_surfRelax_Salt_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Salt_acc', 'psu', 'data_surfRelax_Salt_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)
     ENDIF
 
     CALL add_var(var_list, 'topBoundCond_windStress_u_acc', p_sfc_flx%topBoundCond_windStress_u_acc , &
