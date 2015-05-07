@@ -1277,6 +1277,8 @@ MODULE mo_nh_stepping
             &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
             &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
             &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
+            &          opt_rho_incr=p_nh_state(jg)%diag%rho_incr,            & !in
+            &          opt_rho=p_nh_state(jg)%prog(nnew(jg))%rho,            & !in
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
