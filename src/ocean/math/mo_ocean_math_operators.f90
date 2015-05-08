@@ -953,7 +953,7 @@ CONTAINS
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_vec(jc,jk)%x &
           & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & !/ prism_center_distance(jc,jk)
-              & * inv_prism_center_distance(jc,jk)
+              & * inv_prism_center_distance(jc,jk-1)
               
         END DO    
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed 
@@ -985,7 +985,8 @@ CONTAINS
     REAL(wp), POINTER ::  inv_prism_center_distance(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
-    inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c  (:,:,blockNo)
+    !inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c  (:,:,blockNo)
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)	
 
     DO jc = start_index, end_index
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
@@ -1302,7 +1303,7 @@ CONTAINS
       DO jc = cell_StartIndex, cell_EndIndex
         IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
           
-          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
+          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,1,blockNo) = 0.5_wp * &
             & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
           
           patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
@@ -1310,8 +1311,8 @@ CONTAINS
           
           inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
           
-          inv_prisms_center_distance(jc,2,blockNo) = &
-            & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo)
+          inv_prisms_center_distance(jc,1,blockNo) = &
+            & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,1,blockNo)
           
           ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + patch_3D%column_thick_c(jc,blockNo)
           

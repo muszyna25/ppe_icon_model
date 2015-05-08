@@ -114,6 +114,8 @@ MODULE mo_ocean_nml
   INTEGER            :: NONLINEAR_CORIOLIS            =200
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
+  
+  LOGICAL :: l_ANTICIPATED_VORTICITY  = .FALSE.
 
   !Identifiers for advection schemes
   INTEGER, PARAMETER :: upwind                     = 1
@@ -933,9 +935,9 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'top boundary condition for velocity currently not supported: choose = 0,1')
      ENDIF
-     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
+     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>2) THEN
        CALL finish(TRIM(routine), &
-         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 4')
+         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 2')
      ENDIF
 
 !      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN

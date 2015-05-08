@@ -423,7 +423,7 @@ CONTAINS
             il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
             ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
             
-            z_grad_u(edge_index,level,blockNo)%x = p_param%k_veloc_h(edge_index,level,blockNo) * &
+            z_grad_u(edge_index,level,blockNo)%x =  &
               & ( z_div_grad_u(il_c2,level,ib_c2)%x      &
               &   - z_div_grad_u(il_c1,level,ib_c1)%x)   &
               & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
@@ -446,7 +446,7 @@ CONTAINS
       DO cell_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)
           
-           z_div_grad_u(cell_index,level,blockNo)%x =  -( &        ! take the negative div in order to avoid the negation of the laplacian
+           z_div_grad_u(cell_index,level,blockNo)%x =  -p_param%k_veloc_h(edge_index,level,blockNo) *( &        ! take the negative div in order to avoid the negation of the laplacian
               & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
               & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+ &
               & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &

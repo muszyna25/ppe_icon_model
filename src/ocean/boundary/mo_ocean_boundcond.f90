@@ -381,7 +381,7 @@ CONTAINS
     REAL(wp)                                 :: bc_bot_vn(:)
     ! Local variables
     INTEGER :: bottom_level, je
-    REAL(wp) :: norm, vn_max
+    REAL(wp) :: norm, vn_max, vn
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_boundcond:VelocityBottomBoundaryCondition_onBlock')
     !-----------------------------------------------------------------------
@@ -406,14 +406,25 @@ CONTAINS
         ENDIF
       END DO
 
-    CASE(2) !Bottom friction and topographic slope
+	CASE(2)
+      DO je = start_edge_index, end_edge_index
+        bottom_level =  patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+        IF ( bottom_level > 0 ) THEN  ! wet points only	
+          !vn    = vn_pred(je,bottom_level)!
+		  vn    = vn_old(je,bottom_level)
+          norm  = SQRT(vn * vn)
+          bc_bot_vn(je) = v_params%bottom_drag_coeff * &
+            & norm * vn_old(je,bottom_level)
+      ENDIF
+    END DO
+
+    CASE(3) !Bottom friction and topographic slope
       CALL message (TRIM(routine), &
         & 'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet')
       CALL finish (TRIM(routine), 'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet')
     CASE default
       CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions')
     END SELECT
-
   END SUBROUTINE VelocityBottomBoundaryCondition_onBlock
   !-------------------------------------------------------------------------
   

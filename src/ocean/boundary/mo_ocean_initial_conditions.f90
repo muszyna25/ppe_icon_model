@@ -448,7 +448,7 @@ CONTAINS
 
     REAL(wp) :: temperature_profile(n_zlev)
     REAL(wp), ALLOCATABLE :: old_temperature(:,:,:)
-
+    INTEGER ::jk
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
     !-------------------------------------------------------------------------
 
@@ -553,12 +553,15 @@ CONTAINS
     CASE (215)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
       !  exponential temperature profile following Abernathey et al., 2011
-
       CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & bottom_value=initial_temperature_bottom)
 
-      CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+      !CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
 
+     CASE (216)
+
+      CALL temperature_front(patch_3d, ocean_temperature)
+	  
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
@@ -1623,6 +1626,59 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
   END SUBROUTINE temperature_Uniform_SpecialArea
   !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_front(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg, width
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_front'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+	width=0.0
+	
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+		  
+	    lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+	    lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
+		
+         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+           IF(      lat_deg>= basin_center_lat+ width)THEN    				  		
+
+             ocean_temperature(jc,jk,jb) =  initial_temperature_north
+          !lower channel boudary
+          ELSEIF(    lat_deg<= basin_center_lat- width )THEN 
+             ocean_temperature(jc,jk,jb) =  initial_temperature_south	  
+          ELSE!channel interior		  
+	       !write(123,*)'details3',lat_deg
+		   				  				  
+          ENDIF	
+
+        END DO
+      END DO
+    END DO
+
+
+
+  END SUBROUTINE temperature_front
+  !-------------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------------
   SUBROUTINE salinity_Uniform_SpecialArea(patch_3d, ocean_salinity)

@@ -577,27 +577,36 @@ CONTAINS
        & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
        & ocean_state%p_diag%rho(:,:,:) )
 
-      IF(.NOT.l_partial_cells)THEN      
-        ! calculate hydrostatic pressure from density at timelevel nc
-        CALL calc_internal_press( patch_3d,                  &  ! in
-          & ocean_state%p_diag%rho,                          &  ! in
-          & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,   &  ! in
-          & ocean_state%p_prog(nold(1))%h,                   &  ! in
-          & ocean_state%p_diag%press_hyd)                       ! inout
+!       IF(.NOT.l_partial_cells)THEN      
+!         ! calculate hydrostatic pressure from density at timelevel nc
+!         CALL calc_internal_press( patch_3d,                  &  ! in
+!           & ocean_state%p_diag%rho,                          &  ! in
+!           & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,   &  ! in
+!           & ocean_state%p_prog(nold(1))%h,                   &  ! in
+!           & ocean_state%p_diag%press_hyd)                       ! inout
+!       
+!         ! calculate gradient of hydrostatic pressure in 3D
+!         CALL grad_fd_norm_oce_3d(               &
+!           & ocean_state%p_diag%press_hyd,       &
+!           & patch_3d,                           &
+!           & op_coeffs%grad_coeff,               &
+!           & ocean_state%p_diag%press_grad)
+!       ELSE
+!          CALL calc_internal_press_grad0( patch_3d,&
+!          &                              ocean_state%p_diag%rho,&
+!          &                              op_coeffs%grad_coeff,  &
+!          &                              ocean_state%p_diag%press_grad)
+!       ENDIF
       
-        ! calculate gradient of hydrostatic pressure in 3D
-        CALL grad_fd_norm_oce_3d(               &
-          & ocean_state%p_diag%press_hyd,       &
-          & patch_3d,                           &
-          & op_coeffs%grad_coeff,               &
-          & ocean_state%p_diag%press_grad)
-       ELSE
-         CALL calc_internal_press_grad( patch_3d,&
-         &                              ocean_state%p_diag%rho,&
-         &                              op_coeffs%grad_coeff,  &
-         &                              ocean_state%p_diag%press_grad)
-       ENDIF
-      ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
+      
+     CALL calc_internal_press_grad( patch_3d,&
+         &                          ocean_state%p_diag%rho,&
+         &                          ocean_state%p_diag%press_hyd,&         
+         &                          op_coeffs%grad_coeff,  &
+         &                          ocean_state%p_diag%press_grad)     
+      
+      
+       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
 
       ! calculate vertical velocity advection
       CALL veloc_adv_vert_mimetic(          &

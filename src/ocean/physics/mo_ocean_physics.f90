@@ -329,7 +329,7 @@ CONTAINS
     ENDIF
 
     DO i=1, HorizontalViscosity_SmoothIterations
-       CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SpatialSmoothFactor )
+ !      CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SpatialSmoothFactor )
     ENDDO
 
 

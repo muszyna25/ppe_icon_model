@@ -351,6 +351,14 @@ CONTAINS
         & DATATYPE_FLT32),&
         & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+		
+        CALL add_var(ocean_diagnostics_list, 'potential_vort_e', ocean_state%p_diag%potential_vort_e, &
+          & grid_unstructured_edge, za_depth_below_sea, &
+          & t_cf_var('vn_v','m/s','potential vorticity at edges', &
+          & DATATYPE_FLT32),&
+          & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+          & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+		
 
     ENDIF
     
@@ -1705,7 +1713,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER                         :: subset
     INTEGER                                               :: block, cell, cellStart,cellEnd, level
     INTEGER                                               :: my_computation_type
-
+    IF(no_tracer<=1)RETURN
     my_computation_type = 0
     salt         = 0.0_wp
 

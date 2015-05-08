@@ -233,56 +233,57 @@ CONTAINS
         &          t_cf_var('topBoundCond_Temp_vdiff', 'K*m/s', 'topBoundCond_Temp_vdiff', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(var_list, 'topBoundCond_Salt_vdiff', p_sfc_flx%topBoundCond_Salt_vdiff, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('topBoundCond_Salt_vdiff', 'psu*m/s', 'topBoundCond_Salt_vdiff', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(var_list, 'data_surfRelax_Temp', p_sfc_flx%data_surfRelax_Temp, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Temp', 'C', 'data_surfRelax_Temp', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)		
+!         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Salt', p_sfc_flx%data_surfRelax_Salt, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Salt', 'psu', 'data_surfRelax_Salt', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(var_list, 'topBoundCond_Temp_vdiff_acc', p_sfc_flx%topBoundCond_Temp_vdiff_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('topBoundCond_Temp_vdiff_acc', 'K*m/s', 'topBoundCond_Temp_vdiff_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(var_list, 'topBoundCond_Salt_vdiff_acc', p_sfc_flx%topBoundCond_Salt_vdiff_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('topBoundCond_Salt_vdiff_acc', 'psu*m/s', 'topBoundCond_Salt_vdiff_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(var_list, 'data_surfRelax_Temp_acc', p_sfc_flx%data_surfRelax_Temp_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Temp_acc', 'C', 'data_surfRelax_Temp_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(var_list, 'data_surfRelax_Salt_acc', p_sfc_flx%data_surfRelax_Salt_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('data_surfRelax_Salt_acc', 'psu', 'data_surfRelax_Salt_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
     ENDIF
 
     CALL add_var(var_list, 'topBoundCond_windStress_u_acc', p_sfc_flx%topBoundCond_windStress_u_acc , &
@@ -652,64 +653,65 @@ CONTAINS
         END DO
       END DO
       CASE(5)
-	  !Only valid for this specific testcase: temperature is resored to initial tempertaure without perturbation
-	  IF(initial_temperature_type==215.OR.initial_temperature_type==214)THEN
-		  
-	      lat(:,:) = patch_2d%cells%center(:,:)%lat
+      !Only valid for this specific testcase: temperature is resored to initial tempertaure without perturbation
+      IF(initial_temperature_type==215.OR.initial_temperature_type==214)THEN
 
-	      atmos_fluxes%data_surfRelax_Temp(:,:) = 0.0_wp!initial_temperature_south
+        lat(:,:) = patch_2d%cells%center(:,:)%lat
 
-	      temperature_difference = initial_temperature_north - initial_temperature_south
-	      basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
-	      basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
-	      lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+        atmos_fluxes%data_surfRelax_Temp(:,:) = 0.0_wp!initial_temperature_south
 
-	      DO jb = all_cells%start_block, all_cells%end_block
-	        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-	        DO jc = start_cell_index, end_cell_index
-	          jk=1
-	          atmos_fluxes%data_surfRelax_Temp(jc,jb) = initial_temperature_north &
-			  &- temperature_difference*((basin_northBoundary-lat(jc,jb))/lat_diff)
-			  
-	          atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
-			  &initial_temperature_north, lat(jc,jb)>basin_southBoundary)
-			  
-	        END DO
-	      END DO
-		  		  
-		  
-		  
+       temperature_difference = initial_temperature_north - initial_temperature_south
+       basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+       basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+       lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            jk=1
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = initial_temperature_north &
+            &- temperature_difference*((basin_northBoundary-lat(jc,jb))/lat_diff)
+  
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
+            &initial_temperature_north, lat(jc,jb)>basin_southBoundary)
+            
+			
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(&
+            &initial_temperature_north-1.0_wp, &			
+			&ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
+			     &lat(jc,jb)>(basin_center_lat + 1.0_wp*basin_height_deg) * deg2rad)!&
+			!&.AND.lat(jc,jb)<(basin_center_lat + 1.25_wp*basin_height_deg) * deg2rad)                    
+          END DO
+        END DO
+
         !CALL SST_LinearMeridional(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
-		!atmos_fluxes%data_surfRelax_Temp(:,:)=ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
-	  ENDIF
-	  
-	  IF(initial_temperature_type==203)THEN
-	      perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
-	      perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
-	      max_perturbation  = 0.1_wp!20.1_wp
-	      perturbation_width  = 10.0_wp!1.5_wp
-		  
-	      DO jb = all_cells%start_block, all_cells%end_block
-	        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-	        DO jc = start_cell_index, end_cell_index
-	            distan = SQRT((patch_2d%cells%center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
-	              & (patch_2d%cells%center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
-				  
-                atmos_fluxes%data_surfRelax_Temp(jc,jb)=ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
-	            !Local cold perturbation
-	            IF(distan<=5.0_wp*deg2rad)THEN
-	                 atmos_fluxes%data_surfRelax_Temp(jc,jb) =          &
-	                  & ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)        &
-	                  & - 2.0_wp*max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
-	                !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
-	                  & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(1) / patch_3d%p_patch_1d(1)%zlev_i(2))
-	            ENDIF !Local cold perturbation
-	        END DO
-	      END DO
-		  
-		  
-	  ENDIF
-	  
+        !atmos_fluxes%data_surfRelax_Temp(:,:)=ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
+      !ENDIF
+      ELSEIF(initial_temperature_type==203)THEN
+        perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+        perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
+        max_perturbation  = 0.1_wp!20.1_wp
+        perturbation_width  = 10.0_wp!1.5_wp
+
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            distan = SQRT((patch_2d%cells%center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
+            & (patch_2d%cells%center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
+  
+            atmos_fluxes%data_surfRelax_Temp(jc,jb)=ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
+            !Local cold perturbation
+            IF(distan<=5.0_wp*deg2rad)THEN
+              atmos_fluxes%data_surfRelax_Temp(jc,jb) =          &
+              & ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)        &
+              & - 2.0_wp*max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
+              !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
+              & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(1) / patch_3d%p_patch_1d(1)%zlev_i(2))
+             ENDIF !Local cold perturbation
+           END DO
+         END DO
+      ENDIF
+  
     END SELECT
 
     IF (type_surfRelax_Salt == 3) THEN
@@ -852,7 +854,9 @@ CONTAINS
       CASE(111)
         CALL Wolfe_Cessi_TestCase(lon, lat, windstress, amplitude)
       CASE(112)       ! basin setup, zonally changed for Abernathey test case
-        CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)
+        CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)     
+      CASE(113)
+        CALL zentral_jet(lon, lat, windstress, amplitude)		        
       END SELECT
     END SELECT
     
@@ -982,6 +986,17 @@ CONTAINS
       & (0.8_wp*EXP(-1*lat(:,:)*lat(:,:)/0.01) - COS(6.0_wp*lat(:,:)))
 
   END SUBROUTINE Wolfe_Cessi_TestCase
+
+  SUBROUTINE zentral_jet(lon, lat, field_2d, amplitude)
+    REAL(wp)                         :: lon(:,:), lat(:,:)
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+
+    field_2d(:,:) = amplitude *                                   &
+      & (0.8_wp*EXP(-1*lat(:,:)*lat(:,:)/0.5) )
+
+  END SUBROUTINE zentral_jet
+
 
   SUBROUTINE cells_zonal_periodic(lon, lat, field_2d, amplitude, zonal_waveno_opt)
     REAL(wp)                         :: lon(:,:), lat(:,:)

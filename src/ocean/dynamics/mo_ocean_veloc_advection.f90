@@ -83,7 +83,7 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e) ! out
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     !-----------------------------------------------------------------------
-
+			  
     IF (velocity_advection_form == rotational_form) THEN
     
     
@@ -94,6 +94,7 @@ CONTAINS
           & p_diag,          &
           & veloc_adv_horz_e,&
           & p_op_coeff)
+
       ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
       
         CALL veloc_adv_horz_mimetic_classicCgrid( patch_3D, &
@@ -201,7 +202,7 @@ CONTAINS
       & p_diag%vort,     &
       & p_op_coeff,      &
       & veloc_adv_horz_e) !z_vort_flx
-
+      p_diag%potential_vort_e=veloc_adv_horz_e
     !-------------------------------------------------------------------------------
     ! IF(L_ENSTROPHY_DISSIPATION)THEN
     !  DO jk = start_level, elev
@@ -316,7 +317,7 @@ CONTAINS
       DO jk = 1, n_zlev
         DO je = start_edge_index, end_edge_index
 
-          IF(patch_3D%lsm_e(je,jk,blockNo)<= boundary)THEN
+          IF(patch_3D%lsm_e(je,jk,blockNo)< boundary)THEN
             !Neighbouring cells
             il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
             ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
@@ -357,7 +358,7 @@ CONTAINS
 
             !calculation of nonlinear Coriolis 
             veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
-            &*(patch_2d%edges%f_e(je,blockNo)&!*0.1_wp&
+            &*(patch_2d%edges%f_e(je,blockNo)&
             &+0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
 
           ENDIF
@@ -442,7 +443,9 @@ CONTAINS
     INTEGER :: il_e1, ib_e1, il_e2, ib_e2, il_e3, ib_e3
 
     REAL(wp)                      :: z_e(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_cartesian_coordinates) :: u_v_cc_v(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)    
+    REAL(wp)                      :: veloc_tangential(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)                      :: div_veloc(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+	TYPE(t_cartesian_coordinates) :: u_v_cc_v(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)    
     TYPE(t_cartesian_coordinates) :: u_v_cc_e(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates) :: u_v_cc_c(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: z_div_vec_c(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -456,8 +459,10 @@ CONTAINS
     all_edges => patch_2D%edges%all
     all_cells => patch_2D%cells%all
 
-    z_e             (1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
+    veloc_tangential(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
     veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
+	
+	div_veloc(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
 
     start_level = 1
     elev = n_zlev
@@ -467,7 +472,7 @@ CONTAINS
       DO jk = start_level, elev
         DO je = start_edge_index, end_edge_index
 
-          IF(patch_3D%lsm_e(je,jk,blockNo)<= boundary)THEN
+          IF(patch_3D%lsm_e(je,jk,blockNo)< boundary)THEN
             !Neighbouring cells
 
             il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
@@ -475,58 +480,18 @@ CONTAINS
             il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
             ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
 
-            u_v_cc_c(il_c1,jk,ib_c1)=vector_product(patch_2D%cells%cartesian_center(il_c1,ib_c1),&
-                                &p_diag%p_vn(il_c1,jk,ib_c1))
-            
-            u_v_cc_c(il_c2,jk,ib_c2)=vector_product(patch_2D%cells%cartesian_center(il_c2,ib_c2),&
-                                &p_diag%p_vn(il_c2,jk,ib_c2))
-u_v_cc_e(je,jk,blockNo)%x=&
-&0.5_wp*(patch_2D%cells%f_c(il_c1,ib_c1)*u_v_cc_c(il_c1,jk,ib_c1)%x&
-&       +patch_2D%cells%f_c(il_c2,ib_c2)*u_v_cc_c(il_c2,jk,ib_c2)%x) 
-u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
-&+ 0.5_wp *(p_diag%vn_time_weighted(je,jk,blockNo)* (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
-& p_diag%p_vn(il_c2,jk,ib_c2)%x)&
-&-ABS(p_diag%vn_time_weighted(je,jk,blockNo))* (p_diag%p_vn(il_c2,jk,ib_c2)%x - &
-& p_diag%p_vn(il_c1,jk,ib_c1)%x))
+			!u_v_cc_e(je,jk,blockNo)%x= 0.5_wp*(p_diag%p_vn(il_c1,jk,ib_c1)%x + p_diag%p_vn(il_c2,jk,ib_c2)%x) 
+            u_v_cc_e(je,jk,blockNo)%x=&
+			&(  patch_2D%edges%edge_cell_length(je,blockNo,1)*p_diag%p_vn(il_c1,jk,ib_c1)%x&
+			& + patch_2D%edges%edge_cell_length(je,blockNo,2)*p_diag%p_vn(il_c2,jk,ib_c2)%x)&
+			&/(patch_2D%edges%dual_edge_length(je,blockNo))
 
+			z_e(je,jk,blockNo)=p_diag%vn_time_weighted(je,jk,blockNo)&
+			&*dot_product(u_v_cc_e(je,jk,blockNo)%x,patch_2D%edges%primal_cart_normal(je,blockNo)%x)
 
-!------------------------------------------------------------------------
-!            il_c1 = patch_2D%edges%vertex_idx(je,blockNo,1)
-!            ib_c1 = patch_2D%edges%vertex_blk(je,blockNo,1)
-!            il_c2 = patch_2D%edges%vertex_idx(je,blockNo,2)
-!            ib_c2 = patch_2D%edges%vertex_blk(je,blockNo,2)
+            veloc_tangential(je,jk,blockNo)=patch_2d%edges%f_e(je,blockNo)*&
+            dot_product(u_v_cc_e(je,jk,blockNo)%x,patch_2D%edges%dual_cart_normal(je,blockNo)%x)						
 
-            
-!            u_v_cc_v(il_c1,jk,ib_c1)=vector_product(patch_2D%verts%cartesian(il_c1,ib_c1),&
-!                                &p_diag%p_vn_dual(il_c1,jk,ib_c1))
-!            
- !           u_v_cc_v(il_c2,jk,ib_c2)=vector_product(patch_2D%verts%cartesian(il_c2,ib_c2),&
- !                               &p_diag%p_vn_dual(il_c2,jk,ib_c2))
-            
- !           u_v_cc_e(je,jk,blockNo)%x=&
- !           &0.5_wp*(patch_2D%verts%f_v(il_c1,ib_c1)*u_v_cc_v(il_c1,jk,ib_c1)%x&
- !           &       +patch_2D%verts%f_v(il_c2,ib_c2)*u_v_cc_v(il_c2,jk,ib_c2)%x) 
-			        
-  !          il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
-  !          ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
-  !          il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
-  !          ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
-            
-  !           u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
-  !           &+ 0.5_wp *(p_diag%vn_time_weighted(je,jk,blockNo)* (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
-  !           & p_diag%p_vn(il_c2,jk,ib_c2)%x)&
-  !           &-ABS(p_diag%vn_time_weighted(je,jk,blockNo))* (p_diag%p_vn(il_c2,jk,ib_c2)%x - &
-  !           & p_diag%p_vn(il_c1,jk,ib_c1)%x))
-              
-!  !           il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
-!   !          ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
-!    !         il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
-!     !        ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)              
-!      !       !velocity vector at edges
-!      !       u_v_cc_e(je,jk,blockNo)%x = 0.5_wp * (p_diag%p_vn(il_c1,jk,ib_c1)%x + &
-!      !         & p_diag%p_vn(il_c2,jk,ib_c2)%x)
-! 
-!       !      u_v_cc_e(je,jk,blockNo)%x = p_diag%vn_time_weighted(je,jk,blockNo) * u_v_cc_e(je,jk,blockNo)%x
           ENDIF
         END DO
       END DO
@@ -537,11 +502,6 @@ u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
       DO jk = start_level, elev
         DO jc = start_index_c, end_index_c
 
-!           u_v_cc_c(jc,jk,blockNo)= vector_product(patch_2D%cells%cartesian_center(jc,blockNo),&
-!                                 &p_diag%p_vn(jc,jk,blockNo))
-!                                 
-!           u_v_cc_c(jc,jk,blockNo)%x = patch_2D%cells%f_c(jc,blockNo)*u_v_cc_c(jc,jk,blockNo)%x
-
          il_e1 = patch_2D%cells%edge_idx(jc,blockNo,1)
          ib_e1 = patch_2D%cells%edge_blk(jc,blockNo,1)
 
@@ -550,12 +510,25 @@ u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
 
          il_e3 = patch_2D%cells%edge_idx(jc,blockNo,3)
          ib_e3 = patch_2D%cells%edge_blk(jc,blockNo,3)
+		 
+         div_veloc(jc,jk,blockNo)=  &
+              & (z_e(il_e1,jk,ib_e1)* p_op_coeff%div_coeff(jc,jk,blockNo,1)&
+			  &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e1,jk,ib_e1) + &
+              & z_e(il_e2,jk,ib_e2) * p_op_coeff%div_coeff(jc,jk,blockNo,2)&
+			  &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e2,jk,ib_e2) + &
+              & z_e(il_e3,jk,ib_e3) * p_op_coeff%div_coeff(jc,jk,blockNo,3)&
+			  &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e3,jk,ib_e3))&
+			  &/patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,blockNo) 
 
-         z_div_vec_c(jc,jk,blockNo)%x =  &
-              & u_v_cc_e(il_e1,jk,ib_e1)%x * p_op_coeff%div_coeff(jc,jk,blockNo,1) + &
-              & u_v_cc_e(il_e2,jk,ib_e2)%x * p_op_coeff%div_coeff(jc,jk,blockNo,2) + &
-              & u_v_cc_e(il_e3,jk,ib_e3)%x * p_op_coeff%div_coeff(jc,jk,blockNo,3) !+&
-              !& u_v_cc_c(jc,jk,blockNo)%x
+		 
+ !         z_div_vec_c(jc,jk,blockNo)%x =  &
+!               & (u_v_cc_e(il_e1,jk,ib_e1)%x* p_op_coeff%div_coeff(jc,jk,blockNo,1)&
+! 			  &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e1,jk,ib_e1) + &
+!               & u_v_cc_e(il_e2,jk,ib_e2)%x * p_op_coeff%div_coeff(jc,jk,blockNo,2)&
+! 			  &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e2,jk,ib_e2) + &
+!               & u_v_cc_e(il_e3,jk,ib_e3)%x * p_op_coeff%div_coeff(jc,jk,blockNo,3)&
+! 			  &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e3,jk,ib_e3))&
+! 			  & / patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,blockNo)
 
         END DO
       END DO
@@ -563,38 +536,45 @@ u_v_cc_e(je,jk,blockNo)%x =u_v_cc_e(je,jk,blockNo)%x&
     
     
     
-!     DO blockNo = all_cells%start_block, all_cells%end_block
-!       CALL get_index_range(all_cells, blockNo, start_index_c, end_index_c)
-!       DO jk = start_level, elev
-!         DO jc = start_index_c, end_index_c
-! 
-!           u_v_cc_c(jc,jk,blockNo)= vector_product(patch_2D%cells%cartesian_center(jc,blockNo),&
-!                                 &p_diag%p_vn(jc,jk,blockNo))
-!                                 
-!           u_v_cc_c(jc,jk,blockNo)%x = patch_2D%cells%f_c(jc,blockNo)*u_v_cc_c(jc,jk,blockNo)%x
-! 
-!          il_e1 = patch_2D%cells%edge_idx(jc,blockNo,1)
-!          ib_e1 = patch_2D%cells%edge_blk(jc,blockNo,1)
-! 
-!          il_e2 = patch_2D%cells%edge_idx(jc,blockNo,2)
-!          ib_e2 = patch_2D%cells%edge_blk(jc,blockNo,2)
-! 
-!          il_e3 = patch_2D%cells%edge_idx(jc,blockNo,3)
-!          ib_e3 = patch_2D%cells%edge_blk(jc,blockNo,3)
-! 
-!          z_div_vec_c(jc,jk,blockNo)%x =  &
-!               & u_v_cc_e(il_e1,jk,ib_e1)%x * p_op_coeff%div_coeff(jc,jk,blockNo,1) + &
-!               & u_v_cc_e(il_e2,jk,ib_e2)%x * p_op_coeff%div_coeff(jc,jk,blockNo,2) + &
-!               & u_v_cc_e(il_e3,jk,ib_e3)%x * p_op_coeff%div_coeff(jc,jk,blockNo,3) +&
-!               & u_v_cc_c(jc,jk,blockNo)%x
-! 
-!         END DO
-!       END DO
-!     END DO
 
 !     CALL map_cell2edges( patch_2D, z_div_vec_c, veloc_adv_horz_e, &
 !       & opt_start_level=start_level, opt_elev=elev )
-    CALL map_cell2edges_3D( patch_3D, z_div_vec_c, veloc_adv_horz_e,p_op_coeff)
+!    CALL map_cell2edges_3D( patch_3D, z_div_vec_c, veloc_adv_horz_e,p_op_coeff)
+
+
+
+DO blockNo = all_edges%start_block, all_edges%end_block
+  CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
+  DO jk = start_level, elev
+    DO je = start_edge_index, end_edge_index
+
+      IF(patch_3D%lsm_e(je,jk,blockNo)<= boundary)THEN
+        !Neighbouring cells
+        il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+        ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+        il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+        ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+
+!		veloc_adv_horz_e(je,jk,blockNo)=veloc_adv_horz_e(je,jk,blockNo)+veloc_tangential(je,jk,blockNo)
+		veloc_adv_horz_e(je,jk,blockNo)=&
+		&(  patch_2D%edges%edge_cell_length(je,blockNo,1)*div_veloc(il_c1,jk,ib_c1) &
+		& + patch_2D%edges%edge_cell_length(je,blockNo,2)*div_veloc(il_c2,jk,ib_c2))&
+		&/patch_2D%edges%dual_edge_length(je,blockNo)&		
+		!&/(patch_2D%edges%edge_cell_length(je,blockNo,1)+patch_2D%edges%edge_cell_length(je,blockNo,2))&
+		&+veloc_tangential(je,jk,blockNo)
+! 		write(123,*)'dist', patch_2D%edges%edge_cell_length(je,blockNo,1), patch_2D%edges%edge_cell_length(je,blockNo,2),&
+! 		&patch_2D%edges%dual_edge_length(je,blockNo),&
+! 		&patch_2D%edges%edge_cell_length(je,blockNo,1)/patch_2D%edges%dual_edge_length(je,blockNo),&
+! 		&patch_2D%edges%edge_cell_length(je,blockNo,2)/patch_2D%edges%dual_edge_length(je,blockNo)
+      ENDIF
+    END DO
+  END DO
+END DO
+
+DO jk=1,n_zlev
+write(*,*)'ADV',jk,maxval(veloc_adv_horz_e(:,jk,:)),minval(veloc_adv_horz_e(:,jk,:)),&
+&maxval(veloc_tangential(:,jk,:)),minval(veloc_tangential(:,jk,:))
+ENDDO	
 
 
     !calculates the curl. This is needed in Laplace-beltrami operator (velocity diffusion).
