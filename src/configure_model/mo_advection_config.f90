@@ -30,6 +30,7 @@ MODULE mo_advection_config
     &                              FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
     &                              ino_flx, izero_grad, iparent_flx, inwp, &
     &                              TRACER_ONLY
+  USE mo_expression,         ONLY: expression, real_kind ! DEVELOPMENT
 
   IMPLICIT NONE
   PUBLIC
@@ -131,6 +132,12 @@ MODULE mo_advection_config
 
     REAL(wp) :: upstr_beta_adv      !< later, it should be combined with         
                                     !< upstr_beta in non-hydrostatic namelist
+
+    INTEGER :: npassive_tracer      !< number of additional passive tracers, in addition to
+                                    !< microphysical- and ART tracers. 
+
+    CHARACTER(len=MAX_CHAR_LENGTH) :: &!< Comma separated list of initialization formulae 
+      &  init_formula                  !< for passive tracers.
 
 
     ! derived variables
@@ -249,6 +256,13 @@ CONTAINS
     INTEGER :: jm          !< loop index for shape functions
     INTEGER :: ivadv_tracer(MAX_NTRACER)
     INTEGER :: ihadv_tracer(MAX_NTRACER)
+
+
+!DR Test
+    INTEGER :: ipassive                           ! Loop counter
+    TYPE(expression) :: formula                   ! DEVELOPMENT
+    INTEGER :: start_pos
+    INTEGER :: end_pos
     !-----------------------------------------------------------------------
 
     !
@@ -631,6 +645,25 @@ CONTAINS
       wgt_eta(3)  = 1._wp
       wgt_eta(4)  = 1._wp
     END IF
+
+
+    ! Initialize passive tracers (if existing) by applying the 
+    ! initialization formulae provided via Namelist. 
+    start_pos=1
+    DO ipassive=1,advection_config(jg)%npassive_tracer
+      end_pos = INDEX(advection_config(jg)%init_formula, ",")
+      IF (end_pos == 0) THEN
+        end_pos=MAX_CHAR_LENGTH
+      ENDIF
+      write(0,*) "init_formula, ipassive: ", TRIM(ADJUSTL(advection_config(jg)%init_formula(start_pos:end_pos-1))), ipassive
+      formula = expression(TRIM(ADJUSTL(advection_config(jg)%init_formula(start_pos:end_pos-1))))
+      start_pos=end_pos
+
+!!$      CALL formula%evaluate(val_2D)
+!!$      DEALLOCATE(val_2D)
+!!$      CALL formula%finalize()
+
+    ENDDO
 
   END SUBROUTINE configure_advection
 
