@@ -1533,7 +1533,7 @@ MODULE mo_initicon
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
 
-    REAL(wp), PARAMETER :: min_hsnow_inc=0.001     ! minimum hsnow increment (1mm absolute value) 
+    REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value) 
                                                    ! in order to avoid grib precision problems
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
