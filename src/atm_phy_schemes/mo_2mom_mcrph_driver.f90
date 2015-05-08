@@ -86,7 +86,8 @@ INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debu
 
 INTEGER :: cloud_type = 2603
 
-INTEGER, PARAMETER :: cloud_type_default = 2503, ccn_type = 8
+INTEGER, PARAMETER :: cloud_type_default = 2503, ccn_type = 1
+!INTEGER, PARAMETER :: cloud_type_default = 2503, ccn_type = 8
 
 ! AS: Runs without hail, e.g, 1503 are buggy and give a segmentation fault.
 !     So far I was not able to identify the problem, needs more detailed debugging.
@@ -147,10 +148,10 @@ CONTAINS
      
     ! Microphysics variables
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) , TARGET :: &
-         &               qv, qc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
+         &               qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
 
     REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET, OPTIONAL :: &
-         &               qnc, nccn, ninpot, ninact
+         &               nccn, ninpot, ninact
 
     ! Precip rates, vertical profiles
     REAL(wp), DIMENSION(:), INTENT (INOUT)  :: &
@@ -224,11 +225,14 @@ CONTAINS
     END IF
     kte = ke
 
-    IF (PRESENT(qnc)) THEN
+    IF (PRESENT(nccn)) THEN
        lprogccn = .true.
-       lprogin  = .true.
     ELSE
        lprogccn = .false.
+    ENDIF
+    IF (PRESENT(ninpot)) THEN
+       lprogin  = .true.
+    ELSE
        lprogin  = .false.
     ENDIF
 
@@ -300,10 +304,10 @@ CONTAINS
        q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
        ! .. this subroutine calculates all the microphysical sources and sinks
-       if (PRESENT(ninpot)) THEN
-          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
+       IF (PRESENT(ninpot)) THEN
+          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
        ELSE
-          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail)
+          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
        ENDIF
 
        IF (lprogccn) THEN
@@ -366,12 +370,11 @@ CONTAINS
        WHERE(qnh < 0.0_wp) qnh = 0.0_wp
     END IF
 
-    IF (present(qnc)) THEN
+    DO kk=kts,kte
+       DO ii=its,ite
+          zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
 
-       DO kk=kts,kte
-          DO ii=its,ite
-             zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
-
+          IF (lprogccn) THEN
              !..reset nccn for cloud-free grid points to background profile
              IF (qc(ii,kk) .le. q_crit) then
                 IF(zf > ccn_coeffs%z0) THEN
@@ -380,7 +383,8 @@ CONTAINS
                    nccn(ii,kk) = max(nccn(ii,kk),ccn_coeffs%Ncn0)
                 END IF
              END IF
-
+          END IF
+          IF (lprogin) THEN
              !..relaxation of potential IN number density to background profile
              IF(zf > in_coeffs%z0) THEN
                 in_bgrd = in_coeffs%N0*exp((in_coeffs%z0 - zf)/in_coeffs%z1e)
@@ -388,19 +392,19 @@ CONTAINS
                 in_bgrd = in_coeffs%N0
              END IF
              ninpot(ii,kk) = ninpot(ii,kk) - (ninpot(ii,kk)-in_bgrd)/tau_inpot*dt
+          END IF
+          
+          !..relaxation of activated IN number density to zero
+          IF(qi(ii,kk) == 0) THEN
+             ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)/tau_inact*dt
+          END IF
 
-             !..relaxation of activated IN number density to zero
-             IF(qi(ii,kk) == 0) THEN
-                ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)/tau_inact*dt
-             END IF
-
-          END DO
        END DO
+    END DO
+    
+    IF (lprogccn) WHERE(nccn < 35.0_wp) nccn = 35e6_wp
 
-       WHERE(nccn < 35.0_wp) nccn = 35e6_wp
-       WHERE(qc < 1.0e-12_wp) qnc = 0.0_wp
-
-    END IF
+    WHERE(qc < 1.0e-12_wp) qnc = 0.0_wp
 
     WHERE(qr > 0.02_wp) qr = 0.02_wp
     WHERE(qi > 0.02_wp) qi = 0.02_wp
@@ -452,7 +456,11 @@ CONTAINS
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
          ! .. this subroutine calculates all the microphysical sources and sinks
-         CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninpot,ninact,nccn)
+         IF (PRESENT(ninpot)) THEN
+            CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
+         ELSE
+            CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
+         ENDIF
 
          DO kk=kts,kte
             DO ii = its, ite
@@ -706,7 +714,11 @@ CONTAINS
 
            kstart = k  
            kend   = k         
-           CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail)
+           IF (PRESENT(ninpot)) THEN
+              CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
+           ELSE
+              CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
+           ENDIF
          
            ! .. latent heat term for temperature equation
            DO ii = its, ite
@@ -768,6 +780,7 @@ CONTAINS
         DO ii = its, ite
            
            ! ... concentrations --> number densities
+           qnc(ii,kk) = rho(ii,kk) * qnc(ii,kk)
            qnr(ii,kk) = rho(ii,kk) * qnr(ii,kk) 
            qni(ii,kk) = rho(ii,kk) * qni(ii,kk) 
            qns(ii,kk) = rho(ii,kk) * qns(ii,kk)
@@ -783,11 +796,13 @@ CONTAINS
            qg(ii,kk) = rho(ii,kk) * qg(ii,kk) 
            qh(ii,kk) = rho(ii,kk) * qh(ii,kk) 
            
+           ninact(ii,kk)  = rho(ii,kk) * ninact(ii,kk)
+
            if (lprogccn) then
-              qnc(ii,kk)  = rho(ii,kk) * qnc(ii,kk)
               nccn(ii,kk) = rho(ii,kk) * nccn(ii,kk)
+           end if
+           if (lprogin) then
               ninpot(ii,kk)  = rho(ii,kk) * ninpot(ii,kk)
-              ninact(ii,kk)  = rho(ii,kk) * ninact(ii,kk)
            end if
         END DO
      END DO
@@ -807,11 +822,7 @@ CONTAINS
      hail%rho_v    => rhocorr
 
      cloud%q   => qc
-     if (lprogccn) then
-        cloud%n => qnc
-     else
-        cloud%n => qnc_dummy
-     end if
+     cloud%n   => qnc
      rain%q    => qr
      rain%n    => qnr
      ice%q     => qi
@@ -870,17 +881,20 @@ CONTAINS
            qh(ii,kk) = hlp * qh(ii,kk)
 
            ! ... number concentrations
+           qnc(ii,kk) = hlp * qnc(ii,kk)
            qnr(ii,kk) = hlp * qnr(ii,kk)
            qni(ii,kk) = hlp * qni(ii,kk)
            qns(ii,kk) = hlp * qns(ii,kk)
            qng(ii,kk) = hlp * qng(ii,kk)
            qnh(ii,kk) = hlp * qnh(ii,kk)
 
+           ninact(ii,kk)  = hlp * ninact(ii,kk)
+
            if (lprogccn) THEN
-              qnc(ii,kk)  = hlp * qnc(ii,kk)
               nccn(ii,kk) = hlp * nccn(ii,kk)
+           end if
+           if (lprogin) THEN
               ninpot(ii,kk)  = hlp * ninpot(ii,kk)
-              ninact(ii,kk)  = hlp * ninact(ii,kk)
            end if
         ENDDO
      ENDDO
@@ -1087,6 +1101,13 @@ CONTAINS
           ccn_coeffs%lsigs = 0.2d0
           ccn_coeffs%R2    = 0.03d0       ! in mum
           ccn_coeffs%etas  = 0.7          ! soluble fraction 
+       CASE(1)
+          !... dummy values
+          ccn_coeffs%Ncn0 =  200.0d06
+          ccn_coeffs%Nmin =   10.0d06
+          ccn_coeffs%lsigs = 0.0
+          ccn_coeffs%R2    = 0.0
+          ccn_coeffs%etas  = 0.0
        CASE DEFAULT
           CALL finish(TRIM(routine),'Error in two_moment_mcrph_init: Invalid value for ccn_type')
        END SELECT
