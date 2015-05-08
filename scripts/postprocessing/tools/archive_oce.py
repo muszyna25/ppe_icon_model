@@ -38,6 +38,7 @@ def parseOptions():
               'GRID'        : 'global',                    # shortcut for the used gridtype(global,box,channel)
               'ARCHDIR'     : './archive',
               'PLOTDIR'     : './plots',
+              'PLOTYEAR'    : None,
               'DOCTYPE'     : 'pdf',                       # target document format
               'OFORMAT'     : 'png',                       # target document format
               'EXP'         : 'oce_mpiom',                 # default experiment name
@@ -821,6 +822,7 @@ def createYmonmeanForYears(years, log):
   # produce masked yearmonmean file
   #
   # produce masked yearmean
+  return
 
 """ compute the list of years to select for plotting: last 30,20,10,5 years of run or given plotyear """
 def computePlotYears(availableYears,givenPlotYear):
@@ -840,6 +842,7 @@ def computePlotYears(availableYears,givenPlotYear):
   #   else error
   # else
   #   return the last available plotYears from simulation
+  return
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -880,6 +883,21 @@ for cdopath in cdo169:
   if os.path.exists(cdopath):
     cdo.setCdo(cdopath)
 # }}}
+# BASIC PLOTSETUP FOR MAIN VARIABLES {{{ ======================================
+PlotConfig =  {
+  't_acc'      : {'plotLevs' : '-2,-1,-0,1,2,5,10,15,20,25,30'},
+  's_acc'      : {'plotLevs' : '20,25,28,30,32,33,34,34.5,35,35.5,36,36.5,37,38,40'},
+  'rhopot_acc' : {'plotLevs' : '20,25,28,30,32,34,36,38,40'},
+  'u_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
+  'v_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
+  'h_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
+  }
+PlotConfigBias =  {
+  't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
+  's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
+  'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
+  }
+# }}} # =======================================================================
 # -----------------------------------------------------------------------------
 # INPUT HANDLING: {{{
 #   LOGGING requested
@@ -925,22 +943,7 @@ if hasNewFiles:
 LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
 # }}}
 #------------------------------------------------------------------------------
-# BASIC PLOTSETUP FOR MAIN VARIABLES {{{ ======================================
-PlotConfig =  {
-  't_acc'      : {'plotLevs' : '-2,-1,-0,1,2,5,10,15,20,25,30'},
-  's_acc'      : {'plotLevs' : '20,25,28,30,32,33,34,34.5,35,35.5,36,36.5,37,38,40'},
-  'rhopot_acc' : {'plotLevs' : '20,25,28,30,32,34,36,38,40'},
-  'u_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
-  'v_acc'      : {'plotLevs' : '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
-  'h_acc'      : {'plotLevs': '-5,-2,-1,-0.5,-0.2,-0.1,0.0,0.1,0.2,0.5,1,2,5'},
-  }
-PlotConfigBias =  {
-  't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
-  's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
-  'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
-  }
-# }}} # =======================================================================
-# DATA SPLITTING {{{ ==========================================================
+# DATA SCANNING {{{ ============================================================
 if 'preproc' in options['ACTIONS']:
   if options['FORCE']:
     scanFilesForTheirYears(iFiles,options['PROCS'],LOG)
@@ -968,43 +971,13 @@ if 'preproc' in options['ACTIONS']:
         yearFiles.append(_file)
     dbg(yearFiles)
     filesOfYears[year] = yearFiles
-  LOG['filesOfYears'] = filesOfYears
+
+  LOG['filesOfYears']  = filesOfYears
+  LOG['years']         = years
 
 if options['DRYRUN']:
+  dbg(allYears)
   doExit()
-
-# process each year separately: collect yearly data, compute year mean files
-if 'preproc' in options['ACTIONS']:
-  splitInfo = splitFilesIntoYears(LOG['filesOfYears'],
-                                  options['ARCHDIR'],
-                                  options['FORCE'],
-                                  options['EXP'],
-                                  LOG['packedYears'],
-                                  options['PROCS'])
-
-  years, yearMeanFiles = [],{}
-  LOG['meansOfYears'] = {}
-  for _info in splitInfo:
-    year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
-    LOG[year] = yearlyFile
-    years.append(year)
-    yearMeanFiles.update({year : yearMeanFile})
-
-  years.sort()
-
-  # compute yearly mean files in parallel
-  #computeYearMeanFiles(LOG,yearMeanFiles,options['PROCS'])
-
-else:
-  years = LOG['filesOfYears'].keys()
-  years.sort()
-  yearMeanFiles = []
-  for year in years:
-    yearMeanFile = LOG['meansOfYears'][year]
-    yearMeanFiles.append(yearMeanFile)
-  LOG['splityear?'] = True
-
-LOG['years']      = years
 
 dumpLog()
 dbg(LOG)
