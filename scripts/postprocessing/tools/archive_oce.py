@@ -152,7 +152,7 @@ def collectImageToMapByRows(images,columns,ofile):
 
 """ warpper around cdo commands for multiprocessing """ #{{{
 def showyear(file):
-  return cdo.showyear(input = file)[0].split(' ')
+  return map(lambda x : int(x) ,cdo.showyear(input = file)[0].split(' '))
 
 def ntime(file):
   return cdo.ntime(input = file)[0]
@@ -258,10 +258,11 @@ def grepYear(ifiles,year,archdir,forceOutput,experimentInfo):
 #}}}
 
 """ split input files into yearly files """
-def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,packedYears,procs):
-  pool          = multiprocessing.Pool(procs)
+def splitFilesIntoYears(plotYears,filesOfYears,archdir,forceOutput,expInfo,procs):
+  pool      = multiprocessing.Pool(procs)
   yearFiles = []
-  for year,files in filesOfYears.iteritems():
+  for year in plotYears:
+    files = filesOfYears[year]
     yearFile               = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,expInfo])
     yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
     yearFiles.append([year,yearFile,yearMeanFile])
@@ -814,35 +815,104 @@ def collectAllYearMeanData(years,archdir,exp,log):
   return collectYearMeanDataFile
 
 """ create yearmean and yearmonmean files for a given list of years """
-def createYmonmeanForYears(years, log):
+def createYmonmeanForYears(log, givenPlotYear,options):
+  # compute list of relevant years to process
+  plotYears = computePlotYears(log['years'],givenPlotYear)
+  #
   # separate model output into files for each year for latet cat
+  #info = splitFilesIntoYears()
+  plotFiles = splitFilesIntoYears(plotYears,
+                                  log['filesOfYears'],                                                                                                                                                                              
+                                  options['ARCHDIR'],
+                                  options['FORCE'],
+                                  options['EXP'],
+                                  options['PROCS'])
+
+
   #
   # cat together
+  yearMonMeanFile = yearMonMeanFileName(options['ARCHDIR'], options['EXP'],str(plotYears[0]),str(plotYears[-1]))
+  last30yearFile  = last30yearFileName(options['ARCHDIR'], options['EXP'], str(plotYears[0]),str(plotYears[-1]))
+  cellVars = maskCellVariables(cdo.cat(input = ' '.join(plotFiles), output = str(last30yearFile+'_all')),
+                               log['mask'],
+                               last30yearFile,
+                               False)
   #
   # produce masked yearmonmean file
   #
   # produce masked yearmean
+# print('#====================================================================')
+# lastYearsFiles = []
+# for y in LOG['years'][lastYearsStartYear:lastYearsEndYear]:
+#     lastYearsFiles.append(LOG[str(y)])
+# # compute the varname list for variables which can be masked by wet_c
+# #TODO: this implementation depends on the internal ordering of the netcdf file
+# #LOG['last30Years']         = cdo.selname(','.join(_cellVars),input = _last30Years, output = str(last30yearFile))
+  LOG['last30YearsMonMean']  = cdo.ymonmean(input = last30yearFile,
+                                            output = yearMonMeanFile,
+                                            options = "-f nc4c -z zip_1")
+  LOG['last30YearsMean']     = cdo.timmean(input = str(yearMonMeanFile),
+                                           output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],
+                                                                                      options['EXP'],
+                                                                                      str(LOG['years'][lastYearsStartYear]),
+                                                                                      str(LOG['years'][lastYearsEndYear])),
+                                           options = "-f nc4c -z zip_1")
+
+  LOG['last30YearsMeanBias'] = cdo.sub(input = ' {0} -selname,{1} {2}'.format(LOG['last30YearsMean'],','.join(cellVars),LOG['init']),
+                                       output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],
+                                                                                      options['EXP'],
+                                                                                      LOG['years'][lastYearsStartYear],
+                                                                                      LOG['years'][lastYearsEndYear]),
+                                       options = "-Q -f nc4c -z zip_1")
   return
 
 """ compute the list of years to select for plotting: last 30,20,10,5 years of run or given plotyear """
 def computePlotYears(availableYears,givenPlotYear):
-  # skip the last year, because it might be unfished
+  # use integer to avaid string encoding missmatch
+  availableYears = map(lambda x : int(x), availableYears)
+  if None != givenPlotYear:
+    givenPlotYear  = int(givenPlotYear)
   #
   # compute simulation length L
+  simulationLength = len(availableYears)
   #
-  # plotYearCount is
+  # plotPeriod is
+  plotPeriod = min(30,simulationLength/2)
   #   30 if L >= 100
+  if (simulationLength >= 100):
+    plotPeriod = min(30,plotPeriod)
   #   20 if 100 < L < 50
+  elif (simulationLength < 100):
+    plotPeriod = min(20,plotPeriod)
   #   10 if 50  < L < 30
+  elif (simulationLength < 50):
+    plotPeriod = min(10,plotPeriod)
   #    5 if 30  < L
+  elif (simulationLength < 30):
+    plotPeriod = min(5,plotPeriod)
   #
-  # if plotYears is given
+  # if plotYear is given
+  plotYear = givenPlotYear if givenPlotYear != None else availableYears[-1]
+
   #   check if it is available
-  #     return the last plotYears before plotYears
-  #   else error
-  # else
-  #   return the last available plotYears from simulation
-  return
+  if plotYear in availableYears:
+    plotYearIndex = availableYears.index(plotYear) + 1
+  else:
+  #   use last simulation year otherwise
+    print("PLOTYEAR:{0} is not available - last year {1} will be used".format(plotYear, availableYears[-1]))
+    plotYear = availableYears[-1]
+    plotYearIndex = simulationLength
+
+  plotYears = availableYears[(plotYearIndex-plotPeriod):plotYearIndex]
+
+  dbg('allYears');dbg(availableYears)
+  dbg('{0}:{1}'.format(simulationLength-plotPeriod,plotYearIndex))
+  dbg('simlength    :'+str(simulationLength))
+  dbg('plotYear     :'+str(plotYear))
+  dbg('plotYearIndex:'+str(plotYearIndex))
+  dbg(plotYears)
+
+  return plotYears
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -952,9 +1022,10 @@ if 'preproc' in options['ACTIONS']:
   dbg(LOG['yearsOfFiles'])
 
   # compute all contributing simulation years
-  allYears = set(); _allYears = LOG['yearsOfFiles'].values()
-  for years in _allYears:
-    allYears.update(years)
+  allYears = set(); 
+  for yearlist in LOG['yearsOfFiles'].values():
+    allYears.update(yearlist)
+
   allYears = list(allYears)
   allYears.sort()
   # drop the last one if job is running
@@ -973,14 +1044,13 @@ if 'preproc' in options['ACTIONS']:
     filesOfYears[year] = yearFiles
 
   LOG['filesOfYears']  = filesOfYears
-  LOG['years']         = years
+  LOG['years']         = allYears
 
 if options['DRYRUN']:
-  dbg(allYears)
-  doExit()
+  dbg(LOG)
 
 dumpLog()
-dbg(LOG)
+dbg(LOG['years'])
 # }}} ==========================================================================
 # COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ ============================
 LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init.nc'%(options['EXP'])]))
@@ -997,48 +1067,9 @@ LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 #TODO doExit()
 # }}} ==========================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =================
-lastYearsPeriod    = min(30,len(LOG['years'])/2)
-lastYearsStartYear = -1*lastYearsPeriod - 2
-lastYearsEndYear   = lastYearsStartYear + lastYearsPeriod
-
-print('#====================================================================')
-dbg(lastYearsPeriod)
-dbg(lastYearsStartYear)
-dbg(lastYearsEndYear)
-dbg(LOG['years'][lastYearsStartYear:lastYearsEndYear])
-dbg(','.join(LOG['years'][lastYearsStartYear:lastYearsEndYear]))
-sssss = ','.join(LOG['years'][lastYearsStartYear:lastYearsEndYear])
-dbg(LOG[LOG['years'][lastYearsStartYear:lastYearsEndYear][0]])
-print('#====================================================================')
-lastYearsFiles = []
-for y in LOG['years'][lastYearsStartYear:lastYearsEndYear]:
-    lastYearsFiles.append(LOG[str(y)])
-yearMonMeanFile    = yearMonMeanFileName(options['ARCHDIR'], options['EXP'],
-                                         LOG['years'][lastYearsStartYear],
-                                         LOG['years'][lastYearsEndYear])
-last30yearFile    = last30yearFileName(options['ARCHDIR'], options['EXP'],
-                                       LOG['years'][lastYearsStartYear],
-                                       LOG['years'][lastYearsEndYear])
-# compute the varname list for variables which can be masked by wet_c
-#TODO: this implementation depends on the internal ordering of the netcdf file
-_last30Years         = cdo.cat(input = ' '.join(lastYearsFiles), output = str(last30yearFile+'_all'))
-cellVars = maskCellVariables(_last30Years,LOG['mask'],last30yearFile,False)
-#LOG['last30Years']         = cdo.selname(','.join(_cellVars),input = _last30Years, output = str(last30yearFile))
-LOG['last30Years']         = str(last30yearFile)
-LOG['last30YearsMonMean']  = cdo.ymonmean(input = LOG['last30Years'],
-                                           output = yearMonMeanFile)
-LOG['last30YearsMean']     = cdo.timmean(input = str(yearMonMeanFile),
-                                         output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],
-                                                                                    options['EXP'],
-                                                                                    str(LOG['years'][lastYearsStartYear]),
-                                                                                    str(LOG['years'][lastYearsEndYear])))
-LOG['last30YearsMeanBias'] = cdo.sub(input = ' {0} -selname,{1} {2}'.format(LOG['last30YearsMean'],','.join(cellVars),LOG['init']),
-                                     output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],
-                                                                                    options['EXP'],
-                                                                                    LOG['years'][lastYearsStartYear],
-                                                                                    LOG['years'][lastYearsEndYear]),
-                                     options = "-Q")
+createYmonmeanForYears(LOG,options['PLOTYEAR'],options)
 dumpLog()
+doExit()
 # }}} ==========================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
