@@ -927,7 +927,7 @@ END SUBROUTINE o3_timeint
     INTEGER  :: jk,jkk,jl,jc,jb !loop indices
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
     INTEGER  :: rl_start,rl_end
-    REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint
+    REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3
     LOGICAL  :: lfound_all
 
 
@@ -1016,7 +1016,7 @@ END SUBROUTINE o3_timeint
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,jkk,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
-!$OMP zint,zviozo) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zint,zviozo,zadd_o3) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1095,9 +1095,10 @@ END SUBROUTINE o3_timeint
 ! Tuning to increase stratospheric ozone in order to reduce temperature biases;
 ! the tuning factors are computed in atm_phy_nwp_config
           IF ( ltuning_ozone ) THEN
-            ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) * (1.0_wp +               &
-                                    & atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) *       &
-                                    & atm_phy_nwp_config(pt_patch%id)%shapefunc_ozone(jc,jb))
+            zadd_o3 = MIN(atm_phy_nwp_config(pt_patch%id)%ozone_maxinc,                   &
+              ext_data%atm%o3(jc,jk,jb) * atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) * &
+              atm_phy_nwp_config(pt_patch%id)%shapefunc_ozone(jc,jb) )
+            ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) + zadd_o3
           ENDIF
 
         ENDDO
