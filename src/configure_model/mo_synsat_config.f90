@@ -21,10 +21,10 @@ MODULE mo_synsat_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom
-  USE mo_exception,          ONLY: message_text, message
+  USE mo_exception,          ONLY: message_text, finish
   USE mo_mpi,                ONLY: p_pe, p_comm_work, p_io, num_work_procs
 #ifdef __USE_RTTOV
-  USE mo_rttov_ifc,          ONLY: rttov_init
+  USE mo_rttov_ifc,          ONLY: rttov_init, NO_ERROR, rttov_ifc_errMsg
 #endif
 
   IMPLICIT NONE
@@ -303,6 +303,12 @@ MODULE mo_synsat_config
          p_comm_work     , &
          appRegLim=.TRUE., &
          readCloud=addclouds)
+
+    IF (istatus /= NO_ERROR) THEN
+      WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
+      CALL finish('configure_synsat',message_text)
+    ENDIF
+
 #endif
 
   END SUBROUTINE configure_synsat
