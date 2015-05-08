@@ -655,6 +655,7 @@ CONTAINS
       IF (end_pos == 0) THEN
         end_pos=MAX_CHAR_LENGTH
       ENDIF
+      write(0,*) "start_pos, end_pos, ipassive: ", start_pos, end_pos, ipassive
       write(0,*) "init_formula, ipassive: ", TRIM(ADJUSTL(advection_config(jg)%init_formula(start_pos:end_pos-1))), ipassive
       formula = expression(TRIM(ADJUSTL(advection_config(jg)%init_formula(start_pos:end_pos-1))))
       start_pos=end_pos

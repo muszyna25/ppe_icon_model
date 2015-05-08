@@ -540,6 +540,7 @@ CONTAINS
     INTEGER                    :: i, dim1, dim2, dim3
     TYPE(t_result_stack_0D)    :: result_stack
     TYPE(t_var_ptr)            :: var_shape
+    REAL(real_kind), POINTER   :: ptr
 
     IF (this%isize <= 0) RETURN
     ! first step: determine the dimensions involved
@@ -550,20 +551,32 @@ CONTAINS
       RETURN
     END IF
     ! then evaluate the list of operators:
-    evaluate => NULL()
     DO i=1,this%isize
       CALL this%list(i)%p%eval(result_stack)
     END DO
-    IF (result_stack%ridx == 1)  evaluate => result_stack%rstack(1)%ptr_0D
+    IF (.NOT. ASSOCIATED(evaluate)) THEN
+      IF (result_stack%ridx == 1) THEN
+        evaluate => result_stack%rstack(1)%ptr_0D
+      ELSE
+        evaluate => NULL()
+      END IF
+    ELSE
+      IF (result_stack%ridx == 1) THEN
+        evaluate = result_stack%rstack(1)%ptr_0D
+        CALL result_stack%pop(ptr)
+        DEALLOCATE(ptr)
+      END IF
+    END IF
   END SUBROUTINE expr_list_evaluate_0D
 
   SUBROUTINE expr_list_evaluate_2D(this, evaluate)
     CLASS(expression), INTENT(INOUT) :: this
     REAL(real_kind), POINTER :: evaluate(:,:)
     ! local variables
-    INTEGER                    :: i, dim1, dim2, dim3
+    INTEGER                    :: i, dim1, dim2, dim3, size1, size2
     TYPE(t_result_stack_2D)    :: result_stack
     TYPE(t_var_ptr)            :: var_shape
+    REAL(real_kind), DIMENSION(:,:), POINTER :: ptr
 
     IF (this%isize <= 0) RETURN
     ! first step: determine the dimensions involved
@@ -571,30 +584,81 @@ CONTAINS
     IF (dim3 /= 1)  RETURN
     result_stack = t_result_stack_2D(dim1, dim2)
     ! then evaluate the list of operators:
-    evaluate => NULL()
     DO i=1,this%isize
       CALL this%list(i)%p%eval(result_stack)
     END DO
-    IF (result_stack%ridx == 1)  evaluate => result_stack%rstack(1)%ptr_2D
+
+    IF (.NOT. ASSOCIATED(evaluate)) THEN
+      IF (result_stack%ridx == 1) THEN
+        evaluate => result_stack%rstack(1)%ptr_2D
+      ELSE
+        evaluate => NULL()
+      END IF
+    ELSE
+      IF (result_stack%ridx == 1) THEN
+        size1 = SIZE(evaluate,1)
+        size2 = SIZE(evaluate,2)
+        IF ((dim1 == 1) .AND. (dim2 == 1)) THEN
+          evaluate(:,:) = result_stack%rstack(1)%ptr_2D(1,1)
+        ELSE
+          IF ((dim1 == size1) .AND. (dim2 == size2)) THEN
+            evaluate = result_stack%rstack(1)%ptr_2D
+          ELSE
+            WRITE (0,*) "Wrong dimensions!"
+            evaluate(:,:) = 0._real_kind
+          END IF
+        END IF
+      END IF
+      CALL result_stack%pop(ptr)
+      DEALLOCATE(ptr)
+    END IF
   END SUBROUTINE expr_list_evaluate_2D
 
   SUBROUTINE expr_list_evaluate_3D(this, evaluate)
     CLASS(expression), INTENT(INOUT) :: this
     REAL(real_kind), POINTER :: evaluate(:,:,:)
     ! local variables
-    INTEGER                    :: i, dim1, dim2, dim3
+    INTEGER                    :: i, dim1, dim2, dim3, size1, size2, size3
     TYPE(t_result_stack_3D)    :: result_stack
     TYPE(t_var_ptr)            :: var_shape
+    REAL(real_kind), DIMENSION(:,:,:), POINTER :: ptr
 
     IF (this%isize <= 0) RETURN
     ! first step: determine the dimensions involved
     CALL this%get_result_shape(var_shape, dim1, dim2, dim3)
     result_stack = t_result_stack_3D(dim1, dim2, dim3)
     ! then evaluate the list of operators:
-    evaluate => NULL()
     DO i=1,this%isize
       CALL this%list(i)%p%eval(result_stack)
     END DO
+
+    IF (.NOT. ASSOCIATED(evaluate)) THEN
+      IF (result_stack%ridx == 1) THEN
+        evaluate => result_stack%rstack(1)%ptr_3D
+      ELSE
+        evaluate => NULL()
+      END IF
+    ELSE
+      IF (result_stack%ridx == 1) THEN
+        size1 = SIZE(evaluate,1)
+        size2 = SIZE(evaluate,2)
+        size3 = SIZE(evaluate,3)
+        IF ((dim1 == 1) .AND. (dim2 == 1)) THEN
+          evaluate(:,:,:) = result_stack%rstack(1)%ptr_3D(1,1,1)
+        ELSE IF ((dim3 == 1) .AND. (dim1 == size1) .AND. (dim2 == size3)) THEN
+          DO i=1,size2
+            evaluate(:,i,:) = result_stack%rstack(1)%ptr_3D(:,:,1)
+          END DO
+        ELSE IF ((dim1 == size1) .AND. (dim2 == size2) .AND. (dim3 == size3)) THEN
+          evaluate = result_stack%rstack(1)%ptr_3D
+        ELSE
+          WRITE (0,*) "Wrong dimensions!"
+          evaluate(:,:,:) = 0._real_kind
+        END IF
+      END IF
+      CALL result_stack%pop(ptr)
+      DEALLOCATE(ptr)
+    END IF
     IF (result_stack%ridx == 1)  evaluate => result_stack%rstack(1)%ptr_3D
   END SUBROUTINE expr_list_evaluate_3D
 
