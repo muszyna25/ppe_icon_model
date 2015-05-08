@@ -1615,8 +1615,8 @@ CONTAINS
       IF (info%ndims == 1) THEN
         CALL finish('write_restart_var_list', '1d arrays not handled yet.')
       ELSE IF (info%ndims == 2) THEN
-        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r_out_wp, &
-          &                gather_pattern)
+        CALL exchange_data(in_array=element%field%r_ptr(:,:,nindex,1,1), &
+          &                out_array=r_out_wp, gather_pattern=gather_pattern)
         !
         ! write data
         !
@@ -1629,8 +1629,9 @@ CONTAINS
         IF (my_process_is_mpi_workroot()) &
           write (0,*)' ... write ',info%name
         DO lev = 1, info%used_dimensions(2)
-          CALL exchange_data(element%field%r_ptr(:,lev,:,nindex,1), r_out_wp, &
-            &                gather_pattern)
+          CALL exchange_data( &
+            in_array=element%field%r_ptr(:,lev,:,nindex,1), &
+            out_array=r_out_wp, gather_pattern=gather_pattern)
           IF (my_process_is_mpi_workroot()) &
             CALL streamWriteVarSlice(this_list%p%cdiFileID_restart, &
               &                      info%cdiVarID, lev-1, r_out_wp(:), 0)

@@ -710,6 +710,9 @@ run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -text
+run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
+run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
 run/checksuite.ocean_internal/buildbot/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
@@ -789,6 +792,8 @@ run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_restarttest -text
+run/component.xsd -text
+run/coupling.xsd -text
 run/dict.echam.mpim -text
 run/dict.extpar -text
 run/dict.icoham.mpim -text
@@ -813,15 +818,13 @@ run/exp.couple_atmo-ocean-prod -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
 run/exp.coupled_r2b3 -text
+run/exp.cpl_r2b3 -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_rce_120km -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
-run/exp.icon-testbed_communication -text
-run/exp.icon-testbed_grid -text
-run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
 run/exp.nat_ape-dec -text
@@ -871,6 +874,7 @@ run/exp.test_ocean_omip_10days -text
 run/exp.test_ocean_omip_parallel -text
 run/exp.test_ocean_omip_technical -text
 run/exp.tracer_solid_body -text
+run/exp.yac_r2b3 -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
