@@ -3609,7 +3609,7 @@ SUBROUTINE turbdiff
           DO i=istartpar,iendpar
             IF (hhl(i,k) > 25000._ireals) THEN
               x4 = MIN(1._ireals, 2.e-4_ireals*(hhl(i,k) - 25000._ireals)) ! linear increase between 25 km and 30 km
-              tkvcorr2(i,k) = MIN( 7.5_ireals, MAX( 0.125_ireals, xri(i,k) ) )
+              tkvcorr2(i,k) = x4 * MIN( 7.5_ireals, MAX( 0.125_ireals, xri(i,k) ) )
             ELSE
               tkvcorr2(i,k) = z0
             ENDIF
