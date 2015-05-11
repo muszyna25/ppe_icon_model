@@ -1631,6 +1631,8 @@ src/ocean/boundary/mo_ocean_coupling.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
 src/ocean/boundary/mo_ocean_forcing.f90 -text
 src/ocean/boundary/mo_ocean_initial_conditions.f90 -text
+src/ocean/boundary/mo_ocean_surface.f90 -text
+src/ocean/boundary/mo_ocean_surface_types.f90 -text
 src/ocean/config/mo_ocean_nml.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/config/mo_ocean_read_namelists.f90 -text
@@ -1700,6 +1702,7 @@ src/sea_ice/dynamics_fem/mo_ice_parsup.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_therm_parms.f90 -text
 src/sea_ice/dynamics_fem/mo_icon_iceparam.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice_refactor.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_types.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text
