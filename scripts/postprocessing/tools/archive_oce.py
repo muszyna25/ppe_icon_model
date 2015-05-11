@@ -60,6 +60,7 @@ def parseOptions():
                'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce'.split(','),
              }
 
+  plotActions = 'procMoc,plotMoc,plotX,procTSR,plotTSR,plotPsi'.split(',')
   optsGiven = sys.argv[1:]
   for optVal in optsGiven:
     if ( 0 <= optVal.find('=') ):
@@ -81,6 +82,12 @@ def parseOptions():
     else:
       print("Cannot parse options '%s'!"%(optVal))
       sys.exit(1)
+
+  # switch i plotting, if PLOTYEAR is given
+  if None != options['PLOTYEAR']:
+    for plotAction in plotActions:
+      if not plotAction in options['ACTIONS']:
+        options['ACTIONS'].append(plotAction)
 
   return options
 # }}} ----------------------------------------------------------------------------------
@@ -866,13 +873,13 @@ def createYmonmeanForYears(log, givenPlotYear,options):
   #
   # produce masked yearmean
   LOG['last30YearsMean']     = cdo.timmean(input = str(yearMonMeanFile),
-                                           output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],
+                                           output = '%s/%s_%s-%s_ym.nc'%(options['ARCHDIR'],
                                                                                       options['EXP'],
                                                                                       firstPlotYear,
                                                                                       lastPlotYear),
                                            options = "-f nc4c -z zip_1")
   LOG['last30YearsMeanBias'] = cdo.sub(input = ' {0} -selname,{1} {2}'.format(LOG['last30YearsMean'],','.join(cellVars),LOG['init']),
-                                       output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],
+                                       output = '%s/%s_%s-%s_ymBias.nc'%(options['ARCHDIR'],
                                                                                       options['EXP'],
                                                                                       firstPlotYear,
                                                                                       lastPlotYear),
@@ -1102,6 +1109,7 @@ if 'procPsi' in options['ACTIONS'] or 'plotPsi' in options['ACTIONS']:
   psiGlobalFile        = '/'.join([options['ARCHDIR'],'_'.join([psiModelVariableName,yearInfo])+'.nc'])
   cdo.timmean(input = '-selname,{0} -selyear,{1}/{2} {3}'.format(psiModelVariableName,years4Psi[0],years4Psi[-1],LOG['last30Years']),
               output = psiGlobalFile)
+  add4Cleanup([psiGlobalFile])
 
 # }}} --------------------------------------------------------------------------
 # PREPARE INPUT FOR PROFILES {{{
@@ -1230,16 +1238,16 @@ if 'plotPsi' in options['ACTIONS']:
 
   plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
   title    = "Bar. Streamfunction for %s\n (file: %s)"%(options['EXP'],psiGlobalFile)
-  cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA={0} TITLE='{1}' PLOT={2}".format(options['GRID'],title,plotFile))
+  cmd      = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " DEBUG=1 WRITEPSI=true AREA={0} TITLE='{1}' PLOT={2}".format(options['GRID'],title,plotFile))
   dbg(cmd)
   plotCommands.append(cmd)
   if subprocess.check_call(cmd,shell=True,env=os.environ):
     print("ERROR: CALCPSI failed")
   # plot special areas
   for area, selection in psiSelectionConfig.iteritems():
-    title = "Selected Stream function for %s (%s)"%(area,options['EXP'])
+    title    = "Selected Stream function for %s (%s)"%(area,options['EXP'])
     plotFile = options['PLOTDIR']+'/'+"_".join(["psi",area,options['EXP'],options['TAG']+'.png'])
-    cmd = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " AREA=local TITLE='{0}' PLOT={1} BOX={2} ".format(title,plotFile,selection['lonlatbox']))
+    cmd      = '{0} {1} {2}'.format(options['CALCPSI'], psiGlobalFile, " AREA=local TITLE='{0}' PLOT={1} BOX={2} ".format(title,plotFile,selection['lonlatbox']))
     dbg(cmd)
     plotCommands.append(cmd)
     if subprocess.check_call(cmd,shell=True,env=os.environ):
@@ -1322,11 +1330,14 @@ if 'plotX' in options['ACTIONS']:
       #TODO:
       iFile4XSection = cdo.div(input  = '-selname,{0} {1} {2}'.format(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                                output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
+      add4Cleanup([iFile4XSection])
       if ( 'rhopot_acc' == varname ):
         # substract 1000
         iFile4XSection  = cdo.subc(1000.0,
                                    input = '-selname,{0} {1}'.format(varname,iFile4XSection),
                                    output = os.path.splitext(iFile4XSection)[0]+'_{0}_subc1000.nc'.format(varname))
+        add4Cleanup([iFile4XSection])
+
       title = '{0}: last 30 year mean '.format(options['EXP'])
       cmd = [options['ICONPLOT'],
              '-iFile=%s'%(iFile4XSection),
