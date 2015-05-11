@@ -114,7 +114,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  i_nchdom,             & !< Number of child domains
     &  nlev                    !< Number of levels (equals index of lowest full level)
   REAL(wp),ALLOCATABLE    :: &
-    &  emiss_rate(:)           !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
+    &  emiss_rate(:,:)         !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
@@ -133,7 +133,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
   IF (lart) THEN
   
-    ALLOCATE(emiss_rate(nproma))
+    ALLOCATE(emiss_rate(nproma,nlev))
   
     CALL art_air_properties(p_patch,p_art_data(jg))
        
@@ -171,7 +171,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
       
         DO WHILE(ASSOCIATED(this_mode))
-          emiss_rate(:) = 0._wp
+          emiss_rate(:,:) = 0._wp
           ! Check how many moments the mode has
           select type (fields=>this_mode%fields)
             type is (t_fields_2mom)
@@ -181,40 +181,40 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                   CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                          &
                     &             p_nh_state%metrics%ddqz_z_full(:,nlev,jb), p_diag_lnd%t_s(:,jb),                    &
                     &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),   &
-                    &             istart,iend,emiss_rate(:))
+                    &             istart,iend,emiss_rate(:,nlev))
                 case ('seasb')
                   CALL art_seas_emiss_monahan(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                             &
                     &             p_nh_state%metrics%ddqz_z_full(:,nlev,jb), ext_data%atm%fr_land(:,jb),              &
-                    &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
+                    &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:,nlev))
                 case ('seasc')
                   CALL art_seas_emiss_smith(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                               &
                     &             p_nh_state%metrics%ddqz_z_full(:,nlev,jb), ext_data%atm%fr_land(:,jb),              &
-                    &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
+                    &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:,nlev))
                 case ('dusta')
                   CALL art_emission_dust(p_nh_state%metrics%ddqz_z_full(:,nlev,jb),                  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
-                    &             jb,istart,iend,'dusta',p_art_data(jg)%soil_prop,emiss_rate(:))
+                    &             jb,istart,iend,'dusta',p_art_data(jg)%soil_prop,emiss_rate(:,nlev))
                 case ('dustb')
                   CALL art_emission_dust(p_nh_state%metrics%ddqz_z_full(:,nlev,jb),                  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
-                    &             jb,istart,iend,'dustb',p_art_data(jg)%soil_prop,emiss_rate(:))
+                    &             jb,istart,iend,'dustb',p_art_data(jg)%soil_prop,emiss_rate(:,nlev))
                 case ('dustc')
                   CALL art_emission_dust(p_nh_state%metrics%ddqz_z_full(:,nlev,jb),                  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
-                    &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:))
+                    &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:,nlev))
               end select
               
               ! Update mass mixing ratios
               DO ijsp = 1, fields%info%njsp
-                CALL art_integrate_explicit(tracer(:,nlev,jb,fields%info%jsp(ijsp)),  emiss_rate(:), dtime,  &
-                  &                         istart,iend, opt_rho = rho(:,nlev,jb))
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%info%jsp(ijsp)),  emiss_rate(:,:), dtime,  &
+                  &                         istart,iend,nlev, opt_rho = rho(:,:,jb))
               ENDDO
               ! Update mass-specific number
-              CALL art_integrate_explicit(tracer(:,nlev,jb,fields%info%i_number_conc), emiss_rate(:), dtime, &
-                &                         istart,iend, opt_rho = rho(:,nlev,jb),                             &
+              CALL art_integrate_explicit(tracer(:,:,jb,fields%info%i_number_conc), emiss_rate(:,:), dtime, &
+                &                         istart,iend,nlev, opt_rho = rho(:,:,jb),                          &
                 &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
                 
             class is (t_fields_1mom)
