@@ -23,7 +23,7 @@
 echo "PREPICON_SST_ICE.SMS"
 
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
-SSTICEDIR=%SCPERMIII%/icon_input/sstice/%YYYY%
+SSTICEDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/sstice/%YYYY%
 
 TMPDIR="${TEMP}"
 
@@ -36,13 +36,10 @@ outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 
 mkdir -p ${SSTICEDIR}
 cd ${SSTICEDIR}
-#rm SST*nc
-#rm CI*nc
 
 # Important: ==================================
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
-#dwd_grib_api=/home/ms/de/dei4
 export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3:/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions"
 # =============================================
 
@@ -86,93 +83,86 @@ do
 # SST
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
-IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
-#IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
-IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_%RES%_DOM01.nc"
-#IFS_FILENAME_NC=file_SST.nc
-
-if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
-
-cat > NAMELIST_PREPICON << EOF
-! interpolation regular grid-> ICON
-&remap_nml
- in_grid_filename  = "${IFS_FILENAME_GRB}"
- in_filename       = "${IFS_FILENAME_GRB}"
- in_type           = 1
- out_grid_filename = "${ICON_GRIDFILE}"
- out_filename      = "${IFS_FILENAME_NC}"	
- out_type          = 2
- s_maxsize         = 500000
- l_have3dbuffer    = .false.
- out_filetype      = 4
- rbf_scale_uv2vec  = 0.05            !use ONLY for R2B5!!!!
-!rbf_vec_scale     = 0.01
-/
-&input_field_nml  ! SST
- inputname      = "SST"         
- outputname     = "SST"          
- code           = 34          
-! type_of_layer  = "surface" 
-/
+  IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
+  IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_%RES%_DOM01.nc"
+    
+  if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
+    
+    cat > NAMELIST_PREPICON << EOF
+    ! interpolation regular grid-> ICON
+    &remap_nml
+     in_grid_filename  = "${IFS_FILENAME_GRB}"
+     in_filename       = "${IFS_FILENAME_GRB}"
+     in_type           = 1
+     out_grid_filename = "${ICON_GRIDFILE}"
+     out_filename      = "${IFS_FILENAME_NC}"	
+     out_type          = 2
+     s_maxsize         = 500000
+     l_have3dbuffer    = .false.
+     out_filetype      = 4
+     rbf_scale_uv2vec  = 0.05            !use ONLY for R2B5!!!!
+    !rbf_vec_scale     = 0.01
+    /
+    &input_field_nml  ! SST
+     inputname      = "SST"         
+     outputname     = "SST"          
+     code           = 34          
+    !type_of_layer  = "surface" 
+    /
 EOF
 
 # -------------------------------------------------
+    
+    export USE_SIGNAL_HANDLING=yes
+    aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+    
+# Remove time dimension
+#    module load nco
+#    ncwa -O -a time,layer ${IFS_FILENAME_NC} ${IFS_FILENAME_NC}
 
-  export USE_SIGNAL_HANDLING=yes
-# ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-
-fi
-
-
+  fi
+    
+    
 # CI
 # For a complete list see Namelist_overview and Namelist_overview.pdf
-
-IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
-#IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
-IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_%RES%_DOM01.nc"
-#IFS_FILENAME_NC=file_CI.nc
-
-if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
-
-cat > NAMELIST_PREPICON << EOF
-!&parallel_nml
-! nproma                       = 10
-!/
-!&prepicon_nml
-! i_oper_mode                  = 4
-!/
-! interpolation regular grid-> ICON
-&remap_nml
- in_grid_filename             = "${IFS_FILENAME_GRB}"
- in_filename                  = "${IFS_FILENAME_GRB}"
- in_type                      = 1
- out_grid_filename            = "${ICON_GRIDFILE}"
- out_filename                 = "${IFS_FILENAME_NC}"	
- out_type                     = 2
- s_maxsize                    = 500000
- l_have3dbuffer               = .false.
- out_filetype      = 4
- !rbf_vec_scale     = 0.01
-/
-&input_field_nml  ! CI
- inputname      = "CI"         
- outputname     = "CI"          
- code           = 31          
-! type_of_layer  = "surface" 
-/
+    
+  IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
+  IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_%RES%_DOM01.nc"
+    
+  if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
+    
+    cat > NAMELIST_PREPICON << EOF
+    ! interpolation regular grid-> ICON
+    &remap_nml
+     in_grid_filename   = "${IFS_FILENAME_GRB}"
+     in_filename        = "${IFS_FILENAME_GRB}"
+     in_type            = 1
+     out_grid_filename  = "${ICON_GRIDFILE}"
+     out_filename       = "${IFS_FILENAME_NC}"	
+     out_type           = 2
+     s_maxsize          = 500000
+     l_have3dbuffer     = .false.
+     out_filetype       = 4
+     !rbf_vec_scale     = 0.01
+    /
+    &input_field_nml  ! CI
+     inputname      = "CI"         
+     outputname     = "CI"          
+     code           = 31          
+    !type_of_layer  = "surface" 
+    /
 EOF
-
+    
 # -------------------------------------------------
-
-  export USE_SIGNAL_HANDLING=yes
-# ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-
-fi
+    
+    export USE_SIGNAL_HANDLING=yes
+    aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+    
+  fi
 
 done
-rm  ./iconremap_mpi
+
+#rm  ./iconremap_mpi
 
 ls -lrt ${SSTICEDIR}/*
 

@@ -458,6 +458,9 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
 
+      ALLOCATE(patch(jg)%cells%dist_io_data, patch(jg)%edges%dist_io_data, &
+        &      patch(jg)%verts%dist_io_data)
+
       CALL setup_distrib_read(patch(jg)%n_patch_cells_g, &
                               patch(jg)%cells%decomp_info, &
                               patch(jg)%cells%dist_io_data)
@@ -468,6 +471,10 @@ CONTAINS
                               patch(jg)%verts%decomp_info, &
                               patch(jg)%verts%dist_io_data)
       IF (jg > n_dom_start) THEN
+
+        ALLOCATE(p_patch_local_parent(jg)%cells%dist_io_data, &
+          &      p_patch_local_parent(jg)%edges%dist_io_data, &
+          &      p_patch_local_parent(jg)%verts%dist_io_data)
 
         CALL setup_distrib_read(p_patch_local_parent(jg)%n_patch_cells_g, &
                                 p_patch_local_parent(jg)%cells%decomp_info, &

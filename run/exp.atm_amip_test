@@ -414,8 +414,7 @@ if [[ "$output_phy" == "yes" ]]; then
                     'sh_vdiff', 'qv_vdiff',
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
-                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
 /
 &output_nml
  output_filename  = "${EXPNAME}_phy_2d_rmb"
@@ -453,8 +452,7 @@ if [[ "$output_phy" == "yes" ]]; then
                     'sh_vdiff', 'qv_vdiff',
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
-                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
 /
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
