@@ -351,12 +351,16 @@ if test -n "$ZLIBROOT" ; then
   if test -r "$ZLIBROOT/lib/libz.a" ; then
      ZLIB_LIB='-L$(ZLIBROOT)/lib -lz'
   else
-    if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
-       ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
-    else 
-       echo "cannot read $ZLIBROOT/lib/libz.a"  
-       exit 1    
-    fi
+     if test -r "$ZLIBROOT/lib64/libz.a" -o -r "$ZLIBROOT/lib64/libz.so" ; then     
+        ZLIB_LIB='-L$(ZLIBROOT)/lib64 -lz'
+     else   
+        if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
+           ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
+        else 
+           echo "cannot read $ZLIBROOT/lib/libz.a"  
+           exit 1    
+        fi
+     fi
   fi
   if test -d "$ZLIBROOT/include" ; then
      ZLIB_INCLUDE='-I$(ZLIBROOT)/include'
@@ -399,6 +403,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
+  case $(hostname) in
+  btc*)  
+    SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    ;;
+  *)
+    ;;
+  esac
 else
   echo "Warning: the variable SZIPROOT is not set in $host_frag"  
   echo "         set SZIPROOT to the szip root directory"
@@ -434,6 +445,13 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
+  case $(hostname) in
+  btc*)  
+    HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    ;;
+  *)
+    ;;
+  esac
 else
   echo "Warning: the variable HDF5ROOT is not set in $host_frag"  
   echo "         set HDF5ROOT to the hdf5 root directory"
@@ -478,7 +496,13 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-
+  case $(hostname) in
+  btc*)    
+    NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    ;;
+  *)
+    ;;
+  esac
   if test -z "$NETCDFFROOT" ; then
      if test -r "$NETCDFROOT/include/netcdf.inc" ; then
          NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
@@ -490,13 +514,22 @@ if test -n "$NETCDFROOT" ; then
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB="-Lmake$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
+         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
+         case $(hostname) in
+         btc*)    
+           NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+           NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
+           ;;
+         *)
+           ;;
+         esac
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
        fi
-     fi
-      
+     fi      
   fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
@@ -692,7 +725,14 @@ else
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
-      mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+      case "$MPIROOT" in
+      *impi*)
+        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        ;;      
+      *)
+        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        ;;
+      esac
       ;;
     esac
     if test -r $mod_file ; then
@@ -813,7 +853,11 @@ fi
 if [[ "x$target_os" = xsuperux ]] ; then  
     MODDIR=""	    
 else
-    MODDIR="${MODDIR}../module"
+    if [[ "x$FC" = xifort ]] ; then
+        MODDIR="${MODDIR} ../module"
+    else    
+        MODDIR="${MODDIR}../module"
+    fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
 
@@ -876,6 +920,7 @@ AC_SUBST(OS,$target_os)
 AC_SUBST(SITE,$ac_sitename)
 AC_SUBST(HOST,$ac_hostname)
 
+AC_SUBST(NETCDFFROOT,$NETCDFFROOT)
 AC_SUBST(NETCDFROOT,$NETCDFROOT)
 AC_SUBST(NETCDFLIBPATH,$NETCDFLIBPATH)
 AC_SUBST(NETCDF_LIB,$NETCDF_LIB)

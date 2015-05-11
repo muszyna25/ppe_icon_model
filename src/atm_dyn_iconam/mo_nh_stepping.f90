@@ -30,7 +30,7 @@ MODULE mo_nh_stepping
 !
 
   USE mo_kind,                     ONLY: wp, vp
-  USE mo_nonhydro_state,           ONLY: p_nh_state
+  USE mo_nonhydro_state,           ONLY: p_nh_state, p_nh_state_lists
   USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
@@ -164,6 +164,7 @@ MODULE mo_nh_stepping
 
 #endif
 #endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1341,7 +1342,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+              &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
 
           ELSE ! is_les_phy
 
@@ -1372,7 +1373,7 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-                &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
 
             CASE (iecham) ! iforcing
 
@@ -1925,7 +1926,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in
+        &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
   
     ELSE ! is_les_phy
   
@@ -1956,7 +1957,7 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-          &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
+          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in 
 
       CASE (iecham) ! iforcing
 
