@@ -182,6 +182,7 @@ CONTAINS
     END IF
 
     IF (i_ice_dyn == 1 ) THEN
+      CALL message(TRIM(routine), 'WARNING: i_ice_dyn is 1 - BUT SEA ICE DYNAMICS INCLUDE ERRORS')
       ! TODO: This can be changed when we start advecting T1 and T2
    !  CALL message(TRIM(routine), 'WARNING: i_ice_therm set to 1 because i_ice_dyn is 1')
    !  i_ice_therm = 1   !  no Winton thermodynamics allowed, switched off by default
