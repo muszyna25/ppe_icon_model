@@ -1040,9 +1040,10 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'qv_s', p_diag_lnd%qv_s,          &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,        &
            & ldims=shape2d,                                                  &
-           & initval_r=0.001_wp,                                             &
+           & initval=0.001_wp,                                               &
            & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in", &
-           &                 "mode_iau_fg_in","mode_iau_old_fg_in","mode_combined_in","mode_cosmode_in") )      
+           &                 "mode_iau_fg_in","mode_iau_old_fg_in",          &
+           &                 "mode_combined_in","mode_cosmode_in") )      
 
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
@@ -1051,7 +1052,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                   &
-           & initval_r=0._wp,                                                  &
+           & initval=0._wp,                                                    &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_ana_in",&
            &                 "mode_iau_old_ana_in","mode_combined_in") )
 
@@ -1066,7 +1067,7 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE.,         &
            & loutput=.FALSE.,                                                  &
-           & initval_r=0.001_wp )
+           & initval=0.001_wp )
 
     ! fill the separate variables belonging to the container qv_s_t
     ALLOCATE(p_diag_lnd%qv_st_ptr(ntiles_total+ntiles_water))

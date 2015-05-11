@@ -208,7 +208,7 @@ CONTAINS
       &  opt_rho_incr(:,:,:)            !< NH: [kg/m**3/s]
                                         !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(IN), OPTIONAL:: &  !< air density at time step nnew
+    REAL(wp), POINTER, OPTIONAL:: &  !< air density at time step nnew
       &  opt_rho(:,:,:)                 !< NH: [kg/m**3]
                                         !< dim: (nproma,nlev,nblks_c)
 

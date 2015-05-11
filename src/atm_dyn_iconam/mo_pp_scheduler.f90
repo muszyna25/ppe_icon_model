@@ -690,7 +690,7 @@ CONTAINS
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
-                &           missval_r=info%missval%rval )
+                &           missval=info%missval%rval )
             END IF
             !--- INTEGER fields
             IF (ASSOCIATED(element%field%i_ptr)) THEN
@@ -703,7 +703,7 @@ CONTAINS
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
-                &           missval_i=info%missval%ival )
+                &           missval=info%missval%ival )
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")

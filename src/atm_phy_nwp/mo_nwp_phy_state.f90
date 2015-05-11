@@ -260,7 +260,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     TYPE(t_cf_var)    ::    cf_desc, new_cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), shape3dsubsw(3)
+    INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), &
+      &        shape3dsubsw(3), shape3d_synsat(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist, jg
@@ -276,12 +277,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
-    shape2d      = (/nproma,           kblks            /)
-    shape3d      = (/nproma, klev,     kblks            /)
-    shape3dkp1   = (/nproma, klevp1,   kblks            /)
-    shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
-    shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
-
+    shape2d        = (/nproma,           kblks            /)
+    shape3d        = (/nproma, klev,     kblks            /)
+    shape3dkp1     = (/nproma, klevp1,   kblks            /)
+    shape3dsubs    = (/nproma, kblks,    ntiles_total     /)
+    shape3dsubsw   = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
     ! Quick and dirty implementation of domain-specific statistics intervals
     ! Initially, global domain and nest have distinct statistics intervals (3h vs. 1h). 
@@ -637,7 +637,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
-                & initval_r=0._wp, resetval_r=0._wp,                           &
+                & initval=0._wp, resetval=0._wp,                               &
                 & action_list=action_list_reset )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
@@ -746,7 +746,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc,           &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE.,                  &
                 & loutput=.TRUE.,                                              &
-                & lmiss=.TRUE., missval_r=-999._wp,                            &
+                & lmiss=.TRUE., missval=-999._wp,                              &
                 & hor_interp=create_hor_interp_metadata(                       &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
@@ -880,7 +880,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=(/nproma,klev,kblks,3/) ,                               &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,         &
-                & initval_r=0.0_wp,                                             &
+                & initval=0.0_wp,                                               &
                 & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
                 &                                       fallback_type=HINTP_TYPE_LONLAT_RBF))
 
@@ -1823,7 +1823,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           &                 new_cf=new_cf_desc),                              &
           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in",               &
           &                 "mode_iau_fg_in","mode_iau_old_fg_in"),           &
-          & initval_r=0.01_wp )
+          & initval=0.01_wp )
 
 
         ! &      diag%t_2m(nproma,nblks_c)
@@ -1840,7 +1840,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         CALL add_var( diag_list, 'tmax_2m', diag%tmax_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
-          & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
+          & isteptype=TSTEP_MAX, initval=-999._wp, resetval=-999._wp,         &
           & action_list=action_list_reset, &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
@@ -1851,7 +1851,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         CALL add_var( diag_list, 'tmin_2m', diag%tmin_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
-          & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
+          & isteptype=TSTEP_MIN, initval=999._wp, resetval=999._wp,           &
           & action_list=action_list_reset, &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
@@ -2469,11 +2469,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDIF
 
     ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
-    IF (lsynsat(k_jg) .AND. k_jg > n_dom_start .AND. p_patch(k_jg)%nshift > 0) THEN
-      ALLOCATE(diag%buffer_rttov(nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c))
-    ENDIF
-
     IF (lsynsat(k_jg)) THEN
+      IF  ((k_jg > n_dom_start) .AND. (p_patch(k_jg)%nshift > 0)) THEN
+        ALLOCATE(diag%buffer_rttov(nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c))
+      ENDIF
+
+!! DEVELOPMENT
+!    shape3d_synsat = (/nproma, num_images, p_patch_local_parent(k_jg)%nblks_c /)
+!      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer', DATATYPE_FLT32)
+!      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+!      CALL add_var( diag_list, 'rttov', diag%synsat_arr,                          &
+!        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+!        &           ldims=shape3d_synsat ,                                        &
+!        &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+!
+!      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer', DATATYPE_FLT32)
+!      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+!      CALL add_ref( p_prog_list, 'tracer',                                         &
+!        &           TRIM(vname_prefix)//'qv'//suffix, p_prog%tracer_ptr(iqv)%p_3d, &
+!        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+!        &           cf_desc, grib2_desc, ldims=shape3d_c,                          &
+!        &           in_group=groups("RTTOV") )
+
       ALLOCATE(diag%synsat_arr(nproma, num_images, p_patch(k_jg)%nblks_c))
     ENDIF
 
@@ -2646,7 +2663,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL add_var( phy_tend_list, 'ddt_w_turb', phy_tend%ddt_w_turb,          &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,    &
                   & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
-                  & initval_r=0._wp)
+                  & initval=0._wp)
     END IF
 
     !------------------------------

@@ -1,4 +1,4 @@
-!! @par Copyright and License
+! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
 !! its most recent form.
@@ -15,46 +15,45 @@ MODULE mo_var_list
 #endif
 #endif
 
-  USE mo_kind,             ONLY: wp, i8
-  USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
-       &                         DATATYPE_INT32,                    &
-       &                         DATATYPE_INT8,                     &
-       &                         TSTEP_INSTANT,                     &
-       &                         GRID_UNSTRUCTURED_CELL,            &
-       &                         GRID_REGULAR_LONLAT,               &
-       &                         CDI_UNDEFID
-  USE mo_cf_convention,    ONLY: t_cf_var
-  USE mo_grib2,            ONLY: t_grib2_var
-  USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
-    &                            t_tracer_meta,                     &
-    &                            t_vert_interp_meta,                &
-    &                            t_hor_interp_meta,                 &
-    &                            VARNAME_LEN, VAR_GROUPS,           &
-    &                            VINTP_TYPE_LIST,                   &
-    &                            t_post_op_meta
-  USE mo_var_metadata,     ONLY: create_tracer_metadata,            &
-    &                            create_vert_interp_metadata,       &
-    &                            create_hor_interp_metadata,        &
-    &                            post_op, groups, group_id, actions
-  USE mo_var_list_element, ONLY: t_var_list_element
-  USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
-       &                         new_list, delete_list,             &
-       &                         append_list_element,               &
-       &                         find_list_element,                 &
-       &                         delete_list_element 
-  USE mo_exception,        ONLY: message, message_text, finish
-  USE mo_util_hash,        ONLY: util_hashword
-  USE mo_util_string,      ONLY: remove_duplicates, toupper
-  USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
-    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
-  USE mo_fortran_tools,    ONLY: assign_if_present
-  USE mo_action_types,     ONLY: t_var_action 
-  USE mo_io_config,        ONLY: restart_file_type
+  USE mo_kind,               ONLY: wp, i8
+  USE mo_cdi_constants,      ONLY: DATATYPE_FLT64,                    &
+    &                              DATATYPE_INT32, DATATYPE_INT8,     &
+       &                           TSTEP_INSTANT,                     &
+       &                           GRID_UNSTRUCTURED_CELL,            &
+       &                           GRID_REGULAR_LONLAT,               &
+       &                           CDI_UNDEFID
+  USE mo_cf_convention,      ONLY: t_cf_var
+  USE mo_grib2,              ONLY: t_grib2_var
+  USE mo_var_metadata_types, ONLY: t_var_metadata, t_union_vals,      &
+    &                              t_tracer_meta,                     &
+    &                              t_vert_interp_meta,                &
+    &                              t_hor_interp_meta,                 &
+    &                              VARNAME_LEN, VAR_GROUPS,           &
+    &                              VINTP_TYPE_LIST,                   &
+    &                              t_post_op_meta
+  USE mo_var_metadata,       ONLY: create_tracer_metadata,            &
+    &                              create_vert_interp_metadata,       &
+    &                              create_hor_interp_metadata,        &
+    &                              post_op, groups, group_id, actions
+  USE mo_var_list_element,   ONLY: t_var_list_element
+  USE mo_linked_list,        ONLY: t_var_list, t_list_element,        &
+       &                           new_list, delete_list,             &
+       &                           append_list_element,               &
+       &                           find_list_element,                 &
+       &                           delete_list_element 
+  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_util_hash,          ONLY: util_hashword
+  USE mo_util_string,        ONLY: remove_duplicates, toupper
+  USE mo_impl_constants,     ONLY: max_var_lists, vname_len,          &
+    &                              STR_HINTP_TYPE, MAX_TIME_LEVELS
+  USE mo_fortran_tools,      ONLY: assign_if_present
+  USE mo_action_types,       ONLY: t_var_action 
+  USE mo_io_config,          ONLY: restart_file_type
 
   IMPLICIT NONE
 
   PRIVATE
-  
+
   PUBLIC :: new_var_list              ! get a pointer to a new output var_list
   PUBLIC :: delete_var_list           ! delete an output var_list
   PUBLIC :: delete_var_lists          ! delete all output var_lists
@@ -82,23 +81,21 @@ MODULE mo_var_list
   PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
-  
+
  INTERFACE add_var  ! create a new list entry
-    MODULE PROCEDURE add_var_list_element_r5d
+    MODULE PROCEDURE add_var_list_element_5d
     MODULE PROCEDURE add_var_list_element_r4d
     MODULE PROCEDURE add_var_list_element_r3d 
     MODULE PROCEDURE add_var_list_element_r2d 
     MODULE PROCEDURE add_var_list_element_r1d 
-    MODULE PROCEDURE add_var_list_element_i5d
     MODULE PROCEDURE add_var_list_element_i4d
     MODULE PROCEDURE add_var_list_element_i3d 
     MODULE PROCEDURE add_var_list_element_i2d 
     MODULE PROCEDURE add_var_list_element_i1d 
-    MODULE PROCEDURE add_var_list_element_l5d
-    MODULE PROCEDURE add_var_list_element_l4d
-    MODULE PROCEDURE add_var_list_element_l3d 
+!    MODULE PROCEDURE add_var_list_element_l4d
+!    MODULE PROCEDURE add_var_list_element_l3d 
     MODULE PROCEDURE add_var_list_element_l2d 
-    MODULE PROCEDURE add_var_list_element_l1d 
+!    MODULE PROCEDURE add_var_list_element_l1d 
   END INTERFACE add_var
 
   INTERFACE add_ref
@@ -106,7 +103,6 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_reference_r2d
     MODULE PROCEDURE add_var_list_reference_i2d
   END INTERFACE add_ref
-
 
   INTERFACE get_var  ! obtain reference to a list entry
     MODULE PROCEDURE get_var_list_element_r5d
@@ -136,6 +132,11 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_post_op
     MODULE PROCEDURE assign_if_present_action_list
   END INTERFACE struct_assign_if_present
+
+  ! named constants for specifying data types
+  ENUM, BIND(C)
+    ENUMERATOR :: REAL_T, BOOL_T, INT_T
+  END ENUM
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
@@ -584,6 +585,7 @@ CONTAINS
     this_info%lcontainer          = .FALSE.
     this_info%lcontained          = .FALSE.
     this_info%ncontained          = 0
+    this_info%var_ref_pos         = -1 ! UNDEFINED
     !
     this_info%hgrid               = -1
     this_info%vgrid               = -1
@@ -634,7 +636,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: vgrid         ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in), OPTIONAL :: cf            ! CF convention
     TYPE(t_grib2_var),       INTENT(in), OPTIONAL :: grib2         ! GRIB2
-    INTEGER,                 INTENT(in), OPTIONAL :: ldims(:)      ! used dimensions 
+    INTEGER,                 INTENT(in)           :: ldims(:)      ! used dimensions 
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput       ! into output var_list
     LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer    ! true if container
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart      ! restart file flag
@@ -682,7 +684,10 @@ CONTAINS
     !
     CALL assign_if_present (info%loutput,       loutput)
     CALL assign_if_present (info%lcontainer,    lcontainer)
-    IF (info%lcontainer) info%ncontained = 0
+    IF (info%lcontainer) THEN
+      info%ncontained   =  0
+      info%var_ref_pos  = -1 ! UNDEFINED
+    END IF
     CALL struct_assign_if_present (info%resetval,resetval)
     CALL assign_if_present (info%isteptype,     isteptype)
     CALL assign_if_present (info%lmiss,         lmiss)
@@ -716,69 +721,132 @@ CONTAINS
     !
     ! printout (optional)
     !
+
     !LK    IF (lverbose) CALL print_var_metadata (info)
     !
   END SUBROUTINE set_var_metadata
+
+
+  ! Auxiliary routine: initialize array, REAL(wp) variant 
+  SUBROUTINE init_array_r5d(ptr, linit, initval, lmiss, missval)
+    REAL(wp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
+    LOGICAL,            INTENT(IN)  :: linit, lmiss
+    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+
+    IF (lmiss) THEN
+      ptr = missval%rval
+    ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      ptr = ieee_value(ptr, ieee_signaling_nan)
+#else
+      ptr = 0.0_wp
+#endif
+#else
+      ptr = 0.0_wp
+#endif
+    END IF
+    IF (linit)  ptr = initval%rval
+  END SUBROUTINE init_array_r5d
+
+
+  ! Auxiliary routine: initialize array, INTEGER variant
+  SUBROUTINE init_array_i5d(ptr, linit, initval, lmiss, missval)
+    INTEGER, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
+    LOGICAL,            INTENT(IN)  :: linit, lmiss
+    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+
+    IF (lmiss) THEN
+      ptr = missval%ival
+    ELSE
+      ptr = 0
+    END IF
+    IF (linit)  ptr = initval%ival
+  END SUBROUTINE init_array_i5d
+
+
+  ! Auxiliary routine: initialize array, REAL(wp) variant
+  SUBROUTINE init_array_l5d(ptr, linit, initval, lmiss, missval)
+    LOGICAL, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
+    LOGICAL,            INTENT(IN)  :: linit, lmiss
+    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+
+    IF (lmiss) THEN
+      ptr = missval%lval
+    ELSE
+      ptr = .FALSE.
+    END IF
+    IF (linit)  ptr = initval%lval
+  END SUBROUTINE init_array_l5d
+
+
   !------------------------------------------------------------------------------------------------
   !
   ! Create a list new entry
   !
   ! Specific routines for pointers of different rank
   !
-  !================================================================================================ 
-  ! REAL SECTION ----------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 5d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r5d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, isteptype,          &
-       resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_5d(ndims, data_type, this_list, name,        &
+    &   hgrid, vgrid, cf, grib2, ldims, new_list_element, loutput, lcontainer, &
+    &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,                &
+    &   info, vert_interp, hor_interp, in_group, verbose,                      &
+    &   l_pp_scheduler_task, post_op, action_list,                             &
+    &   p5_r, p5_i, p5_l,                                                      &
+    &   initval_r, initval_i, initval_l,                                       &
+    &   resetval_r, resetval_i, resetval_l,                                    &
+    &   missval_r, missval_i, missval_l )
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    REAL(wp),             POINTER              :: ptr(:,:,:,:,:)      ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
-    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
+    INTEGER,                 INTENT(IN)           :: ndims                        ! used dimensions (1...5)
+    INTEGER,                 INTENT(IN)           :: data_type
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(5)                     ! local dimensions
+    TYPE(t_list_element),    POINTER              :: new_list_element             ! pointer to new var list element
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    REAL(wp),                POINTER,    OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
+    INTEGER,                 POINTER,    OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
+    LOGICAL,                 POINTER,    OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    REAL(wp),                INTENT(in), OPTIONAL :: initval_r                    ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: initval_i                    ! value if var not available
+    LOGICAL,                 INTENT(in), OPTIONAL :: initval_l                    ! value if var not available
+    REAL(wp),                INTENT(in), OPTIONAL :: resetval_r                   ! reset value (after accumulation)
+    INTEGER,                 INTENT(in), OPTIONAL :: resetval_i                   ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: resetval_l                   ! reset value (after accumulation)
+    REAL(wp),                INTENT(in), OPTIONAL :: missval_r                    ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: missval_i                    ! missing value
+    LOGICAL,                 INTENT(in), OPTIONAL :: missval_l                    ! missing value
+    ! local variables
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
+    INTEGER :: idims(5), istat
     LOGICAL :: referenced
     !
     ! consistency check for restart and output
     !
     IF (PRESENT(lrestart)) THEN
       IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_r5d',                            &
+        CALL finish('mo_var_list:add_var_list_element_5d',                             &
              &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
              &      'but restart of '//TRIM(name)//' requested.')
       ENDIF
@@ -787,7 +855,6 @@ CONTAINS
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
     ! init local fields
@@ -798,7 +865,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p5)) THEN
+    IF (PRESENT(p5_r) .OR. PRESENT(p5_i) .OR. PRESENT(p5_l)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -806,11 +873,20 @@ CONTAINS
     ENDIF
     !
     CALL assign_if_present(missval%rval, missval_r)
+    CALL assign_if_present(missval%ival, missval_i)
+    CALL assign_if_present(missval%lval, missval_l)
+
     CALL assign_if_present(initval%rval, initval_r)
+    CALL assign_if_present(initval%ival, initval_i)
+    CALL assign_if_present(initval%lval, initval_l)
+
     CALL assign_if_present(resetval%rval, resetval_r)
+    CALL assign_if_present(resetval%ival, resetval_i)
+    CALL assign_if_present(resetval%lval, resetval_l)
+
     CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         name=name, hgrid=hgrid, vgrid=vgrid, cf=cf, grib2=grib2,                 &
+         ldims=ldims(1:ndims), loutput=loutput, lcontainer=lcontainer,            &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
@@ -819,1929 +895,748 @@ CONTAINS
          action_list=action_list )
     !
     IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = new_list_element%field%info%used_dimensions(4)
-      idims(5) = new_list_element%field%info%used_dimensions(5)
-      new_list_element%field%info%ndims = 5
-      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
-      new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &   STAT=istat)
+      new_list_element%field%info%ndims                    = ndims
+      new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
+      idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
+      idims((ndims+1):) = 1
+      NULLIFY(new_list_element%field%r_ptr)
+      NULLIFY(new_list_element%field%i_ptr)
+      NULLIFY(new_list_element%field%l_ptr)
+      SELECT CASE(data_type)
+      CASE (REAL_T)
+        new_list_element%field%var_base_size    = 8
+        new_list_element%field%info%cdiDataType = DATATYPE_FLT64
+        ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      CASE (INT_T)
+        new_list_element%field%var_base_size    = 4
+        new_list_element%field%info%cdiDataType = DATATYPE_INT32
+        ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      CASE (BOOL_T)
+        new_list_element%field%var_base_size    = 4
+        new_list_element%field%info%cdiDataType = DATATYPE_INT8
+        ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      END SELECT
+
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r5d', &
+        CALL finish('mo_var_list:add_var_list_element_5d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
-      NULLIFY(new_list_element%field%i_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
       this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
+        +INT(new_list_element%field%var_base_size*PRODUCT(idims(1:5)),i8)
     ELSE
-      new_list_element%field%r_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,:,:,:)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
-    ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-    END IF
-    ! 
-    IF (PRESENT(initval_r)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
+      SELECT CASE(data_type)
+      CASE (REAL_T)
+        new_list_element%field%r_ptr => p5_r
+      CASE (INT_T)
+        new_list_element%field%i_ptr => p5_i
+      CASE (BOOL_T)
+        new_list_element%field%l_ptr => p5_l
+      END SELECT
     ENDIF
 
-  END SUBROUTINE add_var_list_element_r5d
+    IF(PRESENT(info)) info => new_list_element%field%info
+
+    ! initialize the new array
+    SELECT CASE(data_type)
+    CASE (REAL_T)
+      CALL init_array_r5d(new_list_element%field%r_ptr, linit=PRESENT(initval_r), initval=initval, &
+        &                 lmiss=PRESENT(lmiss), missval=missval)
+    CASE (INT_T)
+      CALL init_array_i5d(new_list_element%field%i_ptr, linit=PRESENT(initval_i), initval=initval, &
+        &                 lmiss=PRESENT(lmiss), missval=missval)
+    CASE (BOOL_T)
+      CALL init_array_l5d(new_list_element%field%l_ptr, linit=PRESENT(initval_l), initval=initval, &
+        &                 lmiss=PRESENT(lmiss), missval=missval)
+    END SELECT
+  END SUBROUTINE add_var_list_element_5d
+
+
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, isteptype,          &
-       resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    REAL(wp),             POINTER              :: ptr(:,:,:,:)        ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
-    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%rval, missval_r)
-    CALL assign_if_present(initval%rval, initval_r)
-    CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
-         missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
-         action_list=action_list )
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = new_list_element%field%info%used_dimensions(4)
-      idims(5) = 1
-      new_list_element%field%info%ndims = 4
-      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
-      new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &   STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%i_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
-    ELSE
-      new_list_element%field%r_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,:,:,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
-    ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-    END IF
-    !
-    IF (PRESENT(initval_r)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    REAL(wp),                POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 4
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,           &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer,    &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info,    &
+      &   vert_interp, hor_interp, in_group, verbose,                      &
+      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,              &
+      &   initval_r=initval, resetval_r=resetval, missval_r=missval)
+    ptr => element%field%r_ptr(:,:,:,:,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r4d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 3d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, isteptype,          &
-       resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    REAL(wp),             POINTER              :: ptr(:,:,:)          ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
-    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5), i1, i2, i3
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%rval, missval_r)
-    CALL assign_if_present(initval%rval, initval_r)
-    CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
-         missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
-         action_list=action_list )
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 3
-      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
-      new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%i_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
-    ELSE
-      new_list_element%field%r_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,:,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-#ifndef __OMP_FIRSTTOUCH__
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
-    ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    REAL(wp),                POINTER              :: ptr(:,:,:)                   ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
 
-      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
-
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-    END IF
-    !
-    IF (PRESENT(initval_r)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
-    ENDIF
-#else
-
-!$omp parallel do private(i1, i2) SCHEDULE(runtime)
-    DO i3 = 1, idims(3)
-      DO i1 = 1, idims(1)
-        DO i2 = 1, idims(2)
-           ptr(i1, i2, i3) = 0.0_wp
-        ENDDO
-      ENDDO
-    ENDDO    
-!$omp end parallel do
-#endif    
-    !
+    ndims = 3
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
+      &   initval_r=initval, resetval_r=resetval, missval_r=missval)
+    ptr => element%field%r_ptr(:,:,:,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r3d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 2d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, isteptype,          &
-       resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    REAL(wp),             POINTER              :: ptr(:,:)            ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
-    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5), i1, i2
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%rval, missval_r)
-    CALL assign_if_present(initval%rval, initval_r)
-    CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
-         missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
-         action_list=action_list )
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = 1
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 2
-      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
-      new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%i_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
-    ELSE
-      new_list_element%field%r_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,1,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-#ifndef __OMP_FIRSTTOUCH__
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
-    ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-    END IF
-    !
-    IF (PRESENT(initval_r)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
-    ENDIF
-#else
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    REAL(wp),                POINTER              :: ptr(:,:)                     ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
 
-!$omp parallel do private(i1, i2) SCHEDULE(runtime)
-    DO i2 = 1, idims(2)
-      DO i1 = 1, idims(1)
-        ptr(i1, i2) = 0.0_wp
-      ENDDO
-    ENDDO
-!$omp end parallel do
-#endif
-    !
+    ndims = 2
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
+      &   initval_r=initval, resetval_r=resetval, missval_r=missval)
+    ptr => element%field%r_ptr(:,:,1,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r2d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 1d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_r, isteptype,          &
-       resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
-       vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    REAL(wp),             POINTER              :: ptr(:)              ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
-    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%rval, missval_r)
-    CALL assign_if_present(initval%rval, initval_r)
-    CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         isteptype=isteptype,resetval=resetval, lmiss=lmiss,                      &
-         missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
-         action_list=action_list )
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = 1
-      idims(3) = 1
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 1
-      new_list_element%field%info%cdiDataType = DATATYPE_FLT64
-      new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%i_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
-    ELSE
-      new_list_element%field%r_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%r_ptr(:,1,1,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
-    ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-#else
-      new_list_element%field%r_ptr = 0.0_wp
-#endif
-    END IF
-    !
-    IF (PRESENT(initval_r)) THEN
-      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    REAL(wp),                POINTER              :: ptr(:)                       ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 1
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
+      &   initval_r=initval, resetval_r=resetval, missval_r=missval)
+    ptr => element%field%r_ptr(:,1,1,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r1d
-  !
-  !================================================================================================
-  ! INTEGER SECTION -------------------------------------------------------------------------------
-  !
-  ! create (allocate) a new table entry
-  ! optionally obtain pointer to 4d-field
-  ! optionally overwrite default meta data 
-  !
-  SUBROUTINE add_var_list_element_i5d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, isteptype,          &
-       resetval_i, lmiss, missval_i, info, p5, hor_interp,     &
-       vert_interp, in_group, verbose, new_element,            &
-       l_pp_scheduler_task, post_op, action_list)
-    !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    INTEGER,              POINTER              :: ptr(:,:,:,:,:)      ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_i5d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%ival, missval_i)
-    CALL assign_if_present(initval%ival, initval_i)
-    CALL assign_if_present(resetval%ival, resetval_i)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             & 
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list )
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = new_list_element%field%info%used_dimensions(4)
-      idims(5) = new_list_element%field%info%used_dimensions(5)
-      new_list_element%field%info%ndims = 5
-      new_list_element%field%info%cdiDataType = DATATYPE_INT32
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i5d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
-    ELSE
-      new_list_element%field%i_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,:,:,:)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%missval%ival
-    ELSE
-      new_list_element%field%i_ptr = 0
-    END IF
-    !
-    IF (PRESENT(initval_i)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
-    ENDIF
-    !
-  END SUBROUTINE add_var_list_element_i5d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, isteptype,          &
-       resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    INTEGER,              POINTER              :: ptr(:,:,:,:)        ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%ival, missval_i)
-    CALL assign_if_present(initval%ival, initval_i)
-    CALL assign_if_present(resetval%ival, resetval_i)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list )
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = new_list_element%field%info%used_dimensions(4)
-      idims(5) = 1
-      new_list_element%field%info%ndims = 4
-      new_list_element%field%info%cdiDataType = DATATYPE_INT32
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
-    ELSE
-      new_list_element%field%i_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,:,:,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%missval%ival
-    ELSE
-      new_list_element%field%i_ptr = 0
-    END IF
-    !
-    IF (PRESENT(initval_i)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    INTEGER,                 POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    INTEGER,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 4
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, INT_T, this_list, name,         &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
+      &   initval_i=initval, resetval_i=resetval, missval_i=missval)
+    ptr => element%field%i_ptr(:,:,:,:,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i4d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 3d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
-       lrestart, lrestart_cont, initval_i, isteptype,          &
-       resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    INTEGER,              POINTER              :: ptr(:,:,:)          ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_i3d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%ival, missval_i)
-    CALL assign_if_present(initval%ival, initval_i)
-    CALL assign_if_present(resetval%ival, resetval_i)
-    CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp,         &
-         in_group=in_group, verbose=verbose,                                      &
-         l_pp_scheduler_task=l_pp_scheduler_task,                                 &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 3
-      new_list_element%field%info%cdiDataType = DATATYPE_INT32
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i3d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
-    ELSE
-      new_list_element%field%i_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,:,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%missval%ival
-    ELSE
-      new_list_element%field%i_ptr = 0
-    END IF
-    !
-    IF (PRESENT(initval_i)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    INTEGER,                 POINTER              :: ptr(:,:,:)                   ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    INTEGER,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 3
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, INT_T, this_list, name,         &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
+      &   initval_i=initval, resetval_i=resetval, missval_i=missval)
+    ptr => element%field%i_ptr(:,:,:,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i3d
 
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 2d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, isteptype,          &
-       resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    INTEGER,              POINTER              :: ptr(:,:)            ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_i2d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%ival, missval_i)
-    CALL assign_if_present(initval%ival, initval_i)
-    CALL assign_if_present(resetval%ival, resetval_i)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = 1
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 2
-      new_list_element%field%info%cdiDataType = DATATYPE_INT32
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i2d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
-    ELSE
-      new_list_element%field%i_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,1,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%missval%ival
-    ELSE
-      new_list_element%field%i_ptr = 0
-    END IF
-    !
-    IF (PRESENT(initval_i)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    INTEGER,                 POINTER              :: ptr(:,:)                     ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    INTEGER,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 2
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, INT_T, this_list, name,         &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
+      &   initval_i=initval, resetval_i=resetval, missval_i=missval)
+    ptr => element%field%i_ptr(:,:,1,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i2d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 1d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_i, isteptype,          &
-       resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    INTEGER,              POINTER              :: ptr(:)              ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_i1d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%ival, missval_i)
-    CALL assign_if_present(initval%ival, initval_i)
-    CALL assign_if_present(resetval%ival, resetval_i)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = 1
-      idims(3) = 1
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 1
-      new_list_element%field%info%cdiDataType = DATATYPE_INT32
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i1d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
-    ELSE
-      new_list_element%field%i_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%i_ptr(:,1,1,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%missval%ival
-    ELSE
-      new_list_element%field%i_ptr = 0
-    END IF
-    !
-    IF (PRESENT(initval_i)) THEN
-      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    INTEGER,                 POINTER              :: ptr(:)                       ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    INTEGER,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 1
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, INT_T, this_list, name,         &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
+      &   initval_i=initval, resetval_i=resetval, missval_i=missval)
+    ptr => element%field%i_ptr(:,1,1,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i1d
-  !
-  !================================================================================================
-  ! LOGICAL SECTION -------------------------------------------------------------------------------
-  !
-  ! create (allocate) a new table entry
-  ! optionally obtain pointer to 4d-field
-  ! optionally overwrite default meta data 
-  !
-  SUBROUTINE add_var_list_element_l5d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, isteptype,          &
-       resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
-    !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    LOGICAL,              POINTER              :: ptr(:,:,:,:,:)      ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_l5d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%lval, missval_l)
-    CALL assign_if_present(initval%lval, initval_l)
-    CALL assign_if_present(resetval%lval, resetval_l)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = new_list_element%field%info%used_dimensions(4)
-      idims(5) = new_list_element%field%info%used_dimensions(5)
-      new_list_element%field%info%ndims = 5
-      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_l5d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
-    ELSE
-      new_list_element%field%l_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,:,:,:)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%missval%lval
-    ELSE
-      new_list_element%field%l_ptr = .FALSE.
-    END IF
-    !
-    IF (PRESENT(initval_l)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
-    ENDIF
-    !
-  END SUBROUTINE add_var_list_element_l5d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, isteptype,          &
-       resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    LOGICAL,              POINTER              :: ptr(:,:,:,:)        ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_l4d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%lval, missval_l)
-    CALL assign_if_present(initval%lval, initval_l)
-    CALL assign_if_present(resetval%lval, resetval_l)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = new_list_element%field%info%used_dimensions(4)
-      idims(5) = 1
-      new_list_element%field%info%ndims = 4
-      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_l4d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
-    ELSE
-      new_list_element%field%l_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,:,:,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%missval%lval
-    ELSE
-      new_list_element%field%l_ptr = .FALSE.
-    END IF
-    !
-    IF (PRESENT(initval_l)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    LOGICAL,                 POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    LOGICAL,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    LOGICAL,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 4
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, BOOL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
+      &   initval_l=initval, resetval_l=resetval, missval_l=missval)
+    ptr => element%field%l_ptr(:,:,:,:,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l4d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 3d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, isteptype,          &
-       resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    LOGICAL,              POINTER              :: ptr(:,:,:)          ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_l3d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%lval, missval_l)
-    CALL assign_if_present(initval%lval, initval_l)
-    CALL assign_if_present(resetval%lval, resetval_l)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = new_list_element%field%info%used_dimensions(3)
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 3
-      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_l3d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
-    ELSE
-      new_list_element%field%l_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,:,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%missval%lval
-    ELSE
-      new_list_element%field%l_ptr = .FALSE.
-    END IF
-    !
-    IF (PRESENT(initval_l)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    LOGICAL,                 POINTER              :: ptr(:,:,:)                   ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    LOGICAL,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    LOGICAL,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 3
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, BOOL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
+      &   initval_l=initval, resetval_l=resetval, missval_l=missval)
+    ptr => element%field%l_ptr(:,:,:,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l3d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 2d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_l2d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, isteptype,          &
-       resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_l2d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    LOGICAL,              POINTER              :: ptr(:,:)            ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_l2d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%lval, missval_l)
-    CALL assign_if_present(initval%lval, initval_l)
-    CALL assign_if_present(resetval%lval, resetval_l)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = new_list_element%field%info%used_dimensions(2)
-      idims(3) = 1
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 2
-      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_l2d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
-    ELSE
-      new_list_element%field%l_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,1,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%missval%lval
-    ELSE
-      new_list_element%field%l_ptr = .FALSE.
-    END IF
-    !
-    IF (PRESENT(initval_l)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    LOGICAL,                 POINTER              :: ptr(:,:)                     ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    LOGICAL,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    LOGICAL,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 2
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, BOOL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
+      &   initval_l=initval, resetval_l=resetval, missval_l=missval)
+    ptr => element%field%l_ptr(:,:,1,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l2d
+
+
   !------------------------------------------------------------------------------------------------
-  !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 1d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
-       lrestart, lrestart_cont, initval_l, isteptype,          &
-       resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op, action_list)
+  SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,       &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
+    &   lrestart, lrestart_cont, initval, isteptype,              &
+    &   resetval, lmiss, missval, tlev_source, info, p5,          &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+    &   l_pp_scheduler_task, post_op, action_list)
     !
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    LOGICAL,              POINTER              :: ptr(:)              ! reference to field
-    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
-    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
-    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
-    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
-    LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
-    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
-    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
-    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
-    !
-    TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
-    INTEGER :: istat
-    LOGICAL :: referenced
-    !
-    ! consistency check for restart and output
-    !
-    IF (PRESENT(lrestart)) THEN
-      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_l1d',                            &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
-      ENDIF
-    ENDIF
-    !
-    ! add list entry
-    !
-    CALL append_list_element (this_list, new_list_element)
-    IF (PRESENT(new_element)) new_element=>new_list_element
-    new_list_element%field%info = default_var_list_metadata(this_list)
-    !
-    ! init local fields
-    !
-    missval = new_list_element%field%info%missval
-    initval = new_list_element%field%info%initval
-    resetval= new_list_element%field%info%resetval
-    !
-    ! and set meta data
-    !
-    IF (PRESENT(p5)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-    !
-    CALL assign_if_present(missval%lval, missval_l)
-    CALL assign_if_present(initval%lval, initval_l)
-    CALL assign_if_present(resetval%lval, resetval_l)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose,                              &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op, action_list=action_list)
-    !
-    IF (.NOT. referenced) THEN
-      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
-      idims(1) = new_list_element%field%info%used_dimensions(1)
-      idims(2) = 1
-      idims(3) = 1
-      idims(4) = 1
-      idims(5) = 1
-      new_list_element%field%info%ndims = 1
-      new_list_element%field%info%cdiDataType = DATATYPE_INT8      
-      new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-           &    STAT=istat)
-      IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_l1d', &
-             &      'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used &
-           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
-    ELSE
-      new_list_element%field%l_ptr => p5
-    ENDIF
-    ptr => new_list_element%field%l_ptr(:,1,1,1,1)
-    IF(PRESENT(info)) info => new_list_element%field%info
-    !
-    IF (PRESENT(lmiss)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%missval%lval
-    ELSE
-      new_list_element%field%l_ptr = .FALSE.
-    END IF
-    !
-    IF (PRESENT(initval_l)) THEN
-      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
-    ENDIF
-    !
+    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
+    LOGICAL,                 POINTER              :: ptr(:)                       ! reference to field
+    INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
+    INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
+    TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
+    INTEGER,                 INTENT(in)           :: ldims(:)                     ! local dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
+    LOGICAL,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
+    LOGICAL,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
+    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
+    TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: idims(5), ndims
+
+    ndims = 1
+    idims(1:ndims) = ldims(1:ndims)
+    CALL add_var_list_element_5d(ndims, BOOL_T, this_list, name,        &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
+      &   vert_interp, hor_interp, in_group, verbose,                   &
+      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
+      &   initval_l=initval, resetval_l=resetval, missval_l=missval)
+    ptr => element%field%l_ptr(:,1,1,1,1)
+    IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l1d
+
+
   !================================================================================================
   !------------------------------------------------------------------------------------------------
   !
@@ -3016,7 +1911,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
+    INTEGER,              INTENT(in)           :: ldims(3)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -3181,7 +2076,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions, for checking
+    INTEGER,              INTENT(in)           :: ldims(2)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -3343,7 +2238,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions, for checking
+    INTEGER,              INTENT(in)           :: ldims(2)            ! local dimensions, for checking
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -3601,12 +2496,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: this_list_element
     CHARACTER(len=32) :: dimension_text, dtext
     INTEGER :: i, igrp, ivintp_type
-    LOGICAL :: localShort = .FALSE. 
     CHARACTER(len=4) :: localMode = '----'    
-
-    IF (PRESENT(lshort)) THEN
-      localShort = lshort
-    ENDIF
 
     CALL message('','')
     CALL message('','')

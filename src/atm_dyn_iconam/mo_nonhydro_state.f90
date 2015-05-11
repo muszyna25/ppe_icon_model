@@ -2083,7 +2083,10 @@ MODULE mo_nonhydro_state
 
     ENDIF  !  ntracer >0
 
-
+    p_diag%vn_incr    => NULL()
+    p_diag%exner_incr => NULL()
+    p_diag%rho_incr   => NULL()
+    p_diag%qv_incr    => NULL()
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
@@ -2147,7 +2150,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c,                                         &
                   & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
-                  & resetval_r=0._wp,                                        &
+                  & resetval=0._wp,                                          &
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
@@ -2163,7 +2166,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c,                                         &
                   & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
-                  & resetval_r=0._wp,                                        &
+                  & resetval=0._wp,                                          &
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
@@ -2181,7 +2184,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c,                                         &
                   & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
-                  & resetval_r=0._wp,                                        &
+                  & resetval=0._wp,                                          &
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
@@ -2198,7 +2201,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c,                                         &
                   & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
-                  & resetval_r=0._wp,                                        &
+                  & resetval=0._wp,                                          &
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
@@ -2215,7 +2218,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c,                                         &
                   & lrestart=.FALSE., loutput=.TRUE., isteptype=TSTEP_AVG,   &
-                  & resetval_r=0._wp,                                        &
+                  & resetval=0._wp,                                          &
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
@@ -2232,7 +2235,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,  &
                   & ldims=(/1/),                                              &
                   & lrestart=.FALSE., loutput=.FALSE.,                        &
-                  & initval_i=0, resetval_i=0,                                & 
+                  & initval=0, resetval=0,                                    & 
                   & action_list=actions(new_action(ACTION_RESET,              &
                   &             TRIM(iso8601_interval_avg_fg),                &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
@@ -2967,7 +2970,6 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                   & ldims=shape3d_esquared, loutput=.FALSE.,                    &
                   & isteptype=TSTEP_CONSTANT )
-
 
       IF (igradp_method <= 3) THEN
         ! Height differences between local edge point and neighbor cell points used for
