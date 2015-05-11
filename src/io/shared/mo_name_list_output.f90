@@ -608,8 +608,7 @@ CONTAINS
     IF (      use_async_name_list_io   .AND.  &
       & .NOT. my_process_is_mpi_test() .AND.  &
       &       my_process_is_mpi_workroot()) THEN
-!      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
-      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, 0, of%mem_win%mpi_win_metainfo, mpierr)
+      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
     END IF
 #endif
 
@@ -632,8 +631,7 @@ CONTAINS
 #ifndef NOMPI
     ! In case of async IO: Lock own window before writing to it
     IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) THEN
-!      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
-      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, 0, of%mem_win%mpi_win, mpierr)
+      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
     END IF
 #endif
 
@@ -1341,8 +1339,7 @@ CONTAINS
     ALLOCATE(bufr_metainfo(of%num_vars*metainfo_get_size()), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-!    CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
-    CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, 0, of%mem_win%mpi_win_metainfo, mpierr)
+    CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
     CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
       &          0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
     CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
@@ -1435,8 +1432,7 @@ CONTAINS
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
         t_0 = p_mpi_wtime()
-!        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
-        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, 0, of%mem_win%mpi_win, mpierr)
+        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 
         IF (use_dp_mpi2io) THEN
           CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
