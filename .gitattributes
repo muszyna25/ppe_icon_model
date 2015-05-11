@@ -850,6 +850,7 @@ run/exp.nh_rce -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
+run/exp.ocean_omip_long -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
 run/exp.pure_adv -text
@@ -873,6 +874,7 @@ run/post.nh35_tri_jws -text
 run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
+run/post.ocean_omip_long -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
