@@ -1902,7 +1902,8 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, l_pp_scheduler_task, post_op, action_list)
+       &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
+       &                                 opt_var_ref_pos)
     !
     TYPE(t_var_list),        INTENT(inout)           :: this_list
     CHARACTER(len=*),        INTENT(in)              :: target_name
@@ -1933,50 +1934,72 @@ CONTAINS
     INTEGER,                 INTENT(in),    OPTIONAL :: l_pp_scheduler_task        ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN),    OPTIONAL :: post_op                    !< "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN),    OPTIONAL :: action_list                !< regularly triggered events
+    INTEGER,                 INTENT(IN),    OPTIONAL :: opt_var_ref_pos            !< (optional:) position of container index
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r3d"
-    REAL(wp), POINTER :: target_ptr3d(:,:,:)        => NULL()
-    REAL(wp), POINTER :: target_ptr4d(:,:,:,:)      => NULL()
     !
     TYPE(t_list_element), POINTER :: target_element    
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER            :: ndims
+    TYPE(t_union_vals)            :: missval, initval, resetval
+    INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
     !
     ndims = 3
-    !
     target_element => find_list_element (this_list, target_name)
     target_info    => target_element%field%info
+    IF (.NOT. ASSOCIATED(target_element%field%r_ptr))  CALL finish(routine, TRIM(name)//' not created.')
+    !
+    ! The parameter "var_ref_pos" contains the dimension index which
+    ! points to the reference slice. Usually, this is "ndims+1", such
+    ! that 3D slices, e.g., are stored in a 4D array as (:,:,:,1),
+    ! (:,:,:,2), (:,:,:,3), etc.
+    IF (PRESENT(opt_var_ref_pos)) THEN
+      var_ref_pos    = opt_var_ref_pos
+      IF (.NOT. target_info%lcontainer) &
+        &  CALL finish(routine, "Container index does not make sense: Target is not a container variable!")
+      IF ((target_info%var_ref_pos /= var_ref_pos) .AND. (target_info%var_ref_pos /= -1)) THEN
+        CALL finish(routine, "Container index does not match the previously set value!")
+      END IF
+      target_info%var_ref_pos = var_ref_pos
+    ELSE
+      var_ref_pos    = ndims + 1
+    END IF
+    SELECT CASE(var_ref_pos)
+    CASE (1)
+      dim_indices    = (/ 2, 3, 4, 0, 0 /)
+    CASE (2)
+      dim_indices    = (/ 1, 3, 4, 0, 0 /)
+    CASE (3)
+      dim_indices    = (/ 1, 2, 4, 0, 0 /)
+    CASE (4)
+      dim_indices    = (/ 1, 2, 3, 0, 0 /)
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+
     IF (target_info%lcontainer) THEN
-      target_ptr4d => target_element%field%r_ptr(:,:,:,:,1)
-      IF (.NOT. ASSOCIATED(target_ptr4d))  CALL finish(routine, TRIM(name)//' not created.')
-      !
       ! Counting the number of existing references is deactivated, if the slice index 
       ! to be referenced is given explicitly.
       IF ( PRESENT(ref_idx) ) THEN
         ! only check validity of given slice index
-        IF ( (ref_idx > SIZE(target_ptr4d,4)) .OR. (ref_idx < 1)) THEN
+        IF ( (ref_idx > SIZE(target_element%field%r_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
             &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
-            &  ' out of allowable range [1,',SIZE(target_ptr4d,4),']'      
+            &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'      
           CALL finish(routine, message_text)
         ENDIF
       ELSE
         target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
+        IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
           WRITE (message_text, *) &
             &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_ptr4d,4)      
+            &  SIZE(target_element%field%r_ptr, var_ref_pos)      
           CALL finish(routine, message_text)
         ENDIF
       ENDIF
-      IF ( ANY(ldims(1:ndims) /=  target_info%used_dimensions(1:ndims)) ) THEN
+      IF ( ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims))) ) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')      
       ENDIF
-    ELSE
-      target_ptr3d => target_element%field%r_ptr(:,:,:,1,1)
-      IF (.NOT. ASSOCIATED(target_ptr3d))  CALL finish(routine, TRIM(name)//' not created.')
     ENDIF
     !
     ! add list entry
@@ -1984,7 +2007,8 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    ref_info =  default_var_list_metadata(this_list)
+ 
     !
     ! init local fields
     !
@@ -2006,23 +2030,36 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list)
-    !
+
     ref_info%ndims = ndims
-    ref_info%used_dimensions =  target_element%field%info%used_dimensions
-    !
+    ref_info%used_dimensions(:)       = 0
+    ref_info%used_dimensions(1:ndims) = target_element%field%info%used_dimensions(dim_indices(1:ndims))
+
+    index = 1
     IF (target_info%lcontainer) THEN
-      ref_info%lcontained = .TRUE.
-      ref_info%used_dimensions(4) = 1
+      ref_info%lcontained                   = .TRUE.
+      ref_info%used_dimensions(var_ref_pos) = 1
+      ref_info%var_ref_pos                  = var_ref_pos
       !
       IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
       ELSE
         ref_info%ncontained = target_info%ncontained
       ENDIF
-      ptr => target_element%field%r_ptr(:,:,:,ref_info%ncontained,1)
-    ELSE
-      ptr => target_element%field%r_ptr(:,:,:,1,1)
+      index = ref_info%ncontained
     ENDIF
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      ptr => target_element%field%r_ptr(index,:,:,:,1)      
+    CASE(2)
+      ptr => target_element%field%r_ptr(:,index,:,:,1)      
+    CASE(3)
+      ptr => target_element%field%r_ptr(:,:,index,:,1)      
+    CASE(4)
+      ptr => target_element%field%r_ptr(:,:,:,index,1)      
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
     new_list_element%field%r_ptr => target_element%field%r_ptr
     !
     IF (.NOT. ASSOCIATED(new_list_element%field%r_ptr)) THEN
@@ -2040,8 +2077,6 @@ CONTAINS
   END SUBROUTINE add_var_list_reference_r3d
 
 
-
-
   !------------------------------------------------------------------------------------------------
   !
   ! create (allocate) a new table entry
@@ -2054,7 +2089,7 @@ CONTAINS
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
        &                                 verbose, new_element, l_pp_scheduler_task,              &
-       &                                 post_op, action_list)
+       &                                 post_op, action_list, opt_var_ref_pos)
 
     TYPE(t_var_list),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
@@ -2085,50 +2120,70 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task         ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                     !< "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                 !< regularly triggered events
+    INTEGER,                 INTENT(IN), OPTIONAL :: opt_var_ref_pos            !< (optional:) position of container index
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r2d"
-    REAL(wp), POINTER :: target_ptr2d(:,:)        => NULL()
-    REAL(wp), POINTER :: target_ptr3d(:,:,:)      => NULL()
     !
     TYPE(t_list_element), POINTER :: target_element    
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER            :: ndims
+    TYPE(t_union_vals)            :: missval, initval, resetval
+    INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
     !
     ndims = 2
-    !
     target_element => find_list_element (this_list, target_name)
     target_info => target_element%field%info
+    IF (.NOT. ASSOCIATED(target_element%field%r_ptr))  CALL finish(routine, TRIM(name)//' not created.')
+    !
+    ! The parameter "var_ref_pos" contains the dimension index which
+    ! points to the reference slice. Usually, this is "ndims+1", such
+    ! that 3D slices, e.g., are stored in a 4D array as (:,:,:,1),
+    ! (:,:,:,2), (:,:,:,3), etc.
+    IF (PRESENT(opt_var_ref_pos)) THEN
+      var_ref_pos    = opt_var_ref_pos
+      IF (.NOT. target_info%lcontainer) &
+        &  CALL finish(routine, "Container index does not make sense: Target is not a container variable!")
+      IF ((target_info%var_ref_pos /= var_ref_pos) .AND. (target_info%var_ref_pos /= -1)) THEN
+        CALL finish(routine, "Container index does not match the previously set value!")
+      END IF
+      target_info%var_ref_pos = var_ref_pos
+    ELSE
+      var_ref_pos    = ndims + 1
+    END IF
+    SELECT CASE(var_ref_pos)
+    CASE (1)
+      dim_indices    = (/ 2, 3, 0, 0, 0 /)
+    CASE (2)
+      dim_indices    = (/ 1, 3, 0, 0, 0 /)
+    CASE (3)
+      dim_indices    = (/ 1, 2, 0, 0, 0 /)
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+
     IF (target_info%lcontainer) THEN
-      target_ptr3d => target_element%field%r_ptr(:,:,:,1,1)
-      IF (.NOT. ASSOCIATED(target_ptr3d))  CALL finish(routine, TRIM(name)//' not created.')
-      !
       ! Counting the number of existing references is deactivated, if the slice index 
       ! to be referenced is given explicitly.
       IF ( PRESENT(ref_idx) ) THEN
         ! only check validity of given slice index
-        IF ( (ref_idx > SIZE(target_ptr3d,3)) .OR. (ref_idx < 1)) THEN
+        IF ( (ref_idx > SIZE(target_element%field%r_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
             &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
-            &  ' out of allowable range [1,',SIZE(target_ptr3d,3),']'      
+            &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'      
           CALL finish(routine, message_text)
         ENDIF
       ELSE
         target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
+        IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
           WRITE (message_text, *) &
             &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_ptr3d,3)
+            &  SIZE(target_element%field%r_ptr, var_ref_pos)
           CALL finish(routine, message_text)
         ENDIF
       ENDIF
-      IF (ANY(ldims(1:ndims) /=  target_info%used_dimensions(1:ndims))) THEN
+      IF (ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')      
       ENDIF
-    ELSE
-      target_ptr2d => target_element%field%r_ptr(:,:,1,1,1)
-      IF (.NOT. ASSOCIATED(target_ptr2d))  CALL finish(routine, TRIM(name)//' not created.')
     ENDIF
     !
     ! add list entry
@@ -2158,23 +2213,34 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list)
-    !
+
     ref_info%ndims = ndims
-    ref_info%used_dimensions = target_element%field%info%used_dimensions
-    !
+    ref_info%used_dimensions(:)       = 0
+    ref_info%used_dimensions(1:ndims) = target_element%field%info%used_dimensions(dim_indices(1:ndims))
+
+    index = 1
     IF (target_info%lcontainer) THEN
-      ref_info%lcontained = .TRUE.
-      ref_info%used_dimensions(3) = 1
+      ref_info%lcontained                   = .TRUE.
+      ref_info%used_dimensions(var_ref_pos) = 1
+      ref_info%var_ref_pos                  = var_ref_pos
       !
       IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
       ELSE
         ref_info%ncontained = target_info%ncontained
       ENDIF
-      ptr => target_element%field%r_ptr(:,:,ref_info%ncontained,1,1)
-    ELSE
-      ptr => target_element%field%r_ptr(:,:,1,1,1)
+      index = ref_info%ncontained
     ENDIF
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      ptr => target_element%field%r_ptr(index,:,:,1,1)      
+    CASE(2)
+      ptr => target_element%field%r_ptr(:,index,:,1,1)      
+    CASE(3)
+      ptr => target_element%field%r_ptr(:,:,index,1,1)      
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
     new_list_element%field%r_ptr => target_element%field%r_ptr
     !
     IF (.NOT. ASSOCIATED(new_list_element%field%r_ptr)) THEN
@@ -2204,7 +2270,8 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_i, isteptype,          &
        &                                 resetval_i, lmiss, missval_i, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, l_pp_scheduler_task, post_op, action_list)
+       &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
+       &                                 opt_var_ref_pos)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
@@ -2235,50 +2302,70 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      !< "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  !< regularly triggered events
+    INTEGER,                 INTENT(IN), OPTIONAL :: opt_var_ref_pos            !< (optional:) position of container index
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_i2d"
-    INTEGER, POINTER :: target_ptr2d(:,:)        => NULL()
-    INTEGER, POINTER :: target_ptr3d(:,:,:)      => NULL()
     !
     TYPE(t_list_element), POINTER :: target_element    
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: ndims
+    TYPE(t_union_vals)            :: missval, initval, resetval
+    INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
     !
     ndims = 2
-    !
     target_element => find_list_element (this_list, target_name)
     target_info => target_element%field%info
+    IF (.NOT. ASSOCIATED(target_element%field%i_ptr))  CALL finish(routine, TRIM(name)//' not created.')
+    !
+    ! The parameter "var_ref_pos" contains the dimension index which
+    ! points to the reference slice. Usually, this is "ndims+1", such
+    ! that 3D slices, e.g., are stored in a 4D array as (:,:,:,1),
+    ! (:,:,:,2), (:,:,:,3), etc.
+    IF (PRESENT(opt_var_ref_pos)) THEN
+      var_ref_pos    = opt_var_ref_pos
+      IF (.NOT. target_info%lcontainer) &
+        &  CALL finish(routine, "Container index does not make sense: Target is not a container variable!")
+      IF ((target_info%var_ref_pos /= var_ref_pos) .AND. (target_info%var_ref_pos /= -1)) THEN
+        CALL finish(routine, "Container index does not match the previously set value!")
+      END IF
+      target_info%var_ref_pos = var_ref_pos
+    ELSE
+      var_ref_pos    = ndims + 1
+    END IF
+    SELECT CASE(var_ref_pos)
+    CASE (1)
+      dim_indices    = (/ 2, 3, 0, 0, 0 /)
+    CASE (2)
+      dim_indices    = (/ 1, 3, 0, 0, 0 /)
+    CASE (3)
+      dim_indices    = (/ 1, 2, 0, 0, 0 /)
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+
     IF (target_info%lcontainer) THEN
-      target_ptr3d => target_element%field%i_ptr(:,:,:,1,1)
-      IF (.NOT. ASSOCIATED(target_ptr3d))  CALL finish(routine, TRIM(name)//' not created.')
-      !
       ! Counting the number of existing references is deactivated, if the slice index 
       ! to be referenced is given explicitly.
       IF ( PRESENT(ref_idx) ) THEN
         ! only check validity of given slice index
-        IF ( (ref_idx > SIZE(target_ptr3d,3)) .OR. (ref_idx < 1)) THEN
+        IF ( (ref_idx > SIZE(target_element%field%i_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
             &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
-            &  ' out of allowable range [1,',SIZE(target_ptr3d,3),']'      
+            &  ' out of allowable range [1,',SIZE(target_element%field%i_ptr, var_ref_pos),']'      
           CALL finish(routine, message_text)
         ENDIF
       ELSE
         target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
+        IF (SIZE(target_element%field%i_ptr, var_ref_pos) < target_info%ncontained) THEN
           WRITE (message_text, *) &
             &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_ptr3d,3)      
+            &  SIZE(target_element%field%i_ptr, var_ref_pos)      
           CALL finish(routine, message_text)
         ENDIF
       ENDIF
-      IF (any(ldims(1:ndims) /=  target_info%used_dimensions(1:ndims))) THEN
+      IF (any(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')      
       ENDIF
-    ELSE
-      target_ptr2d => target_element%field%i_ptr(:,:,1,1,1)
-      IF (.NOT. ASSOCIATED(target_ptr2d))  CALL finish(routine, TRIM(name)//' not created.')
     ENDIF
     !
     ! add list entry
@@ -2310,21 +2397,32 @@ CONTAINS
          post_op=post_op, action_list=action_list)
     !
     ref_info%ndims = ndims
-    ref_info%used_dimensions =  target_element%field%info%used_dimensions
+    ref_info%used_dimensions(:)       = 0
+    ref_info%used_dimensions(1:ndims) = target_element%field%info%used_dimensions(dim_indices(1:ndims))
     !
+    index = 1
     IF (target_info%lcontainer) THEN
-      ref_info%lcontained = .TRUE.
-      ref_info%used_dimensions(3) = 1
+      ref_info%lcontained                   = .TRUE.
+      ref_info%used_dimensions(var_ref_pos) = 1
+      ref_info%var_ref_pos                  = var_ref_pos
       !
       IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
       ELSE
         ref_info%ncontained = target_info%ncontained
       ENDIF
-      ptr => target_element%field%i_ptr(:,:,ref_info%ncontained,1,1)
-    ELSE
-      ptr => target_element%field%i_ptr(:,:,1,1,1)
+      index = ref_info%ncontained
     ENDIF
+    SELECT CASE(var_ref_pos)
+    CASE(1)
+      ptr => target_element%field%i_ptr(index,:,:,1,1)      
+    CASE(2)
+      ptr => target_element%field%i_ptr(:,index,:,1,1)      
+    CASE(3)
+      ptr => target_element%field%i_ptr(:,:,index,1,1)      
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
     new_list_element%field%i_ptr => target_element%field%i_ptr
     !
     IF (.NOT. ASSOCIATED(new_list_element%field%i_ptr)) THEN

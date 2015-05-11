@@ -215,7 +215,7 @@ CONTAINS
   SUBROUTINE read_name_list_output_namelists( filename )
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     ! local variables
-    CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//'::read_name_list_output_namelists'
 
     INTEGER                               :: istat, i, j
     TYPE(t_output_name_list), POINTER     :: p_onl
