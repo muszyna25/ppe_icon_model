@@ -11,6 +11,7 @@
 !! @par Revision History
 !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-31)
 !! ECHAM routine implemented by Kristina Froehlich, MPI-M (2011-08-17)
+!! MACC data added by Martin Koehler, DWD (2015-05-12)
 !!
 !! @par Copyright and License
 !!
@@ -40,6 +41,8 @@ MODULE mo_o3_util
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_o3_gems_data,         ONLY: rghg7
+  USE mo_o3_macc_data,         ONLY: rghg7_macc
+  USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3
   USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm_radt
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone
@@ -986,9 +989,15 @@ END SUBROUTINE o3_timeint
     ! volume mixing ratio to ozone pressure thickness
     DO jk=1,nlev_gems
       DO jl=1,ilat
-        zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
-          & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))
-        zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        SELECT CASE (irad_o3)
+        CASE (7)
+          zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))         
+        CASE (9)
+          zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))       
+        END SELECT 
+       zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
       ENDDO
     ENDDO
 

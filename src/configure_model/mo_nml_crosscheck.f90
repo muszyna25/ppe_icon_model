@@ -474,10 +474,10 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(TRIM(method_name),'radiation is used without ozone')
-          CASE (2,4,6,7,8) ! ok
+          CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE default
-            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7 or 8.')
+            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
           END SELECT
 
           ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
