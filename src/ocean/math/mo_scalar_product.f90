@@ -258,12 +258,12 @@ CONTAINS
 
 
     
+
+    IF(.NOT.l_ANTICIPATED_VORTICITY)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
 !ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &
 !ICON_OMP vertex_edge, ictr, thick_vert, numOfEdges, edgeOfVertex_index, edgeOfVertex_block, &
 !ICON_OMP thick_edge) ICON_OMP_DEFAULT_SCHEDULE
-
-    IF(.NOT.l_ANTICIPATED_VORTICITY)THEN
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
@@ -355,12 +355,17 @@ CONTAINS
       END DO
       
     END DO ! blockNo = edges_inDomain%start_block, edges_inDomain%end_block
+!ICON_OMP_END_PARALLEL_DO
 	
 	ELSEIF(l_ANTICIPATED_VORTICITY)THEN
 		
 		!This is only for debugging needed
 		vort_flux_old(:,:,:)=0.0_wp
 		
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
+!ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &
+!ICON_OMP vertex_edge, ictr, thick_vert, numOfEdges, edgeOfVertex_index, edgeOfVertex_block, &
+!ICON_OMP thick_edge) ICON_OMP_DEFAULT_SCHEDULE
 	    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 	      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
@@ -468,9 +473,9 @@ CONTAINS
 	      END DO
       
 	    END DO ! blockNo = edges_inDomain%start_block, edges_inDomain%end_block	
+!ICON_OMP_END_PARALLEL_DO
 	
 	ENDIF
-!ICON_OMP_END_PARALLEL_DO
 
 
 Do level=1,1
