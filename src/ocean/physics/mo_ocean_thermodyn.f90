@@ -158,39 +158,39 @@ CONTAINS
       TYPE(t_patch), POINTER :: patch_2D
       INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
       REAL(wp), POINTER :: prism_thick_e(:,:,:)
-	  TYPE(t_subset_range), POINTER :: all_cells
-	  REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation	  
+      TYPE(t_subset_range), POINTER :: all_cells
+      REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation	  
       !-----------------------------------------------------------------------
       patch_2D        => patch_3d%p_patch_2d(1)
       edges_in_domain => patch_2D%edges%in_domain   
-	  all_cells       => patch_2D%cells%ALL
+      all_cells       => patch_2D%cells%ALL
       prism_thick_e   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e
     
       iidx => patch_3D%p_patch_2D(1)%edges%cell_idx
       iblk => patch_3D%p_patch_2D(1)%edges%cell_blk
-	  
-	  pressure_hyd (1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+  
+      pressure_hyd (1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
       !-------------------------------------------------------------------------
-	  
- 	  !ICON_OMP_PARALLEL
- 	  !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
- 	      DO jb = all_cells%start_block, all_cells%end_block
- 	        CALL get_index_range(all_cells, jb, start_index, end_index)
+  
+  !ICON_OMP_PARALLEL
+  !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
 
- 	        DO jc = start_index, end_index
+        DO jc = start_index, end_index
 
- 			  pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb)
+          pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb)
 
- 	          DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
- 	  			pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
- 	  			&*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+            pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
+              &*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
 
- 	          END DO
- 	        END DO
- 	      END DO
- 	  !ICON_OMP_END_DO NOWAIT
- 	  !ICON_OMP_END_PARALLEL  
+          END DO
+        END DO
+      END DO
+  !ICON_OMP_END_DO NOWAIT
+  !ICON_OMP_END_PARALLEL  
 
   !ICON_OMP_PARALLEL
   !ICON_OMP_DO PRIVATE(start_index, end_index, je, ic1, ib1, ic2, ib2, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -203,9 +203,9 @@ CONTAINS
            ib1=patch_2D%edges%cell_blk(je,jb,1)
            ic2=patch_2D%edges%cell_idx(je,jb,2)
            ib2=patch_2D%edges%cell_blk(je,jb,2)
-        		  
+
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
-			  
+  
             press_grad(je,jk,jb)=(pressure_hyd(ic2,jk,ib2)-pressure_hyd(ic1,jk,ib1))*grad_coeff(je,jk,jb)
             ! write(1234,*)'pressure', je,jk,jb,press_grad(je,jk,jb),pressure_hyd(ic2,jk,ib2),pressure_hyd(ic1,jk,ib1)               
           END DO
@@ -215,11 +215,11 @@ CONTAINS
   !ICON_OMP_END_PARALLEL
 
 ! ! write(1234,*)'----------------------------------------------'
-   DO jk=1,5!n_zlev
- 	  write(*,*)'max-min pressure grad:',jk,maxval(press_grad(:,jk,:)),minval(press_grad(:,jk,:)),&
-	  &patch_3D%p_patch_1d(1)%prism_center_dist_c(2,jk,2),&
-	  &patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance(2,jk,2)
- END DO	  
+!  DO jk=1,5!n_zlev
+!	  write(*,*)'max-min pressure grad:',jk,maxval(press_grad(:,jk,:)),minval(press_grad(:,jk,:)),&
+!  &patch_3D%p_patch_1d(1)%prism_center_dist_c(2,jk,2),&
+!  &patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance(2,jk,2)
+!END DO	  
     
     END SUBROUTINE calc_internal_press_grad
     !-------------------------------------------------------------------------

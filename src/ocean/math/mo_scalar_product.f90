@@ -478,10 +478,6 @@ CONTAINS
 	ENDIF
 
 
-Do level=1,1
-write(*,*)'Before:after',maxval(vort_flux_old(:,level,:)), minval(vort_flux_old(:,level,:)),&
-&maxval(vort_flux(:,level,:)), minval(vort_flux(:,level,:))	
-END DO	
   END SUBROUTINE nonlinear_coriolis_3d_fast
   !-------------------------------------------------------------------------
   
