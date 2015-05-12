@@ -66,7 +66,7 @@ USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -88,7 +88,9 @@ USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 USE mo_advection_config,     ONLY: advection_config
-USE mo_synsat_config,        ONLY: nlev_rttov, lsynsat, num_images
+USE mo_synsat_config,        ONLY: nlev_rttov, lsynsat, num_images,              &
+  &                                get_synsat_name, sat_compute, num_sensors,    &
+  &                                numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action_types,         ONLY: t_var_action
@@ -213,8 +215,10 @@ SUBROUTINE destruct_nwp_phy_state
   DO jg = 1,n_dom
     CALL delete_var_list( prm_nwp_diag_list(jg) )
     CALL delete_var_list( prm_nwp_tend_list (jg) )
-  ENDDO
 
+    IF (ASSOCIATED(prm_diag(jg)%buffer_rttov))  DEALLOCATE(prm_diag(jg)%buffer_rttov)  
+    IF (ALLOCATED(prm_diag(jg)%synsat_image))   DEALLOCATE(prm_diag(jg)%synsat_image)
+  END DO
 
   DEALLOCATE(prm_diag, prm_nwp_diag_list, STAT=ist)
   IF(ist/=success)THEN
@@ -261,7 +265,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), &
-      &        shape3dsubsw(3), shape3d_synsat(3)
+      &        shape3dsubsw(3), shape3d_synsat(3),     &
+      &        shape2d_synsat(2)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist, jg
@@ -274,6 +279,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     LOGICAL :: lrestart, lhave_graupel
 
     TYPE(t_var_action) :: action_list_reset
+    LOGICAL :: lradiance, lcloudy
+    INTEGER :: ichan, idiscipline, icategory, inumber, &
+      &        scaledValueOfCentralWaveNumber, iimage, &
+      &        isens, k
+    CHARACTER(LEN=VARNAME_LEN) :: shortname
+    CHARACTER(LEN=128)         :: longname, unit
+
 
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
@@ -2473,25 +2485,54 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       IF  ((k_jg > n_dom_start) .AND. (p_patch(k_jg)%nshift > 0)) THEN
         ALLOCATE(diag%buffer_rttov(nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c))
       ENDIF
+      
+      shape3d_synsat = (/nproma, num_images, p_patch(k_jg)%nblks_c /)
+      shape2d_synsat = (/nproma,             p_patch(k_jg)%nblks_c /)
 
-!! DEVELOPMENT
-!    shape3d_synsat = (/nproma, num_images, p_patch_local_parent(k_jg)%nblks_c /)
-!      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer', DATATYPE_FLT32)
-!      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-!      CALL add_var( diag_list, 'rttov', diag%synsat_arr,                          &
-!        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
-!        &           ldims=shape3d_synsat ,                                        &
-!        &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!
-!      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer', DATATYPE_FLT32)
-!      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-!      CALL add_ref( p_prog_list, 'tracer',                                         &
-!        &           TRIM(vname_prefix)//'qv'//suffix, p_prog%tracer_ptr(iqv)%p_3d, &
-!        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
-!        &           cf_desc, grib2_desc, ldims=shape3d_c,                          &
-!        &           in_group=groups("RTTOV") )
+      ! introduce container variable for RTTOV synthetic satellite imagery:
+      cf_desc    = t_cf_var('rttov_channels', '', '', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'rttov_channels', diag%synsat_arr,                 &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+        &           ldims=shape3d_synsat ,                                        &
+        &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-      ALLOCATE(diag%synsat_arr(nproma, num_images, p_patch(k_jg)%nblks_c))
+      ! add reference variables for the different images:
+      ALLOCATE(diag%synsat_image(num_images))
+
+      iimage = 0
+      sensor_loop: DO isens = 1, num_sensors
+
+        DO ichan = 1,numchans(isens)
+
+          DO k=1,4
+            lradiance = (MOD(iimage,4) == 2) .OR. (MOD(iimage,4) == 3)
+            lcloudy   = (MOD(iimage,4) == 0) .OR. (MOD(iimage,4) == 2)
+            iimage = iimage + 1
+          
+            IF (lradiance) THEN
+              unit = "W m sr m**-2"
+            ELSE
+              unit = "K"
+            END IF
+
+            CALL get_synsat_name(lradiance, lcloudy, ichan, shortname, longname)
+            CALL get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
+              &                         idiscipline, icategory, inumber, &
+              &                         scaledValueOfCentralWaveNumber)
+            
+            cf_desc    = t_cf_var(TRIM(shortname), TRIM(unit), TRIM(longname), DATATYPE_FLT32)
+            grib2_desc = t_grib2_var(idiscipline, icategory, inumber, ibits, GRID_REFERENCE, GRID_CELL)
+            CALL add_ref( diag_list, 'rttov_channels', TRIM(shortname),                  &
+              &           diag%synsat_image(iimage)%p,                                   &
+              &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+              &           cf_desc, grib2_desc, ldims=shape2d_synsat,                     &
+              &           opt_var_ref_pos = 2, lrestart=.FALSE., loutput=.TRUE.,         &
+              &           in_group=groups("RTTOV") )
+          END DO
+        END DO
+      END DO sensor_loop
+
     ENDIF
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &

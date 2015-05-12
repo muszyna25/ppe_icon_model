@@ -55,6 +55,14 @@ MODULE mo_nwp_phy_types
   PUBLIC :: t_nwp_phy_diag
   PUBLIC :: t_nwp_phy_tend
 
+
+
+  !> derived data type for synthetic satellite images
+  TYPE t_rttov_image
+    REAL(wp), POINTER :: p(:,:)      ! pointer to 2D image
+  END TYPE t_rttov_image
+
+
   !
   !!data structure defining model states
   !
@@ -354,7 +362,11 @@ MODULE mo_nwp_phy_types
     ! Buffer field needed for RTTOV calculations on a vertical nested grid
     REAL(wp), POINTER :: buffer_rttov(:,:,:)
 
-    REAL(wp), POINTER :: synsat_arr(:,:,:)
+    ! pointer to satellite images (all images in one array):
+    REAL(wp), POINTER    :: synsat_arr(:,:,:)
+
+    ! pointers to satellite images (list of 2D slices)
+    TYPE (t_rttov_image), ALLOCATABLE :: synsat_image(:)
 
     !> Special 1D and 0D diagnostics for LES runs
     REAL(wp), ALLOCATABLE :: &

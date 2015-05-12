@@ -30,6 +30,18 @@ MODULE mo_synsat_config
   IMPLICIT NONE
 
   PUBLIC
+  PUBLIC :: get_synsat_name
+  PUBLIC :: get_synsat_grib_triple
+
+  ! named constants for better readability
+  INTEGER, PARAMETER :: CHAN_IR3_9   = 1
+  INTEGER, PARAMETER :: CHAN_WV6_2   = 2
+  INTEGER, PARAMETER :: CHAN_WV7_3   = 3
+  INTEGER, PARAMETER :: CHAN_IR8_7   = 4
+  INTEGER, PARAMETER :: CHAN_IR9_7   = 5
+  INTEGER, PARAMETER :: CHAN_IR10_8  = 6
+  INTEGER, PARAMETER :: CHAN_IR12_1  = 7
+  INTEGER, PARAMETER :: CHAN_IR13_4  = 8
 
 
   ! Code imported from the COSMO model
@@ -237,6 +249,8 @@ MODULE mo_synsat_config
   !==============================================================================
 
 
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_synsat_config'
+
   CONTAINS
 
 
@@ -312,5 +326,168 @@ MODULE mo_synsat_config
 #endif
 
   END SUBROUTINE configure_synsat
+
+
+  !> Auxiliary routine: Generate GRIB2 shortname for a given synthetic
+  !> satellite image product.
+  !
+  SUBROUTINE get_synsat_name(lradiance, lcloudy, ichan, &
+    &                        shortname, longname)
+    LOGICAL, INTENT(IN) :: lradiance        ! shortname for radiance or brightness temp
+    LOGICAL, INTENT(IN) :: lcloudy          ! shortname for cloudy or clear sky
+    INTEGER, INTENT(IN) :: ichan            ! channel index
+    CHARACTER(LEN=*), INTENT(OUT) :: shortname ! result: shortname
+    CHARACTER(len=*), INTENT(OUT) :: longname  ! result: long name
+
+    shortname = "SYNMSG_"
+    IF (lradiance) THEN
+      shortname = TRIM(shortname)//"RAD_"
+    ELSE
+      shortname = TRIM(shortname)//"BT_"
+    END IF
+    IF (lcloudy) THEN
+      shortname = TRIM(shortname)//"CL_"
+    ELSE
+      shortname = TRIM(shortname)//"CS_"
+    END IF
+    shortname = TRIM(shortname)//sat_compute(1)%chan_name(ichan)
+
+    longname = "synth. sat."
+    IF (lradiance) THEN
+      longname = TRIM(longname)//" radiance"
+    ELSE
+      longname = TRIM(longname)//" brightness temperature"
+    END IF
+    IF (lcloudy) THEN
+      longname = TRIM(longname)//" cloudy"
+    ELSE
+      longname = TRIM(longname)//" clear sky"
+    END IF
+  END SUBROUTINE get_synsat_name
+
+
+  !> Auxiliary routine: Returns GRIB2 category, discipline and number
+  !> for a given synthetic satellite image product.
+  !
+  SUBROUTINE get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
+    &                               idiscipline, icategory, inumber, &
+    &                               scaledValueOfCentralWaveNumber)
+    LOGICAL, INTENT(IN)  :: lradiance        ! shortname for radiance or brightness temp
+    LOGICAL, INTENT(IN)  :: lcloudy          ! shortname for cloudy or clear sky
+    INTEGER, INTENT(IN)  :: ichan            ! channel index
+    INTEGER, INTENT(OUT) :: idiscipline, icategory, inumber ! result: GRIB2 triple
+    INTEGER, INTENT(OUT) :: scaledValueOfCentralWaveNumber  ! result: GRIB2 meta-data
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_synsat_grib_triple'
+
+    ! common for all products
+    idiscipline =  3
+    icategory   =  1
+    IF (lradiance) THEN
+      IF (lcloudy) THEN
+        inumber = 16
+      ELSE
+        inumber = 17
+      END IF
+    ELSE
+      IF (lcloudy) THEN
+        inumber = 14
+      ELSE
+        inumber = 15
+      END IF
+    END IF
+
+    IF (lradiance) THEN
+      ! radiances
+      IF (lcloudy) THEN
+        SELECT CASE(ichan)
+        CASE (CHAN_IR3_9)
+          scaledValueOfCentralWaveNumber = 256410
+        CASE (CHAN_WV6_2)
+          scaledValueOfCentralWaveNumber = 161290
+        CASE (CHAN_WV7_3)
+          scaledValueOfCentralWaveNumber = 136986
+        CASE (CHAN_IR8_7)
+          scaledValueOfCentralWaveNumber = 114942
+        CASE (CHAN_IR9_7) 
+          scaledValueOfCentralWaveNumber = 103092
+        CASE (CHAN_IR10_8)
+          scaledValueOfCentralWaveNumber =  92592
+        CASE (CHAN_IR12_1)
+          scaledValueOfCentralWaveNumber =  82644
+        CASE (CHAN_IR13_4)
+          scaledValueOfCentralWaveNumber =  74626
+        CASE DEFAULT
+          CALL finish(routine, "Internal error!")
+        END SELECT
+      ELSE
+        SELECT CASE(ichan)
+        CASE (CHAN_IR3_9)
+          scaledValueOfCentralWaveNumber = 256410
+        CASE (CHAN_WV6_2)
+          scaledValueOfCentralWaveNumber = 161290
+        CASE (CHAN_WV7_3)
+          scaledValueOfCentralWaveNumber = 136986
+        CASE (CHAN_IR8_7)
+          scaledValueOfCentralWaveNumber = 114942
+        CASE (CHAN_IR9_7) 
+          scaledValueOfCentralWaveNumber = 103092
+        CASE (CHAN_IR10_8)
+          scaledValueOfCentralWaveNumber =  92592
+        CASE (CHAN_IR12_1)
+          scaledValueOfCentralWaveNumber =  82644
+        CASE (CHAN_IR13_4)
+          scaledValueOfCentralWaveNumber =  74626
+        CASE DEFAULT
+          CALL finish(routine, "Internal error!")
+        END SELECT
+      END IF
+    ELSE
+      ! brightness temperatures
+      IF (lcloudy) THEN
+        SELECT CASE(ichan)
+        CASE (CHAN_IR3_9)
+          scaledValueOfCentralWaveNumber = 256410
+        CASE (CHAN_WV6_2)
+          scaledValueOfCentralWaveNumber = 161290
+        CASE (CHAN_WV7_3)
+          scaledValueOfCentralWaveNumber = 136986
+        CASE (CHAN_IR8_7)
+          scaledValueOfCentralWaveNumber = 114942
+        CASE (CHAN_IR9_7) 
+          scaledValueOfCentralWaveNumber = 103092
+        CASE (CHAN_IR10_8)
+          scaledValueOfCentralWaveNumber =  92592 
+        CASE (CHAN_IR12_1)
+          scaledValueOfCentralWaveNumber =  82644
+        CASE (CHAN_IR13_4)
+          scaledValueOfCentralWaveNumber =  74626
+        CASE DEFAULT
+          CALL finish(routine, "Internal error!")
+        END SELECT
+      ELSE
+        SELECT CASE(ichan)
+        CASE (CHAN_IR3_9)
+          scaledValueOfCentralWaveNumber = 256410
+        CASE (CHAN_WV6_2)
+          scaledValueOfCentralWaveNumber = 161290
+        CASE (CHAN_WV7_3)
+          scaledValueOfCentralWaveNumber = 136986
+        CASE (CHAN_IR8_7)
+          scaledValueOfCentralWaveNumber = 114942
+        CASE (CHAN_IR9_7) 
+          scaledValueOfCentralWaveNumber = 103092
+        CASE (CHAN_IR10_8)
+          scaledValueOfCentralWaveNumber =  92592
+        CASE (CHAN_IR12_1)
+          scaledValueOfCentralWaveNumber =  82644
+        CASE (CHAN_IR13_4)
+          scaledValueOfCentralWaveNumber =  74626
+        CASE DEFAULT
+          CALL finish(routine, "Internal error!")
+        END SELECT
+      END IF
+    END IF
+  END SUBROUTINE get_synsat_grib_triple
 
 END MODULE mo_synsat_config

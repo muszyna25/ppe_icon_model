@@ -2038,7 +2038,7 @@ CONTAINS
     index = 1
     IF (target_info%lcontainer) THEN
       ref_info%lcontained                   = .TRUE.
-      ref_info%used_dimensions(var_ref_pos) = 1
+      ref_info%used_dimensions(ndims+1)     = 1
       ref_info%var_ref_pos                  = var_ref_pos
       !
       IF ( PRESENT(ref_idx) ) THEN
@@ -2221,7 +2221,7 @@ CONTAINS
     index = 1
     IF (target_info%lcontainer) THEN
       ref_info%lcontained                   = .TRUE.
-      ref_info%used_dimensions(var_ref_pos) = 1
+      ref_info%used_dimensions(ndims+1)     = 1
       ref_info%var_ref_pos                  = var_ref_pos
       !
       IF ( PRESENT(ref_idx) ) THEN
@@ -2403,7 +2403,7 @@ CONTAINS
     index = 1
     IF (target_info%lcontainer) THEN
       ref_info%lcontained                   = .TRUE.
-      ref_info%used_dimensions(var_ref_pos) = 1
+      ref_info%used_dimensions(ndims+1)     = 1
       ref_info%var_ref_pos                  = var_ref_pos
       !
       IF ( PRESENT(ref_idx) ) THEN
