@@ -1158,8 +1158,8 @@ MODULE mo_nwp_lnd_state
 
 
     ! & p_diag_lnd%w_so(nproma,nlev_soil,nblks_c)
-    cf_desc     = t_cf_var('w_so', 'm H20', 'weighted total water content (ice + liquid water)', DATATYPE_FLT32)
-    new_cf_desc = t_cf_var('w_so', 'kg/m**2', 'weighted total water content (ice + liquid water)', DATATYPE_FLT32)
+    cf_desc     = t_cf_var('w_so', 'm H20', 'total water content (ice + liquid water)', DATATYPE_FLT32)
+    new_cf_desc = t_cf_var('w_so', 'kg/m**2', 'total water content (ice + liquid water)', DATATYPE_FLT32)
     grib2_desc  = t_grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_so', p_diag_lnd%w_so,              &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
@@ -1172,8 +1172,8 @@ MODULE mo_nwp_lnd_state
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
     ! & p_diag_lnd%w_so_ice(nproma,nlev_soil,nblks_c)
-    cf_desc      = t_cf_var('w_so_ice', 'm H20',   'weighted ice content', DATATYPE_FLT32)
-    new_cf_desc  = t_cf_var('w_so_ice', 'kg/m**2', 'weighted ice content', DATATYPE_FLT32)
+    cf_desc      = t_cf_var('w_so_ice', 'm H20',   'ice content', DATATYPE_FLT32)
+    new_cf_desc  = t_cf_var('w_so_ice', 'kg/m**2', 'ice content', DATATYPE_FLT32)
     grib2_desc   = t_grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)      
     CALL add_var( diag_list, vname_prefix//'w_so_ice',                           &
          & p_diag_lnd%w_so_ice, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,     &
