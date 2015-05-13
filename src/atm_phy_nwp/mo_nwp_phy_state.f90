@@ -53,7 +53,10 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               TASK_COMPUTE_RH, iedmf,             &
   &                               HINTP_TYPE_LONLAT_NNB,              &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
-  &                               HINTP_TYPE_LONLAT_RBF, nexlevs_rrg_vnest
+  &                               HINTP_TYPE_LONLAT_RBF,              &
+  &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
+  &                               RTTOV_BT_CS, RTTOV_RAD_CL,          &
+  &                               RTTOV_RAD_CS
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, lart
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -96,7 +99,6 @@ USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action_types,         ONLY: t_var_action
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
-USE mtime,                   ONLY: MAX_DATETIME_STR_LEN
 
 IMPLICIT NONE
 PRIVATE
@@ -2506,8 +2508,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         DO ichan = 1,numchans(isens)
 
           DO k=1,4
-            lradiance = (MOD(iimage,4) == 2) .OR. (MOD(iimage,4) == 3)
-            lcloudy   = (MOD(iimage,4) == 0) .OR. (MOD(iimage,4) == 2)
+            lradiance = ((MOD(iimage,4)+1) == RTTOV_RAD_CL) .OR. ((MOD(iimage,4)+1) == RTTOV_RAD_CS)
+            lcloudy   = ((MOD(iimage,4)+1) == RTTOV_BT_CL)  .OR. ((MOD(iimage,4)+1) == RTTOV_RAD_CL)
             iimage = iimage + 1
           
             IF (lradiance) THEN

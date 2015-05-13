@@ -34,7 +34,8 @@ USE mo_ext_data_types,      ONLY: t_external_atmos
 USE mo_nwp_lnd_state,       ONLY: p_lnd_state
 USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
 USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-USE mo_impl_constants,      ONLY: min_rlcell_int
+USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
+  &                               RTTOV_RAD_CL, RTTOV_RAD_CS
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
@@ -266,25 +267,24 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
       WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
     ENDIF
 
-
       IF (sat_compute(isens)%lcloud_tem) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie,(k-1)*4+1, jb) = T_b(k, 1:n_profs) 
+          rg_synsat(is:ie,(k-1)*4+RTTOV_BT_CL, jb) = T_b(k, 1:n_profs) 
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lclear_tem) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie, (k-1)*4+2, jb) = T_b_clear(k, 1:n_profs) 
+          rg_synsat(is:ie, (k-1)*4+RTTOV_BT_CS, jb) = T_b_clear(k, 1:n_profs) 
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lcloud_rad) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie, (k-1)*4+3, jb) = Rad(k, 1:n_profs) 
+          rg_synsat(is:ie, (k-1)*4+RTTOV_RAD_CL, jb) = Rad(k, 1:n_profs) 
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lclear_rad) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie, (k-1)*4+4, jb) = Rad_clear(k, 1:n_profs) 
+          rg_synsat(is:ie, (k-1)*4+RTTOV_RAD_CS, jb) = Rad_clear(k, 1:n_profs) 
         ENDDO
       ENDIF
 

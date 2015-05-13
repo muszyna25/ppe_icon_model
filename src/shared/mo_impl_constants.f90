@@ -565,6 +565,15 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_DETAILED    = 2
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_WRITE_FILES = 3
 
+  !-------------------------!
+  !  RTTOV FIELD CATEGORIES !
+  !-------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CL  = 1
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CS  = 2
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
+
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants
