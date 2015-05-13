@@ -2579,13 +2579,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shape3dkp1(3), shape4d(4)
+    INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
     INTEGER :: ibits, ktracer, ist
     LOGICAL :: lrestart
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
-    shape2d    = (/nproma,         kblks            /)
     shape3d    = (/nproma, klev  , kblks            /)
     shape3dkp1 = (/nproma, klev+1, kblks            /)
 
