@@ -50,7 +50,7 @@ MODULE mo_nonhydro_state
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
-    &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar,      &
+    &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
     &                                iqtke, nqtendphy, ltestcase, lart 
@@ -904,9 +904,9 @@ MODULE mo_nonhydro_state
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-        END IF ! inwp_gscp==4 .or. inwp_gscp==5 .or. inwp_gscp==6
-        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
-             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
+!        END IF ! inwp_gscp==4 .or. inwp_gscp==5 .or. inwp_gscp==6
+!        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
+!             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
             ! cloud droplet concentration (iqnc=13)
             ! QNC  pdis=0 pcat=6 pnum=28 #DWD: Number of cloud droplets per unit mass of air. paramId=502315
             CALL add_ref( p_prog_list, 'tracer',                                     &
@@ -929,6 +929,29 @@ MODULE mo_nonhydro_state
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
         END IF ! inwp_gscp==5 .or. inwp_gscp==6
+
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'ninact'//suffix, p_prog%tracer_ptr(ininact)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'ninact',' kg-1 ',                &
+                    & 'number_concentration_activated_ice_nuclei', DATATYPE_FLT32),  &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(ininact),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(ininact)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+        END IF
+
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN
             ! concentration of cloud condensation nuclei
             CALL add_ref( p_prog_list, 'tracer',                                     &
@@ -960,24 +983,6 @@ MODULE mo_nonhydro_state
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
                     &             ihadv_tracer=advconf%ihadv_tracer(ininpot),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(ininpot)),          &
-                    & vert_interp=create_vert_interp_metadata(                       &
-                    &             vert_intp_type=vintp_types("P","Z","I"),           &
-                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
-                    &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-                    &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
-            CALL add_ref( p_prog_list, 'tracer',                                     &
-                    & TRIM(vname_prefix)//'ninact'//suffix, p_prog%tracer_ptr(ininact)%p_3d, &
-                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-                    & t_cf_var(TRIM(vname_prefix)//'ninact',' kg-1 ',                &
-                    & 'number_concentration_activated_ice_nuclei', DATATYPE_FLT32),  &
-                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-                    & ldims=shape3d_c,                                               &
-                    & tlev_source=1,     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-                    &             ihadv_tracer=advconf%ihadv_tracer(ininact),           &
-                    &             ivadv_tracer=advconf%ivadv_tracer(ininact)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &

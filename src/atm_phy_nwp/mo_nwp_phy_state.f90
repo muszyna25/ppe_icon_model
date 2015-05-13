@@ -55,18 +55,18 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF, nexlevs_rrg_vnest
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, lart
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_linked_list,         ONLY: t_list_element, t_var_list
+USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv
 USE mo_data_turbdiff,       ONLY: ltkecon
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_TILE
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -83,7 +83,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN,  &
   &                               TSTEP_CONSTANT, ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
-  &                               ZA_ISOTHERM_ZERO, GRID_EDGE
+  &                               ZA_ISOTHERM_ZERO
 USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
@@ -1119,6 +1119,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,       &
         & loutput=.FALSE.)
 
+
       ! fill the seperate variables belonging to the container albdif_t
       ALLOCATE(diag%albdif_t_ptr(ntiles_total+ntiles_water))
       DO jsfc = 1,ntiles_total+ntiles_water
@@ -1142,6 +1143,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
         & loutput=.FALSE.)
+
 
       ! fill the seperate variables belonging to the container albvisdif_t
       ALLOCATE(diag%albvisdif_t_ptr(ntiles_total+ntiles_water))
@@ -1167,6 +1169,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
         & loutput=.FALSE.)
 
+
       ! fill the seperate variables belonging to the container albnirdif_t
       ALLOCATE(diag%albnirdif_t_ptr(ntiles_total+ntiles_water))
       DO jsfc = 1,ntiles_total+ntiles_water
@@ -1181,7 +1184,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       ENDDO
 
 
-
       ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('sob_s_t', 'W m-2', 'tile-based shortwave net flux at surface', &
            &                DATATYPE_FLT32)
@@ -1190,6 +1192,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
         & loutput=.FALSE.)
+
 
       ! fill the seperate variables belonging to the container swflxsfc_t
       ALLOCATE(diag%swflxsfc_t_ptr(ntiles_total+ntiles_water))
@@ -1205,6 +1208,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
            & in_group=groups("rad_vars"))
       ENDDO
 
+
       ! &      diag%lwflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('thb_s_t', 'W m-2', 'tile_based longwave net flux at surface', &
            &                DATATYPE_FLT32)
@@ -1213,6 +1217,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,         &
         & loutput=.FALSE.)
+
 
       ! fill the seperate variables belonging to the container lwflxsfc_t
       ALLOCATE(diag%lwflxsfc_t_ptr(ntiles_total+ntiles_water))
@@ -1909,6 +1914,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
+
     ! fill the separate variables belonging to the container shfl_s_t
     ALLOCATE(diag%shfl_s_t_ptr(ntiles_total+ntiles_water))
     DO jsfc = 1,ntiles_total+ntiles_water
@@ -1922,6 +1928,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
+
     ! &      diag%lhfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('lhfl_s_t', 'W m-2 ', 'tile-based surface latent heat flux', &
          &                DATATYPE_FLT32)
@@ -1929,6 +1936,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'lhfl_s_t', diag%lhfl_s_t,                                &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container lhfl_s_t
     ALLOCATE(diag%lhfl_s_t_ptr(ntiles_total+ntiles_water))
@@ -1944,6 +1952,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDDO
 
 
+
     ! &      diag%lhfl_bs_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('lhfl_bs_t', 'W m-2 ', 'tile-based latent heat flux from bare soil', &
       &                   DATATYPE_FLT32)
@@ -1951,6 +1960,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'lhfl_bs_t', diag%lhfl_bs_t,                              &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs,    &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container lhfl_bs_t
     ALLOCATE(diag%lhfl_bs_t_ptr(ntiles_total))
@@ -1966,6 +1976,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDDO
 
 
+
     ! &      diag%lhfl_pl_t(nproma,nlev_soil,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('lhfl_pl_t', 'W m-2 ', 'tile-based latent heat flux from plants', &
       &                   DATATYPE_FLT32)
@@ -1974,6 +1985,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
       & ldims=(/nproma,nlev_soil,kblks,ntiles_total/), lcontainer=.TRUE., &
       & lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container lhfl_pl_t
     ALLOCATE(diag%lhfl_pl_t_ptr(ntiles_total))
@@ -1989,6 +2001,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & loutput=.TRUE.)
     ENDDO
 
+
     ! &      diag%qhfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('qhfl_s_t', 'Kg m-2 s-1','tile based surface moisture flux', &
          &                DATATYPE_FLT32)
@@ -1996,6 +2009,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'qhfl_s_t', diag%qhfl_s_t,                                &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container qhfl_s_t
     ALLOCATE(diag%qhfl_s_t_ptr(ntiles_total+ntiles_water))
@@ -2011,6 +2025,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDDO
 
 
+
     ! &      diag%tcm_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('tcm_t', ' ', &
       & 'tile-based turbulent transfer coefficients for momentum', DATATYPE_FLT32)
@@ -2018,6 +2033,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'tcm_t', diag%tcm_t,                                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container tcm_t
     ALLOCATE(diag%tcm_t_ptr(ntiles_total+ntiles_water))
@@ -2031,6 +2047,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & t_grib2_var(0, 2, 29, ibits, GRID_REFERENCE, GRID_CELL),   & 
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
+
+
 
     ! &      diag%tch_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('tch_t', ' ', &
@@ -2055,6 +2073,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDDO
 
 
+
     ! &      diag%tfv_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('tfv_t', ' ', &
          &                'tile-based laminar reduction factor for evaporation', &
@@ -2063,6 +2082,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'tfv_t', diag%tfv_t,                                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container tfv_t
     ALLOCATE(diag%tfv_t_ptr(ntiles_total+ntiles_water))
@@ -2078,6 +2098,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDDO
 
 
+
     ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &
          &                DATATYPE_FLT32)
@@ -2085,6 +2106,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'gz0_t', diag%gz0_t,                                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+
 
     ! fill the separate variables belonging to the container gz0_t
     ALLOCATE(diag%gz0_t_ptr(ntiles_total+ntiles_water))
@@ -2108,6 +2131,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'tvs_s_t', diag%tvs_s_t,                                &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container tvs_s_t
     ALLOCATE(diag%tvs_s_t_ptr(ntiles_total+ntiles_water))
@@ -2133,6 +2157,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
+
     ! fill the separate variables belonging to the container tkvm_s_t
     ALLOCATE(diag%tkvm_s_t_ptr(ntiles_total+ntiles_water))
     DO jsfc = 1,ntiles_total+ntiles_water
@@ -2156,6 +2181,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
+
     ! fill the separate variables belonging to the container tkvm_s_t
     ALLOCATE(diag%tkvh_s_t_ptr(ntiles_total+ntiles_water))
     DO jsfc = 1,ntiles_total+ntiles_water
@@ -2168,6 +2194,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
          & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
     ENDDO
+
 
 
     ! &      diag%u_10m_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2190,6 +2217,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
+
     ! &      diag%v_10m_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('v_10m_t', 'm s-1 ', 'tile-based meridional wind in 2m', &
          &                DATATYPE_FLT32)
@@ -2197,6 +2225,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'v_10m_t', diag%v_10m_t,                                  &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc, ldims=shape3dsubsw,&
       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
 
     ! fill the separate variables belonging to the container v_10m_t
     ALLOCATE(diag%v_10m_t_ptr(ntiles_total+ntiles_water))
@@ -2210,6 +2239,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
+
 
 
     ! &      diag%umfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)

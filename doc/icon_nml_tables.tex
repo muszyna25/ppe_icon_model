@@ -3904,8 +3904,9 @@ Soon the formatting problem will be resolved and the valid number ranges will be
 
 
 % -------------------------------------------------------------
-\paragraph{Variable Groups:}
+\subsubsection*{Variable Groups}
 % -------------------------------------------------------------
+\paragraph{Keyword \texttt{"group:"}:}
 Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
 sets of common variables can be added to the output:
 \begin{tabbing}
@@ -3933,6 +3934,12 @@ sets of common variables can be added to the output:
 \texttt{group:ART\_AERO\_SEAS}         \>     ART sea salt aerosol fields                                           \\
 \end{tabbing}
 
+\paragraph{Keyword \texttt{"tiles:"}:}
+The \texttt{"tiles:"} keyword allows to add all tiles of a specific variable to the output, without the need to specify all 
+tile fields separately. E.g.\ \texttt{"tiles:t\_g"} (read: ``tiles of \texttt{t\_g}'') automatically adds all \texttt{t\_g\_t\_X} 
+fields to the output. Here, \texttt{X} is a placeholder for the tile number. Make sure to specify the name of the aggregated 
+variable rather than the name of the corresponding tile container (i.e.\ in the given example it must be \texttt{t\_g}, and not 
+\texttt{t\_g\_t}!).
 
 \begin{note}
       There exists a special syntax which allows to remove variables from the output list, e.\,g.\ if
@@ -4916,6 +4923,19 @@ Factor for stability correction of turbulent length scale. In case of $a\_stab=0
 a\_hshr &
 R                &     0.20      & 1 &
 Length scale factor for the separated horizontal shear mode. In case of $a\_hshr=0$, this shear mode has no effect.& ltkeshs=.TRUE.
+\tabularnewline
+
+%\hline
+alpha0 &
+R                &     0.0123      & 1 &
+Lower bound of velocity-dependent Charnock parameter & 
+\tabularnewline
+
+%\hline
+alpha0\_max &
+R                &     0.0123      & 1 &
+Upper bound of velocity-dependent Charnock parameter. Setting this parameter to 0.0335 or higher values implies unconstrained 
+velocity dependence & 
 \tabularnewline
 
 %\hline

@@ -308,7 +308,7 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr                 = 0.3         ! 0.2 for R2B6 and higher resolution, 0.3 for lower resolution
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
- iadv_rcf                     = ${iadv_rcf}
+ ndyn_substeps                = ${ndyn_substeps}
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
  divdamp_order                = 24

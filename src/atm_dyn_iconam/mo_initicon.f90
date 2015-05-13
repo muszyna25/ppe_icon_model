@@ -168,6 +168,9 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("typeOfFirstFixedSurface")
     CALL cdiDefAdditionalKey("typeOfGeneratingProcess")
     CALL cdiDefAdditionalKey("backgroundProcess")
+    CALL cdiDefAdditionalKey("totalNumberOfTileAttributePairs")
+    CALL cdiDefAdditionalKey("tileIndex")
+    CALL cdiDefAdditionalKey("tileAttribute")
 
 
     ! -----------------------------------------------
@@ -1533,6 +1536,9 @@ MODULE mo_initicon
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
 
+    REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value) 
+                                                   ! in order to avoid grib precision problems
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_iau_sfc'
   !-------------------------------------------------------------------------
@@ -1612,9 +1618,16 @@ MODULE mo_initicon
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
-              ! minimum height: 0m; maximum height: 40m
-              lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
-                &                                             + initicon(jg)%sfc_inc%h_snow(jc,jb)))
+              IF (ABS(initicon(jg)%sfc_inc%h_snow(jc,jb)) < min_hsnow_inc) THEN
+                ! h_snow increment is neglected in order to avoid artefacts due to GRIB2 precision limitation
+                ! minimum height: 0m; maximum height: 40m
+                lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt)))
+              ELSE
+                ! minimum height: 0m; maximum height: 40m
+                lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
+                  &                                             + initicon(jg)%sfc_inc%h_snow(jc,jb)))
+              ENDIF
+
               ! maximum freshsnow factor: 1
               ! minimum freshsnow factor: 0
               ! maximum positive freshsnow increment is limited to max_freshsnow_inc (tuning parameter)
@@ -1630,16 +1643,16 @@ MODULE mo_initicon
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
               ! fresh snow 'missed' by the model
-              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                .AND. &
-                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp) .AND. &
+              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                        .AND. &
+                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > min_hsnow_inc) .AND. &
                 &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) > 0._wp) ) THEN
 
                 lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmaxf   ! maximum density of fresh snow (150 kg/m**3)
               ENDIF
 
               ! old snow that is re-created by the analysis (i.e. snow melted away too fast in the model)
-              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                .AND. &
-                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp) .AND. &
+              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                        .AND. &
+                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > min_hsnow_inc) .AND. &
                 &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) <= 0._wp) ) THEN
 
                 ! it is then assumed that we have 'old' snow in the model

@@ -31,9 +31,8 @@ MODULE mo_util_vgrid
     &                                             ishallow_water, SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
-  USE mo_ext_data_state,                    ONLY: ext_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
-  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table, vct_a, vct_b, vct
+  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table
   USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             init_vert_coord, compute_smooth_topo,                 &
     &                                             prepare_hybrid_coord, prepare_sleve_coord
@@ -332,7 +331,8 @@ CONTAINS
     ALLOCATE(r1d(MERGE(p_patch%n_patch_cells_g, 0, my_process_is_mpi_workroot())), STAT=error_status)
     IF (error_status /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO jk=1,nlevp1
-      CALL exchange_data(vgrid_buffer(p_patch%id)%z_ifc(:,jk,:), r1d, p_patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=vgrid_buffer(p_patch%id)%z_ifc(:,jk,:), &
+        &                out_array=r1d, gather_pattern=p_patch%comm_pat_gather_c)
       IF (my_process_is_mpi_workroot()) THEN
         CALL streamWriteVarSlice(cdiFileID, cdiVarID_c, jk-1, r1d, 0)
       END IF
