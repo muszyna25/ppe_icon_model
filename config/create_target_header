@@ -531,7 +531,6 @@ set_run_target_thunder()
 EOF
 cat job_header $output_script > tmp_job_script && mv tmp_job_script $output_script
 rm job_header
-EOF
 }
 
 set_run_target_bullx()
