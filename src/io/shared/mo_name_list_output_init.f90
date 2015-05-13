@@ -2715,6 +2715,8 @@ CONTAINS
         ! DEPTH_LK: typeOfFirstFixedSurface = 1
         ! T_WML_LK: typeOfFirstFixedSurface = 1
         ! H_ML_LK : typeOfFirstFixedSurface = 1
+        ! CAPE_ML : typeOfFirstFixedSurface = 192
+        ! CIN_ML  : typeOfFirstFixedSurface = 192
         !
         IF ( one_of(TRIM(info%name),ffs_name_list) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", &

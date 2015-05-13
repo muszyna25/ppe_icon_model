@@ -629,6 +629,26 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
                 & ) )
 
+    ! &      diag%cape_ml(nproma,nblks_c)
+    ! typeOfLevel ZA_SURFACE is changed to 192 in vlistDefVarIntKey
+    cf_desc    = t_cf_var('cape_ml', 'J kg-1 ', 'cape of mean surface layer parcel', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 7, 6, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'cape_ml', diag%cape_ml,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d, lrestart=.FALSE.,                            &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
+    ! &      diag%cin_ml(nproma,nblks_c)
+    ! typeOfLevel ZA_SURFACE is changed to 192 in vlistDefVarIntKey
+    cf_desc    = t_cf_var('cin_ml', 'J kg-1 ', 'convective inhibition of mean surface layer parcel', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 7, 7, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'cin_ml', diag%cin_ml,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d, lrestart=.FALSE.,                            &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+
     ! &      diag%gust10(nproma,nblks_c)
     cf_desc    = t_cf_var('gust10', 'm s-1 ', 'gust at 10 m', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 0, 2, 22, ibits, GRID_REFERENCE, GRID_CELL)

@@ -53,7 +53,7 @@ MODULE mo_nwp_diagnosis
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
-  USE mo_util_phys,          ONLY: calsnowlmt
+  USE mo_util_phys,          ONLY: calsnowlmt, cal_cape_cin
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mo_datetime,           ONLY: date_to_time
   USE mo_time_config,        ONLY: time_config
@@ -1074,6 +1074,18 @@ CONTAINS
           prm_diag%snow_con0(jc,jb) = prm_diag%snow_con(jc,jb)
         ENDDO
       ENDIF
+
+      !
+      !  CAPE and CIN of mean surface layer parcel
+      !
+      CALL cal_cape_cin( i_startidx, i_endidx,                     &
+        &                kmoist  = kstart_moist,                   & !in
+        &                te      = pt_diag%temp(:,:,jb)          , & !in
+        &                qve     = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
+        &                prs     = pt_diag%pres(:,:,jb)          , & !in
+        &                hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
+        &                cape_ml = prm_diag%cape_ml(:,jb)        , & !in
+        &                cin_ml  = prm_diag%cin_ml(:,jb) )
 
     ENDDO  ! jb
 !$OMP END DO
