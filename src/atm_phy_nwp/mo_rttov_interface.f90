@@ -41,7 +41,7 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp, z_at_plevels
 USE mo_satad,               ONLY: qsat_rho
-USE mo_physical_constants,  ONLY: rd, vtmpc1, earth_radius
+USE mo_physical_constants,  ONLY: rd, vtmpc1, earth_radius, grav
 USE mo_cufunctions,         ONLY: foealfa
 USE mo_math_constants,      ONLY: rad2deg
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_synsat
@@ -719,6 +719,7 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
 
 
   ! Calculate layer averages of cloud variables from vertically integrated fields
+  ! The unit required by RTTOV is g/m**3 (!!)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
@@ -729,17 +730,17 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
 
     DO jk = 1, nlev_rttov-1
       DO jc = i_startidx, i_endidx
-        qc_rttov(jc,jk,jb)  = (qc_vi_rttov(jc,jk,jb)-qc_vi_rttov(jc,jk+1,jb)) / &
-                              (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
+        qc_rttov(jc,jk,jb)  = 1.e3_wp*(qc_vi_rttov(jc,jk,jb)-qc_vi_rttov(jc,jk+1,jb)) / &
+                              (grav*(z3d_rttov(jc,jk,jb)-z3d_rttov(jc,jk+1,jb)))
         IF (ABS(qc_rttov(jc,jk,jb)) < 1.e-8_wp) qc_rttov(jc,jk,jb) = 0._wp
-        qcc_rttov(jc,jk,jb) = (qcc_vi_rttov(jc,jk,jb)-qcc_vi_rttov(jc,jk+1,jb)) / &
-                              (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
+        qcc_rttov(jc,jk,jb) = 1.e3_wp*(qcc_vi_rttov(jc,jk,jb)-qcc_vi_rttov(jc,jk+1,jb)) / &
+                              (grav*(z3d_rttov(jc,jk,jb)-z3d_rttov(jc,jk+1,jb)))
         IF (ABS(qcc_rttov(jc,jk,jb)) < 1.e-8_wp) qcc_rttov(jc,jk,jb) = 0._wp
-        qi_rttov(jc,jk,jb)  = (qi_vi_rttov(jc,jk,jb)-qi_vi_rttov(jc,jk+1,jb)) / &
-                              (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
+        qi_rttov(jc,jk,jb)  = 1.e3_wp*(qi_vi_rttov(jc,jk,jb)-qi_vi_rttov(jc,jk+1,jb)) / &
+                              (grav*(z3d_rttov(jc,jk,jb)-z3d_rttov(jc,jk+1,jb)))
         IF (ABS(qi_rttov(jc,jk,jb)) < 1.e-8_wp) qi_rttov(jc,jk,jb) = 0._wp
-        qs_rttov(jc,jk,jb)  = (qs_vi_rttov(jc,jk,jb)-qs_vi_rttov(jc,jk+1,jb)) / &
-                              (100._wp*(pres_rttov(jk+1)-pres_rttov(jk)))
+        qs_rttov(jc,jk,jb)  = 1.e3_wp*(qs_vi_rttov(jc,jk,jb)-qs_vi_rttov(jc,jk+1,jb)) / &
+                              (grav*(z3d_rttov(jc,jk,jb)-z3d_rttov(jc,jk+1,jb)))
         IF (ABS(qs_rttov(jc,jk,jb)) < 1.e-8_wp) qs_rttov(jc,jk,jb) = 0._wp
         clc_rttov(jc,jk,jb) = MIN(1._wp,(clc_vi_rttov(jc,jk,jb)-clc_vi_rttov(jc,jk+1,jb)) / &
                               (100._wp*(pres_rttov(jk+1)-pres_rttov(jk))) )
