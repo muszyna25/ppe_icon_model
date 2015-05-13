@@ -721,12 +721,17 @@ set_run_target_mpimac()
 {
   
   set_default use_nproma 48
+  use_nodes=1
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
   
   if [[ "$use_mpi" == "yes" ]]; then
     set_default use_mpi_procs_pernode 2
   fi
   if [[ "$use_openmp" == "yes" ]]; then
     set_default use_openmp_threads 2
+  else
+    set_default use_openmp_threads 1
   fi
 
   # create header
