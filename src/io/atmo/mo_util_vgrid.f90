@@ -331,7 +331,8 @@ CONTAINS
     ALLOCATE(r1d(MERGE(p_patch%n_patch_cells_g, 0, my_process_is_mpi_workroot())), STAT=error_status)
     IF (error_status /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO jk=1,nlevp1
-      CALL exchange_data(vgrid_buffer(p_patch%id)%z_ifc(:,jk,:), r1d, p_patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=vgrid_buffer(p_patch%id)%z_ifc(:,jk,:), &
+        &                out_array=r1d, gather_pattern=p_patch%comm_pat_gather_c)
       IF (my_process_is_mpi_workroot()) THEN
         CALL streamWriteVarSlice(cdiFileID, cdiVarID_c, jk-1, r1d, 0)
       END IF

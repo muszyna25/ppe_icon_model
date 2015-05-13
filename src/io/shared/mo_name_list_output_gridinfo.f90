@@ -233,16 +233,20 @@ CONTAINS
         END DO
       END DO
 
-      CALL exchange_data(r_tmp_lon(:,:), out_lonlat%lon(:), p_pat)
-      CALL exchange_data(r_tmp_lat(:,:), out_lonlat%lat(:), p_pat)
+      CALL exchange_data(in_array=r_tmp_lon(:,:), out_array=out_lonlat%lon(:), &
+        &                gather_pattern=p_pat)
+      CALL exchange_data(in_array=r_tmp_lat(:,:), out_array=out_lonlat%lat(:), &
+        &                gather_pattern=p_pat)
 
       !-- part 2: exchange vertex lon/lat coordinates:
       DO idim=1,dim3
 
-        CALL exchange_data(lonv(1:nproma,1:nblks_loc,idim), &
-          &                out_lonlat%lonv(idim,:), p_pat)
-        CALL exchange_data(latv(1:nproma,1:nblks_loc,idim), &
-          &                out_lonlat%latv(idim,:), p_pat)
+        CALL exchange_data(in_array=lonv(1:nproma,1:nblks_loc,idim), &
+          &                out_array=out_lonlat%lonv(idim,:), &
+          &                gather_pattern=p_pat)
+        CALL exchange_data(in_array=latv(1:nproma,1:nblks_loc,idim), &
+          &                out_array=out_lonlat%latv(idim,:), &
+          &                gather_pattern=p_pat)
 
       END DO ! idim
 

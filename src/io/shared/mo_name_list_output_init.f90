@@ -416,6 +416,9 @@ CONTAINS
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) THEN
         CALL finish(routine,'Unsupported value for remap')
       END IF
+      IF ((remap==REMAP_REGULAR_LATLON) .AND. ALL(reg_lon_def(:) == 0.) .AND. ALL(reg_lat_def(:) == 0.)) THEN
+        CALL finish(routine,'Lon-lat output: Grid not specified in namelist!')
+      END IF
       IF ((reg_lon_def(3) >  reg_lon_def(1)) .AND. &
         & (reg_lon_def(2) <= 0._wp)) THEN
         CALL finish(routine,'Illegal LON increment')
