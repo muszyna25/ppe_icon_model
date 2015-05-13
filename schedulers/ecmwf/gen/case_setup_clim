@@ -27,7 +27,7 @@ IFS2ICONDIR=${ifsdir}
 # path to files needed for radiation
 RADDIR=${basedir}/icon_input/radiation
 # absolute path to files needed to update SST and CI
-SSTICEDIR=${sstice_dir}/icon_input/sstice
+SSTICEDIR=${sstice_dir}
 
 # --------------------------------------------------------------------
 
@@ -146,7 +146,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks                 = .FALSE.
  num_io_procs                 = 1
  itype_comm                   = 1
- iorder_sendrecv              = 1
+ iorder_sendrecv              = 3
 /
 &grid_nml
  dynamics_grid_filename       = ${dynamics_grid_filename}
@@ -170,13 +170,11 @@ cat > ${atmo_namelist} << EOF
  dtime                        = ${dtime}    ! timestep in seconds
  ldynamics                    = .TRUE.      ! dynamics
  ltransport                   = .TRUE.
- ntracer                      = 5
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
  msg_level                    = 5           ! default: 5, much more: 20
  ltimer                       = .FALSE.
- timers_level                 = 4
- activate_sync_timers         = .FALSE.
+ timers_level                 = 1
  output                       = "nml"
 /
 &io_nml
@@ -218,8 +216,8 @@ cat > ${atmo_namelist} << EOF
  lmeteogram_enabled= .TRUE.
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
  ninc_mtgrm        = ${ninc_mtgrm}  ! meteogram output interval
- ldistributed      = .false.        ! Lat,Lon
- stationlist_tot   =  50.16,   8.75, 'Offenbach',
+ ldistributed      = .false.
+ stationlist_tot   =  50.16,   8.75, 'Offenbach',                         ! Lat,Lon
                       52.17,  14.12, 'Lindenberg',
                       51.97,   4.93, 'Cabauw',
                      -10.08, -61.93, 'LBA_Rondonia',
@@ -242,11 +240,12 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 10  ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 1   ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
+ icapdcycl                    = 3
  itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  dt_conv                      = ${dtconv}
  dt_sso                       = ${dtconv}
@@ -254,20 +253,33 @@ cat > ${atmo_namelist} << EOF
  dt_rad                       = ${dtrad}
  latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
+ icpl_aero_conv               = 1
+ icpl_aero_gscp               = 1
+/
+&nwp_tuning_nml
+ tune_zceff_min = 0.05  ! ** default value to be used for R3B7; use 0.05 for R2B6 in order to get similar temperature biases in upper troposphere **
+ itune_albedo   = 1     ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
 /
 &turbdiff_nml
  tkhmin                       = 0.75
  tkmmin                       = 0.75
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 9.0
+ rat_sea                      = 8.5
  ltkesso                      = .true.  ! SSO dissipation energy used in TKE equation
+ frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
+ imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
+ ! use horizontal shear production terms with 1/SQRT(Ri) scaling to prevent unwanted side effects:
+ itype_sher = 3    
+ ltkeshs    = .true.
+ a_hshr     = 2.0
+
 /
 &lnd_nml
  ntiles                       = 3
  nlev_snow                    = 3       ! 2 for multi-level snow
  lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
- idiag_snowfrac               = 4
+ idiag_snowfrac               = 2
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
  llake                        = .false.
@@ -301,15 +313,15 @@ cat > ${atmo_namelist} << EOF
  iadv_rcf                     = ${iadv_rcf}
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
- divdamp_order                = 4
- divdamp_type                 = 3
+ divdamp_order                = 24
+ divdamp_type                 = 32
  l_open_ubc                   = .FALSE.
  igradp_method                = 3
  l_zdiffu_t                   = .TRUE.
  thslp_zdiffu                 = 0.02
  thhgtd_zdiffu                = 125.
  htop_moist_proc              = 22500.
- hbot_qvsubstep               = 22500.
+ hbot_qvsubstep               = 19000.
 /
 &sleve_nml
  min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
@@ -331,8 +343,9 @@ cat > ${atmo_namelist} << EOF
 &transport_nml
  ctracer_list                 = '12345'
  ivadv_tracer                 = 3,3,3,3,3
- itype_hlimit                 = 3,4,4,4,4,0
- ihadv_tracer                 = 52,2,2,2,2,0
+ itype_hlimit                 = 3,4,4,4,4
+ ihadv_tracer                 = 52,2,2,2,2
+ iadv_tke                     = 0
 /
 &diffusion_nml
  hdiff_order                  = 5

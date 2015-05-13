@@ -367,9 +367,12 @@ CONTAINS
 
     TYPE(t_distrib_read_data), INTENT(in) :: io_data(:)
 
-    IF (.NOT. ALL(io_data(2:)%basic_data_index == &
-      & io_data(1)%basic_data_index)) &
-      & CALL finish("check_basic_data_index", "basic_data_index do not match")
+    IF (SIZE(io_data) > 1) THEN
+
+      IF (.NOT. ALL(io_data(2:)%basic_data_index == &
+        & io_data(1)%basic_data_index)) &
+        & CALL finish("check_basic_data_index", "basic_data_index do not match")
+    END IF
   END SUBROUTINE check_basic_data_index
 
   !-------------------------------------------------------------------------

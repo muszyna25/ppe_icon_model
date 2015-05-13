@@ -26,7 +26,7 @@ MODULE mo_hydro_ocean_run
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write
+    & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write, surface_module
 ! USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
@@ -49,7 +49,8 @@ MODULE mo_hydro_ocean_run
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: create_restart_file
-  USE mo_ocean_bulk,               ONLY: update_surface_flux
+  USE mo_ocean_bulk,             ONLY: update_surface_flux
+  USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
@@ -211,10 +212,15 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)
       
       !In case of a time-varying forcing:
+      ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
       IF (ltimer) CALL timer_start(timer_upd_flx)
-      CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
-        & jstep, datetime, operators_coefficients)
-      ! update_sfcflx has changed p_prog(nold(1))%h
+      IF (surface_module == 1) THEN
+        CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+          & jstep, datetime, operators_coefficients)
+      ELSEIF (surface_module == 2) THEN
+        CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+          & jstep, datetime, operators_coefficients)
+      ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)
 
       IF (timers_level > 2)  CALL timer_start(timer_extra22)

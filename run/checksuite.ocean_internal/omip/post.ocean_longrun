@@ -60,8 +60,8 @@ $archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNIN
 
 last30YearsMonMeanFile=$($archiver LOG='last30YearsMonMean' | cut -d ':' -f 2)
 
-$iceplotter $last30YearsMonMeanFile nh 2199 ${EXPNAME}_nh.nc
-$iceplotter $last30YearsMonMeanFile sh 2199 ${EXPNAME}_sh.nc
+#$iceplotter $last30YearsMonMeanFile nh 2199 ${EXPNAME}_nh.nc
+#$iceplotter $last30YearsMonMeanFile sh 2199 ${EXPNAME}_sh.nc
 
 check_error $? "${EXPNAME}"
 

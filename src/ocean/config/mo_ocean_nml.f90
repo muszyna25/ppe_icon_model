@@ -60,6 +60,7 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
+  INTEGER :: surface_module = 1  !  surface module - 1: mo_ocean_bulk, 2: mo_ocean_surface
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
   INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
@@ -328,6 +329,7 @@ MODULE mo_ocean_nml
     &                 solver_max_iter_per_restart_sp, &
     &                 solver_tolerance_sp          , &
     &                 threshold_vn                 , &
+    &                 surface_module               , &
     &                 use_continuity_correction    , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &

@@ -39,7 +39,7 @@ MODULE mo_nh_diagnose_pres_temp
   REAL(wp), PARAMETER :: cpd_o_rd  = 1._wp / rd_o_cpd
   REAL(wp), PARAMETER :: grav_o_rd = grav / rd
 
-  PUBLIC :: diagnose_pres_temp
+  PUBLIC :: diagnose_pres_temp, diag_temp, diag_pres
 
 
   CONTAINS
@@ -294,4 +294,131 @@ MODULE mo_nh_diagnose_pres_temp
 
   END SUBROUTINE diagnose_pres_temp
 
+  !!
+  !! Reduced version for pressure diagnosis to be called from within a block loop
+  !!
+  !!
+  SUBROUTINE diag_pres (pt_prog, pt_diag, p_metrics,        &
+                        jb, i_startidx, i_endidx, slev, nlev)
+
+
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
+ 
+    TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
+
+
+    INTEGER, INTENT(IN) :: jb, i_startidx, i_endidx, slev, nlev 
+
+    INTEGER  :: jk,jc
+
+    REAL(wp) :: dz1, dz2, dz3
+
+
+!DIR$ IVDEP
+    DO jc = i_startidx, i_endidx
+      ! Height differences between surface and third-lowest main level
+      dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlev+1,jb)
+      dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
+      dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
+
+      ! Compute surface pressure starting from third-lowest level; this is done
+      ! in order to avoid contamination by sound-wave activity in the presence of strong latent heating
+      pt_diag%pres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(pt_prog%exner(jc,nlev-2,jb)) + &
+        grav_o_rd*(dz1/pt_diag%tempv(jc,nlev,jb) + dz2/pt_diag%tempv(jc,nlev-1,jb) +     &
+        dz3/pt_diag%tempv(jc,nlev-2,jb)) )
+
+      pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
+    ENDDO
+
+
+    !-------------------------------------------------------------------------
+    !> diagnose pressure for physics parameterizations
+    !! this is accomplished by vertical integration of the hydrostatic equation
+    !! because the physics schemes actually need the air mass represented 
+    !! by a given model layer
+    !-------------------------------------------------------------------------
+
+    DO jk = nlev, slev,-1
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
+
+        ! pressure at interface levels
+        pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                  &
+          & *EXP(-grav_o_rd*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%tempv(jc,jk,jb))
+
+        ! pressure at main levels
+        pt_diag%pres(jc,jk,jb) = SQRT(pt_diag%pres_ifc(jc,jk,jb) * &
+                                      pt_diag%pres_ifc(jc,jk+1,jb) )
+
+        ! layer thickness with respect to pressure
+        pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
+                                   - pt_diag%pres_ifc(jc,jk  ,jb)
+
+      ENDDO
+    ENDDO
+
+      
+  END SUBROUTINE diag_pres
+
+  !!
+  !! Reduced version for temperature diagnosis to be called from within a block loop
+  !!
+  !!
+  SUBROUTINE diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,       &
+                        jb, i_startidx, i_endidx, slev, slev_moist, nlev)
+
+
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
+    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog_rcf  !!the prognostic variables which are
+                                                      !! treated with reduced calling frequency
+
+    TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
+
+
+    INTEGER, INTENT(IN) :: jb, i_startidx, i_endidx, slev, slev_moist, nlev 
+
+    INTEGER  :: jk,jc,jt
+
+    REAL(wp) :: z_qsum(nproma,nlev)
+
+    
+    DO jk = slev, slev_moist-1
+      z_qsum(:,jk) = 0._wp
+    ENDDO
+
+    DO jk = slev_moist, nlev
+      DO jc = i_startidx, i_endidx
+        z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+      ENDDO
+    ENDDO
+
+
+    ! Add further hydrometeor species to water loading term if required
+    IF (iqm_max > MAX(iqs,5)) THEN
+      DO jt = iqs+1, iqm_max
+        DO jk = slev_moist, nlev
+          DO jc = i_startidx, i_endidx
+            z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDIF
+
+    DO jk = slev, nlev
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
+        pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
+        pt_diag%temp(jc,jk,jb)  = pt_diag%tempv(jc,jk,jb) /            &
+          ( 1._wp+vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)-z_qsum(jc,jk) )
+      ENDDO
+    ENDDO
+      
+  END SUBROUTINE diag_temp
+
 END MODULE  mo_nh_diagnose_pres_temp
+
