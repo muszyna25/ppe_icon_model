@@ -182,7 +182,7 @@ CONTAINS
     ! - surface latent heat flux from bare soil 
     ! - surface sensible heat flux
     ! - surface moisture flux
-    ! - surface u/v-momentum flux
+    ! - surface u/v-momentum flux (turbulent, sso, resolved)
     !
     ! radiative fluxes
     !------------------
