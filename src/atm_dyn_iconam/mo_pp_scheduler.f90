@@ -186,7 +186,7 @@ MODULE mo_pp_scheduler
   USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var
   USE mo_parallel_config,         ONLY: nproma
   USE mo_cf_convention,           ONLY: t_cf_var
-  USE mo_grib2,                   ONLY: t_grib2_var
+  USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                          &
@@ -1166,7 +1166,7 @@ CONTAINS
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%plevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
           & ldims=shape3d, lrestart=.FALSE. )
@@ -1176,7 +1176,7 @@ CONTAINS
       IF (l_intp_i) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%ilevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
           & ldims=shape3d, lrestart=.FALSE. )

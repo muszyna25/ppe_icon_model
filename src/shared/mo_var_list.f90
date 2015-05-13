@@ -23,7 +23,7 @@ MODULE mo_var_list
        &                           GRID_REGULAR_LONLAT,               &
        &                           CDI_UNDEFID
   USE mo_cf_convention,      ONLY: t_cf_var
-  USE mo_grib2,              ONLY: t_grib2_var
+  USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata_types, ONLY: t_var_metadata, t_union_vals,      &
     &                              t_tracer_meta,                     &
     &                              t_vert_interp_meta,                &
@@ -567,7 +567,7 @@ CONTAINS
     this_info%name                = ''
     !
     this_info%cf                  = t_cf_var('', '', '', -1)
-    this_info%grib2               = t_grib2_var(-1, -1, -1, -1, -1, -1)
+    this_info%grib2               = grib2_var(-1, -1, -1, -1, -1, -1)
     !
     this_info%allocated           = .FALSE.
     this_info%ndims               = 0
