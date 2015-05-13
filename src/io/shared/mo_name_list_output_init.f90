@@ -2659,9 +2659,9 @@ CONTAINS
         ! (i.e. for Ensemble output), that the surface-type information is lost again, if 
         ! these settings are performed prior to "productDefinitionTemplateNumber"  
 
-        DO i=1,info%grib2%grib2_keys%nint_keys
-          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%grib2_keys%int_key(i)%key), &
-            &                    info%grib2%grib2_keys%int_key(i)%val)
+        DO i=1,info%grib2%additional_keys%nint_keys
+          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
+            &                    info%grib2%additional_keys%int_key(i)%val)
         END DO
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys

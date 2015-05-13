@@ -41,7 +41,7 @@ MODULE mo_grib2
     INTEGER :: subgridtype
     
     ! list of additional GRIB2 key/value pairs
-    TYPE (t_grib2_key_list) :: grib2_keys
+    TYPE (t_grib2_key_list) :: additional_keys
   END TYPE t_grib2_var
 
   INTERFACE OPERATOR(+)
@@ -73,7 +73,7 @@ CONTAINS
     grib2_var%gridtype    = gridtype   
     grib2_var%subgridtype = subgridtype
 
-    grib2_var%grib2_keys%nint_keys = 0
+    grib2_var%additional_keys%nint_keys = 0
   END FUNCTION grib2_var
 
   FUNCTION grib2_key_list_plus(a, b)
@@ -84,10 +84,10 @@ CONTAINS
     INTEGER :: i
 
     grib2_key_list_plus = a
-    IF (a%grib2_keys%nint_keys < MAX_INT_KEYS) THEN
-      i = grib2_key_list_plus%grib2_keys%nint_keys
-      grib2_key_list_plus%grib2_keys%nint_keys = i + 1
-      grib2_key_list_plus%grib2_keys%int_key(i+1) = b
+    IF (a%additional_keys%nint_keys < MAX_INT_KEYS) THEN
+      i = grib2_key_list_plus%additional_keys%nint_keys
+      grib2_key_list_plus%additional_keys%nint_keys = i + 1
+      grib2_key_list_plus%additional_keys%int_key(i+1) = b
     END IF
   END FUNCTION grib2_key_list_plus
 
