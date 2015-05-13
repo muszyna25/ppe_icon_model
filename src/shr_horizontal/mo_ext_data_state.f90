@@ -40,18 +40,19 @@ MODULE mo_ext_data_state
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
-    &                              HINTP_TYPE_LONLAT_NNB, MODIS,                                    &
-    &                              SUCCESS
+    &                              HINTP_TYPE_LONLAT_NNB, MODIS, GLOBCOVER2009,                     &
+    &                              GLC2000, SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename,         &
-                                   llake, itype_lndtbl
+                                   isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
+                                   ci_td_filename, llake, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
-    &                              generate_td_filename, extpar_varnames_map_file
+    &                              generate_td_filename, extpar_varnames_map_file, &
+    &                              i_lctype 
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
@@ -73,7 +74,7 @@ MODULE mo_ext_data_state
     &                              add_var, add_ref,            &
     &                              new_var_list,                &
     &                              delete_var_list
-  USE mo_var_metadata_types, ONLY: POST_OP_SCALE
+  USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE 
   USE mo_var_metadata,       ONLY: create_hor_interp_metadata,  &
     &                              post_op, groups
   USE mo_master_nml,         ONLY: model_base_dir
@@ -100,7 +101,6 @@ MODULE mo_ext_data_state
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_master_control,     ONLY: is_restart_run
-  USE mo_real_timer,         ONLY: new_timer, timer_start, timer_stop
   USE mo_cdi_constants,      ONLY: FILETYPE_GRB2, DATATYPE_PACK16, DATATYPE_FLT32, &
     &                              GRID_REFERENCE, TSTEP_CONSTANT, TSTEP_MAX,      &
     &                              TSTEP_AVG, streamOpenRead, streamInqFileType,   &
@@ -273,7 +273,7 @@ CONTAINS
         ELSE
           CALL message( TRIM(routine),'Running with analytical topography' )
         END IF
-        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, cdi_filetype, &
+        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
           &                     extpar_varnames_dict)
       END IF 
 
@@ -281,7 +281,7 @@ CONTAINS
 
       CALL message( TRIM(routine),'Start reading external data from file' )
 
-      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, cdi_filetype, &
+      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
         &                     extpar_varnames_dict)
 
       IF ( iforcing == inwp ) THEN
@@ -440,9 +440,7 @@ CONTAINS
 
     INTEGER :: nlev          !< number of vertical levels
 
-    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
-      &        nblks_e, &    !< number of edge blocks to allocate
-      &        nblks_v       !< number of vertex blocks to allocate
+    INTEGER :: nblks_c       !< number of cell blocks to allocate
 
     INTEGER :: shape2d_c(2)
     INTEGER :: shape3d_c(3)
@@ -457,8 +455,6 @@ CONTAINS
 
     !determine size of arrays
     nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
 
     ! get patch ID
     jg = p_patch%id
@@ -1036,12 +1032,13 @@ CONTAINS
 
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
-      cf_desc    = t_cf_var('tile point land cover class list', '-', &
-        &                   'tile point land cover class list', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      cf_desc    = t_cf_var('tile point land cover class', '-', &
+        &                   'tile point land cover class', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 35, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE. )
+        &           grib2_desc, ldims=shape3d_ntw,                      &
+        &           loutput=.FALSE., lcontainer=.TRUE. )
 
       ! fill the separate variables belonging to the container lc_class_t
       ALLOCATE(p_ext_atm%lc_class_t_ptr(ntiles_total+ntiles_water))
@@ -1049,15 +1046,19 @@ CONTAINS
       WRITE(csfc,'(i2)') jsfc
       CALL add_ref( p_ext_atm_list, 'lc_class_t', 'lc_class_t_'//TRIM(ADJUSTL(csfc)),  &
         &           p_ext_atm%lc_class_t_ptr(jsfc)%p_2d,                               &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+        &           t_cf_var('lc_class_t_'//csfc, '-', '', DATATYPE_FLT32),            &
+        &           t_grib2_var( 2, 0, 35, ibits, GRID_REFERENCE, GRID_CELL),          &
         &           hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB),&
-        &           ldims=shape2d_c, loutput=.TRUE. )
+        &           var_class=CLASS_TILE,                                              &
+        &           ldims=shape2d_c, loutput=.TRUE.,                                   &
+        &           post_op=post_op(POST_OP_LUC, new_cf=cf_desc, arg1=i_lctype(jg)) )
       ENDDO
 
 
 
       ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
-      cf_desc    = t_cf_var('tile point land cover fraction list', '-', &
+      cf_desc    = t_cf_var('lc_frac_t', '-', &
         &                   'tile point land cover fraction list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
@@ -1065,9 +1066,9 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
 
       ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
-      cf_desc    = t_cf_var('tile point area fraction list', '-', &
+      cf_desc    = t_cf_var('frac_t', '-', &
         &                   'tile point area fraction list', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 0, 36, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'frac_t', p_ext_atm%frac_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE.)
@@ -1078,7 +1079,10 @@ CONTAINS
       WRITE(csfc,'(i2)') jsfc
       CALL add_ref( p_ext_atm_list, 'frac_t', 'frac_t_'//TRIM(ADJUSTL(csfc)),  &
         &           p_ext_atm%frac_t_ptr(jsfc)%p_2d,                           &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+        &           t_cf_var('frac_t_'//csfc, '-', '', DATATYPE_FLT32),        &
+        &           t_grib2_var( 2, 0, 36, ibits, GRID_REFERENCE, GRID_CELL),  &
+        &           var_class=CLASS_TILE,                                      &
         &           ldims=shape2d_c, loutput=.TRUE. )
       ENDDO
 
@@ -1596,6 +1600,10 @@ CONTAINS
 
     INTEGER                 :: cdiGridID
 
+    INTEGER :: lu_var_id, localInformationNumber
+    INTEGER :: ret
+    CHARACTER(len=max_char_length) :: rawdata_attr
+
     !---------------------------------------------!
     ! Check validity of external parameter file   !
     !---------------------------------------------!
@@ -1656,6 +1664,44 @@ CONTAINS
       ENDIF      
 
 
+
+      ! Determine which data source has been used to generate the
+      ! external perameters: For NetCDF format, we check the
+      ! global attribute "rawdata". For GRIB2 format we check the
+      ! key "localInformationNumber".
+      IF (has_filetype_netcdf(cdi_filetype)) THEN
+        ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
+        IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
+          i_lctype(jg) = GLC2000
+        ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
+          i_lctype(jg) = GLOBCOVER2009
+        ELSE
+          CALL finish(routine,'Unknown landcover data source')
+        ENDIF
+      ELSE IF (cdi_filetype == FILETYPE_GRB2) THEN
+        lu_var_id              = get_cdi_varID(cdi_extpar_id, 'LU_CLASS_FRACTION')
+        localInformationNumber = vlistInqVarIntKey(vlist_id, lu_var_id, "localInformationNumber")
+        SELECT CASE (localInformationNumber)
+        CASE (2)  ! 2 = GLC2000
+          i_lctype(jg) = GLC2000
+        CASE (1)  ! 1 = ESA GLOBCOVER
+          i_lctype(jg) = GLOBCOVER2009 
+        CASE DEFAULT
+          CALL finish(routine,'Unknown landcover data source')
+        END SELECT
+      END IF
+
+      ! Check whether external parameter file contains MODIS albedo-data
+      IF ( albedo_type == MODIS ) THEN
+        IF ( (test_cdi_varID(cdi_extpar_id, 'ALB')   == -1) .OR.    &
+          &  (test_cdi_varID(cdi_extpar_id, 'ALNID') == -1) .OR.    &
+          &  (test_cdi_varID(cdi_extpar_id, 'ALUVD') == -1) ) THEN
+          CALL finish(routine,'MODIS albedo fields missing in '//TRIM(extpar_filename))
+        ENDIF
+      ENDIF
+
+
+
       ! Search for glacier fraction in Extpar file
       !
       IF (has_filetype_netcdf(cdi_filetype)) THEN
@@ -1682,6 +1728,8 @@ CONTAINS
     CALL p_bcast(nmonths_ext, p_io, mpi_comm)
     ! broadcast is_frglac_in from I-Pe to WORK Pes
     CALL p_bcast(is_frglac_in, p_io, mpi_comm)
+    ! broadcast i_lctype from I-Pe to WORK Pes
+    CALL p_bcast(i_lctype(jg), p_io, mpi_comm)
 
   END SUBROUTINE inquire_extpar_file
 
@@ -1837,38 +1885,31 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !!
   SUBROUTINE read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
-    &                           cdi_filetype, extpar_varnames_dict)
+    &                           extpar_varnames_dict)
 
     TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     INTEGER,               INTENT(IN)    :: nlev_o3
 
     INTEGER,               INTENT(IN)    :: cdi_extpar_id(:)      !< CDI stream ID
-    INTEGER,               INTENT(IN)    :: cdi_filetype(:)       !< CDI filetype
     TYPE (t_dictionary),   INTENT(IN)    :: extpar_varnames_dict  !< variable names dictionary (for GRIB2)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_ext_data_atm'
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
-    CHARACTER(len=max_char_length) :: rawdata_attr
-
     CHARACTER(filename_max) :: sst_td_file !< file name for reading in
-    CHARACTER(filename_max) :: ci_td_file !< file name for reading in
+    CHARACTER(filename_max) :: ci_td_file  !< file name for reading in
 
     INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
     INTEGER :: jk
-    INTEGER :: ncid, varid, vlist_id, ret
+    INTEGER :: ncid, varid
     TYPE(t_stream_id) :: stream_id
 
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk   !> blocks
     INTEGER :: i_startidx, i_endidx   !< slices
     INTEGER :: i_nchdom               !< domain index
-    INTEGER :: lu_var_id, localInformationNumber
-
-    INTEGER :: i_lctype(n_dom) ! stores the landcover classification used for the external parameter data
-                               ! 1: GLC2000, 2: Globcover2009
 
     REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
     REAL(wp):: albfac, albthresh             ! for MODIS albedo tuning
@@ -2051,53 +2092,9 @@ CONTAINS
     IF (itopo == 1 .AND. iforcing == inwp) THEN
       DO jg = 1,n_dom
 
-        IF(my_process_is_stdio()) THEN
-
-          ! Determine which data source has been used to generate the
-          ! external perameters: For NetCDF format, we check the
-          ! global attribute "rawdata". For GRIB2 format we check the
-          ! key "localInformationNumber".
-          vlist_id = streamInqVlist(cdi_extpar_id(jg))
-
-          IF (has_filetype_netcdf(cdi_filetype(jg))) THEN
-            ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
-            IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
-              i_lctype(jg) = 1
-            ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
-              i_lctype(jg) = 2
-            ELSE
-              CALL finish(routine,'Unknown landcover data source')
-            ENDIF
-          ELSE IF (cdi_filetype(jg) == FILETYPE_GRB2) THEN
-            lu_var_id              = get_cdi_varID(cdi_extpar_id(jg), 'LU_CLASS_FRACTION')
-            localInformationNumber = vlistInqVarIntKey(vlist_id, lu_var_id, "localInformationNumber")
-            SELECT CASE (localInformationNumber)
-            CASE (2)  ! 2 = GLC2000
-              i_lctype(jg) = 1
-            CASE (1)  ! 1 = ESA GLOBCOVER
-              i_lctype(jg) = 2 
-            CASE DEFAULT
-              CALL finish(routine,'Unknown landcover data source')
-            END SELECT
-          END IF
-
-          ! Check whether external parameter file contains MODIS albedo-data
-          IF ( albedo_type == MODIS ) THEN
-            IF ( (test_cdi_varID(cdi_extpar_id(jg), 'ALB')   == -1) .OR.    &
-              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALNID') == -1) .OR.    &
-              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALUVD') == -1) ) THEN
-              CALL finish(routine,'MODIS albedo fields missing in '//TRIM(extpar_filename))
-            ENDIF
-          ENDIF
-
-        ENDIF
-
-        ! Broadcast i_lctype from IO-PE to others
-        CALL p_bcast(i_lctype(jg), p_io, mpi_comm)
-
         ! Preset parameter fields with the correct table values
         ilu = 0
-        IF (i_lctype(jg) == 1) THEN
+        IF (i_lctype(jg) == GLC2000) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 21
           ext_data(jg)%atm%i_lc_water    = 20
           ext_data(jg)%atm%i_lc_urban    = 22
@@ -2114,7 +2111,7 @@ CONTAINS
             ext_data(jg)%atm%snowtile_lcc(ilu)    = &
               &          MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
-        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 1) THEN
+        ELSE IF (i_lctype(jg) == GLOBCOVER2009 .AND. itype_lndtbl == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
@@ -2131,7 +2128,7 @@ CONTAINS
             ext_data(jg)%atm%snowtile_lcc(ilu)    = &
               &          MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
-        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 2) THEN ! 
+        ELSE IF (i_lctype(jg) == GLOBCOVER2009 .AND. itype_lndtbl == 2) THEN ! 
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
@@ -2148,7 +2145,7 @@ CONTAINS
             ext_data(jg)%atm%snowtile_lcc(ilu)    = &
               &          MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
-        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 3) THEN ! 
+        ELSE IF (i_lctype(jg) == GLOBCOVER2009 .AND. itype_lndtbl == 3) THEN ! 
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
@@ -2838,6 +2835,13 @@ CONTAINS
 
              ! set surface area index (needed by turbtran)
              ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
+
+             ! set land-cover class for seaice tile
+             ! sea-ice and sea have the same land cover class. This is consistent with the 
+             ! applied GRIB2 tile template, where sea-ice and sea are treated as two 
+             ! attributes of the same tile. Per definition, different attributes of the 
+             ! same tile have the same land-cover class
+             ext_data(jg)%atm%lc_class_t(jc,jb,isub_seaice) = ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)
            ENDIF
 
            !

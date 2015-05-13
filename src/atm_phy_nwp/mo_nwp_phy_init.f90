@@ -23,18 +23,17 @@
 MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi, rad2deg
-  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt, &
+  USE mo_math_constants,      ONLY: rad2deg
+  USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg,         &
     &                               dtdz_standardatm, lh_v=>alv
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
-  USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_vertical_coord_table,ONLY: vct_a, vct
+  USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
@@ -43,16 +42,15 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqh,   &
-    &                               iqnc, iqnr, iqni, iqns, iqng, iqnh,             &
-    &                               inccn, ininpot, msg_level
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqnc,  &
+    &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
     &                               cldopt_filename, icpl_aero_conv
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw 
-  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip, ssi_rce
+  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
     &                               init_aerosol_props_tanre_rg,                    &
@@ -77,7 +75,6 @@ MODULE mo_nwp_phy_init
     &                               su_yoethf,         &
     &                               sucldp, suphli,    &
     &                               suvdf , suvdfs
-  USE mo_convect_tables,      ONLY: init_convect_tables
   ! EDMF DUAL turbulence
   USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg, sussoil
   ! turbulence
@@ -87,11 +84,10 @@ MODULE mo_nwp_phy_init
                                     impl_weight
   USE src_turbdiff,           ONLY: organize_turbdiff
 
-  ! vertical diffusion
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
-    &                               lseaice, isub_water, isub_lake, isub_seaice
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
+    &                               lseaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
@@ -100,7 +96,6 @@ MODULE mo_nwp_phy_init
   USE data_gwd,               ONLY: sugwwms
 
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
-  USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_nwp_parameters,      ONLY: t_phy_params
@@ -303,40 +298,44 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         
         DO jc = i_startidx, i_endidx
           zlat = p_patch%cells%center(jc,jb)%lat
-          p_prog_lnd_now%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
-          p_prog_lnd_new%t_g (jc,jb) = ape_sst(ape_sst_case,zlat) ! set SST
+          p_prog_lnd_now%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat) ! set SST
+          p_prog_lnd_new%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat)
+          p_prog_lnd_now%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
           ! Humidity at water surface = humidity at saturation
-          p_diag_lnd%qv_s    (jc,jb) = &
-  !      & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+          p_diag_lnd%qv_s(jc,jb)     = &
+            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
-!        IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
-!          DO jc = i_startidx, i_endidx
-!            zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
-!          ENDDO
-!        END IF
 
-      ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN !
+      ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN
  
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
                     ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
-          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
-         p_diag_lnd%qv_s     (jc,jb) = &
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+ 
+          p_diag_lnd%qv_s     (jc,jb) = &
+            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
           p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
-                                     &     p_prog_now%tracer(jc,nlev,jb,iqv)) 
+            &   p_prog_now%tracer(jc,nlev,jb,iqv))
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
       ELSE IF (ltestcase .AND. nh_test_name == 'CBL' .OR. nh_test_name == 'RCE'  &
                & .OR. nh_test_name == 'RCE_CBL' ) THEN !
  
         DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g (jc,jb) = th_cbl(1)
-          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
-         p_diag_lnd%qv_s     (jc,jb) = &
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
+          p_prog_lnd_new%t_g  (jc,jb)   = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+          p_diag_lnd%qv_s(jc,jb)     = &
+            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
       ELSE IF (ltestcase) THEN ! any other testcase
@@ -346,104 +345,103 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         ! KF increase the surface values to obtain fluxes          
 
         DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
-          p_prog_lnd_new%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_now%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_new%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
+          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
           ! KF NOTE: as long as we have only water as lower boundary
           ! this is the same setting as for APE
-         p_diag_lnd%qv_s    (jc,jb) = &
-!                & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
-        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-
+          p_diag_lnd%qv_s    (jc,jb) = &
+            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
       ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
 
-         ! t_g:
-         ! Note, that in copy_prepicon2prog the entire t_g field is initialized with 
-         ! t_skin.
-         ! Here, t_g is re-initialized over open water points with t_seasfc.
-         ! Thus:
-         ! t_g = tskin (from IFS), for land and seaice points
-         ! t_g = t_seasfc for open water and lake points
-         !
-         ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
-         !
-         ! qv_s:
-         ! Over the sea and over the ice, qv_s is set to the saturated value
-         ! Over the land we take the minimum of the saturated value and the value 
-         ! at the first main level above ground
-         !
+        ! t_g:
+        ! Note, that in copy_prepicon2prog the entire t_g field is initialized with 
+        ! t_skin.
+        ! Here, t_g is re-initialized over open water points with t_seasfc.
+        ! Thus:
+        ! t_g = tskin (from IFS), for land and seaice points
+        ! t_g = t_seasfc for open water and lake points
+        !
+        ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
+        !
+        ! qv_s:
+        ! Over the sea and over the ice, qv_s is set to the saturated value
+        ! Over the land we take the minimum of the saturated value and the value 
+        ! at the first main level above ground
+        !
 
-         !t_g_t and qv_s_t are initialized in read_dwdfg_sfc, calculate the aggregated values 
-         ! needed for example for initializing the turbulence fields
-         IF (init_mode /= MODE_IFSANA) THEN
+        !t_g_t and qv_s_t are initialized in read_dwdfg_sfc, calculate the aggregated values 
+        ! needed for example for initializing the turbulence fields
+        IF (init_mode /= MODE_IFSANA) THEN
           CALL aggregate_tg_qvs( p_patch, ext_data, p_prog_lnd_now , &
           &                           p_diag_lnd )    
           DO jc = i_startidx, i_endidx
-           p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
           ENDDO
 
           DO jt = 1, ntiles_total+ntiles_water          
-           DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
-           END DO
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
+            END DO
           END DO
+        END IF  ! init_mode /= MODE_IFSANA
 
-         END IF
-
-         ! t_g_t  qv_s and qv_s_t are not initialized in case of MODE_IFSANA
-         IF (init_mode == MODE_IFSANA) THEN
+        ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
+        IF (init_mode == MODE_IFSANA) THEN
           DO ic=1, ext_data%atm%spw_count(jb)
-           jc = ext_data%atm%idx_lst_spw(ic,jb)
-           IF (lseaice) THEN
-             ! all points are open water points
-             p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
-           ELSE
-             ! only points with fr_seaice(jc,jb) <= 0.5_wp are open water points and thus 
-             ! re-initialized with t_seasfc
-             IF (p_diag_lnd%fr_seaice(jc,jb) <= 0.5_wp) THEN   ! water point
-               p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
-             ENDIF
-           ENDIF
+            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            IF (lseaice) THEN
+              ! all points are open water points
+              p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+            ELSE
+              ! only points with fr_seaice(jc,jb) <= 0.5_wp are open water points and thus 
+              ! re-initialized with t_seasfc
+              IF (p_diag_lnd%fr_seaice(jc,jb) <= 0.5_wp) THEN   ! water point
+                p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+              ENDIF
+            ENDIF
             p_diag_lnd%qv_s    (jc,jb)    = &
-             & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+              & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
           DO ic=1, ext_data%atm%spi_count(jb)
-           jc = ext_data%atm%idx_lst_spi(ic,jb)
-           p_diag_lnd%qv_s    (jc,jb)    = &
-            & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+            jc = ext_data%atm%idx_lst_spi(ic,jb)
+            p_diag_lnd%qv_s    (jc,jb)    = &
+              & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
           DO ic=1, ext_data%atm%fp_count(jb)
-           jc = ext_data%atm%idx_lst_fp(ic,jb)
-           p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
-           p_diag_lnd%qv_s    (jc,jb)    = &
-            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+            jc = ext_data%atm%idx_lst_fp(ic,jb)
+            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+            p_diag_lnd%qv_s    (jc,jb)    = &
+              & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
           DO ic=1, ext_data%atm%lp_count(jb)
-           jc = ext_data%atm%idx_lst_lp(ic,jb)
-           p_diag_lnd%qv_s(jc,jb) = &
-             &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
-           p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
-             &                    p_prog_now%tracer(jc,nlev,jb,iqv)) 
+            jc = ext_data%atm%idx_lst_lp(ic,jb)
+            p_diag_lnd%qv_s(jc,jb) = &
+              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+            p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
+              &                    p_prog_now%tracer(jc,nlev,jb,iqv)) 
           END DO
     
           DO jc = i_startidx, i_endidx
-           p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
           ENDDO
 
 
           DO jt = 1, ntiles_total+ntiles_water
           
-           DO jc = i_startidx, i_endidx
-          
-            p_prog_lnd_now%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
-            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
-            p_diag_lnd%qv_s_t(jc,jb,jt) = p_diag_lnd%qv_s(jc,jb)
-           ENDDO
-         ENDDO
-        END IF
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_now%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+              p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+              p_diag_lnd%qv_s_t(jc,jb,jt) = p_diag_lnd%qv_s(jc,jb)
+            ENDDO
+          ENDDO
+        END IF  ! init_mode == MODE_IFSANA
       ENDIF
 
       ! Copy t_g to t_seasfc for idealized cases with surface scheme (would be undefined otherwise)

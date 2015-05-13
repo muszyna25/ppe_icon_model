@@ -55,7 +55,7 @@ MODULE mo_nwp_diagnosis
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
   USE mo_util_phys,          ONLY: calsnowlmt
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
-  USE mo_datetime,           ONLY: date_to_time, rdaylen
+  USE mo_datetime,           ONLY: date_to_time
   USE mo_time_config,        ONLY: time_config
   USE mo_exception,          ONLY: finish
   USE mo_math_constants,     ONLY: pi

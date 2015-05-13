@@ -47,7 +47,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_data_flake,          ONLY: h_Ice_min_flk
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, lh_v=>alv
+  USE mo_physical_constants,  ONLY: tmelt
   USE mo_data_turbdiff,       ONLY: itype_tran
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 

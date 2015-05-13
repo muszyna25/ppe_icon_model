@@ -168,6 +168,9 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("typeOfFirstFixedSurface")
     CALL cdiDefAdditionalKey("typeOfGeneratingProcess")
     CALL cdiDefAdditionalKey("backgroundProcess")
+    CALL cdiDefAdditionalKey("totalNumberOfTileAttributePairs")
+    CALL cdiDefAdditionalKey("tileIndex")
+    CALL cdiDefAdditionalKey("tileAttribute")
 
 
     ! -----------------------------------------------

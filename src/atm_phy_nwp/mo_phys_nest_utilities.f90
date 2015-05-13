@@ -138,7 +138,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   TYPE(t_grid_cells), POINTER     :: p_gcp
   TYPE(t_gridref_state), POINTER  :: p_grf
   TYPE(t_patch),      POINTER     :: p_pp
-  TYPE(t_nh_diag),    POINTER     :: p_diag 
 
   ! Indices
   INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, &
