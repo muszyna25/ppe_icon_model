@@ -37,6 +37,7 @@ MODULE mo_run_config
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
   PUBLIC :: iqtke
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
+  PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Running index for Volcanic Ash in ICON-ART
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0,idust_act       !Running index for mineral dust in ICON-ART
@@ -144,6 +145,12 @@ MODULE mo_run_config
     INTEGER :: iash4        !< Volcanic ash, fourth class
     INTEGER :: iash5        !< Volcanic ash, fifth class
     INTEGER :: iash6        !< Volcanic ash, sixth class
+    INTEGER :: iasha        !< Volcanic ash Mode A Mass Density
+    INTEGER :: iashb        !< Volcanic ash Mode B Mass Density
+    INTEGER :: iashc        !< Volcanic ash Mode C Mass Density
+    INTEGER :: iasha0       !< Volcanic ash Mode A Number Density
+    INTEGER :: iashb0       !< Volcanic ash Mode B Number Density
+    INTEGER :: iashc0       !< Volcanic ash Mode C Number Density
     INTEGER :: iCS137       !< radioactive nuclides
     INTEGER :: iI131        !<
     INTEGER :: iTE132       !< 

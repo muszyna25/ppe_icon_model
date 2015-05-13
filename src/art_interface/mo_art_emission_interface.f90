@@ -41,13 +41,15 @@ MODULE mo_art_emission_interface
   USE mo_parallel_config,               ONLY: nproma
   USE mo_exception,                     ONLY: finish
   USE mo_nonhydro_types,                ONLY: t_nh_state
+ ! USE mo_nonhydro_state,                ONLY: p_nh_state  ??????????????????????? wird unten übergeben
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart,                         &
                                           &   iCS137,iI131,iTE132,          &
                                           &   iZR95,iXE133,iI131g,          &
-                                          &   iI131o,iBA140,iRU103
+                                          &   iI131o,iBA140,iRU103,         &
+										  &   iasha, iashb, iashc
   USE mo_datetime,                      ONLY: t_datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
@@ -60,7 +62,8 @@ MODULE mo_art_emission_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
-  USE mo_art_emission_volc,             ONLY: art_organize_emission_volc
+  USE mo_art_emission_volc_mod,         ONLY: art_prepare_emission_volc, &
+                                          &   art_calculate_emission_volc
   USE mo_art_radioactive,               ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson, &
                                           &   art_seas_emiss_monahan, &
@@ -164,6 +167,17 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                  &      'ART: Unknown dust emissions configuration')
         end select
         
+		select case(art_config(jg)%iart_volcano)
+          case(0)
+            ! Nothing to do, no volcano emissions
+          case(1)
+            ! bulk emissions see below
+          case(2)
+            CALL art_prepare_emission_volc(jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),p_art_data(jg)%volc_data)
+          case default
+            CALL finish('mo_art_emission_interface:art_emission_interface', &
+                 &      'ART: Unknown volc emissions configuration')
+        end select
         ! ----------------------------------
         ! --- Call the emission routines
         ! ----------------------------------
@@ -205,7 +219,19 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:,nlev))
-              end select
+			    case ('asha')
+                  CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),  &
+				    &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%volc_data,          &
+					&             iasha, emiss_rate(:,:) )
+                case ('ashb')
+                  CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),  &
+				    &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%volc_data,          &
+					&             iashb, emiss_rate(:,:) )
+				case ('ashc')
+                  CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),  &
+				    &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%volc_data,          &
+					&             iashc, emiss_rate(:,:) )
+				end select
               
               ! Update mass mixing ratios
               DO ijsp = 1, fields%info%njsp
