@@ -340,7 +340,6 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER :: &
       & lsmask(:,:),        &!< land-sea mask. (1. = land, 0. = sea/lakes) (slm in memory_g3b)
       & glac  (:,:),        &!< fraction of land covered by glaciers (glac in memory_g3b)
-!      & seaice(:,:),        &!< ice cover given as the fraction of (1- slm) (seaice in memory_g3b)
       & icefrc(:,:),        &!< ice cover given as the fraction of grid box (friac  in memory_g3b)
       & tsfc_tile (:,:,:),  &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
       & tsfc      (:,  :),  &!< surface temperature, grid box mean
@@ -1073,22 +1072,22 @@ CONTAINS
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=shapeice)
+      &          ldims=shapeice, lrestart=.TRUE.)
     CALL add_var( field_list, prefix//'T2', field%T2 ,                        &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=shapeice)
+      &          ldims=shapeice, lrestart=.TRUE.)
     CALL add_var( field_list, prefix//'hi', field%hi ,                        &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),        &
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=shapeice)
+      &          ldims=shapeice, lrestart=.TRUE.)
     CALL add_var( field_list, prefix//'hs', field%hs ,                        &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),       &
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=shapeice)
+      &          ldims=shapeice, lrestart=.TRUE.)
     CALL add_var( field_list, prefix//'Qtop', field%Qtop ,                    &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
@@ -1106,7 +1105,7 @@ CONTAINS
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=shapeice)
+      &          ldims=shapeice, lrestart=.TRUE.)
 
     ! &       field% albvisdir_ice (nproma,field%kice,nblks),          &
     cf_desc    = t_cf_var('albvisdir_ice', '', 'ice albedo VIS direct', DATATYPE_FLT32)
@@ -1626,14 +1625,18 @@ CONTAINS
       ! &       field% ocu    (nproma,nblks),                &
       cf_desc    = t_cf_var('ocean_sfc_u', '', '', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, iextbits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, prefix//'ocu', field%ocu,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+      CALL add_var( field_list, prefix//'ocu', field%ocu, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,   &
+        &           cf_desc, grib2_desc, ldims=shape2d,   &
+        &           lrestart=.TRUE. )
 
       ! &       field% ocv    (nproma,nblks),                &
       cf_desc    = t_cf_var('ocean_sfc_v', '', '', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, iextbits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, prefix//'ocv', field%ocv,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+      CALL add_var( field_list, prefix//'ocv', field%ocv, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,   &
+        &           cf_desc, grib2_desc, ldims=shape2d,   &
+        &           lrestart=.TRUE. )
 
     !-----------------------
     ! Surface
@@ -1672,8 +1675,10 @@ CONTAINS
     cf_desc    = t_cf_var('sea_ice_cover', '', 'fraction of ocean covered by sea ice', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'seaice', field%seaice,                 &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'seaice', field%seaice, &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,         &
+      &           cf_desc, grib2_desc, ldims=shape2d,         &
+      &           lrestart=.TRUE. )
 
     ! &       field% alake (nproma, nblks),                 &
     cf_desc    = t_cf_var('alake', '', 'fraction of lakes', &
@@ -1702,7 +1707,6 @@ CONTAINS
                 & t_cf_var('tsfc_tile', '', 'skin temperature', DATATYPE_FLT32), &
                 & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
-!                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
                 & lcontainer=.TRUE., lrestart=.FALSE.         )
 
     ALLOCATE(field%tsfc_tile_ptr(ksfc_type))
@@ -1713,7 +1717,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('tsfc_tile_'//csfc, '', '', DATATYPE_FLT32),        &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-                  & ldims=shape2d )
+                  & ldims=shape2d, lrestart=.TRUE. )
     END DO
     !-----------------------------------
 
