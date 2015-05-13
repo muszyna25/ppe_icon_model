@@ -40,6 +40,7 @@ MODULE mo_nonhydro_types
   PUBLIC :: t_nh_ref              ! state vector of reference state (type)
   PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
   PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
+  PUBLIC :: t_nh_state_lists      ! lists for state vector of nonhydrostatic variables (type)
 
 
 
@@ -373,20 +374,24 @@ MODULE mo_nonhydro_types
 
     !array of prognostic states at different timelevels
     TYPE(t_nh_prog),  ALLOCATABLE :: prog(:)       !< shape: (timelevels)
-    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
-
     TYPE(t_nh_diag)    :: diag
-    TYPE(t_var_list)   :: diag_list
-
     TYPE(t_nh_ref)     :: ref
-    TYPE(t_var_list)   :: ref_list
-
     TYPE(t_nh_metrics) :: metrics
-    TYPE(t_var_list)   :: metrics_list
-
-    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
 
   END TYPE t_nh_state
+
+  TYPE t_nh_state_lists
+
+    ! array of prognostic state lists at different timelevels
+    ! splitting this out of t_nh_state allows for a deep copy 
+    ! of the p_nh_state variable to accelerator devices with OpenACC
+    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
+    TYPE(t_var_list)   :: diag_list
+    TYPE(t_var_list)   :: ref_list
+    TYPE(t_var_list)   :: metrics_list
+    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
+
+  END TYPE t_nh_state_lists
 
 
 END MODULE mo_nonhydro_types

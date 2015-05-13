@@ -79,7 +79,7 @@
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &
       &                               GRID_CELL, ZA_SURFACE,                                &
       &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
-    USE mo_nonhydro_state,      ONLY: p_nh_state
+    USE mo_nonhydro_state,      ONLY: p_nh_state_lists
     USE mo_var_list,            ONLY: add_var
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
@@ -353,7 +353,7 @@
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-            CALL add_var( p_nh_state(jg)%diag_list,                             &
+            CALL add_var( p_nh_state_lists(jg)%diag_list,                             &
               &           "aw", p_dummy,                                        &
               &           GRID_REGULAR_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
