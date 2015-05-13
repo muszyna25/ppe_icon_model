@@ -794,7 +794,7 @@ CONTAINS
       !
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%seaice(:,:))
+      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
       prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
