@@ -31,6 +31,7 @@ USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, &
                                   p_grf_state, p_grf_state_local_parent
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
 USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_nwp_lnd_state,       ONLY: p_lnd_state
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
@@ -39,7 +40,7 @@ USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_nonhydro_types,      ONLY: t_nh_diag
-USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest
+USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest, dzsoil
 USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1
 USE mo_satad,               ONLY: qsat_rho
 USE mo_loopindices,         ONLY: get_indices_c
@@ -49,6 +50,7 @@ USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
 USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+USE mo_phyparam_soil,       ONLY: cadp
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 
 IMPLICIT NONE
@@ -1885,13 +1887,14 @@ END SUBROUTINE downscale_rad_output_rg
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE interpol_phys_grf (jg,jgc,jn)
+SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
   USE mo_nwp_phy_state,      ONLY: prm_diag
   USE mo_nonhydro_state,     ONLY: p_nh_state
 
   ! Input:
-  INTEGER, INTENT(in) :: jg,jgc,jn
+  TYPE(t_external_data), INTENT(in) :: ext_data(:)
+  INTEGER              , INTENT(in) :: jg,jgc,jn
 
   ! Pointers
   TYPE(t_patch),                POINTER :: ptr_pp
@@ -1907,6 +1910,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   INTEGER, PARAMETER  :: nfields_l2=12   ! Number of 2D land state fields
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk, nlev_c
+  INTEGER :: styp                        ! soiltype at child level
 
   LOGICAL :: lsfc_interp
 
@@ -2118,7 +2122,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,styp) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -2234,6 +2238,16 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
         DO jc = i_startidx, i_endidx
           ptr_ldiagc%t_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+1,jb) 
           ptr_ldiagc%w_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+2,jb) 
+          !
+          ! Make sure that aggregated w_so is always larger than air dryness point 
+          ! at points where the soiltype allows infiltration of water.
+          ! Same ad hoc fix as in mo_nwp_sfc_utils:aggregate_landvars
+          ! w_so_ice is neglected
+          styp = ext_data(jgc)%atm%soiltyp(jc,jb)
+          IF ( (styp>=3) .AND. (styp<=8)) THEN   ! 3:sand; 8:peat
+            ptr_ldiagc%w_so(jc,jk,jb) = MAX(ptr_ldiagc%w_so(jc,jk,jb),dzsoil(jk)*cadp(styp))
+          ENDIF
+          !
           ptr_ldiagc%w_so_ice(jc,jk,jb) = z_aux3dso_c(jc,3*(jk-1)+3,jb) 
         ENDDO
       ENDDO

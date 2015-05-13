@@ -66,8 +66,6 @@ MODULE mo_advection_stepping
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
-  USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
-  USE mo_exception,           ONLY: finish
 
   IMPLICIT NONE
 
@@ -126,7 +124,7 @@ CONTAINS
     &                        p_w_contra_traj, p_cellhgt_mc_now, p_delp_mc_new,    &
     &                        p_delp_mc_now, p_grf_tend_tracer, p_tracer_new,      &
     &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
-    &                        opt_rho_incr, opt_rho, opt_q_int, opt_ddt_tracer_adv )
+    &                        opt_q_int, opt_ddt_tracer_adv )
   !
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
@@ -204,14 +202,6 @@ CONTAINS
                                         !< HA: [Pa/s]
                                         !< dim: (nproma,nblks_c,ntracer)
 
-    REAL(wp), INTENT(IN), OPTIONAL:: &  !< density increment from data assimilation 
-      &  opt_rho_incr(:,:,:)            !< NH: [kg/m**3/s]
-                                        !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), POINTER, OPTIONAL:: &  !< air density at time step nnew
-      &  opt_rho(:,:,:)                 !< NH: [kg/m**3]
-                                        !< dim: (nproma,nlev,nblks_c)
-
     REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
       &  opt_q_int(:,:,:)               !< NH: [kg/kg]
                                         !< HA: [kg/kg]
@@ -288,12 +278,6 @@ CONTAINS
       l_parallel = .FALSE.
     ELSE
       l_parallel = .TRUE.
-    ENDIF
-
-    ! In IAU mode, air density and air density increment must be passed
-    IF (is_iau_active) THEN
-      IF (.NOT. PRESENT(opt_rho) .OR. .NOT. PRESENT(opt_rho_incr)) &
-        CALL finish('step_advection','IAU mode requires optional arguments rho and rho_incr')
     ENDIF
 
     ! line and block indices of edges as seen from cells
@@ -595,16 +579,6 @@ CONTAINS
 
           ENDDO
         ENDDO
-
-        IF (is_iau_active) THEN ! apply correction for approximate tracer mass consistency
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              p_tracer_new(jc,jk,jb,jt) = p_tracer_new(jc,jk,jb,jt) + &
-                p_tracer_now(jc,jk,jb,jt)*iau_wgt_adv*opt_rho_incr(jc,jk,jb)/opt_rho(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ENDIF
 
         ! set tracer(nnew) to tracer(nnow) where advection is turned off
         DO jk = 1, advection_config(jg)%iadv_slev(jt)-1

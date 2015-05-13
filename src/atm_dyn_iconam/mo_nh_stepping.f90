@@ -1277,8 +1277,6 @@ MODULE mo_nh_stepping
             &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
             &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
             &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
-            &          opt_rho_incr=p_nh_state(jg)%diag%rho_incr,            & !in
-            &          opt_rho=p_nh_state(jg)%prog(nnew(jg))%rho,            & !in
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
@@ -2190,7 +2188,7 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        CALL interpol_phys_grf(jg, jgc, jn) 
+        CALL interpol_phys_grf(ext_data, jg, jgc, jn) 
 
         IF (lfeedback(jgc) .AND. ifeedback_type==1) CALL feedback_phys_diag(jgc, jg)
 

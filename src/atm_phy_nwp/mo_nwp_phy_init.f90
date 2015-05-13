@@ -560,6 +560,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
                &                i_startidx, i_endidx, rl_start, rl_end)
           DO jk=1,nlev
              DO jc=i_startidx,i_endidx
+                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
                 p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
                 p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
                 p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
@@ -584,6 +585,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
                &                i_startidx, i_endidx, rl_start, rl_end)
           DO jk=1,nlev
              DO jc=i_startidx,i_endidx
+                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
                 p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
                 p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
                 p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
