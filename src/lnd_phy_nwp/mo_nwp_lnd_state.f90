@@ -358,9 +358,6 @@ MODULE mo_nwp_lnd_state
          &                 "mode_combined_in","mode_cosmode_in") ) 
 
 
-    IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0 ) THEN
-
-
     ! & p_prog_lnd%t_g_t(nproma,nblks_c,ntiles_total+ntiles_water), STAT = ist)
     cf_desc    = t_cf_var('t_g_t', 'K', 'weighted surface temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
@@ -385,6 +382,7 @@ MODULE mo_nwp_lnd_state
                & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
       ENDDO
 
+    IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0 ) THEN
 
     ! & p_prog_lnd%t_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('t_s_t', 'K', 'temperature of ground surface', DATATYPE_FLT32)
@@ -1085,8 +1083,6 @@ MODULE mo_nwp_lnd_state
 
 
 
-    IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN
-
     ! & p_diag_lnd%qv_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('qv_s_t', 'kg/kg', 'specific humidity at the surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1111,7 +1107,7 @@ MODULE mo_nwp_lnd_state
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
-
+    IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN
 
     ! & p_diag_lnd%t_s(nproma,nblks_c)
     cf_desc    = t_cf_var('t_s', 'K', 'weighted temperature of ground surface', DATATYPE_FLT32)
