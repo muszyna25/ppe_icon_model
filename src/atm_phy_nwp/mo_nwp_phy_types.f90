@@ -133,6 +133,8 @@ MODULE mo_nwp_phy_types
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
+      &   cape_ml (:,:),       & !! convective available energy of mean surface layer parcel
+      &   cin_ml  (:,:),       & !! convective inhibition of mean surface layer parcel
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
                                  !! 1= convective updraft mass flux (pmfu)

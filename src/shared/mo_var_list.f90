@@ -3150,12 +3150,14 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
-    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
-      ! automatically add tile to its variable specific tile-group
-      CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
-      !
-      ! update in_group metainfo
-      CALL set_var_metadata (new_list_element%field%info, in_group=in_group_new)
+    IF (PRESENT(var_class)) THEN
+      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+        ! automatically add tile to its variable specific tile-group
+        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        !
+        ! update in_group metainfo
+        CALL set_var_metadata (new_list_element%field%info, in_group=in_group_new)
+      ENDIF
     END IF
     !
     ref_info%ndims = 3
@@ -3328,12 +3330,14 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
-    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
-      ! automatically add tile to its variable specific tile-group
-      CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
-      !
-      ! update in_group metainfo
-      CALL set_var_metadata (new_list_element%field%info, in_group=in_group_new)
+    IF (PRESENT(var_class)) THEN
+      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+        ! automatically add tile to its variable specific tile-group
+        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        !
+        ! update in_group metainfo
+        CALL set_var_metadata (new_list_element%field%info, in_group=in_group_new)
+      ENDIF
     END IF
     !
     ref_info%ndims = 2
@@ -3505,12 +3509,14 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
-    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
-      ! automatically add tile to its variable specific tile-group
-      CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
-      !
-      ! update in_group metainfo
-      CALL set_var_metadata (new_list_element%field%info, in_group=in_group_new)
+    IF (PRESENT(var_class)) THEN
+      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+        ! automatically add tile to its variable specific tile-group
+        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        !
+        ! update in_group metainfo
+        CALL set_var_metadata (new_list_element%field%info, in_group=in_group_new)
+      ENDIF
     END IF
     !
     ref_info%ndims = 2

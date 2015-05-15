@@ -108,10 +108,11 @@ MODULE mo_name_list_output_types
   INTEGER          , PARAMETER :: second_tos(10)    =(/101, 101, 101, 101, 101, 1, 101, 162, 165, 101/)
 
   ! fields for which typeOfFirstFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: ffs_name_list(4) =(/"t_mnw_lk    ", "depth_lk    ", &
-    &                                                 "t_wml_lk    ", "h_ml_lk     "/)
+  CHARACTER(LEN=12), PARAMETER :: ffs_name_list(6) =(/"t_mnw_lk    ", "depth_lk    ", &
+    &                                                 "t_wml_lk    ", "h_ml_lk     ", &
+    &                                                 "cape_ml     ", "cin_ml      "/)
   ! typeOfFirstFixedSurface to be used
-  INTEGER          , PARAMETER :: first_tos(4)    =(/1, 1, 1, 1/)
+  INTEGER          , PARAMETER :: first_tos(6)    =(/1, 1, 1, 1, 192, 192/)
 
   ! The following parameter decides whether physical or logical patches are output
   ! and thus whether the domain number in output name lists pertains to physical
