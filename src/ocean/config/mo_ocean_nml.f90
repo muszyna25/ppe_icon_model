@@ -60,6 +60,7 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
+  INTEGER :: surface_module = 1  !  surface module - 1: mo_ocean_bulk, 2: mo_ocean_surface
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
   INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
@@ -86,7 +87,9 @@ MODULE mo_ocean_nml
                       ! i_bc_veloc_lateral = 1: boundary condition for velocity is free-slip: 
                       !                         normal velocity components at lateral boundariea is
                       !                         set to zero, tangential not.
-  INTEGER            :: i_bc_veloc_lateral = 0   
+  INTEGER,PARAMETER  :: i_bc_veloc_lateral_noslip   = 0                         
+  INTEGER,PARAMETER  :: i_bc_veloc_lateral_freeslip = 1                           
+  INTEGER            :: i_bc_veloc_lateral = i_bc_veloc_lateral_noslip   
 
   INTEGER            :: i_bc_veloc_top = 1  !Top boundary condition for velocity: 
                                             ! i_bc_veloc_top =0 : zero value at top boundary,no wind stress
@@ -107,7 +110,14 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: i_post_step   =2
   !default value
   INTEGER :: tracer_update_mode = i_post_step
+
+  !Options for non-linear corilois term in vector invariant velocity equations
+  INTEGER            :: NONLINEAR_CORIOLIS            =200
+  INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
+  INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
   
+  LOGICAL :: l_ANTICIPATED_VORTICITY  = .FALSE.
+
   !Identifiers for advection schemes
   INTEGER, PARAMETER :: upwind                     = 1
   INTEGER, PARAMETER :: central                    = 2  
@@ -198,7 +208,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: implicit_diffusion = 1
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
   INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
-  INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
+  INTEGER  :: HorizontalViscosity_type  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
@@ -207,27 +217,6 @@ MODULE mo_ocean_nml
                                                  !1: Laplace=curlcurl-graddiv
                                                  !2: Laplace=div k  grad
                                                  !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
-  REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
-  REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
-  REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
-  REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
-  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity  
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
-  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
-  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
-  REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
-                                      !has to be adjusted for each resolution, the bigger this number 
-                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
-                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
-                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
-                                        !with option HORZ_VELOC_DIFF_TYPE=3. Constanjt has no physical meaning, just trial and error.
-  INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure                                               
-  REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure                                                 
-  LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
 
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
                                                  ! 2-dimensional surface relaxation of temperature and salinity:
@@ -249,6 +238,7 @@ MODULE mo_ocean_nml
                                                  ! 1=full varying Coriolis
                                                  ! 2=beta-plane (linear) approximation to Coriolis
                                                  ! 3=f-plane (constant) approximation to Coriolis
+  REAL(wp) :: coriolis_fplane_latitude = 0.0_wp
   ! The variables below are used to set up in basin configuration the Coriolis (f/beta-plane) and
   !   to adjust the analytic wind forcing, units are degrees
   REAL(wp) :: basin_center_lat      = 30.0_wp    ! lat coordinate of basin center
@@ -314,6 +304,7 @@ MODULE mo_ocean_nml
     &                 cfl_stop_on_violation        , &
     &                 cfl_threshold                , &
     &                 coriolis_type                , &
+    &                 coriolis_fplane_latitude       , &
     &                 dhdtw_abort                  , &
     &                 discretization_scheme        , &
     &                 dzlev_m                      , &
@@ -338,11 +329,13 @@ MODULE mo_ocean_nml
     &                 solver_max_iter_per_restart_sp, &
     &                 solver_tolerance_sp          , &
     &                 threshold_vn                 , &
+    &                 surface_module               , &
     &                 use_continuity_correction    , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
     &                 fast_performance_level       , &
-    &                 MASS_MATRIX_INVERSION_TYPE
+    &                 MASS_MATRIX_INVERSION_TYPE   , &
+    &                 NONLINEAR_CORIOLIS
 
 
   NAMELIST/ocean_tracer_transport_nml/&
@@ -369,10 +362,36 @@ MODULE mo_ocean_nml
 
   REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
   REAL(wp) :: RichardsonDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
+  REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
+  REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
+  REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
+  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
+  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
+  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
+  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
+                                        !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
+  INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
+  REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
+  REAL(wp) :: HorizontalViscosityBackground_Biharmonic = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
+                                      !has to be adjusted for each resolution, the bigger this number
+                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
+                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
+                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+  INTEGER  :: HorizontalViscosity_SmoothIterations = 1
+  REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
+  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
-    &  HORZ_VELOC_DIFF_TYPE        ,    &
-    &  biharmonic_diffusion_factor ,    &
+    &  HorizontalViscosity_type,    &
+    &  HorizontalViscosity_SmoothIterations,       &
+    &  HorizontalViscosity_SpatialSmoothFactor,    &
+    &  HorizontalViscosityBackground_Biharmonic,   &
+    &  VerticalViscosity_TimeWeight,  &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
     &  k_sal_h                     ,    &
@@ -381,7 +400,6 @@ MODULE mo_ocean_nml
     &  k_veloc_v                   ,    &
     &  MAX_VERT_DIFF_TRAC          ,    &
     &  MAX_VERT_DIFF_VELOC         ,    &
-    &  l_smooth_veloc_diffusion    ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
     &  k_tracer_dianeutral_parameter,   &
@@ -420,8 +438,10 @@ MODULE mo_ocean_nml
                                                  ! mo_ocean_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PPoptimized_type    = 1
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_type    = 1
   INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_vnPredict_type = 4
   INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
   REAL(wp) :: lambda_wind           = 0.03_wp    !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
@@ -652,6 +672,9 @@ MODULE mo_ocean_nml
 
   NAMELIST/octst_nml/  h_val, t_val, rlat_in, rlon_in
 
+  ! namelist diagnostics
+  LOGICAL :: use_omip_windstress, use_omip_fluxes, use_omip_forcing
+
   CONTAINS
 
  !-------------------------------------------------------------------------
@@ -670,7 +693,7 @@ MODULE mo_ocean_nml
  !!      setup_run subroutine (which is moved to mo_run_nml)
  !!
 !<Optimize:inUse>
- SUBROUTINE setup_ocean_nml( filename )
+ SUBROUTINE read_ocean_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
@@ -682,7 +705,7 @@ MODULE mo_ocean_nml
     INTEGER :: iunit
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-            routine = 'mo_ocean_nml/setup_ocean_nml:'
+            routine = 'mo_ocean_nml/read_ocean_namelist:'
 
     CALL message(TRIM(routine),'running the hydrostatic ocean model')
 
@@ -914,9 +937,9 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'top boundary condition for velocity currently not supported: choose = 0,1')
      ENDIF
-     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
+     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>2) THEN
        CALL finish(TRIM(routine), &
-         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 4')
+         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 2')
      ENDIF
 
 !      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
@@ -991,7 +1014,11 @@ MODULE mo_ocean_nml
 
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
+     
+    use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
+    use_omip_fluxes     = ( forcing_fluxes_type == 1 )
+    use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
 
-END SUBROUTINE setup_ocean_nml
+END SUBROUTINE read_ocean_namelist
 
 END MODULE mo_ocean_nml

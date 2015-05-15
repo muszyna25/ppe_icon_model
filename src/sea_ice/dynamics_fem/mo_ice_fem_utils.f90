@@ -385,11 +385,12 @@ CONTAINS
 
     ! Indexing
     INTEGER :: ist, nblks_v
-    INTEGER :: jb, jv
+    INTEGER :: jb, jv, ji
     INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: cell_index, cell_block
 
     ! The denominator
-    REAL(wp) :: rdeno
+    REAL(wp) :: rdeno, rsum
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
@@ -401,6 +402,7 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating c2v_wgt failed')
     ENDIF
+    c2v_wgt=0.0_wp
 
     ! Weights for the cells2verts_scalar call
 !     i_startblk = p_patch%verts%all%start_block
@@ -417,38 +419,64 @@ CONTAINS
  
       IDX_LOOP: DO jv =  i_startidx_v, i_endidx_v
  
-        rdeno =  1._wp/MAX( TINY(rdeno),                                &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!        rdeno =  1._wp/MAX( TINY(rdeno),                                &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!
+!        c2v_wgt(jv,1,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno
+!        c2v_wgt(jv,2,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno
+!        c2v_wgt(jv,3,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno
+!        c2v_wgt(jv,4,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno
+!        c2v_wgt(jv,5,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno
+!        c2v_wgt(jv,6,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno
 
-        c2v_wgt(jv,1,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno 
-        c2v_wgt(jv,2,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno 
-        c2v_wgt(jv,3,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno 
-        c2v_wgt(jv,4,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno 
-        c2v_wgt(jv,5,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno 
-        c2v_wgt(jv,6,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno 
+   !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
+   !     -> this code leads to other error in CELLS2VERTS_SCALAR
+        rsum = 0.0_wp
+
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                      &
+            & rsum = rsum +                                        &
+            &      p_patch_3D%wet_c  (cell_index,1,cell_block) *   &
+            &      p_patch%cells%area(cell_index,  cell_block)
+
+        ENDDO
+
+        rdeno =  1._wp/MAX( TINY(rdeno), rsum )
+
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                 &
+            & c2v_wgt(jv,ji,jb) =                             &
+            &   p_patch_3D%wet_c  (cell_index,1,cell_block) * &
+            &   p_patch%cells%area(cell_index,  cell_block) * rdeno
+
+        ENDDO
 
       ENDDO  IDX_LOOP
  
@@ -1118,9 +1146,18 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('ice_adv: vol ice'  , p_ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: vol snow' , p_ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hi'       , p_ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hs'       , p_ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: conc'     , p_ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
 !    IF (ltimer) CALL timer_stop(timer_ice_advection)
 

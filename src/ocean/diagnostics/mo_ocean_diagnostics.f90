@@ -234,8 +234,10 @@ MODULE mo_ocean_diagnostics
   TYPE(t_oce_timeseries),POINTER :: oce_ts
 
   TYPE(t_var_list) :: ocean_diagnostics_list
+  ! addtional diagnostics
   REAL(wp), POINTER :: veloc_adv_horz_u(:,:,:),  veloc_adv_horz_v(:,:,:), &
-    & laplacian_horz_u(:,:,:), laplacian_horz_v(:,:,:)
+    & laplacian_horz_u(:,:,:), laplacian_horz_v(:,:,:), vn_u(:,:,:), vn_v(:,:,:), &
+    & mass_flx_e_u(:,:,:), mass_flx_e_v(:,:,:), pressure_grad_u(:,:,:), pressure_grad_v(:,:,:)
   
   
 CONTAINS
@@ -307,6 +309,57 @@ CONTAINS
         & DATATYPE_FLT32),&
         & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+        
+      CALL add_var(ocean_diagnostics_list, 'vn_u', vn_u, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('vn_u','m/s','edge velocity zonal', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+      CALL add_var(ocean_diagnostics_list, 'vn_v', vn_v, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('vn_v','m/s','edge velocity meridional', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+      CALL add_var(ocean_diagnostics_list, 'mass_flx_e_u', mass_flx_e_u, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('mass_flx_e_u','m*m/s','mass flux zonal', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+        
+      CALL add_var(ocean_diagnostics_list, 'mass_flx_e_v', mass_flx_e_v, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('mass_flx_e_v','m*m/s','mass flux meridional', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+      CALL add_var(ocean_diagnostics_list, 'pressure_grad_u', pressure_grad_u, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('pressure_grad_u','N','pressure gradient zonal', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+        
+      CALL add_var(ocean_diagnostics_list, 'pressure_grad_v', pressure_grad_v, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('pressure_grad_v','N','pressure gradient meridional', &
+        & DATATYPE_FLT32),&
+        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+		
+        CALL add_var(ocean_diagnostics_list, 'potential_vort_e', ocean_state%p_diag%potential_vort_e, &
+          & grid_unstructured_edge, za_depth_below_sea, &
+          & t_cf_var('vn_v','m/s','potential vorticity at edges', &
+          & DATATYPE_FLT32),&
+          & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+          & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+		
+
     ENDIF
     
     IF (diagnostics_level < 1) RETURN
@@ -640,7 +693,7 @@ CONTAINS
     !Local variables
     INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
     INTEGER :: start_edge_index, end_edge_index !,i_startblk_c, i_endblk_c,
-    INTEGER :: jk,jc,blockNo, level !,je
+    INTEGER :: jk,jc,je,blockNo, level !,je
     INTEGER :: i_no_t, i
     REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
     INTEGER :: reference_timestep
@@ -662,23 +715,37 @@ CONTAINS
     !-----------------------------------------------------------------------
     
     IF (diagnose_for_horizontalVelocity) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = owned_edges%start_block,owned_edges%end_block
         CALL get_index_range(owned_edges, blockNo, start_edge_index, end_edge_index)
-        DO jc =  start_edge_index, end_edge_index
-          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(jc,blockNo) 
+        DO je =  start_edge_index, end_edge_index
+          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
           
-            veloc_adv_horz_u(jc, level, blockNo) = &
-              & ocean_state%p_diag%veloc_adv_horz(jc, level, blockNo) * patch_2d%edges%primal_normal(jc,blockNo)%v1
-            veloc_adv_horz_v(jc, level, blockNo) = &
-              & ocean_state%p_diag%veloc_adv_horz(jc, level, blockNo) * patch_2d%edges%primal_normal(jc,blockNo)%v2
-            laplacian_horz_u(jc, level, blockNo) = &
-              & ocean_state%p_diag%laplacian_horz(jc, level, blockNo) * patch_2d%edges%primal_normal(jc,blockNo)%v1              
-            laplacian_horz_v(jc, level, blockNo) = &
-              & ocean_state%p_diag%laplacian_horz(jc, level, blockNo) * patch_2d%edges%primal_normal(jc,blockNo)%v2
+            veloc_adv_horz_u(je, level, blockNo) = &
+              & ocean_state%p_diag%veloc_adv_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
+            veloc_adv_horz_v(je, level, blockNo) = &
+              & ocean_state%p_diag%veloc_adv_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
+            laplacian_horz_u(je, level, blockNo) = &
+              & ocean_state%p_diag%laplacian_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
+            laplacian_horz_v(je, level, blockNo) = &
+              & ocean_state%p_diag%laplacian_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
+            vn_u(je, level, blockNo) = &
+              & ocean_state%p_prog(nnew(1))%vn(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
+            vn_v(je, level, blockNo) = &
+              & ocean_state%p_prog(nnew(1))%vn(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
+            mass_flx_e_u(je, level, blockNo) = &
+              & ocean_state%p_diag%mass_flx_e(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
+            mass_flx_e_v(je, level, blockNo) = &
+              & ocean_state%p_diag%mass_flx_e(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
+            pressure_grad_u(je, level, blockNo) = &
+              & ocean_state%p_diag%press_grad(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
+            pressure_grad_v(je, level, blockNo) = &
+              & ocean_state%p_diag%press_grad(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
               
           ENDDO
         ENDDO
       ENDDO
+!ICON_OMP_END_PARALLEL_DO
     
     ENDIF
 !    REAL(wp), POINTER :: veloc_adv_horz_u(:,:,:),  veloc_adv_horz_v(:,:,:), &
@@ -1646,7 +1713,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER                         :: subset
     INTEGER                                               :: block, cell, cellStart,cellEnd, level
     INTEGER                                               :: my_computation_type
-
+    IF(no_tracer<=1)RETURN
     my_computation_type = 0
     salt         = 0.0_wp
 

@@ -102,7 +102,7 @@ MODULE mo_ocean_patch_setup
   USE mo_impl_constants
   USE mo_math_types
   USE mo_math_utilities
-  USE mo_grid_geometry_info, ONLY: planar_torus_geometry
+!   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
   USE mo_grid_tools,         ONLY: calculate_edge_area
   USE mo_master_control,     ONLY: get_my_process_type, ocean_process
   USE mo_model_domimp_setup, ONLY: init_coriolis
@@ -203,15 +203,7 @@ CONTAINS
     patch_2D%edges%vertex_blk(:,:,3)            = 0
     patch_2D%edges%vertex_idx(:,:,4)            = 0
     patch_2D%edges%vertex_blk(:,:,4)            = 0
-    patch_2D%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
-    patch_2D%edges%dual_normal_cell  (:,:,:)%v1 = 0._wp
-    patch_2D%edges%primal_normal_vert(:,:,:)%v1 = 0._wp
-    patch_2D%edges%dual_normal_vert  (:,:,:)%v1 = 0._wp
-    patch_2D%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
-    patch_2D%edges%dual_normal_cell  (:,:,:)%v2 = 0._wp
-    patch_2D%edges%primal_normal_vert(:,:,:)%v2 = 0._wp
-    patch_2D%edges%dual_normal_vert  (:,:,:)%v2 = 0._wp
-    ! !$OMP END WORKSHARE
+   ! !$OMP END WORKSHARE
     !
     ! loop through all patch_2D edges
     !
@@ -318,130 +310,6 @@ CONTAINS
 
         ENDIF
 
-        ilv3 = patch_2D%edges%vertex_idx(je,jb,3)
-        ibv3 = patch_2D%edges%vertex_blk(je,jb,3)
-        ilv4 = patch_2D%edges%vertex_idx(je,jb,4)
-        ibv4 = patch_2D%edges%vertex_blk(je,jb,4)
-
-        cc_ev3 = patch_2D%verts%cartesian(ilv3,ibv3)
-        cc_ev4 = patch_2D%verts%cartesian(ilv4,ibv4)
-
-        ! inverse length bewtween vertices 3 and 4
-        patch_2D%edges%inv_vert_vert_length(je,jb) = 1._wp / &
-          & (grid_sphere_radius * arc_length(cc_ev3,cc_ev4))
-        !      ENDIF
-
-        ! next step: compute projected orientation vectors for cells and vertices
-        ! bordering to each edge (incl. vertices 3 and 4 intorduced above)
-
-        ! transform primal normal to cartesian vector z_nx1
-        z_nx1(:) = patch_2D%edges%primal_cart_normal(je,jb)%x(:)
-        ! get location of cell 1
-        z_lon = patch_2D%cells%center(ilc1,ibc1)%lon
-        z_lat = patch_2D%cells%center(ilc1,ibc1)%lat
-        ! compute local primal at cell 1
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-        patch_2D%edges%primal_normal_cell(je,jb,1)%v1 = z_nu/z_norm
-        patch_2D%edges%primal_normal_cell(je,jb,1)%v2 = z_nv/z_norm
-
-        ! transform dual normal to cartesian vector z_nx2
-        z_nx2(:) = patch_2D%edges%dual_cart_normal(je,jb)%x(:)
-        ! compute local dual normals at cell 1
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%dual_normal_cell(je,jb,1)%v1 = z_nu/z_norm
-        patch_2D%edges%dual_normal_cell(je,jb,1)%v2 = z_nv/z_norm
-
-        ! get location of cell 2
-        z_lon = patch_2D%cells%center(ilc2,ibc2)%lon
-        z_lat = patch_2D%cells%center(ilc2,ibc2)%lat
-
-        ! compute local primal and dual normals at cell 2
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%primal_normal_cell(je,jb,2)%v1 = z_nu/z_norm
-        patch_2D%edges%primal_normal_cell(je,jb,2)%v2 = z_nv/z_norm
-
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%dual_normal_cell(je,jb,2)%v1 = z_nu/z_norm
-        patch_2D%edges%dual_normal_cell(je,jb,2)%v2 = z_nv/z_norm
-
-        ! get location of vertex 1
-
-        z_lon = patch_2D%verts%vertex(ilv1,ibv1)%lon
-        z_lat = patch_2D%verts%vertex(ilv1,ibv1)%lat
-
-        ! compute local primal and dual normals at vertex 1
-
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%primal_normal_vert(je,jb,1)%v1 = z_nu/z_norm
-        patch_2D%edges%primal_normal_vert(je,jb,1)%v2 = z_nv/z_norm
-
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%dual_normal_vert(je,jb,1)%v1 = z_nu/z_norm
-        patch_2D%edges%dual_normal_vert(je,jb,1)%v2 = z_nv/z_norm
-
-        ! get location of vertex 2
-
-        z_lon = patch_2D%verts%vertex(ilv2,ibv2)%lon
-        z_lat = patch_2D%verts%vertex(ilv2,ibv2)%lat
-
-        ! compute local primal and dual normals at vertex 2
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%primal_normal_vert(je,jb,2)%v1 = z_nu/z_norm
-        patch_2D%edges%primal_normal_vert(je,jb,2)%v2 = z_nv/z_norm
-
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%dual_normal_vert(je,jb,2)%v1 = z_nu/z_norm
-        patch_2D%edges%dual_normal_vert(je,jb,2)%v2 = z_nv/z_norm
-
-        ! get location of vertex 3
-        z_lon = patch_2D%verts%vertex(ilv3,ibv3)%lon
-        z_lat = patch_2D%verts%vertex(ilv3,ibv3)%lat
-
-        ! compute local primal and dual normals at vertex 3
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%primal_normal_vert(je,jb,3)%v1 = z_nu/z_norm
-        patch_2D%edges%primal_normal_vert(je,jb,3)%v2 = z_nv/z_norm
-
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%dual_normal_vert(je,jb,3)%v1 = z_nu/z_norm
-        patch_2D%edges%dual_normal_vert(je,jb,3)%v2 = z_nv/z_norm
-
-        ! get location of vertex 4
-
-        z_lon = patch_2D%verts%vertex(ilv4,ibv4)%lon
-        z_lat = patch_2D%verts%vertex(ilv4,ibv4)%lat
-
-        ! compute local primal and dual normals at vertex 2
-        CALL cvec2gvec(z_nx1(1),z_nx1(2),z_nx1(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%primal_normal_vert(je,jb,4)%v1 = z_nu/z_norm
-        patch_2D%edges%primal_normal_vert(je,jb,4)%v2 = z_nv/z_norm
-
-        CALL cvec2gvec(z_nx2(1),z_nx2(2),z_nx2(3),z_lon,z_lat,z_nu,z_nv)
-        z_norm = SQRT(z_nu*z_nu+z_nv*z_nv)
-
-        patch_2D%edges%dual_normal_vert(je,jb,4)%v1 = z_nu/z_norm
-        patch_2D%edges%dual_normal_vert(je,jb,4)%v2 = z_nv/z_norm
 
       ENDDO
 
@@ -459,42 +327,11 @@ CONTAINS
     CALL sync_idx(sync_e,sync_v,patch_2D,patch_2D%edges%vertex_idx(:,:,4), &
       & patch_2D%edges%vertex_blk(:,:,4))
 
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%inv_vert_vert_length)
-
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_cell(:,:,1)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_cell(:,:,2)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,1)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,2)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,3)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,4)%v1)
-
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_cell(:,:,1)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_cell(:,:,2)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,1)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,2)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,3)%v1)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,4)%v1)
-
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_cell(:,:,1)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_cell(:,:,2)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,1)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,2)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,3)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%primal_normal_vert(:,:,4)%v2)
-
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_cell(:,:,1)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_cell(:,:,2)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,1)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,2)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,3)%v2)
-    CALL sync_patch_array(sync_e,patch_2D,patch_2D%edges%dual_normal_vert(:,:,4)%v2)
-
     CALL enable_sync_checks
 
 
     !!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     !!$OMP END PARALLEL
-
 
     CALL calculate_edge_area(patch_2D)
     

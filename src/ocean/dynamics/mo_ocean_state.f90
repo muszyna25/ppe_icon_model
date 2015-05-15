@@ -933,11 +933,12 @@ CONTAINS
       & t_cf_var('vort','1/s','vorticity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_vertex),&
       & ldims=(/nproma,n_zlev,nblks_v/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
-!   CALL add_var(ocean_restart_list, 'vort_e', ocean_state_diag%vort_e, &
-!     & grid_unstructured_edge, za_depth_below_sea, &
-!     & t_cf_var('vort_e','1/s','vorticity at edges', DATATYPE_FLT32),&
-!     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-!     & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+	  
+   CALL add_var(ocean_restart_list, 'potential vort_e', ocean_state_diag%potential_vort_e, &
+     & grid_unstructured_edge, za_depth_below_sea, &
+     & t_cf_var('vort_e','1/s','potential vorticity at edges', DATATYPE_FLT32),&
+     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+     & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_essentials"),lrestart_cont=.TRUE.)
     
     ! kinetic energy component
     CALL add_var(ocean_default_list, 'kin', ocean_state_diag%kin, grid_unstructured_cell, &
@@ -1256,15 +1257,11 @@ CONTAINS
       & za_surface, t_cf_var('bc_top_vn','','', DATATYPE_FLT32),&
       & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&
       & ldims=(/nproma,nblks_e/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
+    CALL add_var(ocean_restart_list,'bc_top_WindStress',ocean_state_aux%bc_top_WindStress, grid_unstructured_edge,&
+      & za_surface, t_cf_var('bc_top_WindStress','','', DATATYPE_FLT32),&
+      & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&
+      & ldims=(/nproma,nblks_e/),in_group=groups("oce_aux"),lrestart_cont=.FALSE.)
     
-    CALL add_var(ocean_restart_list,'bc_bot_u',ocean_state_aux%bc_bot_u, grid_unstructured_cell,&
-      & za_surface, t_cf_var('bc_bot_u','','', DATATYPE_FLT32),&
-      & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
-    CALL add_var(ocean_restart_list,'bc_bot_v',ocean_state_aux%bc_bot_v, grid_unstructured_cell,&
-      & za_surface, t_cf_var('bc_bot_v','','', DATATYPE_FLT32),&
-      & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list,'bc_bot_vn',ocean_state_aux%bc_bot_vn, grid_unstructured_edge,&
       & za_surface, t_cf_var('bc_bot_vn','','', DATATYPE_FLT32),&
       & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_edge),&
@@ -1291,17 +1288,10 @@ CONTAINS
     IF (ist/=success) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    ALLOCATE(ocean_state_aux%bc_bot_veloc_cc(nproma,alloc_cell_blocks), stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
-    END IF
     
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(1) = 0.0_wp
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(2) = 0.0_wp
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
-    ocean_state_aux%bc_bot_veloc_cc(:,:)%x(1) = 0.0_wp
-    ocean_state_aux%bc_bot_veloc_cc(:,:)%x(2) = 0.0_wp
-    ocean_state_aux%bc_bot_veloc_cc(:,:)%x(3) = 0.0_wp
     
     ! allocation of 3-dim tracer relaxation:
     IF (no_tracer >= 1) THEN
@@ -1645,11 +1635,6 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocation of top boundary cond cc failed')
     END IF
     
-    DEALLOCATE(ocean_state_aux%bc_bot_veloc_cc, stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'deallocation of bot boundary cond cc failed')
-    END IF
-    
   END SUBROUTINE destruct_hydro_ocean_aux
   !-------------------------------------------------------------------------
   
@@ -1902,9 +1887,23 @@ CONTAINS
     CALL add_var(ocean_default_list, 'prism_center_dist_c', patch_3d%p_patch_1d(n_dom)%prism_center_dist_c, &
       & grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('prism_center_dist_c','m','dist between prism centers', DATATYPE_FLT32),&
+      & t_cf_var('prism_center_dist_c','m','time dependent distance between prism centers', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+    CALL add_var(ocean_default_list, 'constantPrismCenters_Zdistance', &
+      & patch_3d%p_patch_1d(n_dom)%constantPrismCenters_Zdistance, &
+      & grid_unstructured_cell, &
+      & za_depth_below_sea, &
+      & t_cf_var('constantPrismCenters_Zdistance','m','constant distance between prism centers', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+    CALL add_var(ocean_default_list, 'constantPrismCenters_invZdistance', &
+      & patch_3d%p_patch_1d(n_dom)%constantPrismCenters_invZdistance, &
+      & grid_unstructured_cell, &
+      & za_depth_below_sea, &
+      & t_cf_var('constantPrismCenters_invZdistance','m','inverse constant distance between prism centers', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'inv_prism_thick_e', patch_3d%p_patch_1d(n_dom)%inv_prism_thick_e, &
       & grid_unstructured_edge, &
       & za_depth_below_sea, &
@@ -1917,14 +1916,14 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('inv_prism_center_dist_c','1/m','inverse of dist between prism centers at cells', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'inv_prism_center_dist_e', &
       & patch_3d%p_patch_1d(n_dom)%inv_prism_center_dist_e, &
       & grid_unstructured_edge, &
       & za_depth_below_sea, &
       & t_cf_var('inv_prism_center_dist_e','1/m','inverse of dist between prism centers at edges', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'depth_CellMiddle',   &
       & patch_3d%p_patch_1d(n_dom)%depth_CellMiddle,       &
       & grid_unstructured_cell,                             &
