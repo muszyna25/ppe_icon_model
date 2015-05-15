@@ -1727,8 +1727,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'lhfl_pl', diag%lhfl_pl,                     &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
-      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,               &
-      & in_group=groups("pbl_vars"))
+      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE. )
 
 
                 
@@ -1739,8 +1738,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = t_grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%alhfl_pl,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
-      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.TRUE.,                &
-      & isteptype=a_steptype )
+      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.TRUE. )
 
 
     ! &      diag%qhfl_s(nproma,nblks_c)

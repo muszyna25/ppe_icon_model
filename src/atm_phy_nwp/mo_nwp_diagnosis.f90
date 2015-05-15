@@ -309,35 +309,42 @@ CONTAINS
                 &                                prm_diag%vmfl_s (jc,jb), &
                 &                                t_wgt )
 
-              ! time averaged surface u-momentum flux SSO
-              prm_diag%astr_u_sso(jc,jb) = time_avg(prm_diag%astr_u_sso(jc,jb), &
-                &                                   prm_diag%str_u_sso (jc,jb), &
-                &                                   t_wgt )
-
-              ! time averaged surface v-momentum flux SSO
-              prm_diag%astr_v_sso(jc,jb) = time_avg(prm_diag%astr_v_sso(jc,jb), &
-                &                                   prm_diag%str_v_sso (jc,jb), &
-                &                                   t_wgt )
-
-              ! time averaged surface u-momentum flux resolved
-              prm_diag%adrag_u_grid(jc,jb) = time_avg(prm_diag%adrag_u_grid(jc,jb), &
-                &                                prm_diag%drag_u_grid (jc,jb), &
-                &                                t_wgt )
-
-              ! time averaged surface v-momentum flux resolved
-              prm_diag%adrag_v_grid(jc,jb) = time_avg(prm_diag%adrag_v_grid(jc,jb), &
-                &                                prm_diag%drag_v_grid (jc,jb), &
-                &                                t_wgt )
-
             ENDDO  ! jc
-            DO jk = 1, nlev_soil
+
+            IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
-              prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
-                &                                    prm_diag%lhfl_pl (jc,jk,jb), &
-                &                                    t_wgt)
+                ! time averaged surface u-momentum flux SSO
+                prm_diag%astr_u_sso(jc,jb) = time_avg(prm_diag%astr_u_sso(jc,jb), &
+                  &                                   prm_diag%str_u_sso (jc,jb), &
+                  &                                   t_wgt )
+
+                ! time averaged surface v-momentum flux SSO
+                prm_diag%astr_v_sso(jc,jb) = time_avg(prm_diag%astr_v_sso(jc,jb), &
+                  &                                   prm_diag%str_v_sso (jc,jb), &
+                  &                                   t_wgt )
+
+                ! time averaged surface u-momentum flux resolved
+                prm_diag%adrag_u_grid(jc,jb) = time_avg(prm_diag%adrag_u_grid(jc,jb), &
+                  &                                prm_diag%drag_u_grid (jc,jb), &
+                  &                                t_wgt )
+
+                ! time averaged surface v-momentum flux resolved
+                prm_diag%adrag_v_grid(jc,jb) = time_avg(prm_diag%adrag_v_grid(jc,jb), &
+                  &                                prm_diag%drag_v_grid (jc,jb), &
+                  &                                t_wgt )
               ENDDO  ! jc
-            ENDDO  ! jk
+
+              DO jk = 1, nlev_soil
+!DIR$ IVDEP
+                DO jc = i_startidx, i_endidx
+                prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
+                  &                                    prm_diag%lhfl_pl (jc,jk,jb), &
+                  &                                    t_wgt)
+                ENDDO  ! jc
+              ENDDO  ! jk
+
+            ENDIF  ! lcalc_extra_avg
 
           ENDIF  ! inwp_turb > 0
 
@@ -451,36 +458,44 @@ CONTAINS
               prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)        &
                                 &   + prm_diag%vmfl_s(jc,jb)           &
                                 &   * dt_phy_jg(itfastphy)
-
-              ! accumulated surface u-momentum flux SSO
-              prm_diag%astr_u_sso(jc,jb) = prm_diag%astr_u_sso(jc,jb)     &
-                                     &   + prm_diag%str_u_sso(jc,jb)      &
-                                     &   * dt_phy_jg(itfastphy)
-
-              ! accumulated surface v-momentum flux SSO
-              prm_diag%astr_v_sso(jc,jb) = prm_diag%astr_v_sso(jc,jb)     &
-                                     &   + prm_diag%str_v_sso(jc,jb)      &
-                                     &   * dt_phy_jg(itfastphy)
-
-              ! accumulated surface u-momentum flux resolved
-              prm_diag%adrag_u_grid(jc,jb) = prm_diag%adrag_u_grid(jc,jb) &
-                                       &   + prm_diag%drag_u_grid(jc,jb)  &
-                                       &   * dt_phy_jg(itfastphy)
-
-              ! accumulated surface v-momentum flux resolved
-              prm_diag%adrag_v_grid(jc,jb) = prm_diag%adrag_v_grid(jc,jb) &
-                                       &   + prm_diag%drag_v_grid(jc,jb)  &
-                                       &   * dt_phy_jg(itfastphy)
-
             ENDDO
-            DO jk = 1, nlev_soil
+
+
+            IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
-                prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
-                                 &  + prm_diag%lhfl_pl(jc,jk,jb)          & 
-                                 &  * dt_phy_jg(itfastphy) 
+                ! accumulated surface u-momentum flux SSO
+                prm_diag%astr_u_sso(jc,jb) = prm_diag%astr_u_sso(jc,jb)     &
+                                       &   + prm_diag%str_u_sso(jc,jb)      &
+                                       &   * dt_phy_jg(itfastphy)
+
+                ! accumulated surface v-momentum flux SSO
+                prm_diag%astr_v_sso(jc,jb) = prm_diag%astr_v_sso(jc,jb)     &
+                                       &   + prm_diag%str_v_sso(jc,jb)      &
+                                       &   * dt_phy_jg(itfastphy)
+
+                ! accumulated surface u-momentum flux resolved
+                prm_diag%adrag_u_grid(jc,jb) = prm_diag%adrag_u_grid(jc,jb) &
+                                         &   + prm_diag%drag_u_grid(jc,jb)  &
+                                         &   * dt_phy_jg(itfastphy)
+
+                ! accumulated surface v-momentum flux resolved
+                prm_diag%adrag_v_grid(jc,jb) = prm_diag%adrag_v_grid(jc,jb) &
+                                         &   + prm_diag%drag_v_grid(jc,jb)  &
+                                         &   * dt_phy_jg(itfastphy)
               ENDDO  ! jc
-            ENDDO  ! jk
+
+              DO jk = 1, nlev_soil
+!DIR$ IVDEP
+                DO jc = i_startidx, i_endidx
+                  prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
+                                   &  + prm_diag%lhfl_pl(jc,jk,jb)          & 
+                                   &  * dt_phy_jg(itfastphy) 
+                ENDDO  ! jc
+              ENDDO  ! jk
+
+            ENDIF  ! lcalc_extra_avg
+
           ENDIF  ! inwp_turb > 0
 
 
