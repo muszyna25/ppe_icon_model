@@ -65,6 +65,7 @@ MODULE mo_interface_echam_ocean
 
 #else
 
+  USE mo_mpi                 ,ONLY: p_pe_work
   USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_def_field  ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_icon_cpl_init       ,ONLY: icon_cpl_init
@@ -102,8 +103,12 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch(:)
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
-    INTEGER :: i, patch_no
+
+    INTEGER :: i
     INTEGER :: error_status
+
+    INTEGER                :: patch_no
+    TYPE(t_patch), POINTER :: patch_horz
 
     !---------------------------------------------------------------------
     ! 11. Do the setup for the coupled run
@@ -148,14 +153,13 @@ CONTAINS
     INTEGER,  ALLOCATABLE :: ibuffer(:)
 
     TYPE(t_sim_step_info)   :: sim_step_info  
-    TYPE(t_subset_range), POINTER :: cells_in_domain
-    TYPE(t_patch), POINTER :: patch_horz
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
     comp_name = TRIM(get_my_process_name())
 
     patch_no = 1
+    patch_horz => p_patch(patch_no)
 
     i = LEN_TRIM(comp_name)
     CALL yac_redirstdout ( TRIM(comp_name), i, 1, p_pe_work, p_n_work, error_status )
@@ -182,9 +186,6 @@ CONTAINS
     CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
 
     subdomain_ids(1) = subdomain_id
-
-    patch_horz => p_patch(patch_no)
-    cells_in_domain  => patch_horz%cells%in_domain
 
     ! Extract cell information
     !
@@ -378,22 +379,23 @@ CONTAINS
     !------------------------------------------------------------
 
     patch_no = 1
+    patch_horz => p_patch(patch_no)
 
     grid_shape(1)=1
-    grid_shape(2)=p_patch(patch_no)%n_patch_cells
+    grid_shape(2)=patch_horz%n_patch_cells
 
     ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
     ! should grid_glob_index become a pointer in icon_cpl_def_grid as well?
     CALL icon_cpl_def_grid ( &
-      & grid_shape, p_patch(patch_no)%cells%decomp_info%glb_index, & ! input
-      & grid_id, error_status )                                      ! output
+      & grid_shape, patch_horz%cells%decomp_info%glb_index, & ! input
+      & grid_id, error_status )                               ! output
 
     ! Marker for internal and halo points, a list which contains the
     ! rank where the native cells are located.
     CALL icon_cpl_def_location ( &
-      & grid_id, grid_shape, p_patch(patch_no)%cells%decomp_info%owner_local, & ! input
-      & p_pe_work,  &                                                           ! this owner id
-      & error_status )                                                          ! output
+      & grid_id, grid_shape, patch_horz%cells%decomp_info%owner_local, & ! input
+      & p_pe_work,  &                                                    ! this owner id
+      & error_status )                                                   ! output
 
     field_name(1) = "TAUX"   ! bundled field containing two components
     field_name(2) = "TAUY"   ! bundled field containing two components

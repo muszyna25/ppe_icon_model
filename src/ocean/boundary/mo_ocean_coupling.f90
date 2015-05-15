@@ -128,7 +128,8 @@ CONTAINS
     CHARACTER(LEN=max_char_length) ::  field_name(no_of_fields)
     INTEGER :: i, error_status
 
-    INTEGER :: patch_no
+    INTEGER                :: patch_no
+    TYPE(t_patch), POINTER :: patch_horz
 
 #ifdef YAC_coupling
 
@@ -163,14 +164,13 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: ibuffer(:)
 
     TYPE(t_sim_step_info) :: sim_step_info
-    TYPE(t_subset_range), POINTER :: cells_in_domain
-    TYPE(t_patch), POINTER :: patch_horz
 
     IF (.NOT. is_coupled_run()) RETURN
 
     comp_name = TRIM(get_my_process_name())
 
     patch_no = 1
+    patch_horz => patch_3d%p_patch_2d(patch_no)
 
     i = LEN_TRIM(comp_name)
     CALL yac_redirstdout ( TRIM(comp_name), i, 1, p_pe_work, p_n_work, error_status )
@@ -197,9 +197,6 @@ CONTAINS
     CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
 
     subdomain_ids(1) = subdomain_id
-
-    patch_horz => patch_3d%p_patch_2d(patch_no)
-    cells_in_domain  => patch_horz%cells%in_domain
 
     ! Extract cell information
     !
@@ -391,21 +388,23 @@ CONTAINS
     CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
     ! split the global_mpi_communicator into the components
     !------------------------------------------------------------
-    patch_no      = 1
+
+    patch_no = 1
+    patch_horz => patch_3d%p_patch_2d(patch_no)
 
     grid_shape(1) = 1
-    grid_shape(2) = patch_3d%p_patch_2d(patch_no)%n_patch_cells
+    grid_shape(2) = patch_horz%n_patch_cells
 
     CALL icon_cpl_def_grid ( &
-      & grid_shape, patch_3d%p_patch_2d(patch_no)%cells%decomp_info%glb_index, & ! input
-      & grid_id, error_status )                                                  ! output
+      & grid_shape, patch_horz%cells%decomp_info%glb_index, & ! input
+      & grid_id, error_status )                               ! output
 
     ! Marker for internal and halo points, a list which contains the
     ! rank where the native cells are located.
     CALL icon_cpl_def_location ( &
-      & grid_id, grid_shape, patch_3d%p_patch_2d(patch_no)%cells%decomp_info%owner_local, & ! input
-      & p_pe_work,  & ! this owner id
-      & error_status )                                            ! output
+      & grid_id, grid_shape, patch_horz%cells%decomp_info%owner_local, & ! input
+      & p_pe_work,                                                     & ! this owner id
+      & error_status )                                                   ! output
 
     field_name(1) =  "TAUX"   ! bundled field containing two components
     field_name(2) =  "TAUY"   ! bundled field containing two components
