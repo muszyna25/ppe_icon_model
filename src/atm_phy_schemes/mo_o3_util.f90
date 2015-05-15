@@ -58,9 +58,9 @@ CONTAINS
 
   !=======================================================================
 
-SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
-                     & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
-                     & o3_time_int                      )! OUT kproma,nlev_p
+  SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
+                       & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
+                       & o3_time_int                      )! OUT kproma,nlev_p
 
  ! In prior version, just a certain month was selected. This is not used anymore
  ! (revision13218) an the routine is now doing true time interpolation
@@ -75,9 +75,9 @@ SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
 
     o3_time_int(1:kproma,:)=wi%wgt1*ext_o3(1:kproma,:,wi%inm1)+ &
                             wi%wgt2*ext_o3(1:kproma,:,wi%inm2)
-END SUBROUTINE o3_timeint
+  END SUBROUTINE o3_timeint
 
- SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
+  SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
    &                   pfoz,phoz,ppf,pph,   &
    &                   o3_time_int, o3_clim)
 
@@ -987,26 +987,32 @@ END SUBROUTINE o3_timeint
 
 
     ! volume mixing ratio to ozone pressure thickness
-    DO jk=1,nlev_gems
-      DO jl=1,ilat
-        SELECT CASE (irad_o3)
-        CASE (7)
+
+    SELECT CASE (irad_o3)
+    CASE (7)
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
           zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
-            & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))         
-        CASE (9)
-          zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
-            & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))       
-        END SELECT 
-       zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+            & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
       ENDDO
-    ENDDO
+    CASE (9)
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
+          zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
+      ENDDO
+    END SELECT 
 
     DO jk=1,nlev_gems
       zozn(0,JK)      = zozn(1,jk)
       zozn(ilat+1,jk) = zozn(ilat,jk)
     ENDDO
 
-    !Preparations for latitude interpolations
+    ! Preparations for latitude interpolations
 
     zlatint=180._wp/REAL(ilat,wp)
 
