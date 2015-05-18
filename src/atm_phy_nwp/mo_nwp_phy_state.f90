@@ -2545,7 +2545,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
             iimage = iimage + 1
           
             IF (lradiance) THEN
-              unit = "W m sr m**-2"
+              unit = "mW/cm-1/sr/sq.m"
             ELSE
               unit = "K"
             END IF
