@@ -1630,9 +1630,13 @@ MODULE mo_initicon
 
               ! maximum freshsnow factor: 1
               ! minimum freshsnow factor: 0
-              ! maximum positive freshsnow increment is limited to max_freshsnow_inc (tuning parameter)
-              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) &
-                &                                  + MIN(max_freshsnow_inc,initicon(jg)%sfc_inc%freshsnow(jc,jb)))
+              ! two-sided limitation of freshsnow increment to +/- max_freshsnow_inc (tuning parameter)
+              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt)                               &
+                &                            + SIGN(                                                                  &
+                &                                  MIN(max_freshsnow_inc,ABS(initicon(jg)%sfc_inc%freshsnow(jc,jb))), &
+                &                                  initicon(jg)%sfc_inc%freshsnow(jc,jb)                              &
+                &                                  ) )
+
               lnd_diag%freshsnow_t(jc,jb,jt) = MAX(0._wp,lnd_diag%freshsnow_t(jc,jb,jt))
             ENDDO  ! ic
           ENDDO  ! jt
