@@ -660,7 +660,7 @@ CONTAINS
     TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info   ! tracer meta data
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(MAX_GROUPS)          ! groups to which a variable belongs
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(:)          ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(in), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
@@ -722,7 +722,7 @@ CONTAINS
 
     ! set meta data containing the groups to which a variable belongs
     IF (PRESENT(in_group)) THEN
-      info%in_group(:) = in_group(:)
+      info%in_group(1:SIZE(in_group)) = in_group(:)
     END IF
 
     CALL assign_if_present (info%l_pp_scheduler_task, l_pp_scheduler_task)

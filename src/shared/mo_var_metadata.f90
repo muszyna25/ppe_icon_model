@@ -450,12 +450,12 @@ CONTAINS
     !
     ! update in_group metainfo
     IF (PRESENT(opt_in_group)) THEN
-      in_group_new(:) = opt_in_group(:)
+      in_group_new(1:SIZE(opt_in_group)) = opt_in_group(:)
     ELSE
       in_group_new(:) = groups()
     ENDIF
     IF (grp_id > MAX_GROUPS) THEN
-      CALL finish('add_var_list_reference_r2d: grp_id exceeds MAX_GROUPS for ', TRIM(group_name))
+      CALL finish('add_member_to_vargroup: grp_id exceeds MAX_GROUPS for ', TRIM(group_name))
     ENDIF
     in_group_new(grp_id) = .TRUE.
 
