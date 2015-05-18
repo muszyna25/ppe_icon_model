@@ -507,7 +507,7 @@ CONTAINS
     ! grad_topo     p_ext_atm%grad_topo(2,nproma,nblks_c)
     cf_desc    = t_cf_var('grad_surface_height', 'm m-1', &
       &                   'gradient of geometric height of the earths surface above sea level', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'grad_topo', p_ext_atm%grad_topo,        &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
       &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.TRUE.,  &
