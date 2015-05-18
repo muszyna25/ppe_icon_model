@@ -80,7 +80,7 @@ PROGRAM icon
 #endif
 
   TYPE(expression)          :: formula                   ! DEVELOPMENT
-  REAL(real_kind), POINTER  :: val_2D(:,:)   => NULL()   ! DEVELOPMENT
+  CLASS(*), POINTER         :: val_2D(:,:)   => NULL()   ! DEVELOPMENT
   REAL(real_kind), TARGET   :: z_sfc(2,2)                ! DEVELOPMENT
 
 !--------------------------------------------------------------------
@@ -220,7 +220,10 @@ PROGRAM icon
       formula = expression("[z_sfc] + sin(45*pi/180.) * 10 + 5")
       CALL formula%link("z_sfc", z_sfc)
       CALL formula%evaluate(val_2D)
-      WRITE (0,*) "formula: result = ", val_2D
+      SELECT TYPE(val_2D)
+      TYPE is (REAL(real_kind))
+        WRITE (0,*) "formula: result = ", val_2D
+      END SELECT
       DEALLOCATE(val_2D)
       CALL formula%finalize()
       WRITE (0,*) "END DEVELOPMENT -----------------------------------------"
