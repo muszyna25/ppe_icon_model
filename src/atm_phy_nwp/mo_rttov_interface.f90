@@ -57,6 +57,7 @@ PRIVATE
 
 PUBLIC :: copy_rttov_ubc, rttov_driver
 
+REAL(wp), PARAMETER :: conv_qv = 1.60771704e6_wp ! conversion factor kg/kg -> ppmv for humidity
 
 CONTAINS
 
@@ -479,10 +480,10 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
           tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),iqv)*p_fbkwgt(jc,jb,3) + &
           tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),iqv)*p_fbkwgt(jc,jb,4)
 
-        ! limit qv to saturation and convert into volume mixing ratio
+        ! limit qv to saturation and convert into volume mixing ratio (ppmv)
         zrho = rg_pres(jc,jk1,jb)/(rd*(rg_temp(jc,jk1,jb)+vtmpc1*qv_aux))
         qv_aux = MIN(qv_aux, qsat_rho(rg_temp(jc,jk1,jb),zrho))
-        rg_qv(jc,jk1,jb) = qv_aux / (1._wp - qv_aux) * 1.6077_wp
+        rg_qv(jc,jk1,jb) = qv_aux / (1._wp - qv_aux) * conv_qv
 
         zclc(jc,jk1) =                                            &
           clc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
@@ -541,8 +542,8 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
         rg_temp (jc,jk,jb) = buffer_rttov(jc,3*nshift+jk,jb)
         qv_aux             = buffer_rttov(jc,4*nshift+jk,jb)
         !
-        ! convert qv into volume mixing ratio
-        rg_qv(jc,jk,jb)    = qv_aux / (1._wp - qv_aux) * 1.6077_wp
+        ! convert qv into volume mixing ratio (ppmv)
+        rg_qv(jc,jk,jb)    = qv_aux / (1._wp - qv_aux) * conv_qv
         !
         ! for the cloud variables, we assume that the top of the nested model domain is not
         ! lower than the upper boundary of moisture physics calculation
@@ -639,8 +640,8 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
         qv2m(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         qv2m(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      ! convert qv into volume mixing ratio
-      rg_qv2m(jc,jb) = qv_aux / (1._wp - qv_aux) * 1.6077_wp
+      ! convert qv into volume mixing ratio (ppmv)
+      rg_qv2m(jc,jb) = qv_aux / (1._wp - qv_aux) * conv_qv
 
       rg_u10m(jc,jb) =                                        &
         u10m(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
