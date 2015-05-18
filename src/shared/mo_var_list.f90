@@ -2077,12 +2077,14 @@ CONTAINS
 
     index = 1
     !
-    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
-      ! automatically add tile to its variable specific tile-group
-      CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
-      !
-      ! update in_group metainfo
-      new_list_element%field%info%in_group(:) = in_group_new(:)
+    IF (PRESENT(var_class)) THEN
+      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+        ! automatically add tile to its variable specific tile-group
+        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        !
+        ! update in_group metainfo
+        new_list_element%field%info%in_group(:) = in_group_new(:)
+      ENDIF
     END IF
     !
     IF (target_info%lcontainer) THEN
@@ -2275,12 +2277,14 @@ CONTAINS
 
     index = 1
     !
-    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
-      ! automatically add tile to its variable specific tile-group
-      CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
-      !
-      ! update in_group metainfo
-      new_list_element%field%info%in_group(:) = in_group_new(:)
+    IF (PRESENT(var_class)) THEN
+      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+        ! automatically add tile to its variable specific tile-group
+        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        !
+        ! update in_group metainfo
+        new_list_element%field%info%in_group(:) = in_group_new(:)
+      ENDIF
     END IF
 
     IF (target_info%lcontainer) THEN
@@ -2469,13 +2473,15 @@ CONTAINS
     ref_info%ndims = ndims
     ref_info%used_dimensions(:)       = 0
     ref_info%used_dimensions(1:ndims) = target_element%field%info%used_dimensions(dim_indices(1:ndims))
-
-    IF (PRESENT(var_class) .AND. ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
-      ! automatically add tile to its variable specific tile-group
-      CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
-      !
-      ! update in_group metainfo
-      new_list_element%field%info%in_group(:) = in_group_new(:)
+    
+    IF (PRESENT(var_class)) THEN
+      IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
+        ! automatically add tile to its variable specific tile-group
+        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        !
+        ! update in_group metainfo
+        new_list_element%field%info%in_group(:) = in_group_new(:)
+      ENDIF
     END IF
     !
     index = 1

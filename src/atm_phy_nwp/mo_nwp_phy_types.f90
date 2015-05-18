@@ -141,6 +141,8 @@ MODULE mo_nwp_phy_types
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
+      &   cape_ml (:,:),       & !! convective available energy of mean surface layer parcel
+      &   cin_ml  (:,:),       & !! convective inhibition of mean surface layer parcel
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
                                  !! 1= convective updraft mass flux (pmfu)
@@ -232,7 +234,15 @@ MODULE mo_nwp_phy_types
       &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
-      &  snowlmt   (:,:)         !! height of snowfall limit above MSL
+      &  snowlmt     (:,:),    & !! height of snowfall limit above MSL
+      &  drag_u_grid (:,:),    & !! zonal resolved surface stress [N/m2]
+      &  drag_v_grid (:,:),    & !! meridional resolved surface stress [N/m2]
+      &  adrag_u_grid(:,:),    & !! zonal resolved surface stress, accumulated or mean since model start
+      &  adrag_v_grid(:,:),    & !! meridional resolved surface stress, accumulated or mean since model start
+      &  str_u_sso   (:,:),    & !! zonal sso surface stress [N/m2]
+      &  str_v_sso   (:,:),    & !! meridional sso surface stress [N/m2]
+      &  astr_u_sso  (:,:),    & !! zonal sso surface stress, accumulated or mean since model start
+      &  astr_v_sso  (:,:)       !! meridional sso surface stress, accumulated or mean since model start
 
 
 

@@ -107,6 +107,7 @@ MODULE mo_ext_data_state
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize, &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,  &
     &                              vlistInqVarIntKey, CDI_GLOBAL
+  USE mo_math_gradients,     ONLY: grad_fe_cell
 
   IMPLICIT NONE
 
@@ -290,7 +291,15 @@ CONTAINS
             &                      p_int_state(jg)               ,&
             &                      ext_data(jg)%atm%topography_c ,&
             &                      ext_data(jg)%atm%sso_stdh     )
+ 
+          ! calculate gradient of orography for resolved surface drag
+          !
+          call grad_fe_cell  ( ext_data(jg)%atm%topography_c, &
+            &                  p_patch(jg),                   &
+            &                  p_int_state(jg),               &
+            &                  ext_data(jg)%atm%grad_topo )
         END DO
+
       END IF
 
       CALL message( TRIM(routine),'Finished reading external data' )
@@ -491,6 +500,19 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
       &           isteptype=TSTEP_CONSTANT )
+
+
+    ! gradient of topography height at cell center
+    !
+    ! grad_topo     p_ext_atm%grad_topo(2,nproma,nblks_c)
+    cf_desc    = t_cf_var('grad_surface_height', 'm m-1', &
+      &                   'gradient of geometric height of the earths surface above sea level', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'grad_topo', p_ext_atm%grad_topo,        &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+      &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.TRUE.,  &
+      &           isteptype=TSTEP_CONSTANT )
+
 
     ! geopotential (s)
     !
@@ -1100,7 +1122,7 @@ CONTAINS
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23
-       ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
+      ALLOCATE(p_ext_atm%z0_lcc(num_lcc),         & ! Land-cover related roughness length
                 p_ext_atm%z0_lcc_min(num_lcc),     & ! Minimum land-cover related roughness length
                 p_ext_atm%plcovmax_lcc(num_lcc),   & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(num_lcc),     & ! Maximum leaf area index for each land-cover class

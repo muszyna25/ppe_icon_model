@@ -26,7 +26,8 @@ MODULE mo_util_phys
     &                                 cpd, p0ref, rd,  &
     &                                 vtmpc1, t3,      &
     &                                 grav,            &
-    &                                 tmelt
+    &                                 tmelt,           &
+    &                                 alvdcp, rd_o_cpd
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int
@@ -60,6 +61,7 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
   PUBLIC :: nh_update_prog_phy
+  PUBLIC :: cal_cape_cin
 
 CONTAINS
 
@@ -863,6 +865,400 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE nh_update_prog_phy
+
+
+  SUBROUTINE cal_cape_cin ( i_startidx, i_endidx, kmoist, te, qve, prs, hhl,  &
+                            cape_ml, cin_ml )
+
+  !------------------------------------------------------------------------------
+  !
+  !>
+  !! Description:
+  !!  Computation of Convective Available Potential Energy CAPE,
+  !!  Convective Inhibition CIN based on parcel theory.
+  !!  This subroutine is based on COSMO code.
+  !!        Helmut Frank
+  !! 
+  !! Input:  
+  !!         - Temperature, specific humidity and pressure of environment
+  !!
+  !! Output: 
+  !!         - cape_ml/cin_ml: CAPE/CIN based on a parcel with thermodynamical 
+  !!                           properties of the lowest mean layer in the PBL (50hPa)
+  !!      
+  !! Motivation: 
+  !!  Current parameter CAPE_CON is calculated in LM in the framework of the 
+  !!  convective parametrisation scheme. Therefore this parameter is only available
+  !!  at those gridpoints, where the scheme is called, but not continuously on the 
+  !!  whole domain. This subroutine, on the other hand, provides continuous fields. 
+  !!
+  !! Method:
+  !!  A dry/moist parcel ascent is performed following classic parcel theory.
+  !!  Moist adiabatic ascent is calculated iteratively with an appropriate scheme.
+  !!  Based on the temperature and moisture of the ascending parcel, CAPE and CIN
+  !!  are computed, closely following the recommendations of Doswell and Rasmussen 
+  !!  (1994), including a virtual temperature correction and searching for the 
+  !!  most unstable parcel in the lower troposphere. Additionally, a mixed layer 
+  !!  CAPE as well as the traditional Showalter Index and the surface lifted 
+  !!  index are computed as further variables. 
+  !!
+  !!  References used during development: 
+  !!  - C. A. Doswell and Rasmussen, E. N.: The Effect of Neglecting the 
+  !!    Virtual Temperature Correction on CAPE Calculations. 
+  !!    Weather and Forecasting, 9, 625-629.
+  !!
+  !!  - K. A. Emanuel (1994): Atmospheric Convection. Oxford University Press.
+  !!
+  !!  - H. Huntrieser et al. (1997): Comparison of Traditional and Newly Developed 
+  !!    Thunderstorm Indices for Switzerland. Weather and Forecasting, 12, 
+  !!    108-125.
+  !!
+  !!  - D. Bolton (1980): The Computation of Equivalent Potential Temperature. 
+  !!    Monthly Weather Review, 108, 1046-1053
+  !!
+  !!  - Davies, J.M.,2002: On low-level thermodynamic parameters
+  !!    associated with tornadic and nontornadic supercells.
+  !!    Preprints, 21st Conf. On Severe Local Storms, San Antonio, Amer. Meteor. Soc.
+  !!    http://members.cox.net/jondavies1/LLthermo.PDF
+  !!
+  !! @par Revision History
+  !! Inherited from COSMO by Helmut Frank, DWD (2015-05-13)
+  !! 
+  !!
+
+! Input data
+!----------- 
+  INTEGER, INTENT (IN) ::  &
+    i_startidx, i_endidx,  &  ! start and end indices of loops in hoirozntal patch
+    kmoist                    ! start index for moist processes
+
+  REAL    (wp),    INTENT (IN) ::  &
+    te  (:,:),   & ! environment temperature
+    qve (:,:),   & ! environment specific humidity
+    prs (:,:),   & ! full level pressure
+    hhl (:,:)      ! height of half levels
+
+! Output data
+!------------ 
+  REAL (wp), INTENT (OUT) :: &
+    cape_ml  (:),   & ! mixed layer CAPE_ML
+    cin_ml   (:)      ! mixed layer CIN_ML
+
+! Local scalars and automatic arrays
+!-----------------------------------
+  INTEGER :: nlev
+
+  REAL    (wp) ::           &      
+    qvp_start(SIZE(qve,1)), & ! parcel initial specific humidity in mixed layer
+    tp_start (SIZE(te,1))     ! parcel initial pot. temperature in mixed layer
+
+  REAL (wp), PARAMETER :: p0 = 1.e5_wp   ! reference pressure for calculation of
+  REAL (wp), PARAMETER :: missing_value  = -999.9_wp   ! Missing value for CIN (if no LFC/CAPE was found),
+
+! Depth of mixed surface layer: 50hPa following Huntrieser, 1997.
+! Other frequently used value is 100hPa.
+  REAL (wp), PARAMETER :: ml_depth = 5000._wp
+
+  INTEGER              :: &     
+  i, k,                   & ! Indices of input/output fields
+  k_ml(SIZE(te,1)),       & ! Index for calculation of mixed layer averages 
+                            ! (potential temperature, moisture)
+  kstart(SIZE(te,1)),     & ! Model level approx. corresponding to mixed layer mean pressure
+  lcllev(SIZE(te,1)),     & ! Indices for Lifting Condensation Level LCL,
+  lfclev(SIZE(te,1))        ! Level of Free Convection LFC
+  
+! The following parameters are help values for the iterative calculation 
+! of the parcel temperature during the moist adiabatic ascent
+  REAL    (wp)             :: esat,tguess1,tguess2,thetae1,thetae2
+! REAL    (wp)             :: rp, r1,r2
+  REAL    (wp)             :: q1, q2
+  REAL    (wp), PARAMETER  :: eps=0.03
+
+! this parameter helps to find the LFC above a capping inversion in cases, 
+! where a LFC already was found in an unstable layer in the convective 
+! boundary layer below. 
+  REAL (wp), PARAMETER :: cc_comp    = 2.0_wp                      
+      
+  INTEGER ::    icount              ! counter for the iterative process
+      
+  REAL (wp) ::             &
+    cin_help(SIZE(te,1)),  & ! help variable, the CIN above the LFC
+    buo     (SIZE(te,1)),  & ! parcel buoyancy at level k
+    tp      (SIZE(te,1)),  & ! temperature profile of ascending parcel
+    qvp     (SIZE(te,1)),  & ! specific moisture profile of ascending parcel
+    thp     (SIZE(te,1)),  & ! 1st guess theta_e of parcel for iterative 
+    tvp,                   & ! virtual temperature of parcel at level k
+    tve,                   & ! virtual temperature of environment at level k
+    buo_belo,              & ! parcel buoyancy of level k+1 below
+    esatp,                 & ! saturation vapour pressure at level k
+    qvsp                     ! saturation specific humidity at level k
+                             ! calculation of moist adiabatic ascent
+
+  INTEGER :: lfcfound(SIZE(te,1))   ! flag indicating if a LFC has already been found
+                                    ! below, in cases where several EL and LFC's occur
+  
+!------------------------------------------------------------------------------
+! 
+! A well mixed near surface layer is assumed (its depth is specified with 
+! parameter ml_depth) Potential temperature and specific humidity are constant
+! in this layer, they are calculated as arithmetical means of the corresponding
+! variables of the environment (model) profile. The parcel starts from a level 
+! approximately in the middle of this well mixed layer, with the average spec. 
+! humidity and potential temperature as start values. 
+!
+!------------------------------------------------------------------------------
+        
+    nlev = SIZE( te,2)
+    k_ml  (:)  = nlev  ! index used to step through the well mixed layer
+    kstart(:)  = nlev  ! index of model level corresponding to average 
+                       ! mixed layer pressure
+    qvp_start(:) = 0.0_wp ! specific humidities in well mixed layer
+    tp_start (:) = 0.0_wp ! potential temperatures in well mixed layer
+            
+    ! now calculate the mixed layer average potential temperature and 
+    ! specific humidity
+    DO k = nlev, kmoist, -1
+      DO i = i_startidx, i_endidx
+
+        IF ( prs(i,k) > (prs(i,nlev) - ml_depth)) THEN
+          qvp_start(i) = qvp_start(i) + qve(i,k)
+          tp_start (i) = tp_start (i) + te (i,k)*(p0/prs(i,k))**rd_o_cpd
+             
+          ! Find the level, where pressure approximately corresponds to the 
+          ! average pressure of the well mixed layer. Simply assume a threshold
+          ! of ml_depth/2 as average pressure in the layer, if this threshold 
+          ! is surpassed the level with approximate mean pressure is found
+          IF (prs(i,k) > prs(i,nlev) - ml_depth*0.5_wp) THEN
+            kstart(i) = k
+          ENDIF
+
+          k_ml(i) = k - 1
+        ELSE
+          EXIT
+        ENDIF
+
+      ENDDO     
+    ENDDO
+        
+    ! Calculate the start values for the parcel ascent, 
+    DO i = i_startidx, i_endidx
+      qvp_start(i) =  qvp_start(i) / (nlev-k_ml(i))
+      tp_start (i) =  tp_start (i) / (nlev-k_ml(i))
+    ENDDO     
+  
+  !------------------------------------------------------------------------------
+  !
+  ! Description:
+  !   A single parcel ascent is performed, based on the given start 
+  !   values kstart (level), tp_start (initial parcel temperature) and
+  !   qvp_start (initial parcel specific humidity). 
+  !
+  !------------------------------------------------------------------------------
+  
+  ! Initialization
+  
+  cape_ml(:)  = 0.0_wp
+  cin_ml(:)   = 0.0_wp
+  
+  lcllev  (:) = 0
+  lfclev  (:) = 0
+  lfcfound(:) = 0
+  cin_help(:) = 0.0_wp
+  tp (:)      = 0.0_wp
+  qvp(:)      = 0.0_wp               
+  buo(:)      = 0.0_wp
+  
+  ! Loop over all model levels above kstart
+  kloop: DO k = nlev, kmoist, -1
+
+    DO i = i_startidx, i_endidx
+      IF ( k > kstart(i) ) CYCLE
+         
+      ! Dry ascent if below cloud base, assume first level is not saturated 
+      ! (first approximation)
+      IF (k > lcllev(i)) THEN
+        tp (i)   = tp_start(i)*( prs(i,k)/p0)**rd_o_cpd   ! dry adiabatic process
+        qvp(i)   = qvp_start(i)                           ! spec humidity conserved
+            
+        ! Calculate parcel saturation vapour pressure and saturation 
+        ! specific humidity
+        esatp = sat_pres_water( tp(i))
+        qvsp  = fqvs( esatp, prs(i,k), qvp(i))
+            
+        ! Check whether parcel is saturated or not and 
+        ! no LCL was already found below
+        IF ( (qvp(i) >= qvsp) .AND. (lcllev(i) == 0) ) THEN  
+          lcllev(i) = k                                    ! LCL is reached
+
+          ! Moist ascent above LCL, first calculate an approximate thetae to hold 
+          ! constant during the remaining ascent
+!         rp      = qvp(i)/( 1._wp - qvp(i) )
+!         thp(i)  = fthetae( tp(i),prs(i,k),rp )
+          thp(i)  = fthetae( tp(i),prs(i,k), qvp(i) )
+
+        ENDIF
+      ENDIF
+         
+      ! Moist adiabatic process: the parcel temperature during this part of 
+      ! the ascent is calculated iteratively using the iterative newton
+      ! scheme, assuming the equivalent potential temperature of the parcel 
+      ! at the LCL (thp) is held constant. The scheme converges usually within
+      ! few (less than 10) iterations, its accuracy can be tuned with the 
+      ! parameter "eps", a value of 0.03 is tested and recommended. 
+            
+      IF ( k <= lcllev(i) ) THEN                                
+        ! The scheme uses a first guess temperature, which is the parcel 
+        ! temperature at the level below. If it happens that the initial 
+        ! parcel is already saturated, the environmental temperature 
+        ! is taken as first guess instead
+        IF (  k == kstart(i) ) THEN
+          tguess1 = te(i,kstart(i))            
+        ELSE
+          tguess1 = tp(i)
+        END IF
+        icount = 0       ! iterations counter
+
+        ! Calculate iteratively parcel temperature from 
+        ! thp, prs and 1st guess tguess1
+        DO
+          esat     = sat_pres_water( tguess1)
+!         r1       = rdv*esat/(prs(i,k)-esat)
+!         thetae1  = fthetae( tguess1,prs(i,k),r1)
+          q1       = fqvs( esat, prs(i,k), qvp(i) )
+          thetae1  = fthetae( tguess1,prs(i,k),q1)
+
+          tguess2  = tguess1 - 1.0_wp
+          esat     = sat_pres_water( tguess2)
+!         r2       = rdv*esat/(prs(i,k)-esat)
+!         thetae2  = fthetae( tguess2,prs(i,k),r2)
+          q2       = fqvs( esat, prs(i,k), qvp(i) )
+          thetae2  = fthetae( tguess2,prs(i,k),q2)
+
+          tguess1  = tguess1+(thetae1-thp(i))/(thetae2-thetae1)
+          icount   = icount    + 1   
+
+          IF ( ABS( thetae1-thp(i)) < eps .OR. icount > 20 ) THEN
+            tp(i) = tguess1
+            EXIT
+          END IF
+        END DO
+
+        ! update specific humidity of the saturated parcel for new temperature
+        esatp  = sat_pres_water( tp(i))
+        qvp(i) = fqvs( esatp,prs(i,k),qvp(i))
+      END IF
+         
+      ! Calculate virtual temperatures of parcel and environment
+      tvp    = tp(i  ) * (1.0_wp + vtmpc1*qvp(i  )/(1.0_wp - qvp(i  )) )  
+      tve    = te(i,k) * (1.0_wp + vtmpc1*qve(i,k)/(1.0_wp - qve(i,k)) ) 
+         
+      ! Calculate the buoyancy of the parcel at current level k, 
+      ! save buoyancy from level k+1 below (buo_belo) to check if LFC or EL have been passed
+      buo_belo = buo(i)
+      buo(i)   = tvp - tve
+
+      ! Check for level of free convection (LFC) and set flag accordingly. 
+      ! Basic LFC condition is that parcel buoyancy changes from negative to 
+      ! positive (comparison of buo with buo_belo). Tests showed that very 
+      ! often the LFC is already found within the boundary layer below even if 
+      ! significant capping inversions are present above (and since CIN is only
+      ! defined below the LFC no CIN was accumulated in these cases.)
+      ! To handle these situations in a meteorologically meaningful way an 
+      ! additional flag "lfcfound" was introduced which is initially zero but 
+      ! set to 1 if a second LFC was found, under the condition that the CIN 
+      ! within the capping inversion is greater than the CAPE in the convective
+      ! boundary layer below times the factor cc_comp (cc_comp = 1 - 2 
+      ! recommended.)
+      ! Help variable CIN_HELP saves all contributions to the total cin above 
+      ! the LFC and has to be subtracted at the end from the final CIN in order
+      ! to get the CIN only below the LFC (this is necessary since we do not 
+      ! know yet where exactly we will find an LFC when performing the ascent
+      ! from bottom to top in a stepwise manner.)
+
+      ! Find the first LFC
+      IF ( (buo(i) > 0.0_wp) .AND. (buo_belo <= 0.0_wp)            &
+                             .AND. ( lfcfound(i)==0) ) THEN
+            
+        ! Check whether it is an LFC at one of the lowest model levels 
+        ! (indicated by CAPE=0)
+        IF ( (cape_ml(i) > 0.0_wp) .AND. ( lfcfound(i) == 0 ) ) THEN
+          ! Check if there is a major capping inversion below, defined as 
+          ! having CIN with an absolute value larger than the CAPE accumulated
+          ! below times some arbitrary factor cc_comp - if this is the case the
+          ! LFC index "lfclev" is updated to the current level k and 
+          ! "lfcfound"-flag is now set to 1 assuming that we have found the 
+          ! level of free convection finally. 
+          IF ( cc_comp * ABS(cin_help(i)) > cape_ml(i) ) THEN
+            lfclev(i)   = k
+            cape_ml (i) = 0.0_wp
+            cin_help(i) = 0.0_wp
+            lfcfound(i) = 1
+          ENDIF
+        ELSE
+          ! the LFC found is near the surface, set the LFC index to the current
+          ! level k (lfclev) but do not set the flag "lfcfound" to zero to 
+          ! indicate that a further LFC may be present above the boundary layer
+          ! and an eventual capping inversion. Reset the CIN_HELP to zero to 
+          ! store the contribution of CIN above this LFC.
+          lfclev(i)   = k
+          cin_help(i) = 0.0_wp
+        ENDIF
+      ENDIF
+         
+      ! Accumulation of CAPE and CIN according to definition given in Doswell 
+      ! and Rasmussen (1994), 
+      IF ( (buo(i) >= 0.0_wp) .AND. (k <= lfclev(i)) ) THEN   
+        cape_ml(i)  = cape_ml(i)  + (buo(i)/tve)*grav*(hhl(i,k) - hhl(i,k+1))
+      ELSEIF ( (buo(i) < 0.0) .AND. (k < kstart(i)) ) THEN  
+        cin_ml(i)   = cin_ml(i)   + (buo(i)/tve)*grav*(hhl(i,k) - hhl(i,k+1))
+        cin_help(i) = cin_help(i) + (buo(i)/tve)*grav*(hhl(i,k) - hhl(i,k+1))
+      ENDIF
+
+    ENDDO ! i = i_startidx, i_endidx
+  ENDDO  kloop       ! End k-loop over levels
+      
+    ! Subtract the CIN above the LFC from the total accumulated CIN to 
+    ! get only contriubtions from below the LFC as the definition demands.
+  DO i = i_startidx, i_endidx
+
+    ! make CIN positive
+    cin_ml(i) = ABS (cin_ml(i) - cin_help(i))
+
+    ! set the CIN to missing value if no LFC was found or no CAPE exists
+    IF ( (lfclev(i) == 0) .OR. (cape_ml(i) == 0.0_wp)  ) cin_ml(i) = missing_value 
+  ENDDO
+
+CONTAINS
+
+! Specific humidity at saturation as function of water vapor pressure zex,
+! air pressure zpx, and specific humidity zqx.
+  ELEMENTAL FUNCTION fqvs( zex, zpx, zqx)
+
+    REAL(wp), INTENT(IN) :: zex   ! vapor pressure        [Pa]
+    REAL(wp), INTENT(IN) :: zpx   ! atmospheric pressure  [Pa]
+    REAL(wp), INTENT(IN) :: zqx   ! specific humidity     [kg/kg]
+    REAL(wp)             :: fqvs  ! Equivalent potential temperature
+
+    fqvs = zex/zpx *( rdv + o_m_rdv*zqx )        
+
+  END FUNCTION fqvs
+
+! Equivalent potential temperature to hold constant during ascent
+! ELEMENTAL FUNCTION fthetae( ztx,zpx,zrx)
+  ELEMENTAL FUNCTION fthetae( ztx,zpx,zqx)
+
+    REAL(wp), INTENT(IN) :: ztx     ! air temperature       [K]
+    REAL(wp), INTENT(IN) :: zpx     ! atmospheric pressure  [Pa]
+!   REAL(wp), INTENT(IN) :: zrx     ! mixing ratio          [kg/kg]
+    REAL(wp), INTENT(IN) :: zqx     ! specific humidity     [kg/kg]
+    REAL(wp)             :: fthetae ! Equivalent potential temperature [K]
+
+!   fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zrx/ztx)  
+    fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zqx/(ztx*(1._wp-zqx)) )
+
+  END FUNCTION fthetae
+
+  END SUBROUTINE cal_cape_cin
 
 
 END MODULE mo_util_phys

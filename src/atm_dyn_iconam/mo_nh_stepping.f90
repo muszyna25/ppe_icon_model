@@ -357,6 +357,7 @@ MODULE mo_nh_stepping
           &                      p_lnd_state(jg)%diag_lnd,               & !in
           &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
           &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+          &                      ext_data(jg),                           & !in
           &                      prm_diag(jg)                            ) !inout
 
         ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
@@ -482,7 +483,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE perform_nh_timeloop (datetime_current)
 !
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime_current
@@ -749,6 +750,7 @@ MODULE mo_nh_stepping
             &                      p_lnd_state(jg)%diag_lnd,               & !in
             &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
             &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+            &                      ext_data(jg),                           & !in
             &                      prm_diag(jg)                            ) !inout
 
           ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
@@ -923,6 +925,8 @@ MODULE mo_nh_stepping
   IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
 
   END SUBROUTINE perform_nh_timeloop
+
+
   !-------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
