@@ -58,18 +58,18 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               RTTOV_BT_CS, RTTOV_RAD_CL,          &
   &                               RTTOV_RAD_CS
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, lart
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_linked_list,         ONLY: t_list_element, t_var_list
+USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv
 USE mo_data_turbdiff,       ONLY: ltkecon
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_TILE, VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -86,7 +86,7 @@ USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,       
   &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN,  &
   &                               TSTEP_CONSTANT, ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
-  &                               ZA_ISOTHERM_ZERO, GRID_EDGE
+  &                               ZA_ISOTHERM_ZERO
 USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
@@ -1152,6 +1152,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('albdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
                & grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL),      &
+               & var_class=CLASS_TILE,                                         &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
@@ -1176,6 +1177,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('albvisdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
                & grib2_var(0, 19, 222, ibits, GRID_REFERENCE, GRID_CELL),    &
+               & var_class=CLASS_TILE,                                         &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
@@ -1200,6 +1202,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('albnirdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
                & grib2_var(0, 19, 223, ibits, GRID_REFERENCE, GRID_CELL),    &
+               & var_class=CLASS_TILE,                                         &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
@@ -1225,6 +1228,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                & t_cf_var('swflxsfc_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
                & grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL),       &
                & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,               &
+               & var_class=CLASS_TILE,                                         &
                & in_group=groups("rad_vars"))
           ENDDO
 
@@ -1248,6 +1252,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                & t_cf_var('lwflxsfc_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
                & grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL),       &
                & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,               &
+               & var_class=CLASS_TILE,                                         &
                & in_group=groups("rad_vars"))
           ENDDO
         ENDIF
@@ -1942,6 +1947,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('shfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
              & grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL),   &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -1963,6 +1969,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
              & t_cf_var('lhfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
              & grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),   & 
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -1984,7 +1991,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & diag%lhfl_bs_t_ptr(jsfc)%p_2d,                             &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
              & t_cf_var('lhfl_bs_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),&
-             & grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL),  & 
+             & grib2_var(2, 0, 193, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
         ENDDO
 
@@ -2009,6 +2017,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & t_cf_var('lhfl_pl_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),&
              & grib2_var(2, 0, 194, ibits, GRID_REFERENCE, GRID_CELL),  & 
              & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,        &
+             & var_class=CLASS_TILE,                                      &
              & loutput=.TRUE.)
         ENDDO
 
@@ -2029,7 +2038,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & diag%qhfl_s_t_ptr(jsfc)%p_2d,                              &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
              & t_cf_var('qhfl_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-             & grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),   & 
+             & grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),     &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -2051,7 +2061,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & diag%tcm_t_ptr(jsfc)%p_2d,                                 &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
              & t_cf_var('tcm_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-             & grib2_var(0, 2, 29, ibits, GRID_REFERENCE, GRID_CELL),   & 
+             & grib2_var(0, 2, 29, ibits, GRID_REFERENCE, GRID_CELL),     &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -2074,6 +2085,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('tch_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
              & grib2_var(0, 0, 19, ibits, GRID_REFERENCE, GRID_CELL),   &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -2097,6 +2109,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('tfv_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
              & grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -2104,6 +2117,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
         cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &
              &                DATATYPE_FLT32)
+        new_cf_desc = t_cf_var('z0_t', 'm'      ,'tile-based roughness length',  DATATYPE_FLT32)
         grib2_desc = grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'gz0_t', diag%gz0_t,                                    &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw, &
@@ -2119,7 +2133,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
              & t_cf_var('gz0_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
              & grib2_var(2, 0, 1, ibits, GRID_REFERENCE, GRID_CELL),    &
-             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+             & var_class=CLASS_TILE,                                      &
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,            &
+             & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,            &
+             &                 new_cf=new_cf_desc)                        )
         ENDDO
 
 
@@ -2142,6 +2159,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
              & t_cf_var('tvs_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),     &
              & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+             & var_class=CLASS_TILE,                                         &
              & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
         ENDDO
 
@@ -2166,6 +2184,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
              & t_cf_var('tkvm_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),     &
              & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+             & var_class=CLASS_TILE,                                        &
              & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
         ENDDO
 
@@ -2189,6 +2208,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
              & t_cf_var('tkvh_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),     &
              & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+             & var_class=CLASS_TILE,                                          &
              & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
         ENDDO
 
@@ -2210,6 +2230,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                     &
              & t_cf_var('u_10m_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
              & grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 
@@ -2231,6 +2252,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
              & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                     &
              & t_cf_var('v_10m_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
              & grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
+             & var_class=CLASS_TILE,                                      &
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
 

@@ -49,7 +49,9 @@ MODULE mo_name_list_output_types
   PUBLIC :: IRLON, IRLAT, ILATLON
   PUBLIC :: ICELL, IEDGE, IVERT
   PUBLIC :: GRP_PREFIX
+  PUBLIC :: TILE_PREFIX
   PUBLIC :: GRB2_GRID_INFO_NAME, GRB2_GRID_INFO
+
   ! derived data types:
   PUBLIC :: t_mem_win
   PUBLIC :: t_reorder_info
@@ -75,6 +77,8 @@ MODULE mo_name_list_output_types
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6), PARAMETER :: GRP_PREFIX = "group:"
+  ! prefix for tile-group identifier in output namelist
+  CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345

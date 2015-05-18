@@ -31,13 +31,12 @@ MODULE mo_initicon_io
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_ana, lread_vn,      &
-    &                               lp2cintp_incr, lp2cintp_sfcana
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,            &
@@ -50,13 +49,14 @@ MODULE mo_initicon_io
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, onCells, onEdges
-  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters, &
-    &                               makeInputParameters, deleteInputParameters, get_cdi_NlevRef
+  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters,        &
+    &                               makeInputParameters, deleteInputParameters,         &
+    &                               get_cdi_NlevRef, t_tileinfo_elt, trivial_tileinfo
   USE mo_util_string,         ONLY: one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
-    &                               ntiles_water, lmulti_snow
+    &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -94,8 +94,16 @@ MODULE mo_initicon_io
   DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
 
 
-  PUBLIC :: open_init_files, close_init_files, read_data_2d, read_data_3d, read_extana_atm, read_extana_sfc, &
-            read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii
+  PUBLIC :: open_init_files
+  PUBLIC :: close_init_files
+  PUBLIC :: read_data_2d, read_data_3d
+  PUBLIC :: read_extana_atm
+  PUBLIC :: read_extana_sfc
+  PUBLIC :: read_dwdfg_atm
+  PUBLIC :: read_dwdfg_sfc
+  PUBLIC :: read_dwdana_atm
+  PUBLIC :: read_dwdana_sfc
+  PUBLIC :: read_dwdfg_atm_ii
 
 
 
@@ -288,19 +296,20 @@ MODULE mo_initicon_io
   !> Wrapper routine for NetCDF and GRIB2 read routines, 2D case.
   !  If necessary an inverse post_op is performed for the input field
   !
-  SUBROUTINE read_data_2d (parameters, filetype, varname, var_out, opt_tileidx, opt_checkgroup)
+  SUBROUTINE read_data_2d (parameters, filetype, varname, var_out, tileinfo, opt_checkgroup)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    INTEGER,           INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
-    CHARACTER(len=*),  INTENT(IN)    :: varname        !< var name of field to be read
-    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:)   !< output field
-    INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    INTEGER,                 INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< var name of field to be read
+    REAL(wp), POINTER,       INTENT(INOUT) :: var_out(:,:)   !< output field
+    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
                                                                           !< contained in opt_checkgroup
     ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_2d'
+    CHARACTER(len=*), PARAMETER     :: routine ='read_data_2d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: full_varname   !< varname, including tile suffix, if present
 
     IF (PRESENT(opt_checkgroup)) THEN
       lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
@@ -334,16 +343,28 @@ MODULE mo_initicon_io
       ! Perform CDI read operation
       !
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        IF ( (tileinfo%idx == trivial_tileinfo%idx) .AND. (tileinfo%att == trivial_tileinfo%att)) THEN
+          WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        ELSE
+          WRITE(message_text,'(a,i2,a,i2)') TRIM(filetyp_read)//' '//TRIM(mapped_name)//', Tile:',tileinfo%idx,', Att:',tileinfo%att
+        ENDIF
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
 
-      CALL read_cdi_2d(parameters, mapped_name, var_out, opt_tileidx)
+      CALL read_cdi_2d(parameters, mapped_name, var_out, tileinfo)
 
+
+      ! add tile suffix (if available) to varname
+      ! This is necessary, in order to select the right post-op
+      IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
+        full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
+      ELSE
+        full_varname = varname
+      ENDIF
 
       ! Perform inverse post_op on input field, if necessary
       !
-      CALL initicon_inverse_post_op(varname, mapped_name, optvar_out2D=var_out)
+      CALL initicon_inverse_post_op(full_varname, mapped_name, optvar_out2D=var_out)
 
     ENDIF  ! lread
 
@@ -354,21 +375,21 @@ MODULE mo_initicon_io
   !-------------------------------------------------------------------------
   !> Wrapper routine for NetCDF and GRIB2 read routines, 3D case.
   !
-  SUBROUTINE read_data_3d(parameters, filetype, varname, nlevs, var_out, opt_tileidx, opt_checkgroup)
+  SUBROUTINE read_data_3d(parameters, filetype, varname, nlevs, var_out, tileinfo, opt_checkgroup)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    INTEGER,           INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
-    CHARACTER(len=*),  INTENT(IN)    :: varname        !< var name of field to be read
-    INTEGER,           INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
-    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:,:) !< output field
-    INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    INTEGER,                 INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
+    CHARACTER(len=*),        INTENT(IN)    :: varname        !< var name of field to be read
+    INTEGER,                 INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
+    REAL(wp), POINTER,       INTENT(INOUT) :: var_out(:,:,:) !< output field
+    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
                                                                           !< contained in opt_checkgroup
     ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = modname//':read_data_3d'
+    CHARACTER(len=*), PARAMETER     :: routine = 'read_data_3d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
-
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: full_varname   !< varname, including tile suffix, if present
 
     IF (PRESENT(opt_checkgroup)) THEN
       lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
@@ -401,18 +422,31 @@ MODULE mo_initicon_io
       ! Perform CDI read operation
       !
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        IF ( (tileinfo%idx == trivial_tileinfo%idx) .AND. (tileinfo%att == trivial_tileinfo%att)) THEN
+          WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        ELSE
+          WRITE(message_text,'(a,i2,a,i2)') TRIM(filetyp_read)//' '//TRIM(mapped_name)//', Tile:',tileinfo%idx,', Att:',tileinfo%att
+        ENDIF
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
 
-      CALL read_cdi_3d (parameters, mapped_name, nlevs, var_out, opt_tileidx)
+      CALL read_cdi_3d (parameters, mapped_name, nlevs, var_out, tileinfo)
+
+
+      ! add tile suffix (if available) to varname
+      ! This is necessary, in order to select the right post-op
+      IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
+        full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
+      ELSE
+        full_varname = varname
+      ENDIF
 
       ! Perform inverse post_op on input field, if necessary
       !
       ! SMI is skipped manually, since it is not contained in any of the ICON variable
       ! lists, and is thus not handled correctly by the following routine.
       IF( TRIM(mapped_name)/='smi' .AND. TRIM(mapped_name)/='SMI') &
-        CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+        CALL initicon_inverse_post_op(full_varname, mapped_name, optvar_out3D=var_out)
 
     ENDIF  ! lread
 
@@ -1022,8 +1056,11 @@ MODULE mo_initicon_io
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':read_dwdfg_atm'
+    TYPE(t_tileinfo_elt) :: tileinfo
 
     !-------------------------------------------------------------------------
+
+    tileinfo = trivial_tileinfo
 
     DO jg = 1, n_dom
 
@@ -1053,36 +1090,36 @@ MODULE mo_initicon_io
 
       ! start reading first guess (atmosphere only)
       !
-      CALL read_data_3d (parameters, filetype, 'theta_v', nlev, p_nh_state(jg)%prog(nnow(jg))%theta_v)
-      CALL read_data_3d (parameters, filetype, 'rho', nlev, p_nh_state(jg)%prog(nnow(jg))%rho)
-      CALL read_data_3d (parameters, filetype, 'w', nlevp1, p_nh_state(jg)%prog(nnow(jg))%w)
-      CALL read_data_3d (parameters, filetype, 'tke', nlevp1, p_nh_state(jg)%prog(nnow(jg))%tke)
+      CALL read_data_3d (parameters, filetype, 'theta_v', nlev, p_nh_state(jg)%prog(nnow(jg))%theta_v, tileinfo)
+      CALL read_data_3d (parameters, filetype, 'rho', nlev, p_nh_state(jg)%prog(nnow(jg))%rho, tileinfo)
+      CALL read_data_3d (parameters, filetype, 'w', nlevp1, p_nh_state(jg)%prog(nnow(jg))%w, tileinfo)
+      CALL read_data_3d (parameters, filetype, 'tke', nlevp1, p_nh_state(jg)%prog(nnow(jg))%tke, tileinfo)
 
       ! Only needed for FG-only runs; usually read from ANA
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-      CALL read_data_3d (parameters, filetype, 'qv', nlev, my_ptr3d, opt_checkgroup=checkgrp)
+      CALL read_data_3d (parameters, filetype, 'qv', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
 
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-      CALL read_data_3d (parameters, filetype, 'qc', nlev, my_ptr3d, opt_checkgroup=checkgrp)
+      CALL read_data_3d (parameters, filetype, 'qc', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
 
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-      CALL read_data_3d (parameters, filetype, 'qi', nlev, my_ptr3d, opt_checkgroup=checkgrp)
+      CALL read_data_3d (parameters, filetype, 'qi', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
 
       IF ( iqr /= 0 ) THEN
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-        CALL read_data_3d (parameters, filetype, 'qr', nlev, my_ptr3d, opt_checkgroup=checkgrp)
+        CALL read_data_3d (parameters, filetype, 'qr', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
       END IF
 
       IF ( iqs /= 0 ) THEN
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-        CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, opt_checkgroup=checkgrp)
+        CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
       END IF
 
       CALL deleteInputParameters(parameters)
 
       !This call needs its own input parameter object because it's edge based.
       parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_edges_g, p_patch(jg)%comm_pat_scatter_e)
-      CALL read_data_3d (parameters, filetype, 'vn', nlev, p_nh_state(jg)%prog(nnow(jg))%vn)
+      CALL read_data_3d (parameters, filetype, 'vn', nlev, p_nh_state(jg)%prog(nnow(jg))%vn, tileinfo)
       CALL deleteInputParameters(parameters)
 
     ENDDO ! loop over model domains
@@ -1122,8 +1159,11 @@ MODULE mo_initicon_io
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':read_dwdfg_atm_ii'
     LOGICAL :: lread_process
+    TYPE(t_tileinfo_elt) :: tileinfo
 
     !-------------------------------------------------------------------------
+
+    tileinfo = trivial_tileinfo
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
@@ -1176,27 +1216,27 @@ MODULE mo_initicon_io
 
       ! start reading first guess (atmosphere only)
       !
-      CALL read_data_3d (parameters, filetype, 'z_ifc', nlev_in+1, initicon(jg)%atm_in%z3d_ifc)
+      CALL read_data_3d (parameters, filetype, 'z_ifc', nlev_in+1, initicon(jg)%atm_in%z3d_ifc, tileinfo)
 
-      CALL read_data_3d (parameters, filetype, 'theta_v', nlev_in, initicon(jg)%atm_in%theta_v)
-      CALL read_data_3d (parameters, filetype, 'rho', nlev_in, initicon(jg)%atm_in%rho)
-      CALL read_data_3d (parameters, filetype, 'w', nlev_in+1, initicon(jg)%atm_in%w_ifc)
-      CALL read_data_3d (parameters, filetype, 'tke', nlev_in+1, initicon(jg)%atm_in%tke_ifc)
+      CALL read_data_3d (parameters, filetype, 'theta_v', nlev_in, initicon(jg)%atm_in%theta_v, tileinfo)
+      CALL read_data_3d (parameters, filetype, 'rho', nlev_in, initicon(jg)%atm_in%rho, tileinfo)
+      CALL read_data_3d (parameters, filetype, 'w', nlev_in+1, initicon(jg)%atm_in%w_ifc, tileinfo)
+      CALL read_data_3d (parameters, filetype, 'tke', nlev_in+1, initicon(jg)%atm_in%tke_ifc, tileinfo)
 
-      CALL read_data_3d (parameters, filetype, 'qv', nlev_in, initicon(jg)%atm_in%qv)
+      CALL read_data_3d (parameters, filetype, 'qv', nlev_in, initicon(jg)%atm_in%qv, tileinfo)
 
-      CALL read_data_3d (parameters, filetype, 'qc', nlev_in, initicon(jg)%atm_in%qc)
+      CALL read_data_3d (parameters, filetype, 'qc', nlev_in, initicon(jg)%atm_in%qc, tileinfo)
 
-      CALL read_data_3d (parameters, filetype, 'qi', nlev_in, initicon(jg)%atm_in%qi)
+      CALL read_data_3d (parameters, filetype, 'qi', nlev_in, initicon(jg)%atm_in%qi, tileinfo)
 
       IF ( iqr /= 0 ) THEN
-        CALL read_data_3d (parameters, filetype, 'qr', nlev_in, initicon(jg)%atm_in%qr)
+        CALL read_data_3d (parameters, filetype, 'qr', nlev_in, initicon(jg)%atm_in%qr, tileinfo)
       ELSE
         initicon(jg)%atm_in%qr(:,:,:) = 0._wp
       END IF
 
       IF ( iqs /= 0 ) THEN
-        CALL read_data_3d (parameters, filetype, 'qs', nlev_in, initicon(jg)%atm_in%qs)
+        CALL read_data_3d (parameters, filetype, 'qs', nlev_in, initicon(jg)%atm_in%qs, tileinfo)
       ELSE
         initicon(jg)%atm_in%qs(:,:,:) = 0._wp
       END IF
@@ -1205,7 +1245,7 @@ MODULE mo_initicon_io
 
       !This call needs its own input parameter object because it's edge based.
       parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_edges_g, p_patch(jg)%comm_pat_scatter_e)
-      CALL read_data_3d (parameters, filetype, 'vn', nlev_in, initicon(jg)%atm_in%vn)
+      CALL read_data_3d (parameters, filetype, 'vn', nlev_in, initicon(jg)%atm_in%vn, tileinfo)
       CALL deleteInputParameters(parameters)
 
       ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
@@ -1291,8 +1331,11 @@ MODULE mo_initicon_io
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':read_dwdana_atm'
+    TYPE(t_tileinfo_elt) :: tileinfo
 
     !-------------------------------------------------------------------------
+
+    tileinfo = trivial_tileinfo
 
     !----------------------------------------!
     ! read in DWD analysis (atmosphere)      !
@@ -1340,16 +1383,16 @@ MODULE mo_initicon_io
       ! the Analysis, are written to the NH prognostic state
       !
       my_ptr3d => my_ptr%temp
-      CALL read_data_3d (parameters, filetype, 'temp', nlev, my_ptr3d, opt_checkgroup=checkgrp)
+      CALL read_data_3d (parameters, filetype, 'temp', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
 
       my_ptr3d => my_ptr%pres
-      CALL read_data_3d (parameters, filetype, 'pres', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'pres', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       my_ptr3d => my_ptr%u
-      CALL read_data_3d (parameters, filetype, 'u', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'u', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       my_ptr3d => my_ptr%v
-      CALL read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         my_ptr3d => my_ptr%qv
@@ -1357,26 +1400,26 @@ MODULE mo_initicon_io
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
       ENDIF
 
-      CALL read_data_3d (parameters, filetype, 'qv', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'qv', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       ! For the time being identical to qc from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-      CALL read_data_3d (parameters, filetype, 'qc', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'qc', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       ! For the time being identical to qi from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-      CALL read_data_3d (parameters, filetype, 'qi', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'qi', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       ! For the time being identical to qr from FG => usually read from FG
       IF ( iqr /= 0 ) THEN
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-        CALL read_data_3d (parameters, filetype, 'qr', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+        CALL read_data_3d (parameters, filetype, 'qr', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
       END IF
 
       ! For the time being identical to qs from FG => usually read from FG
       IF ( iqs /= 0 ) THEN
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-        CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, opt_checkgroup=checkgrp )
+        CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
       END IF
 
       CALL deleteInputParameters(parameters)
@@ -1425,7 +1468,11 @@ MODULE mo_initicon_io
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':read_dwdfg_sfc'
 
+    TYPE(t_tileinfo_elt) :: tileinfo
+
     !-------------------------------------------------------------------------
+
+    tileinfo = trivial_tileinfo
 
     !----------------------------------------!
     ! read in DWD First Guess (surface)      !
@@ -1456,7 +1503,7 @@ MODULE mo_initicon_io
 
       ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
       IF (init_mode /= MODE_COSMODE) THEN
-        CALL read_data_2d(parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, opt_checkgroup=checkgrp)
+        CALL read_data_2d(parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, tileinfo, opt_checkgroup=checkgrp)
       ELSE
 !$OMP PARALLEL WORKSHARE
         lnd_diag%fr_seaice(:,:) = 0._wp
@@ -1465,17 +1512,22 @@ MODULE mo_initicon_io
 
 
       ! sea-ice related fields
-      CALL read_data_2d(parameters, filetype, 't_ice', wtr_prog%t_ice, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'h_ice', wtr_prog%h_ice, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_ice', wtr_prog%t_ice, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'h_ice', wtr_prog%h_ice, tileinfo, opt_checkgroup=checkgrp)
 
       ! tile based fields
       DO jt=1, ntiles_total + ntiles_water
 
+        IF ( .NOT. ltile_coldstart ) THEN
+          tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
+          tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
+        ENDIF
+
         my_ptr2d => lnd_prog%t_g_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 't_g', my_ptr2d, opt_checkgroup=checkgrp)
+        CALL read_data_2d(parameters, filetype, 't_g', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
 
         my_ptr2d =>lnd_diag%qv_s_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, opt_checkgroup=checkgrp)
+        CALL read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
 
         ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
         ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
@@ -1503,41 +1555,46 @@ MODULE mo_initicon_io
       !  tile based fields
       DO jt=1, ntiles_total
 
+        IF (.NOT. ltile_coldstart) THEN
+          tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
+          tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
+        ENDIF
+
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%w_i_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 'w_i', my_ptr2d, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 'w_i', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype,'t_snow', my_ptr2d, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype,'t_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
 
         IF (lmulti_snow) THEN
         ! multi layer snow fields
            my_ptr3d => lnd_prog%t_snow_mult_t(:,:,:,jt)
-           CALL read_data_3d (parameters, filetype, 't_snow_mult', nlev_snow+1, my_ptr3d, opt_checkgroup=checkgrp )
+           CALL read_data_3d (parameters, filetype, 't_snow_mult', nlev_snow+1, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
            my_ptr3d => lnd_prog%rho_snow_mult_t(:,:,:,jt)
-           CALL read_data_3d (parameters, filetype, 'rho_snow_mult', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
+           CALL read_data_3d (parameters, filetype, 'rho_snow_mult', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
            my_ptr3d => lnd_prog%wtot_snow_t(:,:,:,jt)
-           CALL read_data_3d (parameters, filetype, 'wtot_snow', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
+           CALL read_data_3d (parameters, filetype, 'wtot_snow', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
            my_ptr3d => lnd_prog%wliq_snow_t(:,:,:,jt)
-           CALL read_data_3d (parameters, filetype, 'wliq_snow', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
+           CALL read_data_3d (parameters, filetype, 'wliq_snow', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
            my_ptr3d => lnd_prog%dzh_snow_t(:,:,:,jt)
-           CALL read_data_3d (parameters, filetype, 'dzh_snow', nlev_snow, my_ptr3d, opt_checkgroup=checkgrp )
+           CALL read_data_3d (parameters, filetype, 'dzh_snow', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
         END IF ! lmulti_snow
 
 
@@ -1547,38 +1604,40 @@ MODULE mo_initicon_io
         ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
         ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
         my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
-        CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
+        CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
         !
         ! Note that no pointer assignment is missing here, since either W_SO or SMI is read
         ! into w_so_t. Whether SMI or W_SO must be read, is taken care of by 'checkgrp'.
-        CALL read_data_3d (parameters, filetype, 'smi', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
+        CALL read_data_3d (parameters, filetype, 'smi', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
 
         ! Skipped in MODE_COMBINED and in MODE_COSMODE. In that case, w_so_ice
         ! is re-diagnosed in terra_multlay_init
         my_ptr3d => lnd_prog%w_so_ice_t(:,:,:,jt)
-        CALL read_data_3d (parameters, filetype, 'w_so_ice', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
+        CALL read_data_3d (parameters, filetype, 'w_so_ice', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr3d => lnd_prog%t_so_t(:,:,:,jt)
-        CALL read_data_3d (parameters, filetype, 't_so', nlev_soil+1, my_ptr3d, opt_checkgroup=checkgrp)
+        CALL read_data_3d (parameters, filetype, 't_so', nlev_soil+1, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
 
       ENDDO ! jt
 
 
+      tileinfo = trivial_tileinfo
+
       ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
       ! Instead z0 is re-initialized (see mo_nwp_phy_init)
-      CALL read_data_2d(parameters, filetype, 'gz0', prm_diag(jg)%gz0, opt_checkgroup=checkgrp )
+      CALL read_data_2d(parameters, filetype, 'gz0', prm_diag(jg)%gz0, tileinfo, opt_checkgroup=checkgrp )
 
 
       ! first guess for fresh water lake fields
       !
-      CALL read_data_2d(parameters, filetype, 't_mnw_lk', wtr_prog%t_mnw_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 't_wml_lk', wtr_prog%t_wml_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'h_ml_lk', wtr_prog%h_ml_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 't_bot_lk', wtr_prog%t_bot_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'c_t_lk', wtr_prog%c_t_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 't_b1_lk', wtr_prog%t_b1_lk, opt_checkgroup=checkgrp)
-      CALL read_data_2d(parameters, filetype, 'h_b1_lk', wtr_prog%h_b1_lk, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_mnw_lk', wtr_prog%t_mnw_lk, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_wml_lk', wtr_prog%t_wml_lk, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'h_ml_lk', wtr_prog%h_ml_lk, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_bot_lk', wtr_prog%t_bot_lk, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'c_t_lk', wtr_prog%c_t_lk, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 't_b1_lk', wtr_prog%t_b1_lk, tileinfo, opt_checkgroup=checkgrp)
+      CALL read_data_2d(parameters, filetype, 'h_b1_lk', wtr_prog%h_b1_lk, tileinfo, opt_checkgroup=checkgrp)
 
       CALL deleteInputParameters(parameters)
 
@@ -1632,8 +1691,11 @@ MODULE mo_initicon_io
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':read_dwdana_sfc'
+    TYPE(t_tileinfo_elt) :: tileinfo
 
     !-------------------------------------------------------------------------
+
+    tileinfo = trivial_tileinfo
 
     !----------------------------------------!
     ! read in DWD analysis (surface)         !
@@ -1671,15 +1733,15 @@ MODULE mo_initicon_io
       checkgrp => initicon(jg)%grp_vars_ana(1:ngrp_vars_ana)
 
       ! sea-ice fraction
-      CALL read_data_2d (parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, tileinfo, opt_checkgroup=checkgrp )
       ! sea-ice temperature
-      CALL read_data_2d (parameters, filetype, 't_ice', wtr_prog%t_ice, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 't_ice', wtr_prog%t_ice, tileinfo, opt_checkgroup=checkgrp )
       ! sea-ice height
-      CALL read_data_2d (parameters, filetype, 'h_ice', wtr_prog%h_ice, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'h_ice', wtr_prog%h_ice, tileinfo, opt_checkgroup=checkgrp )
 
       ! T_SO(0)
       my_ptr2d => initicon(jg)%sfc%sst(:,:)
-      CALL read_data_2d (parameters, filetype, 't_so', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 't_so', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! h_snow
       IF ( init_mode == MODE_IAU ) THEN
@@ -1687,23 +1749,23 @@ MODULE mo_initicon_io
       ELSE
         my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
       ENDIF
-      CALL read_data_2d (parameters, filetype, 'h_snow', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! w_snow
       my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
-      CALL read_data_2d (parameters, filetype, 'w_snow', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! w_i
       my_ptr2d => lnd_prog%w_i_t(:,:,jt)
-      CALL read_data_2d (parameters, filetype, 'w_i', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'w_i', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! t_snow
       my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-      CALL read_data_2d (parameters, filetype, 't_snow', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 't_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! rho_snow
       my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
-      CALL read_data_2d (parameters, filetype, 'rho_snow', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! freshsnow
       IF ( init_mode == MODE_IAU ) THEN
@@ -1711,7 +1773,7 @@ MODULE mo_initicon_io
       ELSE
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
       ENDIF
-      CALL read_data_2d (parameters, filetype, 'freshsnow', my_ptr2d, opt_checkgroup=checkgrp )
+      CALL read_data_2d (parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
       ! w_so
       IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
@@ -1719,7 +1781,7 @@ MODULE mo_initicon_io
       ELSE
         my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
       ENDIF
-      CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, opt_checkgroup=checkgrp )
+      CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       CALL deleteInputParameters(parameters)
 

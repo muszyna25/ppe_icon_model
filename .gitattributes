@@ -231,6 +231,7 @@ doc/technical/dwd_database/preface_intro.tex -text
 doc/technical/dwd_database/preface_title_toc.tex -text
 doc/technical/dwd_database/preface_versionhistory.tex -text
 doc/technical/dwd_database/quote.tex -text
+doc/technical/dwd_database/statproc.tex -text
 doc/technical/flux_diagram-crop.pdf -text
 doc/technical/flux_diagram.pdf -text
 doc/technical/flux_diagram.ps -text
@@ -876,8 +877,6 @@ run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
-run/post.nh35_tri_jws -text
-run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.ocean_omip_long -text
@@ -1549,6 +1548,7 @@ src/io/atmo/mo_util_vgrid.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
+src/io/shared/mo_grib2_util.f90 -text
 src/io/shared/mo_io_restart.f90 -text
 src/io/shared/mo_io_restart_attributes.f90 -text
 src/io/shared/mo_io_restart_namelist.f90 -text
@@ -1849,6 +1849,7 @@ src/testcases/mo_sw_test.f90 -text
 src/tests/test_divide_cell.f90 -text
 src/tests/test_divide_cell_mpi.f90 -text
 support/CMakeLists.txt -text
+support/cdi_int.h -text
 support/cdilib.c -text
 support/cfortran.h -text
 support/nml_annotate.c -text
