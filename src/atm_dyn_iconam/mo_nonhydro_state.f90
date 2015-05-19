@@ -1048,7 +1048,8 @@ MODULE mo_nonhydro_state
             &                  ldims=shape3d_c,                                      &
             &                  loutput=.TRUE.,                                       &
             &                  lrestart=.FALSE.,                                     &
-            &                  tlev_source=1 )  ! output from nnow_rcf slice
+            &                  tlev_source=1,                                        &  ! output from nnow_rcf slice
+            &                  lis_tracer=.TRUE. )
         ENDDO
 
 
