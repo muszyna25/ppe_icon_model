@@ -1610,6 +1610,8 @@ CONTAINS
         ELSE
 
           IF (have_GRIB) THEN
+            var3_dp(:) = 0._wp
+
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
