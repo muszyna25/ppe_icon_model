@@ -2516,6 +2516,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ENDIF
 
     ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
+    diag%buffer_rttov => NULL()
     IF (lsynsat(k_jg)) THEN
       IF  ((k_jg > n_dom_start) .AND. (p_patch(k_jg)%nshift > 0)) THEN
         ALLOCATE(diag%buffer_rttov(nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c))
