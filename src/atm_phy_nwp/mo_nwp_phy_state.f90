@@ -69,7 +69,8 @@ USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_TILE, VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_SYNSAT,       &
+  &                               VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -2529,7 +2530,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       CALL add_var( diag_list, 'rttov_channels', diag%synsat_arr,                 &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
         &           ldims=shape3d_synsat ,                                        &
-        &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,         &
+        &           var_class=CLASS_SYNSAT)
 
       ! add reference variables for the different images:
       ALLOCATE(diag%synsat_image(num_images))
@@ -2556,13 +2558,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
             
             cf_desc    = t_cf_var(TRIM(shortname), TRIM(unit), TRIM(longname), DATATYPE_FLT32)
             grib2_desc = grib2_var(idiscipline, icategory, inumber, ibits, GRID_REFERENCE, GRID_CELL)   &
-              &           + t_grib2_int_key("scaledValueOfCentralWaveNumber", wave_no)
+              !           + t_grib2_int_key("productDefinitionTemplateNumber", 31)                      &
+              &           + t_grib2_int_key("scaledValueOfCentralWaveNumber", wave_no)                  &
+              &           + t_grib2_int_key("satelliteSeries", 333)                                     &
+              &           + t_grib2_int_key("satelliteNumber",  72)                                     &
+              &           + t_grib2_int_key("instrumentType",  207)
             CALL add_ref( diag_list, 'rttov_channels', TRIM(shortname),                  &
               &           diag%synsat_image(iimage)%p,                                   &
               &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
               &           cf_desc, grib2_desc, ldims=shape2d_synsat,                     &
               &           opt_var_ref_pos = 2, lrestart=.FALSE., loutput=.TRUE.,         &
-              &           in_group=groups("RTTOV") )
+              &           in_group=groups("RTTOV"), var_class=CLASS_SYNSAT )
           END DO
         END DO
       END DO sensor_loop
