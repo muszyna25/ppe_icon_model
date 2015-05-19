@@ -311,6 +311,15 @@ CONTAINS
 
             ENDDO  ! jc
 
+            DO jk = 1, nlev_soil
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+              prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
+                &                                    prm_diag%lhfl_pl (jc,jk,jb), &
+                &                                    t_wgt)
+              ENDDO  ! jc
+            ENDDO  ! jk
+
             IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -334,15 +343,6 @@ CONTAINS
                   &                                prm_diag%drag_v_grid (jc,jb), &
                   &                                t_wgt )
               ENDDO  ! jc
-
-              DO jk = 1, nlev_soil
-!DIR$ IVDEP
-                DO jc = i_startidx, i_endidx
-                prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
-                  &                                    prm_diag%lhfl_pl (jc,jk,jb), &
-                  &                                    t_wgt)
-                ENDDO  ! jc
-              ENDDO  ! jk
 
             ENDIF  ! lcalc_extra_avg
 
@@ -461,6 +461,16 @@ CONTAINS
             ENDDO
 
 
+            DO jk = 1, nlev_soil
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+                prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
+                                 &  + prm_diag%lhfl_pl(jc,jk,jb)          & 
+                                 &  * dt_phy_jg(itfastphy) 
+              ENDDO  ! jc
+            ENDDO  ! jk
+
+
             IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -484,15 +494,6 @@ CONTAINS
                                          &   + prm_diag%drag_v_grid(jc,jb)  &
                                          &   * dt_phy_jg(itfastphy)
               ENDDO  ! jc
-
-              DO jk = 1, nlev_soil
-!DIR$ IVDEP
-                DO jc = i_startidx, i_endidx
-                  prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
-                                   &  + prm_diag%lhfl_pl(jc,jk,jb)          & 
-                                   &  * dt_phy_jg(itfastphy) 
-                ENDDO  ! jc
-              ENDDO  ! jk
 
             ENDIF  ! lcalc_extra_avg
 

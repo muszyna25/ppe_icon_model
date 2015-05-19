@@ -436,10 +436,8 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
         is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
         is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="alhfl_pl")        .OR. &
-        is_variable_in_output(first_output_name_list, var_name="acclhfl_pl")
-    ENDIF
+        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+     ENDIF
 
     !----------------------!
     !  Initialize actions  !
