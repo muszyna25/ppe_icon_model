@@ -592,6 +592,7 @@ CONTAINS
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
+    INTEGER                                     :: var_ref_pos
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -701,6 +702,8 @@ CONTAINS
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
 
+        IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
+          & CALL finish(routine, "internal error")
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
@@ -714,18 +717,61 @@ CONTAINS
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
 
+        var_ref_pos = 3
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(nindex,:,:,1,1)
+          CASE (2)
+            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,nindex,:,1,1)
+          CASE (3)
+            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(nindex,:,:,1,1)
+          CASE (2)
+            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,nindex,:,1,1)
+          CASE (3)
+            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,1,1)
+          CASE (2)
+            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,1,1)
+          CASE (3)
+            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,1,1)
+          CASE (2)
+            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,1,1)
+          CASE (3)
+            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE
           CALL finish(routine, "Internal error!")
         ENDIF
       CASE (3)
+
+        var_ref_pos = 4
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
         ! 3D fields: Here we could just set a pointer to the
         ! array... if there were no post-ops
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1), &
@@ -736,13 +782,57 @@ CONTAINS
           &                                        info%used_dimensions(3)))
 
         IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr = of%var_desc(iv)%r_ptr(nindex,:,:,:,1)
+          CASE (2)
+            r_ptr = of%var_desc(iv)%r_ptr(:,nindex,:,:,1)
+          CASE (3)
+            r_ptr = of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
+          CASE (4)
+            r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr = of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr = of%var_desc(iv)%i_ptr(nindex,:,:,:,1)
+          CASE (2)
+            i_ptr = of%var_desc(iv)%i_ptr(:,nindex,:,:,1)
+          CASE (3)
+            i_ptr = of%var_desc(iv)%i_ptr(:,:,nindex,:,1)
+          CASE (4)
+            i_ptr = of%var_desc(iv)%i_ptr(:,:,:,nindex,1)            
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,:,1)
+          CASE (2)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,:,1)
+          CASE (3)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
+          CASE (4)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)            
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,:,1)
+          CASE (2)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,:,1)
+          CASE (3)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,:,1)
+          CASE (4)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)            
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE
           CALL finish(routine, "Internal error!")
         ENDIF
@@ -1520,6 +1610,8 @@ CONTAINS
         ELSE
 
           IF (have_GRIB) THEN
+            var3_dp(:) = 0._wp
+
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)

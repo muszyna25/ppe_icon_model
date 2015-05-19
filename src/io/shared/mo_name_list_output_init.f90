@@ -133,8 +133,7 @@ MODULE mo_name_list_output_init
     &                                             t_output_file, t_var_desc,                      &
     &                                             t_patch_info, t_reorder_info,                   &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
-    &                                             sfs_name_list, ffs_name_list, second_tos,       &
-    &                                             first_tos, GRP_PREFIX, TILE_PREFIX,             &
+    &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
     &                                             GRB2_GRID_INFO, is_grid_info_var,               &
     &                                             GRB2_GRID_INFO_NAME
@@ -217,7 +216,7 @@ CONTAINS
   SUBROUTINE read_name_list_output_namelists( filename )
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     ! local variables
-    CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//'::read_name_list_output_namelists'
 
     INTEGER                               :: istat, i, j
     TYPE(t_output_name_list), POINTER     :: p_onl
@@ -2576,7 +2575,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
     INTEGER                        :: iv, vlistID, varID, gridID, &
-      &                               zaxisID
+      &                               zaxisID, i
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
     TYPE(t_cf_var), POINTER        :: this_cf
 
@@ -2688,47 +2687,10 @@ CONTAINS
         ! (i.e. for Ensemble output), that the surface-type information is lost again, if 
         ! these settings are performed prior to "productDefinitionTemplateNumber"  
 
-        ! Re-Set "typeOfSecondFixedSurface" for the following set of variables
-        !
-        ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", xxx), 0);
-        !
-        ! HHL     : typeOfSecondFixedSurface = 101
-        ! HSURF   : typeOfSecondFixedSurface = 101
-        ! HBAS_CON: typeOfSecondFixedSurface = 101
-        ! HTOP_CON: typeOfSecondFixedSurface = 101
-        ! HTOP_DC : typeOfSecondFixedSurface = 101
-        ! HZEROCL : typeOfSecondFixedSurface = 101
-        ! CLCL    : typeOfSecondFixedSurface = 1
-        ! C_T_LK  : typeOfSecondFixedSurface = 162
-        ! H_B1_LK : typeOfSecondFixedSurface = 165
-        ! SNOWLMT : typeOfSecondFixedSurface = 101
-        IF ( one_of(TRIM(info%name),sfs_name_list) /= -1 ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
-            &                    second_tos(one_of(TRIM(info%name),sfs_name_list)))
-        ENDIF
-
-        ! Re-Set "typeOfFirstFixedSurface" for the following set of variables
-        !
-        ! GRIB_CHECK(grib_set_long(gh, "typeOfFirstFixedSurface", xxx), 0);
-        !
-        ! T_MNW_LK: typeOfFirstFixedSurface = 1
-        ! DEPTH_LK: typeOfFirstFixedSurface = 1
-        ! T_WML_LK: typeOfFirstFixedSurface = 1
-        ! H_ML_LK : typeOfFirstFixedSurface = 1
-        ! CAPE_ML : typeOfFirstFixedSurface = 192
-        ! CIN_ML  : typeOfFirstFixedSurface = 192
-        !
-        IF ( one_of(TRIM(info%name),ffs_name_list) /= -1 ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", &
-            &                    first_tos(one_of(TRIM(info%name),ffs_name_list)))
-        ENDIF
-
-
-        ! Quick hack: shortName.def should be revised, instead
-        IF ( TRIM(info%name)=='qv_s' ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0)
-        ENDIF
-
+        DO i=1,info%grib2%additional_keys%nint_keys
+          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
+            &                    info%grib2%additional_keys%int_key(i)%val)
+        END DO
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys
         CALL set_GRIB2_additional_keys(vlistID, varID, gribout_config(of%phys_patch_id))
@@ -2946,12 +2908,17 @@ CONTAINS
 
     ! var_groups_dyn is required in function 'group_id', which is called in 
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
-    size_var_groups_dyn = SIZE(var_groups_dyn)
+    size_var_groups_dyn = 0
+    if (allocated(var_groups_dyn)) then
+       size_var_groups_dyn = SIZE(var_groups_dyn)
+    end if
     CALL p_bcast(size_var_groups_dyn                        , bcast_root, p_comm_work_2_io)
-    IF (.NOT. ALLOCATED(var_groups_dyn)) THEN
-      ALLOCATE(var_groups_dyn(size_var_groups_dyn))
-    ENDIF
-    CALL p_bcast(var_groups_dyn                             , bcast_root, p_comm_work_2_io)
+    if (size_var_groups_dyn > 0) then
+       IF (.NOT. ALLOCATED(var_groups_dyn)) THEN
+          ALLOCATE(var_groups_dyn(size_var_groups_dyn))
+       ENDIF
+       CALL p_bcast(var_groups_dyn                             , bcast_root, p_comm_work_2_io)
+    end if
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
@@ -2967,15 +2934,19 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
-    size_tiles = SIZE(tiles)
+    size_tiles = 0
+    if (allocated(tiles)) then
+       size_tiles = SIZE(tiles)
+    end if
     CALL p_bcast(size_tiles                                , bcast_root, p_comm_work_2_io)
-    IF (.NOT. ALLOCATED(tiles)) THEN
-      ALLOCATE(tiles(size_tiles))
-    ENDIF
-    CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
-
+    if (size_tiles > 0) then
+       IF (.NOT. ALLOCATED(tiles)) THEN
+          ALLOCATE(tiles(size_tiles))
+       ENDIF
+       CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
+    end if
 
     ! allocate vgrid_buffer on asynchronous output PEs, for storing 
     ! the vertical grid UUID

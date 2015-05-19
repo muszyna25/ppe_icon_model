@@ -24,9 +24,6 @@ MODULE mo_var_metadata_types
   ! maximum string length for variable names
   INTEGER, PARAMETER :: VARNAME_LEN = 32
 
-  ! maximum number of variable groups supported by info state
-  INTEGER, PARAMETER :: MAX_GROUPS = 99
-
   ! List of variable groups
   ! 
   ! A variable can have any combination of this which means that it is
@@ -43,7 +40,8 @@ MODULE mo_var_metadata_types
   !
   ! New groups can be added by extending the VAR_GROUPS list.
   !
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(45) = &
+
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(46) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -88,7 +86,11 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_VOLC         ",  &  ! ICON-ART fields for volcanic ash
     &  "ART_AERO_RADIO        ",  &  ! ICON-ART fields for radioactive tracers
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
-    &  "ART_AERO_SEAS         " /)   ! ICON-ART fields for sea salt aerosol
+    &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
+    &  "RTTOV                 " /)
+
+  ! maximum number of variable groups supported by info state
+  INTEGER, PARAMETER :: MAX_GROUPS = 99
 
   ! List of dynamic variable groups, which are used for tiles
   !
@@ -118,6 +120,7 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_TILE          = 1   !< variable contains tile-specific information
   INTEGER, PARAMETER, PUBLIC :: CLASS_TILE_LAND     = 2   !< variable contains tile-specific information
                                                           !< but is restricted to land-tiles only
+  INTEGER, PARAMETER, PUBLIC :: CLASS_SYNSAT        = 3
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -226,6 +229,7 @@ MODULE mo_var_metadata_types
     LOGICAL                    :: lcontained            ! true, if this is in a container
     INTEGER                    :: ncontained            ! index in container
     INTEGER                    :: maxcontained          ! container size   
+    INTEGER                    :: var_ref_pos           ! for containers: dimension index for references
     !
     INTEGER                    :: hgrid                 ! CDI horizontal grid type
     INTEGER                    :: vgrid                 ! CDI vertical grid type

@@ -1394,6 +1394,7 @@ src/atm_phy_nwp/mo_nwp_turbtrans_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_ww.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
+src/atm_phy_nwp/mo_rttov_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
 src/atm_phy_schemes/data_hydci_pp_ice.f90 -text
@@ -1491,6 +1492,7 @@ src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text
 src/configure_model/mo_run_config.f90 -text
 src/configure_model/mo_sleve_config.f90 -text
+src/configure_model/mo_synsat_config.f90 -text
 src/configure_model/mo_time_config.f90 -text
 src/configure_model/mo_turbdiff_config.f90 -text
 src/configure_model/mo_vdiff_config.f90 -text
@@ -1623,6 +1625,7 @@ src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text
 src/namelists/mo_sea_ice_nml.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
+src/namelists/mo_synsat_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text

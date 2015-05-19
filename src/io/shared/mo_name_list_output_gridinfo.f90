@@ -22,7 +22,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates,               &
     &                                             check_orientation
   USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data
-  USE mo_grib2,                             ONLY: t_grib2_var
+  USE mo_grib2,                             ONLY: t_grib2_var, grib2_var
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys,                &
     &                                             set_GRIB2_ensemble_keys,                  &
     &                                             set_GRIB2_local_keys
@@ -555,25 +555,25 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
-    TYPE (t_grib2_var), PARAMETER :: grid_coord_grib2(2) = (/  &
-      ! geographical longitude RLON
-      & t_grib2_var(               0,   &  ! discipline
-      &                          191,   &  ! category
-      &                            2,   &  ! number
-      &              DATATYPE_PACK16,   &  ! bits
-      &               GRID_REFERENCE,   &  ! gridtype
-      &                    GRID_CELL ), &  ! subgridtype
-      ! geographical latitude RLAT
-      & t_grib2_var(               0,   &  ! discipline
-      &                          191,   &  ! category
-      &                            1,   &  ! number
-      &              DATATYPE_PACK16,   &  ! bits
-      &               GRID_REFERENCE,   &  ! gridtype
-      &                    GRID_CELL )  &  ! subgridtype
-      /)
-
+    TYPE (t_grib2_var) :: grid_coord_grib2(2)
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
+
+    ! geographical longitude RLON
+    grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline
+      &                                          191,   &  ! category
+      &                                            2,   &  ! number
+      &                              DATATYPE_PACK16,   &  ! bits
+      &                               GRID_REFERENCE,   &  ! gridtype
+      &                                    GRID_CELL )     ! subgridtype
+
+    ! geographical latitude RLAT
+    grid_coord_grib2(2) = grib2_var(               0,   &  ! discipline
+      &                                          191,   &  ! category
+      &                                            1,   &  ! number
+      &                              DATATYPE_PACK16,   &  ! bits
+      &                               GRID_REFERENCE,   &  ! gridtype
+      &                                    GRID_CELL )     ! subgridtype
 
     vlistID = of%cdiVlistID
     zaxisID = of%cdiZaxisID(ZA_surface)
