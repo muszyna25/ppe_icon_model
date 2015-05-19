@@ -42,6 +42,7 @@ MODULE mo_initicon_types
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
   PUBLIC :: t_pi_sfc
+  PUBLIC :: t_sfc_inc
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict, inventory_list_fg, inventory_list_ana
 
@@ -99,6 +100,18 @@ MODULE mo_initicon_types
   END TYPE t_pi_sfc
 
 
+  ! surface field increments
+  TYPE :: t_sfc_inc
+    !
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
+
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: w_so
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: h_snow
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: freshsnow
+
+  END TYPE t_sfc_inc
+
 
   ! complete state vector type
   !
@@ -118,7 +131,7 @@ MODULE mo_initicon_types
     TYPE (t_pi_atm)        :: atm
     TYPE (t_pi_atm)        :: atm_inc
     TYPE (t_pi_sfc)        :: sfc
-    TYPE (t_pi_sfc)        :: sfc_inc
+    TYPE (t_sfc_inc)       :: sfc_inc
 
   END TYPE t_initicon_state
  

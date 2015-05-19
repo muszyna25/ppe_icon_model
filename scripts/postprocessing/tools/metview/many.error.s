@@ -54,7 +54,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
               ACCLHFL_S       ACCSHFL_S                                          \
               TOT_PREC        RAIN_GSP       SNOW_GSP         RAIN_CON  SNOW_CON \
               T_G             T_2M           U_10M            V_10M              \
-              DZH_SNOW                                                           \
+              SP_10M          DZH_SNOW                                           \
               FR_SEAICE       H_SEAICE       T_SEAICE         SST
 
 #             QV_2M           QV_S           T_GT_tile_1      T_S_tile_1         \
@@ -70,7 +70,8 @@ while [[ $nt < ${#inidate[*]} ]]; do
               TQ1             TQ2            TQ3                                 \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S      TOT_PREC         PS                 \
-              T_G             T_2M           U_10M            V_10M
+              T_G             T_2M           U_10M            V_10M              \
+              SP_10M
 #             H_SNOW_tile_1   RHO_SNOW_tile_1 
   for var in ${vars[*]}
   do
@@ -79,6 +80,15 @@ while [[ $nt < ${#inidate[*]} ]]; do
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
 
+  # -------------------------------------------------------
+ 
+  set -A vars  SP_10M  T_2M  T_G ACCLHFL_S  ACCSHFL_S      #comparison to observations,     QV_2M  
+  for var in ${vars[*]}
+  do
+    echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc diff_obs ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc ifs_obs  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+  done
+  
   # -------------------------------------------------------
  
   set -A vars  W_SO  T_SO     #W_SO_ICE_tile_1 
