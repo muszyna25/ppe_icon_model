@@ -32,7 +32,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
-  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o
+  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
   USE mo_phyparam_soil,         ONLY: crhosminf
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
     &                                 MAX_CHAR_LENGTH, dzsoil, inwp
@@ -51,7 +51,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice,  &
-    &                                 llake, isub_lake
+    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -643,13 +643,18 @@ MODULE mo_nh_init_nest_utils
 
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. lseaice) THEN
         DO jc = i_startidx, i_endidx
-          p_child_wprog%t_ice(jc,jb)     = wtrvars_chi(jc,1,jb)
-          p_child_wprog%h_ice(jc,jb)     = wtrvars_chi(jc,2,jb)
-          p_child_wprog%t_snow_si(jc,jb) = wtrvars_chi(jc,3,jb)
-          p_child_wprog%h_snow_si(jc,jb) = wtrvars_chi(jc,4,jb)
+          p_child_wprog%t_ice(jc,jb)     = MIN(tmelt,wtrvars_chi(jc,1,jb))
+          p_child_wprog%h_ice(jc,jb)     = MAX(0._wp,wtrvars_chi(jc,2,jb))
+          p_child_wprog%t_snow_si(jc,jb) = MIN(tmelt,wtrvars_chi(jc,3,jb))
+          p_child_wprog%h_snow_si(jc,jb) = MAX(0._wp,wtrvars_chi(jc,4,jb))
           p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,wtrvars_chi(jc,5,jb)))
           IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
           IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
+          IF (ext_data(jg)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
+            p_child_wprog%h_ice(jc,jb) = 0._wp
+            p_child_wprog%h_snow_si(jc,jb) = 0._wp
+            p_child_ldiag%fr_seaice(jc,jb) = 0._wp
+          ENDIF
         ENDDO
       ENDIF
 
