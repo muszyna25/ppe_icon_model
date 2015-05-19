@@ -307,22 +307,23 @@ MODULE mo_synsat_config
     addclouds(:) = .TRUE.
 
 #ifdef __USE_RTTOV
-    istatus = rttov_init(  &
-         instruments     , &
-         channels        , &
-         n_chans         , &
-         p_pe            , &
-         num_work_procs  , &
-         p_io            , &
-         p_comm_work     , &
-         appRegLim=.TRUE., &
-         readCloud=addclouds)
+    IF (ANY(lsynsat(:))) THEN
+      istatus = rttov_init(  &
+        instruments     , &
+        channels        , &
+        n_chans         , &
+        p_pe            , &
+        num_work_procs  , &
+        p_io            , &
+        p_comm_work     , &
+        appRegLim=.TRUE., &
+        readCloud=addclouds)
 
-    IF (istatus /= NO_ERROR) THEN
-      WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
-      CALL finish('configure_synsat',message_text)
-    ENDIF
-
+      IF (istatus /= NO_ERROR) THEN
+        WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
+        CALL finish('configure_synsat',message_text)
+      ENDIF
+    END IF
 #endif
 
   END SUBROUTINE configure_synsat
