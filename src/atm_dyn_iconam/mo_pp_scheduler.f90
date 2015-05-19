@@ -421,7 +421,8 @@ CONTAINS
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
           & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
-          & new_element=new_element, loutput=.TRUE., post_op=post_op )
+          & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
+          & var_class=element_u%field%info%var_class )
 
         name    = TRIM(get_var_name(element_v%field))//suffix
         cf      = element_v%field%info%cf
@@ -430,7 +431,8 @@ CONTAINS
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
           & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_v%field%info%in_group,   &
-          & new_element=new_element_2, loutput=.TRUE., post_op=post_op )
+          & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
+          & var_class=element_v%field%info%var_class )
 
         ! link these new variables to the lon-lat grid:
         new_element%field%info%hor_interp%lonlat_id   = ll_grid_id
@@ -690,7 +692,7 @@ CONTAINS
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
-                &           missval=info%missval%rval )
+                &           missval=info%missval%rval, var_class=info%var_class )
             END IF
             !--- INTEGER fields
             IF (ASSOCIATED(element%field%i_ptr)) THEN
@@ -703,7 +705,7 @@ CONTAINS
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
-                &           missval=info%missval%ival )
+                &           missval=info%missval%ival, var_class=info%var_class )
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
@@ -868,9 +870,10 @@ CONTAINS
     element => find_list_element (src_varlist, TRIM(name))
     IF (.NOT. ASSOCIATED (element)) CALL finish(routine, "Variable not found!")
     ! add new variable, copy the meta-data from the existing variable
-    CALL add_var( dst_varlist, TRIM(name), ptr, element%field%info%hgrid, dst_axis,  &
-      &           element%field%info%cf, element%field%info%grib2, ldims=shape3d,    &
-      &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE. )
+    CALL add_var( dst_varlist, TRIM(name), ptr, element%field%info%hgrid, dst_axis,     &
+      &           element%field%info%cf, element%field%info%grib2, ldims=shape3d,       &
+      &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
+      &           var_class=element%field%info%var_class )
   END SUBROUTINE copy_variable
 
 
@@ -956,7 +959,7 @@ CONTAINS
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
           &           dst_axis, info%cf, info%grib2, ldims=shape3d_e,                             &
           &           vert_interp=info%vert_interp, new_element=vn_element,                       &
-          &           post_op=info%post_op, lrestart=.FALSE. )
+          &           post_op=info%post_op, lrestart=.FALSE., var_class=info%var_class )
          
         !-- create a post-processing task for vertical interpolation of "vn"
         task => pp_task_insert(DEFAULT_PRIORITY1)
@@ -991,7 +994,8 @@ CONTAINS
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
           & GRID_UNSTRUCTURED_CELL, dst_axis, cf, grib2,                                  &
           & ldims=shape3d_c, lrestart=.FALSE., in_group=element_u%field%info%in_group,    &
-          & new_element=new_element, post_op=post_op )
+          & new_element=new_element, post_op=post_op,                                     &
+          & var_class=element_u%field%info%var_class )
 
         name    = TRIM(get_var_name(element_v%field))//suffix
         cf      = element_v%field%info%cf
@@ -1000,7 +1004,8 @@ CONTAINS
         CALL add_var( dst_varlist, TRIM(name), p_opt_field_r3d,                           &
           & GRID_UNSTRUCTURED_CELL, dst_axis, cf, grib2,                                  &
           & ldims=shape3d_c, lrestart=.FALSE., in_group=element_v%field%info%in_group,    &
-          & new_element=new_element_2, post_op=post_op )
+          & new_element=new_element_2, post_op=post_op,                                   &
+          & var_class=element_v%field%info%var_class )
 
         !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
         task => pp_task_insert(DEFAULT_PRIORITY2)
@@ -1346,7 +1351,7 @@ CONTAINS
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
                 &           ldims=shape3d, lrestart=.FALSE.,             &
                 &           loutput=.TRUE., new_element=new_element,     &
-                &           post_op=info%post_op)
+                &           post_op=info%post_op, var_class=info%var_class)
 
               !-- add post-processing task for interpolation
 
