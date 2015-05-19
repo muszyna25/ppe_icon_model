@@ -4722,7 +4722,8 @@ C& ' ' & & list of tracer names & run\_nml/ltestcase=.TRUE.
 %\hline
 npassive\_tracer&
 I& 0 & & number of additional passive tracers which have no sources and are transparent to any physical process (no effect).\\ 
-Passive tracers are named Qpassive\_ID, where ID is a number between \texttt{ntracer} and \texttt{ntracer}$+$\texttt{npassive\_tracer}.& 
+Passive tracers are named Qpassive\_ID, where ID is a number between \texttt{ntracer} and \texttt{ntracer}$+$\texttt{npassive\_tracer}.\\ 
+\textbf{NOTE:} By default, limiters are switched of for passive tracers and the scheme $52$ is selected for horizontal advection. & 
 \tabularnewline
 
 %\hline
