@@ -2908,12 +2908,17 @@ CONTAINS
 
     ! var_groups_dyn is required in function 'group_id', which is called in 
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
-    size_var_groups_dyn = SIZE(var_groups_dyn)
+    size_var_groups_dyn = 0
+    if (allocated(var_groups_dyn)) then
+       size_var_groups_dyn = SIZE(var_groups_dyn)
+    end if
     CALL p_bcast(size_var_groups_dyn                        , bcast_root, p_comm_work_2_io)
-    IF (.NOT. ALLOCATED(var_groups_dyn)) THEN
-      ALLOCATE(var_groups_dyn(size_var_groups_dyn))
-    ENDIF
-    CALL p_bcast(var_groups_dyn                             , bcast_root, p_comm_work_2_io)
+    if (size_var_groups_dyn > 0) then
+       IF (.NOT. ALLOCATED(var_groups_dyn)) THEN
+          ALLOCATE(var_groups_dyn(size_var_groups_dyn))
+       ENDIF
+       CALL p_bcast(var_groups_dyn                             , bcast_root, p_comm_work_2_io)
+    end if
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
@@ -2929,15 +2934,19 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
-    size_tiles = SIZE(tiles)
+    size_tiles = 0
+    if (allocated(tiles)) then
+       size_tiles = SIZE(tiles)
+    end if
     CALL p_bcast(size_tiles                                , bcast_root, p_comm_work_2_io)
-    IF (.NOT. ALLOCATED(tiles)) THEN
-      ALLOCATE(tiles(size_tiles))
-    ENDIF
-    CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
-
+    if (size_tiles > 0) then
+       IF (.NOT. ALLOCATED(tiles)) THEN
+          ALLOCATE(tiles(size_tiles))
+       ENDIF
+       CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
+    end if
 
     ! allocate vgrid_buffer on asynchronous output PEs, for storing 
     ! the vertical grid UUID
