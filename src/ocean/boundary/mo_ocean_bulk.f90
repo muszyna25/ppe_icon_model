@@ -33,9 +33,8 @@ MODULE mo_ocean_bulk
 !
 USE mo_kind,                ONLY: wp
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: dtime, ltimer
+USE mo_run_config,          ONLY: dtime
 USE mo_sync,                ONLY: sync_c, sync_patch_array, global_sum_array
-USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run

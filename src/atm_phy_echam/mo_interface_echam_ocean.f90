@@ -26,7 +26,8 @@ MODULE mo_interface_echam_ocean
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
-  USE mo_run_config          ,ONLY: nlev
+  USE mo_run_config          ,ONLY: nlev, ltimer
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling_put, timer_coupling_get
   USE mo_echam_sfc_indices   ,ONLY: iwtr, iice
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
@@ -55,7 +56,6 @@ MODULE mo_interface_echam_ocean
   USE mo_mtime_extensions    ,ONLY: get_datetime_string
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
-    &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
     &                               yac_finit, yac_fdef_comp,                    &
     &                               yac_fdef_datetime,                           &
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
@@ -130,8 +130,6 @@ CONTAINS
     CHARACTER(LEN=max_char_length) :: xsd_filename
     CHARACTER(LEN=max_char_length) :: grid_name
     CHARACTER(LEN=max_char_length) :: comp_name
-
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_ref_datetime ! ISO_8601
 
     INTEGER :: comp_id
     INTEGER :: comp_ids(1)
@@ -473,7 +471,6 @@ CONTAINS
     ! Local variables
 
     LOGICAL               :: write_coupler_restart
-    INTEGER               :: nbr_fields
     INTEGER               :: nbr_hor_points ! = inner and halo points
     INTEGER               :: nbr_points     ! = nproma * nblks
     INTEGER               :: n              ! nproma loop count
@@ -552,6 +549,7 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
@@ -560,6 +558,8 @@ CONTAINS
     CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
     !
     ! TAUY
     !
@@ -574,6 +574,7 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
@@ -581,6 +582,8 @@ CONTAINS
     CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
     !
     ! SFWFLX Note: the evap_tile should be properly updated and added
     !
@@ -605,6 +608,7 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
@@ -613,6 +617,8 @@ CONTAINS
     CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
     !
     ! SFTEMP
     !
@@ -625,6 +631,7 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
@@ -633,6 +640,8 @@ CONTAINS
     CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
     !
     ! THFLX, total heat flux
     !
@@ -651,6 +660,7 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
@@ -659,6 +669,8 @@ CONTAINS
     CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
     !
     ! ICEATM, Ice state determined by atmosphere
     !
@@ -677,6 +689,7 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
@@ -685,7 +698,8 @@ CONTAINS
     CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
-
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
     IF ( write_coupler_restart ) THEN
 #ifdef YAC_coupling
        CALL warning('interface_echam_ocean', 'YAC says it is put for restart')
@@ -701,6 +715,7 @@ CONTAINS
     !
     ! SST
     !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
@@ -708,6 +723,8 @@ CONTAINS
     field_shape(3) = 1
     CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
@@ -724,12 +741,15 @@ CONTAINS
     !
     ! OCEANU
     !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
@@ -746,12 +766,15 @@ CONTAINS
     !
     ! OCEANV
     !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
@@ -768,6 +791,7 @@ CONTAINS
     !
     ! ICEOCE
     !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(10), nbr_hor_points, 5, 1, 1, buffer, info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
@@ -775,6 +799,8 @@ CONTAINS
     field_shape(3) = 5
     CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )

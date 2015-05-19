@@ -121,6 +121,8 @@ MODULE mo_timer
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
   PUBLIC :: timer_coupling
+  PUBLIC :: timer_coupling_put
+  PUBLIC :: timer_coupling_get
   PUBLIC :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   PUBLIC :: timer_intrp_diagn
@@ -258,7 +260,7 @@ MODULE mo_timer
   INTEGER :: timer_dbg_prnt
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
-  INTEGER :: timer_coupling
+  INTEGER :: timer_coupling, timer_coupling_put, timer_coupling_get
   INTEGER :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   INTEGER :: timer_intrp_diagn
@@ -332,8 +334,10 @@ CONTAINS
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
     timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
-    timer_coupling      = new_timer("coupling")
-    timer_write_output  = new_timer("wrt_output")
+    timer_coupling           = new_timer("coupling")
+    timer_coupling_put       = new_timer("coupling_put")
+    timer_coupling_get       = new_timer("coupling_get")
+    timer_write_output       = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
 
     timer_integrate_nh      = new_timer  ("integrate_nh")
