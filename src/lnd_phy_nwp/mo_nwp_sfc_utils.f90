@@ -39,7 +39,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_initicon_config,     ONLY: init_mode_soil
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
-  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
+  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini_min, hice_ini_max
   USE mo_phyparam_soil,       ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_sum_array
@@ -2143,7 +2143,8 @@ CONTAINS
              p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
-             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
+             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini_min +           &
+               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) * (hice_ini_max-hice_ini_min)
 
             ELSE
              ! before was also ice.
@@ -2219,7 +2220,8 @@ CONTAINS
               &                                     spec_humi( sat_pres_ice(tf_salt ),  &
               &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) )
              p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
-             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini
+             p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini_min +           &
+               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) * (hice_ini_max-hice_ini_min)
 
             ELSE
 
