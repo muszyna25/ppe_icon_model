@@ -644,8 +644,10 @@ CONTAINS
       wgt_eta(4)  = 1._wp
     END IF
 
+
     ! initialize passive tracers, if required
-    IF ( PRESENT(tracer_list)) THEN
+    !
+    IF ( PRESENT(tracer_list) ) THEN
       IF (advection_config(jg)%npassive_tracer > 0) THEN 
         CALL init_passive_tracer (tracer_list, advection_config(jg), ntl=1)
       ENDIF
@@ -659,8 +661,9 @@ CONTAINS
   !>
   !! Initialize passive tracers
   !!
-  !! Supplementary passive tracers are initialized by applying 
-  !! the initialization formulae provided via Namelist.
+  !! Additional passive tracers are initialized by applying 
+  !! the initialization formulae provided via Namelist parameter 
+  !! 'init_formula'.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-05-11)
