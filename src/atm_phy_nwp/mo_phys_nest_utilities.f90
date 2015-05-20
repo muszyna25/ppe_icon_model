@@ -2089,6 +2089,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           z_aux3dl2_p(jc,16,jb) = ptr_wprogp%h_snow_si(jc,jb)
           z_aux3dl2_p(jc,17,jb) = ptr_ldiagp%fr_seaice(jc,jb)
         ENDDO
+      ELSE
+        z_aux3dl2_p(:,13:17,jb) = 0._wp
       ENDIF
 
       IF (llake) THEN
@@ -2100,6 +2102,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
           z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
         ENDDO
+      ELSE
+        z_aux3dl2_p(:,18,jb) = 0._wp
       ENDIF
 
       DO jk = 1, nlev_soil
