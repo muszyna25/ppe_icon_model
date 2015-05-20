@@ -203,9 +203,8 @@ MODULE mo_initicon_utils
   !! For Analysis (increments)
   !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
   !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - For MODE_DWDANA, MODE_COMBINED, and MODE_COSMODE check validity of 
-  !!   analysis validity time:  The analysis field's validity time must match 
-  !!   the model start time
+  !! - Check validity of analysis validity time:  The analysis field's validity 
+  !!   time must match the model's initialization time (ini_datetime)
   !! - MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC:  check for matching 
   !!   typeOfGeneratingProcess.
   !!
@@ -374,26 +373,19 @@ MODULE mo_initicon_utils
       !**************************************!
       !  Check Validity time of analysis     !
       !**************************************!
-      SELECT CASE (init_mode)
-      CASE(MODE_DWDANA,MODE_COMBINED,MODE_COSMODE)
-        !
-        ! analysis field's validity time must match the model start time
-        !
-        ! check correctness of validity-time
-        lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
+      !
+      ! analysis field's validity time must match the model's initialization time
+      !
+      lmatch_vtime = (this_list_element%field%vdatetime == mtime_inidatetime)
 
-        ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
-        ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
-        ! write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
+      ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
+      ! write(0,*) "vdatetime, inidatetime: ", this_list_element%field%vdatetime, mtime_inidatetime
 
-        IF (.NOT. lmatch_vtime) THEN
-          WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
-            &                       //TRIM(grp_vars_ana(ivar))//'.'
-          CALL finish(routine, TRIM(message_text))
-        ENDIF
-      CASE default
-        !
-      END SELECT
+      IF (.NOT. lmatch_vtime) THEN
+        WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
+          &                       //TRIM(grp_vars_ana(ivar))//'.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
 
       !****************************************!
