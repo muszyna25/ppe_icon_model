@@ -481,6 +481,8 @@ CONTAINS
 
 !!$    CHARACTER(*), PARAMETER :: method_name = "interface_echam_ocean"
 
+    IF ( .NOT. is_coupled_run() ) RETURN
+
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
@@ -838,13 +840,16 @@ CONTAINS
 
   SUBROUTINE destruct_atmo_coupler
 
+    IF ( .NOT. is_coupled_run() ) RETURN
+
     DEALLOCATE(buffer)
 
-# ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL yac_ffinalize
-# else
-    IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
-# endif
+#ifdef YAC_coupling
+    CALL yac_ffinalize
+#else
+    CALL icon_cpl_finalize ()
+#endif
+
   END SUBROUTINE destruct_atmo_coupler
 
 END MODULE mo_interface_echam_ocean

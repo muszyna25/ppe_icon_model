@@ -453,13 +453,16 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE destruct_ocean_coupling()
 
+    IF (.NOT. is_coupled_run()) RETURN
+
     DEALLOCATE(buffer)
 
 #ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL yac_ffinalize
+    CALL yac_ffinalize
 #else
-    IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
+    CALL icon_cpl_finalize ()
 #endif
+
   END SUBROUTINE destruct_ocean_coupling
   !--------------------------------------------------------------------------
 
