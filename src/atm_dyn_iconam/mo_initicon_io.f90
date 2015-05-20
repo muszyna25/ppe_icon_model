@@ -1785,10 +1785,12 @@ MODULE mo_initicon_io
 
       CALL deleteInputParameters(parameters)
 
-      ! Fill remaining tiles for snow variables if tile approach is used
-      ! Only fields that are actually read from the snow analysis are copied; 
-      ! note that MODE_IAU or MODE_IAU_OLD is mandatory when using tiles
-      IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. ntiles_total>1) THEN
+      ! MODE_IAU_OLD: H_SNOW, FRESHSNOW, W_SNOW and RHO_SNOW are read from analysis (full fields)
+      ! Since only the first tile index is filled (see above), we fill (here) the remaining tiles 
+      ! if tile approach is used. Note that for MODE_IAU this copy is skipped on purpose, 
+      ! since for ltile_coldstart=.FALSE. tile information would be overwritten. 
+      !
+      IF (ANY((/ MODE_IAU_OLD /) == init_mode) .AND. ntiles_total>1) THEN
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jt,i_endidx)
         DO jb = 1, p_patch(jg)%nblks_c
