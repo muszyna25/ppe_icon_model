@@ -262,7 +262,7 @@
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
       INTEGER       :: i, add_delta, end_delta, finish_delta
-      REAL          :: tdiff
+      REAL(wp)      :: tdiff
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
@@ -284,7 +284,7 @@
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
-      tdiff = (0.5*dtime)
+      tdiff = (0.5_wp*dtime)
       CALL get_duration_string_real(tdiff, tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 

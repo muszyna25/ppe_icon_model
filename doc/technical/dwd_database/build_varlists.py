@@ -23,7 +23,7 @@ list_ll_loc  = []
 re_groups  = re.compile(r'^\s*\\groups')
 re_column1 = re.compile(r'(^\s*\\onlyglb\s*{)?(^\s*\\onlyloc\s*{)?(\s*\\groups\[)([^\]]*)(\]\[)([^\]]*)(\])')
 re_tri_ll  = re.compile(r'(^\s*\\onlyglb\s*{)?(^\s*\\onlyloc\s*{)?(\s*tri|ll\s*)(\})?')
-re_i2l     = re.compile(r'\si2l(\s*)?$')
+re_i2l     = re.compile(r'\si2l\s*$')
 
 print "> Open '" + args.file.strip() + "' and scan for output field short names..."
 with open(args.file) as f:

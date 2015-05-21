@@ -35,7 +35,7 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, wgtfac_geobal,    &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
     &                               rho_incr_filter_wgt, lread_ana,               &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
@@ -168,6 +168,9 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("typeOfFirstFixedSurface")
     CALL cdiDefAdditionalKey("typeOfGeneratingProcess")
     CALL cdiDefAdditionalKey("backgroundProcess")
+    CALL cdiDefAdditionalKey("totalNumberOfTileAttributePairs")
+    CALL cdiDefAdditionalKey("tileIndex")
+    CALL cdiDefAdditionalKey("tileAttribute")
 
 
     ! -----------------------------------------------
@@ -1064,10 +1067,6 @@ MODULE mo_initicon
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr, w_incr
 
-    ! Auxiliaries for artificial geostrophic balancing of pressure increments in the tropical stratosphere
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: gradp, dpdx, dpdy
-    REAL(wp) :: uincgeo, zmc, wfac
-
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_dwdanainc_atm'
 
@@ -1099,8 +1098,7 @@ MODULE mo_initicon
       ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla4_vn_incr(nproma,nlev,nblks_e),   &
                rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),               &
                mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), z_qsum(nproma,nlev),&
-               gradp(nproma,nlev,nblks_e), dpdx(nproma,nlev,nblks_c),                  &
-               dpdy(nproma,nlev,nblks_c), STAT=ist)
+               STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
       ENDIF
@@ -1115,11 +1113,6 @@ MODULE mo_initicon
       iidx           => p_patch(jg)%edges%cell_idx
       iblk           => p_patch(jg)%edges%cell_blk
 
-      IF (wgtfac_geobal > 0._wp) THEN
-        CALL grad_fd_norm(initicon(jg)%atm_inc%pres, p_patch(jg), gradp)
-        CALL rbf_vec_interpol_cell(gradp, p_patch(jg), p_int_state(jg), dpdx, dpdy)
-        CALL sync_patch_array(SYNC_C,p_patch(jg),dpdy) ! dpdx is unused
-      ENDIF
 
       ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
       !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
@@ -1138,7 +1131,7 @@ MODULE mo_initicon
 
 
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,rho_incr_smt,exner_ifc_incr,mass_incr_smt,mass_incr, &
-!$OMP            mass_incr_int,mass_incr_smt_int,z_qsum,uincgeo,zmc,wfac)
+!$OMP            mass_incr_int,mass_incr_smt_int,z_qsum)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1261,35 +1254,6 @@ MODULE mo_initicon
           ENDDO
         ENDDO
 
-        ! modify zonal wind increment in order to achieve geostrophic balance with the pressure increment
-        IF (wgtfac_geobal > 0._wp) THEN
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              uincgeo = - dpdy(jc,jk,jb)/(p_prog_now%rho(jc,jk,jb)* &
-                          SIGN(MAX(1.e-5_wp,p_patch(jg)%cells%f_c(jc,jb)),p_patch(jg)%cells%f_c(jc,jb)) )
-              zmc = p_metrics%z_mc(jc,jk,jb)
-              IF (zmc >= 20000._wp .AND. zmc <= 40000._wp) THEN
-                wfac = 1._wp
-              ELSE IF (zmc >= 15000._wp .AND. zmc <= 20000._wp) THEN
-                wfac = (zmc - 15000._wp) / 5000._wp
-              ELSE IF (zmc >= 40000._wp .AND. zmc <= 45000._wp) THEN
-                wfac = (45000._wp -  zmc) / 5000._wp
-              ELSE
-                wfac = 0._wp
-              ENDIF
-              IF (rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat) > 15._wp) THEN
-                wfac = 0._wp
-              ELSE IF (rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat) > 10._wp) THEN
-                wfac = wfac*(15._wp-rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat))/5._wp
-              ELSE IF (rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat) < 5._wp) THEN
-                wfac = wfac*rad2deg*ABS(p_patch(jg)%cells%center(jc,jb)%lat)/5._wp
-              ENDIF
-              wfac = wgtfac_geobal*wfac
-              initicon(jg)%atm_inc%u(jc,jk,jb) = wfac*uincgeo + (1._wp-wfac)*initicon(jg)%atm_inc%u(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ENDIF
-
       ENDDO  ! jb
 !$OMP END DO NOWAIT
 
@@ -1376,7 +1340,7 @@ MODULE mo_initicon
 
       ! deallocate temporary arrays
       DEALLOCATE( tempv_incr, nabla4_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
-                  mass_incr, z_qsum, gradp, dpdx, dpdy, STAT=ist )
+                  mass_incr, z_qsum, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
@@ -1627,9 +1591,13 @@ MODULE mo_initicon
 
               ! maximum freshsnow factor: 1
               ! minimum freshsnow factor: 0
-              ! maximum positive freshsnow increment is limited to max_freshsnow_inc (tuning parameter)
-              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt) &
-                &                                  + MIN(max_freshsnow_inc,initicon(jg)%sfc_inc%freshsnow(jc,jb)))
+              ! two-sided limitation of freshsnow increment to +/- max_freshsnow_inc (tuning parameter)
+              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt)                               &
+                &                            + SIGN(                                                                  &
+                &                                  MIN(max_freshsnow_inc,ABS(initicon(jg)%sfc_inc%freshsnow(jc,jb))), &
+                &                                  initicon(jg)%sfc_inc%freshsnow(jc,jb)                              &
+                &                                  ) )
+
               lnd_diag%freshsnow_t(jc,jb,jt) = MAX(0._wp,lnd_diag%freshsnow_t(jc,jb,jt))
             ENDDO  ! ic
           ENDDO  ! jt

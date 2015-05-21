@@ -48,10 +48,10 @@ MODULE mo_name_list_output_types
   PUBLIC :: msg_io_shutdown
   PUBLIC :: IRLON, IRLAT, ILATLON
   PUBLIC :: ICELL, IEDGE, IVERT
-  PUBLIC :: sfs_name_list, ffs_name_list
-  PUBLIC :: second_tos, first_tos
   PUBLIC :: GRP_PREFIX
+  PUBLIC :: TILE_PREFIX
   PUBLIC :: GRB2_GRID_INFO_NAME, GRB2_GRID_INFO
+
   ! derived data types:
   PUBLIC :: t_mem_win
   PUBLIC :: t_reorder_info
@@ -77,6 +77,8 @@ MODULE mo_name_list_output_types
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6), PARAMETER :: GRP_PREFIX = "group:"
+  ! prefix for tile-group identifier in output namelist
+  CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345
@@ -93,21 +95,6 @@ MODULE mo_name_list_output_types
   INTEGER, PARAMETER :: ICELL                 = 1
   INTEGER, PARAMETER :: IEDGE                 = 2
   INTEGER, PARAMETER :: IVERT                 = 3
-
-  ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(10) =(/"z_ifc       ", "topography_c", &
-    &                                                  "hbas_con    ", "htop_con    ", &
-    &                                                  "hzerocl     ", "clcl        ", &
-    &                                                  "htop_dc     ", "c_t_lk      ", &
-    &                                                  "h_b1_lk     ", "snowlmt     "/)
-  ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(10)    =(/101, 101, 101, 101, 101, 1, 101, 162, 165, 101/)
-
-  ! fields for which typeOfFirstFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: ffs_name_list(4) =(/"t_mnw_lk    ", "depth_lk    ", &
-    &                                                 "t_wml_lk    ", "h_ml_lk     "/)
-  ! typeOfFirstFixedSurface to be used
-  INTEGER          , PARAMETER :: first_tos(4)    =(/1, 1, 1, 1/)
 
   ! The following parameter decides whether physical or logical patches are output
   ! and thus whether the domain number in output name lists pertains to physical
