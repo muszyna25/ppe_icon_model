@@ -354,7 +354,7 @@ CONTAINS
       ENDDO
     ENDDO
 
-END SUBROUTINE configure_atm_phy_nwp
+  END SUBROUTINE configure_atm_phy_nwp
 
 
 END MODULE mo_atm_phy_nwp_config

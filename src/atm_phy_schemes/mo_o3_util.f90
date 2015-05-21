@@ -78,8 +78,8 @@ CONTAINS
   END SUBROUTINE o3_timeint
 
   SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
-   &                   pfoz,phoz,ppf,pph,   &
-   &                   o3_time_int, o3_clim)
+    &                   pfoz,phoz,ppf,pph,   &
+    &                   o3_time_int, o3_clim)
 
     !- Description: o3 pressure levels to o3 sigma hybrid levels
     !
@@ -724,7 +724,7 @@ CONTAINS
   END SUBROUTINE o3_par_t5
 
 
-  !! This a copy from legtri_vec.f90 of DWD's GME (contentually identically, only formally
+  !! This a copy from legtri_vec.f90 of DWD's GME (content identical, only formally
   !! slightly adapted).
   !!
   SUBROUTINE legtri_vec (kbdim, ki1sc, ki1ec, plat, kcp,  palp )
@@ -984,7 +984,6 @@ CONTAINS
     ENDDO
     ZPRESH(NLEV_GEMS)=110000._wp
     RCLPR(nlev_gems) =ZPRESH(nlev_gems)
-
 
     ! volume mixing ratio to ozone pressure thickness
 
