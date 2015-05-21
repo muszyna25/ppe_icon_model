@@ -522,7 +522,8 @@ CONTAINS
     grib2_desc = grib2_var( 0, 3, 4, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fis', p_ext_atm%fis,           &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+      &           isteptype=TSTEP_CONSTANT )
 
 
     ! ozone mixing ratio
@@ -902,7 +903,8 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 32, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
@@ -1145,7 +1147,8 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           hor_interp=create_hor_interp_metadata(          &
-        &               hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+        &               hor_intp_type=HINTP_TYPE_LONLAT_NNB ),      &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('soil_type', '-','soil type', DATATYPE_FLT32)
