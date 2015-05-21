@@ -1,3 +1,11 @@
+#if defined __xlC__ && !defined NOXLFPROCESS
+@PROCESS HOT
+#endif
+#if !(defined __xlC__ && defined _ARCH_PWR6)
+#define SWDIV_NOCHK(a,b) ((a)/(b))
+#define FSEL(a,b,c) MERGE(b,c,(a).GE.0._wp)
+#endif
+
 !>
 !! @brief Module computes large-scale water phase changes
 !!
@@ -47,14 +55,6 @@
 !! headers of the routines.
 !!
 !
-#if defined __xlC__ && !defined NOXLFPROCESS
-@PROCESS HOT
-#endif
-#if !(defined __xlC__ && defined _ARCH_PWR6)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
-#define FSEL(a,b,c) MERGE(b,c,(a).GE.0._wp)
-#endif
-
 MODULE mo_cloud
 
 USE mo_kind,               ONLY : wp
@@ -64,11 +64,9 @@ USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline   
                                 , lookup_uaw_spline, lookup_ubc                  &
                                 , lookup_ua_eor_uaw_spline
 USE mo_echam_cloud_params, ONLY : cqtmin, cvtfall, crhosno, cn0s, cthomi         &
-                                , csecfrl, ncctop, cvarmin, cbeta_pq             &
-                                , cbeta_pq_max, nbetaq, cbetaqs, rbetak, nbetax  &
-                                , tbetai, cauloc, clmax, clmin, jbmin, jbmax     &
+                                , csecfrl, cauloc, clmax, clmin, jbmin, jbmax    &
                                 , lonacc, ccraut, ceffmin, ceffmax, crhoi        &
-                                , ccsaut, ccsacl, ccracl, cbeta_cs, ccwmin
+                                , ccsaut, ccsacl, ccracl, ccwmin
 !USE mo_time_control,       ONLY : delta_time, time_step_len
 !USE mo_submodel_interface, ONLY : cloud_subm
 !USE mo_submodel,           ONLY : lanysubmodel
@@ -90,7 +88,6 @@ CONTAINS
 SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
                          , klev,       klevp1                                    &
                          , pdelta_time, ptime_step_len                           &
-!                         , icover                                                &
 ! - INPUT  2D .
                          , paphm1                                                &
                          , papm1                                                 &
@@ -98,9 +95,7 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
                          , ptm1,   ptvm1,   pgeo,   pvervel                      &
                          , pacdnc                                                &
                          , pqm1,   pxlm1,   pxim1, pcair                         &
-!                         , pbetaa,     pbetab                                    &
-!                         , pvdiffp,    phmixtau, pvmixtau                        &
-!                         , pgeo,       pbetass                                   &
+!                         , pgeo                                                  &
 !                         , paphp1   (cloud_subm)                                 &
 ! - INPUT  1D .
                          , knvb                                                  &
@@ -110,7 +105,6 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
                          , pch_concloud                                          &
                          , pcld_etrl,  pcld_etri, pcld_iteq                      &
                          , pqtec,      pxtecl,   pxteci                          &
-!                         , pxvar,      pxskew                                    &
                          , ptte                                                  &
                          , pqte,       pxlte,    pxite                           &
                          , paclc                                                 &
@@ -127,7 +121,6 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
 !
 !
   INTEGER,  INTENT(IN)    :: kproma, kbdim, ktdia, klev, klevp1
-!  INTEGER,  INTENT(IN)    :: icover
   INTEGER,  INTENT(IN)    :: knvb(kbdim)
   REAL(wp), INTENT(IN)    :: pdelta_time, ptime_step_len
   REAL(wp), INTENT(IN)    ::       &
@@ -141,14 +134,8 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
       & ptvm1    (kbdim,klev)     ,&!< virtual temperature                            (n-1)
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                             (n-1)
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                      (n-1)
- !     & pbetaa   (kbdim,klev)     ,&!< the beta distribution minimum a                (n-1)
- !     & pbetab   (kbdim,klev)     ,&!< the beta distribution maximum b                (n-1)
- !     & pvdiffp  (kbdim,klev)     ,&!< the rate of change of q due to vdiff scheme    (n-1)
- !     & phmixtau (kbdim,klev)     ,&!< mixing timescale**-1 for horizontal turbulence (n)
- !     & pvmixtau (kbdim,klev)     ,&!< mixing timescale**-1 for horizontal turbulence (n)
       & pgeo     (kbdim,klev)     ,&!< geopotential minus its surface value
       & pcair     (kbdim,klev)     !< specific heat of moist air
- !     & pbetass  (kbdim,klev)       !<
 !      & paphp1   (kbdim,klevp1)     !< pressure at half levels                        (n+1)
 !  REAL(wp), INTENT(IN)    ::       &
 !      & pxtm1    (kbdim,klev,ktrac) !< tracer (aerosol etc) concentration
@@ -166,8 +153,6 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water        (n)
       & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice                 (n)
       & pqtec    (kbdim,klev)     ,&!<
- !     & pxvar    (kbdim,klev)     ,&!< distribution width (b-a)                       (n-1)
- !     & pxskew   (kbdim,klev)     ,&!< beta shape parameter "q"                       (n-1)
       & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
@@ -187,20 +172,6 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
   REAL(wp),INTENT(INOUT) :: &
       & pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev) ! OUT
 !
-!   Temporary arrays
-!
-    REAL(wp) :: &
-     & pbetaa   (kbdim,klev)     ,&!< the beta distribution minimum a                (n-1)
-      & pbetab   (kbdim,klev)     ,&!< the beta distribution maximum b                (n-1)
-      & pvdiffp  (kbdim,klev)     ,&!< the rate of change of q due to vdiff scheme    (n-1)
-      & phmixtau (kbdim,klev)     ,&!< mixing timescale**-1 for horizontal turbulence (n)
-      & pvmixtau (kbdim,klev)     ,&!< mixing timescale**-1 for horizontal turbulence (n)
-      & pxvar    (kbdim,klev)     ,&!< distribution width (b-a)                       (n-1)
-      & pxskew   (kbdim,klev)     ,&!< beta shape parameter "q"                       (n-1)
-      & pbetass  (kbdim,klev)       !<
-    INTEGER :: icover
-!
-!
   REAL(wp):: zclcpre(kbdim)       ,zclcpre_inv(kbdim)                            &
            , zcnd(kbdim)          ,zdep(kbdim)          ,zdp(kbdim)              &
            , zevp(kbdim)          ,zxievap(kbdim)       ,zxlevap(kbdim)          &
@@ -215,16 +186,15 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
            , zqrho_sqrt(kbdim)    ,zpapm1_inv(kbdim)    ,zpapp1i(kbdim)          &
            , zclcov(kbdim)        ,zclcaux(kbdim)       ,zqsed(kbdim)            &
            , zqvi(kbdim)          ,zxlvi(kbdim)         ,zxivi(kbdim)            &
-           , zbetaqt(kbdim)       ,zwide(kbdim)         ,zclcauxi(kbdim)         &
-           , zbetacl(kbdim)       ,zturbvar(kbdim)      ,zdqsat1(kbdim)          &
+           , zclcauxi(kbdim)         &
+           , zdqsat1(kbdim)          &
            , zxrp1(kbdim)         ,zxsp1(kbdim)         ,zxsp2(kbdim)            &
-           , zconvvar(kbdim)      ,zconvskew(kbdim)     ,zvartg(kbdim)           &
-           , zmicroskew(kbdim)    ,zgenti(kbdim)        ,zgentl(kbdim)           &
-           , zcoeff(kbdim)        ,zturbskew(kbdim)                              &
+           , zgenti(kbdim)        ,zgentl(kbdim)           &
+           , zcoeff(kbdim)                                    &
            , zgeoh(kbdim,klevp1)  ,zauloc(kbdim)        ,zqsi(kbdim)             &
            , ztmp1(kbdim)         ,ztmp2(kbdim)         ,ztmp3(kbdim)            &
            , ztmp4(kbdim)         ,zxised(kbdim)        ,zqvdt(kbdim)            &
-           , zbap1(kbdim)         ,zqsm1(kbdim)         ,ub(kbdim)               &
+           , zqsm1(kbdim)         ,ub(kbdim)               &
            , zdtdt(kbdim)         ,zstar1(kbdim)        ,zlo2(kbdim)             &
            , ua(kbdim)            ,dua(kbdim)           ,za(kbdim)               &
            , uaw(kbdim)           ,duaw(kbdim)                                   &
@@ -235,30 +205,26 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
   INTEGER:: cond1(kbdim), cond2(kbdim)
   INTEGER:: idx1(kbdim), idx2(kbdim)
 
-  INTEGER:: iq, ix, jb, nclcpre, nbeta1, nbeta2
+  INTEGER:: jb, nclcpre
   INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2
   LOGICAL   lo, lo1
 !!$ used in Revised Bergeron-Findeisen process only
 !!$  LOGICAL   locc
 
-  REAL(wp):: zbqp1, zbbap1, ztt, zgent, zdqsat, zqcdif, zfrho, zqp1b, zbetai0    &
-           , zbetai1, zskewp1, zvarp1, zifrac, zvarmx, zdtime, zepsec, zxsec     &
+  REAL(wp):: zdqsat, zqcdif, zfrho, zifrac, zvarmx, zdtime, zepsec, zxsec        &
            , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar           &
-           , zdpg, zesi, zalpha, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat  &
+           , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat          &
            , zqsw, zsusatw, zdv, zast, zbst, zzepr, zxip1, zxifall, zal1, zal2   &
-           , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum, zqtau, zpp, zqq   &
-           , zeta, zprod, zaa, zes, zcor, zqsp1tmp, zoversat, zqcon, zdepos      &
+           , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum                    &
+           , zes, zcor, zqsp1tmp, zoversat, zqcon, zdepos                        &
            , zcond, zradl, zf1, zraut, zexm1, zexp, zrac1, zrac2, zrieff         &
            , zcolleffi, zc1, zdt2, zsaut, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm &
-           , zzdrr, zzdrs, zpretot, zpredel, zpresum, zmdelb, zmqp1, zxlp1       &
+           , zzdrr, zzdrs, zpretot, zpredel, zpresum, zxlp1                      &
            , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d       &
-           , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, za1, zxitop, zxibot
+           , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, zxitop, zxibot
 !!$ used in Revised Bergeron-Findeisen process only
 !!$  REAL(wp):: zzevp, zeps
 !!$  REAL(wp):: zsupsatw(kbdim)
-!
-! mpuetz : the following tendencies don't have to be vectors
-  REAL(wp) :: zxvarte,zxskewte
 !
   REAL(wp):: zmratepr(kbdim,klev), & ! Rain formation rate in cloudy part
                                      ! of the grid box [kg/kg]
@@ -289,17 +255,6 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
   zmiwc(:,:)    = 0._wp
   zmsnowacl(:,:)= 0._wp
 
-! -- vsch - for tompkins
-pxvar(:,:) = cvarmin
-pxskew(:,:) = cbeta_pq
-pbetaa(:,:) = 0.0_wp
-pbetab(:,:) = 0.0_wp
-phmixtau(:,:) = 0.0_wp
-pvmixtau(:,:) = 0.0_wp
-pbetass(:,:) = 0.0_wp
-icover = 1
-! -- vsch --
-!
   ! save the tendencies accumulated before calling this routine
 
      ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)
@@ -743,149 +698,6 @@ END DO
         prelhum(jl,jk) = zrelhum
 500  END DO
 !
-     IF (icover.EQ.2 .AND. jk.GE.ncctop) THEN
-!
-        DO 510 jl = 1,kproma
-
-!       define variables needed for cover scheme
-!
-!       zbetaqt = total water
-!       zbetass = saturation mixing ratio adjusted to match qv
-!       zwide   = current diagnosed distribution width
-!
-           zbetacl(jl) = MAX(0.0_wp,pxlm1(jl,jk))+MAX(0.0_wp,pxim1(jl,jk))
-           zbetaqt(jl) = MAX(cqtmin,pqm1(jl,jk))+zbetacl(jl)
-           zvartg(jl)  = MAX(cqtmin,cvarmin*pqm1(jl,jk))
-           zwide(jl)   = MAX(zvartg(jl),pbetab(jl,jk)-pbetaa(jl,jk))
-           zqtau       = phmixtau(jl,jk)+pvmixtau(jl,jk)
-           ztmp2(jl)   = -zqtau*zdtime
-           ztmp3(jl)   = zqtau
-510     END DO
-
-        ztmp2(1:kproma) = EXP(ztmp2(1:kproma))
-        ztmp3(1:kproma) = 1._wp/ztmp3(1:kproma)
-
-!IBM* NOVECTOR
-        DO 511 jl = 1,kproma
-!
-!
-!       5.1 Turbulence: Skewness - equation solved implicitly
-!           This solver only works if phmixtau has non-zero timescale
-!
-           zbqp1         = cbeta_pq-(cbeta_pq-pxskew(jl,jk))*ztmp2(jl)
-           zbqp1         = MAX(MIN(zbqp1,cbeta_pq_max),cbeta_pq)
-           zturbskew(jl) = (zbqp1-pxskew(jl,jk))/zdtime
-!
-!       5.2 Turbulence: variance - equation solved implicitly
-!
-           zpp          = cbeta_pq
-           zqq          = pxskew(jl,jk)
-           zeta         = (zpp+zqq)**2 * ((zpp+zqq+1._wp)/(zpp*zqq))
-           zprod        = zeta*(pvdiffp(jl,jk)/zwide(jl))
-           zbbap1       = zprod*ztmp3(jl)+zvartg(jl)-                            &
-                                 (zprod*ztmp3(jl)+zvartg(jl)-zwide(jl))*ztmp2(jl)
-           zbbap1       = MAX(zbbap1,zvartg(jl))
-           zbbap1       = MIN(zbbap1,zbetaqt(jl)*(cbeta_pq+zbqp1)/cbeta_pq)
-           zturbvar(jl) = (zbbap1-zwide(jl))/zdtime
-           zbap1(jl)    = zbetaqt(jl)-zbbap1*(cbeta_pq/(cbeta_pq+zbqp1))
-           ztmp1(jl)    = (zbqp1-cbeta_pq)/rbetak+1._wp
-           ztmp2(jl)    = zbbap1
-           ztmp3(jl)    = zbqp1
-
-511     END DO
-
-        ztmp1(1:kproma) = LOG(ztmp1(1:kproma))
-        idx1(1:kproma)  = INT((nbetaq/cbetaqs)*ztmp1(1:kproma)+0.5_wp)
-        ztmp2(1:kproma) = 1._wp/ztmp2(1:kproma)
-
-!
-!              translated into apparent xl,xi,q and heat sources
-!              first order effect only, effect of evaporation of
-!              cloud on qsat taken into account in thermodynamic budget
-!              but does not change the mixing term here since that
-!              would require iteration and is therefore neglected
-!
-!              calculate values after one timestep
-!
-!IBM* ASSERT(NODEPS)
-!IBM* NOVECTOR
-        DO 512 jl = 1,kproma
-
-           iq      = idx1(jl)  ! mpuetz: index pre-computed to avoid
-                               !         load-hit-store penalty
-
-           zbqp1   = ztmp3(jl)
-           zxilb   = zxib(jl)+zxlb(jl)
-
-           ztt     = (pbetass(jl,jk)-zbap1(jl))*cbeta_pq
-           ztt     = ztt/((zbetaqt(jl)-zbap1(jl))*(cbeta_pq+zbqp1))
-           ztt     = REAL(nbetax,wp)*MAX(MIN(ztt,1.0_wp),0.0_wp)
-           zalpha  = ztt-AINT(ztt,wp)
-           ix      = INT(ztt)
-           zbetai0 = zalpha*tbetai(0,iq,ix+1) + (1._wp - zalpha)*tbetai(0,iq,ix)
-           zbetai1 = zalpha*tbetai(1,iq,ix+1) + (1._wp - zalpha)*tbetai(1,iq,ix)
-
-           zqp1b      = (zbetaqt(jl) - zbap1(jl))*zbetai1                        &
-                      - (pbetass(jl,jk) - zbap1(jl))*zbetai0 + pbetass(jl,jk)
-           zgent      = MAX(pqm1(jl,jk) - zqp1b,-zxilb*zclcaux(jl))
-
-           ! mpuetz: suppress noise < 5e-18 from rounding errors
-!           zgent   = FSEL(ABS(zgent) - 5.e-18,zgent,0.0_wp)
-
-           zgent      = MIN(zgent,zqsec*zqp1(jl))              ! limit to qv
-           zifrac     = zxib(jl)/MAX(zepsec,zxilb)
-           zifrac     = MAX(MIN(zifrac,1.0_wp),0.0_wp)
-           zgenti(jl) = zgent*zifrac
-           zgentl(jl) = zgent*(1.0_wp - zifrac)
-           zqvdt(jl)  = zqvdt(jl) - zgent
-           zdtdt(jl)  = zdtdt(jl) + zlvdcp(jl)*zgentl(jl) + zlsdcp(jl)*zgenti(jl)
-           zqp1(jl)   = MAX(pqm1(jl,jk) + zqvdt(jl),0.0_wp)
-           ztp1(jl)   = ptm1(jl,jk) + zdtdt(jl)
-           zdtdtstar  = zdtdt(jl) + zstar1(jl)
-           ztmp1(jl)  = zdtdtstar*zdqsat1(jl)
-512     END DO
-
-        DO 513 nl = 1,locnt
-           jl = loidx(nl)
-           zxib(jl) = MAX(zxib(jl)+zgenti(jl)*zclcauxi(jl),0.0_wp)
-           zxlb(jl) = MAX(zxlb(jl)+zgentl(jl)*zclcauxi(jl),0.0_wp)
-513     END DO
-!
-!       5.3 Deposition/sublimation of cloud ice and condensation/
-!           evaporation of liquid water due to changes in water vapour
-!           and temperature (advection, convection, turbulent mixing,
-!           evaporation of rain, sublimation and melting of snow).
-!           Translate PDF laterally to calculate cloud
-!           after one timestep
-!
-        DO 514 jl = 1,kproma
-
-           iq      = idx1(jl)  ! mpuetz: index pre-computed to avoid
-                               !         load-hit-store penalty
-
-           zxilb     = zxib(jl)+zxlb(jl)
-
-           zdqsat    = ztmp1(jl)
-           ztt       = (pbetass(jl,jk)+zdqsat-(pqte(jl,jk)*ztmst+zbap1(jl)))     &
-                                                          *ztmp2(jl)
-           ztt       = REAL(nbetax,wp)*MAX(MIN(ztt,1.0_wp),0.0_wp)
-           zalpha    = ztt-DINT(ztt)
-           ix        = INT(ztt)
-           zbetai0   = zalpha*tbetai(0,iq,ix+1) + (1._wp-zalpha)*tbetai(0,iq,ix)
-           zbetai1   = zalpha*tbetai(1,iq,ix+1) + (1._wp-zalpha)*tbetai(1,iq,ix)
-           zaa       = pbetaa(jl,jk)
-           zqcdif    = (zbetaqt(jl) - zaa)*(1._wp - zbetai1)                     &
-                       + (zaa+pqte(jl,jk)*ztmst-(pbetass(jl,jk)+zdqsat))         &
-                       * (1._wp-zbetai0)
-           zqcdif    = MAX(0.0_wp,zqcdif)-zbetacl(jl)
-           zqcdif    = MAX(zqcdif,-zxilb*zclcaux(jl))
-           zqcdif    = MIN(zqcdif,zqsec*zqp1(jl))             ! limit to qv
-           ztmp1(jl) = zqcdif
-
-514     END DO
-
-     ELSE !icover.NE.2 or jk < ncctop
-
         DO 520 jl = 1,kproma
 
            zdtdtstar = zdtdt(jl)+zstar1(jl)
@@ -897,8 +709,6 @@ END DO
            ztmp1(jl) = zqcdif
 
 520     END DO
-
-     END IF !icover
 
      i1 = 0
      DO 530 jl = 1,kproma
@@ -1452,94 +1262,6 @@ END DO
 !       8.    Updating tendencies of t, q, xl, xi and final cloud cover
 !     ----------------------------------------------------------------------------
 !
-     IF (icover.EQ.2 .AND. jk.GE.ncctop) THEN
-
-!
-!       8.10   Cloud cover scheme tendencies
-!
-!          Source terms from convection
-!          Skewness:
-!
-!IBM* NOVECTOR
-        DO 810 jl = 1,kproma
-
-           zmicroskew(jl) = 0._wp
-           zconvvar(jl) = 0._wp
-           zconvskew(jl) = cbeta_cs*(pxtecl(jl,jk)+pxteci(jl,jk)+pqtec(jl,jk))   &
-                                                                /pbetass(jl,jk)
-           zconvskew(jl) = MIN(zconvskew(jl),(cbeta_pq_max-pxskew(jl,jk))/zdtime)
-           cond1(jl) = INT(FSEL(pqm1(jl,jk) - pbetass(jl,jk),1._wp,0._wp))
-           za1 = FSEL(pbetass(jl,jk) - pbetab(jl,jk),0._wp,1._wp)
-           cond2(jl) = INT(FSEL(pbetaa(jl,jk) - pbetass(jl,jk),0._wp, za1))
-810     END DO
-
-        nbeta1 = 1
-        nbeta2 = 1
-!IBM* NOVECTOR
-        DO 811 jl = 1,kproma
-           idx1(nbeta1) = jl
-           idx2(nbeta2) = jl
-           nbeta1 = nbeta1 + cond1(jl)
-           nbeta2 = nbeta2 + cond2(jl)
-811     END DO
-        nbeta1 = nbeta1 - 1
-        nbeta2 = nbeta2 - 1
-!
-!          Convective width now diagnosed, assuming 'a' unchanged:
-!
-
-!IBM* ASSERT(NODEPS)
-!IBM* NOVECTOR
-        DO nl = 1,nbeta1
-           jl = idx1(nl)
-
-           zskewp1      = pxskew(jl,jk)+zconvskew(jl)*zdtime
-           zbbap1       = zwide(jl) &
-                * ((cbeta_pq+zskewp1)/(cbeta_pq+pxskew(jl,jk)))
-           zconvvar(jl) = (zbbap1-zwide(jl))/zdtime
-        END DO
-!
-!       8.11 Simple linearized effect of microphysics on skewness
-!
-
-!IBM* ASSERT(NODEPS)
-!IBM* NOVECTOR
-        DO nl = 1,nbeta2
-
-           jl = idx2(nl)
-
-           zmdelb = (pxtecl(jl,jk)+pxteci(jl,jk))*ztmst                          &
-                    -zrpr(jl)-zsacl(jl)-zspr(jl)+zcnd(jl)+zdep(jl)               &
-                    +zgenti(jl)+zgentl(jl)
-           zmdelb = -zmdelb/MAX(zepsec,zbetacl(jl))
-           zmdelb = MAX(0.0_wp,MIN(1.0_wp,zmdelb))
-           zmdelb = (pbetass(jl,jk)-pbetab(jl,jk))*zmdelb
-           zmqp1  = (pbetab(jl,jk)+zmdelb-pbetaa(jl,jk))                         &
-                    *(cbeta_pq/(zbetaqt(jl)-pbetaa(jl,jk))) - cbeta_pq
-           zmqp1  = MAX(MIN(zmqp1,cbeta_pq_max),cbeta_pq)
-           zmicroskew(jl) = MIN(0.0_wp,(zmqp1-pxskew(jl,jk))/zdtime)
-        END DO
-!
-!       8.2   New skewness and variance
-!
-!IBM* NOVECTOR
-        DO 813 jl = 1,kproma
-
-           zxskewte        = zconvskew(jl)+zmicroskew(jl)+zturbskew(jl)
-           zxvarte         = zconvvar(jl)+zturbvar(jl)
-!
-           zvarp1          = pxvar(jl,jk)+zxvarte*zdtime
-           zskewp1         = pxskew(jl,jk)+zxskewte*zdtime
-!
-           pxskew(jl,jk)   = MAX(MIN(zskewp1,cbeta_pq_max),cbeta_pq)
-           zvarmx          = zbetaqt(jl)*(1._wp+pxskew(jl,jk)/cbeta_pq)
-           pxvar(jl,jk)    = MAX(MIN(zvarp1,zvarmx),zvartg(jl))
-!
-813     END DO
-
-     ENDIF !icover.EQ.2 and jk >= ncctop
-!
-
 !IBM* NOVECTOR
      DO 820 jl = 1,kproma
 
