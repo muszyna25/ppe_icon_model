@@ -4,11 +4,12 @@
 ! Machine (FSM) and Dijkstra's shunting yard algorithm.
 !
 ! It is possible to include mathematical functions, operators, and
-! constants, see the LaTeX documentation for this module. Besides,
-! Fortran variables can be linked to the expression and used in the
-! evaluation. The implementation supports scalar input variables as
-! well as 2D and 3D fields, where it is implicitly assumed that 2D
-! fields are embedded in 3D fields as "3D(:,level,:) = 2D(:,:)".
+! constants, see the LaTeX documentation for this module in the
+! appendix of the namelist documentaion. Besides, Fortran variables
+! can be linked to the expression and used in the evaluation. The
+! implementation supports scalar input variables as well as 2D and 3D
+! fields, where it is implicitly assumed that 2D fields are embedded
+! in 3D fields as "3D(:,level,:) = 2D(:,:)".
 !
 ! Basic usage example:
 !
