@@ -110,6 +110,7 @@ doc/icon-authors.txt -text
 doc/icon_nml_tables.tex -text
 doc/icon_ocean_nml_tables.tex -text
 doc/incompatible_changes.tex -text
+doc/mo_expression_doc.tex -text
 doc/resources/doxyfile_icon_html -text
 doc/resources/doxyfile_icon_pdf -text
 doc/resources/doxygen_html_footer.html -text
