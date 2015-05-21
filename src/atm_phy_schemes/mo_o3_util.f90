@@ -999,7 +999,7 @@ CONTAINS
     CASE (9)
       DO jk=1,nlev_gems
         DO jl=1,ilat
-          zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
+          zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
             & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
