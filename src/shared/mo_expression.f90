@@ -4,11 +4,12 @@
 ! Machine (FSM) and Dijkstra's shunting yard algorithm.
 !
 ! It is possible to include mathematical functions, operators, and
-! constants, see the LaTeX documentation for this module. Besides,
-! Fortran variables can be linked to the expression and used in the
-! evaluation. The implementation supports scalar input variables as
-! well as 2D and 3D fields, where it is implicitly assumed that 2D
-! fields are embedded in 3D fields as "3D(:,level,:) = 2D(:,:)".
+! constants, see the LaTeX documentation for this module in the
+! appendix of the namelist documentaion. Besides, Fortran variables
+! can be linked to the expression and used in the evaluation. The
+! implementation supports scalar input variables as well as 2D and 3D
+! fields, where it is implicitly assumed that 2D fields are embedded
+! in 3D fields as "3D(:,level,:) = 2D(:,:)".
 !
 ! Basic usage example:
 !
@@ -123,9 +124,19 @@ MODULE mo_expression
     MODULE PROCEDURE t_result_stack_3D_init
   END INTERFACE t_result_stack_3D
 
+  ! table of error codes
+  ENUM, BIND(C)
+    ENUMERATOR :: ERR_NONE,               &
+      &           ERR_VARIABLE_NOT_FOUND, &
+      &           ERR_EXPRESSION_EMPTY,   &
+      &           ERR_PARSE_ERROR,        &
+      &           ERR_DIMENSION_MISMATCH, &
+      &           ERR_INTERNAL
+  END ENUM
+
   ! base class for single expression operating on result stack
   TYPE, ABSTRACT :: t_stack_op
-    ! no instance variables
+    INTEGER :: err_no = ERR_NONE
   CONTAINS 
     PROCEDURE(stack_op_eval_0D), PUBLIC, DEFERRED :: eval_0D
     PROCEDURE(stack_op_eval_2D), PUBLIC, DEFERRED :: eval_2D
@@ -143,11 +154,14 @@ MODULE mo_expression
     TYPE (t_result_item)        :: p
   END TYPE t_var_ptr
 
+
   ! list of expressions executed first-to-last
   TYPE expression
     INTEGER                                  :: isize, nvars
     TYPE(t_expr_ptr)                         :: list(MAX_BUF_LEN)
     TYPE(t_var_ptr),             ALLOCATABLE :: var(:)
+
+    INTEGER                                  :: err_no = ERR_NONE
     CHARACTER(len=MAX_NAME_LEN), ALLOCATABLE :: used_vars(:)
   CONTAINS 
     PROCEDURE, PUBLIC :: finalize         => expr_list_finalize
@@ -390,6 +404,7 @@ CONTAINS
     CLASS(t_op_variable), POINTER     :: op_variable
     CHARACTER(len=MAX_NAME_LEN)       :: used_vars(MAX_BUF_LEN)
 
+    expr_list%err_no = ERR_NONE
     ! call C expression parser
     ierr = my_do_parse_infix(TRIM(ADJUSTL(string))//c_null_char, cqueue)
     ! translate C postfix queue into sequence of procedure pointers
@@ -398,6 +413,7 @@ CONTAINS
     expr_list%isize = cqueue%isize
     IF (ierr /= 0) THEN
       CALL expr_list_finalize(expr_list)
+      expr_list%err_no = ERR_PARSE_ERROR
       RETURN
     END IF
     DO i=1,cqueue%isize
@@ -525,7 +541,7 @@ CONTAINS
           END IF
         END DO VARLOOP
         IF (.NOT. found) THEN ! error
-          WRITE (0,*) "variable '", TRIM(stack_op%var%name), "' not found!"
+          this%err_no = ERR_VARIABLE_NOT_FOUND
           RETURN
         END IF
       END SELECT
@@ -542,12 +558,17 @@ CONTAINS
     TYPE(t_var_ptr)            :: var_shape
     REAL(real_kind), POINTER   :: ptr
 
-    IF (this%isize <= 0) RETURN
+    IF (this%isize <= 0) THEN
+      this%err_no = ERR_EXPRESSION_EMPTY
+      RETURN
+    ELSE
+      this%err_no = ERR_NONE
+    END IF
     ! first step: determine the dimensions involved
     CALL this%get_result_shape(var_shape, dim1, dim2, dim3)
 
     IF ((dim1 /= 1) .OR.  (dim2 /= 1)  .OR. (dim3 /= 1)) THEN
-      WRITE (0,*) "Scalar expression evaluation with non-scalar argument!"
+      this%err_no = ERR_DIMENSION_MISMATCH
       RETURN
     END IF
     ! then evaluate the list of operators:
@@ -578,10 +599,18 @@ CONTAINS
     TYPE(t_var_ptr)            :: var_shape
     REAL(real_kind), DIMENSION(:,:), POINTER :: ptr
 
-    IF (this%isize <= 0) RETURN
+    IF (this%isize <= 0) THEN
+      this%err_no = ERR_EXPRESSION_EMPTY
+      RETURN
+    ELSE
+      this%err_no = ERR_NONE
+    END IF
     ! first step: determine the dimensions involved
     CALL this%get_result_shape(var_shape, dim1, dim2, dim3)
-    IF (dim3 /= 1)  RETURN
+    IF (dim3 /= 1) THEN
+      this%err_no = ERR_DIMENSION_MISMATCH
+      RETURN
+    END IF
     result_stack = t_result_stack_2D(dim1, dim2)
     ! then evaluate the list of operators:
     DO i=1,this%isize
@@ -604,7 +633,7 @@ CONTAINS
           IF ((dim1 == size1) .AND. (dim2 == size2)) THEN
             evaluate = result_stack%rstack(1)%ptr_2D
           ELSE
-            WRITE (0,*) "Wrong dimensions!"
+            this%err_no = ERR_DIMENSION_MISMATCH
             evaluate(:,:) = 0._real_kind
           END IF
         END IF
@@ -623,7 +652,12 @@ CONTAINS
     TYPE(t_var_ptr)            :: var_shape
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: ptr
 
-    IF (this%isize <= 0) RETURN
+    IF (this%isize <= 0) THEN
+      this%err_no = ERR_EXPRESSION_EMPTY
+      RETURN
+    ELSE
+      this%err_no = ERR_NONE
+    END IF
     ! first step: determine the dimensions involved
     CALL this%get_result_shape(var_shape, dim1, dim2, dim3)
     result_stack = t_result_stack_3D(dim1, dim2, dim3)
@@ -652,7 +686,7 @@ CONTAINS
         ELSE IF ((dim1 == size1) .AND. (dim2 == size2) .AND. (dim3 == size3)) THEN
           evaluate = result_stack%rstack(1)%ptr_3D
         ELSE
-          WRITE (0,*) "Wrong dimensions!"
+          this%err_no = ERR_DIMENSION_MISMATCH
           evaluate(:,:,:) = 0._real_kind
         END IF
       END IF
@@ -788,7 +822,7 @@ CONTAINS
       ptr = this%var%p%ptr_0D
       CALL result_stack%push(ptr)
     ELSE 
-      WRITE (0,*) "ERROR (0D): internal error!"
+      this%err_no = ERR_INTERNAL
     END IF
   END SUBROUTINE stack_op_variable_eval_0D
 
@@ -808,8 +842,8 @@ CONTAINS
       ELSE IF ((pdim1 == result_stack%dim1) .AND. (pdim2 == result_stack%dim2)) THEN
         ptr = this%var%p%ptr_2D
       ELSE
-        WRITE (0,*) "ERROR (2D): dimension mismatch!"
         DEALLOCATE(ptr)
+        this%err_no = ERR_DIMENSION_MISMATCH
         RETURN 
       END IF
     END IF
@@ -834,8 +868,8 @@ CONTAINS
           ptr(:,i,:) = this%var%p%ptr_2D(:,:)
         END DO
       ELSE
-        WRITE (0,*) "ERROR (3D): dimension mismatch!"
         DEALLOCATE(ptr)
+        this%err_no = ERR_DIMENSION_MISMATCH
         RETURN 
       END IF
     ELSE IF (ASSOCIATED(this%var%p%ptr_3D)) THEN
@@ -849,8 +883,8 @@ CONTAINS
         &      (pdim3 == result_stack%dim3)) THEN
         ptr(:,:,:) = this%var%p%ptr_3D(:,:,:)
       ELSE
-        WRITE (0,*) "ERROR: dimension mismatch!"
         DEALLOCATE(ptr)
+        this%err_no = ERR_DIMENSION_MISMATCH
         RETURN 
       END IF
     END IF
