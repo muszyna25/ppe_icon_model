@@ -3604,6 +3604,8 @@ SUBROUTINE turbdiff
         END DO
       END DO
 
+      ! Enhanced diffusion in the stratosphere - very important for the data assimilation cycle,
+      ! but can also be used in forecasting mode because there is no detectable detrimental impact on gravity waves
       IF (tkhmin_strat > z0 .OR. tkmmin_strat > z0) THEN
         DO k=2,ke
           DO i=istartpar,iendpar
