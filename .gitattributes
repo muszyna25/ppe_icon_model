@@ -188,6 +188,7 @@ doc/technical/cloud_variables.tex -text
 doc/technical/dwd_database/Makefile -text
 doc/technical/dwd_database/analysis.tex -text
 doc/technical/dwd_database/appendix.tex -text
+doc/technical/dwd_database/build_varlists.py -text
 doc/technical/dwd_database/cosmo_eu_fields.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
@@ -893,6 +894,7 @@ schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
 schedulers/ecmwf/def/icon_B-matrix.def -text
 schedulers/ecmwf/def/icon_clim.def -text
+schedulers/ecmwf/def/icon_clim_amip.def -text
 schedulers/ecmwf/def/icon_clim_tsoil.def -text
 schedulers/ecmwf/def/icon_eps.def -text
 schedulers/ecmwf/def/icon_oper.def -text
@@ -901,10 +903,13 @@ schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/build.job -text
 schedulers/ecmwf/gen/cancel_check_progress -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
+schedulers/ecmwf/gen/case_setup_amip_ifs -text
 schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_clim_tsoil -text
-schedulers/ecmwf/gen/case_setup_default -text
-schedulers/ecmwf/gen/case_setup_default_r2b5 -text
+schedulers/ecmwf/gen/case_setup_default_icon -text
+schedulers/ecmwf/gen/case_setup_default_ifs -text
+schedulers/ecmwf/gen/case_setup_default_r2b5_icon -text
+schedulers/ecmwf/gen/case_setup_default_r2b5_ifs -text
 schedulers/ecmwf/gen/case_setup_edmf -text
 schedulers/ecmwf/gen/case_setup_eps -text
 schedulers/ecmwf/gen/case_setup_oper -text
@@ -949,6 +954,7 @@ schedulers/ecmwf/sms/getmeans.sms -text
 schedulers/ecmwf/sms/init_build.sms -text
 schedulers/ecmwf/sms/init_cp_binary.sms -text
 schedulers/ecmwf/sms/init_data.sms -text
+schedulers/ecmwf/sms/init_data_nest.sms -text
 schedulers/ecmwf/sms/init_svn.sms -text
 schedulers/ecmwf/sms/meteogram.sms -text
 schedulers/ecmwf/sms/meteogram_tsoil.sms -text
@@ -1030,6 +1036,24 @@ scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/landfill_tri-hex.bash -text
 scripts/gmt_scripts/plot_model_domains -text
 scripts/postprocessing/.hluresfile -text
+scripts/postprocessing/amip_quickplots/amip_r2b4_ncl6.2.0.sh -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_2d_r2b4 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_3d_logp_r2b4 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_3d_r2b4 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/TABLEr2b4_job -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/VARS.txt -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_2d_r2b4_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_2d_r2b4_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_linp_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_linp_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_logp_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_logp_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_map_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_map_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/partab -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/tab.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/table_thunder.f90 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/table_thunder.x -text
 scripts/postprocessing/climplot/Z500_bias_era_mm.met -text
 scripts/postprocessing/climplot/avgtime.f90 -text
 scripts/postprocessing/climplot/climate_obs.met -text

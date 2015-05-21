@@ -40,6 +40,7 @@ MODULE mo_nonhydro_types
   PUBLIC :: t_nh_ref              ! state vector of reference state (type)
   PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
   PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
+  PUBLIC :: t_nh_state_lists      ! lists for state vector of nonhydrostatic variables (type)
 
 
 
@@ -242,7 +243,6 @@ MODULE mo_nonhydro_types
      ! e) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
      !
      ! Vertical grid related
-     inv_ddqz_z_full(:,:,:)    , & ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
      inv_ddqz_z_full_e(:,:,:)  , & 
      inv_ddqz_z_full_v(:,:,:)  , & 
      inv_ddqz_z_half(:,:,:)    , & 
@@ -279,8 +279,9 @@ MODULE mo_nonhydro_types
      ddxt_z_half_e(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
      ddxt_z_half_c(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_c)
      ddxt_z_half_v(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_v)
-     ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-     ddqz_z_half(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
+     ddqz_z_full_e(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
+     ddqz_z_half(:,:,:)    , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
+     inv_ddqz_z_full(:,:,:), & ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
      !
      ! b) Interpolation coefficients
      !
@@ -373,20 +374,24 @@ MODULE mo_nonhydro_types
 
     !array of prognostic states at different timelevels
     TYPE(t_nh_prog),  ALLOCATABLE :: prog(:)       !< shape: (timelevels)
-    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
-
     TYPE(t_nh_diag)    :: diag
-    TYPE(t_var_list)   :: diag_list
-
     TYPE(t_nh_ref)     :: ref
-    TYPE(t_var_list)   :: ref_list
-
     TYPE(t_nh_metrics) :: metrics
-    TYPE(t_var_list)   :: metrics_list
-
-    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
 
   END TYPE t_nh_state
+
+  TYPE t_nh_state_lists
+
+    ! array of prognostic state lists at different timelevels
+    ! splitting this out of t_nh_state allows for a deep copy 
+    ! of the p_nh_state variable to accelerator devices with OpenACC
+    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
+    TYPE(t_var_list)   :: diag_list
+    TYPE(t_var_list)   :: ref_list
+    TYPE(t_var_list)   :: metrics_list
+    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
+
+  END TYPE t_nh_state_lists
 
 
 END MODULE mo_nonhydro_types

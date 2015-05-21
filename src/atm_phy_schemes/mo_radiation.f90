@@ -45,7 +45,6 @@ MODULE mo_radiation
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish
-  USE mo_run_config,           ONLY: ltimer
 
   USE mo_model_domain,         ONLY: t_patch
 
@@ -78,7 +77,10 @@ MODULE mo_radiation
   USE mo_srtm_config,          ONLY: jpsw, jpinpx
   USE mo_srtm,                 ONLY: srtm_srtm_224gp
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
-  USE mo_timer,                ONLY: timer_radiation, timer_start, timer_stop
+  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
+    &                                timer_radiation,                  &
+    &                                timer_rrtm_prep, timer_rrtm_post, &
+    &                                timer_lrtm, timer_srtm
 
   USE mo_echam_phy_memory,     ONLY: prm_field
   USE mo_nh_testcases_nml,     ONLY: zenithang
@@ -499,7 +501,7 @@ CONTAINS
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
-    & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
+    & ,tk_sfc            ,pp_hl            ,pp_fl                          &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
     & ,cdnc              ,cld_frc                                          &
@@ -536,7 +538,6 @@ CONTAINS
       &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
       &  emis_rad(kbdim),    & !< longwave surface emissivity
       &  tk_sfc(kbdim),      & !< Surface temperature
-      &  z_mc(kbdim,klev),   & !< height at full levels [m]
       &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
       &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
       &  tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
@@ -733,7 +734,7 @@ CONTAINS
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-      & emis_rad        ,z_mc                                              ,&
+      & emis_rad                                                           ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
@@ -791,7 +792,7 @@ CONTAINS
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
-    & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
+    & ,tk_sfc            ,pp_hl            ,pp_fl                          &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
     & ,cdnc              ,cld_frc                                          &
@@ -823,7 +824,6 @@ CONTAINS
       &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
       &  emis_rad(kbdim),    & !< longwave surface emissivity
       &  tk_sfc(kbdim),      & !< Surface temperature
-      &  z_mc(kbdim,klev),   & !< height at full levels [m]
       &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
       &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
       &  tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
@@ -978,7 +978,7 @@ CONTAINS
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0                                                            ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-      & emis_rad        ,z_mc                                              ,&
+      & emis_rad                                                           ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
@@ -1125,7 +1125,7 @@ CONTAINS
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
     & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-    & emis_rad        ,z_mc                                              ,&
+    & emis_rad                                                           ,&
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
@@ -1160,7 +1160,6 @@ CONTAINS
       &  alb_vis_dif(kbdim),              & !< surface albedo for vis range and dif light
       &  alb_nir_dif(kbdim),              & !< surface albedo for NIR range and dif light
       &  emis_rad(kbdim),                 & !< longwave surface emissivity
-      &  z_mc(kbdim,klev),                & !< height at full levels [m]
       &  pp_fl(kbdim,klev),               & !< full level pressure in Pa
       &  pp_hl(kbdim,klev+1),             & !< half level pressure in Pa
       &  pp_sfc(kbdim),                   & !< surface pressure in Pa
@@ -1276,6 +1275,8 @@ CONTAINS
     !
     ! 1.0 Constituent properties
     !--------------------------------
+
+    IF (ltimer) CALL timer_start(timer_rrtm_prep)
 
     !
     ! --- control for infintesimal cloud fractions
@@ -1481,9 +1482,12 @@ CONTAINS
       & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
 
 
+    IF (ltimer) CALL timer_stop(timer_rrtm_prep)
+
     !
     ! 4.0 Radiative Transfer Routines
     ! --------------------------------
+    IF (ltimer) CALL timer_start(timer_lrtm)
     CALL lrtm(                                                                &
       !    input
       &    jce             ,klev                                             ,&
@@ -1492,8 +1496,10 @@ CONTAINS
       &    zsemiss         ,cld_frc_vr      ,cld_tau_lw_vr   ,aer_tau_lw_vr  ,&
       !    output
       &    flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr,flx_dnlw_clr_vr )
+    IF (ltimer) CALL timer_stop(timer_lrtm)
 
 
+    IF (ltimer) CALL timer_start(timer_srtm)
     CALL srtm_srtm_224gp(                                                     &
       !    input
       &    jce             ,kbdim           ,klev            ,jpsw           ,&
@@ -1502,7 +1508,7 @@ CONTAINS
       &    col_dry_vr      ,wkl_vr                                           ,&
       &    cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    ,cld_piz_sw_vr  ,&
       &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
-      &    ssi_radt        ,z_mc                                             ,&
+      &    ssi_radt                                                          ,&
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
       !    optional output
@@ -1512,10 +1518,13 @@ CONTAINS
       &    nir_dff_frc_sfc = nir_dff_frc_sfc,                                 &
       &    vis_dff_frc_sfc = vis_dff_frc_sfc,                                 &
       &    par_dff_frc_sfc = par_dff_frc_sfc                                  )
+    IF (ltimer) CALL timer_stop(timer_srtm)
 
 
     ! 5.0 Post Processing
     ! --------------------------------
+    IF (ltimer) CALL timer_start(timer_rrtm_post)
+
     DO jk = 1, klev+1
       jkb = klev+2-jk
       DO jl = 1, jce
@@ -1532,6 +1541,7 @@ CONTAINS
     IF (PRESENT(flx_upsw_toa)) flx_upsw_toa(1:jce) = flx_upsw(1:jce,1)
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
+    IF (ltimer) CALL timer_stop(timer_rrtm_post)
 
   END SUBROUTINE rrtm_interface
 

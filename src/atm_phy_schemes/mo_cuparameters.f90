@@ -34,6 +34,7 @@ MODULE mo_cuparameters
   USE mo_exception,  ONLY: message_text, message
   USE mo_datetime,   ONLY: rday => rdaylen
   USE mo_nwp_parameters,  ONLY: t_phy_params
+  USE mo_nwp_tuning_config, ONLY: tune_entrorg
 #endif
 
 #ifdef __GME__
@@ -324,7 +325,7 @@ MODULE mo_cuparameters
   !     NJKT1, NJKT2, NJKT3-5 INTEGER  LEVEL LIMITS FOR CUBASEN/CUDDR
   !     ----------------------------------------------------------------
   
-  REAL(KIND=jprb) :: entrorg
+  ! REAL(KIND=jprb) :: entrorg
   REAL(KIND=jprb) :: entshalp
   REAL(KIND=jprb) :: entstpc1
   REAL(KIND=jprb) :: entstpc2
@@ -424,7 +425,7 @@ MODULE mo_cuparameters
           & rkappa   ,ratm     ,rpi      ,rlmlt     ,&
           & rcvd     ,rsigma
   !yoecumf
-  PUBLIC :: entrorg  ,entshalp ,entstpc1 ,entstpc2  ,&
+  PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
           & rprcon   ,rmfcmax  ,rmfcmin,&
           & lmfmid   ,detrpen  ,&
           & lmfdd    ,lmfdudv  ,&
@@ -1071,8 +1072,8 @@ detrpen=0.75E-4_JPRB
 !     -------
 
 !ENTRORG=1.75E-3_JPRB     !40r3 default
-!ENTRORG=1.86E-3_JPRB     !for approximate equivalence with previous setting of 1.9e-4*grav
-ENTRORG=1.9E-3_JPRB       !further tuning
+!ENTRORG=1.9E-3_JPRB      !value tuned for ICON before changing to resolution-dependent setting
+! ** entrorg is now set via the tuning namelist and depends on model resolution (see below) **
 
 !     ENTSHALP: SHALLOW ENTRAINMENT DEFINED AS ENTSHALP*ENTRORG
 !     --------
@@ -1152,6 +1153,9 @@ IF (rsltn < zres_thresh) THEN
   phy_params%rcucov      = MIN(1._JPRB, phy_params%rcucov)
 ENDIF
 
+! tuning parameter for organized entrainment of deep convection
+phy_params%entrorg = tune_entrorg + 1.8E-4_JPRB*LOG(zres_thresh/rsltn)
+
 !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
 !     OF MODEL RESOLUTION
 
@@ -1167,8 +1171,15 @@ ENDIF
 !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
 !phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
-phy_params%tau=1.0_JPRB+rsltn/75.E3_JPRB
+
+! Basic resolution-dependent setting (tuned for ICON, denominator originally was 75 km)
+phy_params%tau = 1.0_JPRB + rsltn/120.e3_jprb
+
+! Set upper limit
 phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
+
+! Increase adjustment time scale at resolutions below 10 km
+IF (rsltn < 10.e3_jprb) phy_params%tau = phy_params%tau + (LOG(10.e3_jprb/rsltn))**2
 
 ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
 ! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
@@ -1258,10 +1269,10 @@ CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
 !WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
 WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV')
+CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV, ENTRORG')
 !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-WRITE(message_text,'(4x,l6,l6,l6,4F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
-  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov
+WRITE(message_text,'(4x,l6,l6,l6,4F8.4,E11.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov,phy_params%entrorg
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
 

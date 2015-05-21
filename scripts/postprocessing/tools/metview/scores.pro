@@ -17,7 +17,7 @@ nlev=90
 nlevpl=25
 nlevzl=25
 nlevlnd=8
-nword=18
+nword=19
 
 amp_ml_rms  = 100.0  ;40.0
 amp_pl_rms  = 100.0  ;40.0
@@ -60,6 +60,9 @@ var2d  = ['TOT_PREC' , 'TCC'      , 'HCC'     , 'MCC'     , 'LCC'     , $
           'PS'       , 'T_2M'     , 'T_G'     , 'U_10M'   , 'V_10M']
 nvar2d = n_elements(var2d)
 
+var2obs  = ['ACCLHFL_S', 'ACCSHFL_S', 'T_2M'     , 'T_G'     , 'SP_10M' ]
+nvar2obs = n_elements(var2obs)
+
 var3lnd  = ['W_SO', 'T_SO' ]
 nvar3lnd = n_elements(var3lnd)
 
@@ -91,8 +94,8 @@ CASE levtype OF
    for nk=1,nlev do begin
    ;print,''
    ;print,'searching for variable ', var3d(nn-1)
-    ind1 = where(var1(0,*) eq var3d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
-    ind2 = where(var2(0,*) eq var3d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1 = where(var1(0,*) eq var3d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq 'diff')
+    ind2 = where(var2(0,*) eq var3d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq 'diff')
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -150,8 +153,8 @@ CASE levtype OF
    for nk=1,nlevpl do begin
    ;print,''
    ;print,'searching for variable ', var3pl(nn-1)
-    ind1 = where(var1(0,*) eq var3pl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
-    ind2 = where(var2(0,*) eq var3pl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1 = where(var1(0,*) eq var3pl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq 'diff')
+    ind2 = where(var2(0,*) eq var3pl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq 'diff')
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -209,8 +212,8 @@ CASE levtype OF
    for nk=1,nlevzl do begin
    ;print,''
    ;print,'searching for variable ', var3zl(nn-1)
-    ind1 = where(var1(0,*) eq var3zl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
-    ind2 = where(var2(0,*) eq var3zl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1 = where(var1(0,*) eq var3zl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq 'diff')
+    ind2 = where(var2(0,*) eq var3zl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq 'diff')
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -269,8 +272,8 @@ CASE levtype OF
   for nn=1,nvar2d do begin
    ;print,''
    ;print,'searching for variable ', var2d(nn-1)
-    ind1 = where(var1(0,*) eq var2d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor)
-    ind2 = where(var2(0,*) eq var2d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor)
+    ind1 = where(var1(0,*) eq var2d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(19-1,*) eq 'diff')
+    ind2 = where(var2(0,*) eq var2d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(19-1,*) eq 'diff')
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -283,7 +286,7 @@ CASE levtype OF
    ;print, var2d(nn-1), ' exp',expref, ' bias:', bias2, 'rms:', rms2 
   
     xxx = 0.05
-    yyy = 0.9
+    yyy = 0.92
     vert= 0.045
   
     header = 'variable                    bias               new,ref                     rms               new,ref'
@@ -321,14 +324,73 @@ CASE levtype OF
     end
   end
 
+  ; surface parameters: ICON and IFS versus observations ------------------------------------
+
+  obsname = 'obs'
+  for nn=1,nvar2obs do begin
+   ;print,''
+   ;print,'searching for variable ', var2obs(nn-1)
+    ind1 = where(var1(0,*) eq var2obs(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(19-1,*) eq 'diff_obs')
+    ind2 = where(var2(0,*) eq var2obs(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(19-1,*) eq 'diff_obs')
+    ind1=ind1(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind2)-1)
+    if ind1 eq -1 or ind2 eq -1 then continue
+    mean1= float(var1(16-1,ind1))
+    mean2= float(var2(16-1,ind2))
+    rms1 = float(var1(18-1,ind1))
+    rms2 = float(var2(18-1,ind2))
+    bias = abs(mean1) / ( abs(mean1) + abs(mean2) )
+    rms  =     rms1   / (     rms1   +     rms2   )
+   ;print, var2obs(nn-1), ' exp',expref, ' bias:', bias2, 'rms:', rms2 
+  
+    xxx = 0.55
+    yyy = 0.29
+    vert= 0.045
+  
+   ;header = 'variable - OAFLUX   bias               new,ref                     rms               new,ref'
+   ;xyouts, xxx, yyy, header, /normal, charsize=0.8
+    for nerr=1,2 do begin
+      if nerr eq 1 then begin
+        err1=mean1
+        err2=mean2
+        err =bias
+        xoff=0.0
+        amp =amp_sfc_bias
+      endif else begin
+        err1=rms1
+        err2=rms2
+        err =rms
+        xoff=0.18
+        amp =amp_sfc_rms
+      endelse
+      scale = (err-0.5) * (err gt 0.5)
+      xr= [0.0,0.01,0.01,0.0 ,0.0] * amp * scale(0) + xxx + xoff
+      yr= [0.0,0.0 ,0.01,0.01,0.0] * 1.0            + yyy
+      polyfill, xr   +0.12 , yr   -nn*vert,               /normal, color=240     ;positive
+      scale = (0.5-err) * (err lt 0.5)
+      xr=-[0.0,0.01,0.01,0.0 ,0.0] * amp * scale(0) + xxx + xoff
+      polyfill, xr     +0.12, yr  -nn*vert,               /normal, color=160     ;negative
+      plots,    xr(3:4)+0.12, [yr(3)+0.002,yr(4)-0.002]-nn*vert, /normal         ;zero
+      xr= [-0.01,0.01]             * amp * 0.01*0.5 + xxx + xoff
+      plots,    xr(0:1)+0.12, yr(0:1)-nn*vert+0.005,      /normal                ;reference 1%
+
+      if nerr eq 1 then begin
+      xyouts,   xr(0)     ,   yr(0)-nn*vert, var2obs(nn-1) + ' - ' + obsname, /normal, charsize=0.7
+      endif
+      xyouts,   xr(0)+0.18,   yr(0)-nn*vert+0.008, err1,  /normal, charsize=0.6
+      xyouts,   xr(0)+0.18,   yr(0)-nn*vert-0.008, err2,  /normal, charsize=0.6
+    end
+  end
+
+
   ; land parameters (T and moisture) --------------------------------------------------------
 
   for nn=1,nvar3lnd do begin
    for nk=1,nlevlnd do begin
    ;print,''
    ;print,'searching for variable ', var3lnd(nn-1)
-    ind1 = where(var1(0,*) eq var3lnd(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
-    ind2 = where(var2(0,*) eq var3lnd(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1 = where(var1(0,*) eq var3lnd(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq 'diff')
+    ind2 = where(var2(0,*) eq var3lnd(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq 'diff')
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -341,8 +403,8 @@ CASE levtype OF
    ;print, var3lnd(nn-1), ' exp',expref, ' bias:', bias2, 'rms:', rms2 
   
     xxx = 0.55
-    yyy = 0.9
-    vert= 0.045
+    yyy = 0.92
+    vert= 0.038
   
     header = 'variable                    bias               new,ref                     rms               new,ref'
     xyouts, xxx, yyy, header, /normal, charsize=0.8
