@@ -550,7 +550,7 @@ CONTAINS
   ! evaluate an expression, i.e. evaluate its list of operators.
   SUBROUTINE expr_list_evaluate_0D(this, evaluate)
     CLASS(expression), INTENT(INOUT) :: this
-    CLASS(*), POINTER :: evaluate
+    REAL(real_kind), POINTER :: evaluate
     ! local variables
     INTEGER                    :: i, dim1, dim2, dim3
     TYPE(t_result_stack_0D)    :: result_stack
@@ -582,12 +582,7 @@ CONTAINS
       END IF
     ELSE
       IF (result_stack%ridx == 1) THEN
-        SELECT TYPE(evaluate)
-        TYPE is (REAL(real_kind))
-          evaluate = result_stack%rstack(1)%ptr_0D
-        CLASS default
-          this%err_no = ERR_INTERNAL
-        END SELECT
+        evaluate = result_stack%rstack(1)%ptr_0D
         CALL result_stack%pop(ptr)
         DEALLOCATE(ptr)
       END IF
@@ -596,7 +591,7 @@ CONTAINS
 
   SUBROUTINE expr_list_evaluate_2D(this, evaluate)
     CLASS(expression), INTENT(INOUT) :: this
-    CLASS(*), POINTER :: evaluate(:,:)
+    REAL(real_kind), POINTER :: evaluate(:,:)
     ! local variables
     INTEGER                    :: i, dim1, dim2, dim3, size1, size2
     TYPE(t_result_stack_2D)    :: result_stack
@@ -628,25 +623,20 @@ CONTAINS
         evaluate => NULL()
       END IF
     ELSE
-      SELECT TYPE(evaluate)
-      TYPE is (REAL(real_kind))
-        IF (result_stack%ridx == 1) THEN
-          size1 = SIZE(evaluate,1)
-          size2 = SIZE(evaluate,2)
-          IF ((dim1 == 1) .AND. (dim2 == 1)) THEN
-            evaluate(:,:) = result_stack%rstack(1)%ptr_2D(1,1)
+      IF (result_stack%ridx == 1) THEN
+        size1 = SIZE(evaluate,1)
+        size2 = SIZE(evaluate,2)
+        IF ((dim1 == 1) .AND. (dim2 == 1)) THEN
+          evaluate(:,:) = result_stack%rstack(1)%ptr_2D(1,1)
+        ELSE
+          IF ((dim1 == size1) .AND. (dim2 == size2)) THEN
+            evaluate = result_stack%rstack(1)%ptr_2D
           ELSE
-            IF ((dim1 == size1) .AND. (dim2 == size2)) THEN
-              evaluate = result_stack%rstack(1)%ptr_2D
-            ELSE
-              this%err_no = ERR_DIMENSION_MISMATCH
-              evaluate(:,:) = 0._real_kind
-            END IF
+            this%err_no = ERR_DIMENSION_MISMATCH
+            evaluate(:,:) = 0._real_kind
           END IF
         END IF
-      CLASS default
-        this%err_no = ERR_INTERNAL
-      END SELECT
+      END IF
       CALL result_stack%pop(ptr)
       DEALLOCATE(ptr)
     END IF
@@ -654,7 +644,7 @@ CONTAINS
 
   SUBROUTINE expr_list_evaluate_3D(this, evaluate)
     CLASS(expression), INTENT(INOUT) :: this
-    CLASS(*), POINTER :: evaluate(:,:,:)
+    REAL(real_kind), POINTER :: evaluate(:,:,:)
     ! local variables
     INTEGER                    :: i, dim1, dim2, dim3, size1, size2, size3
     TYPE(t_result_stack_3D)    :: result_stack
@@ -682,26 +672,23 @@ CONTAINS
         evaluate => NULL()
       END IF
     ELSE
-      SELECT TYPE(evaluate)
-      TYPE is (REAL(real_kind))
-        IF (result_stack%ridx == 1) THEN
-          size1 = SIZE(evaluate,1)
-          size2 = SIZE(evaluate,2)
-          size3 = SIZE(evaluate,3)
-          IF ((dim1 == 1) .AND. (dim2 == 1)) THEN
-            evaluate(:,:,:) = result_stack%rstack(1)%ptr_3D(1,1,1)
-          ELSE IF ((dim3 == 1) .AND. (dim1 == size1) .AND. (dim2 == size3)) THEN
-            DO i=1,size2
-              evaluate(:,i,:) = result_stack%rstack(1)%ptr_3D(:,:,1)
-            END DO
-          ELSE IF ((dim1 == size1) .AND. (dim2 == size2) .AND. (dim3 == size3)) THEN
-            evaluate = result_stack%rstack(1)%ptr_3D
-          ELSE
-            this%err_no = ERR_DIMENSION_MISMATCH
-            evaluate(:,:,:) = 0._real_kind
-          END IF
+      IF (result_stack%ridx == 1) THEN
+        size1 = SIZE(evaluate,1)
+        size2 = SIZE(evaluate,2)
+        size3 = SIZE(evaluate,3)
+        IF ((dim1 == 1) .AND. (dim2 == 1)) THEN
+          evaluate(:,:,:) = result_stack%rstack(1)%ptr_3D(1,1,1)
+        ELSE IF ((dim3 == 1) .AND. (dim1 == size1) .AND. (dim2 == size3)) THEN
+          DO i=1,size2
+            evaluate(:,i,:) = result_stack%rstack(1)%ptr_3D(:,:,1)
+          END DO
+        ELSE IF ((dim1 == size1) .AND. (dim2 == size2) .AND. (dim3 == size3)) THEN
+          evaluate = result_stack%rstack(1)%ptr_3D
+        ELSE
+          this%err_no = ERR_DIMENSION_MISMATCH
+          evaluate(:,:,:) = 0._real_kind
         END IF
-      END SELECT
+      END IF
       CALL result_stack%pop(ptr)
       DEALLOCATE(ptr)
     END IF
