@@ -713,6 +713,17 @@ CONTAINS
                                    'ntracer is automatically reset to ',ntracer
       CALL message(TRIM(method_name),message_text)
 
+      ! take into account additional passive tracers, if present
+      ! iqt is not increased, since passive tracers do not belong to the hydrometeor group.
+      IF ( advection_config(jg)%npassive_tracer > 0) THEN
+        ntracer = ntracer + advection_config(jg)%npassive_tracer
+        WRITE(message_text,'(a,i3,a,i3)') 'Attention: passive tracers have been added, '//&
+                                     'ntracer is increased by ',advection_config(jg)%npassive_tracer, &
+                                     ' to ',ntracer
+        CALL message(TRIM(method_name),message_text)
+      ENDIF
+
+
       IF (lart) THEN
         
         ntracer = ntracer + art_config(jg)%iart_ntracer

@@ -4716,7 +4716,19 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 
 %\hline
 ctracer\_list&
-C& ''& & list of tracer names & run\_nml/ltestcase=.TRUE.
+C& ' ' & & list of tracer names & run\_nml/ltestcase=.TRUE.
+\tabularnewline
+
+%\hline
+npassive\_tracer&
+I& 0 & & number of additional passive tracers which have no sources and are transparent to any physical process (no effect).\\ 
+Passive tracers are named Qpassive\_ID, where ID is a number between \texttt{ntracer} and \texttt{ntracer}$+$\texttt{npassive\_tracer}.\\ 
+\textbf{NOTE:} By default, limiters are switched of for passive tracers and the scheme $52$ is selected for horizontal advection. & 
+\tabularnewline
+
+%\hline
+init\_formula&
+C& ' ' & & Comma-separated list of initialization formulas for additional passive tracers. & npassive\_tracer > 0
 \tabularnewline
 
 %\hline

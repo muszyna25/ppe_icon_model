@@ -231,7 +231,8 @@ CONTAINS
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme ) 
+       &                      idiv_method, itime_scheme,               &
+       &                      p_nh_state(jg)%tracer_list(:)  ) 
     ENDDO
 
     !---------------------------------------------------------------------
