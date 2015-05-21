@@ -277,7 +277,7 @@ cat > ${atmo_namelist} << EOF
  itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
 /
 &radiation_nml
- irad_o3                      = 7           ! 6: GME, 7: GEMS
+ irad_o3                      = 7           ! 6: GME, 7: GEMS, 9: MACC
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo
