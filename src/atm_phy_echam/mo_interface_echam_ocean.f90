@@ -27,7 +27,9 @@ MODULE mo_interface_echam_ocean
   USE mo_parallel_config     ,ONLY: nproma
   
   USE mo_run_config          ,ONLY: nlev, ltimer
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling_put, timer_coupling_get
+  USE mo_timer,               ONLY: timer_start, timer_stop,                &
+       &                            timer_coupling_put, timer_coupling_get, &
+       &                            timer_coupling_1stget, timer_coupling_init
   USE mo_echam_sfc_indices   ,ONLY: iwtr, iice
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
@@ -140,7 +142,6 @@ CONTAINS
     INTEGER :: subdomain_ids(nbr_subdomain_ids)
 
     INTEGER :: mask_checksum
-    INTEGER :: i_startidx, i_endidx
     INTEGER :: nblks
     INTEGER :: BLOCK, idx, INDEX
     INTEGER :: nbr_vertices_per_cell
@@ -153,6 +154,8 @@ CONTAINS
     TYPE(t_sim_step_info)   :: sim_step_info  
 
     IF ( .NOT. is_coupled_run() ) RETURN
+
+    IF (ltimer) CALL timer_start (timer_coupling_init)
 
     comp_name = TRIM(get_my_process_name())
 
@@ -299,27 +302,21 @@ CONTAINS
     !
     mask_checksum = 0
 
-!rr    DO BLOCK = 1, patch_horz%nblks_c
-!rr       CALL get_indices_c ( patch_horz, BLOCK, 1, patch_horz%nblks_c,  &
-!rr                               i_startidx, i_endidx, 2 )
-!rr       DO idx = i_startidx, i_endidx
-!rr          mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx,BLOCK))
-!rr       ENDDO
-!rr    ENDDO
-
-    DO i = 1, patch_horz%n_patch_cells
-       ibuffer(i) = 0
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx, BLOCK))
+      ENDDO
     ENDDO
 
     IF ( mask_checksum > 0 ) THEN
        DO BLOCK = 1, patch_horz%nblks_c
-          CALL get_indices_c ( patch_horz, BLOCK, 1, patch_horz%nblks_c,  &
-                               i_startidx, i_endidx, 2 )
-          DO idx = i_startidx, i_endidx
-             IF ( ext_data(1)%atm%lsm_ctr_c(idx,BLOCK) < 0 ) THEN
-                ibuffer((BLOCK-1)*nproma+idx) = 0
+          DO idx = 1, nproma
+             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
+               WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, ext_data(1)%atm%lsm_ctr_c(idx, BLOCK)
+               ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-                ibuffer((BLOCK-1)*nproma+idx) = 1
+               WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, ext_data(1)%atm%lsm_ctr_c(idx, BLOCK)
+               ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
        ENDDO
@@ -334,7 +331,7 @@ CONTAINS
       & ibuffer,                   &
       & cell_point_ids(1),         &
       & cell_mask_ids(1) )
-    
+
     DEALLOCATE (ibuffer)
 
     field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
@@ -437,6 +434,8 @@ CONTAINS
 
     ALLOCATE(buffer(nproma*patch_horz%nblks_c,5))
     buffer(:,:) = 0.0_wp
+
+    IF (ltimer) CALL timer_stop(timer_coupling_init)
 
   END SUBROUTINE construct_atmo_coupler
 
@@ -717,7 +716,7 @@ CONTAINS
     !
     ! SST
     !
-    IF (ltimer) CALL timer_start(timer_coupling_get)
+    IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
@@ -725,7 +724,7 @@ CONTAINS
     field_shape(3) = 1
     CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
-    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
     IF ( info > 0 ) THEN
       !

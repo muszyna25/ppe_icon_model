@@ -24,7 +24,9 @@ MODULE mo_ocean_coupling
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config,          ONLY: ltimer
   USE mo_dynamics_config,     ONLY: nold
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, timer_coupling_put, timer_coupling_get 
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
+       &                            timer_coupling_put, timer_coupling_get,  &
+       &                            timer_coupling_1stget, timer_coupling_init
   USE mo_sync,                ONLY: sync_c, sync_patch_array
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
@@ -164,6 +166,8 @@ CONTAINS
     TYPE(t_sim_step_info) :: sim_step_info
 
     IF (.NOT. is_coupled_run()) RETURN
+
+    IF (ltimer) CALL timer_start(timer_coupling_init)
 
     comp_name = TRIM(get_my_process_name())
 
@@ -310,35 +314,33 @@ CONTAINS
 
     mask_checksum = 0
 
-!rr    DO BLOCK = 1, patch_horz%nblks_c
-!rr       CALL get_indices_c ( patch_horz, BLOCK, 1, patch_horz%nblks_c,  &
-!rr                               i_startidx, i_endidx, 2 )
-!rr       DO idx = i_startidx, i_endidx
-!rr          mask_checksum = mask_checksum + ABS(patch_3d%surface_cell_sea_land_mask(idx, BLOCK))
-!rr       ENDDO
-!rr    ENDDO
-
-    DO i = 1, patch_horz%n_patch_cells
-       ibuffer(i) = 0
-    ENDDO
-
-    IF ( mask_checksum > 0 ) THEN
-       DO BLOCK = 1, patch_horz%nblks_c
-          CALL get_indices_c ( patch_horz, BLOCK, 1, patch_horz%nblks_c,  &
-                               i_startidx, i_endidx, 2 )
-          DO idx = i_startidx, i_endidx
-             IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
-                ibuffer((BLOCK-1)*nproma+idx) = 0
-             ELSE
-                ibuffer((BLOCK-1)*nproma+idx) = 1
-             ENDIF
-          ENDDO
-       ENDDO
-    ELSE
-       DO i = 1, patch_horz%n_patch_cells
-          ibuffer(i) = 0
-       ENDDO
-    ENDIF
+    ibuffer(:) = 0
+ 
+!!$    DO BLOCK = 1, patch_horz%nblks_c
+!!$      DO idx = 1, nproma
+!!$        mask_checksum = mask_checksum + ABS(patch_3d%surface_cell_sea_land_mask(idx, BLOCK))
+!!$      ENDDO
+!!$    ENDDO
+!!$
+!!$    IF ( mask_checksum > 0 ) THEN
+!!$       DO BLOCK = 1, patch_horz%nblks_c
+!!$          DO idx = 1, nproma
+!!$            IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
+!!$              ! water (-2, -1)
+!!$              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
+!!$              ibuffer((BLOCK-1)*nproma+idx) = 0
+!!$            ELSE
+!!$              ! land or boundary
+!!$              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
+!!$              ibuffer((BLOCK-1)*nproma+idx) = 1
+!!$            ENDIF
+!!$          ENDDO
+!!$       ENDDO
+!!$    ELSE
+!!$       DO i = 1, patch_horz%n_patch_cells
+!!$          ibuffer(i) = 0
+!!$       ENDDO
+!!$    ENDIF
 
     CALL yac_fdef_mask (          &
       & patch_horz%n_patch_cells, &
@@ -444,6 +446,8 @@ CONTAINS
 #endif
 
     ALLOCATE(buffer(nproma * patch_horz%nblks_c,5))
+
+    IF (ltimer) CALL timer_stop(timer_coupling_init)
 
   END SUBROUTINE construct_ocean_coupling
   !--------------------------------------------------------------------------
@@ -632,13 +636,13 @@ CONTAINS
     ! zonal wind stress
     field_shape(3) = 2
     !
-    IF (ltimer) CALL timer_start(timer_coupling_get)
+    IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(1), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
 #else
     CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
-    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
     IF (info > 0 ) THEN
       !
