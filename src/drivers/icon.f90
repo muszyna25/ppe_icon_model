@@ -53,8 +53,6 @@ PROGRAM icon
 
   USE mo_cdi_constants          ! We need all  
 
-  USE mo_expression, ONLY: expression, real_kind ! DEVELOPMENT
-
   IMPLICIT NONE
 
   INTEGER                     :: master_control_status, my_process_component, nlen
@@ -78,10 +76,6 @@ PROGRAM icon
   INTEGER                     :: signals(1)
   INTEGER                     :: iret
 #endif
-
-  TYPE(expression)          :: formula                   ! DEVELOPMENT
-  REAL(real_kind), POINTER  :: val_2D(:,:)   => NULL()   ! DEVELOPMENT
-  REAL(real_kind), TARGET   :: z_sfc(2,2)                ! DEVELOPMENT
 
 !--------------------------------------------------------------------
 
@@ -207,27 +201,6 @@ PROGRAM icon
 
 #ifndef __NO_ICON_ATMO__
   CASE (atmo_process)
-    IF (my_process_is_global_root()) THEN
-
-      ! DEVELOPMENT ---------------------------------------------
-
-      WRITE (0,*) "DEVELOPMENT ---------------------------------------------"
-      ! create some dummy data
-      z_sfc(1,:) = (/ 1, 2 /)
-      z_sfc(2,:) = (/ 3, 4 /)
-      
-      ! --- scalar example:
-      formula = expression("[z_sfc] + sin(45*pi/180.) * 10 + 5")
-      CALL formula%link("z_sfc", z_sfc)
-      CALL formula%evaluate(val_2D)
-      WRITE (0,*) "formula: result = ", val_2D
-      DEALLOCATE(val_2D)
-      CALL formula%finalize()
-      WRITE (0,*) "END DEVELOPMENT -----------------------------------------"
-    END IF
-
-    ! END DEVELOPMENT -----------------------------------------
-
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 #endif
 
