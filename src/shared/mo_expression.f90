@@ -55,7 +55,7 @@ MODULE mo_expression
     CHARACTER(kind=c_char)            :: op
     REAL(kind=c_double)               :: val
     INTEGER(kind=c_int)               :: fct
-    CHARACTER(kind=c_char,len=32)     :: field
+    CHARACTER(kind=c_char,len=1)      :: field(32)
   END TYPE t_item
 
   TYPE, BIND(c) :: t_list
