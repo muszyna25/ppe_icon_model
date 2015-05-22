@@ -629,14 +629,16 @@ CONTAINS
         iqns = 10        
         iqng = 11        
         iqnh = 12
+        iqnc = 13
+        ininact = 14
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
-        iqt       = 13    !! start index of other tracers not related at all to moisture
+        iqt       = 15    !! start index of other tracers not related at all to moisture
        
-        ntracer = 12
+        ntracer = 14
 
-      CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
+      CASE(5)  ! two-moment scheme with CCN and IN budgets
       
         iqg  = 6
         iqh  = 7
@@ -646,9 +648,9 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
-        inccn = 14
-        ininpot = 15
-        ininact = 16
+        ininact = 14
+        inccn   = 15
+        ininpot = 16
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios

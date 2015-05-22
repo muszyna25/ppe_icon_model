@@ -22,7 +22,10 @@ MODULE mo_name_list_output_gridinfo
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates,               &
     &                                             check_orientation
   USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data
-  USE mo_grib2,                             ONLY: t_grib2_var
+  USE mo_grib2,                             ONLY: t_grib2_var, grib2_var
+  USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys,                &
+    &                                             set_GRIB2_ensemble_keys,                  &
+    &                                             set_GRIB2_local_keys
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_specs,     &
     &                                             rotate_latlon_grid
   USE mo_intp_data_strc,                    ONLY: lonlat_grid_list
@@ -35,9 +38,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
   USE mo_util_string,                       ONLY: one_of
-
   USE mo_name_list_output_types,            ONLY: t_patch_info, t_grid_info, t_output_file, &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,         &
     &                                             ILATLON, ICELL, IEDGE, IVERT, IRLAT,      &
@@ -554,25 +555,25 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
-    TYPE (t_grib2_var), PARAMETER :: grid_coord_grib2(2) = (/  &
-      ! geographical longitude RLON
-      & t_grib2_var(               0,   &  ! discipline
-      &                          191,   &  ! category
-      &                            2,   &  ! number
-      &              DATATYPE_PACK16,   &  ! bits
-      &               GRID_REFERENCE,   &  ! gridtype
-      &                    GRID_CELL ), &  ! subgridtype
-      ! geographical latitude RLAT
-      & t_grib2_var(               0,   &  ! discipline
-      &                          191,   &  ! category
-      &                            1,   &  ! number
-      &              DATATYPE_PACK16,   &  ! bits
-      &               GRID_REFERENCE,   &  ! gridtype
-      &                    GRID_CELL )  &  ! subgridtype
-      /)
-
+    TYPE (t_grib2_var) :: grid_coord_grib2(2)
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
+
+    ! geographical longitude RLON
+    grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline
+      &                                          191,   &  ! category
+      &                                            2,   &  ! number
+      &                              DATATYPE_PACK16,   &  ! bits
+      &                               GRID_REFERENCE,   &  ! gridtype
+      &                                    GRID_CELL )     ! subgridtype
+
+    ! geographical latitude RLAT
+    grid_coord_grib2(2) = grib2_var(               0,   &  ! discipline
+      &                                          191,   &  ! category
+      &                                            1,   &  ! number
+      &                              DATATYPE_PACK16,   &  ! bits
+      &                               GRID_REFERENCE,   &  ! gridtype
+      &                                    GRID_CELL )     ! subgridtype
 
     vlistID = of%cdiVlistID
     zaxisID = of%cdiZaxisID(ZA_surface)
@@ -595,8 +596,16 @@ CONTAINS
             &                 grid_coord_grib2(i)%discipline) )
 
           ! GRIB2 Quick hack: Set additional GRIB2 keys
-          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
-            &                            gribout_config(of%phys_patch_id), 0 )
+          CALL set_GRIB2_additional_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                            gribout_config(of%phys_patch_id) )
+
+          ! Set ensemble keys in SECTION 4 (if applicable)
+          CALL set_GRIB2_ensemble_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                            gribout_config(of%phys_patch_id) )
+
+          ! Set local use SECTION 2
+          CALL set_GRIB2_local_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
+            &                       gribout_config(of%phys_patch_id) )
         END DO
       END DO
 
@@ -614,8 +623,16 @@ CONTAINS
           &                 grid_coord_grib2(i)%discipline) )
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys
-        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i),      &
-          &                            gribout_config(of%phys_patch_id), 0 )
+        CALL set_GRIB2_additional_keys(vlistID, of%cdi_grb2(ILATLON,i), &
+          &                            gribout_config(of%phys_patch_id) )
+
+        ! Set ensemble keys in SECTION 4 (if applicable)
+        CALL set_GRIB2_ensemble_keys(vlistID, of%cdi_grb2(ILATLON,i), &
+          &                            gribout_config(of%phys_patch_id) )
+
+        ! Set local use SECTION 2
+        CALL set_GRIB2_local_keys(vlistID, of%cdi_grb2(ILATLON,i),    &
+          &                       gribout_config(of%phys_patch_id) )
       END DO
 
     CASE DEFAULT

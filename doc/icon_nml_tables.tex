@@ -1759,13 +1759,6 @@ Vertical filtering weight on density increments &
 init\_mode=5,6,8
 \tabularnewline
 
-wgtfac\_geobal &
-R & 0 &  &
-Weighting factor for artificial geostrophic balancing of meridional gradients of DA pressure increments in the tropical stratosphere.
-Use with caution! According to preliminary experience, the weight should not be much larger than 0.1 &
-init\_mode=5,6,8
-\tabularnewline
-
 %\hline
 type\_iau\_wgt&
 I & 1 &  &
@@ -3426,7 +3419,7 @@ max\_freshsnow\_inc&
 R&
 0.025&
 &
-Maximum allowed freshsnow increment per analysis cycle&
+Maximum allowed freshsnow increment per analysis cycle (positive or negative)&
 init\_mode=5 (MODE\_IAU)
 \tabularnewline
 \end{longtab}
@@ -3904,8 +3897,9 @@ Soon the formatting problem will be resolved and the valid number ranges will be
 
 
 % -------------------------------------------------------------
-\paragraph{Variable Groups:}
+\subsubsection*{Variable Groups}
 % -------------------------------------------------------------
+\paragraph{Keyword \texttt{"group:"}:}
 Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
 sets of common variables can be added to the output:
 \begin{tabbing}
@@ -3933,6 +3927,12 @@ sets of common variables can be added to the output:
 \texttt{group:ART\_AERO\_SEAS}         \>     ART sea salt aerosol fields                                           \\
 \end{tabbing}
 
+\paragraph{Keyword \texttt{"tiles:"}:}
+The \texttt{"tiles:"} keyword allows to add all tiles of a specific variable to the output, without the need to specify all 
+tile fields separately. E.g.\ \texttt{"tiles:t\_g"} (read: ``tiles of \texttt{t\_g}'') automatically adds all \texttt{t\_g\_t\_X} 
+fields to the output. Here, \texttt{X} is a placeholder for the tile number. Make sure to specify the name of the aggregated 
+variable rather than the name of the corresponding tile container (i.e.\ in the given example it must be \texttt{t\_g}, and not 
+\texttt{t\_g\_t}!).
 
 \begin{note}
       There exists a special syntax which allows to remove variables from the output list, e.\,g.\ if
@@ -4673,7 +4673,7 @@ L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
 \textbf{ihadv\_tracer}&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & 5& & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
+& & & & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: Miura (2nd order, linear reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -4716,7 +4716,7 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 
 %\hline
 ctracer\_list&
-C& ' ' & & list of tracer names & run\_nml/ltestcase=.TRUE.
+C& ''& & list of tracer names & ltestcase=.TRUE.
 \tabularnewline
 
 %\hline

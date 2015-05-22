@@ -47,6 +47,7 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
+USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
@@ -145,6 +146,8 @@ CONTAINS
       CALL configure_ensemble_pert()
 
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
+
+      CALL configure_synsat()
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
@@ -429,8 +432,16 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi") 
-    ENDIF
+        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+
+        atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
+        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+     ENDIF
 
     !----------------------!
     !  Initialize actions  !
