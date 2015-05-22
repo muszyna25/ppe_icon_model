@@ -1042,7 +1042,7 @@ MODULE mo_nonhydro_state
           WRITE(passive_tracer_suffix,'(I2)') ipassive
           cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
             &          'kg kg-1', 'passive tracer', DATATYPE_FLT32)
-          grib2_desc = t_grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_tracer_ref( p_prog_list, 'tracer',                                &
             &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
             &                  dummy_idx,                                            &
