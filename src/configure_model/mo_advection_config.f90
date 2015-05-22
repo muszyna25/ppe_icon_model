@@ -31,7 +31,7 @@ MODULE mo_advection_config
     &                              ino_flx, izero_grad, iparent_flx, inwp, &
     &                              TRACER_ONLY
   USE mo_exception,          ONLY: message, message_text
-  USE mo_expression,         ONLY: expression, real_kind ! DEVELOPMENT
+  USE mo_expression,         ONLY: expression, real_kind
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: fget_var_list_element_r3d
 
@@ -680,7 +680,7 @@ CONTAINS
     INTEGER :: start_pos
     INTEGER :: end_pos
     INTEGER :: pos
-    TYPE(expression) :: formula                   ! DEVELOPMENT
+    TYPE(expression) :: formula
     CHARACTER(LEN=4) :: passive_tracer_id         ! tracer ID string
     CHARACTER(LEN=4) :: str_ntl                   ! time level string
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: tracer_name ! tracer name string
