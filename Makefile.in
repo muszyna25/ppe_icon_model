@@ -17,6 +17,7 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 libdir = @libdir@
 
+NETCDFFROOT    = @NETCDFFROOT@
 NETCDFROOT     = @NETCDFROOT@
 NETCDFLIBPATH  = @NETCDFLIBPATH@
 NETCDF_LIB     = @NETCDF_LIB@
