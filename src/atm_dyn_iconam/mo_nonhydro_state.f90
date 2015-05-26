@@ -73,6 +73,7 @@ MODULE mo_nonhydro_state
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
+  USE mo_add_tracer_ref,       ONLY: add_tracer_ref
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
@@ -428,11 +429,15 @@ MODULE mo_nonhydro_state
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
 
-    CHARACTER(len=4) suffix
+    CHARACTER(len=4) :: suffix
+    CHARACTER(len=4) :: passive_tracer_suffix
 
     TYPE(t_advection_config), POINTER :: advconf
 
     INTEGER           :: jt
+    INTEGER           :: ipassive        ! loop counter
+    INTEGER           :: dummy_idx
+
     CHARACTER(LEN=1)  :: ctracer
     CHARACTER(len=21) :: name
 
@@ -1030,6 +1035,28 @@ MODULE mo_nonhydro_state
                     &             l_pd_limit=.FALSE.,                                &
                     &             lower_limit=0._wp  )  )
         ENDIF
+
+
+        ! add references to additional passive tracers, if existing
+        DO ipassive=1,advection_config(p_patch%id)%npassive_tracer
+          WRITE(passive_tracer_suffix,'(I2)') ipassive
+          cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
+            &          'kg kg-1', 'passive tracer', DATATYPE_FLT32)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_tracer_ref( p_prog_list, 'tracer',                                &
+            &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
+            &                  dummy_idx,                                            &
+            &                  p_prog%tracer_ptr(:),                                 &
+            &                  cf_desc, grib2_desc,                                  &
+            &                  advection_config(p_patch%id),                         &
+            &                  p_patch%id,                                           &
+            &                  ldims=shape3d_c,                                      &
+            &                  loutput=.TRUE.,                                       &
+            &                  lrestart=.FALSE.,                                     &
+            &                  tlev_source=1,                                        &  ! output from nnow_rcf slice
+            &                  lis_tracer=.TRUE. )
+        ENDDO
+
 
 
         ! art

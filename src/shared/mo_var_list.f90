@@ -89,6 +89,10 @@ MODULE mo_var_list
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
 
+  PUBLIC :: fget_var_list_element_r1d
+  PUBLIC :: fget_var_list_element_r2d
+  PUBLIC :: fget_var_list_element_r3d
+
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
     MODULE PROCEDURE add_var_list_element_r4d
@@ -1761,6 +1765,64 @@ CONTAINS
     IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,1,1,1,1)
     !
   END SUBROUTINE get_var_list_element_r1d
+
+
+  ! Obtain pointer to 2D REAL field
+  ! 
+  FUNCTION fget_var_list_element_r1d (this_list, name) RESULT(ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list   ! list
+    CHARACTER(len=*), INTENT(in) :: name        ! name of variable
+    REAL(wp),         POINTER    :: ptr(:)      ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (element%field%info%lcontained) THEN
+      IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,element%field%info%ncontained,1,1,1)
+    ELSE
+      IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,1,1,1,1)
+    ENDIF
+    !
+  END FUNCTION fget_var_list_element_r1d
+
+
+  ! Obtain pointer to 2D REAL field
+  ! 
+  FUNCTION fget_var_list_element_r2d (this_list, name) RESULT(ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list   ! list
+    CHARACTER(len=*), INTENT(in) :: name        ! name of variable
+    REAL(wp),         POINTER    :: ptr(:,:)    ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (element%field%info%lcontained) THEN
+      IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,element%field%info%ncontained,1,1)
+    ELSE
+      IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,1,1,1)
+    ENDIF
+    !
+  END FUNCTION fget_var_list_element_r2d
+
+
+  ! Obtain pointer to 3D REAL field
+  ! 
+  FUNCTION fget_var_list_element_r3d (this_list, name) RESULT(ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
+    CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+    REAL(wp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (element%field%info%lcontained) THEN
+      IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,element%field%info%ncontained,1)
+    ELSE
+      IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,1,1)
+    ENDIF
+    !
+  END FUNCTION fget_var_list_element_r3d
+
   !================================================================================================ 
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
