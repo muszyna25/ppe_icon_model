@@ -55,17 +55,20 @@ following values:
        \end{itemize}
 \end{itemize}
 
-The categories for ICON start with the string \textbf{ico} for ICON data on the native
-ICON grid, or with \textbf{icr} for data on a regular lat-lon grid.
+The ICON categories start with the string \textbf{ico} for ICON data on 
+the native ICON grid, or with \textbf{icr} for data on a regular lat-lon grid.
 Next follows a two-letter string to identify the domain of ICON; \textbf{gl} for the
-global domain, \textbf{eu} for the nest over Europe. After the domain follows the
-mesh width of the model in units of 100 m, and then the number of levels after the
-letter l. As an example icogl130l90 is on the native grid from a global model with a mesh width
-13 km (grid R3B07) and 90 levels. icrgl400l90 is data on a regular grid from a global model with
-mesh width 40 km (R2B06) and 90 levels. icreu065l50 is an ICON nest over Europe with a
-mesh width of 6.5 km and 50 levels and interpolated to a regular lat-lon grid.
+global domain, \textbf{eu} for the nest over Europe. Further particulars of the category 
+name differ for the global and nested domain. In case of the global domain, \textbf{gl} 
+is followed by the mesh width of the model in units of 100 m, and then the number of levels 
+preceeded by the letter l. As an example \textbf{icogl130l90} is on the native grid from a global 
+model with a mesh width $13\,\mathrm{km}$ (grid R3B07) and 90 levels. \textbf{icrgl400l90} is data 
+on a regular grid from a global model with mesh width $40\,\mathrm{km}$ (R2B06) and 90 levels. 
+For the nested domain, the specification of the mesh width and number of levels is omitted. As an 
+example, \textbf{icreu} is the ICON nest over Europe (with a mesh width of $6.5\,\mathrm{km}$ and 50 
+levels), interpolated to a regular lat-lon grid.
 
-Hence, the full category name for data from an operational forecast run of ICON on a
+Hence, the full category name for data from a global operational forecast run of ICON on a
 regular grid will be \textbf{icrgl130l90\_main\_fc\_rout}. The initial analysis for this
 run is in category \textbf{icogl130l90\_main\_an\_rout}.
 

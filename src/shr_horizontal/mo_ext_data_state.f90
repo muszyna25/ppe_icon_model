@@ -1839,7 +1839,7 @@ CONTAINS
   SUBROUTINE read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
     &                           cdi_filetype, extpar_varnames_dict)
 
-    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     INTEGER,               INTENT(IN)    :: nlev_o3
 
@@ -2771,6 +2771,21 @@ CONTAINS
     
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
+
+                 ! consistency corrections for partly glaciered points
+                 ! a) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
+                 IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) &
+                   & ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 1
+                 ! b) set soiltype to rock or sandy loam if landuse /= ice and soiltype = ice
+                 IF (ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) == 1 .AND. &
+                   & ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) /= ext_data(jg)%atm%i_lc_snow_ice) THEN
+                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_bare_soil) THEN
+                     ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 2 ! assume rock in case of bare soil
+                   ELSE
+                     ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 4 ! otherwise assume sandy loam
+                   ENDIF
+                 ENDIF
+
                END DO
              END IF ! ntiles
            ELSE  ! fr_land(jc,jb)<= frlnd_thrhld

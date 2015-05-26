@@ -31,7 +31,9 @@ then
   mkdir -p ${SETDIRTMP}
 
   SETDIR=%SCBASEDIR%/gen
-  cp ${SETDIR}/case_setup          ${SETDIRTMP}
+ #cp ${SETDIR}/case_setup          ${SETDIRTMP}
+  cp ${SETDIR}/case_setup_icon     ${SETDIRTMP}
+  cp ${SETDIR}/case_setup_ifs      ${SETDIRTMP}
 
 else
 
