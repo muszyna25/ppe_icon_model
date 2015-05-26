@@ -1354,7 +1354,7 @@ CONTAINS
       ip = phys_id(idx_no(i),blk_no(i))
       IF (ip < 1 .OR. ip > max_phys_dom) &
         CALL finish("setup_phys_patches_cve", "invalid phys_id")
-      IF (decomp_info%owner_local(i) == p_pe_work) &
+      IF (decomp_info%owner_local(i) == p_patch(curr_patch_idx)%rank) &
         temp_n_patch_cve(ip) = temp_n_patch_cve(ip) + 1
     END DO
 
@@ -1392,7 +1392,7 @@ CONTAINS
 
       CALL setup_comm_gather_pattern(n_g, owner_local(:), &
         &                            decomp_info%glb_index(:), &
-        &                            comm_pat_gather(ip), .TRUE.)
+        &                            comm_pat_gather(ip))
     END DO
 
     DEALLOCATE(owner_local)

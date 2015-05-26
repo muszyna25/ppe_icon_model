@@ -46,6 +46,7 @@ USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
 USE mo_run_config,      ONLY: msg_level
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,          ONLY: quicksort
+USE mo_util_string,        ONLY: int2string
 USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d
 
 
@@ -639,7 +640,8 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
 
     ! check if all points have an owner
     IF (SUM(gather_pattern%collector_size(:)) /= global_size) &
-      CALL finish(routine, "Not all points have an owner.")
+      CALL finish(routine, int2string(SUM(gather_pattern%collector_size(:)))//" out of "//int2string(global_size)//&
+      &" points have no owner!")
   END IF
 
   DEALLOCATE(send_buffer, recv_buffer)
