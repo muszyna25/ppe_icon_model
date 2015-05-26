@@ -75,8 +75,9 @@
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN, OPERATOR(>=)
-    USE mo_mtime_extensions,    ONLY: get_datetime_string
+         &                            MAX_TIMEDELTA_STR_LEN,                       &
+         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
+    USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
@@ -86,15 +87,12 @@
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
-    USE mo_mtime_extensions,    ONLY: get_duration_string_real, getTimeDeltaFromDateTime
-    USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+                                      streamOpenRead
     USE mo_master_nml,          ONLY: lrestart
     USE mo_run_config,          ONLY: nsteps, dtime
 
     IMPLICIT NONE
-
-    ! required for reading cdi files
-    INCLUDE 'cdi.inc'
 
     PRIVATE
 
@@ -317,7 +315,7 @@
          mtime_finish => newDatetime(TRIM(sim_end))
          delta_tend => newTimedelta(latbc_config%dt_latbc)
 
-         CALL getTimeDeltaFromDateTime (mtime_read, mtime_finish, delta_tend)
+         delta_tend = mtime_finish - mtime_read  
 
          finish_delta = 86400 *INT(delta_tend%day)    &
               &                  + 3600  *INT(delta_tend%hour)   &
@@ -345,7 +343,7 @@
       IF(lrestart) THEN
          mtime_current => newDatetime(TRIM(sim_cur_read))
          delta_tstep => newTimedelta(latbc_config%dt_latbc)
-         CALL getTimeDeltaFromDateTime (mtime_read, mtime_current, delta_tstep)
+         delta_tstep = mtime_read - mtime_current
 
          ! time interval delta_tstep_secs in seconds
          delta_tstep_secs = 86400 *INT(delta_tstep%day)    &
@@ -525,7 +523,7 @@
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
+      IF(mtime_read > mtime_end) &
            RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -831,13 +829,11 @@
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
+      IF(mtime_read > mtime_end) &
            RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
-      WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
-      CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
@@ -1537,7 +1533,7 @@
       mtime_step  => newDatetime(TRIM(sim_step))
 
       delta_tstep => newTimedelta(latbc_config%dt_latbc)
-      CALL getTimeDeltaFromDateTime (mtime_read, mtime_step, delta_tstep)
+      delta_tstep = mtime_read - mtime_step
 
       IF(delta_tstep%month /= 0) &
            CALL finish(TRIM(routine), "time difference for reading boundary data cannot be more than a month.")

@@ -143,7 +143,10 @@ MODULE mo_sea_ice_types
   !------  Definition of forcing---------------------
   TYPE t_atmos_fluxes
 
-    REAL(wp), ALLOCATABLE ::   &
+    ! #slo# 2015-02: all fluxes used in sea ice model now defined as pointer, sized via add_var
+    ! TODO: move to class t_sea_ice and/or reorganize/cleanup
+
+    REAL(wp), POINTER ::  &
       & sens    (:,:,:),           & ! Sensible heat flux at ice surface           [W/m2]
       & lat     (:,:,:),           & ! Latent heat flux at ice surface             [W/m2]
       & LWout   (:,:,:),           & ! outgoing LW radiation flux at ice surface   [W/m2]
@@ -156,7 +159,7 @@ MODULE mo_sea_ice_types
       & stress_x(:,:),             & ! Wind stress at the ice surface              [Pa]
       & stress_y(:,:)                ! Wind stress at the ice surface              [Pa]
 
-    REAL(wp), ALLOCATABLE ::   &
+    REAL(wp), POINTER ::   &
       & rprecw (:,:),             & ! liquid precipitation rate                   [m/s]
       & rpreci (:,:),             & ! solid  precipitation rate                   [m/s]
       & sensw  (:,:),             & ! Sensible heat flux over water               [W/m2]
@@ -184,7 +187,7 @@ MODULE mo_sea_ice_types
     REAL(wp), POINTER ::   &
       &  topBoundCond_windStress_u(:,:),     & ! forcing of zonal component of velocity equation,
       &  topBoundCond_windStress_v(:,:),     & ! forcing of meridional component of velocity equation,
-      & & ! relaxaton
+      ! relaxaton
       &  topBoundCond_Temp_vdiff  (:,:),     & ! forcing of temperature in vertical diffusion equation     [K*m/s]
       &  topBoundCond_Salt_vdiff  (:,:),     & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
       &  data_surfRelax_Temp      (:,:),     & ! contains data to which temperature is relaxed             [K]
@@ -193,13 +196,13 @@ MODULE mo_sea_ice_types
       &  FrshFlux_Relax           (:,:),     & ! surface freshwater flux due to relaxation                 [m/s]
       &  TempFlux_Relax           (:,:),     & ! temperature tracer flux due to relaxation                 [K/s]
       &  SaltFlux_Relax           (:,:),     & ! salinity tracer flux due to relaxation                    [psu/s]
-      & & ! heat fluxes
+      ! heat fluxes
       &  HeatFlux_ShortWave       (:,:),     & ! surface short wave heat flux                              [W/m2]
       &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent          (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  HeatFlux_Total           (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
-      & & ! fresh water + salt
+      ! fresh water + salt
       &  FrshFlux_Precipitation   (:,:),     & ! total precipitation flux                                  [m/s]
       &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
       &  FrshFlux_Evaporation     (:,:),     & ! evaporation flux                                          [m/s]
@@ -209,7 +212,6 @@ MODULE mo_sea_ice_types
       &  FrshFlux_TotalIce        (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
       &  FrshFlux_VolumeIce       (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
       &  FrshFlux_VolumeTotal     (:,:),     & ! sum of forcing volume flux including relaxation           [m/s]
-      !
       !
       &  cellThicknessUnderIce          (:,:)
 
@@ -221,10 +223,10 @@ MODULE mo_sea_ice_types
   TYPE t_sea_ice_budgets
   ! accumulated fields of the sea-ice state
     REAL(wp), POINTER :: &
-      & salt_00         (:,:)       ,   & 
+      & salt_00         (:,:)       ,   &
       & salt_01         (:,:)       ,   &
       & salt_02         (:,:)       ,   &
-      & salt_03         (:,:)           
+      & salt_03         (:,:)
   END TYPE t_sea_ice_budgets
   TYPE t_sea_ice_acc
   ! accumulated fields of the sea-ice state
@@ -236,6 +238,7 @@ MODULE mo_sea_ice_types
       & u(:,:)          ,      & ! Zonal velocity on cell centre (diagnostic)    [m/s]
       & v(:,:)                   ! Meridional velocity on cell centre (diagn.)   [m/s]
   END TYPE t_sea_ice_acc
+
   TYPE t_sea_ice
 
   ! The description of the sea-ice state, defined on cell-centers
@@ -261,6 +264,7 @@ MODULE mo_sea_ice_types
       & surfmelt   (:,:,:)       ,   & ! surface melt water running into ocean         [m]
       & surfmeltT  (:,:,:)       ,   & ! Mean temperature of surface melt water        [C]
       & evapwi     (:,:,:)       ,   & ! amount of evaporated water if no ice left     [kg/m2]
+      & draft      (:,:,:)       ,   & ! Water equivalent of ice and snow over ice covered area [m]
       & conc       (:,:,:)             ! ice concentration in each ice class
 
     REAL(wp), POINTER :: &
@@ -271,9 +275,13 @@ MODULE mo_sea_ice_types
       & vn_e(:,:)       ,      & ! Edge normal velocity (diagnostic)             [m/s]
       & concSum(:,:)    ,      & ! Total ice concentration within a grid cell
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
-      & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
+      & totalsnowfall(:,:),    & ! Total snow fall on ice-covered part of cell   [m]
+      & draftave     (:,:),    & ! Averaged water equivalent of ice and snow over grid area [m]
+      & zUnderIce    (:,:)       ! water in upper ocean grid cell below ice      [m]
 
     INTEGER ::  kice           ! Number of ice-thickness classes
+
+    REAL(wp), POINTER ::  zHeatOceI(:,:,:) ! Oceanic head flux [W/m^2]
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
 
@@ -281,8 +289,6 @@ MODULE mo_sea_ice_types
     TYPE(t_sea_ice_budgets) :: budgets
 
   END TYPE t_sea_ice
-
-
 
   ! global type variables
   TYPE(t_sea_ice),PUBLIC, SAVE, TARGET :: v_sea_ice

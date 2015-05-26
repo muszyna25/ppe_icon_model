@@ -18,6 +18,7 @@ MODULE mo_meteogram_nml
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_dom
+  USE mo_exception,          ONLY: finish
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
@@ -38,7 +39,7 @@ MODULE mo_meteogram_nml
 
   TYPE t_list_of_stations
     REAL(wp)              :: lat, lon
-    CHARACTER (LEN=30)    :: zname
+    CHARACTER (LEN=48)    :: zname
   END TYPE t_list_of_stations
 
   LOGICAL                         :: lmeteogram_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
@@ -75,8 +76,11 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     ! local variables
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = 'mo_mtgrm_nml::read_meteogram_namelist'
+
     INTEGER                        :: istat, funit, idom, istation, &
-      &                               jb, jc, nblks, npromz, nstations
+      &                               jb, jc, nblks, npromz, nstations, idx
     INTEGER                        :: iunit
 
     !-----------------------
@@ -178,6 +182,21 @@ CONTAINS
           &  stationlist_tot(istation)%lon
       END DO
 
+    END DO
+
+    ! consistency check
+    idx = 0
+    DO idom=1,max_dom
+      IF (meteogram_output_config(idom)%lenabled) THEN 
+        idx = idom
+        EXIT
+      END IF
+    END DO
+    DO idom=(idx+1),max_dom
+      IF (.NOT. meteogram_output_config(idom)%lenabled) CYCLE
+      IF (meteogram_output_config(idom)%ldistributed .NEQV. meteogram_output_config(idx)%ldistributed) THEN
+        CALL finish( TRIM(routine), "Inconsistent namelist setting for domains (ldistributed)!")
+      END IF
     END DO
 
     !-----------------------------------------------------

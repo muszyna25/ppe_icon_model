@@ -24,23 +24,130 @@ MODULE mo_les_utilities
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
+  USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp,                ONLY: cells2edges_scalar, cells2verts_scalar, &
+                                    edges2cells_scalar, edges2verts_scalar
   USE mo_model_domain,        ONLY: t_patch
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_sync,                ONLY: global_sum_array
+  USE mo_sync,                ONLY: global_sum_array, SYNC_C, SYNC_E, SYNC_V, &
+                                    sync_patch_array, sync_patch_array_mult
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell_int
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, alvdcp, &
                                     rd_o_cpd, rd
   USE mo_satad,               ONLY: qsat_rho
+  USE mo_vertical_coord_table,ONLY: vct_a
+  USE mo_grid_config,         ONLY: n_dom
+  USE mo_les_config,          ONLY: les_config
   IMPLICIT NONE
 
   PRIVATE
 
   PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_hor_mean
-  PUBLIC :: vertical_derivative, brunt_vaisala_freq
+  PUBLIC :: vertical_derivative, brunt_vaisala_freq, init_vertical_grid_for_les
 
   CONTAINS
+
+
+  !>
+  !! init_vertical_grid_for_les
+  !!------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Slavko Brdar, DWD (2014-08-29)
+  SUBROUTINE init_vertical_grid_for_les(jg, p_patch, p_int, p_metrics)
+    INTEGER,                   INTENT(in)     :: jg
+    TYPE(t_patch),     TARGET, INTENT(in)     :: p_patch
+    TYPE(t_int_state),         INTENT(in)     :: p_int
+    TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
+
+    ! local variables
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: nlevp1, i_nchdom, nlev, nlen
+    INTEGER :: jk, je, jc, jb, jkm1
+
+    ! helper for syncing single-precision array
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: ddx_arg, ddx
+
+    nlev        = p_patch%nlev
+    nlevp1      = p_patch%nlevp1
+
+    IF(.NOT.les_config(jg)%les_metric) &
+      RETURN
+
+    IF (p_test_run) THEN
+      p_metrics%ddxt_z_half_v(:,:,:) = 0._wp
+      p_metrics%ddxn_z_half_c(:,:,:) = 0._wp
+      p_metrics%ddxn_z_full_c(:,:,:) = 0._wp
+      p_metrics%ddxn_z_full_v(:,:,:) = 0._wp
+      p_metrics%ddxt_z_half_c(:,:,:) = 0._wp
+      p_metrics%ddxt_z_full_c(:,:,:) = 0._wp
+      p_metrics%ddxt_z_full_v(:,:,:) = 0._wp
+      p_metrics%inv_ddqz_z_full_v(:,:,:) = 0._wp
+    END IF
+
+    ! half_c sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_e))
+    ALLOCATE(ddx(nproma,p_patch%nlevp1,p_patch%nblks_c))
+    ddx_arg(:,:,:) = p_metrics%ddxn_z_half_e(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxn_z_half_c(:,:,:) = ddx(:,:,:)
+
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_half_e(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxt_z_half_c(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
+
+    ! full_c sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_e))
+    ALLOCATE(ddx(nproma,p_patch%nlev,p_patch%nblks_c))
+    ddx_arg(:,:,:) = p_metrics%ddxn_z_full(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxn_z_full_c(:,:,:) = ddx(:,:,:)
+
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_full(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxt_z_full_c(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
+
+    ! full_v sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_c))
+    ALLOCATE(ddx(nproma,p_patch%nlev,p_patch%nblks_v))
+    ddx_arg(:,:,:) = p_metrics%ddxn_z_full_c(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%ddxn_z_full_v(:,:,:) = ddx(:,:,:)
+
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_full_c(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%ddxt_z_full_v(:,:,:) = ddx(:,:,:)
+
+    ddx_arg(:,:,:) = p_metrics%inv_ddqz_z_full(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%inv_ddqz_z_full_v(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
+
+    ! half_v sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_c))
+    ALLOCATE(ddx(nproma,p_patch%nlevp1,p_patch%nblks_v))
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_half_c(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%ddxt_z_half_v(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
+
+  END SUBROUTINE init_vertical_grid_for_les
 
 
   !>

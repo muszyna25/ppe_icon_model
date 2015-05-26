@@ -143,9 +143,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           &                istart, iend, i_rlstart, i_rlend)
         
         ! Call the ART diagnostics
-        CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), p_nh_state%metrics%ddqz_z_full(:,:,jb), &
-          &                            istart, iend, nlev, jb, art_config(jg), p_art_data(jg))
-        
+        IF (art_config(jg)%lart_diag_out) THEN
+          CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), p_nh_state%metrics%ddqz_z_full(:,:,jb), &
+            &                            istart, iend, nlev, jb, art_config(jg), p_art_data(jg))
+        ENDIF
         ! ----------------------------------
         ! --- Preparations for emission routines
         ! ----------------------------------
@@ -275,7 +276,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
       ! ----------------------------------
     
       IF (art_config(jg)%iart_volcano == 1) THEN
-        CALL art_organize_emission_volc(p_patch,dtime,rho,tracer) 
+        CALL art_organize_emission_volc(p_patch,dtime,rho,p_art_data(jg)%volc_data,tracer) 
       ENDIF
       ! END OLD BLOCK
     ENDIF !lart_aerosol
@@ -291,13 +292,13 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_chemtracer(datetime, &
-                & tracer,                       &
-                & p_nh_state%diag%pres,         &
-                & ext_data%atm%llsm_atm_c,      &
-                & p_patch,                      &
-                & jb,istart,iend,nlev,nproma,   &
-                & p_nh_state%diag%extra_3d)
+!            CALL art_emiss_chemtracer(datetime, &
+!                & tracer,                       &
+!                & p_nh_state%diag%pres,         &
+!                & ext_data%atm%llsm_atm_c,      &
+!                & p_patch,                      &
+!                & jb,istart,iend,nlev,nproma,   &
+!                & p_nh_state%diag%extra_3d)
             
           ENDDO
         CASE(1)
@@ -305,12 +306,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_gasphase(tracer,     &
-                & p_nh_state%diag%pres,         &
-                & ext_data%atm%llsm_atm_c,      &
-                & p_patch,                      &
-                & jb,istart,iend,nlev,nproma,   &
-                & p_nh_state%diag%extra_3d)
+!            CALL art_emiss_gasphase(tracer,     &
+!                & p_nh_state%diag%pres,         &
+!                & ext_data%atm%llsm_atm_c,      &
+!                & p_patch,                      &
+!                & jb,istart,iend,nlev,nproma,   &
+!                & p_nh_state%diag%extra_3d)
           ENDDO
         
       END SELECT !iart_chem_mechanism

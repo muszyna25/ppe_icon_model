@@ -64,7 +64,6 @@ PUBLIC :: t_comm_pattern
 PUBLIC :: reorder_comm_pattern
 PUBLIC :: reorder_comm_pattern_snd
 PUBLIC :: reorder_comm_pattern_rcv
-PUBLIC :: reorder_comm_gather_pattern
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
@@ -469,9 +468,10 @@ END SUBROUTINE setup_comm_pattern
 !-------------------------------------------------------------------------
 
 SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
-  &                                  gather_pattern)
+  &                                  gather_pattern, disable_consistency_check)
   INTEGER, INTENT(IN) :: global_size, owner_local(:), glb_index(:)
   TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+  LOGICAL, INTENT(IN), OPTIONAL :: disable_consistency_check
 
   INTEGER :: num_collectors
   LOGICAL, ALLOCATABLE :: pack_mask(:)
@@ -483,6 +483,9 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   INTEGER, ALLOCATABLE :: send_buffer(:), recv_buffer(:)
   INTEGER :: num_recv, num_recv_points
   INTEGER :: i, j, n
+  LOGICAL :: consistency_check
+  CHARACTER(*), PARAMETER :: routine = &
+    "mo_communication:setup_comm_gather_pattern"
 
   ! determine collector ranks and the data associated to each collector
   num_collectors = NINT(SQRT(REAL(p_n_work)))
@@ -604,6 +607,27 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   ALLOCATE(gather_pattern%recv_buffer_reorder(num_recv_points))
   gather_pattern%recv_buffer_reorder(:) = (/(i, i = 1, num_recv_points)/)
   CALL quicksort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
+
+  IF (PRESENT(disable_consistency_check)) THEN
+    consistency_check = .NOT. disable_consistency_check
+  ELSE
+    consistency_check = .TRUE.
+  END IF
+
+  ! consistency check
+  IF (consistency_check) THEN
+
+    ! check whether a point is owned by multiple processes
+    DO i = 2, num_recv_points
+      IF (recv_buffer(i) == recv_buffer(i-1)) &
+        CALL finish(routine, &
+          &         "One or more points are owned by multiple processes")
+    END DO
+
+    ! check if all points have an owner
+    IF (SUM(gather_pattern%collector_size(:)) /= global_size) &
+      CALL finish(routine, "Not all points have an owner.")
+  END IF
 
   DEALLOCATE(send_buffer, recv_buffer)
 
@@ -2953,20 +2977,6 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
 END SUBROUTINE exchange_data_l2d
 
 
-!> In-situ reordering of communication gather pattern.
-!
-!  @author M. Hanke, DKRZ (2013-11-13)
-!
-SUBROUTINE reorder_comm_gather_pattern(gather_pattern, idx_old2new)
-  TYPE (t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
-  INTEGER,                      INTENT(IN)    :: idx_old2new(:) ! permutation array
-
-  gather_pattern%loc_index(:) = idx_old2new(gather_pattern%loc_index(:))
-
-END SUBROUTINE reorder_comm_gather_pattern
-
-
-
 !> In-situ reordering of communication pattern.
 !
 !  @author F. Prill, DWD (2013-07-30)
@@ -3146,6 +3156,9 @@ SUBROUTINE gather_r_2d_deblock(in_array, out_array, gather_pattern)
   IF (p_pe_work == process_mpi_root_id) &
     out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
       TRANSPOSE(recv_buffer(:,:))
+
+  DEALLOCATE(send_buffer,recv_buffer)
+
 END SUBROUTINE gather_r_2d_deblock
 
 SUBROUTINE gather_i_2d_deblock(in_array, out_array, gather_pattern)
@@ -3191,6 +3204,9 @@ SUBROUTINE gather_i_2d_deblock(in_array, out_array, gather_pattern)
   IF (p_pe_work == process_mpi_root_id) &
     out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
       TRANSPOSE(recv_buffer(:,:))
+
+  DEALLOCATE(send_buffer,recv_buffer)
+
 END SUBROUTINE gather_i_2d_deblock
 
 SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &

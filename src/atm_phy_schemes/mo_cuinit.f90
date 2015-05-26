@@ -45,7 +45,7 @@ MODULE mo_cuinit
   USE mo_cuparameters,  ONLY : rkap,  r4les, r4ies   ,&
     &                          r5les ,r5ies ,ralfdcp ,&
     &                          lphylin               ,&
-    &                       lmfdudv, entrorg, rdepths,&
+    &                          lmfdudv,  rdepths     ,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
     &                          lhook,   dr_hook      ,&
@@ -301,7 +301,7 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & ptenh,    pqenh,    pgeoh,    paph,                    &
+ & entrorg,  ptenh,    pqenh,    pgeoh,    paph,          &
  & pqhfl,    pahfs,                                       &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
@@ -455,6 +455,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)

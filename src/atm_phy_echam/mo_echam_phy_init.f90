@@ -84,8 +84,12 @@ MODULE mo_echam_phy_init
                                    & prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
+#ifdef YAC_coupling
+  USE mo_yac_finterface,       ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+#else
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+#endif
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
 
@@ -354,23 +358,40 @@ CONTAINS
         !
         prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
         prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        prm_field(jg)%tsfc_eff (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+
+        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+
+        prm_field(jg)%albvisdir(:,:) = albedoW
+        prm_field(jg)%albvisdif(:,:) = albedoW
+        prm_field(jg)%albnirdir(:,:) = albedoW
+        prm_field(jg)%albnirdif(:,:) = albedoW
+        prm_field(jg)%albedo(:,:)    = albedoW
+
         !
 ! TODO: ME preliminary setting for ice
+      ! The ice model should be able to handle different thickness classes, 
+      ! but for AMIP we ONLY USE one ice class.
         prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
         prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
         prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
         prm_field(jg)% Tsurf(:,:,:) = Tf
         prm_field(jg)% T1   (:,:,:) = Tf
         prm_field(jg)% T2   (:,:,:) = Tf
         prm_field(jg)% hs   (:,:,:) = 0._wp
-        prm_field(jg)% hi   (:,:,:) = 0._wp
-        prm_field(jg)% conc (:,:,:) = 0._wp
+        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
+        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
 
       END DO ! jg
 
@@ -513,10 +534,6 @@ CONTAINS
           field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:)   = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:)   = albedoW ! albedo in the NIR range for direct radiation
-          field% albvisdif_wtr(:,:)   = albedoW ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:)   = albedoW ! albedo in the NIR range for diffuse radiation
 
         CASE('APEc')
           ! The same as APEi, except we initialize with no ice and don't modify the surface
@@ -548,10 +565,6 @@ CONTAINS
           field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:)   = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:)   = albedoW ! albedo in the NIR range for direct radiation
-          field% albvisdif_wtr(:,:)   = albedoW ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:)   = albedoW ! albedo in the NIR range for diffuse radiation
 
 ! This shouldn't be necessary!
           IF ( is_coupled_run() ) THEN
@@ -577,7 +590,7 @@ CONTAINS
              !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
              !
              !
-#ifdef YAC_Coupling
+#ifdef YAC_coupling
              CALL yac_fget_nbr_fields ( nbr_fields )
              ALLOCATE(field_id(nbr_fields))
              CALL yac_fget_field_ids ( nbr_fields, field_id )
@@ -590,10 +603,6 @@ CONTAINS
              field_shape(1) = 1
              field_shape(2) = nbr_hor_points
              field_shape(3) = 1
-
-#ifdef YAC_coupling
-   TODO
-#else
              !
              ! Send fields away
              ! ----------------
@@ -607,16 +616,33 @@ CONTAINS
              !
              buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
              buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "TAUX 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "TAUX 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+             ENDIF
+#else
              field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(1), field_shape, &
                                       buffer(1:nbr_hor_points,1:2), ierror )
+#endif
              !
              ! TAUY
              !
              buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
              buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "TAUY 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "TAUY 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+             ENDIF
+#else
+
              CALL ICON_cpl_put_init ( field_id(2), field_shape, &
                                       buffer(1:nbr_hor_points,1:2), ierror )
+#endif
              !
              ! SFWFLX Note: the evap_tile should be properly updated and added
              !
@@ -625,16 +651,32 @@ CONTAINS
              buffer(:,2) = RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
                   &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
              buffer(:,3) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "SFW 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "SFW 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+                WRITE ( 6 , * ) "SFW 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+             ENDIF
+#else
              field_shape(3) = 3
              CALL ICON_cpl_put_init ( field_id(3), field_shape, &
                                       buffer(1:nbr_hor_points,1:3), ierror )
+#endif
              !
              ! SFTEMP
              !
              buffer(:,1) =  RESHAPE ( field%temp(:,nlev,:), (/ nbr_points /) )
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "SFT   ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+             ENDIF
+#else
              field_shape(3) = 1
              CALL ICON_cpl_put_init ( field_id(4), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), ierror )
+#endif
              !
              ! THFLX, total heat flux
              !
@@ -642,9 +684,19 @@ CONTAINS
              buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
              buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) ! sensible heat flux
              buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "THF 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "THF 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+                WRITE ( 6 , * ) "THF 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+                WRITE ( 6 , * ) "THF 4 ", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
+             ENDIF
+#else
              field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
                                       buffer(1:nbr_hor_points,1:4), ierror )
+#endif
              !
              ! ICEATM, Ice state determined by atmosphere
              !
@@ -652,10 +704,20 @@ CONTAINS
              buffer(:,2) =  RESHAPE ( field%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
              buffer(:,3) =  RESHAPE ( field%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
              buffer(:,4) =  RESHAPE ( field%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
+#ifdef YAC_coupling
+             CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+             IF ( info > 0 ) THEN
+                WRITE ( 6 , * ) "ICE 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
+                WRITE ( 6 , * ) "ICE 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
+                WRITE ( 6 , * ) "ICE 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
+                WRITE ( 6 , * ) "ICE 4 ", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
+             ENDIF
+#else
+
              field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(6), field_shape, &
                                       buffer(1:nbr_hor_points,1:4), ierror )
-
+#endif
              ! Receive fields, only assign values if something was received ( info > 0 )
              ! -------------------------------------------------------------------------
              !
@@ -664,10 +726,13 @@ CONTAINS
              !
              ! SST
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
              field_shape(3) = 1
              CALL ICON_cpl_get_init ( field_id(7), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
-
+#endif
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -678,8 +743,12 @@ CONTAINS
              !
              ! OCEANU
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
              CALL ICON_cpl_get_init ( field_id(8), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -688,8 +757,13 @@ CONTAINS
              !
              ! OCEANV
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
+
              CALL ICON_cpl_get_init ( field_id(9), field_shape, &
                                       buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -699,9 +773,14 @@ CONTAINS
              !
              ! ICEOCE
              !
+#ifdef YAC_coupling
+             CALL yac_fget ( field_id(10), nbr_hor_points, 5, 1, 1, buffer, info, ierror )
+#else
+
              field_shape(3) = 5
              CALL ICON_cpl_get_init ( field_id(10), field_shape, &
                                       buffer(1:nbr_hor_points,1:5), info, ierror )
+#endif
              IF ( info > 0 ) THEN
                buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
                field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
@@ -716,7 +795,7 @@ CONTAINS
                CALL sync_patch_array(sync_c, p_patch, field%T2  (:,1,:))
                field%seaice(:,:) = field%conc(:,1,:)
              ENDIF
-#endif
+
              DEALLOCATE(field_id)
              DEALLOCATE(buffer)
 
@@ -781,8 +860,17 @@ CONTAINS
 
       field% cosmu0    (:,  :) = 0._wp
       field% flxdwswtoa(:,  :) = 0._wp
+      field% vissfc    (:,  :) = 0._wp
+      field% nirsfc    (:,  :) = 0._wp
+      field% parsfcdn  (:,  :) = 0._wp
+      field% visfrcsfc (:,  :) = 0._wp
+      field% visdffsfc (:,  :) = 0._wp
+      field% nirdffsfc (:,  :) = 0._wp
+      field% pardffsfc (:,  :) = 0._wp
+      field% lwflxupsfc(:,  :) = 0._wp
       field% swflxsfc    (:,:) = 0._wp
       field% lwflxsfc    (:,:) = 0._wp
+      field% lwupflxsfc  (:,:) = 0._wp
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
@@ -812,15 +900,6 @@ CONTAINS
 
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
-
-      field% albvisdir(:,  :) = 0.07_wp ! albedo in the visible range for direct radiation
-                                        ! (set to the albedo of water for testing)
-      field% albnirdir(:,  :) = 0.07_wp ! albedo in the NIR range for direct radiation
-                                        ! (set to the albedo of water for testing)
-      field% albvisdif(:,  :) = 0.07_wp ! albedo in the visible range for diffuse radiation
-                                        ! (set to the albedo of water for testing)
-      field% albnirdif(:,  :) = 0.07_wp ! albedo in the NIR range for diffuse radiation
-                                        ! (set to the albedo of water for testing)
 
       tend% xl_dtr(:,:,:)  = 0._wp  !"xtecl" in ECHAM
       tend% xi_dtr(:,:,:)  = 0._wp  !"xteci" in ECHAM

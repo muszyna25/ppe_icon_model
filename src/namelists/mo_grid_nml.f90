@@ -88,7 +88,7 @@ MODULE mo_grid_nml
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i
 
-    INTEGER    :: cell_type                ! cell type: NOT USED
+!     INTEGER    :: cell_type                ! cell type: NOT USED
 
     LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
     INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
@@ -123,7 +123,7 @@ MODULE mo_grid_nml
     CHARACTER(LEN=filename_max) :: vertical_grid_filename(max_dom)
 
 
-    NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
+    NAMELIST /grid_nml/ lfeedback, ifeedback_type,      &
       &  lplane, is_plane_torus, corio_lat, l_limited_area,        &
       &  grid_rescale_factor, lsep_grfinfo,                        &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
@@ -153,8 +153,6 @@ MODULE mo_grid_nml
     ENDDO
 
     vertical_grid_filename = " "
-
-    cell_type   = itri
       
     lfeedback   = .TRUE.
     ifeedback_type = 2

@@ -983,7 +983,7 @@ CONTAINS
 
     INTEGER :: nlev_c            ! number of full levels (child dom)
     INTEGER :: nlev_p            ! number of full levels (parent dom)
-    INTEGER :: nshift
+    INTEGER :: nshift, nst_fbk
     INTEGER :: ntracer_fbk
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
@@ -1049,6 +1049,14 @@ CONTAINS
 
     nshift = p_pc%nshift
     js     = nshift
+
+    ! Exclude scalar variables from feedback in the upper three layers if the current domain is vertically nested
+    ! This is needed in order to avoid temperature biases in the interface layer region
+    IF (nshift == 0) THEN
+      nst_fbk = 1
+    ELSE
+      nst_fbk = 4
+    ENDIF
 
     IF (iforcing > 1) THEN  ! tracers represent moisture variables
       ntracer_fbk = 3       ! take only QV, QC and QI
@@ -1417,7 +1425,7 @@ CONTAINS
           DO jk = 1, nlev_c
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
-              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( p_patch(jgp)%edges%tangent_orientation(je,jb) *     &
               ( rot_diff_vn(jk,ievidx(je,jb,2),ievblk(je,jb,2))    &
               - rot_diff_vn(jk,ievidx(je,jb,1),ievblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &
@@ -1432,7 +1440,7 @@ CONTAINS
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
-              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( p_patch(jgp)%edges%tangent_orientation(je,jb) *     &
               ( rot_diff_vn(ievidx(je,jb,2),jk,ievblk(je,jb,2))    &
               - rot_diff_vn(ievidx(je,jb,1),jk,ievblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &
@@ -1485,9 +1493,9 @@ CONTAINS
       DO jc = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 !DIR$ IVDEP
-          DO jk = 1, nlev_c
+          DO jk = nst_fbk, nlev_c
 #else
-      DO jk = 1, nlev_c
+      DO jk = nst_fbk, nlev_c
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 #endif
@@ -1518,10 +1526,10 @@ CONTAINS
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
             DO jt = 1, ntracer_fbk
 !DIR$ IVDEP
-              DO jk = nshift+1, nlev_p
+              DO jk = nshift+nst_fbk, nlev_p
 #else
         DO jt = 1, ntracer_fbk
-          DO jk = nshift+1, nlev_p
+          DO jk = nshift+nst_fbk, nlev_p
             DO jc = i_startidx,i_endidx
               IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 #endif
@@ -1546,9 +1554,9 @@ CONTAINS
       DO jc = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 !DIR$ IVDEP
-          DO jk = nshift+1,nlev_p
+          DO jk = nshift+nst_fbk,nlev_p
 #else
-      DO jk = nshift+1,nlev_p
+      DO jk = nshift+nst_fbk,nlev_p
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 #endif
@@ -1595,9 +1603,9 @@ CONTAINS
       jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
       jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
 !DIR$ IVDEP
-      DO jk = nshift+1, nlev_p
+      DO jk = nshift+nst_fbk, nlev_p
 #else
-    DO jk = nshift+1, nlev_p
+    DO jk = nshift+nst_fbk, nlev_p
 !CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
         jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)

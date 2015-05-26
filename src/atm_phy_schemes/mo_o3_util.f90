@@ -1092,17 +1092,14 @@ END SUBROUTINE o3_timeint
         DO jc = i_startidx,i_endidx
           ext_data%atm%o3(jc,jk,jb)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
 
-! MK, 2014-01: tuning to increase ozone by maximum 50% at 15km decreasing linearly
-!              towards 0% at 30km and 10km; goal: warmer lower stratosphere 0.5K
+! Tuning to increase stratospheric ozone in order to reduce temperature biases;
+! the tuning factors are computed in atm_phy_nwp_config
           IF ( ltuning_ozone ) THEN
-            ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) &
-                                    & * atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk)
+            ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) * (1.0_wp +               &
+                                    & atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) *       &
+                                    & atm_phy_nwp_config(pt_patch%id)%shapefunc_ozone(jc,jb))
           ENDIF
 
-          !IF ( jk > 30 .and. jk < 55 ) THEN   ! triangle in [30,55] with maximum at L50
-          !  ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) &
-          !    * ( 1.0_wp + 0.5_wp * min( (jk-30)/20._wp, (55-jk)/5._wp ) )
-          !ENDIF
         ENDDO
       ENDDO
 

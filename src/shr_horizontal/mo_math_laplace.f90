@@ -273,7 +273,7 @@ CALL div( vec_e, ptr_patch, ptr_int, z_div_c, slev, elev, &
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
@@ -298,7 +298,7 @@ CASE (3) ! (cell_type == 3)
 #endif
 
         nabla2_vec_e(je,jk,jb) =  &
-          &   ptr_patch%edges%system_orientation(je,jb) *  &
+          &   ptr_patch%edges%tangent_orientation(je,jb) *  &
           &   ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
           &   - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &
           &   * ptr_patch%edges%inv_primal_edge_length(je,jb)  &
@@ -354,7 +354,7 @@ CASE (6) ! (cell_type == 6)
           & - ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
           & -   z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )   &
           &   * ptr_patch%edges%inv_primal_edge_length(je,jb) &
-          & + ptr_patch%edges%system_orientation(je,jb) *     &
+          & + ptr_patch%edges%tangent_orientation(je,jb) *     &
           &   ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))     &
           & -   z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )     &
           &   * ptr_patch%edges%inv_dual_edge_length(je,jb)
@@ -734,7 +734,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
@@ -898,7 +898,7 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
 
@@ -1300,7 +1300,7 @@ END SUBROUTINE nabla4_scalar
       DO je = 1, nlen
         DO jk = slev, elev
           z_sign(jk) = p_upstr_beta*SIGN(1.0_wp,&
-          &            p_vn(je,jk,jb)*pt_patch%edges%system_orientation(je,jb))
+          &            p_vn(je,jk,jb)*pt_patch%edges%tangent_orientation(je,jb))
           p_lapl_e(je,jk,jb) = (1.0_wp+z_sign(jk))  &
           &     *(pt_int%cea_en(je,1,jb)**2*coeff(iidx(je,jb,1),jk,iblk(je,jb,1),4) &
           &      +pt_int%cno_en(je,1,jb)**2*coeff(iidx(je,jb,1),jk,iblk(je,jb,1),5) &
@@ -1318,7 +1318,7 @@ END SUBROUTINE nabla4_scalar
       DO jk = slev, elev
         DO je = 1, nlen
           z_sign(je) = p_upstr_beta*SIGN(1.0_wp,&
-          &            p_vn(je,jk,jb)*pt_patch%edges%system_orientation(je,jb))
+          &            p_vn(je,jk,jb)*pt_patch%edges%tangent_orientation(je,jb))
           p_lapl_e(je,jk,jb) = (1.0_wp+z_sign(je))  &
           &     *(pt_int%cea_en(je,1,jb)**2*coeff(iidx(je,jb,1),jk,iblk(je,jb,1),4) &
           &      +pt_int%cno_en(je,1,jb)**2*coeff(iidx(je,jb,1),jk,iblk(je,jb,1),5) &

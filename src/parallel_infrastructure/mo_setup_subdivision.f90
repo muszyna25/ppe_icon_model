@@ -806,7 +806,7 @@ CONTAINS
          patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_c, &
          npromz = wrk_p_patch%npromz_c, &
-         cell_type = wrk_p_patch%cell_type, &
+         cell_type = wrk_p_patch%geometry_info%cell_type, &
          min_rlcve = min_rlcell, &
          min_rlcve_int = min_rlcell_int, &
          max_rlcve = max_rlcell, &
@@ -831,7 +831,7 @@ CONTAINS
          patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_e, &
          npromz = wrk_p_patch%npromz_e, &
-         cell_type = wrk_p_patch%cell_type, &
+         cell_type = wrk_p_patch%geometry_info%cell_type, &
          min_rlcve = min_rledge, &
          min_rlcve_int = min_rledge_int, &
          max_rlcve = max_rledge, &
@@ -856,7 +856,7 @@ CONTAINS
          patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_v, &
          npromz = wrk_p_patch%npromz_v, &
-         cell_type = wrk_p_patch%cell_type, &
+         cell_type = wrk_p_patch%geometry_info%cell_type, &
          min_rlcve = min_rlvert, &
          min_rlcve_int = min_rlvert_int, &
          max_rlcve = max_rlvert, &
@@ -946,7 +946,7 @@ CONTAINS
 
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
-      DO i=1,wrk_p_patch%cell_type
+      DO i=1,wrk_p_patch%geometry_info%cell_type
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%cells%decomp_info, &
           & wrk_p_patch_pre%cells%neighbor(jg,i), jc)
@@ -1194,8 +1194,8 @@ CONTAINS
             k = k + 1
             list(k) = list(i)
           END IF
+          n = k
         END IF
-        n = k
       END IF
     END SUBROUTINE remove_entries_from_ref_list
 

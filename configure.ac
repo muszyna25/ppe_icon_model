@@ -63,15 +63,15 @@ else
   mh_setup=""            
 fi
 
-AC_ARG_WITH([mtime],
-  [AS_HELP_STRING([--without-mtime],
-    [disable use of mtime])],
+AC_ARG_WITH([yac],
+  [AS_HELP_STRING([--with-yac],
+    [enable use of yac])],
     [],
     [])
 
-AS_IF([test "x$with_mtime" != "xno"],
-      [use_mtime="yes"],
-      [use_mtime="no"])
+AS_IF([test "x$with_yac" = "xyes"],
+      [use_yac="yes"],
+      [use_yac="no"])
 
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
@@ -262,6 +262,49 @@ if test -z "$CROSS" ; then
 fi
 
 dnl ######################################################################
+dnl Checks for XML2.
+
+XML2_LIB=""
+XML2_INCLUDE=""
+
+AC_ARG_WITH([xml2],
+            [AC_HELP_STRING([--with-xml2=DIR],
+                            [Required libxml2])],,
+			    withval=yes)
+
+if test x$withval = xyes; then
+  if test x$with_xml2 != x; then
+    XML2ROOT=$with_xml2
+  fi
+fi
+
+if test -n "$XML2ROOT" ; then
+
+  if test -r "$XML2ROOT/lib/libxml2.a" ; then
+     XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+  else
+     echo "cannot read $XML2ROOT/lib/libxml2.a"  
+     exit 1    
+  fi
+
+  if test -d "$XML2ROOT/include/libxml2" ; then
+     XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
+  else
+     echo "cannot find $XML2ROOT/include/libxml2"  
+     exit 1    
+  fi
+
+  FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
+  CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
+
+else
+
+  echo "Warning: the variable XML2ROOT is not set in $host_frag"  
+  echo "         set XML2ROOT to the xml2 root directory"
+fi
+
+
+dnl ######################################################################
 dnl Checks for LAPACK/BLAS
 
 AC_ARG_WITH([lapack],
@@ -308,12 +351,16 @@ if test -n "$ZLIBROOT" ; then
   if test -r "$ZLIBROOT/lib/libz.a" ; then
      ZLIB_LIB='-L$(ZLIBROOT)/lib -lz'
   else
-    if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
-       ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
-    else 
-       echo "cannot read $ZLIBROOT/lib/libz.a"  
-       exit 1    
-    fi
+     if test -r "$ZLIBROOT/lib64/libz.a" -o -r "$ZLIBROOT/lib64/libz.so" ; then     
+        ZLIB_LIB='-L$(ZLIBROOT)/lib64 -lz'
+     else   
+        if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
+           ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
+        else 
+           echo "cannot read $ZLIBROOT/lib/libz.a"  
+           exit 1    
+        fi
+     fi
   fi
   if test -d "$ZLIBROOT/include" ; then
      ZLIB_INCLUDE='-I$(ZLIBROOT)/include'
@@ -356,6 +403,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
+  case $(hostname) in
+  btc*)  
+    SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    ;;
+  *)
+    ;;
+  esac
 else
   echo "Warning: the variable SZIPROOT is not set in $host_frag"  
   echo "         set SZIPROOT to the szip root directory"
@@ -391,6 +445,13 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
+  case $(hostname) in
+  btc*)  
+    HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    ;;
+  *)
+    ;;
+  esac
 else
   echo "Warning: the variable HDF5ROOT is not set in $host_frag"  
   echo "         set HDF5ROOT to the hdf5 root directory"
@@ -435,7 +496,13 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-
+  case $(hostname) in
+  btc*)    
+    NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    ;;
+  *)
+    ;;
+  esac
   if test -z "$NETCDFFROOT" ; then
      if test -r "$NETCDFROOT/include/netcdf.inc" ; then
          NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
@@ -447,13 +514,22 @@ if test -n "$NETCDFROOT" ; then
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB="-Lmake$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
+         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
+         case $(hostname) in
+         btc*)    
+           NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+           NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
+           ;;
+         *)
+           ;;
+         esac
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
        fi
-     fi
-      
+     fi      
   fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
@@ -626,7 +702,7 @@ else
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
     case $host in
     *-*-darwin*)
-      MPI_LIB='-L$(MPIROOT)/lib/mpich-mp '$MPI_LIB
+      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
       ;;    
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
@@ -649,7 +725,14 @@ else
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
-      mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+      case "$MPIROOT" in
+      *impi*)
+        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        ;;      
+      *)
+        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        ;;
+      esac
       ;;
     esac
     if test -r $mod_file ; then
@@ -725,9 +808,16 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
+my_srcdirs="externals/mtime/src ${my_srcdirs}"
 
-if [[ "x$use_mtime" = xyes ]] ; then
-    my_srcdirs="externals/mtime/src ${my_srcdirs}"
+if [[ "x$use_yac" = xyes ]] ; then
+    my_srcdirs="externals/yac/src ${my_srcdirs}"
+    FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
+    CFLAGS="${CFLAGS} -I`pwd`/${exec_prefix}/include"
+    if test "x$with_mpi" != "xno" ; then
+        FFLAGS="${FFLAGS} ${DEFOPT}USE_MPI"
+        CFLAGS="${CFLAGS} ${DEFCOPT}USE_MPI"
+    fi
 fi
 
 if [[ "x$use_messy" = xyes ]] ; then
@@ -763,7 +853,11 @@ fi
 if [[ "x$target_os" = xsuperux ]] ; then  
     MODDIR=""	    
 else
-    MODDIR="${MODDIR}../module"
+    if [[ "x$FC" = xifort ]] ; then
+        MODDIR="${MODDIR} ../module"
+    else    
+        MODDIR="${MODDIR}../module"
+    fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
 
@@ -788,8 +882,8 @@ else
     use_flags_group=$with_flags
 fi
 
-if [[ "x$use_mtime" = xyes ]] ; then
-   ac_libs="$ac_libs -lmtime"
+if [[ "x$use_yac" = xyes ]] ; then
+   ac_libs="$ac_libs -lyac"
 fi
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS
@@ -826,6 +920,7 @@ AC_SUBST(OS,$target_os)
 AC_SUBST(SITE,$ac_sitename)
 AC_SUBST(HOST,$ac_hostname)
 
+AC_SUBST(NETCDFFROOT,$NETCDFFROOT)
 AC_SUBST(NETCDFROOT,$NETCDFROOT)
 AC_SUBST(NETCDFLIBPATH,$NETCDFLIBPATH)
 AC_SUBST(NETCDF_LIB,$NETCDF_LIB)
@@ -847,6 +942,10 @@ AC_SUBST(SZIP_INCLUDE,$SZIP_INCLUDE)
 AC_SUBST(ZLIBROOT,$ZLIBROOT)
 AC_SUBST(ZLIB_LIB,$ZLIB_LIB)
 AC_SUBST(ZLIB_INCLUDE,$ZLIB_INCLUDE)
+
+AC_SUBST(XML2ROOT,$XML2ROOT)
+AC_SUBST(XML2_LIB,$XML2_LIB)
+AC_SUBST(XML2_INCLUDE,$XML2_INCLUDE)
 
 AC_SUBST(SCTROOT,$SCTROOT)
 AC_SUBST(SCT_LIB,$SCT_LIB)
@@ -880,6 +979,8 @@ AC_SUBST(CFLAGS,$CFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
+
+ac_libs="${ac_libs} -lmtime"
 
 AC_SUBST(LIB,$ac_libs)
 
@@ -1039,6 +1140,13 @@ zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -
 echo "    ZLIB   : zlib-${zlib_version}"
 echo "             installation  ${ZLIBROOT}"
 fi
+if test x$XML2ROOT = x; then
+echo "    XML2   : none (error)"
+else
+xml2_version=$(grep "define LIBXML_DOTTED_VERSION" ${XML2ROOT}/include/libxml2/libxml/xmlversion.h | cut -f2 -d "\"")
+echo "    XML2   : xml2-${xml2_version}"
+echo "             installation  ${XML2ROOT}"
+fi 
 if test x$SCTROOT = x; then
 echo "    SCT    : none"
 else

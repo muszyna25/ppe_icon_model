@@ -37,21 +37,20 @@ MODULE mo_ocean_output
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
-  USE mo_oce_state,              ONLY: ocean_restart_list
+  USE mo_ocean_state,              ONLY: ocean_restart_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_oce_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_oce_physics,            ONLY: t_ho_params
+  USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
+  USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & destruct_oce_diagnostics, t_oce_timeseries, &
     & calc_moc, calc_psi
-  USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
@@ -101,7 +100,6 @@ CONTAINS
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
-!    TYPE(t_oce_timeseries), POINTER :: oce_ts
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER, POINTER :: dolic(:,:)
@@ -120,14 +118,14 @@ CONTAINS
 
     !------------------------------------------------------------------
         IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
-          IF (diagnostics_level == 1 ) THEN
-            CALL calc_slow_oce_diagnostics( patch_3d       , &
-              &                             ocean_state(jg), &
-              &                             p_sfc_flx      , &
-              &                             p_ice          , &
-              &                             jstep-jstep0   , &
-              &                             datetime) !    , &
+	  CALL calc_slow_oce_diagnostics( patch_3d       , &
+	    &                             ocean_state(jg), &
+	    &                             p_sfc_flx      , &
+	    &                             p_ice          , &
+	    &                             jstep-jstep0   , &
+	    &                             datetime) !    , &
             ! &                             oce_ts)
+          IF (diagnostics_level > 0 ) THEN
             IF (no_tracer>=2) THEN
               CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
             ENDIF
@@ -160,7 +158,6 @@ CONTAINS
   !-------------------------------------------------------------------------
     
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
   SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hydro_ocean_diag) :: p_diag

@@ -1344,7 +1344,7 @@ END DO
 
 !#ifdef FAST_AND_DIRTY
 !           ! This may trigger a divide by zero. It doesn't harm, because the
-!           ! result is adjusted in the next following FSEL/MERGE command.
+!           ! result is adjusted in the next following FSEL(,,)/MERGE command.
            zclcpre1       = (zclcaux(jl)*zpredel + zclcpre(jl)*zpretot)/zpresum
 !#else
 !           ! This ifdef branch does contain clean code for checking
@@ -1396,7 +1396,7 @@ END DO
 
 #ifdef FAST_AND_DIRTY
            ! This may trigger a divide by zero. It doesn't harm, because the
-           ! result is adjusted in the next following FSEL/MERGE command.
+           ! result is adjusted in the next following FSEL()/MERGE command.
            zclcpre1       = (zclcaux(jl)*zpredel + zclcpre(jl)*zpretot)/zpresum
 #else
            ! This ifdef branch does contain clean code for checking

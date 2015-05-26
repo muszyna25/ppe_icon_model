@@ -63,14 +63,14 @@ USE mo_run_config,             ONLY: nsteps, dtime
 USE mo_exception,              ONLY: message, message_text, finish, get_filename_noext
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
-USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, v_base
-USE mo_oce_thermodyn,          ONLY: calc_density, calc_internal_press
-USE mo_oce_math_operators!,     ONLY: grad_fd_norm_oce_3d, grad_fd_norm_oce, div_oce
+USE mo_ocean_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, v_base
+USE mo_ocean_thermodyn,          ONLY: calc_density, calc_internal_press
+USE mo_ocean_math_operators!,     ONLY: grad_fd_norm_oce_3d, grad_fd_norm_oce, div_oce
 USE mo_advection_utils,        ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_physical_constants,     ONLY: grav
 USE mo_io_vlist,               ONLY: destruct_vlist
 USE mo_output  ,               ONLY: init_output_files, write_output, close_output_files
-USE mo_oce_physics,            ONLY: t_ho_params
+USE mo_ocean_physics,            ONLY: t_ho_params
 
 IMPLICIT NONE
 PRIVATE

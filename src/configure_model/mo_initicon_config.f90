@@ -21,15 +21,15 @@ MODULE mo_initicon_config
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
-    &                              MODE_DWDANA_INC, MODE_IAU
+    &                              MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len, datetime, newDatetime,     &
-    &                              deallocateDatetime, datetimeaddseconds,           &
+    &                              deallocateDatetime, OPERATOR(+),                  &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
-    &                              datetimeToString
-  USE mo_mtime_extensions,   ONLY: getPTStringFromMS, get_datetime_string
+    &                              datetimeToString,  getPTStringFromSeconds
+  USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text
 
@@ -66,6 +66,7 @@ MODULE mo_initicon_config
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
   PUBLIC :: rho_incr_filter_wgt
+  PUBLIC :: wgtfac_geobal
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
 
@@ -119,7 +120,7 @@ MODULE mo_initicon_config
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
-                            ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
 
   TYPE(t_timeshift) :: &    ! Allows IAU runs to start earlier than the nominal simulation start date 
     &  timeshift            ! without showing up in the output metadata
@@ -127,9 +128,11 @@ MODULE mo_initicon_config
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
-                            ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_DWDANA_INC, MODE_IAU
+                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+  REAL(wp) :: wgtfac_geobal  ! Weighting factor for artificial geostrophic balancing of meridional gradients
+                             ! of pressure increments in the tropical stratosphere
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -186,13 +189,15 @@ CONTAINS
   !!
   SUBROUTINE configure_initicon
     !
-    CHARACTER(len=max_timedelta_str_len) :: PTshift
-    TYPE(timedelta), POINTER             :: mtime_shift_local
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
-
+    !
+    CHARACTER(len=max_timedelta_str_len) :: PTshift
+    TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
+    CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
+    !
     TYPE(datetime), POINTER               :: inidatetime          ! in mtime format
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
-
+    !
     !-----------------------------------------------------------------------
     !
     ! Check whether an mapping file is provided for prefetching boundary data
@@ -206,7 +211,7 @@ CONTAINS
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
-    ELSE IF ( ANY((/MODE_DWDANA_INC, MODE_IAU/) == init_mode) ) THEN
+    ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC/) == init_mode) ) THEN
        init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE
        init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
@@ -215,7 +220,7 @@ CONTAINS
     !
     ! transform timeshift to mtime-format
     !
-    CALL getPTStringFromMS(INT(timeshift%dt_shift * 1000._wp), PTshift)
+    CALL getPTStringFromSeconds(timeshift%dt_shift, PTshift)
 
     !*******************************************************
     ! can be removed, once the new libmtime is available (timedeltaToString)
@@ -231,7 +236,6 @@ CONTAINS
 
     ! cleanup
     CALL deallocateTimedelta(mtime_shift_local)
-
 
     ! Preparations for first guess averaging
     !
@@ -250,14 +254,19 @@ CONTAINS
     inidatetime => newDatetime(TRIM(iso8601_ini_datetime))
     !
     ! get start and end datetime in mtime-format
-    startdatetime_avgFG = datetimeaddseconds(inidatetime,REAL(start_time_avg_fg,sp))
-    enddatetime_avgFG   = datetimeaddseconds(inidatetime,REAL(end_time_avg_fg,sp))
+    CALL getPTStringFromSeconds(start_time_avg_fg, str_start_time_avg_fg)
+    td_start_time_avg_fg => newTimedelta(str_start_time_avg_fg)
+    CALL getPTStringFromSeconds(end_time_avg_fg, str_end_time_avg_fg)
+    td_end_time_avg_fg   => newTimedelta(str_end_time_avg_fg)
+    !
+    startdatetime_avgFG = inidatetime + td_start_time_avg_fg
+    enddatetime_avgFG   = inidatetime + td_end_time_avg_fg
     !
     ! get start and end datetime in ISO_8601 format relative to inidatetime
     ! start time
-    CALL getPTStringFromMS(INT(start_time_avg_fg * 1000._wp), iso8601_start_timedelta_avg_fg)
+    CALL getPTStringFromSeconds(start_time_avg_fg, iso8601_start_timedelta_avg_fg)
     ! end time
-    CALL getPTStringFromMS(INT(end_time_avg_fg * 1000._wp), iso8601_end_timedelta_avg_fg)
+    CALL getPTStringFromSeconds(end_time_avg_fg, iso8601_end_timedelta_avg_fg)
 
     !******************************************************* 
     ! can be removed, once the new libmtime is available (timedeltaToString)
@@ -277,7 +286,7 @@ CONTAINS
     !
     ! transform averaging interval to ISO_8601 format
     !
-    CALL getPTStringFromMS(INT(interval_avg_fg * 1000._wp), iso8601_interval_avg_fg)
+    CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
 
     ! cleanup
     CALL deallocateDatetime(inidatetime)

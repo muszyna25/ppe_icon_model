@@ -20,21 +20,23 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_output_event_control
 
-  USE mo_mpi,                ONLY: my_process_is_mpi_test
+  USE mo_mpi,                ONLY: my_process_is_mpi_test, my_process_is_mpi_workroot
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i4, i8
   USE mo_master_nml,         ONLY: model_base_dir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
     &                              MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
     &                              datetime, setCalendar, resetCalendar,                &
     &                              deallocateDatetime, datetimeToString,                &
-    &                              newDatetime, OPERATOR(>=),                           &
-    &                              OPERATOR(+), timedelta, newTimedelta,                &
+    &                              newDatetime, OPERATOR(>=), OPERATOR(*),              &
+    &                              OPERATOR(+), OPERATOR(-), timedelta, newTimedelta,   &
     &                              deallocateTimedelta, OPERATOR(<=), OPERATOR(>),      &
-    &                              OPERATOR(<), OPERATOR(==), datetimedividebyseconds,  &
-    &                              datetimeaddseconds
-  USE mo_mtime_extensions,   ONLY: getPTStringFromMS, getTimeDeltaFromDateTime
+    &                              OPERATOR(<), OPERATOR(==),                           &
+    &                              divisionquotienttimespan,                            &
+    &                              dividedatetimedifferenceinseconds,                   &
+    &                              getPTStringFromMS, getPTStringFromSeconds,           &
+    &                              timedeltaToString
   USE mo_var_list_element,   ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
@@ -55,7 +57,7 @@ MODULE mo_output_event_control
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_control'
 
   !> Internal switch for debugging output
-  LOGICAL,          PARAMETER :: ldebug  = .false.
+  LOGICAL,          PARAMETER :: ldebug  = .FALSE.
 
 CONTAINS
 
@@ -87,7 +89,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
     INTEGER                  :: idtime_ms, ilist
     TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_date1, &
-      &                         mtime_dom_start, mtime_dom_end
+         &                      mtime_dom_start, mtime_dom_end
     TYPE(timedelta), POINTER :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
@@ -98,7 +100,7 @@ CONTAINS
 
     ! build an ISO 8601 duration string from the given "dtime" value:
     idtime_ms = NINT(sim_step_info%dtime*1000._wp)
-    CALL getPTStringFromMS(idtime_ms, dtime_string)
+    CALL getPTStringFromMS(INT(idtime_ms,i8), dtime_string)
     ! create a time delta of "dtime" seconds length
     delta => newTimedelta(TRIM(dtime_string))
 
@@ -145,9 +147,9 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   ! --------------------------------------------------------------------------------------------------
-  SUBROUTINE compute_step(mtime_date1, mtime_begin, mtime_end, dtime,  &
+  SUBROUTINE compute_step(mtime_current, mtime_begin, mtime_end, dtime,  &
     &                     delta, step_offset, step, exact_date)
-    TYPE(datetime),  POINTER                         :: mtime_date1         !< input date to translated into step
+    TYPE(datetime),  POINTER                         :: mtime_current       !< input date to translated into step
     TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
     TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
@@ -156,23 +158,35 @@ CONTAINS
     INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
     CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
     ! local variables
-    REAL                                :: intvlsec
-    TYPE(datetime),  POINTER            :: mtime_step
+    REAL                                 :: intvlsec
+    TYPE(datetime),  POINTER             :: mtime_step
+    CHARACTER(len=max_timedelta_str_len) :: td_string
+    TYPE(divisionquotienttimespan)       :: tq     
+    TYPE(timedelta), POINTER             :: vlsec => NULL()
 
     ! first, we compute the dynamic time step which is equal or larger than
-    ! the desired date "mtime_date1"
-    intvlsec    = REAL(dtime)
-    step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
+    ! the desired date "mtime_current"
+    ! intvlsec    = REAL(dtime)
+    ! step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
 
+    intvlsec = INT(dtime)
+    CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
+    vlsec => newtimedelta(td_string)
+    
+    CALL divideDatetimeDifferenceInSeconds(mtime_current, mtime_begin, vlsec, tq)
+
+    step = INT(tq%quotient,i4)
+    
+    mtime_step => newDatetime('0001-01-01T00:00:00')
     IF (step >= 0) THEN
-      mtime_step  => datetimeaddseconds(mtime_begin, REAL(step*intvlsec))
-
+      mtime_step = mtime_begin + step * vlsec
       CALL datetimeToString(mtime_step, exact_date)
-      CALL deallocateDatetime(mtime_step)
     END IF
+    CALL deallocateDatetime(mtime_step)
 
     ! then we add the offset "jstep0" (nonzero for restart cases):
     step        = step + step_offset
+
   END SUBROUTINE compute_step
 
 
@@ -186,12 +200,13 @@ CONTAINS
   !
   ! --------------------------------------------------------------------------------------------------
   FUNCTION generate_output_filenames(nstrings, date_string, sim_steps, &
-    &                                sim_step_info, fname_metadata)  RESULT(result_fnames)
+    &                                sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
     INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
     CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
     INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
     TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
     TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+    INTEGER,                INTENT(IN)    :: skipped_dates
     TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
@@ -311,7 +326,7 @@ CONTAINS
       CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
       ! keywords: compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
-      CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+      forecast_delta = mtime_date - mtime_begin
       WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
         &                                    forecast_delta%minute, forecast_delta%second 
       CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
@@ -343,7 +358,8 @@ CONTAINS
       !                which an "unsplit" namelist would have
       !                produced:
       IF (fname_metadata%npartitions > 1) THEN
-        total_index = fname_metadata%npartitions*(result_fnames(i)%jfile-1) + fname_metadata%ifile_partition
+        total_index = fname_metadata%npartitions*(result_fnames(i)%jfile+skipped_dates-1) + &
+          &           fname_metadata%ifile_partition 
         this_jfile  = total_index
       ELSE
         total_index = result_fnames(i)%jfile

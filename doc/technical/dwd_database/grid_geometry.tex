@@ -1,7 +1,13 @@
 \svnInfo $Id$
+% --------------------------------------------------------------------------------
 \chapter{Grid geometry}
+% --------------------------------------------------------------------------------
 
+
+% --------------------------------------------------------------------------------
 \section{Horizontal grid}
+% --------------------------------------------------------------------------------
+
 The horizontal ICON grid consists of a set of spherical triangles that seamlessly span the entire sphere. The grid is constructed from an icosahedron (see Figure 
 \ref{fig_ico_a}) which is projected onto a sphere. The spherical icosahedron (Figure \ref{fig_ico_b}) consists of $20$ equilateral spherical triangles. The edges of each triangle 
 are bisected into equal halves or more generally into $n$ equal sections. Connecting the new edge points by great circle arcs yields $4$ or more generally $n^2$ spherical triangles 
@@ -99,14 +105,16 @@ pressure, \dots) are representative. Some additional information about ICON's ho
   \end{center}
 \end{table}
 
-%\paragraph{}
-\textbf{\textcolor{red}{The first operational version of ICON is based on the R3B07 grid, thus, having a horizontal resolution of about $13\,\mathrm{km}$!}}
+\begin{note}
+  \textbf{\textcolor{red}{The first operational version of ICON is
+      based on the R3B07 grid, thus, having a horizontal resolution of
+      about $13\,\mathrm{km}$!}}
+\end{note}
 
-\subsection{Local grid refinement}
 
-
-
+% --------------------------------------------------------------------------------
 \section{Vertical grid}
+% --------------------------------------------------------------------------------
 
 The vertical grid consists of a set of vertical layers with height-based vertical coordinates.
 Each of these layers carries the horizontal $2D$ grid structure, thus forming the $3D$ structure of the grid.
@@ -122,8 +130,9 @@ ICON setup with 90 vertical levels. The table to the right shows the height abov
 and the corresponding pressure, assuming the US standard atmosphere. Standard heights for all $91$ half levels are given in Table 
 \ref{tab:half_level_heights}.
 
-\textbf{Please note that for grid cells with non-zero topography these values only represent rough estimates of the true level height. Actual heights may 
-vary considerably from location to location, due to grid level stretching/compression over non-zero topography.}
+\textbf{Please note that for grid cells with non-zero topography these values only represent rough estimates of the true level height. 
+Actual heights and layer thicknesses may vary considerably from location to location, due to grid level stretching/compression over 
+non-zero topography.}
   
 %In the operational setup, the transition from terrain following levels in the lower atmosphere to constant height levels is completed at 
 %$z=16\,\mathrm{km}$. Model levels above are flat.
@@ -162,9 +171,9 @@ vary considerably from location to location, due to grid level stretching/compre
 %
 % ---------------------------------------------------------------------------------------
 \begin{figure}[hb]
-\subfloat{
+\begin{tabbing}
   \begin{minipage}[t]{0.65\linewidth} \vspace*{0pt}%
-    \pgfplotstableread{vertical_levels_i.txt}{\loadedtable}
+    \pgfplotstableread{level_tables/vertical_levels_i.txt}{\loadedtable}
     \pgfplotsset{
       tick label style={font=\small},
     }
@@ -194,12 +203,15 @@ vary considerably from location to location, due to grid level stretching/compre
     \end{axis}
   \end{tikzpicture}
   \end{minipage}
-  }
-  \subfloat{
+%
+%
+\=
+%
+%
   \begin{minipage}[t]{0.35\linewidth}\vspace*{0em}%
    \renewcommand{\baselinestretch}{0.95}\normalsize%
    \pgfkeys{/pgf/number format/set thousands separator={\,}}
-   \pgfplotstableread{vertical_levels_i_small.txt}{\loadedtablesmall}\vspace*{0pt}%
+   \pgfplotstableread{level_tables/vertical_levels_i_small.txt}{\loadedtablesmall}\vspace*{0pt}%
    \pgfplotstabletypeset[ columns={k,z,p},every  head row/.style={after row={\hline}},
           font=\footnotesize,
           columns/k/.style={column name=$level$, column type=r,column type/.add={>{\columncolor[gray]{.8}}}{}},
@@ -208,8 +220,113 @@ vary considerably from location to location, due to grid level stretching/compre
                         ] {\loadedtablesmall}
     \vspace*{1em}%
   \end{minipage}
-  }
-  \caption{Vertical (half) levels of the ICON model (planned operational setup).
+\end{tabbing}
+%
+  \caption{Vertical half levels (blue) and layer thickness (red) of the ICON operational setup.
     The table of selected pressure values (for zero height) is based on the 1976 US standard atmosphere.}
   \label{fig:vertical_levels}%
 \end{figure}
+
+
+% --------------------------------------------------------------------------------
+\section{Refined subregion over Europe (``local nest'')}
+% --------------------------------------------------------------------------------
+
+ICON has the capability for running global simulations with refined
+domains (so called \emph{nests}).
+%
+The triangular mesh of the refined area is generated by bisection of
+triangles in the global ``parent'' grid, see
+Fig.~\ref{fig:icon_grid_refinement_zoom_view}.
+In the vertical the global grid extends into the mesosphere (which
+greatly facilitates the assimilation of satellite data) whereas the
+nested domains extend only into the lower stratosphere in order to
+save computing time.
+For each nesting level, the time step is automatically divided by a
+factor of two.
+%
+Note that the grid nests are computed in a concurrent fashion:  
+\begin{itemize}
+\item Points that are covered by the refined subdomain additionally
+  contain data for the global grid state.
+\item The data points on the triangular grid are the cell
+  circumcenters. Therefore the global grid data points are closely
+  located to nest data sites, but they \emph{do not coincide} exactly 
+  (see Fig.~\ref{fig:icon_grid_refinement_zoom_view}).
+\end{itemize}
+
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.90\textwidth]{pics/grid_refinement.png}
+  \caption{ICON grid refinement (zoom view). Blue and red dots indicate the cell circumcenters for the global (``parent'') and the refined (``child'') domain, respectively.}
+  \label{fig:icon_grid_refinement_zoom_view}
+\end{figure}
+
+Currently, a refined subregion over Europe is in preparation,
+which is comparable to the COSMO-EU region of DWD's COSMO model.
+The geographical location of the nest is shown in
+Fig.~\ref{fig:EU_nest} and Fig.~\ref{fig:EU_nest_polar}.
+
+\begin{table}
+\centering
+\begin{tabular}{|p{5cm}|l|l|}\hline
+\rowcolor{Gray}
+                           &    {\centering\textbf{ICON-EU nest}}                 &     {\centering\textbf{COSMO-EU}} \\ \hline\hline
+% ----------------------------------------------------------------------------------------------------------------------------------------
+geogr. coordinates         &    $23.5^\degree~\text{W}$ -- $62.5^\degree~\text{E}$    &     $\lambda_{\text{N}} = 170^\degree~\text{W}$, 
+                                                                                          $\phi_{\text{N}}    =  40^\degree~\text{N}$,     \\
+                           &    $29.5^\degree~\text{N}$ -- $70.5^\degree~\text{N}$   &      $18.0^\degree~\text{W} - 23.5^\degree~\text{E}$ \\
+                           &                                                      &     $20.0^\degree~\text{S} - 21.0^\degree~\text{N}$  \\[0.5em]
+mesh size                  &    $\approx 6.5~\km$ (R3B8)                          &     $0.0625^\degree$ ($\approx 7~\km$) \\
+                           &    659156~triangles                                  &     $665 \times 657 = 436905$ grid points \\
+vertical levels            &    60 levels                                         &     40 levels      \\
+upper boundary             &    $22.5~\km$                                        &     $22.5~\km$ \\ \hline
+
+\end{tabular}
+\end{table}
+
+\begin{note}
+    \textbf{A test version of model simulations including the nesting region over
+      Europe is running regularly, starting from 
+      \begin{center}
+        2015-03-26, 12~UTC (\texttt{para1}).
+      \end{center}
+      Currently only main forecasts at 00 and 12~UTC are performed, reaching out to 
+      $120\,\mathrm{h}$, while forecasts starting at 06 and 18~UTC are limited 
+      to $33\,\mathrm{h}$.
+      }
+\end{note}
+
+
+Simulation on the global grid and the regional (Europe) domain are tightly coupled
+(\emph{two-way nesting}):
+Boundary data for the nest area is updated every time step (120~s).
+%
+Feedback of atmospheric prognostic variabes (except precipitation) is
+computed via relaxation on a 3~h time scale.
+
+  
+\begin{figure}[h]
+  \begin{minipage}[b]{\textwidth}
+    \centering
+    \includegraphics[width=0.90\textwidth]{ICON_EU_nest_1.png}
+    \subcaption{}\label{fig:EU_nest}
+  \end{minipage}
+  \hfill
+  \par
+  \begin{minipage}[b]{\textwidth}
+    \centering
+    \includegraphics[width=0.80\textwidth]{ICON_EU_nest_2.png}
+    \subcaption{}\label{fig:EU_nest_polar}
+  \end{minipage}\hfill
+  \caption{\ref{fig:EU_nest}: Horizontal extent of the ICON-EU nest
+    (orange shaded area) in a cylindrical equidistant projection. For
+    comparison, the outline of the COSMO-EU nest is shown in red.
+    \ref{fig:EU_nest_polar}:  Same as \ref{fig:EU_nest} but in a polar
+    stereographic projection.}
+\end{figure}
+
+
+
+

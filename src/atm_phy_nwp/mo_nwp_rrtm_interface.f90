@@ -31,7 +31,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape!, min_rlcell
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -642,7 +642,6 @@ CONTAINS
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
-        & z_mc       =p_metrics%z_mc    (:,:,jb)     ,&!< in  height at full levels [m]
         & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
         & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
         & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
@@ -760,9 +759,11 @@ CONTAINS
     REAL(wp) :: max_albvisdir, min_albvisdir, max_albvisdif, min_albvisdif, &
                 max_albdif, min_albdif, max_tsfc, min_tsfc, max_psfc, min_psfc
 
-    REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
+    REAL(wp), DIMENSION(:), ALLOCATABLE :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
         max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
-        min_qv, min_qc, min_qi, min_cc, max_lwflx, min_lwflx, max_swtrans, min_swtrans
+        min_qv, min_qc, min_qi, min_cc 
+
+    REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_lwflx, min_lwflx, max_swtrans, min_swtrans
 
     ! Local scalars:
     INTEGER:: jk,jb
@@ -814,7 +815,11 @@ CONTAINS
 
       ! Add extra layer for atmosphere above model top if requested
       IF (atm_phy_nwp_config(jg)%latm_above_top) THEN
-        nlev_rg = nlev + 1
+        IF (jg == 1 .OR. pt_patch%nshift == 0) THEN
+          nlev_rg = nlev + 1
+        ELSE ! add a specified number levels up to the top of the parent domain in case of vertical nesting
+          nlev_rg = MIN(nlev+nexlevs_rrg_vnest, pt_par_patch%nlev)
+        ENDIF
       ELSE
         nlev_rg = nlev
       ENDIF
@@ -893,8 +898,7 @@ CONTAINS
         & zrg_albnirdif, zrg_albdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, &
         & zrg_pres, zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,  &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
-        & zlp_pres_ifc, zlp_tot_cld)
-
+        & zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg)
 
       rl_start = grf_ovlparea_start_c
       rl_end   = min_rlcell_int
@@ -904,6 +908,12 @@ CONTAINS
 
       ! Debug output of radiation input fields
       IF (msg_level >= 16) THEN
+
+        ALLOCATE(max_pres_ifc(nlev_rg), max_pres(nlev_rg), max_temp(nlev_rg), max_acdnc(nlev_rg), &
+                 max_qv(nlev_rg), max_qc(nlev_rg), max_qi(nlev_rg), max_cc(nlev_rg),              &
+                 min_pres_ifc(nlev_rg), min_pres(nlev_rg), min_temp(nlev_rg), min_acdnc(nlev_rg), &
+                 min_qv(nlev_rg), min_qc(nlev_rg), min_qi(nlev_rg), min_cc(nlev_rg)               )
+
         max_albvisdir = 0._wp
         min_albvisdir = 1.e10_wp
         max_albvisdif = 0._wp
@@ -1018,6 +1028,9 @@ CONTAINS
           CALL message('nwp_nh_interface: ', TRIM(message_text))
         ENDDO
 
+        DEALLOCATE(max_pres_ifc, max_pres, max_temp, max_acdnc, max_qv, max_qc, max_qi, max_cc, &
+                   min_pres_ifc, min_pres, min_temp, min_acdnc, min_qv, min_qc, min_qi, min_cc)
+
       ENDIF ! msg_level >= 16
 
 !$OMP PARALLEL
@@ -1097,7 +1110,6 @@ CONTAINS
           & tk_sfc     =zrg_tsfc     (:,jb)       ,&!< in    surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
-          & z_mc       =p_metrics%z_mc(:,:,jb)  ,&!< in    height at full levels [m]
           & pp_hl      =zrg_pres_ifc(:,:,jb)    ,&!< in    pressure at half levels at t-dt [Pa]
           & pp_fl      =zrg_pres    (:,:,jb)    ,&!< in    pressure at full levels at t-dt [Pa]
           & tk_fl      =zrg_temp    (:,:,jb)    ,&!< in    temperature at full level at t-dt
@@ -1325,7 +1337,6 @@ CONTAINS
           & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
-          & z_mc       =p_metrics%z_mc    (:,:,jb)     ,&!< in  height at full levels [m]
           & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
           & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
           & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
@@ -1344,11 +1355,11 @@ CONTAINS
                                 ! output
                                 ! ------
                                 !
-          & cld_cvr    = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
-          & emter_clr  = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-          & trsol_clr  = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-          & emter_all  = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-          & trsol_all  = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+          & cld_cvr        = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
+          & flx_lw_net_clr = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+          & trm_sw_net_clr = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+          & flx_lw_net     = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+          & trm_sw_net     = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
 
       ENDDO ! blocks
@@ -1450,7 +1461,6 @@ CONTAINS
         & tk_sfc     = rrtm_data%tsfctrad       (:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
-        & z_mc       = p_metrics%z_mc      (:,:,jb)    ,&!< in  height at full levels [m]
         & pp_hl      = rrtm_data%pres_ifc  (:,:,jb)    ,&!< in  pres at half levels at t-dt [Pa]
         & pp_fl      = rrtm_data%pres      (:,:,jb)    ,&!< in  pres at full levels at t-dt [Pa]
         & tk_fl      = rrtm_data%temp      (:,:,jb)    ,&!< in  temperature at full level at t-dt
@@ -1469,11 +1479,11 @@ CONTAINS
                               ! output
                               ! ------
                               !
-        & cld_cvr    = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
-        & emter_clr  = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-        & trsol_clr  = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-        & emter_all  = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-        & trsol_all  = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & cld_cvr        = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
+        & flx_lw_net_clr = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+        & trm_sw_net_clr = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & flx_lw_net     = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+        & trm_sw_net     = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
         & opt_halo_cosmu0 = .FALSE. )
     ENDDO
 !$OMP END DO NOWAIT

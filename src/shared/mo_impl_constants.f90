@@ -268,6 +268,9 @@ MODULE mo_impl_constants
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
+  ! Maximum number of extra model levels added to the reduced radiation grid in case of vertical nesting
+  INTEGER, PARAMETER :: nexlevs_rrg_vnest = 8
+
   ! maximum allowed number of tracers (20 should be enough for the time being) ! DRIEG: For ART, more than 20 tracers are needed
   INTEGER, PARAMETER :: max_ntracer = 200
 
@@ -469,14 +472,20 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
   INTEGER, PARAMETER :: VINTP_METHOD_LIN_NLEVP1 = 5
 
+  !----- RBF lon-lat interpolation: shape parameter mode
+  INTEGER, PARAMETER :: SCALE_MODE_TABLE   = 1
+  INTEGER, PARAMETER :: SCALE_MODE_AUTO    = 2
+  INTEGER, PARAMETER :: SCALE_MODE_PRESET  = 3
+
   !----- init ICON operation modes -----
   INTEGER, PARAMETER :: MODE_DWDANA      = 1
   INTEGER, PARAMETER :: MODE_IFSANA      = 2
   INTEGER, PARAMETER :: MODE_COMBINED    = 3
   INTEGER, PARAMETER :: MODE_COSMODE     = 4
-  INTEGER, PARAMETER :: MODE_DWDANA_INC  = 5
-  INTEGER, PARAMETER :: MODE_IAU         = 6
+  INTEGER, PARAMETER :: MODE_IAU         = 5
+  INTEGER, PARAMETER :: MODE_IAU_OLD     = 6
   INTEGER, PARAMETER :: MODE_ICONVREMAP  = 7
+  INTEGER, PARAMETER :: MODE_DWDANA_INC  = 8
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks

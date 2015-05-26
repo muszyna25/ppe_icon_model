@@ -66,14 +66,18 @@ MODULE mo_name_list_output_init
     &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
-  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
     &                                             first_output_name_list,                         &
     &                                             add_var_desc
   USE mo_time_config,                       ONLY: time_config
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_dynamics_config,                   ONLY: iequations
+
+#ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
+#endif
+
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -148,7 +152,7 @@ MODULE mo_name_list_output_init
 
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
   USE mo_coupling_config,                   ONLY: is_coupled_run
-  USE mo_icon_cpl,                          ONLY: comps
+  USE mo_master_control,                    ONLY: get_my_process_name
 #endif
 
   IMPLICIT NONE
@@ -270,6 +274,9 @@ CONTAINS
       &                                      pe_placement_hl(MAX_NUM_IO_PROCS), &
       &                                      pe_placement_il(MAX_NUM_IO_PROCS)
 
+    !> RBF shape parameter.
+    REAL(wp)                              :: rbf_scale
+
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
       mode, taxis_tunit, dom,                                &
@@ -286,7 +293,7 @@ CONTAINS
       stream_partitions_hl, stream_partitions_il,            &
       pe_placement_ml, pe_placement_pl,                      &
       pe_placement_hl, pe_placement_il,                      &
-      filename_extn
+      filename_extn, rbf_scale
 
     ! -- preliminary checks:
     !
@@ -299,6 +306,7 @@ CONTAINS
     ! level ordering: zlevels, plevels, ilevels must be ordered from
     ! TOA to bottom:
     !
+#ifndef __NO_ICON_ATMO__
     DO jg = 1, max_dom
       ! pressure levels:
       nh_pzlev_config(jg)%plevels%sort_smallest_first = .TRUE.
@@ -307,6 +315,7 @@ CONTAINS
       ! isentropic levels
       nh_pzlev_config(jg)%ilevels%sort_smallest_first = .FALSE.
     END DO
+#endif
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -315,10 +324,10 @@ CONTAINS
     ! As in COSMO, there may exist several output_nml namelists in the input file
     ! Loop until EOF is reached
 
-    p_onl => NULL()
+    p_onl                  => NULL()
     first_output_name_list => NULL()
-    nnamelists = 0
-    lrewind = .TRUE.
+    nnamelists             =  0
+    lrewind                = .TRUE.
 
     IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
 
@@ -377,6 +386,7 @@ CONTAINS
       pe_placement_pl(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
       pe_placement_hl(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
       pe_placement_il(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
+      rbf_scale                = -1._wp
 
       ! -- Read output_nml
 
@@ -459,15 +469,27 @@ CONTAINS
         ! compute some additional entries of lon-lat grid specification:
         CALL compute_lonlat_specs(new_grid)
         CALL compute_lonlat_blocking(new_grid, nproma)
-        ! check, if lon-lat grids has already been registered
-        lonlat_id = get_lonlat_grid_ID(new_grid)
-        IF (lonlat_id == -1) THEN
-          ! Register a lon-lat grid data structure in global list
-          lonlat_id   = get_free_lonlat_grid()
-          lonlat => lonlat_grid_list(lonlat_id)
-          lonlat%grid = new_grid
+        ! If the user has explicitly specified an interpolation
+        ! parameter, then we always register this as a new lon-lat
+        ! grid. Otherwise we might share the lon-lat coefficients with
+        ! other output namelists.
+        IF (rbf_scale > 0._wp) THEN
+          lonlat_id             =  get_free_lonlat_grid()
+          lonlat                => lonlat_grid_list(lonlat_id)
+          lonlat%grid           =  new_grid
+          lonlat%intp%rbf_scale =  rbf_scale
         ELSE
-          lonlat => lonlat_grid_list(lonlat_id)
+          ! check, if lon-lat grids has already been registered
+          lonlat_id = get_lonlat_grid_ID(new_grid)
+          IF (lonlat_id == -1) THEN
+            ! Register a lon-lat grid data structure in global list
+            lonlat_id             =  get_free_lonlat_grid()
+            lonlat                => lonlat_grid_list(lonlat_id)
+            lonlat%grid           =  new_grid
+            lonlat%intp%rbf_scale =  rbf_scale
+          ELSE
+            lonlat => lonlat_grid_list(lonlat_id)
+          END IF
         END IF
 
         ! Flag those domains, which are used for this lon-lat grid:
@@ -598,6 +620,7 @@ CONTAINS
     TYPE(t_output_name_list), POINTER     :: p_onl
     INTEGER :: n_dom_out, jp, log_patch_id, nlevs
 
+#ifndef __NO_ICON_ATMO__
     ! Loop over the output namelists and create a union set of
     ! all requested vertical levels (per domain):
     p_onl => first_output_name_list
@@ -661,6 +684,7 @@ CONTAINS
       p_onl => p_onl%next
 
     END DO ! p_onl
+#endif
 
   END SUBROUTINE collect_requested_ipz_levels
 
@@ -852,7 +876,9 @@ CONTAINS
       &                                     additional_days(MAX_TIME_INTERVALS)
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
-
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+    CHARACTER(LEN=max_char_length)       :: comp_name
+#endif
     l_print_list = .FALSE.
     CALL assign_if_present(l_print_list, opt_lprintlist)
 
@@ -1006,6 +1032,8 @@ CONTAINS
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         idom = p_onl%dom(i)
+        ! non-existent domains are simply ignored:
+        IF(p_onl%dom(i) > n_dom_out)  CYCLE
         
         IF (p_onl%output_grid) THEN
           grid_info_mode = GRID_INFO_BCAST
@@ -1172,11 +1200,9 @@ CONTAINS
 
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
-        IF(p_onl%dom(i) > n_dom_out) THEN
-          WRITE(message_text,'(a,i6,a)') &
-            'Illegal domain number ',p_onl%dom(i),' in name list input'
-          CALL finish(routine,message_text)
-        ENDIF
+        ! non-existent domains are simply ignored:
+        IF(p_onl%dom(i) > n_dom_out)  CYCLE
+
         DO i_typ = 1, 4
           ! Check if name_list has variables of corresponding type,
           ! then increase file counter.
@@ -1226,6 +1252,8 @@ CONTAINS
       LOOP_DOM : DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         idom = p_onl%dom(i)
+        ! non-existent domains are simply ignored:
+        IF(p_onl%dom(i) > n_dom_out)  CYCLE
 
         ! Loop over model/pressure/height levels
 
@@ -1573,9 +1601,10 @@ CONTAINS
           IF (dom_sim_step_info%jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
+               comp_name = TRIM(get_my_process_name())
                CALL print_output_event(all_events, &
                  ! ASCII file output:
-      & opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") 
+      & opt_filename="output_schedule_"//TRIM(comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") 
              ELSE
                CALL print_output_event(all_events, &
       & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
@@ -1587,7 +1616,8 @@ CONTAINS
           ELSE
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
-                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//".txt") ! ASCII file output
+                comp_name = TRIM(get_my_process_name())
+                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comp_name)//".txt") ! ASCII file output
              ELSE
                 CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
              ENDIF
@@ -2260,6 +2290,15 @@ CONTAINS
       ! not clear whether meta-info GRID_CELL or GRID_UNSTRUCTURED_CELL should be used
       CALL gridDefPosition(of%cdiCellGridID, GRID_CELL)
 
+      ! Single point grid for monitoring
+      of%cdiSingleGridID = gridCreate(GRID_LONLAT, 1)
+      !
+      CALL griddefxsize(of%cdiSingleGridID, 1)                                                                         
+      CALL griddefysize(of%cdiSingleGridID, 1)
+      CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
+      CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
+
+
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
@@ -2426,6 +2465,8 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE(GRID_UNSTRUCTURED_CELL)
         info%cdiGridID = of%cdiCellGridID
+      CASE(GRID_LONLAT)
+        info%cdiGridID = of%cdiSingleGridID
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = of%cdiVertGridID
       CASE(GRID_UNSTRUCTURED_EDGE)
@@ -2447,21 +2488,21 @@ CONTAINS
       zaxisID = info%cdiZaxisID
       IF (zaxisID /= CDI_UNDEFID) THEN
 
-!DR *********** FOR TESTING *************
-        ! If desired, re-set
+!DR *********** FIXME *************
+        ! Re-set
         ! ZA_HYBRID       -> ZA_REFERENCE
         ! ZA_HYBRID_HALF  -> ZA_REFERENCE_HALF
-        ! for testing purposes
-        IF (lzaxis_reference) THEN  ! switch to ZAXIS_REFERENCE
-          IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
-            zaxisID = of%cdiZaxisID(ZA_reference)
-          ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
-            zaxisID = of%cdiZaxisID(ZA_reference_half)
-          ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
-            zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
-          ENDIF
-          info%cdiZaxisID = zaxisID
+        ! as long as ZA_hybrid/ZA_hybrid_half is used throughout the code.
+        ! Should be replaced by ZA_reference/ZA_reference_half for the 
+        ! nonhydrostatic model.
+        IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
+          zaxisID = of%cdiZaxisID(ZA_reference)
+        ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
+          zaxisID = of%cdiZaxisID(ZA_reference_half)
+        ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
+          zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
         ENDIF
+        info%cdiZaxisID = zaxisID
 !DR*********WILL BE REMOVED SOON**********
 
       ELSE
@@ -2538,6 +2579,7 @@ CONTAINS
         ! CLCL    : typeOfSecondFixedSurface = 1
         ! C_T_LK  : typeOfSecondFixedSurface = 162
         ! H_B1_LK : typeOfSecondFixedSurface = 165
+        ! SNOWLMT : typeOfSecondFixedSurface = 101
         IF ( one_of(TRIM(info%name),sfs_name_list) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
             &                    second_tos(one_of(TRIM(info%name),sfs_name_list)))

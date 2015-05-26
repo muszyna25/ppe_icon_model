@@ -113,7 +113,7 @@ MODULE mo_vertical_grid
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:), &
-                             z_ddxt_z_half(:,:,:), z_ddxn_z_half(:,:,:)
+                             z_ddxt_z_half_e(:,:,:), z_ddxn_z_half_e(:,:,:)
     REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_e(:,:,:)
     REAL(wp) :: extrapol_dist
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
@@ -249,8 +249,8 @@ MODULE mo_vertical_grid
       ! For the tangential slope we need temporarily also the height
       ! at the vertices
       ALLOCATE(z_ifv(nproma,nlevp1,nblks_v))
-      ALLOCATE(z_ddxt_z_half(nproma,nlevp1,nblks_e))
-      ALLOCATE(z_ddxn_z_half(nproma,nlevp1,nblks_e))
+      ALLOCATE(z_ddxt_z_half_e(nproma,nlevp1,nblks_e))
+      ALLOCATE(z_ddxn_z_half_e(nproma,nlevp1,nblks_e))
       ! Intermediate storage for fields that are optionally single precision (to circumvent duplicating subroutines)
       ALLOCATE(z_aux_e(nproma,nlev,nblks_e))
 
@@ -260,25 +260,32 @@ MODULE mo_vertical_grid
       ! Start index for slope computations
       i_startblk = p_patch(jg)%edges%start_block(2)
 
-      z_ddxt_z_half = 0._wp
-      z_ddxn_z_half = 0._wp
+      z_ddxn_z_half_e = 0._wp
+      z_ddxt_z_half_e = 0._wp
       p_nh(jg)%metrics%ddxt_z_full = 0._wp
       p_nh(jg)%metrics%ddxn_z_full = 0._wp
 
       ! slope of the terrain (tangential direction)
       CALL grad_fd_tang ( z_ifv,                  &
            &              p_patch(jg),            &
-           &              z_ddxt_z_half,          &
+           &              z_ddxt_z_half_e, &
            &              1, nlevp1 )
       DEALLOCATE(z_ifv)
 
       ! slope of the terrain (normal direction)
       CALL grad_fd_norm ( p_nh(jg)%metrics%z_ifc, &
            &              p_patch(jg), &
-           &              z_ddxn_z_half, &
+           &              z_ddxn_z_half_e, &
            &              1, nlevp1 )
 
-      CALL sync_patch_array_mult(SYNC_E,p_patch(jg),2,z_ddxt_z_half,z_ddxn_z_half)
+      CALL sync_patch_array_mult(SYNC_E,p_patch(jg),2,z_ddxt_z_half_e, &
+        z_ddxn_z_half_e)
+
+      IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+        ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
+        p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
+        p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      ENDIF
 
       ! vertically averaged metrics
 !$OMP PARALLEL
@@ -291,10 +298,10 @@ MODULE mo_vertical_grid
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             p_nh(jg)%metrics%ddxn_z_full(je,jk,jb) = 0.5_wp * &
-            & (z_ddxn_z_half(je,jk,jb) + z_ddxn_z_half(je,jk+1,jb))
+            & (z_ddxn_z_half_e(je,jk,jb) + z_ddxn_z_half_e(je,jk+1,jb))
 
             p_nh(jg)%metrics%ddxt_z_full(je,jk,jb) = 0.5_wp * &
-            & (z_ddxt_z_half(je,jk,jb) + z_ddxt_z_half(je,jk+1,jb))
+            & (z_ddxt_z_half_e(je,jk,jb) + z_ddxt_z_half_e(je,jk+1,jb))
           ENDDO
         ENDDO
 
@@ -488,18 +495,18 @@ MODULE mo_vertical_grid
         jk = nlevp1
         DO jc = i_startidx, i_endidx
 
-          z_maxslope = MAX(ABS(z_ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                           ABS(z_ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                           ABS(z_ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
-                           ABS(z_ddxt_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                           ABS(z_ddxt_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                           ABS(z_ddxt_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
+          z_maxslope = MAX(ABS(z_ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
 
-          z_diff = MAX(ABS(z_ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))                     &
+          z_diff = MAX(ABS(z_ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
-                       ABS(z_ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))                     &
+                       ABS(z_ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
-                       ABS(z_ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))                     &
+                       ABS(z_ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
 
           ! Empirically determined values to ensure stability over steep slopes
@@ -530,7 +537,7 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL
 
 
-      DEALLOCATE(z_ddxn_z_half,z_ddxt_z_half)
+      DEALLOCATE(z_ddxn_z_half_e,z_ddxt_z_half_e)
 
 
       ! Index lists for boundary nudging (including halo cells so that no 

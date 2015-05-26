@@ -38,24 +38,22 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-  USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
+  USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
     & update_time_indices
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog, t_ocean_tracer
-  USE mo_oce_math_operators,     ONLY: calculate_thickness
+  USE mo_ocean_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_oce_tracer,             ONLY: advect_tracer_ab
-  USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
-  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
-    & destruct_atmos_fluxes,&
-    & destruct_sea_ice,  &
+  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_forcing,            ONLY: destruct_ocean_forcing
+  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean, destruct_sea_ice,  &
     & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
-  USE mo_oce_physics,            ONLY: t_ho_params
+  USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
@@ -67,7 +65,7 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
   USE mo_ocean_output
-  USE mo_oce_diffusion,          ONLY:  tracer_diffusion_vertical_implicit, velocity_diffusion_vertical_implicit
+  USE mo_ocean_diffusion,          ONLY:  tracer_diffusion_vertical_implicit, velocity_diffusion_vertical_implicit
   USE mo_parallel_config,        ONLY: nproma
   USE mo_math_utility_solvers,   ONLY: apply_triangular_matrix
   USE mo_statistics
@@ -280,7 +278,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER         :: patch_2D
     ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
+    !        & routine = ('mo_ocean_diffusion:tracer_diffusion_impl')
     !-----------------------------------------------------------------------
     patch_2D         => patch_3D%p_patch_2D(1)
     cells_in_domain => patch_2D%cells%in_domain
@@ -866,7 +864,7 @@ CONTAINS
 !    TYPE(t_subset_range), POINTER :: all_edges
 !    TYPE(t_patch), POINTER        :: p_patch
 !    ! CHARACTER(len=max_char_length), PARAMETER :: &
-!    !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
+!    !        & routine = ('mo_ocean_diffusion:tracer_diffusion_impl')
 !    !-----------------------------------------------------------------------
 !    p_patch   => p_patch_3D%p_patch_2D(1)
 !    all_edges => p_patch%edges%all
