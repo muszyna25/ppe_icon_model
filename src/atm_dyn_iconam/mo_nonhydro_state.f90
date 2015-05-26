@@ -43,7 +43,8 @@ MODULE mo_nonhydro_state
     &                                MODE_IAU_OLD, TASK_COMPUTE_OMEGA
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
+  USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
+                                     t_nh_prog, t_nh_diag,               &
     &                                t_nh_ref, t_nh_metrics
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
@@ -98,9 +99,11 @@ MODULE mo_nonhydro_state
   PUBLIC :: duplicate_prog_state  ! Copy the prognostic state
 
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
+  PUBLIC :: p_nh_state_lists      ! lists for state vector of nonhydrostatic variables (variable)
   
 
-  TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
+  TYPE(t_nh_state),       TARGET, ALLOCATABLE :: p_nh_state(:)
+  TYPE(t_nh_state_lists), TARGET, ALLOCATABLE :: p_nh_state_lists(:)
 
   CONTAINS
 
@@ -120,12 +123,14 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels, l_pres_msl, l_omega)
+  SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, l_pres_msl, l_omega)
 !
-    TYPE(t_patch),     INTENT(IN)   ::  & ! patch
+    TYPE(t_patch),     INTENT(IN)   ::        & ! patch
       &  p_patch(n_dom)
-    TYPE(t_nh_state),  INTENT(INOUT)::  & ! nh state at different grid levels
+    TYPE(t_nh_state),  INTENT(INOUT)::        & ! nh state at different grid levels
       &  p_nh_state(n_dom)
+    TYPE(t_nh_state_lists),  INTENT(INOUT)::  & ! nh state at different grid levels
+      &  p_nh_state_lists(n_dom)
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
     LOGICAL, INTENT(IN) :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
@@ -183,14 +188,14 @@ MODULE mo_nonhydro_state
       ENDIF
 
       ! create state list
-      ALLOCATE(p_nh_state(jg)%prog_list(1:ntl), STAT=ist)
+      ALLOCATE(p_nh_state_lists(jg)%prog_list(1:ntl), STAT=ist)
       IF(ist/=SUCCESS)THEN
         CALL finish (TRIM(routine),                                    &
           &          'allocation of prognostic state list array failed')
       ENDIF
 
       ! create tracer list (no extra timelevels)
-      ALLOCATE(p_nh_state(jg)%tracer_list(1:ntl_pure), STAT=ist)
+      ALLOCATE(p_nh_state_lists(jg)%tracer_list(1:ntl_pure), STAT=ist)
       IF(ist/=SUCCESS)THEN
         CALL finish (TRIM(routine),                                    &
           &          'allocation of prognostic tracer list array failed')
@@ -219,7 +224,7 @@ MODULE mo_nonhydro_state
         ! varname_prefix = 'nh_prog_'
         varname_prefix = ''
         CALL new_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt),  &
-          &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
+          &  p_nh_state_lists(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
           &  l_extra_timelev, jt)
 
         !
@@ -230,8 +235,8 @@ MODULE mo_nonhydro_state
           WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_tracer_of_domain_',jg, &
             &                               '_and_timelev_',jt
           varname_prefix = ''
-          CALL new_nh_state_tracer_list(p_patch(jg), p_nh_state(jg)%prog_list(jt), &
-            &  p_nh_state(jg)%tracer_list(jt), listname )
+          CALL new_nh_state_tracer_list(p_patch(jg), p_nh_state_lists(jg)%prog_list(jt), &
+            &  p_nh_state_lists(jg)%tracer_list(jt), listname )
         ENDIF
       ENDDO ! jt
 
@@ -241,7 +246,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
-        &  p_nh_state(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
+        &  p_nh_state_lists(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
 
       !
       ! Build metrics state list
@@ -249,7 +254,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_metrics_of_domain_',jg
       CALL new_nh_metrics_list(p_patch(jg), p_nh_state(jg)%metrics, &
-        &  p_nh_state(jg)%metrics_list, listname )
+        &  p_nh_state_lists(jg)%metrics_list, listname )
 
       !
       ! Build ref state list (not needed so far for real case applications)
@@ -258,7 +263,7 @@ MODULE mo_nonhydro_state
       IF ( ltestcase ) THEN
         WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
         CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
-          &  p_nh_state(jg)%ref_list, listname)
+          &  p_nh_state_lists(jg)%ref_list, listname)
       ENDIF
 
     ENDDO ! jg
@@ -280,10 +285,13 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE destruct_nh_state(p_nh_state)
+  SUBROUTINE destruct_nh_state(p_nh_state, p_nh_state_lists)
 !
-    TYPE(t_nh_state), INTENT(INOUT) :: & ! nh state at different grid levels
+    TYPE(t_nh_state), INTENT(INOUT) ::       & ! nh state at different grid levels
       &  p_nh_state(n_dom)
+                                             
+    TYPE(t_nh_state_lists), INTENT(INOUT) :: & ! lists of nh state at different grid levels
+      &  p_nh_state_lists(n_dom)
                                              
     INTEGER  :: ntl_prog, & ! number of timelevels prog state
                 ntl_tra,  & ! number of timelevels 
@@ -305,40 +313,40 @@ MODULE mo_nonhydro_state
         CALL finish(TRIM(routine), 'prognostic array has no timelevels')
       ENDIF
 
-      ntl_tra = SIZE(p_nh_state(jg)%tracer_list(:))
+      ntl_tra = SIZE(p_nh_state_lists(jg)%tracer_list(:))
       IF(ntl_tra==0)THEN
         CALL finish(TRIM(routine), 'tracer list has no timelevels')
       ENDIF
 
       ! delete reference state list elements
       IF ( ltestcase ) THEN
-        CALL delete_var_list( p_nh_state(jg)%ref_list )
+        CALL delete_var_list( p_nh_state_lists(jg)%ref_list )
       ENDIF
 
       ! delete diagnostic state list elements
-      CALL delete_var_list( p_nh_state(jg)%diag_list )
+      CALL delete_var_list( p_nh_state_lists(jg)%diag_list )
 
       ! delete metrics state list elements
-      CALL delete_var_list( p_nh_state(jg)%metrics_list )
+      CALL delete_var_list( p_nh_state_lists(jg)%metrics_list )
 
 
       ! delete prognostic state list elements
       DO jt = 1, ntl_prog
-        CALL delete_var_list( p_nh_state(jg)%prog_list(jt) )
+        CALL delete_var_list( p_nh_state_lists(jg)%prog_list(jt) )
       ENDDO
 
       ! delete tracer list list elements
       DO jt = 1, ntl_tra
-        CALL delete_var_list( p_nh_state(jg)%tracer_list(jt) )
+        CALL delete_var_list( p_nh_state_lists(jg)%tracer_list(jt) )
       ENDDO
 
 
       ! destruct state lists and arrays
-      DEALLOCATE(p_nh_state(jg)%prog_list, STAT=ist )
+      DEALLOCATE(p_nh_state_lists(jg)%prog_list, STAT=ist )
       IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
         & 'deallocation of prognostic state list array failed')
 
-      DEALLOCATE(p_nh_state(jg)%tracer_list, STAT=ist )
+      DEALLOCATE(p_nh_state_lists(jg)%tracer_list, STAT=ist )
       IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
         & 'deallocation of tracer list array failed')
 

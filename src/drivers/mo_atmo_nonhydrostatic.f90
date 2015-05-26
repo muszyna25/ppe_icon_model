@@ -49,7 +49,8 @@ USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
-USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
+USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
+  &                                construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
 USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
@@ -185,6 +186,11 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
     ENDIF
 
+    ALLOCATE (p_nh_state_lists(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_nh_state_lists failed')
+    ENDIF
+
     ! Note(GZ): Land state now needs to be allocated even if physics is turned
     ! off because ground temperature is included in feedback since r8133
     ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
@@ -202,7 +208,7 @@ CONTAINS
       l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl")
       l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")
     END DO
-    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
+    CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
@@ -235,7 +241,7 @@ CONTAINS
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
        &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state(jg)%tracer_list(:)  ) 
+       &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
 
     !---------------------------------------------------------------------
@@ -498,10 +504,14 @@ CONTAINS
    
     ! Delete state variables
 
-    CALL destruct_nh_state( p_nh_state )
+    CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
     DEALLOCATE (p_nh_state, STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
+    ENDIF
+    DEALLOCATE (p_nh_state_lists, STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for p_nh_state_lists failed')
     ENDIF
 
     IF (iforcing == inwp) THEN

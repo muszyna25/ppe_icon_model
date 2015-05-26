@@ -30,7 +30,7 @@ MODULE mo_nh_stepping
 !
 
   USE mo_kind,                     ONLY: wp, vp
-  USE mo_nonhydro_state,           ONLY: p_nh_state
+  USE mo_nonhydro_state,           ONLY: p_nh_state, p_nh_state_lists
   USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, divdamp_order,                     &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
@@ -48,7 +48,8 @@ MODULE mo_nh_stepping
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                                    timer_total, timer_model_init, timer_nudging,    &
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
-    &                                    timer_integrate_nh, timer_nh_diagnostics
+    &                                    timer_integrate_nh, timer_nh_diagnostics,        &
+    &                                    timer_iconam_echam
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
@@ -166,6 +167,7 @@ MODULE mo_nh_stepping
 
 #endif
 #endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1367,7 +1369,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+              &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
 
           ELSE ! is_les_phy
 
@@ -1398,11 +1400,12 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-                &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
 
             CASE (iecham) ! iforcing
 
               ! echam physics
+              IF (ltimer) CALL timer_start(timer_iconam_echam)
               CALL interface_iconam_echam( dt_loc                         ,& !in
                 &                          datetime_current               ,& !in
                 &                          p_patch(jg)                    ,& !in
@@ -1411,6 +1414,7 @@ MODULE mo_nh_stepping
                 &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
                 &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
                 &                          p_nh_state(jg)%diag            )  !inout
+              IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
             END SELECT ! iforcing
 
@@ -1951,7 +1955,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in
+        &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
   
     ELSE ! is_les_phy
   
@@ -1982,7 +1986,7 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-          &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
+          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in 
 
       CASE (iecham) ! iforcing
 
@@ -1999,6 +2003,7 @@ MODULE mo_nh_stepping
         CASE (2) ! idcphycpl
 
           ! echam physics, slow physics coupling
+          IF (ltimer) CALL timer_start(timer_iconam_echam)
           CALL interface_iconam_echam( dt_loc                         ,& !in
             &                          datetime_current               ,& !in
             &                          p_patch(jg)                    ,& !in
@@ -2007,6 +2012,7 @@ MODULE mo_nh_stepping
             &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%diag            )  !inout
+          IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
         CASE DEFAULT ! idcphycpl
 
