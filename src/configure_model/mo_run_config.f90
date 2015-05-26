@@ -42,9 +42,11 @@ MODULE mo_run_config
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0,idust_act       !Running index for mineral dust in ICON-ART
   PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
   PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
-  PUBLIC :: iTRSF6l,iTRSF6r,iTRSF6d                                      !Running index for chemical tracer in ICON-ART - SF6
+  PUBLIC :: iTRCH3COCH3                                                  !Running index for chemical tracer in ICON-ART - CH3COCH3         !MiW
+  PUBLIC :: iTRC2H6                                                      !Running index for chemical tracer in ICON-ART - C2H6             !MiW
+  PUBLIC :: iTRSF6                                                       !Running index for chemical tracer in ICON-ART - SF6
   PUBLIC :: iTRN2O                                                       !Running index for chemical tracer in ICON-ART - N2O
-  PUBLIC :: iTR1                                                         !Running index for chemical tracer in ICON-ART - artificial tracer
+  PUBLIC :: iTR1,iTR2,iTR3,iTR4,iTR5                                     !Running index for chemical tracer in ICON-ART - artificial tracer
                                                                          ! RR JS  !Running index for chemical tracer in ICON-ART - VSLS
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
@@ -159,26 +161,30 @@ MODULE mo_run_config
     INTEGER :: iseasa0      !< Sea Salt Aerosol Mode A Number Density
     INTEGER :: iseasb0      !< Sea Salt Aerosol Mode B Number Density
     INTEGER :: iseasc0      !< Sea Salt Aerosol Mode C Number Density
-    INTEGER :: idusta       !< Mineral Dust Aerosol Mode A Mass Density
-    INTEGER :: idustb       !< Mineral Dust Aerosol Mode B Mass Density
-    INTEGER :: idustc       !< Mineral Dust Aerosol Mode C Mass Density
-    INTEGER :: idusta0      !< Mineral Dust Aerosol Mode A Number Density
-    INTEGER :: idustb0      !< Mineral Dust Aerosol Mode B Number Density
-    INTEGER :: idustc0      !< Mineral Dust Aerosol Mode C Number Density
-    INTEGER :: idust_act    !< Activated Mineral Dust Number Density
+    INTEGER :: idusta       !< Sea Salt Aerosol Mode A Mass Density
+    INTEGER :: idustb       !< Sea Salt Aerosol Mode B Mass Density
+    INTEGER :: idustc       !< Sea Salt Aerosol Mode C Mass Density
+    INTEGER :: idusta0      !< Sea Salt Aerosol Mode A Number Density
+    INTEGER :: idustb0      !< Sea Salt Aerosol Mode B Number Density
+    INTEGER :: idustc0      !< Sea Salt Aerosol Mode C Number Density
+    INTEGER :: idust_act
     INTEGER :: iTRCHBR3     !< chemical tracer in ICON-ART
     INTEGER :: iTRCH2BR2    !< chemical tracer in ICON-ART
     INTEGER :: iTRBRy       !< chemical tracer in ICON-ART
     INTEGER :: iTRCH4       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO2       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO        !< chemical tracer in ICON-ART
+    INTEGER :: iTRCH3COCH3  !< chemical tracer in ICON-ART ! MiW
+    INTEGER :: iTRC2H6      !< chemical tracer in ICON-ART ! MiW
     INTEGER :: iTRH2O       !< chemical tracer in ICON-ART
     INTEGER :: iTRO3        !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6l      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6r      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6d      !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6      !< chemical tracer in ICON-ART
     INTEGER :: iTRN2O       !< chemical tracer in ICON-ART
     INTEGER :: iTR1         !< chemical tracer in ICON-ART
+    INTEGER :: iTR2         !< chemical tracer in ICON-ART
+    INTEGER :: iTR3         !< chemical tracer in ICON-ART
+    INTEGER :: iTR4         !< chemical tracer in ICON-ART
+    INTEGER :: iTR5         !< chemical tracer in ICON-ART
                             !< RR JS
 
     INTEGER :: nlev               !< number of full levels for each domain

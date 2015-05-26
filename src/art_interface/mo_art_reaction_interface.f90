@@ -43,6 +43,8 @@ MODULE mo_art_reaction_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
   USE mo_art_config,                    ONLY: art_config
+    USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
+  
 #endif
 
   IMPLICIT NONE
@@ -55,7 +57,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list,p_prog,p_metrics,p_diag,p_tracer_now)
+SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list,p_prog,p_metrics,prm_diag,p_diag,p_tracer_now)
 
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
@@ -74,6 +76,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     TYPE(t_datetime), INTENT(IN) :: datetime
   REAL(wp), INTENT(IN)              ::  &
     &  p_dtime                             !< time step
+    TYPE(t_nwp_phy_diag), INTENT(IN)      :: prm_diag !< NH metrics state
+
   TYPE(t_nh_diag), INTENT(IN)       ::  &
     &  p_diag                              !< list of diagnostic fields
   TYPE(t_var_list), INTENT(IN)      ::  &
@@ -128,9 +132,11 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     
       IF (art_config(jg)%iart_chem_mechanism == 0) THEN
         CALL art_loss_chemtracer(p_patch,           &
+               & datetime,                           &
                & p_dtime,                           &
                & p_prog_list,                       &
                & p_diag,                            &
+               & p_metrics,                            &
                & p_tracer_now)
       ELSEIF (art_config(jg)%iart_chem_mechanism == 1) THEN
         CALL art_photolysis(ext_data,               &
@@ -142,9 +148,10 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                & p_diag,                            &
                & p_rho,                             &
                & p_metrics,                         &
+               & prm_diag,                         &               
                & p_tracer_now)
 
-        CALL art_loss_gasphase(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
+        !CALL art_loss_gasphase(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
       ENDIF 
     ENDIF
 

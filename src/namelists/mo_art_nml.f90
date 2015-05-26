@@ -52,6 +52,10 @@ MODULE mo_art_nml
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
+  CHARACTER(LEN=120) :: cart_linoz_file !< Absolute path + filename of input file for linearized ozone chemistry
+  CHARACTER(LEN=120) :: cart_vortex_init_date !< String to define a date at which the vortextracer is initialized !CS 10.03.15
+  CHARACTER(LEN=120) :: cart_ch4_paramet 	!< String to define the kind of methane parameterization !CS 10.03.15
+  LOGICAL :: lart_polarchem          !< Main switch to enable polar chemistry
     
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
@@ -69,6 +73,7 @@ MODULE mo_art_nml
   INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
   INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
   INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
+  LOGICAL :: lart_feedback_chem      !< Feedback of chemtracer with radiation (currently only ozone) CS/IMK-ASF 5.3.15
     
   ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
@@ -80,7 +85,9 @@ MODULE mo_art_nml
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out
+   &                lart_diag_out,						       &
+   &		    lart_feedback_chem, cart_linoz_file, cart_vortex_init_date,        &	!< CS 5.3.15
+   &                lart_polarchem, cart_ch4_paramet						!< CS 5.5.15
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -123,6 +130,10 @@ CONTAINS
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem           = .FALSE.
     iart_chem_mechanism = 0
+    cart_linoz_file     = ''	 !< CS 10.03.15
+    cart_vortex_init_date = '' 	 !< CS 10.03.15
+    cart_ch4_paramet    = 'Brasseur' !< CS 5.5.15
+    lart_polarchem      = .TRUE.     !< CS 5.5.15
       
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -140,6 +151,7 @@ CONTAINS
     iart_aci_warm       = 0
     iart_aci_cold       = 0
     iart_ari            = 0
+    lart_feedback_chem = .FALSE. !CS/IMK-ASF 5.3.15
       
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
@@ -188,6 +200,16 @@ CONTAINS
       CALL finish('mo_art_nml:read_art_namelist',  &
         &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
     ENDIF
+
+    ! >>> CS 5.3.15
+    IF( .NOT. lart_chem .AND. lart_feedback_chem) THEN
+        CALL finish('SUBROUTINE read_art_namelist', 'lart_chem=.FALSE. and lart_feedback_chem=.TRUE. There can be no feedback if tracers are not calculated')
+    END IF
+
+    IF( lart_chem .AND. cart_linoz_file == '') THEN
+        CALL message('SUBROUTINE read_art_namelist', 'lart_chem=.TRUE. and cart_linoz_file is empty => There can be no linearized ozone chemistry without Linoz chem. tables')
+    END IF
+    ! <<< CS 5.3.15
     
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -204,6 +226,10 @@ CONTAINS
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem           = lart_chem
       art_config(jg)%iart_chem_mechanism = iart_chem_mechanism
+      art_config(jg)%cart_linoz_file     = TRIM(cart_linoz_file) !CS/IMK-ASF 5.3.15
+      art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date) !CS/IMK-ASF 10.3.15
+      art_config(jg)%lart_polarchem      = lart_polarchem !CS/IMK-ASF 5.3.15
+      art_config(jg)%cart_ch4_paramet    = TRIM(cart_ch4_paramet) !CS/IMK-ASF 10.3.15
       
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
       art_config(jg)%lart_aerosol        = lart_aerosol
@@ -221,6 +247,7 @@ CONTAINS
       art_config(jg)%iart_aci_warm       = iart_aci_warm
       art_config(jg)%iart_aci_cold       = iart_aci_cold
       art_config(jg)%iart_ari            = iart_ari
+      art_config(jg)%lart_feedback_chem  = lart_feedback_chem !CS/IMK-ASF 5.3.15
       
       ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv
