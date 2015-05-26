@@ -56,7 +56,7 @@ MODULE mo_ocean_forcing
   USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
-  USE mo_ocean_initial_conditions, ONLY: SST_LinearMeridional, increaseTracerLevelsLinearly
+!   USE mo_ocean_initial_conditions, ONLY: SST_LinearMeridional, increaseTracerLevelsLinearly
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref
