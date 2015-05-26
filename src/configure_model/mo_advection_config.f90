@@ -31,7 +31,7 @@ MODULE mo_advection_config
     &                              ino_flx, izero_grad, iparent_flx, inwp, &
     &                              TRACER_ONLY
   USE mo_exception,          ONLY: message, message_text
-  USE mo_expression,         ONLY: expression, real_kind
+  USE mo_expression,         ONLY: expression
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: fget_var_list_element_r3d
 

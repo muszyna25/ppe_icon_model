@@ -25,16 +25,16 @@
 !
 MODULE mo_expression
   USE, INTRINSIC :: iso_c_binding
+  USE mo_kind, ONLY: wp
   IMPLICIT NONE
   PRIVATE
 
-  INTEGER, PARAMETER :: real_kind        = SELECTED_REAL_KIND(12,307)
+  INTEGER, PARAMETER :: real_kind        = wp
 
   INTEGER, PARAMETER :: MAX_BUF_LEN      = 1024 ! max length of expression operator list
   INTEGER, PARAMETER :: RESULT_STACKSIZE = 1024 ! max size of result stack
   INTEGER, PARAMETER :: MAX_NAME_LEN     =   32 ! max length of variable name
 
-  PUBLIC :: real_kind
   PUBLIC :: expression
 
   ! ----------------------------------------------------------------------
