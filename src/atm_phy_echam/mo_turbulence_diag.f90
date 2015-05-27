@@ -68,7 +68,7 @@ CONTAINS
                                & lstart,                                  &! in
 #endif
                                & pstep_len, pcoriol,                      &! in
-                               & pum1, pvm1, ptm1, ptvm1, pgeom1,         &! in
+                               & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                                & pqm1, pxm1,                              &! in
                                & papm1, paphm1, paclc,                    &! in
                                & pustarm, pthvvar,                        &! in
@@ -100,6 +100,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: papm1(kbdim,klev),  paphm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pthvvar(kbdim,klev)
     REAL(wp),INTENT(IN) :: pgeom1(kbdim,klev)
+    REAL(wp),INTENT(IN) :: pgeohm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pustarm(kbdim)
 
 #ifdef __ICON__

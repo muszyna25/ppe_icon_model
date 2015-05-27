@@ -738,6 +738,7 @@ CONTAINS
                      & field% presm_old(:,:,jb),        &! in, apm1
                      & zdelp(:,:),                      &! in, layer thickness [Pa]
                      & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
+                     & field% geoi(:,:,jb),             &! in, pgeohm1 = half-level geopotential
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
                      & field% aclc(:,:,jb),             &! in, cloud fraction
                      & zxt_emis,                        &! in, zxtems

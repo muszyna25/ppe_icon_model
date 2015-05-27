@@ -43,6 +43,7 @@ CONTAINS
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
                        & paphm1,     papm1,     pdelpm1,    pgeom1,     &! in
+                       & pgeohm1,                                       &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
 #ifdef __ICON__
@@ -93,6 +94,7 @@ CONTAINS
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
       & pdelpm1 (kbdim,klev)     ,&!< layer thickness [Pa]
       & pgeom1  (kbdim,klev)     ,&!< geopotential above ground
+      & pgeohm1 (kbdim,klevp1)   ,&!< half-level geopotential
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
       & paclc   (kbdim,klev)     ,&!< cloud fraction
       & pxt_emis(kbdim,ktrac)      !< tracer tendency due to surface emission
@@ -198,7 +200,7 @@ CONTAINS
 
     CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
                            & pstep_len, pcoriol,                      &! in
-                           & pum1, pvm1, ptm1, ptvm1, pgeom1,         &! in
+                           & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
 #ifdef __ICON__
