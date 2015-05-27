@@ -254,6 +254,7 @@ CONTAINS
     INTEGER  :: i_count, ic           ! counter
     INTEGER  :: jg, jb, jk, jc, nlen
     LOGICAL  :: lerr                  ! error flag
+    INTEGER  :: ist
 
     CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_nwp_sfc_interp:smi_to_wsoil'
 !-------------
@@ -261,7 +262,7 @@ CONTAINS
     jg = p_patch%id
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,nlen,lerr,ic,i_count,zwsoil)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,lerr,ic,i_count,zwsoil,ist)
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
         nlen = nproma
@@ -299,37 +300,17 @@ CONTAINS
             CYCLE
           ENDIF
 
-
-          SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
-            CASE (1,2)  !ice,rock
+          ist = ext_data(jg)%atm%soiltyp(jc,jb)
+          SELECT CASE(ist)
+            CASE (1,2)  ! ice,rock
             ! set wsoil to 0 for ice and rock
             zwsoil(jc) = 0._wp
 
-            CASE(3)  !sand
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(3), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(3) - cpwp(3)) + cpwp(3)),cadp(3)))
+            CASE (3,4,5,6,7,8)  ! soil types with non-zero water content
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(ist), &
+            & MAX((wsoil(jc,jk,jb)*(cfcap(ist) - cpwp(ist)) + cpwp(ist)),cadp(ist)))
 
-            CASE(4)  !sandyloam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(4), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(4) - cpwp(4)) + cpwp(4)),cadp(4)))
-
-            CASE(5)  !loam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(5), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(5) - cpwp(5)) + cpwp(5)),cadp(5)))
-
-            CASE(6)  !clayloam
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(6), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(6) - cpwp(6)) + cpwp(6)),cadp(6)))
-
-            CASE(7)  !clay
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(7), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(7) - cpwp(7)) + cpwp(7)),cadp(7)))
-
-            CASE(8)  !peat
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(8), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(8) - cpwp(8)) + cpwp(8)),cadp(8)))
-
-            CASE(9,10)!sea water, sea ice
+            CASE (9,10) ! sea water, sea ice
             ! ERROR landpoint has soiltype sea water or sea ice
             lerr = .TRUE.
 

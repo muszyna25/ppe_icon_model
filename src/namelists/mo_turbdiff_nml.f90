@@ -37,7 +37,7 @@ MODULE mo_turbdiff_nml
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
-    & a_hshr, imode_frcsmot, lfreeslip
+    & a_hshr, imode_frcsmot, lfreeslip, alpha0, alpha0_max
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
@@ -64,7 +64,7 @@ MODULE mo_turbdiff_nml
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
-    & a_hshr, imode_frcsmot, &
+    & a_hshr, imode_frcsmot, alpha0, alpha0_max, &
 !   additional namelist parameters:
     & lconst_z0, const_z0, lfreeslip, ldiff_qi
 
@@ -178,6 +178,8 @@ CONTAINS
       turbdiff_config(jg)%tur_len      = tur_len
       turbdiff_config(jg)%pat_len      = pat_len
       turbdiff_config(jg)%a_stab       = a_stab
+      turbdiff_config(jg)%alpha0       = alpha0
+      turbdiff_config(jg)%alpha0_max   = alpha0_max
       turbdiff_config(jg)%tkhmin       = tkhmin
       turbdiff_config(jg)%tkmmin       = tkmmin
       turbdiff_config(jg)%c_diff       = c_diff

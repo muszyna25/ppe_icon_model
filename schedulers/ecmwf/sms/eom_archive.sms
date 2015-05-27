@@ -37,7 +37,7 @@ gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
 emkdir -p $ecfsdir
-METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
+METDIR=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/tools/metview
 
 
 #-----------------------------------------------------------------------------

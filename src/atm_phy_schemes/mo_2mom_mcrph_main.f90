@@ -48,13 +48,16 @@
 !   coefficients
 ! - Clipping in rain_freeze is necessary, but removed everywhere else
 !===============================================================================!
+! Version of May 2015 by AS:
+! - New IN and CCN routines implemented based on Hande et al. (HDCP2-M3)
+! - gscp=4 has now prognostic QNC and IN depletion (n_inact)
+! - gscp=5 has additional budget equations for IN and CCN
+!===============================================================================!
 ! To Do:
 ! - Check conservation of water mass
 ! - Further optimization might be possible in rain_freeze.
 !===============================================================================!
 ! Further plans (physics) including HDCP2 project:
-! - Implement prognostic cloud droplet number
-! - Implement budget equations for CCN and IN
 ! - Implement new collision rate parameterizations of SBB2014
 ! - Implement improved height dependency of terminal fall velocity similar as 
 !   used in COSMO two-moment code (but may be quite expensive).
@@ -699,14 +702,16 @@ CONTAINS
   ! splitting. Temperature is only updated in the driver.
   !*******************************************************************************
   
-  SUBROUTINE clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,n_inpot,n_inact,n_cn)
+  SUBROUTINE clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,n_inact,n_cn,n_inpot)
 
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
 
+    REAL(wp), DIMENSION(:,:) :: n_inact
+
     ! optional arguments for version with prognostic CCN and IN 
     ! (for nuc_c_typ > 0 and  use_prog_in=true)
-    REAL(wp), DIMENSION(:,:) ,OPTIONAL :: n_inpot, n_inact, n_cn
+    REAL(wp), DIMENSION(:,:) ,OPTIONAL :: n_inpot, n_cn
 
     REAL(wp), DIMENSION(size(cloud%n,1),size(cloud%n,2)) :: dep_rate_ice, dep_rate_snow
 
@@ -726,6 +731,7 @@ CONTAINS
     ELSEIF (nuc_c_typ < 6) THEN
        IF (isdebug) CALL message(TRIM(routine),'  ... according to SB2006')
        !CALL cloud_nucleation()
+       CALL ccn_activation_hdcp2(atmo,cloud)
     ELSE
        IF (isdebug) CALL message(TRIM(routine),'  ... look-up tables according to Segal& Khain')
        CALL ccn_activation_sk(atmo,cloud,n_cn)
@@ -745,7 +751,16 @@ CONTAINS
     IF (ice_typ > 0) THEN
 
        ! homogeneous and heterogeneous ice nucleation
-       CALL ice_nucleation_homhet(atmo,cloud,ice,snow,n_inpot,n_inact)
+       IF (present(n_inpot)) THEN
+          CALL ice_nucleation_homhet(atmo,cloud,ice,snow,n_inact,n_inpot)
+       ELSE
+          CALL ice_nucleation_homhet(atmo,cloud,ice,snow,n_inact)
+       END IF
+
+       ! homogeneous freezing of cloud droplets
+       CALL cloud_freeze(atmo,cloud,ice)
+       IF (ischeck) CALL check('cloud_freeze',cloud,rain,ice,snow,graupel,hail)
+
        DO k=kstart,kend
         DO i=istart,iend
           ice%n(i,k) = MIN(ice%n(i,k), ice%q(i,k)/ice%x_min)
@@ -753,16 +768,14 @@ CONTAINS
         END DO
        END DO
        IF (ischeck) CALL check('ice nucleation',cloud,rain,ice,snow,graupel,hail)
-
-       ! homogeneous freezing of cloud droplets
-       CALL cloud_freeze(atmo,cloud,ice)
-       IF (ischeck) CALL check('cloud_freeze',cloud,rain,ice,snow,graupel,hail)
        
        ! depositional growth of all ice particles
        ! ( store deposition rate of ice and snow for conversion calculation in 
        !   ice_riming and snow_riming )
        CALL vapor_dep_relaxation(dt,atmo,ice,snow,graupel,hail,dep_rate_ice,dep_rate_snow)
        IF (ischeck) CALL check('vapor_dep_relaxation',cloud,rain,ice,snow,graupel,hail)
+
+       if (.true.) then
 
        ! ice-ice collisions
        CALL ice_selfcollection(atmo,ice,snow)
@@ -822,6 +835,7 @@ CONTAINS
        IF (ice_typ > 1) CALL hail_evaporation(atmo,hail)
        IF (ischeck) CALL check('evaporation of ice',cloud,rain,ice,snow,graupel,hail)
 
+       end if
     ENDIF
 
     ! warm rain processes 
@@ -857,30 +871,30 @@ CONTAINS
         END DO
        END DO
     END IF
-       DO k=kstart,kend
-        DO i=istart,iend
+    DO k=kstart,kend
+       DO i=istart,iend
           rain%n(i,k) = MIN(rain%n(i,k), rain%q(i,k)/rain%x_min)
           rain%n(i,k) = MAX(rain%n(i,k), rain%q(i,k)/rain%x_max)
-        END DO
        END DO
+    END DO
     IF (ice_typ > 0) THEN
        DO k=kstart,kend
-        DO i=istart,iend
-          ice%n(i,k) = MIN(ice%n(i,k), ice%q(i,k)/ice%x_min)
-          ice%n(i,k) = MAX(ice%n(i,k), ice%q(i,k)/ice%x_max)
-          snow%n(i,k) = MIN(snow%n(i,k), snow%q(i,k)/snow%x_min)
-          snow%n(i,k) = MAX(snow%n(i,k), snow%q(i,k)/snow%x_max)
-          graupel%n(i,k) = MIN(graupel%n(i,k), graupel%q(i,k)/graupel%x_min)
-          graupel%n(i,k) = MAX(graupel%n(i,k), graupel%q(i,k)/graupel%x_max)
-        END DO
+          DO i=istart,iend
+             ice%n(i,k) = MIN(ice%n(i,k), ice%q(i,k)/ice%x_min)
+             ice%n(i,k) = MAX(ice%n(i,k), ice%q(i,k)/ice%x_max)
+             snow%n(i,k) = MIN(snow%n(i,k), snow%q(i,k)/snow%x_min)
+             snow%n(i,k) = MAX(snow%n(i,k), snow%q(i,k)/snow%x_max)
+             graupel%n(i,k) = MIN(graupel%n(i,k), graupel%q(i,k)/graupel%x_min)
+             graupel%n(i,k) = MAX(graupel%n(i,k), graupel%q(i,k)/graupel%x_max)
+          END DO
        END DO
     END IF
     IF (ice_typ > 1) THEN
        DO k=kstart,kend
-        DO i=istart,iend
-          hail%n(i,k) = MIN(hail%n(i,k), hail%q(i,k)/hail%x_min)
-          hail%n(i,k) = MAX(hail%n(i,k), hail%q(i,k)/hail%x_max)
-        END DO
+          DO i=istart,iend
+             hail%n(i,k) = MIN(hail%n(i,k), hail%q(i,k)/hail%x_min)
+             hail%n(i,k) = MAX(hail%n(i,k), hail%q(i,k)/hail%x_max)
+          END DO
        END DO
     END IF
 
@@ -1682,7 +1696,7 @@ CONTAINS
             n_g = graupel%n(i,k)          
             x_g = graupel%meanmass(q_g,n_g)
             d_g = graupel%diameter(x_g)
-            v_g = graupel%velocity(x_g)
+            v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
 
             !..note that a_f includes more than just ventilation, do never ever set f_v=1
             f_v = a_f + b_f * sqrt(v_g*d_g)   
@@ -1751,7 +1765,7 @@ CONTAINS
             n_h = hail%n(i,k)            
             x_h = hail%meanmass(q_h,n_h)
             d_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h)
+            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
 
             f_v  = a_f + b_f * sqrt(v_h*D_h)
 
@@ -1905,7 +1919,7 @@ CONTAINS
     END DO
   END SUBROUTINE cloud_freeze
 
-  SUBROUTINE ice_nucleation_homhet(atmo, cloud, ice, snow, n_inpot, n_inact)
+  SUBROUTINE ice_nucleation_homhet(atmo, cloud, ice, snow, n_inact, n_inpot)
   !*******************************************************************************
   !                                                                              *
   ! Homogeneous and heterogeneous ice nucleation                                 *
@@ -1926,7 +1940,9 @@ CONTAINS
   !*******************************************************************************
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, ice, snow
-    REAL(wp), DIMENSION(:,:),OPTIONAL :: n_inpot, n_inact
+
+    REAL(wp), DIMENSION(:,:) :: n_inact
+    REAL(wp), DIMENSION(:,:), OPTIONAL :: n_inpot
 
     INTEGER              :: i,k,nuc_typ
     REAL(wp)             :: nuc_n, nuc_q
@@ -1934,24 +1950,37 @@ CONTAINS
     REAL(wp)             :: q_i,n_i,x_i,r_i
     REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
 
-  ! switch for version of Phillips et al. scheme 
-  ! (but make sure you have the correct INCLUDE file)
-  INTEGER             :: iphillips = 2010
+    ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
+    LOGICAL              :: use_hdcp2_het = .true.
 
-  ! some more constants needed for homogeneous nucleation scheme
-  REAL(wp), PARAMETER ::            &
-    r_0     = 0.25e-6_wp          , &    ! aerosol particle radius prior to freezing
-    alpha_d = 0.5_wp              , &    ! deposition coefficient (KL02; Spichtinger & Gierens 2009)
-    M_w     = 18.01528e-3_wp      , &    ! molecular mass of water [kg/mol]
-    M_a     = 28.96e-3_wp         , &    ! molecular mass of air [kg/mol]
-    ma_w    = M_w / N_avo         , &    ! mass of water molecule [kg]
-    svol    = ma_w / rho_ice             ! specific volume of a water molecule in ice
+    ! switch for version of Phillips et al. scheme 
+    ! (but make sure you have the correct INCLUDE file)
+    INTEGER             :: iphillips = 2010
+
+    ! some more constants needed for homogeneous nucleation scheme
+    REAL(wp), PARAMETER ::            &
+         r_0     = 0.25e-6_wp          , &    ! aerosol particle radius prior to freezing
+         alpha_d = 0.5_wp              , &    ! deposition coefficient (KL02; Spichtinger & Gierens 2009)
+         M_w     = 18.01528e-3_wp      , &    ! molecular mass of water [kg/mol]
+         M_a     = 28.96e-3_wp         , &    ! molecular mass of air [kg/mol]
+         ma_w    = M_w / N_avo         , &    ! mass of water molecule [kg]
+         svol    = ma_w / rho_ice             ! specific volume of a water molecule in ice
   
-  REAL(wp)  :: e_si
-  REAL(wp)  :: ni_hom,ri_hom,mi_hom
-  REAL(wp)  :: v_th,n_sat,flux,phi,cool,tau,delta,w_pre,scr
-  REAL(wp)  :: ctau, tau_g,acoeff(3),bcoeff(2), ri_dot
-  REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
+    REAL(wp)  :: e_si
+    REAL(wp)  :: ni_hom,ri_hom,mi_hom
+    REAL(wp)  :: v_th,n_sat,flux,phi,cool,tau,delta,w_pre,scr
+    REAL(wp)  :: ctau, tau_g,acoeff(3),bcoeff(2), ri_dot
+    REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
+    
+  ! variables for Hande et al. nucleation parameterization for HDCP2 simulations
+  REAL(wp)  :: alf_dep, bet_dep, nin_dep
+  REAL(wp)  :: alf_imm, bet_imm, nin_imm
+
+  ! parameters for deposition formula, Eq (2) of Hande et al.
+  REAL(wp), PARAMETER :: a_dep =  2.7626_wp
+  REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
+  REAL(wp), PARAMETER :: c_dep = -1.3107_wp
+  REAL(wp), PARAMETER :: d_dep =  2.6789_wp
 
   ! variables for interpolation in look-up table (real is good enough here)
   REAL      :: xt,xs 
@@ -1981,95 +2010,131 @@ CONTAINS
     CALL message(routine,TRIM(txt))
   END IF
 
-  ! Heterogeneous nucleation using Phillips et al. scheme
 
-  ! possible pre-defined choices
-  IF (iphillips == 2010) THEN
-     IF (nuc_typ.EQ.4) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
-        na_dust  = 160.e4_wp    ! initial number density of dust [1/m3]
-        na_soot  =  30.e6_wp    ! initial number density of soot [1/m3]
-        na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]
-     END IF
-     IF (nuc_typ.EQ.5) THEN     ! with some organics and rather high soot, 
-        na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
-        na_soot  =  25.e6_wp 
-        na_orga  =  30.e6_wp 
-     END IF
-     IF (nuc_typ.EQ.6) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
-        na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
-        na_soot  =   0.e6_wp 
-        na_orga  =   0.e6_wp 
+  ! Heterogeneous nucleation using Hande et al. scheme
+  IF (use_hdcp2_het) THEN
+     ! for now only Spring of Table 1
+     nin_imm = 1.0259e5
+     alf_imm = 0.2073
+     bet_imm = 1.2873
+     nin_dep = 1.7836e5
+     alf_dep = 0.0075
+     bet_dep = 2.0341
+  ELSE   
+     ! Heterogeneous nucleation using Phillips et al. scheme
+     IF (iphillips == 2010) THEN
+        ! possible pre-defined choices
+        IF (nuc_typ.EQ.4) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
+           na_dust  = 160.e4_wp    ! initial number density of dust [1/m3]
+           na_soot  =  30.e6_wp    ! initial number density of soot [1/m3]
+           na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]
+        END IF
+        IF (nuc_typ.EQ.5) THEN     ! with some organics and rather high soot, 
+           na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
+           na_soot  =  25.e6_wp 
+           na_orga  =  30.e6_wp 
+        END IF
+        IF (nuc_typ.EQ.6) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
+           na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
+           na_soot  =   0.e6_wp 
+           na_orga  =   0.e6_wp 
+        END IF
      END IF
   END IF
-      
+
   DO k = kstart,kend
      DO i = istart,iend
+
         p_a  = atmo%p(i,k)
         T_a  = atmo%T(i,k)
         e_si = e_es(T_a)
         ssi  = atmo%qv(i,k) * R_d * T_a / e_si
         
-        IF (T_a < T_nuc .AND. ssi > 1.0_wp  &
+        IF (T_a < T_nuc .AND. T_a > 180.0 .AND. ssi > 1.0_wp  &
              & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
 
            IF (cloud%q(i,k) > 0.0_wp) THEN
 
               ! immersion freezing at water saturation
-              xt = (274.- real(atmo%T(i,k)))  / ttstep
-              xt = MIN(xt,real(ttmax-1))      
-              tt = INT(xt)
-              infrac(1) = (tt+1-xt) * afrac_dust(tt,99) + (xt-tt) * afrac_dust(tt+1,99) 
-              infrac(2) = (tt+1-xt) * afrac_soot(tt,99) + (xt-tt) * afrac_soot(tt+1,99) 
-              infrac(3) = (tt+1-xt) * afrac_orga(tt,99) + (xt-tt) * afrac_orga(tt+1,99)                
+
+              IF (use_hdcp2_het) THEN  
+                 ! Hande et al. scheme, Eq. (1)
+                 T_a = max(T_a,237.15_wp)
+                 if (T_a.lt.261.15_wp) then
+                    ndiag = nin_imm * exp( - alf_imm * exp(bet_imm*log(T_a - 237.15_wp)) )
+                 else
+                    ndiag = 0.0_wp
+                 end if
+              ELSE
+                 ! Phillips scheme
+                 xt = (274.- real(atmo%T(i,k)))  / ttstep
+                 xt = MIN(xt,real(ttmax-1))      
+                 tt = INT(xt)
+                 infrac(1) = (tt+1-xt) * afrac_dust(tt,99) + (xt-tt) * afrac_dust(tt+1,99) 
+                 infrac(2) = (tt+1-xt) * afrac_soot(tt,99) + (xt-tt) * afrac_soot(tt+1,99) 
+                 infrac(3) = (tt+1-xt) * afrac_orga(tt,99) + (xt-tt) * afrac_orga(tt+1,99)                
+              END IF
            ELSE
               ! deposition nucleation below water saturation
 
-              ! calculate indices used for 2D look-up tables
-              xt = (274.- real(atmo%T(i,k)))  / ttstep
-              xs = 100. * real(ssi-1.0_wp) / ssstep    
-              xt = MIN(xt,real(ttmax-1))
-              xs = MIN(xs,real(ssmax-1))          
-              tt = INT(xt)
-              ss = MAX(1,INT(xs))
-                
-              ! bi-linear interpolation in look-up tables
-              infrac(1) = (tt+1-xt)*(ss+1-xs) * afrac_dust(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_dust(tt+1,ss  ) &
-                   &    + (tt+1-xt)*(xs-ss)   * afrac_dust(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_dust(tt+1,ss+1)
-              infrac(2) = (tt+1-xt)*(ss+1-xs) * afrac_soot(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_soot(tt+1,ss  ) &
-                   &    + (tt+1-xt)*(xs-ss)   * afrac_soot(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_soot(tt+1,ss+1)
-              infrac(3) = (tt+1-xt)*(ss+1-xs) * afrac_orga(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_orga(tt+1,ss  ) &
-                   &    + (tt+1-xt)*(xs-ss)   * afrac_orga(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_orga(tt+1,ss+1)
+              IF (use_hdcp2_het) THEN  
+                 ! Hande et al. scheme, Eq. (3) with (2) and (1) 
+                 T_a = max(T_a,220.0_wp)
+                 if (T_a.lt.253.0_wp .AND. ssi > 1.0_wp) then
+                    ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(T_a - 220.0_wp)) )
+                    ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
+                 else
+                    ndiag = 0.0_wp
+                 end if
+              ELSE
+                 ! calculate indices used for 2D look-up tables
+                 xt = (274.- real(atmo%T(i,k)))  / ttstep
+                 xs = 100. * real(ssi-1.0_wp) / ssstep    
+                 xt = MIN(xt,real(ttmax-1))
+                 xs = MIN(xs,real(ssmax-1))          
+                 tt = INT(xt)
+                 ss = MAX(1,INT(xs))                 
+                 ! bi-linear interpolation in look-up tables
+                 infrac(1) = (tt+1-xt)*(ss+1-xs) * afrac_dust(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_dust(tt+1,ss  ) &
+                      &    + (tt+1-xt)*(xs-ss)   * afrac_dust(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_dust(tt+1,ss+1)
+                 infrac(2) = (tt+1-xt)*(ss+1-xs) * afrac_soot(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_soot(tt+1,ss  ) &
+                      &    + (tt+1-xt)*(xs-ss)   * afrac_soot(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_soot(tt+1,ss+1)
+                 infrac(3) = (tt+1-xt)*(ss+1-xs) * afrac_orga(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_orga(tt+1,ss  ) &
+                      &    + (tt+1-xt)*(xs-ss)   * afrac_orga(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_orga(tt+1,ss+1)
 
+              END IF
            ENDIF
 
-           IF (use_prog_in) THEN
-              ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
-              ndiag_all  = n_inpot(i,k) * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)           
-              ndiag_dust = n_inpot(i,k) * infrac(1) 
-              ndiag = ndiag_all
-           ELSE
-              ! all aerosol species are diagnostic
-              ndiag = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)           
+           IF (.not.use_hdcp2_het) THEN 
+              ! only for Phillips scheme we have to sum up the three modes
+              IF (use_prog_in) THEN
+                 ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
+                 ndiag_all  = n_inpot(i,k) * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)           
+                 ndiag_dust = n_inpot(i,k) * infrac(1) 
+                 ndiag = ndiag_all
+              ELSE
+                 ! all aerosol species are diagnostic
+                 ndiag = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)           
+              END IF
+              ndiag = MIN(ndiag,ni_het_max)
            END IF
-           ndiag = MIN(ndiag,ni_het_max)
-           
-           IF (use_prog_in) THEN              
-              nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
-           ELSE
-              nuc_n = MAX(ndiag - (ice%n(i,k) + snow%n(i,k)),0.0_wp)
-           END IF
+
+           nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
            nuc_q = MIN(nuc_n * ice%x_min, atmo%qv(i,k))
            nuc_n = nuc_q / ice%x_min
  
-           ice%n(i,k) = ice%n(i,k) + nuc_n
-           ice%q(i,k) = ice%q(i,k) + nuc_q
-           atmo%qv(i,k)    = atmo%qv(i,k)    - nuc_q
+           ice%n(i,k)   = ice%n(i,k)   + nuc_n
+           ice%q(i,k)   = ice%q(i,k)   + nuc_q
+           atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+           n_inact(i,k) = n_inact(i,k) + nuc_n    
 
-           IF (use_prog_in .and. ndiag_all.gt.1e-12) THEN              
-              ! add number of activated IN to n_inact
-              n_inact(i,k) = n_inact(i,k) + nuc_n
-              ! estimate the number of activated dust particles and substract from n_inpot
-              n_inpot(i,k) = max(n_inpot(i,k) - nuc_n * ndiag_dust/ndiag_all,0.0_wp)
+           IF (use_prog_in .and. ndiag.gt.1e-12) THEN
+              IF (use_hdcp2_het) THEN 
+                 n_inpot(i,k) = max(n_inpot(i,k) - nuc_n,0.0_wp)
+              ELSE
+                 ! estimate the number of activated dust particles and substract from n_inpot
+                 n_inpot(i,k) = max(n_inpot(i,k) - nuc_n * ndiag_dust/ndiag_all,0.0_wp)
+              END IF
            END IF
         ENDIF
 
@@ -2259,14 +2324,14 @@ CONTAINS
                 dep_sum = dep_ice(i,k) + dep_graupel(i,k) + dep_snow(i,k) + dep_hail(i,k)
 
                 ! this limiter should not be necessary
-!                IF (qvsidiff > 0.0_wp .and. dep_sum > qvsidiff) then
-!                   weight = qvsidiff / dep_sum
-!                   dep_sum          = weight * dep_sum
-!                   dep_ice(i,k)     = weight * dep_ice(i,k) 
-!                   dep_snow(i,k)    = weight * dep_snow(i,k) 
-!                   dep_graupel(i,k) = weight * dep_graupel(i,k) 
-!                   dep_hail(i,k)    = weight * dep_hail(i,k) 
-!                END IF
+                !IF (qvsidiff > 0.0_wp .and. dep_sum > qvsidiff) then
+                !   weight = qvsidiff / dep_sum
+                !   dep_sum          = weight * dep_sum
+                !   dep_ice(i,k)     = weight * dep_ice(i,k) 
+                !   dep_snow(i,k)    = weight * dep_snow(i,k) 
+                !   dep_graupel(i,k) = weight * dep_graupel(i,k) 
+                !   dep_hail(i,k)    = weight * dep_hail(i,k) 
+                !END IF
 
                 ice%q(i,k)     = ice%q(i,k)     + dep_ice(i,k)
                 snow%q(i,k)    = snow%q(i,k)    + dep_snow(i,k)
@@ -2380,7 +2445,7 @@ CONTAINS
                q_g = graupel%q(i,k)  
                x_g = graupel%meanmass(q_g,n_g)
                d_g = graupel%diameter(x_g)
-               v_g = graupel%velocity(x_g)
+               v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
                
                f_v  = a_f + b_f * sqrt(v_g*d_g)
                f_v  = MAX(f_v,a_f/graupel%a_ven)  
@@ -3273,7 +3338,7 @@ CONTAINS
 
             x_i = ice%meanmass(q_i,n_i)
             d_i = ice%diameter(x_i)
-            v_i = ice%velocity(x_i) * graupel%rho_v(i,k)
+            v_i = ice%velocity(x_i) * ice%rho_v(i,k)
                               
             coll_n = pi4 * n_g * n_i * e_coll * dt & 
                  & *     (delta_n_gg * D_g**2 + delta_n_gi * D_g*D_i + delta_n_ii * D_i**2) &
@@ -4885,7 +4950,7 @@ CONTAINS
          delta_n_ii = coll_delta_11(ice,rain,0)
          delta_n_ir = coll_delta_12(ice,rain,0)
          delta_n_rr = coll_delta_22(ice,rain,0)
-         delta_q_ii = coll_delta_11(ice,rain,0) 
+         delta_q_ii = coll_delta_11(ice,rain,1) ! here mass weighted 
          delta_q_ir = coll_delta_12(ice,rain,1)
          delta_q_ri = coll_delta_12(rain,ice,1)
          delta_q_rr = coll_delta_22(ice,rain,1)
@@ -4893,7 +4958,7 @@ CONTAINS
          theta_n_ii = coll_theta_11(ice,rain,0)
          theta_n_ir = coll_theta_12(ice,rain,0)
          theta_n_rr = coll_theta_22(ice,rain,0)
-         theta_q_ii = coll_theta_11(ice,rain,0)
+         theta_q_ii = coll_theta_11(ice,rain,1) ! here mass weighted 
          theta_q_ir = coll_theta_12(ice,rain,1)
          theta_q_ri = coll_theta_12(rain,ice,1)
          theta_q_rr = coll_theta_22(ice,rain,1)
@@ -5241,7 +5306,7 @@ CONTAINS
         delta_n_ss = coll_delta_11(snow,rain,0)
         delta_n_sr = coll_delta_12(snow,rain,0)
         delta_n_rr = coll_delta_22(snow,rain,0)
-        delta_q_ss = coll_delta_11(snow,rain,0) 
+        delta_q_ss = coll_delta_11(snow,rain,1) ! mass weighted
         delta_q_sr = coll_delta_12(snow,rain,1)
         delta_q_rs = coll_delta_12(rain,snow,1)
         delta_q_rr = coll_delta_22(snow,rain,1)
@@ -5249,7 +5314,7 @@ CONTAINS
         theta_n_ss = coll_theta_11(snow,rain,0)
         theta_n_sr = coll_theta_12(snow,rain,0)
         theta_n_rr = coll_theta_22(snow,rain,0)
-        theta_q_ss = coll_theta_11(snow,rain,0)
+        theta_q_ss = coll_theta_11(snow,rain,1) ! mass weighted
         theta_q_sr = coll_theta_12(snow,rain,1)
         theta_q_rs = coll_theta_12(rain,snow,1)
         theta_q_rr = coll_theta_22(snow,rain,1)
@@ -5418,7 +5483,7 @@ CONTAINS
               e_coll = MIN(ecoll_sc, MAX(const1*(D_c - D_crit_c), ecoll_min))
               
               rime_n = pi4 * e_coll * n_s * n_c * dt & 
-                   & *     (delta_n_ss * D_s**2 + delta_n_sc * D_s*D_c + delta_n_cc * D_c**2) &
+                   & *     (delta_n_ss * D_s**2 + delta_n_sc * D_s*D_c + delta_n_cc * D_c**2) & !
                    & * sqrt(theta_n_ss * v_s**2 - theta_n_sc * v_s*v_c + theta_n_cc * v_c**2  &
                    &       +snow_s_vel**2)
               
@@ -5843,6 +5908,75 @@ CONTAINS
     END FUNCTION  ip_ndrop_wcb
 
   END SUBROUTINE ccn_activation_sk
+
+ SUBROUTINE ccn_activation_hdcp2(atmo,cloud)
+   !*******************************************************************************
+   !       Calculation of ccn activation                                          *
+   !       using the approach of Hande et al 2015                                 *
+   !*******************************************************************************
+    IMPLICIT NONE
+
+    TYPE(atmosphere)         :: atmo
+    TYPE(particle)           :: cloud
+
+    ! Locale Variablen 
+    INTEGER            :: i,k,nuc_typ
+    REAL(wp)           :: n_c,q_c
+    REAL(wp)           :: nuc_n,nuc_q
+    REAL(wp)           :: wcb,pres
+
+    REAL(wp)           :: acoeff,bcoeff,ccoeff,dcoeff
+    REAL(wp)           :: a_ccn(4),b_ccn(4),c_ccn(4),d_ccn(4)
+
+    DATA a_ccn(1),b_ccn(1),c_ccn(1),d_ccn(1) /183230691.161_wp,0.0001984051994_wp,16.2420263911_wp,287736034.13_wp/
+    DATA a_ccn(2),b_ccn(2),c_ccn(2),d_ccn(2) /0.10147358938_wp,4.473190485e-05_wp,3.22011836758_wp,0.6258809883_wp/
+    DATA a_ccn(3),b_ccn(3),c_ccn(3),d_ccn(3) /-0.2922395814_wp,0.0001843225275_wp,13.8499423719_wp,0.8907491812_wp/
+    DATA a_ccn(4),b_ccn(4),c_ccn(4),d_ccn(4) /229189886.226_wp,0.0001986158191_wp,16.2461600644_wp,360848977.55_wp/
+
+    nuc_typ = nuc_c_typ
+
+    IF(isdebug) THEN
+       WRITE(txt,*) "cloud_activation_hdcp2: nuc_typ = ",nuc_typ ; CALL message(routine,TRIM(txt))
+    ENDIF
+
+    DO k = kstart,kend
+       DO i = istart,iend
+
+          nuc_q = 0.0d0
+          nuc_n = 0.d0
+          n_c   = cloud%n(i,k)
+          q_c   = cloud%q(i,k)
+          pres  = atmo%p(i,k)
+          wcb   = atmo%w(i,k)
+
+          if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
+
+             ! hard upper limit for number conc that
+             ! eliminates also unrealistic high value
+             ! that would come from the dynamical core
+             
+             acoeff = a_ccn(1) * atan(b_ccn(1) * pres - c_ccn(1)) + d_ccn(1)
+             bcoeff = a_ccn(2) * atan(b_ccn(2) * pres - c_ccn(2)) + d_ccn(2)
+             ccoeff = a_ccn(3) * atan(b_ccn(3) * pres - c_ccn(3)) + d_ccn(3)
+             dcoeff = a_ccn(4) * atan(b_ccn(4) * pres - c_ccn(4)) + d_ccn(4)
+
+             nuc_n = acoeff * atan(bcoeff * log(wcb) + ccoeff) + dcoeff
+
+             nuc_n = MAX(nuc_n,0.0d0)
+
+             nuc_q = MIN(nuc_n * cloud%x_min, atmo%qv(i,k))
+             nuc_n = nuc_q / cloud%x_min
+
+             cloud%n(i,k) = cloud%n(i,k) + nuc_n
+             cloud%q(i,k) = cloud%q(i,k) + nuc_q
+             atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+
+          END IF
+
+       END DO
+    END DO
+
+  END SUBROUTINE ccn_activation_hdcp2
 
   !*******************************************************************************
   ! Sedimentation subroutines for ICON
