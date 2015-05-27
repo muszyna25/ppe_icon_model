@@ -27,6 +27,7 @@ MODULE mo_surface
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
   USE mo_echam_sfc_indices, ONLY: nsfc_type
+  USE mo_echam_phy_memory,  ONLY: cdimissval
 #ifndef __NO_ICON_OCEAN__
   USE mo_sea_ice,           ONLY: ice_fast
   USE mo_ml_ocean,            ONLY: ml_ocean
@@ -668,8 +669,33 @@ CONTAINS
       albnirdif(1:kproma) = albnirdif(1:kproma) + pfrc(1:kproma,jsfc) * albnirdif_tile(1:kproma,jsfc)
       albedo   (1:kproma) = albedo   (1:kproma) + pfrc(1:kproma,jsfc) * albedo_tile   (1:kproma,jsfc)
     END DO
-    
-  END SUBROUTINE update_surface
+
+    ! Mask out tiled variables
+    DO jsfc=1,ksfc_type
+      WHERE (pfrc(1:kproma,jsfc) == 0._wp)
+        ptsfc_tile     (1:kproma,jsfc) = cdimissval
+        pqsat_tile     (1:kproma,jsfc) = cdimissval
+        pswflx_tile    (1:kproma,jsfc) = cdimissval
+        plwflx_tile    (1:kproma,jsfc) = cdimissval
+        pevap_tile     (1:kproma,jsfc) = cdimissval
+        pshflx_tile    (1:kproma,jsfc) = cdimissval
+        plhflx_tile    (1:kproma,jsfc) = cdimissval
+        albedo_tile    (1:kproma,jsfc) = cdimissval
+        albvisdir_tile (1:kproma,jsfc) = cdimissval
+        albvisdif_tile (1:kproma,jsfc) = cdimissval
+        albnirdir_tile (1:kproma,jsfc) = cdimissval
+        albnirdif_tile (1:kproma,jsfc) = cdimissval
+        pu_stress_tile (1:kproma,jsfc) = cdimissval
+        pv_stress_tile (1:kproma,jsfc) = cdimissval
+        dshflx_dT_tile (1:kproma,jsfc) = cdimissval
+        z0m_tile       (1:kproma,jsfc) = cdimissval
+      END WHERE
+    END DO
+    WHERE (pfrc(1:kproma,idx_lnd) == 0._wp)
+      z0h_lnd(1:kproma) = cdimissval
+    END WHERE
+
+    END SUBROUTINE update_surface
   !-------------
 
 END MODULE mo_surface
