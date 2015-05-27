@@ -25,22 +25,16 @@ MODULE mo_util_cdi
   USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
-  USE mo_util_string,        ONLY: tolower, one_of
+  USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
-  USE mo_gribout_config,     ONLY: t_gribout_config
-  USE mo_var_metadata_types, ONLY: t_var_metadata
-  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
     &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
     &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
     &                              zaxisInqNlevRef, vlistInqVarGrid, gridInqSize,           &
     &                              zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32,            &
-    &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
-    &                              TSTEP_INSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
-    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,                 &
-    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR,                  &
-    &                              vlistInqVarSubtype, subtypeInqSize, subtypeDefActiveIndex
+    &                              streamInqTimestep, vlistInqVarSubtype,                   &
+    &                              subtypeInqSize, subtypeDefActiveIndex
 
   IMPLICIT NONE
   PRIVATE
@@ -380,7 +374,7 @@ CONTAINS
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
-    INTEGER                         :: nvars, varID, vlistID, tileidx
+    INTEGER                         :: nvars, varID, vlistID
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
 
     mapped_name = TRIM(name)
