@@ -143,10 +143,6 @@ CONTAINS
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
 
-    ! Local
-    CHARACTER(len=MAX_CHAR_LENGTH)     :: ydate, ytime
-    INTEGER :: cent, year, month, day    ! date
-    INTEGER :: hour, minute, second      ! time
   !----------------------------------------------------------------
 
     ! SECTION 2: Initialize local use section
