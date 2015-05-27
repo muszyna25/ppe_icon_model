@@ -39,7 +39,7 @@ MODULE mo_ocean_coupling
   ! For the coupling
 #ifndef __NO_ICON_ATMO__
 # ifdef YAC_coupling
-  USE mo_mpi,                 ONLY: p_n_work
+  USE mo_mpi,                 ONLY: p_n_work, work_mpi_barrier
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c
@@ -382,6 +382,8 @@ CONTAINS
 
     IF (.NOT. is_coupled_run()) RETURN
 
+    IF (ltimer) CALL timer_start(timer_coupling_init)
+
     !------------------------------------------------------------
     CALL icon_cpl_init(debug_level=config_debug_coupler_level)
     ! Inform the coupler about what we are
@@ -635,6 +637,8 @@ CONTAINS
 
     ! zonal wind stress
     field_shape(3) = 2
+    !
+    !rr CALL work_mpi_barrier ()
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling

@@ -42,7 +42,7 @@ MODULE mo_interface_echam_ocean
 
 #ifdef YAC_coupling
 
-  USE mo_mpi                 ,ONLY: p_n_work, p_pe_work
+  USE mo_mpi                 ,ONLY: p_n_work, p_pe_work, work_mpi_barrier
   USE mo_math_constants      ,ONLY: pi
   USE mo_loopindices         ,ONLY: get_indices_c
   USE mo_parallel_config     ,ONLY: nproma
@@ -365,6 +365,8 @@ CONTAINS
     INTEGER :: field_shape(3)
 
     IF ( .NOT. is_coupled_run() ) RETURN
+
+    IF (ltimer) CALL timer_start (timer_coupling_init)
 
     !------------------------------------------------------------
     CALL icon_cpl_init(debug_level=config_debug_coupler_level)
@@ -713,6 +715,8 @@ CONTAINS
     ! -------------------------------------------------------------------------
     !
     buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
+    !
+    !rr CALL work_mpi_barrier ()
     !
     ! SST
     !
