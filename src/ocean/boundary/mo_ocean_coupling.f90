@@ -81,6 +81,7 @@ MODULE mo_ocean_coupling
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
+  INTEGER               :: nbr_inner_points
 
 CONTAINS
 
@@ -274,9 +275,12 @@ CONTAINS
 
     ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
 
+    nbr_inner_points = 0
+
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
          ibuffer(idx) = -1
+         nbr_inner_points = nbr_inner_points + 1
        ELSE
          ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
        ENDIF
@@ -606,6 +610,8 @@ CONTAINS
       ENDDO
     ENDDO
     !
+    buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
+    !
     field_shape(3) = 5
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
@@ -630,11 +636,10 @@ CONTAINS
     ! Receive fields from atmosphere
     ! ------------------------------
     !
-
     buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
-
+    !
     ! Apply wind stress - records 0 and 1 of field_id
-
+    !
     ! zonal wind stress
     field_shape(3) = 2
     !
@@ -643,6 +648,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(1), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
+    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
@@ -681,6 +687,8 @@ CONTAINS
       ! atmos_fluxes%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       ! atmos_fluxes%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 100.0_wp
       !
+      buffer(nbr_inner_points+1:nbr_points,1:2) = 0.0_wp
+      !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
         DO n = 1, nproma
@@ -717,6 +725,8 @@ CONTAINS
       ! atmos_fluxes%FrshFlux_Precipitation(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)/rho_ref
       ! atmos_fluxes%FrshFlux_SnowFall     (:,:) = atmos_fluxes%FrshFlux_SnowFall     (:,:)/rho_ref
       ! atmos_fluxes%FrshFlux_Evaporation  (:,:) = atmos_fluxes%FrshFlux_Evaporation  (:,:)/rho_ref
+      !
+      buffer(nbr_inner_points+1:nbr_points,1:3) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -755,6 +765,8 @@ CONTAINS
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
       ! atmos_fluxes%data_surfRelax_Temp(:,:) = atmos_fluxes%data_surfRelax_Temp(:,:) - tmelt
       !
+      buffer(nbr_inner_points+1:nbr_points,1) = 0.0_wp
+      !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
         DO n = 1, nproma
@@ -789,6 +801,8 @@ CONTAINS
       ! atmos_fluxes%HeatFlux_LongWave (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
       ! atmos_fluxes%HeatFlux_Sensible (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
       ! atmos_fluxes%HeatFlux_Latent   (:,:) = RESHAPE(buffer(:,4),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
+      !
+      buffer(nbr_inner_points+1:nbr_points,1:4) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -834,6 +848,8 @@ CONTAINS
       ! ice%qbot(:,1,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )
       ! ice%t1  (:,1,:) = RESHAPE(buffer(:,3),(/ nproma, patch_horz%nblks_c /) )
       ! ice%t2  (:,1,:) = RESHAPE(buffer(:,4),(/ nproma, patch_horz%nblks_c /) )
+      !
+      buffer(nbr_inner_points+1:nbr_points,1:4) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma

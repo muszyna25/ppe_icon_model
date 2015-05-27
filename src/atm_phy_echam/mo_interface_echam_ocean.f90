@@ -93,6 +93,7 @@ MODULE mo_interface_echam_ocean
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
+  INTEGER               :: nbr_inner_points
 
 CONTAINS
 
@@ -262,9 +263,12 @@ CONTAINS
 
     ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
 
+    nbr_inner_points = 0
+
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
          ibuffer(idx) = -1
+         nbr_inner_points = nbr_inner_points + 1
        ELSE
          ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
        ENDIF
@@ -312,10 +316,10 @@ CONTAINS
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, ext_data(1)%atm%lsm_ctr_c(idx, BLOCK)
+               ! Ocean point
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, ext_data(1)%atm%lsm_ctr_c(idx, BLOCK)
+               ! Land point
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
@@ -554,7 +558,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+    CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3) = 2
@@ -579,7 +583,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+    CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
@@ -613,7 +617,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
+    CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer(1:nbr_hor_points,1:3), info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3)  = 3
@@ -636,7 +640,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+    CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3) = 1
@@ -665,7 +669,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+    CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3)  = 4
@@ -694,7 +698,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+    CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3)  = 4
@@ -722,7 +726,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+    CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     field_shape(3) = 1
@@ -733,6 +737,8 @@ CONTAINS
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+      !
+      buffer(nbr_inner_points+1:nbr_points,1) = 0.0_wp
       !
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
@@ -748,7 +754,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+    CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
@@ -758,6 +764,8 @@ CONTAINS
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+      !
+      buffer(nbr_inner_points+1:nbr_points,1) = 0.0_wp
       !
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
@@ -773,7 +781,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+    CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
@@ -783,6 +791,8 @@ CONTAINS
     IF ( info > 0 ) THEN
       !
       ! prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+      !
+      buffer(nbr_inner_points+1:nbr_points,1) = 0.0_wp
       !
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
@@ -798,7 +808,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(10), nbr_hor_points, 5, 1, 1, buffer, info, ierror )
+    CALL yac_fget ( field_id(10), nbr_hor_points, 5, 1, 1, buffer(1:nbr_hor_points,1:5), info, ierror )
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     field_shape(3) = 5
@@ -813,6 +823,8 @@ CONTAINS
       ! prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
       ! prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
       ! prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, p_patch%nblks_c /) )
+      !
+      buffer(nbr_inner_points+1:nbr_points,1:5) = 0.0_wp
       !
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
@@ -831,6 +843,7 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
       prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
+
     END IF
 
   END SUBROUTINE interface_echam_ocean
