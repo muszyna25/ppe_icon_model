@@ -84,7 +84,7 @@ USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
-USE mo_action,              ONLY: ACTION_RESET, action_init  !reset_act
+USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
@@ -455,9 +455,8 @@ CONTAINS
     !
 
     ! Initialize reset-Action, i.e. assign variables to action object
-!DR    CALL reset_act%initialize(ACTION_RESET)
-!DR Workaround for gfortran 4.5 (and potentially others)
-    CALL action_init(ACTION_RESET)
+    CALL reset_act%initialize(ACTION_RESET)
+
 
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working

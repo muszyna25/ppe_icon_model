@@ -139,7 +139,7 @@ MODULE mo_nh_stepping
   USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
     &                                    close_async_restart, set_data_async_restart
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
-  USE mo_action,                   ONLY: reset_action  !reset_act
+  USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
@@ -844,9 +844,8 @@ MODULE mo_nh_stepping
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
     !
-!DR      CALL reset_act%execute(slack=dtime)
-!DR Workaround for gfortran 4.5 (and potentially others)
-    CALL reset_action(dtime)
+    CALL reset_act%execute(slack=dtime)
+
     !
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
     IF (is_avgFG_time(datetime_current)) THEN
