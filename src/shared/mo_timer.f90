@@ -57,7 +57,7 @@ MODULE mo_timer
   PUBLIC :: timer_physics
                         !< IDs of timers
   PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton
+    & timer_preradiaton, timer_synsat
 
   PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
   PUBLIC :: timer_corio, timer_intp
@@ -202,6 +202,7 @@ MODULE mo_timer
   INTEGER :: timer_fast_phys
   INTEGER :: timer_nwp_convection
   INTEGER :: timer_nwp_radiation
+  INTEGER :: timer_synsat
   INTEGER :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
     & timer_preradiaton
   INTEGER :: timer_pre_radiation_nwp
@@ -446,7 +447,7 @@ CONTAINS
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
     timer_sso = new_timer("sso")
     timer_cover_koe = new_timer("cloud_cover")
-
+    timer_synsat    = new_timer("synsat")
 
     timer_model_init    = new_timer("model_init")
     timer_domain_decomp = new_timer("compute_domain_decomp")

@@ -76,7 +76,7 @@ MODULE mo_ocean_diagnostics
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
-  USE mo_grib2
+  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi_constants
   
   IMPLICIT NONE
@@ -284,28 +284,28 @@ CONTAINS
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('veloc_adv_horz_u','m/s','velocity advection zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
         
       CALL add_var(ocean_diagnostics_list, 'veloc_adv_horz_v', veloc_adv_horz_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('veloc_adv_horz_v','m/s','velocity advection meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'laplacian_horz_u', laplacian_horz_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('laplacian_horz_u','m/s','velocity laplacian zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'laplacian_horz_v', laplacian_horz_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('laplacian_horz_v','m/s','velocity laplacian meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
     ENDIF
     

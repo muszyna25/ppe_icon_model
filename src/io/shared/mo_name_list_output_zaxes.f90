@@ -197,7 +197,7 @@ CONTAINS
     ! Specific vertical axis for Lake-model ------------------------------------------------
     ! Lake bottom (we define it as a layer in order to be able to re-set
     ! either the first- or secondFixedSurfaces if necessary)
-    CALL define_single_layer_axis(of, ZA_lake_bottom, ZAXIS_LAKE_BOTTOM, 1._dp, 0._dp, "m")
+    CALL define_single_layer_axis(of, ZA_lake_bottom, ZAXIS_LAKE_BOTTOM, 0._dp, 0._dp, "m")
 
     ! Mixing layer (we define it as a layer in order to be able to re-set
     ! either the first- or secondFixedSurfaces if necessary)

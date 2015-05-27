@@ -151,11 +151,13 @@ CONTAINS
           & psso_gamma=ext_data%atm%sso_gamma   (:,jb)  ,  & !< in:  anisotropy
           & psso_theta=ext_data%atm%sso_theta   (:,jb)  ,  & !< in:  angle
           & psso_sigma=ext_data%atm%sso_sigma   (:,jb)  ,  & !< in:  slope
-          & pdt       = tcall_sso_jg                    ,  & !< in:  time step
-          & mkenvh    = prm_diag%ktop_envel     (:,jb)  ,  & !< out: top of envelope layer
+          & pdt       =tcall_sso_jg                     ,  & !< in:  time step
+          & mkenvh    =prm_diag%ktop_envel      (:,jb)  ,  & !< out: top of envelope layer
           & ldebug    =.FALSE.                          ,  & !< in:  debug control switch
           & pdu_sso   =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
-          & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb)   ) !< out: v-tendency due to SSO
+          & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
+          & pustr_sso =prm_diag%str_u_sso       (:,jb),    & !< out: u surface stress due to SSO
+          & pvstr_sso =prm_diag%str_v_sso       (:,jb)     ) !< out: v surface stress due to SSO
  ! GZ: The computation of the frictional heating rate is now done in interface_nwp for
  ! SSO, GWD and Rayleigh friction together
  !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency

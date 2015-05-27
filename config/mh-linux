@@ -379,7 +379,10 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
-                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      RTTOV_LIBS      = -L/e/uhome/rfaulwet/cosmo/libradiance/10.2 -lradiance10.2 -L/e/uhome/rfaulwet/rttov/official/rttov/rttov10.2 -lrttov10.2 -L/e/uhome/rfaulwet/hrit_tools/build/xc/cray/Release/src -lhrit
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
+                      STD_FLAGS       = -D__USE_RTTOV
+                      FFLAGS          = ${FFLAGS} -I/e/uhome/rfaulwet/rttov/official/rttov/rttov10.2 -I/e/uhome/rfaulwet/cosmo/libradiance/10.2
                       ;;
                     default|gcc)
                       load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
@@ -553,7 +556,7 @@ case "$ac_sitename" in
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                       HIOPT_FLAGS = -O3 -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
-                      STD_FLAGS   = -O2 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
+                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
                       load_modules="gcc/4.8.2" "intel/14.0.2" "${load_modules}"
                       ;;
                     nag)
