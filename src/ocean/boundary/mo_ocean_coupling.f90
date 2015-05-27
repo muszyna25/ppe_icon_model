@@ -11,15 +11,13 @@
 !!
 MODULE mo_ocean_coupling
 
+  USE mo_master_control,      ONLY: get_my_process_name
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_exception,           ONLY: warning
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rho_inv
-  USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
-  USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
-  USE mo_grid_config,         ONLY: n_dom
+  USE mo_mpi,                 ONLY: p_pe_work
   USE mo_datetime,            ONLY: t_datetime
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config,          ONLY: ltimer
@@ -28,22 +26,19 @@ MODULE mo_ocean_coupling
        &                            timer_coupling_put, timer_coupling_get,  &
        &                            timer_coupling_1stget, timer_coupling_init
   USE mo_sync,                ONLY: sync_c, sync_patch_array
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+! USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
 
   !-------------------------------------------------------------
   ! For the coupling
 #ifndef __NO_ICON_ATMO__
 # ifdef YAC_coupling
-  USE mo_mpi,                 ONLY: p_n_work, work_mpi_barrier
+  USE mo_mpi,                 ONLY: p_n_work
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp,                    &
     &                               yac_fdef_datetime,                           &
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
@@ -55,6 +50,7 @@ MODULE mo_ocean_coupling
   USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
 # else
+  USE mo_master_control,      ONLY: get_my_model_no
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
   USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
@@ -75,7 +71,7 @@ MODULE mo_ocean_coupling
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
 
-  CHARACTER(LEN=12)  :: module_name    = 'ocean_coupli'
+! CHARACTER(LEN=12)  :: module_name    = 'ocean_coupli'
 
   INTEGER, PARAMETER    :: no_of_fields = 10
   INTEGER               :: field_id(no_of_fields)
@@ -155,7 +151,6 @@ CONTAINS
     INTEGER :: nbr_vertices_per_cell
 
     INTEGER :: mask_checksum
-    INTEGER :: i_startidx, i_endidx
     INTEGER :: nblks
     INTEGER :: BLOCK, idx, INDEX
 
@@ -496,8 +491,10 @@ CONTAINS
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
-    INTEGER :: field_shape(3)
     TYPE(t_patch), POINTER:: patch_horz
+#ifndef YAC_coupling
+    INTEGER :: field_shape(3)
+#endif
 
     IF (.NOT. is_coupled_run() ) RETURN
 
@@ -523,9 +520,11 @@ CONTAINS
     !   field_id(9) represents "OCEANV" v component of ocean surface current
     !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
     !
+#ifndef YAC_coupling
     field_shape(1) = 1
     field_shape(2) = nbr_hor_points
     field_shape(3) = 1
+#endif
     !
     ! Send fields from ocean to atmosphere
     ! ------------------------------------
@@ -612,13 +611,12 @@ CONTAINS
     !
     buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
     !
-    field_shape(3) = 5
-    !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
     CALL yac_fput ( field_id(10), nbr_hor_points, 5, 1, 1, buffer(1:nbr_hor_points,1:5), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
+    field_shape(3) = 5
     CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
@@ -641,15 +639,13 @@ CONTAINS
     ! Apply wind stress - records 0 and 1 of field_id
     !
     ! zonal wind stress
-    field_shape(3) = 2
-    !
-    !rr CALL work_mpi_barrier ()
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(1), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
+    field_shape(3) = 2
     CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
@@ -705,13 +701,12 @@ CONTAINS
     !  - here freshwater can be bracketed by forcing_enable_freshwater, i.e. it must not be passed through coupler if not used
     ! IF (forcing_enable_freshwater) THEN
     !
-    field_shape(3) = 3
-    !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_points, 3, 1, 1, buffer(1:nbr_hor_points,1:3), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
+    field_shape(3) = 3
     CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
@@ -748,13 +743,12 @@ CONTAINS
     !  - set to 0 to omit relaxation to T_a=data_surfRelax_Temp(:,:)
     ! IF (type_surfRelax_Temp >=1) THEN
     !
-    field_shape(3) = 1
-    !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
+    field_shape(3) = 1
     CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
@@ -784,13 +778,12 @@ CONTAINS
     ! atmos_fluxes%ssflx(:,:)  ocean sensible heat fluxes                              [W/m2]
     ! atmos_fluxes%slflx(:,:)  ocean latent heat fluxes                                [W/m2]
     !
-    field_shape(3) = 4
-    !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(5), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
+    field_shape(3) = 4
     CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
@@ -831,13 +824,12 @@ CONTAINS
     ! ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
     ! ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
     !
-    field_shape(3) = 4
-    !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
+    field_shape(3) = 4
     CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)

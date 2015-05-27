@@ -38,23 +38,19 @@ MODULE mo_interface_echam_ocean
   USE mo_ext_data_state      ,ONLY: ext_data
   USE mo_time_config         ,ONLY: time_config      ! variable
 
-  USE mo_master_control      ,ONLY: get_my_process_name, get_my_model_no
 
 #ifdef YAC_coupling
+  USE mo_master_control      ,ONLY: get_my_process_name
 
-  USE mo_mpi                 ,ONLY: p_n_work, p_pe_work, work_mpi_barrier
+  USE mo_mpi                 ,ONLY: p_n_work, p_pe_work
   USE mo_math_constants      ,ONLY: pi
-  USE mo_loopindices         ,ONLY: get_indices_c
   USE mo_parallel_config     ,ONLY: nproma
-  USE mo_grid_subset         ,ONLY: t_subset_range, get_index_range
-  USE mo_yac_finterface      ,ONLY:
 
   USE mo_coupling_config     ,ONLY: is_coupled_run
   USE mo_model_domain        ,ONLY: t_patch
 
   USE mo_exception           ,ONLY: warning
   USE mo_output_event_types  ,ONLY: t_sim_step_info
-  USE mtime                  ,ONLY: MAX_DATETIME_STR_LEN
   USE mo_mtime_extensions    ,ONLY: get_datetime_string
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
@@ -66,6 +62,7 @@ MODULE mo_interface_echam_ocean
     &                               yac_ffinalize, yac_redirstdout
 
 #else
+  USE mo_master_control      ,ONLY: get_my_process_name, get_my_model_no
 
   USE mo_mpi                 ,ONLY: p_pe_work
   USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
@@ -481,10 +478,10 @@ CONTAINS
     INTEGER               :: n              ! nproma loop count
     INTEGER               :: nn             ! block offset
     INTEGER               :: i_blk          ! block loop count
+#ifndef YAC_coupling
     INTEGER               :: field_shape(3)
+#endif
     INTEGER               :: info, ierror !< return values from cpl_put/get calls
-
-!!$    CHARACTER(*), PARAMETER :: method_name = "interface_echam_ocean"
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -533,10 +530,11 @@ CONTAINS
     !   field_id(9) represents "OCEANV" v component of ocean surface current
     !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
     !
+#ifndef YAC_coupling
     field_shape(1) = 1
     field_shape(2) = nbr_hor_points
     field_shape(3) = 1
-
+#endif
     !
     ! Send fields away
     ! ----------------
