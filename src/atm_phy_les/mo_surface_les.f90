@@ -387,7 +387,7 @@ MODULE mo_surface_les
                            i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx           
            mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
-           var(jc,jb) = SQRT(prm_diag%tcm(jc,jb))*mwind
+           var(jc,jb) = SQRT( MAX(0._wp,prm_diag%tcm(jc,jb)) ) * mwind
         END DO         
       END DO
 
