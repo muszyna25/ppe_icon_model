@@ -128,7 +128,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -138,7 +138,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -148,6 +148,8 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  lag                 =  ${atm_lag}
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -156,7 +158,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -166,7 +168,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -176,7 +178,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -186,7 +188,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -196,7 +198,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -206,7 +208,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -216,7 +218,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
