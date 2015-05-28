@@ -671,7 +671,9 @@ CONTAINS
     END DO
 
     ! Mask out tiled variables
-    DO jsfc=1,ksfc_type
+    ! For now, only the land tile ... coupled atmo/ocean runs crash if the ocean/ice variables are masked.
+    !DO jsfc=1,ksfc_type
+      jsfc = idx_lnd
       WHERE (pfrc(1:kproma,jsfc) == 0._wp)
         ptsfc_tile     (1:kproma,jsfc) = cdimissval
         pqsat_tile     (1:kproma,jsfc) = cdimissval
@@ -690,7 +692,7 @@ CONTAINS
         dshflx_dT_tile (1:kproma,jsfc) = cdimissval
         z0m_tile       (1:kproma,jsfc) = cdimissval
       END WHERE
-    END DO
+    !END DO
     WHERE (pfrc(1:kproma,idx_lnd) == 0._wp)
       z0h_lnd(1:kproma) = cdimissval
     END WHERE
