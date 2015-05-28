@@ -31,6 +31,7 @@ MODULE mo_echam_vdiff_params
   PUBLIC :: cons2, cons25, cons5                        !< parameters
   PUBLIC :: cvdifts, tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
   PUBLIC :: itop, itopp1, ibl, iblm1, iblmin, iblmax    !< parameters
+  PUBLIC :: f_tau0, f_theta0, c_f, c_n, c_e, pr0        !< TTE scheme closure constants
   PUBLIC :: init_vdiff_params              !< subroutine
 
 
@@ -61,6 +62,13 @@ MODULE mo_echam_vdiff_params
   REAL(wp),PARAMETER :: cons2  = 0.5_wp*ckap/grav
   REAL(wp),PARAMETER :: cons25 = cons2/clam
   REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc*grav**2
+
+  REAL(wp),PARAMETER :: f_tau0   =  0.17_wp
+  REAL(wp),PARAMETER :: f_theta0 = -0.145_wp
+  REAL(wp),PARAMETER :: c_f      =  0.185_wp
+  REAL(wp),PARAMETER :: c_n      =  2.0_wp
+  REAL(wp),PARAMETER :: c_e      =  0.07_wp
+  REAL(wp),PARAMETER :: pr0      =  f_tau0**2/(2.0_wp*f_theta0**2)
 
   ! Parameters related to time step weighting in *rhs* of *vdiff* and *scv*
 

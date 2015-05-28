@@ -30,9 +30,11 @@ MODULE mo_turbulence_diag
   USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
     &                             da1, custf, cwstf, cfreec, tpfac1,        &
     &                             eps_shear, eps_corio, tke_min,            &
-    &                             cons2, cons25, cons5
+    &                             cons2, cons25, cons5,                     &
+    &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0 
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
-    &                             vtmpc1, tmelt, alv, als, p0ref
+    &                             vtmpc1, tmelt, alv, als, p0ref,           &
+    &                             earth_angular_velocity
 #ifdef __ICON__
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
 #else
