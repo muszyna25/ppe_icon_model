@@ -90,7 +90,7 @@
       &                               ccw_spherical, t_point, OPERATOR(+), triangulation,   &
       &                               t_sphcap_list
     USE mo_delaunay,            ONLY: point_cloud_diam, triangulate,write_triangulation_vtk,&
-      &                               triangulate_mthreaded
+      &                               triangulate_mthreaded, create_thin_covering
     USE mo_util_string,         ONLY: int2string
     USE mo_octree,              ONLY: t_range_octree, octree_init, octree_count_point,      &
       &                               octree_query_point, octree_finalize
@@ -271,12 +271,15 @@
             !
             ! --------------------------------------------------------------------------
 
-!            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
             IF (support_baryctr_intp) THEN
-              CALL compute_auxiliary_triangulation(p_patch(jg), tri, points)
-              CALL setup_barycentric_intp_lonlat(tri, points, lonlat_grid_list(i)%intp(jg))
-              CALL tri%destructor()
-              CALL points%destructor()
+              IF (jg > 1) THEN
+                CALL compute_auxiliary_triangulation(p_patch(jg), tri, points)
+                CALL setup_barycentric_intp_lonlat(tri, points, lonlat_grid_list(i)%intp(jg))
+                CALL tri%destructor()
+                CALL points%destructor()
+              ELSE
+                CALL setup_barycentric_intp_lonlat_repartition(p_patch(jg), lonlat_grid_list(i)%intp(jg))
+              END IF
             END IF
 
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
