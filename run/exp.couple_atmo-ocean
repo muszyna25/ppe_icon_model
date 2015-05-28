@@ -117,7 +117,9 @@ nproma=${nproma:=32}
 # write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
-#  
+# 
+atm_lag=2
+#
 cat > $atmo_namelist << EOF
 &coupling_mode_nml
   debug_coupler_level = 1
