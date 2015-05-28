@@ -7,6 +7,14 @@
 #endif
 
 !>
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
 !! @brief Module computes large-scale water phase changes
 !!
 !! @remarks
@@ -46,15 +54,8 @@
 !! - Taken from ECHAM6.2, wrapped in module and modified for ICON
 !!   by Monika Esch, MPI-M (2013-11)
 !!
-!! @par Copyright and License
-!!
-!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.
-!! Please see the file LICENSE in the root of the source tree for this code.
-!! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
-!!
 !
+
 MODULE mo_cloud
 
 USE mo_kind,               ONLY : wp
@@ -66,12 +67,14 @@ USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline   
 USE mo_echam_cloud_params, ONLY : cqtmin, cvtfall, crhosno, cn0s, cthomi         &
                                 , csecfrl, cauloc, clmax, clmin, jbmin, jbmax    &
                                 , lonacc, ccraut, ceffmin, ceffmax, crhoi        &
-                                , ccsaut, ccsacl, ccracl, ccwmin
+                                , ccsaut, ccsacl, ccracl, ccwmin, clwprat
 !USE mo_time_control,       ONLY : delta_time, time_step_len
 !USE mo_submodel_interface, ONLY : cloud_subm
 !USE mo_submodel,           ONLY : lanysubmodel
 !USE mo_vphysc,             ONLY : set_vphysc_var
 !USE mo_cosp_offline,       ONLY : locospoffl, cospoffl_lsrain, cospoffl_lssnow
+!USE mo_memory_g3b,         ONLY : aclcov_na, aprl_na, aprs_na, xivi_na, &
+!                                  xlvi_na, qvi_na
 
 #ifdef _PROFILE
 USE mo_profile,            ONLY : trace_start, trace_stop
@@ -95,7 +98,7 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
                          , ptm1,   ptvm1,   pgeo,   pvervel                      &
                          , pacdnc                                                &
                          , pqm1,   pxlm1,   pxim1, pcair                         &
-!                         , pgeo                                                  &
+!                         , pgeo                                         &
 !                         , paphp1   (cloud_subm)                                 &
 ! - INPUT  1D .
                          , knvb                                                  &
@@ -172,6 +175,8 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
   REAL(wp),INTENT(INOUT) :: &
       & pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev) ! OUT
 !
+!   Temporary arrays
+!
   REAL(wp):: zclcpre(kbdim)       ,zclcpre_inv(kbdim)                            &
            , zcnd(kbdim)          ,zdep(kbdim)          ,zdp(kbdim)              &
            , zevp(kbdim)          ,zxievap(kbdim)       ,zxlevap(kbdim)          &
@@ -190,7 +195,7 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
            , zdqsat1(kbdim)          &
            , zxrp1(kbdim)         ,zxsp1(kbdim)         ,zxsp2(kbdim)            &
            , zgenti(kbdim)        ,zgentl(kbdim)           &
-           , zcoeff(kbdim)                                    &
+           , zcoeff(kbdim)                                     &
            , zgeoh(kbdim,klevp1)  ,zauloc(kbdim)        ,zqsi(kbdim)             &
            , ztmp1(kbdim)         ,ztmp2(kbdim)         ,ztmp3(kbdim)            &
            , ztmp4(kbdim)         ,zxised(kbdim)        ,zqvdt(kbdim)            &
@@ -211,15 +216,16 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
 !!$ used in Revised Bergeron-Findeisen process only
 !!$  LOGICAL   locc
 
-  REAL(wp):: zdqsat, zqcdif, zfrho, zifrac, zvarmx, zdtime, zepsec, zxsec        &
+  REAL(wp):: zbqp1, zdqsat, zqcdif, zfrho    &
+           , zifrac, zdtime, zepsec, zxsec     &
            , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar           &
-           , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat          &
+           , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat  &
            , zqsw, zsusatw, zdv, zast, zbst, zzepr, zxip1, zxifall, zal1, zal2   &
-           , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum                    &
-           , zes, zcor, zqsp1tmp, zoversat, zqcon, zdepos                        &
+           , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum   &
+           , zes, zcor, zqsp1tmp, zoversat, zqcon, zdepos      &
            , zcond, zradl, zf1, zraut, zexm1, zexp, zrac1, zrac2, zrieff         &
            , zcolleffi, zc1, zdt2, zsaut, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm &
-           , zzdrr, zzdrs, zpretot, zpredel, zpresum, zxlp1                      &
+           , zzdrr, zzdrs, zpretot, zpredel, zpresum, zxlp1       &
            , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d       &
            , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, zxitop, zxibot
 !!$ used in Revised Bergeron-Findeisen process only
@@ -255,6 +261,7 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
   zmiwc(:,:)    = 0._wp
   zmsnowacl(:,:)= 0._wp
 
+!
   ! save the tendencies accumulated before calling this routine
 
      ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)
@@ -698,6 +705,7 @@ END DO
         prelhum(jl,jk) = zrelhum
 500  END DO
 !
+
         DO 520 jl = 1,kproma
 
            zdtdtstar = zdtdt(jl)+zstar1(jl)
@@ -1262,6 +1270,7 @@ END DO
 !       8.    Updating tendencies of t, q, xl, xi and final cloud cover
 !     ----------------------------------------------------------------------------
 !
+
 !IBM* NOVECTOR
      DO 820 jl = 1,kproma
 

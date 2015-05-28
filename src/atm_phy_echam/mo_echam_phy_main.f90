@@ -55,7 +55,6 @@ MODULE mo_echam_phy_main
   USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -248,11 +247,6 @@ CONTAINS
 
     DO jk = 1,nlev
       DO jc = jcs,jce
-        !
-!!$        ! 3.1 Timescale of mixing for horizontal eddies
-!!$        !
-!!$        zhmixtau(jc,jk) = ctauk*ABS( field%vor(jc,jk,jb) )
-!!$        zhmixtau(jc,jk) = MIN( ctaus,MAX(ctaul,zhmixtau(jc,jk)) )
         !
         ! 3.2 Thickness of model layer in pressure coordinate; mass of air
         !

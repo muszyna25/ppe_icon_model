@@ -59,8 +59,8 @@ MODULE mo_cover
 
 USE mo_kind,                 ONLY : wp
 USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
-USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_eor_uaw_spline
-USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, cinv
+USE mo_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_eor_uaw_spline
+USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, nadd, cinv
 #ifdef _PROFILE
 USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
@@ -109,7 +109,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
   REAL(wp),INTENT(OUT)   ::  &
       & printop(kbdim)
 
-  INTEGER  :: jl, jk, jb
+  INTEGER  :: jl, jk, jb, jbn
   INTEGER  :: locnt, nl, ilev
   REAL(wp) :: zdtdz, zcor, zrhc, zsat, zqr
   INTEGER  :: itv1(kproma*klev), itv2(kproma*klev)
@@ -218,8 +218,9 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
         zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
         zsat=1._wp
         jb=knvb(jl)
+        jbn=jb+nadd                      ! mo_echam_cloud_params: nadd=0 except for T31
         lao=(jb.GE.jbmin .AND. jb.LE.jbmax)
-        lao1=(jk.EQ.jb)
+        lao1=(jk.EQ.jb .OR. jk.EQ.jbn)
         ilev=klev
         IF (lao .AND. lao1) THEN
 !          ilev=klevp1-jb
