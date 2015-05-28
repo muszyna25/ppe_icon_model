@@ -145,6 +145,8 @@ CONTAINS
     REAL(wp) :: zthetav(kbdim,klev)  !< virtual potential temperature
     REAL(wp) :: zthetal(kbdim,klev)  !< liquid (and ice?) potential temperature
     REAL(wp) :: zqsat  (kbdim,klev)  !< specific humidity at saturation
+    REAL(wp) :: km     (kbdim,klev)  !< turbulent viscosity
+    REAL(wp) :: kh     (kbdim,klev)  !< turbulent conductivity
 
     ! - Variables defined at half levels
 
@@ -162,6 +164,7 @@ CONTAINS
     INTEGER  :: jk, jl, it
     REAL(wp) :: za(kbdim),              zhdyn(kbdim)                          &
                ,zpapm1i(kbdim),         zua(kbdim)
+    REAL(wp) :: hdt(kbdim)
     REAL(wp) :: z2geomf, zalf, zalh2, zbet, zbuoy
     REAL(wp) :: zcons18, zcons23
     REAL(wp) :: zcor, zdisl, zdusq, zdvsq
@@ -283,6 +286,15 @@ CONTAINS
     DO jl=1,kproma
       ihpbl (jl) = MIN(ihpblc(jl),ihpbld(jl))
       pghabl(jl) = MIN(50000._wp,pgeom1(jl,ihpbl(jl)))
+
+      ! Interpolate dry thermal top, fxp 04/2014
+      hdt(jl)=pgeom1(jl,ihpblc(jl))/grav-((pgeom1(jl,ihpblc(jl))/grav-&
+      pgeom1(jl,ihpblc(jl)+1)/grav)/(pcptgz(jl,ihpblc(jl))-pcptgz(jl,ihpblc(jl)+1)))&
+      *(pcptgz(jl,ihpblc(jl))-pcptgz(jl,klev)) 
+
+      IF( (pcptgz(jl,klevm1).GT.pcptgz(jl,klev)).AND.(ihpbld(jl).LT.ihpblc(jl))) THEN
+         hdt(jl)=0._wp
+      END IF
     END DO
 
     !--------------------------------------------
