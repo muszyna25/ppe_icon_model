@@ -277,6 +277,7 @@ CONTAINS
 
       ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
 
+      ! TBD: use fractional mask here
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
