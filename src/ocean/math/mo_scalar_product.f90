@@ -197,16 +197,20 @@ CONTAINS
     !--------------------------------------------------------------    
     
     CALL dbg_print('veloc_3d: vn_e',                   vn_e,      str_module,3, &
-          patch_2D%edges%owned )
+      & patch_2D%edges%owned )
     CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,str_module,3, &
-          patch_2D%cells%owned )
-	CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  str_module,1, &
-	      patch_2D%cells%owned )
+      & patch_2D%cells%owned )
+    CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  str_module,1, &
+      & patch_2D%cells%owned )
     CALL dbg_print('veloc_3d: North-South :v',p_diag%v, str_module,1, &
-	      patch_2D%cells%owned )
-				
-				
-          
+      & patch_2D%cells%owned )
+!     CALL dbg_print('veloc_3d: p_vn%x(1)',p_diag%p_vn(:,:,:)%x(1),  str_module,1, &
+!       & patch_2D%cells%owned )
+!     CALL dbg_print('veloc_3d: p_vn%x(2)',p_diag%p_vn(:,:,:)%x(2),  str_module,1, &
+!       & patch_2D%cells%owned )
+!     CALL dbg_print('veloc_3d: p_vn%x(3)',p_diag%p_vn(:,:,:)%x(3),  str_module,1, &
+!       & patch_2D%cells%owned )
+								          
   END SUBROUTINE calc_scalar_product_veloc_3d
   !-------------------------------------------------------------------------
   

@@ -406,7 +406,7 @@ CONTAINS
         ENDIF
       END DO
 
-	CASE(2)
+    CASE(2)
       DO je = start_edge_index, end_edge_index
         bottom_level =  patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
         IF ( bottom_level > 0 ) THEN  ! wet points only	

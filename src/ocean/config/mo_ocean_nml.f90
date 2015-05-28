@@ -611,6 +611,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: smooth_initial_height_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
   REAL(wp) :: smooth_initial_salinity_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
   REAL(wp) :: smooth_initial_temperature_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
+  REAL(wp) :: initial_perturbation_waveNumber = 2.0_wp 
+  REAL(wp) :: initial_perturbation_max_ratio  = 0.05_wp 
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -636,7 +638,9 @@ MODULE mo_ocean_nml
     & smooth_initial_height_weights, &
     & smooth_initial_salinity_weights, &
     & smooth_initial_temperature_weights, &
-    & initial_temperature_scale_depth
+    & initial_temperature_scale_depth, &
+    & initial_perturbation_waveNumber, & 
+    & initial_perturbation_max_ratio
   !----------------------------------------------------------------------------
   LOGICAL :: diagnose_for_horizontalVelocity = .false.
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
