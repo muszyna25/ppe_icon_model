@@ -58,7 +58,6 @@ MODULE mo_ocean_coupling
   USE mo_icon_cpl_def_field,  ONLY: icon_cpl_def_field
   USE mo_icon_cpl_search,     ONLY: icon_cpl_search
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-  !rr USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
   USE mo_icon_cpl_exchg,      ONLY: icon_cpl_put, icon_cpl_get
 # endif
 #endif
@@ -77,7 +76,7 @@ MODULE mo_ocean_coupling
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
-  INTEGER               :: nbr_inner_points
+  INTEGER, SAVE         :: nbr_inner_cells
 
 CONTAINS
 
@@ -270,12 +269,12 @@ CONTAINS
 
     ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
 
-    nbr_inner_points = 0
+    nbr_inner_cells = 0
 
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
          ibuffer(idx) = -1
-         nbr_inner_points = nbr_inner_points + 1
+         nbr_inner_cells = nbr_inner_cells + 1
        ELSE
          ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
        ENDIF
@@ -420,6 +419,13 @@ CONTAINS
 
     field_shape(1:2) = grid_shape(1:2)
 
+    nbr_inner_cells = 0
+
+    DO i = 1, patch_horz%n_patch_cells
+       IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(i) ) &
+    &    nbr_inner_cells = nbr_inner_cells + 1
+    ENDDO
+
     ! see equivalent ocean counterpart in drivers/mo_atmo_model.f90
     ! routine construct_atmo_coupler 
 
@@ -486,8 +492,8 @@ CONTAINS
     ! Local declarations for coupling:
     LOGICAL :: write_coupler_restart
     INTEGER :: info, ierror   !< return values from cpl_put/get calls
-    INTEGER :: nbr_hor_points ! = inner and halo points
-    INTEGER :: nbr_points     ! = nproma * nblks
+    INTEGER :: nbr_hor_cells  ! = inner and halo points
+    INTEGER :: nbr_cells      ! = nproma * nblks
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
@@ -503,8 +509,8 @@ CONTAINS
     patch_horz   => patch_3D%p_patch_2D(1)
     time_config%cur_datetime = datetime
 
-    nbr_hor_points = patch_horz%n_patch_cells
-    nbr_points     = nproma * patch_horz%nblks_c
+    nbr_hor_cells = patch_horz%n_patch_cells
+    nbr_cells     = nproma * patch_horz%nblks_c
     !
     !  see drivers/mo_ocean_model.f90:
     !
@@ -522,7 +528,7 @@ CONTAINS
     !
 #ifndef YAC_coupling
     field_shape(1) = 1
-    field_shape(2) = nbr_hor_points
+    field_shape(2) = nbr_hor_cells
     field_shape(3) = 1
 #endif
     !
@@ -532,7 +538,7 @@ CONTAINS
     write_coupler_restart = .FALSE.
     !
     ! SST
-    ! buffer(:,1) = RESHAPE(ocean_state%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
+    ! buffer(:,1) = RESHAPE(ocean_state%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_cells /) ) + tmelt
     !
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -543,16 +549,16 @@ CONTAINS
     !    
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(7), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL yac_fput ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
-    CALL icon_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL icon_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     ! zonal velocity
-    ! buffer(:,1) = RESHAPE(ocean_state%p_diag%u(:,1,:), (/nbr_points /) )
+    ! buffer(:,1) = RESHAPE(ocean_state%p_diag%u(:,1,:), (/nbr_cells /) )
     !
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -563,16 +569,16 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(8), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL yac_fput ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
-    CALL icon_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL icon_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     ! meridional velocity
-    ! buffer(:,1) = RESHAPE(ocean_state%p_diag%v(:,1,:), (/nbr_points /) )
+    ! buffer(:,1) = RESHAPE(ocean_state%p_diag%v(:,1,:), (/nbr_cells /) )
     !
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -583,20 +589,20 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(9), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL yac_fput ( field_id(9), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
-    CALL icon_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL icon_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     ! Ice thickness, concentration, T1 and T2
-    ! buffer(:,1) = RESHAPE(ice%hi  (:,1,:), (/nbr_points /) )
-    ! buffer(:,2) = RESHAPE(ice%hs  (:,1,:), (/nbr_points /) )
-    ! buffer(:,3) = RESHAPE(ice%conc(:,1,:), (/nbr_points /) )
-    ! buffer(:,4) = RESHAPE(ice%t1  (:,1,:), (/nbr_points /) )
-    ! buffer(:,5) = RESHAPE(ice%t2  (:,1,:), (/nbr_points /) )
+    ! buffer(:,1) = RESHAPE(ice%hi  (:,1,:), (/nbr_cells /) )
+    ! buffer(:,2) = RESHAPE(ice%hs  (:,1,:), (/nbr_cells /) )
+    ! buffer(:,3) = RESHAPE(ice%conc(:,1,:), (/nbr_cells /) )
+    ! buffer(:,4) = RESHAPE(ice%t1  (:,1,:), (/nbr_cells /) )
+    ! buffer(:,5) = RESHAPE(ice%t2  (:,1,:), (/nbr_cells /) )
     !
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -609,15 +615,15 @@ CONTAINS
       ENDDO
     ENDDO
     !
-    buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
+    buffer(nbr_hor_cells+1:nbr_cells,1:5) = 0.0_wp
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(10), nbr_hor_points, 5, 1, 1, buffer(1:nbr_hor_points,1:5), info, ierror )
+    CALL yac_fput ( field_id(10), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3) = 5
-    CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
+    CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
@@ -634,7 +640,7 @@ CONTAINS
     ! Receive fields from atmosphere
     ! ------------------------------
     !
-    buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
+    buffer(nbr_hor_cells+1:nbr_cells,1:5) = 0.0_wp
     !
     ! Apply wind stress - records 0 and 1 of field_id
     !
@@ -642,11 +648,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(1), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
+    CALL yac_fget ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 2
-    CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+    CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
@@ -671,10 +677,10 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(2), nbr_hor_points, 2, 1, 1, buffer(1:nbr_hor_points,1:2), info, ierror )
+    CALL yac_fget ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
-    CALL icon_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+    CALL icon_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -683,7 +689,7 @@ CONTAINS
       ! atmos_fluxes%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       ! atmos_fluxes%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 100.0_wp
       !
-      buffer(nbr_inner_points+1:nbr_points,1:2) = 0.0_wp
+      buffer(nbr_inner_cells+1:nbr_cells,1:2) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -703,11 +709,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(3), nbr_hor_points, 3, 1, 1, buffer(1:nbr_hor_points,1:3), info, ierror )
+    CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 3
-    CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
+    CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_cells,1:3), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -721,7 +727,7 @@ CONTAINS
       ! atmos_fluxes%FrshFlux_SnowFall     (:,:) = atmos_fluxes%FrshFlux_SnowFall     (:,:)/rho_ref
       ! atmos_fluxes%FrshFlux_Evaporation  (:,:) = atmos_fluxes%FrshFlux_Evaporation  (:,:)/rho_ref
       !
-      buffer(nbr_inner_points+1:nbr_points,1:3) = 0.0_wp
+      buffer(nbr_inner_cells+1:nbr_cells,1:3) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -745,11 +751,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL yac_fget ( field_id(4), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 1
-    CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+    CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -759,7 +765,7 @@ CONTAINS
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
       ! atmos_fluxes%data_surfRelax_Temp(:,:) = atmos_fluxes%data_surfRelax_Temp(:,:) - tmelt
       !
-      buffer(nbr_inner_points+1:nbr_points,1) = 0.0_wp
+      buffer(nbr_inner_cells+1:nbr_cells,1) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -780,11 +786,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(5), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
+    CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 4
-    CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+    CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -795,7 +801,7 @@ CONTAINS
       ! atmos_fluxes%HeatFlux_Sensible (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
       ! atmos_fluxes%HeatFlux_Latent   (:,:) = RESHAPE(buffer(:,4),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
       !
-      buffer(nbr_inner_points+1:nbr_points,1:4) = 0.0_wp
+      buffer(nbr_inner_cells+1:nbr_cells,1:4) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
@@ -826,11 +832,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer(1:nbr_hor_points,1:4), info, ierror )
+    CALL yac_fget ( field_id(6), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
     if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 4
-    CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+    CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -841,7 +847,7 @@ CONTAINS
       ! ice%t1  (:,1,:) = RESHAPE(buffer(:,3),(/ nproma, patch_horz%nblks_c /) )
       ! ice%t2  (:,1,:) = RESHAPE(buffer(:,4),(/ nproma, patch_horz%nblks_c /) )
       !
-      buffer(nbr_inner_points+1:nbr_points,1:4) = 0.0_wp
+      buffer(nbr_inner_cells+1:nbr_cells,1:4) = 0.0_wp
       !
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
