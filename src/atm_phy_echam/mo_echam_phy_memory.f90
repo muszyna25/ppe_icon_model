@@ -1521,7 +1521,7 @@ CONTAINS
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                     & t_cf_var('turb_exchng_coeff_momentum_'//csfc, '', '', DATATYPE_FLT32),&
                     & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                    & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       END DO
 
       !---------
@@ -1547,7 +1547,7 @@ CONTAINS
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                     & t_cf_var('turb_exchng_coeff_heat_'//csfc, '', '', DATATYPE_FLT32), &
                     & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-                    & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                    & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       END DO
 
       !---------
@@ -1605,7 +1605,7 @@ CONTAINS
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                     & t_cf_var('z0m_tile_'//csfc, '','', DATATYPE_FLT32),          &
                     & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-                    & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                    & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       END DO
 
       ! &        field% z0h_lnd(nproma, nblks), &
@@ -1720,7 +1720,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('tsfc_tile_'//csfc, '', '', DATATYPE_FLT32),        &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
     END DO
     !-----------------------------------
 
@@ -1740,7 +1740,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('qs_sfc_tile_'//csfc, '', '', DATATYPE_FLT32),      &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
     END DO
 
     !-----------------------------------
@@ -1825,31 +1825,31 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albvisdir_tile_'//csfc, '', '', DATATYPE_FLT32),         &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),        &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albvisdif_tile',                              &
                   & prefix//'albvisdif_tile_'//csfc, field%albvisdif_tile_ptr(jsfc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albvisdif_tile_'//csfc, '', '', DATATYPE_FLT32),         &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),        &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albnirdir_tile',                              &
                   & prefix//'albnirdir_tile_'//csfc, field%albnirdir_tile_ptr(jsfc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albnirdir_tile_'//csfc, '', '', DATATYPE_FLT32),         &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),        &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albnirdif_tile',                              &
                   & prefix//'albnirdif_tile_'//csfc, field%albnirdif_tile_ptr(jsfc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albnirdif_tile_'//csfc, '', '', DATATYPE_FLT32),         &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),        &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albedo_tile',                                 &
                   & prefix//'albedo_tile_'//csfc, field%albedo_tile_ptr(jsfc)%p,       &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albedo_tile_'//csfc, '', '', DATATYPE_FLT32),            &
                   & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),        &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
     END DO
 
     !---------------------------
@@ -1945,42 +1945,42 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                   & t_cf_var('swflxsfc_tile_'//csfc, '', '', DATATYPE_FLT32),       &
                   & grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),             &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'lwflxsfc_tile',                            &
                   & prefix//'lwflxsfc_tile_'//csfc, field%lwflxsfc_tile_ptr(jsfc)%p,&
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                   & t_cf_var('lwflxsfc_tile_'//csfc, '', '', DATATYPE_FLT32),       &
                   & grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),             &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'evap_tile',                             &
                   & prefix//'evap_tile_'//csfc, field%evap_tile_ptr(jsfc)%p,     &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('evap_tile_'//csfc, '', '', DATATYPE_FLT32),        &
                   & grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),          &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'lhflx_tile',                            &
                   & prefix//'lhflx_tile_'//csfc, field%lhflx_tile_ptr(jsfc)%p,   &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('lhflx_tile_'//csfc, '', '', DATATYPE_FLT32),       &
                   & grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),          &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'shflx_tile',                            &
                   & prefix//'shflx_tile_'//csfc, field%shflx_tile_ptr(jsfc)%p,   &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('shflx_tile_'//csfc, '', '', DATATYPE_FLT32),       &
                   & grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),          &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'dshflx_dT_tile',                             &
                   & prefix//'dshflx_dT_tile_'//csfc, field%dshflx_dT_tile_ptr(jsfc)%p,&
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                               &
                   & t_cf_var('dshflx_dT_tile_'//csfc, '', '', DATATYPE_FLT32),        &
                   & grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),               &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
     END DO
 
     !-----------------------------------------
@@ -2032,14 +2032,14 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                   & t_cf_var('u_stress_tile_'//csfc, '', '', DATATYPE_FLT32),       &
                   & grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL),       &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'v_stress_tile',                            &
                   & prefix//'v_stress_tile_'//csfc, field%v_stress_tile_ptr(jsfc)%p,&
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                   & t_cf_var('v_stress_tile_'//csfc, '', '', DATATYPE_FLT32),       &
                   & grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL),       &
-                  & ldims=shape2d, lmiss=.TRUE., missval_r=cdimissval )
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
     END DO
 
   END SUBROUTINE new_echam_phy_field_list
