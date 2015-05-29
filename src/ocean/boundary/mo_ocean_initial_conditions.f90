@@ -569,6 +569,10 @@ CONTAINS
         & increase_gradient=initial_temperature_VerticalGradient)
       CALL perturbeTracer_LonCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
+      CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & waveNumber=4.0_wp * initial_perturbation_waveNumber, &
+        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+
 
     CASE (220)
      
@@ -1682,8 +1686,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       END DO
     END DO
 
-
-
   END SUBROUTINE temperature_front
   !-------------------------------------------------------------------------------
 
@@ -2173,6 +2175,41 @@ stop
     END DO
 
   END SUBROUTINE perturbeTracer_LonCosinus
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  ! pertrube the tracer according to the cos(lon)
+  SUBROUTINE perturbeTracer_LatCosinus(patch_3d, ocean_tracer, waveNumber, max_ratio)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in), OPTIONAL :: waveNumber, max_ratio
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: linear_increase
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    linear_increase = 0.0_wp
+
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          ocean_tracer(jc,jk,jb) = ocean_tracer(jc,jk,jb) * &
+            & (1.0_wp + max_ratio * COS(waveNumber * patch_2d%cells%center(jc,jb)%lat))
+
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE perturbeTracer_LatCosinus
   !-------------------------------------------------------------------------------
 
 
