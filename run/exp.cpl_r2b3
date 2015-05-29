@@ -128,9 +128,9 @@ cat > $atmo_namelist << EOF
   name                = 'TAUX'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -138,9 +138,9 @@ cat > $atmo_namelist << EOF
   name                = 'TAUY'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -148,9 +148,9 @@ cat > $atmo_namelist << EOF
   name                = 'SFWFLX'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -158,9 +158,9 @@ cat > $atmo_namelist << EOF
   name                = 'SFTEMP'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -168,9 +168,9 @@ cat > $atmo_namelist << EOF
   name                = 'THFLX'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -178,9 +178,9 @@ cat > $atmo_namelist << EOF
   name                = 'ICEATM'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -188,9 +188,9 @@ cat > $atmo_namelist << EOF
   name                = 'SST'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
   lag                 =  ${atm_lag}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -198,9 +198,9 @@ cat > $atmo_namelist << EOF
   name                = 'OCEANU'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  ${atm_lag}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -208,9 +208,9 @@ cat > $atmo_namelist << EOF
   name                = 'OCEANV'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
   lag                 =  ${atm_lag}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -218,9 +218,9 @@ cat > $atmo_namelist << EOF
   name                = 'ICEOCE'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
   lag                 =  ${atm_lag}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -369,7 +369,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'TAUX'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -378,7 +379,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'TAUY'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -387,15 +389,18 @@ cat > ${ocean_namelist} << EOF
   name                = 'SFWFLX'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'SFTEMP'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -404,7 +409,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'THFLX'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -413,7 +419,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'ICEATM'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -422,6 +429,7 @@ cat > ${ocean_namelist} << EOF
   name                = 'SST'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
+  lag                 =  1
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
@@ -431,7 +439,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'OCEANU'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -440,7 +449,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'OCEANV'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -449,7 +459,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'ICEOCE'
   dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dtime_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
