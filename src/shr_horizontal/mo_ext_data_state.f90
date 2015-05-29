@@ -3112,6 +3112,7 @@ CONTAINS
             !          In that case, either the land- or sea-fraction is inflated; see above)
             ext_data(jg)%atm%fr_land(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)   &
               &                             + ext_data(jg)%atm%frac_t(jc,jb,jt)
+            ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
 
             ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
