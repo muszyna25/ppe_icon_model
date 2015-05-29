@@ -31,51 +31,18 @@
     !
 !$  USE OMP_LIB
     USE mo_kind,                ONLY: wp
-    USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                              &
-      &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
-      &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,        &
-      &                               min_rlcell, SCALE_MODE_TABLE, SCALE_MODE_AUTO,        &
-      &                               SCALE_MODE_PRESET
+    USE mo_exception,           ONLY: message, finish
+    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rlcell
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_run_config,          ONLY: ltimer
-    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
-    USE mo_timer,               ONLY: timer_start, timer_stop,                              &
-      &                               timer_lonlat_setup
-    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                       &
-      &                               t_cartesian_coordinates,                              &
+    USE mo_math_utilities,      ONLY: gc2cc, t_cartesian_coordinates,                       &
       &                               t_geographical_coordinates, cc_dot_product
     USE mo_math_constants,      ONLY: pi, pi_2
-    USE mo_physical_constants,  ONLY: earth_radius
-    USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, latlon_compute_area_weights
-    USE mo_parallel_config,     ONLY: nproma, p_test_run
-    USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-    USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,          &
-      &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
-    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,       &
-      &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,            &
-      &                               l_mono_c2l, rbf_scale_mode_ll, support_baryctr_intp
+    USE mo_parallel_config,     ONLY: nproma
+    USE mo_loopindices,         ONLY: get_indices_c
+    USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
     USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                   &
-      &                               p_min, p_comm_work,                                   &
-      &                               my_process_is_mpi_test, p_max, p_send,                &
-      &                               p_recv, process_mpi_all_test_id,                      &
-      &                               process_mpi_all_workroot_id, p_pe,                    &
       &                               my_process_is_stdio, p_n_work
-    USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
-      &                               setup_comm_gather_pattern
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
-    USE mo_cf_convention,       ONLY: t_cf_var
-    USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &
-      &                               GRID_CELL, ZA_SURFACE,                                &
-      &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
-    USE mo_nonhydro_state,      ONLY: p_nh_state_lists
-    USE mo_var_list,            ONLY: add_var
-    USE mo_var_metadata,        ONLY: create_hor_interp_metadata
-    USE mo_linked_list,         ONLY: t_list_element
-    USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
-    USE mo_rbf_errana,          ONLY: estimate_rbf_parameter
+    USE mo_communication,       ONLY: idx_1d, blk_no, idx_no
     USE mo_delaunay_types,      ONLY: t_point_list, point_list, point, t_spherical_cap,     &
       &                               spherical_cap, OPERATOR(/), t_triangulation,          &
       &                               ccw_spherical, t_point, OPERATOR(+), triangulation,   &
@@ -704,7 +671,6 @@
         &                                      i, j, k, idx0, idx1(3), nblks_lonlat, &
         &                                      npromz_lonlat
       !$  DOUBLE PRECISION                  :: time_s, toc
-      TYPE (t_geographical_coordinates)     :: gc_x
       INTEGER                               :: obj_list(NMAX_HITS)  !< query result (triangle search)
       TYPE(t_cartesian_coordinates)         :: ll_point_c           !< cartes. coordinates of lon-lat points
       REAL(wp)                              :: v(0:2,3)
@@ -725,7 +691,7 @@
       !$  time_s = omp_get_wtime()
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,start_idx,end_idx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, idx1, v,i,j,k, gc_x, inside_test )
+!$OMP                     idx0, idx1, v,i,j,k, inside_test )
       DO jb=1,nblks_lonlat
         start_idx = 1
         end_idx   = nproma

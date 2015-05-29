@@ -37,63 +37,53 @@
 !$  USE OMP_LIB
     USE mo_kind,                ONLY: wp
     USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                              &
-      &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
-      &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,        &
-      &                               min_rlcell, SCALE_MODE_TABLE, SCALE_MODE_AUTO,        &
-      &                               SCALE_MODE_PRESET
+    USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                                &
+      &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,                 &
+      &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,          &
+      &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
-    USE mo_timer,               ONLY: timer_start, timer_stop,                              &
-      &                               timer_lonlat_setup
-    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                       &
-      &                               t_cartesian_coordinates,                              &
-      &                               t_geographical_coordinates, cc_dot_product
-    USE mo_math_constants,      ONLY: pi, pi_2
+    USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
+    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                         &
+      &                               t_cartesian_coordinates,                                &
+      &                               t_geographical_coordinates
     USE mo_physical_constants,  ONLY: earth_radius
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, latlon_compute_area_weights
     USE mo_parallel_config,     ONLY: nproma, p_test_run
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-    USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,          &
+    USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,            &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
-    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,       &
-      &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,            &
+    USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,         &
+      &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,              &
       &                               l_mono_c2l, rbf_scale_mode_ll, support_baryctr_intp
-    USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree,            &
-      &                               gnat_query_containing_triangles,                      &
-      &                               gnat_merge_distributed_queries, gk, SKIP_NODE,        &
+    USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree,              &
+      &                               gnat_query_containing_triangles,                        &
+      &                               gnat_merge_distributed_queries, gk, SKIP_NODE,          &
       &                               INVALID_NODE, gnat_recursive_proximity_query
-    USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                   &
-      &                               p_min, p_comm_work,                                   &
-      &                               my_process_is_mpi_test, p_max, p_send,                &
-      &                               p_recv, process_mpi_all_test_id,                      &
-      &                               process_mpi_all_workroot_id, p_pe,                    &
-      &                               my_process_is_stdio, p_n_work
-    USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
-      &                               setup_comm_gather_pattern
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
+    USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                     &
+      &                               p_min, p_comm_work,                                     &
+      &                               my_process_is_mpi_test, p_max, p_send,                  &
+      &                               p_recv, process_mpi_all_test_id,                        &
+      &                               process_mpi_all_workroot_id, p_pe,                      &
+      &                               my_process_is_stdio
+    USE mo_communication,       ONLY: blk_no, idx_no, setup_comm_gather_pattern
+    USE mo_lonlat_grid,         ONLY: rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &
-      &                               GRID_CELL, ZA_SURFACE,                                &
-      &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, GRID_CELL,         &
+         &                            ZA_SURFACE, TSTEP_CONSTANT, DATATYPE_PACK16,            &
+         &                            DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state_lists
     USE mo_var_list,            ONLY: add_var
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
     USE mo_rbf_errana,          ONLY: estimate_rbf_parameter
-    USE mo_delaunay_types,      ONLY: t_point_list, point_list, point, t_spherical_cap,     &
-      &                               spherical_cap, OPERATOR(/), t_triangulation,          &
-      &                               ccw_spherical, t_point, OPERATOR(+), triangulation,   &
-      &                               t_sphcap_list
-    USE mo_delaunay,            ONLY: point_cloud_diam, triangulate,write_triangulation_vtk,&
-      &                               triangulate_mthreaded, create_thin_covering
-    USE mo_util_string,         ONLY: int2string
-    USE mo_intp_lonlat_baryctr, ONLY: baryctr_interpol_lonlat, setup_barycentric_intp_lonlat,&
-      &                               setup_barycentric_intp_lonlat_repartition,            &
+    USE mo_delaunay_types,      ONLY: t_point_list, OPERATOR(/), t_triangulation, OPERATOR(+)
+    USE mo_intp_lonlat_baryctr, ONLY: baryctr_interpol_lonlat, setup_barycentric_intp_lonlat, &
+      &                               setup_barycentric_intp_lonlat_repartition,              &
       &                               compute_auxiliary_triangulation
 
     IMPLICIT NONE
