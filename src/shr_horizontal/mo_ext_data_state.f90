@@ -3084,13 +3084,14 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ext_data(jg)%atm%plcov (:,jb) = 0._wp
-        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
-        ext_data(jg)%atm%lai   (:,jb) = 0._wp
-        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
-        ext_data(jg)%atm%tai   (:,jb) = 0._wp
-        ext_data(jg)%atm%eai   (:,jb) = 0._wp
-        ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%fr_land(:,jb) = 0._wp
+        ext_data(jg)%atm%plcov  (:,jb) = 0._wp
+        ext_data(jg)%atm%rootdp (:,jb) = 0._wp
+        ext_data(jg)%atm%lai    (:,jb) = 0._wp
+        ext_data(jg)%atm%rsmin  (:,jb) = 0._wp
+        ext_data(jg)%atm%tai    (:,jb) = 0._wp
+        ext_data(jg)%atm%eai    (:,jb) = 0._wp
+        ext_data(jg)%atm%sai    (i_startidx:i_endidx,jb) = 0._wp
 
 
 
@@ -3105,6 +3106,12 @@ CONTAINS
             ! therefore we multiply by inv_frland_from_tiles
             area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)           &
               &       * ext_data(jg)%atm%inv_frland_from_tiles(jc,jb)
+
+            ! fr_land (small differences compared to original extpar-fr_land, due to 
+            !          land, lake and sea snippets whose fractions are below threshold. 
+            !          In that case, either the land- or sea-fraction is inflated; see above)
+            ext_data(jg)%atm%fr_land(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)   &
+              &                             + ext_data(jg)%atm%frac_t(jc,jb,jt)
 
             ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
