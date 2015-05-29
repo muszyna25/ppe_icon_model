@@ -1997,8 +1997,8 @@ CONTAINS
   !
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
-       &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
-       &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
+       &                                 lrestart, lrestart_cont, initval, isteptype,            &
+       &                                 resetval, lmiss, missval, tlev_source, tracer_info,     &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
        &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
        &                                 opt_var_ref_pos, var_class)
@@ -2016,11 +2016,11 @@ CONTAINS
     LOGICAL,                 INTENT(in),    OPTIONAL :: loutput                    ! output flag
     LOGICAL,                 INTENT(in),    OPTIONAL :: lrestart                   ! restart flag
     LOGICAL,                 INTENT(in),    OPTIONAL :: lrestart_cont              ! continue restart if var not available
-    REAL(wp),                INTENT(in),    OPTIONAL :: initval_r                  ! value if var not available
+    REAL(wp),                INTENT(in),    OPTIONAL :: initval                    ! value if var not available
     INTEGER,                 INTENT(in),    OPTIONAL :: isteptype                  ! type of statistical processing
-    REAL(wp),                INTENT(in),    OPTIONAL :: resetval_r                 ! reset value (after accumulation)
+    REAL(wp),                INTENT(in),    OPTIONAL :: resetval                   ! reset value (after accumulation)
     LOGICAL,                 INTENT(in),    OPTIONAL :: lmiss                      ! missing value flag
-    REAL(wp),                INTENT(in),    OPTIONAL :: missval_r                  ! missing value
+    REAL(wp),                INTENT(in),    OPTIONAL :: missval                    ! missing value
     INTEGER,                 INTENT(in),    OPTIONAL :: tlev_source                ! actual TL for TL dependent vars
     TYPE(t_tracer_meta),     INTENT(in),    OPTIONAL :: tracer_info                ! tracer meta data
     TYPE(t_var_metadata), POINTER,          OPTIONAL :: info                       ! returns reference to metadata
@@ -2040,7 +2040,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: target_element    
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals)            :: missval, initval, resetval
+    TYPE(t_union_vals)            :: missvalt, initvalt, resetvalt
     INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
     LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs 
                                                     ! (for taking into account tile groups)
@@ -2114,23 +2114,23 @@ CONTAINS
     !
     ! init local fields
     !
-    missval = ref_info%missval
-    initval = ref_info%initval
-    resetval= ref_info%resetval
+    missvalt = ref_info%missval
+    initvalt = ref_info%initval
+    resetvalt= ref_info%resetval
     !
-    CALL assign_if_present(missval%rval,  missval_r)
-    CALL assign_if_present(initval%rval,  initval_r)
-    CALL assign_if_present(resetval%rval, resetval_r)
+    CALL assign_if_present(missvalt%rval,  missval)
+    CALL assign_if_present(initvalt%rval,  initval)
+    CALL assign_if_present(resetvalt%rval, resetval)
     !
-    CALL set_var_metadata (new_list_element%field%info,                     &
-         name=name, hgrid=hgrid, vgrid=vgrid,                               & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                  &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,   &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
-         missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
-         vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose,                                &
-         l_pp_scheduler_task=l_pp_scheduler_task,                           &
+    CALL set_var_metadata (new_list_element%field%info,                      &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
+         isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
+         missval=missvalt, tlev_source=tlev_source, tracer_info=tracer_info, &
+         vert_interp=vert_interp, hor_interp=hor_interp,                     &
+         in_group=in_group, verbose=verbose,                                 &
+         l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
 
     ref_info%ndims = ndims
@@ -2200,8 +2200,8 @@ CONTAINS
   !
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
-       &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
-       &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
+       &                                 lrestart, lrestart_cont, initval, isteptype,            &
+       &                                 resetval, lmiss, missval, tlev_source, tracer_info,     &
        &                                 info, vert_interp, hor_interp, in_group,                &
        &                                 verbose, new_element, l_pp_scheduler_task,              &
        &                                 post_op, action_list, opt_var_ref_pos, var_class)
@@ -2219,11 +2219,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput                     ! output flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                    ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont               ! continue restart if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: initval_r                   ! value if var not available
+    REAL(wp),                INTENT(in), OPTIONAL :: initval                     ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                   ! type of statistical processing
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval_r                  ! reset value (after accumulation)
+    REAL(wp),                INTENT(in), OPTIONAL :: resetval                    ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                       ! missing value flag
-    REAL(wp),                INTENT(in), OPTIONAL :: missval_r                   ! missing value
+    REAL(wp),                INTENT(in), OPTIONAL :: missval                     ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                 ! actual TL for TL dependent vars
     TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                 ! tracer meta data
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                        ! returns reference to metadata
@@ -2243,7 +2243,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: target_element    
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals)            :: missval, initval, resetval
+    TYPE(t_union_vals)            :: missvalt, initvalt, resetvalt
     INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
     LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs 
                                                     ! (for taking into account tile groups)
@@ -2314,23 +2314,23 @@ CONTAINS
     !
     ! init local fields
     !
-    missval = ref_info%missval
-    initval = ref_info%initval
-    resetval= ref_info%resetval
+    missvalt = ref_info%missval
+    initvalt = ref_info%initval
+    resetvalt= ref_info%resetval
     !
-    CALL assign_if_present(missval%rval,  missval_r)
-    CALL assign_if_present(initval%rval,  initval_r)
-    CALL assign_if_present(resetval%rval, resetval_r)
+    CALL assign_if_present(missvalt%rval,  missval)
+    CALL assign_if_present(initvalt%rval,  initval)
+    CALL assign_if_present(resetvalt%rval, resetval)
     !
-    CALL set_var_metadata (new_list_element%field%info,                     &
-         name=name, hgrid=hgrid, vgrid=vgrid,                               & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                  &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,   &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
-         missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
-         vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose,                                &
-         l_pp_scheduler_task=l_pp_scheduler_task,                           &
+    CALL set_var_metadata (new_list_element%field%info,                      &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
+         isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
+         missval=missvalt, tlev_source=tlev_source, tracer_info=tracer_info, &
+         vert_interp=vert_interp, hor_interp=hor_interp,                     &
+         in_group=in_group, verbose=verbose,                                 &
+         l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
 
     ref_info%ndims = ndims
@@ -2399,8 +2399,8 @@ CONTAINS
   !
   SUBROUTINE add_var_list_reference_i2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
-       &                                 lrestart, lrestart_cont, initval_i, isteptype,          &
-       &                                 resetval_i, lmiss, missval_i, tlev_source, tracer_info, &
+       &                                 lrestart, lrestart_cont, initval, isteptype,            &
+       &                                 resetval, lmiss, missval, tlev_source, tracer_info,     &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
        &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
        &                                 opt_var_ref_pos, var_class)
@@ -2418,11 +2418,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
-    INTEGER,                 INTENT(in), OPTIONAL :: initval_i                    ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: initval                      ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
-    INTEGER,                 INTENT(in), OPTIONAL :: resetval_i                   ! reset value (after accumulation)
+    INTEGER,                 INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
-    INTEGER,                 INTENT(in), OPTIONAL :: missval_i                    ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                         ! returns reference to metadata
@@ -2442,7 +2442,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: target_element    
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
-    TYPE(t_union_vals)            :: missval, initval, resetval
+    TYPE(t_union_vals)            :: missvalt, initvalt, resetvalt
     INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
     LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs 
                                                     ! (for taking into account tile groups)
@@ -2513,23 +2513,23 @@ CONTAINS
     !
     ! init local fields
     !
-    missval = ref_info%missval
-    initval = ref_info%initval
-    resetval= ref_info%resetval
+    missvalt = ref_info%missval
+    initvalt = ref_info%initval
+    resetvalt= ref_info%resetval
     !
-    CALL assign_if_present(missval%ival,  missval_i)
-    CALL assign_if_present(initval%ival,  initval_i)
-    CALL assign_if_present(resetval%ival, resetval_i)
+    CALL assign_if_present(missvalt%ival,  missval)
+    CALL assign_if_present(initvalt%ival,  initval)
+    CALL assign_if_present(resetvalt%ival, resetval)
     !
-    CALL set_var_metadata (new_list_element%field%info,                     &
-         name=name, hgrid=hgrid, vgrid=vgrid,                               & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                  &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,   &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
-         missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
-         vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose,                                &
-         l_pp_scheduler_task=l_pp_scheduler_task,                           &
+    CALL set_var_metadata (new_list_element%field%info,                      &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
+         isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
+         missval=missvalt, tlev_source=tlev_source, tracer_info=tracer_info, &
+         vert_interp=vert_interp, hor_interp=hor_interp,                     &
+         in_group=in_group, verbose=verbose,                                 &
+         l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
     !
     ref_info%ndims = ndims
