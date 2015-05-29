@@ -1444,6 +1444,23 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
+!DR This code snippet should probably be moved to this central place and be removed 
+!DR at all other places it currently occurs. Placing it here will assure that it 
+!DR is executed i.e.e for all init_modes.
+!DR
+!!$          ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
+!!$          ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. This will ensure in 
+!!$          ! init_sea_lists, that sea-ice and water fractions sum up exactly to the total 
+!!$          ! sea fraction.
+!!$          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
+!!$             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
+!!$          ENDIF
+!!$          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
+!!$             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp
+!!$          ENDIF
+
+
+
     IF (lseaice) THEN
 
     ! generate sea-ice and open-water index list
