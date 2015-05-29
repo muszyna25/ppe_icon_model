@@ -224,6 +224,8 @@ CONTAINS
     REAL(wp) :: Tfw(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim)
 
+    LOGICAL :: mask(kbdim)
+
 #if defined(__NO_JSBACH__) || defined (__NO_ICON_OCEAN__)
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 #endif
@@ -671,10 +673,13 @@ CONTAINS
     END DO
 
     ! Mask out tiled variables
-    ! For now, only the land tile ... coupled atmo/ocean runs crash if the ocean/ice variables are masked.
-    !DO jsfc=1,ksfc_type
-      jsfc = idx_lnd
-      WHERE (pfrc(1:kproma,jsfc) == 0._wp)
+    ! For now, only the land tile ... coupled atmo/ocean runs yield different results if wtr/ice is
+    ! masked out over land.
+    DO jsfc=1,ksfc_type
+      mask(:) = .FALSE.
+      IF (jsfc == idx_lnd) mask(1:kproma) = pfrc(1:kproma,jsfc) == 0._wp
+      !IF (jsfc == idx_wtr .OR. jsfc == idx_ice) mask(1:kproma) = pfrc(1:kproma,idx_wtr) == 0._wp .AND. prfc(1:kproma,idx_ice) == 0._wp
+      WHERE (mask(1:kproma))
         ptsfc_tile     (1:kproma,jsfc) = cdimissval
         pqsat_tile     (1:kproma,jsfc) = cdimissval
         pswflx_tile    (1:kproma,jsfc) = cdimissval
@@ -692,10 +697,13 @@ CONTAINS
         dshflx_dT_tile (1:kproma,jsfc) = cdimissval
         z0m_tile       (1:kproma,jsfc) = cdimissval
       END WHERE
-    !END DO
-    WHERE (pfrc(1:kproma,idx_lnd) == 0._wp)
-      z0h_lnd(1:kproma) = cdimissval
-    END WHERE
+      IF (jsfc == idx_lnd) THEN
+        WHERE (mask(1:kproma))
+          z0h_lnd(1:kproma) = cdimissval
+        END WHERE
+      END IF
+    END DO
+
 
     END SUBROUTINE update_surface
   !-------------
