@@ -224,10 +224,13 @@
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
       CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_intp_coeffs"
+      LOGICAL,      PARAMETER :: lrepartition = .TRUE.
+
       INTEGER                :: i, jg, n_points, my_id, nthis_local_pts
       TYPE(t_gnat_tree)      :: gnat
       TYPE (t_triangulation) :: tri
       TYPE (t_point_list)    :: points
+!$    DOUBLE PRECISION       :: time_s_total, toc
 
       ! -----------------------------------------------------------
 
@@ -272,14 +275,22 @@
             ! --------------------------------------------------------------------------
 
             IF (support_baryctr_intp) THEN
-              IF (jg > 1) THEN
+!$            time_s_total = omp_get_wtime()
+              IF ((jg > 1) .OR. (.NOT. lrepartition)) THEN
                 CALL compute_auxiliary_triangulation(p_patch(jg), tri, points)
                 CALL setup_barycentric_intp_lonlat(tri, points, lonlat_grid_list(i)%intp(jg))
                 CALL tri%destructor()
                 CALL points%destructor()
               ELSE
+                ! for global domains there exists an alternative
+                ! algorithm which repartitions the grid mass points
+                ! before triangulating them:
                 CALL setup_barycentric_intp_lonlat_repartition(p_patch(jg), lonlat_grid_list(i)%intp(jg))
               END IF
+!$            toc = omp_get_wtime() - time_s_total
+!$            IF (my_process_is_stdio() .and. (dbg_level > 5)) THEN
+!$              WRITE (0,*) trim(routine), " :: total elapsed time: ", toc
+!$            END IF
             END IF
 
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
@@ -1916,7 +1927,7 @@
         &                                  rl_start, rl_end, i_startidx,     &
         &                                  i_endidx, i_nchdom
       TYPE (t_spherical_cap)            :: subset
-      !$  DOUBLE PRECISION                  :: time_s, toc
+!$  DOUBLE PRECISION                    :: time_s, toc
 
       ! --- create an array-like data structure containing the local
       ! --- mass points
@@ -2017,7 +2028,7 @@
         subset = spherical_cap(centroid, -1._wp)
         CALL triangulate_mthreaded(p_global, tri_global, subset, nthreads, ignore_completeness=.FALSE.)
       ELSE
-        !$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
 
         ! generate list of spherical cap centers (one for each MPI task)
         IF (dbg_level >= 10) THEN
@@ -2037,17 +2048,17 @@
           WRITE (0,'(a,i0,a,a,i0)') "# done. triangulation: ", tri_global%nentries, " triangles.", &
             &                       "; pts = ", p_global%nentries
         END IF
-        !$  toc = omp_get_wtime() - time_s
-        !$    IF (dbg_level > 10) THEN
-        !$      WRITE (0,*) get_my_mpi_work_id()," :: elapsed time: ", toc
-        !$    END IF
+!$    toc = omp_get_wtime() - time_s
+!$    IF (dbg_level > 10) THEN
+!$      WRITE (0,*) get_my_mpi_work_id()," :: elapsed time: ", toc
+!$    END IF
 
-        !$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
         CALL tri_global%sync()
-        !$  toc = omp_get_wtime() - time_s
-        !$    IF (dbg_level > 10) THEN
-        !$      WRITE (0,*) get_my_mpi_work_id()," :: triangulation sync, elapsed time: ", toc
-        !$    END IF
+!$    toc = omp_get_wtime() - time_s
+!$    IF (dbg_level > 10) THEN
+!$      WRITE (0,*) get_my_mpi_work_id()," :: triangulation sync, elapsed time: ", toc
+!$    END IF
         ! clean up
         CALL pivot_points%destructor()
         CALL subset_list%destructor()
@@ -2483,9 +2494,8 @@
                   CALL finish(routine, "Internal error!")
                 END IF
               ELSE
-                ! the containing triangle is not local for this PE;
-                ! this may happen for nested regions; we therefore do not stop.
                 ! the containing triangle is not local for this PE?
+                WRITE (0,*) "indices: ", idx1
                 CALL finish(routine, "Internal error!")
               END IF
 
@@ -2533,9 +2543,7 @@
       TYPE (t_triangulation)            :: tri_global
       REAL(wp)                          :: minrange(0:2), maxrange(0:2)
 
-      !-----------------------------------------------------------------------
-
-      IF ((dbg_level > 1) .AND. (get_my_mpi_work_id() == 0)) CALL message(routine, '')
+      CALL message(routine, '')
 
       ! --- determine bounding box of query points
 
@@ -2569,8 +2577,8 @@
       IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
       g2l_index(:) = -1
 
-      rl_start   = 1
-      rl_end     = min_rlcell_int
+      rl_start   = 2
+      rl_end     = min_rlcell ! note that we include halo cells
       i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
       i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
@@ -2581,7 +2589,6 @@
           &                i_startidx, i_endidx, &
           &                rl_start, rl_end)
         DO jc = i_startidx, i_endidx
-          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
           i = i + 1
           idx = idx_1d(jc,jb)
           g2l_index(ptr_patch%cells%decomp_info%glb_index(idx)) = idx
