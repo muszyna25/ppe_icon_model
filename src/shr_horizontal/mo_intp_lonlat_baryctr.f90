@@ -7,13 +7,11 @@
 #endif
 
 !>
-!! Contains the implementation of interpolation onto regular grids.
+!! Contains the implementation of interpolation onto regular grids
+!! with barycentric interpolation.
 !!
 !! @par Revision History
-!! Moved from mo_intp_rbf_coeffs : 2012-03-20, F. Prill (DWD)
-!! Modified by Anurag Dipankar, MPIM, 2012-12-28
-!!-Replaced usage of ptr_int%cart_edge%coord with ptr_patch%edges%cartesian_center which is now calculated
-!! within the grid_generator. The ptr_int variable is not calculated anymore.
+!! Moved from mo_intp_lonlat : 2015-05-29, F. Prill (DWD)
 !!
 !! @par Copyright and License
 !!
@@ -22,9 +20,6 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-!!
-!! TODO[FP] Move, if possible, lonlat interpolation data structure from
-!!          "mo_intp_data_strc" into this module.
 !!
   MODULE mo_intp_lonlat_baryctr
     !-------------------------------------------------------------------------
