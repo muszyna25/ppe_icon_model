@@ -1579,17 +1579,22 @@ CONTAINS
 
         ENDDO  ! ic
 
-      ENDIF   ! IF (ntiles_total == 1)
 
-      ! Sanity check
-      ! Check whether fractions of seaice and non-seaice covered tiles sum up to total sea fraction. 
-      DO ic = 1, i_count_sea
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-        frac_sea = ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice)
-        IF ( ABS(frac_sea - ext_data%atm%lc_frac_t(jc,jb,isub_water)) > dbl_eps ) THEN
-          CALL finish(routine, 'sea-ice + water fractions do not sum up to total sea fraction')
-        END IF
-      ENDDO  ! jc
+        ! Sanity check
+        ! Check whether fractions of seaice and non-seaice covered tiles sum up to total sea fraction. 
+        DO ic = 1, i_count_sea
+          jc = ext_data%atm%idx_lst_sp(ic,jb)
+          frac_sea = ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice)
+          IF ( ABS(frac_sea - ext_data%atm%lc_frac_t(jc,jb,isub_water)) > dbl_eps ) THEN
+            WRITE(message_text,'(a,e)') 'frac_seaice + frac_water: ', frac_sea
+            CALL message('', TRIM(message_text))
+            WRITE(message_text,'(a,e)') 'tot frac_sea: ',  ext_data%atm%lc_frac_t(jc,jb,isub_water)
+            CALL message('', TRIM(message_text))
+            CALL finish(routine, 'sea-ice + water fractions do not sum up to total sea fraction')
+          END IF
+        ENDDO  ! jc
+
+      ENDIF   ! IF (ntiles_total == 1)
 
     ENDDO  ! jb
 !$OMP END DO
