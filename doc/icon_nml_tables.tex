@@ -4955,9 +4955,23 @@ for heat and moisture &
 %\hline
 tkmmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient  (proportional to $1/\sqrt{Ri}$)
+Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
  for momentum & 
 \tabularnewline
+
+
+tkmmin\_strat &
+R                &     5      & $\mathrm{m^2/s}$ &
+Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+ for momentum, valid in the stratosphere above 30 km & 
+\tabularnewline
+
+tkhmin\_strat &
+R                &     5      & $\mathrm{m^2/s}$ &
+Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+for heat and moisture, valid in the stratosphere above 30 km  &
+\tabularnewline
+
 
 %\hline
 itype\_synd &
