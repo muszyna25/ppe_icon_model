@@ -281,7 +281,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     INTEGER :: a_steptype
     LOGICAL :: lrestart, lhave_graupel
 
-    TYPE(t_var_action) :: action_list_reset
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
       &        wave_no, iimage, isens, k
@@ -297,23 +296,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     shape3dsubs    = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw   = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
-    ! Quick and dirty implementation of domain-specific statistics intervals
-    ! Initially, global domain and nest have distinct statistics intervals (3h vs. 1h). 
-    ! However, after 78h the statistics interval of the nest is re-set to that of the global domain.  
-    SELECT CASE(k_jg)
-    CASE(1)  ! global domain
-      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
-    CASE(2)  ! nesting level 1
-      action_list_reset = actions(                                  &
-                  &               new_action(ACTION_RESET,"PT01H",  &
-                  &                          opt_end  ="P03DT06H"), &
-                  &               new_action(ACTION_RESET,"PT03H",  &
-                  &                          opt_start="P03DT06H",  &
-                  &                          opt_ref  ="P03DT06H")  &
-                  &               )
-    CASE DEFAULT
-      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
-    END SELECT
 
     ! Register a field list and apply default settings
 
@@ -674,7 +656,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval=0._wp, resetval=0._wp,                               &
-                & action_list=action_list_reset )
+                & action_list=actions(new_action(ACTION_RESET,"PT01H")) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
@@ -1826,7 +1808,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MAX, initval=-999._wp, resetval=-999._wp,         &
-      & action_list=action_list_reset, &
+      & action_list=actions(new_action(ACTION_RESET,"PT06H")),            &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -1837,7 +1819,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MIN, initval=999._wp, resetval=999._wp,           &
-      & action_list=action_list_reset, &
+      & action_list=actions(new_action(ACTION_RESET,"PT06H")),            &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
