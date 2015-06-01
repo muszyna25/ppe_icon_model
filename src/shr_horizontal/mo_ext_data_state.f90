@@ -2222,16 +2222,20 @@ CONTAINS
 
         SELECT CASE ( iforcing )
         CASE ( inwp )
-          CALL read_cdi_2d(parameters, 'PLCOV_MX', ext_data(jg)%atm%plcov_mx)
-          CALL read_cdi_2d(parameters, 'LAI_MX', ext_data(jg)%atm%lai_mx)
-          CALL read_cdi_2d(parameters, 'ROOTDP', ext_data(jg)%atm%rootdp)
-          CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
-          CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
-          CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
           CALL read_cdi_2d(parameters, 'Z0', ext_data(jg)%atm%z0)
           CALL read_cdi_2d(parameters, 'NDVI_MAX', ext_data(jg)%atm%ndvi_max)
           CALL read_cdi_2d(parameters, 'SOILTYP', ext_data(jg)%atm%soiltyp)
           CALL read_cdi_3d(parameters, 'LU_CLASS_FRACTION', nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction, opt_lev_dim=3 )
+
+          ! The following fields are only required without surface tiles
+          IF (ntiles_lnd == 1) THEN
+            CALL read_cdi_2d(parameters, 'PLCOV_MX', ext_data(jg)%atm%plcov_mx)
+            CALL read_cdi_2d(parameters, 'LAI_MX', ext_data(jg)%atm%lai_mx)
+            CALL read_cdi_2d(parameters, 'ROOTDP', ext_data(jg)%atm%rootdp)
+            CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
+            CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
+            CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
+          ENDIF
 
           IF (is_frglac_in(jg)) THEN
             ! for backward compatibility with extpar files generated prior to 2014-01-31
