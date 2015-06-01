@@ -710,6 +710,11 @@ run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_2dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime_sp -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_01 -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.ocean_internal/buildbot/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
