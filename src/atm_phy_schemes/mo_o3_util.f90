@@ -11,6 +11,7 @@
 !! @par Revision History
 !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-31)
 !! ECHAM routine implemented by Kristina Froehlich, MPI-M (2011-08-17)
+!! MACC data added by Martin Koehler, DWD (2015-05-12)
 !!
 !! @par Copyright and License
 !!
@@ -40,6 +41,8 @@ MODULE mo_o3_util
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_o3_gems_data,         ONLY: rghg7
+  USE mo_o3_macc_data,         ONLY: rghg7_macc
+  USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3
   USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm_radt
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone
@@ -55,9 +58,9 @@ CONTAINS
 
   !=======================================================================
 
-SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
-                     & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
-                     & o3_time_int                      )! OUT kproma,nlev_p
+  SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
+                       & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
+                       & o3_time_int                      )! OUT kproma,nlev_p
 
  ! In prior version, just a certain month was selected. This is not used anymore
  ! (revision13218) an the routine is now doing true time interpolation
@@ -72,11 +75,11 @@ SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
 
     o3_time_int(1:kproma,:)=wi%wgt1*ext_o3(1:kproma,:,wi%inm1)+ &
                             wi%wgt2*ext_o3(1:kproma,:,wi%inm2)
-END SUBROUTINE o3_timeint
+  END SUBROUTINE o3_timeint
 
- SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
-   &                   pfoz,phoz,ppf,pph,   &
-   &                   o3_time_int, o3_clim)
+  SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
+    &                   pfoz,phoz,ppf,pph,   &
+    &                   o3_time_int, o3_clim)
 
     !- Description: o3 pressure levels to o3 sigma hybrid levels
     !
@@ -721,7 +724,7 @@ END SUBROUTINE o3_timeint
   END SUBROUTINE o3_par_t5
 
 
-  !! This a copy from legtri_vec.f90 of DWD's GME (contentually identically, only formally
+  !! This a copy from legtri_vec.f90 of DWD's GME (content identical, only formally
   !! slightly adapted).
   !!
   SUBROUTINE legtri_vec (kbdim, ki1sc, ki1ec, plat, kcp,  palp )
@@ -982,22 +985,33 @@ END SUBROUTINE o3_timeint
     ZPRESH(NLEV_GEMS)=110000._wp
     RCLPR(nlev_gems) =ZPRESH(nlev_gems)
 
-
     ! volume mixing ratio to ozone pressure thickness
-    DO jk=1,nlev_gems
-      DO jl=1,ilat
-        zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
-          & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))
-        zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+
+    SELECT CASE (irad_o3)
+    CASE (7)
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
+          zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
       ENDDO
-    ENDDO
+    CASE (9)
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
+          zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
+      ENDDO
+    END SELECT 
 
     DO jk=1,nlev_gems
       zozn(0,JK)      = zozn(1,jk)
       zozn(ilat+1,jk) = zozn(ilat,jk)
     ENDDO
 
-    !Preparations for latitude interpolations
+    ! Preparations for latitude interpolations
 
     zlatint=180._wp/REAL(ilat,wp)
 
