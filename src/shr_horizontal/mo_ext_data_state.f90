@@ -3037,8 +3037,8 @@ CONTAINS
   !! Diagnose aggregated external fields
   !!
   !! Aggregated external fields are diagnosed based on tile based external 
-  !! fields. This is mostly done for output and visualization purposes 
-  !! i.e. meteograms.
+  !! fields. In addition, fr_land, fr_lake and depth_lk are re-diagnosed, 
+  !! in order to be consistent with tile-information.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-01-23)
@@ -3084,13 +3084,16 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ext_data(jg)%atm%plcov (:,jb) = 0._wp
-        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
-        ext_data(jg)%atm%lai   (:,jb) = 0._wp
-        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
-        ext_data(jg)%atm%tai   (:,jb) = 0._wp
-        ext_data(jg)%atm%eai   (:,jb) = 0._wp
-        ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%fr_land(:,jb) = 0._wp
+        ext_data(jg)%atm%fr_lake(:,jb) = 0._wp
+        !
+        ext_data(jg)%atm%plcov  (:,jb) = 0._wp
+        ext_data(jg)%atm%rootdp (:,jb) = 0._wp
+        ext_data(jg)%atm%lai    (:,jb) = 0._wp
+        ext_data(jg)%atm%rsmin  (:,jb) = 0._wp
+        ext_data(jg)%atm%tai    (:,jb) = 0._wp
+        ext_data(jg)%atm%eai    (:,jb) = 0._wp
+        ext_data(jg)%atm%sai    (i_startidx:i_endidx,jb) = 0._wp
 
 
 
@@ -3105,6 +3108,13 @@ CONTAINS
             ! therefore we multiply by inv_frland_from_tiles
             area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)           &
               &       * ext_data(jg)%atm%inv_frland_from_tiles(jc,jb)
+
+            ! fr_land (small differences compared to original extpar-fr_land, due to 
+            !          land, lake and sea snippets whose fractions are below threshold. 
+            !          In that case, either the land- or sea-fraction is inflated; see above)
+            ext_data(jg)%atm%fr_land(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)   &
+              &                             + ext_data(jg)%atm%frac_t(jc,jb,jt)
+            ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
 
             ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
@@ -3146,6 +3156,17 @@ CONTAINS
               &             +  ext_data(jg)%atm%sai_t(jc,jb,jt) * area_frac
           ENDDO  ! jc
         ENDDO  !jt
+
+
+        ! fr_lake
+        DO jc = i_startidx, i_endidx
+          ext_data(jg)%atm%fr_lake(jc,jb) = ext_data(jg)%atm%frac_t(jc,jb,isub_lake)
+          !
+          ! For consistency: remove depth_lk information, where fr_lake=0
+          ext_data(jg)%atm%depth_lk(jc,jb) = MERGE(ext_data(jg)%atm%depth_lk(jc,jb), &
+            &                                      -1._wp,                           &
+            &                                      ext_data(jg)%atm%fr_lake(jc,jb)>0._wp) 
+        ENDDO  ! jc
 
       ENDDO  !jb
 !$OMP END DO
