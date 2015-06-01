@@ -194,7 +194,7 @@ CONTAINS
     ! Read all namelists used in the previous run
     ! and store them in a buffer. These values will overwrite the
     ! model default, and will later be overwritten if the user has
-    ! specified something different for this integraion.
+    ! specified something different for this integration.
     !
     ! Note: We read the namelists only once and assume that these
     !       are identical for all domains.

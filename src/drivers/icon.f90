@@ -32,12 +32,12 @@ PROGRAM icon
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
-    &                               testbed_process,  atmo_process, ocean_process
+    &                               atmo_process, ocean_process, testbed_process
   USE mo_time_config,         ONLY: restart_experiment
   USE mo_util_signal
   USE mo_util_vcs,            ONLY: util_repository_url,                                &
-       &                            util_branch_name,                                   &
-       &                            util_revision_key
+    &                               util_branch_name,                                   &
+    &                               util_revision_key
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
@@ -61,7 +61,7 @@ PROGRAM icon
   CHARACTER(len=256)          :: repository = ''
   CHARACTER(len=256)          :: branch = ''
   CHARACTER(len=256)          :: revision = ''
-  integer                     :: grb_major_version, grb_minor_version, grb_revision_version
+  INTEGER                     :: grb_major_version, grb_minor_version, grb_revision_version
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
@@ -102,7 +102,7 @@ PROGRAM icon
 #endif
 
   !-------------------------------------------------------------------
-  ! Initialize MPI, this should aleays be the first call
+  ! Initialize MPI, this should always be the first call
   CALL start_mpi('ICON')
   
   !-------------------------------------------------------------------
@@ -201,17 +201,17 @@ PROGRAM icon
 
 #ifndef __NO_ICON_ATMO__
   CASE (atmo_process)
-    CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
+    CALL atmo_model  (my_namelist_filename, TRIM(master_namelist_filename))
+#endif
+
+#ifndef __NO_ICON_OCEAN__
+  CASE (ocean_process)
+    CALL ocean_model (my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
 #ifndef __NO_ICON_TESTBED__
   CASE (testbed_process)
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
-#endif
-
-#ifndef __NO_ICON_OCEAN__
-  CASE (ocean_process)
-    CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
   CASE default
