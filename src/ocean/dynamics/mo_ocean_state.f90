@@ -1294,7 +1294,7 @@ CONTAINS
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
     
     ! allocation of 3-dim tracer relaxation:
-    IF (no_tracer >= 1) THEN
+    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
       CALL add_var(ocean_default_list,'data_3dimRelax_Temp',ocean_state_aux%data_3dimRelax_Temp,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', DATATYPE_FLT32),&
@@ -1306,7 +1306,7 @@ CONTAINS
         & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
     END IF
-    IF (no_tracer == 2) THEN
+    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
       CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_state_aux%data_3dimRelax_Salt,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', DATATYPE_FLT32),&
