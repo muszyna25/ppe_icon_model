@@ -77,7 +77,6 @@ MODULE mo_art_config
     INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
     INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
     INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
-    LOGICAL :: lart_feedback_chem      !< Feedback of chemtracer with radiation (currently only ozone) CS/IMK-ASF 5.3.15
     
     ! Fast Physics Processes (Details: cf. Tab. 2.6 ICON-ART User Guide)
     LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)

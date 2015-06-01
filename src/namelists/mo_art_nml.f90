@@ -70,7 +70,6 @@ MODULE mo_art_nml
   INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
   INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
   INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
-  LOGICAL :: lart_feedback_chem      !< Feedback of chemtracer with radiation (currently only ozone) CS/IMK-ASF 5.3.15
     
   ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
@@ -144,7 +143,6 @@ CONTAINS
     iart_aci_warm       = 0
     iart_aci_cold       = 0
     iart_ari            = 0
-    lart_feedback_chem = .FALSE. !CS/IMK-ASF 5.3.15
       
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
@@ -194,15 +192,7 @@ CONTAINS
         &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
     ENDIF
 
-    ! >>> CS 5.3.15
-    IF( .NOT. lart_chem .AND. lart_feedback_chem) THEN
-        CALL finish('SUBROUTINE read_art_namelist', 'lart_chem=.FALSE. and lart_feedback_chem=.TRUE. There can be no feedback if tracers are not calculated')
-    END IF
 
-    IF( lart_chem .AND. cart_linoz_file == '') THEN
-        CALL message('SUBROUTINE read_art_namelist', 'lart_chem=.TRUE. and cart_linoz_file is empty => There can be no linearized ozone chemistry without Linoz chem. tables')
-    END IF
-    ! <<< CS 5.3.15
     
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -238,7 +228,6 @@ CONTAINS
       art_config(jg)%iart_aci_warm       = iart_aci_warm
       art_config(jg)%iart_aci_cold       = iart_aci_cold
       art_config(jg)%iart_ari            = iart_ari
-      art_config(jg)%lart_feedback_chem  = lart_feedback_chem !CS/IMK-ASF 5.3.15
       
       ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv
