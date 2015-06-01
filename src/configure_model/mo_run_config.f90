@@ -174,8 +174,8 @@ MODULE mo_run_config
     INTEGER :: iTRCH4       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO2       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO        !< chemical tracer in ICON-ART
-    INTEGER :: iTRCH3COCH3  !< chemical tracer in ICON-ART ! MiW
-    INTEGER :: iTRC2H6      !< chemical tracer in ICON-ART ! MiW
+    INTEGER :: iTRCH3COCH3  !< chemical tracer in ICON-ART 
+    INTEGER :: iTRC2H6      !< chemical tracer in ICON-ART 
     INTEGER :: iTRH2O       !< chemical tracer in ICON-ART
     INTEGER :: iTRO3        !< chemical tracer in ICON-ART
     INTEGER :: iTRSF6      !< chemical tracer in ICON-ART
@@ -185,7 +185,7 @@ MODULE mo_run_config
     INTEGER :: iTR3         !< chemical tracer in ICON-ART
     INTEGER :: iTR4         !< chemical tracer in ICON-ART
     INTEGER :: iTR5         !< chemical tracer in ICON-ART
-                            !< RR JS
+
 
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevm1             !< number of half levels for each domain without boundaries

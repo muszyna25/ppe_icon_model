@@ -58,11 +58,9 @@ MODULE mo_art_config
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    CHARACTER(LEN=120) :: cart_linoz_file 	!< Absolute path + filename of input file for linearized ozone chemistry
-    CHARACTER(LEN=120) :: cart_vortex_init_date !< String to define a date at which the vortextracer is initialized !CS 10.03.15
-    CHARACTER(LEN=120) :: cart_ch4_paramet 	!< String to define the kind of methane parameterization !CS 10.03.15
-    LOGICAL :: lart_polarchem          !< Main switch to enable polar chemistry
-    
+   CHARACTER(LEN=120) :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
+    CHARACTER(LEN=120) :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
+ 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
     INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol

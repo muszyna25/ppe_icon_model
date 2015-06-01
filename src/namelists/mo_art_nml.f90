@@ -52,11 +52,8 @@ MODULE mo_art_nml
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-  CHARACTER(LEN=120) :: cart_linoz_file !< Absolute path + filename of input file for linearized ozone chemistry
-  CHARACTER(LEN=120) :: cart_vortex_init_date !< String to define a date at which the vortextracer is initialized !CS 10.03.15
-  CHARACTER(LEN=120) :: cart_ch4_paramet 	!< String to define the kind of methane parameterization !CS 10.03.15
-  LOGICAL :: lart_polarchem          !< Main switch to enable polar chemistry
-    
+  CHARACTER(LEN=120) :: cart_emiss_table_path 
+  CHARACTER(LEN=120), DIMENSION(max_dom) :: cart_emiss_table_file
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -85,9 +82,8 @@ MODULE mo_art_nml
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out,						       &
-   &		    lart_feedback_chem, cart_linoz_file, cart_vortex_init_date,        &	!< CS 5.3.15
-   &                lart_polarchem, cart_ch4_paramet						!< CS 5.5.15
+   &                lart_diag_out,													   &
+   &                cart_emiss_table_path, cart_emiss_table_file 
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -130,11 +126,8 @@ CONTAINS
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem           = .FALSE.
     iart_chem_mechanism = 0
-    cart_linoz_file     = ''	 !< CS 10.03.15
-    cart_vortex_init_date = '' 	 !< CS 10.03.15
-    cart_ch4_paramet    = 'Brasseur' !< CS 5.5.15
-    lart_polarchem      = .TRUE.     !< CS 5.5.15
-      
+    cart_emiss_table_path = TRIM(cart_folder)//'docs/'   
+    cart_emiss_table_file = 'art_emission_metadata_tables_DOM01.tex' 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
     iart_seasalt        = 0
@@ -226,11 +219,9 @@ CONTAINS
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem           = lart_chem
       art_config(jg)%iart_chem_mechanism = iart_chem_mechanism
-      art_config(jg)%cart_linoz_file     = TRIM(cart_linoz_file) !CS/IMK-ASF 5.3.15
-      art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date) !CS/IMK-ASF 10.3.15
-      art_config(jg)%lart_polarchem      = lart_polarchem !CS/IMK-ASF 5.3.15
-      art_config(jg)%cart_ch4_paramet    = TRIM(cart_ch4_paramet) !CS/IMK-ASF 10.3.15
-      
+      art_config(jg)%cart_emiss_table_path    = TRIM(cart_emiss_table_path)   
+      art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg)) 
+
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
       art_config(jg)%lart_aerosol        = lart_aerosol
       art_config(jg)%iart_seasalt        = iart_seasalt

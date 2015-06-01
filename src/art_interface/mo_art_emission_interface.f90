@@ -292,13 +292,17 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-!            CALL art_emiss_chemtracer(datetime, &
-!                & tracer,                       &
-!                & p_nh_state%diag%pres,         &
-!                & ext_data%atm%llsm_atm_c,      &
-!                & p_patch,                      &
-!                & jb,istart,iend,nlev,nproma,   &
-!                & p_nh_state%diag%extra_3d)
+ CALL art_emiss_chemtracer(datetime,   &                                                                                          
+                 & dtime,                          &                                                                                          
+                 & tracer,                         &                                                                                          
+                 & p_nh_state%diag%pres,           &                                                                                          
+                 & p_nh_state%diag%temp,         &                                                                                          
+                 & p_nh_state%metrics%ddqz_z_full, &  
+				 &  p_nh_state%metrics ,		&		 
+                 & ext_data%atm%llsm_atm_c,        &                                                                                          
+                 & p_patch,                        &                                                                                          
+                 & jb,istart,iend,nlev,nproma,     &                                                                                          
+                 & p_nh_state%diag%extra_3d)
             
           ENDDO
         CASE(1)
@@ -306,12 +310,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-!            CALL art_emiss_gasphase(tracer,     &
-!                & p_nh_state%diag%pres,         &
-!                & ext_data%atm%llsm_atm_c,      &
-!                & p_patch,                      &
-!                & jb,istart,iend,nlev,nproma,   &
-!                & p_nh_state%diag%extra_3d)
+            CALL art_emiss_gasphase(dtime,tracer,     &
+                & p_nh_state%diag%pres,         &
+                & ext_data%atm%llsm_atm_c,      &
+                & p_patch,                      &
+                & jb,istart,iend,nlev,nproma,   &
+                & p_nh_state%diag%extra_3d)
           ENDDO
         
       END SELECT !iart_chem_mechanism
@@ -325,4 +329,5 @@ END SUBROUTINE art_emission_interface
 !!-------------------------------------------------------------------------
 !!
 END MODULE mo_art_emission_interface
+
 

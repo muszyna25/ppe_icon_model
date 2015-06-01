@@ -561,7 +561,7 @@ CONTAINS
 
     ENDIF
 
-    IF (lart) THEN
+   IF (lart) THEN
 !< JS: added ext_data again, datetime, p_metrics, pt_diag_pt_prog%rho
 !< JS: call of ozone climatology since O3 is needed for photolysis 
 		CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
@@ -584,6 +584,7 @@ CONTAINS
                   &          pt_prog_rcf%tracer)                   !>inout
 
     ENDIF !lart
+
 
 
 
