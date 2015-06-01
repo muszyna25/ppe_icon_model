@@ -178,7 +178,7 @@ MODULE mo_pp_scheduler
   USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
     &                                   t_lon_lat_intp, p_int_state,                        &
     &                                   MAX_LONLAT_GRIDS
-  USE mo_nonhydro_state,          ONLY: p_nh_state
+  USE mo_nonhydro_state,          ONLY: p_nh_state, p_nh_state_lists
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, p_nh_opt_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: nh_pzlev_config
@@ -284,7 +284,7 @@ CONTAINS
             ! mean sea level pressure
             !
             ! find the standard pressure field:
-            element_pres => find_list_element (p_nh_state(jg)%diag_list, 'pres')
+            element_pres => find_list_element (p_nh_state_lists(jg)%diag_list, 'pres')
             IF (ASSOCIATED (element)) THEN
               ! register task for interpolation to z=0:
               CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
@@ -400,8 +400,8 @@ CONTAINS
         IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
 
         !- find existing variables "u", "v" (for copying the meta-data):
-        element_u => find_list_element (p_nh_state(jg)%diag_list, "u")
-        element_v => find_list_element (p_nh_state(jg)%diag_list, "v")
+        element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
+        element_v => find_list_element (p_nh_state_lists(jg)%diag_list, "v")
         
         !- predefined array shapes
         nlev = element%field%info%used_dimensions(2)
@@ -687,7 +687,9 @@ CONTAINS
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-                &           post_op=info%post_op )
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval_r=info%missval%rval )
             END IF
             !--- INTEGER fields
             IF (ASSOCIATED(element%field%i_ptr)) THEN
@@ -698,7 +700,9 @@ CONTAINS
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
-                &           post_op=info%post_op )
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval_i=info%missval%ival )
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
@@ -902,8 +906,8 @@ CONTAINS
     new_element_2 => NULL()
      
     !- find existing variables "u", "v" (for copying the meta-data):
-    element_u => find_list_element (p_nh_state(jg)%diag_list, "u")
-    element_v => find_list_element (p_nh_state(jg)%diag_list, "v")
+    element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
+    element_v => find_list_element (p_nh_state_lists(jg)%diag_list, "v")
 
     !- predefined array shapes
     nblks_c   = p_patch(jg)%nblks_c
@@ -1152,9 +1156,9 @@ CONTAINS
       ! model/half levels):
       IF (l_intp_z) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%zlevels%nvalues, nblks_c /)
-        CALL copy_variable("temp", p_nh_state(jg)%diag_list, ZA_ALTITUDE, shape3d, &
+        CALL copy_variable("temp", p_nh_state_lists(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_temp, p_opt_diag_list_z)
-        CALL copy_variable("pres", p_nh_state(jg)%diag_list, ZA_ALTITUDE, shape3d, &
+        CALL copy_variable("pres", p_nh_state_lists(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_pres, p_opt_diag_list_z)
       END IF
       IF (l_intp_p) THEN
@@ -1164,7 +1168,7 @@ CONTAINS
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
           & ldims=shape3d, lrestart=.FALSE. )
-        CALL copy_variable("temp",   p_nh_state(jg)%diag_list,    ZA_PRESSURE, shape3d, &
+        CALL copy_variable("temp",   p_nh_state_lists(jg)%diag_list,    ZA_PRESSURE, shape3d, &
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
       IF (l_intp_i) THEN
@@ -1174,7 +1178,7 @@ CONTAINS
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
           & ldims=shape3d, lrestart=.FALSE. )
-        CALL copy_variable("temp",   p_nh_state(jg)%diag_list,    ZA_ISENTROPIC, shape3d, &
+        CALL copy_variable("temp",   p_nh_state_lists(jg)%diag_list,    ZA_ISENTROPIC, shape3d, &
           &                p_diag_pz%i_temp, p_opt_diag_list_i)
       END IF
 

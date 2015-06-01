@@ -36,6 +36,8 @@ MODULE mo_nwp_parameters
     REAL(wp) :: rhebc_land, rhebc_ocean
     ! fractional area covered by convective precipitation
     REAL(wp) :: rcucov
+    ! tuning coefficient for organized entrainment of deep convection
+    REAL(wp) :: entrorg
     ! launch level for GWD scheme
     INTEGER  :: klaunch
   END TYPE t_phy_params

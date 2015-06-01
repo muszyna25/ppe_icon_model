@@ -687,22 +687,22 @@ CONTAINS
     ! Initialise the coupler
     xml_filename = "coupling.xml"
     xsd_filename = "coupling.xsd"
-    CALL yac_finit ( xml_filename, xsd_filename )
+    CALL yac_finit ( TRIM(xml_filename), TRIM(xsd_filename) )
 
     ! Inform the coupler about what we are
-    CALL yac_fdef_comp ( comp_name, comp_id )
+    CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
     CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
     CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
 
-    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start,  &
-      &                      end_datetime   = sim_step_info%sim_end   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%sim_start),  &
+      &                      end_datetime   = TRIM(sim_step_info%sim_end)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
-    CALL yac_fdef_subdomain ( comp_id, grid_name, subdomain_id )
+    CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
 
     subdomain_ids(1) = subdomain_id
 
@@ -861,25 +861,25 @@ CONTAINS
     
     DEALLOCATE (ibuffer)
 
-    field_name(1) = "TAUX"   ! bundled field containing two components
-    field_name(2) = "TAUY"   ! bundled field containing two components
-    field_name(3) = "SFWFLX" ! bundled field containing two components
-    field_name(4) = "SFTEMP"
-    field_name(5) = "THFLX"  ! bundled field containing two components
-    field_name(6) = "ICEATM" ! bundled field containing four components
-    field_name(7) = "SST"
-    field_name(8) = "OCEANU"
-    field_name(9) = "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
+    field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
+    field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
+    field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
+    field_name(4) = "surface_temperature"
+    field_name(5) = "total_heat_flux"                    ! bundled field containing four components
+    field_name(6) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
+    field_name(7) = "sea_surface_temperature"
+    field_name(8) = "eastward_sea_water_velocity"
+    field_name(9) = "northward_sea_water_velocity"
+    field_name(10) = "ocean_sea_ice_bundle"              ! bundled field containing five components
 
     DO i = 1, no_of_fields
-      CALL yac_fdef_field ( &
-        & field_name(i),    &
-        & comp_id,          &
-        & domain_id,        &
-        & cell_point_ids,   &
-        & cell_mask_ids,    &
-        & 1,                &
+      CALL yac_fdef_field (    &
+        & TRIM(field_name(i)), &
+        & comp_id,             &
+        & domain_id,           &
+        & cell_point_ids,      &
+        & cell_mask_ids,       &
+        & 1,                   &
         & field_id(i) )
     ENDDO
 
@@ -920,30 +920,38 @@ CONTAINS
 
     field_name(1) = "TAUX"   ! bundled field containing two components
     field_name(2) = "TAUY"   ! bundled field containing two components
-    field_name(3) = "SFWFLX" ! bundled field containing two components
+    field_name(3) = "SFWFLX" ! bundled field containing three components
     field_name(4) = "SFTEMP"
-    field_name(5) = "THFLX"  ! bundled field containing two components
+    field_name(5) = "THFLX"  ! bundled field containing four components
     field_name(6) = "ICEATM" ! bundled field containing four components
     field_name(7) = "SST"
     field_name(8) = "OCEANU"
     field_name(9) = "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
+    field_name(10) = "ICEOCE" ! bundled field containing five components
 
     field_shape(1:2) = grid_shape(1:2)
 
+    ! see equivalent atmosphere counterpart in ocean/boundary/mo_ocean_coupling.f90
+    ! routine construct_ocean_coupling
+
     DO i = 1, no_of_fields
-       IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
-          field_shape(3) = 2
-       ELSE IF ( i == 6 ) THEN
-          field_shape(3) = 4
+
+       IF ( i == 1 .OR. i == 2 ) THEN
+         field_shape(3) = 2
+       ELSE IF ( i == 3 ) THEN
+         field_shape(3) = 3
+       ELSE IF ( i == 5 .OR. i == 6 ) THEN
+         field_shape(3) = 4
        ELSE IF ( i == 10 ) THEN
-          field_shape(3) = 5
+         field_shape(3) = 5
        ELSE
-          field_shape(3) = 1
+         field_shape(3) = 1
        ENDIF
+
        CALL icon_cpl_def_field ( &
          & field_name(i), grid_id, field_id(i), &
          & field_shape, error_status )
+
     ENDDO
 
     CALL icon_cpl_search

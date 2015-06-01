@@ -37,7 +37,7 @@ MODULE mo_turbdiff_nml
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
-    & a_hshr, imode_frcsmot
+    & a_hshr, imode_frcsmot, lfreeslip
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
@@ -55,6 +55,9 @@ MODULE mo_turbdiff_nml
   REAL(wp) :: const_z0   ! horizontally homogeneous roughness length 
                          ! (for idealized testcases)
 
+  LOGICAL :: ldiff_qi    ! turbulent diffusion of cloud ice QI
+                         ! .TRUE.: ON
+
   NAMELIST/turbdiff_nml/ &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
@@ -63,7 +66,7 @@ MODULE mo_turbdiff_nml
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
     & a_hshr, imode_frcsmot, &
 !   additional namelist parameters:
-    & lconst_z0, const_z0
+    & lconst_z0, const_z0, lfreeslip, ldiff_qi
 
 CONTAINS
 
@@ -108,7 +111,8 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
-  
+    ldiff_qi     = .FALSE.  ! no turbulent diffusion of QI  
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -166,6 +170,7 @@ CONTAINS
       turbdiff_config(jg)%ltmpcor      = ltmpcor
       turbdiff_config(jg)%lprfcor      = lprfcor
       turbdiff_config(jg)%lnonloc      = lnonloc
+      turbdiff_config(jg)%lfreeslip    = lfreeslip
       turbdiff_config(jg)%lcpfluc      = lcpfluc
       turbdiff_config(jg)%lsflcnd      = lsflcnd
       turbdiff_config(jg)%itype_wcld   = itype_wcld
@@ -187,6 +192,7 @@ CONTAINS
 
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0
+      turbdiff_config(jg)%ldiff_qi     = ldiff_qi
     ENDDO
 
     !-----------------------------------------------------

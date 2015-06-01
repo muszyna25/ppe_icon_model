@@ -35,12 +35,36 @@ dwd_grib_api=/home/ms/de/dwd/grib_api
 export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3:/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions"
 
 
+## -------------------------------------------------
+# test IFS or ICON initial conditions for current month
+
+YYYYMM=`echo %YMD% | cut -c 1-6`
+MONTHS=`echo %MONTHS% | sed 's/_/ /g'`
+set -A MON_IFS_ICON `echo %MON_IFS_ICON% | sed 's/_/ /g'`
+iii=0
+for month in ${MONTHS[*]} ; do
+  if [[ ${YYYYMM} -eq ${month} ]]
+  then
+    echo "Calculate this month!"
+    smsevent time_domonth
+    if [[ ${MON_IFS_ICON[${iii}]} = 'ifs' ]]
+    then
+      INI_IFS_ICON=1
+    else
+      INI_IFS_ICON=2
+    fi
+  fi
+  iii=`expr ${iii} + 1`
+done
+
+
 #-----------------------------------------------------------------------------
 
 # calculate and format starting date of simulation: SMSDATE-  2 days, time: UTC 00 
 #REQUEST_DATE=`python %SCBASEDIR%/gen/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 INITIME=%YMD%%INIHOUR%
 INITIME_FMT=`python %SCBASEDIR%/gen/date_calc.py -a printfmt -d %YMD%%INIHOUR%`
+LASTIME_FMT=%LDATE_S%Z
 
 if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
@@ -58,7 +82,7 @@ ifsdir=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # base directory for external data
 basedir=%SCPERM%
 # base directory for time dependent external data SST ansd CI data
-sstice_dir=%SCPERMIII%
+sstice_dir=%SCTEMP%/%SUITE%/%EXPNUM%/input/sstice
 # base directory for model output
 outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
 # base name for output and namelist files
@@ -112,10 +136,19 @@ fi
 
 # include experiment parameters
 
-. ${SETDIRTMP}/case_setup
+if [[ ${INI_IFS_ICON} -eq 1 ]] ; then   #IFS initial conditions
+  . ${SETDIRTMP}/case_setup_ifs
+else
+  . ${SETDIRTMP}/case_setup_icon
+fi
 
 # copy binary and execute in parallel
 cp -p ${outbasedir}/bin/icon ./icon.exe
+
+###
+#cp /scratch/ms/de/dfi0/output/exp_R02B06/icon ./icon.exe
+#cp /scratch/ms/de/deia/icon/dei2/189/output/bin/icon ./icon.exe
+###
 
 arch=x86_64-unknown-linux-gnu
 

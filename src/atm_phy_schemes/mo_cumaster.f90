@@ -471,8 +471,10 @@ REAL(KIND=jprb), PARAMETER :: zcapethresh = 7000._jprb
 ldcum(:)=.FALSE.
 pqsen(:,:)=pqen(:,:)
 
-CALL satur (kidia, kfdia, klon, phy_params%kcon2, klev,&
-  & pap,    pten, pqen, pqsen, 1  )
+! GZ, 2015-02-17: Change start level of qsat computation from 60 hPa (phy_params%kcon2) to ktdia,
+! i.e. the general start level of moisture physics, because the previous implementation led to a crash
+! in a pathological case of anomalously deep convection
+CALL satur (kidia, kfdia, klon, ktdia, klev, pap, pten, pqen, pqsen, 1)
 
 
 !*UPG
@@ -547,8 +549,6 @@ llo2(:)= .FALSE.
 !*    2.           INITIALIZE VALUES AT VERTICAL GRID POINTS IN 'CUINI'
 !                  ---------------------------------------------------
 
-! Note by GZ: For unclear reasons, cuinin and cubasen have to be called
-! for all model levels to obtain correct results
 CALL cuinin &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%kcon2, &
   & pten,     pqen,     pqsen,    puen,     pven,&
@@ -569,7 +569,7 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev,&
-  & phy_params%kcon1, phy_params%kcon2,          &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -727,7 +727,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & ptsphy,&
+  & phy_params%entrorg, ptsphy,&
   & paer_ss, &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -995,7 +995,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & ptsphy,&
+    & phy_params%entrorg, ptsphy,&
     & paer_ss,&
     & ztenh,    zqenh,    &
     & ptenq,            &

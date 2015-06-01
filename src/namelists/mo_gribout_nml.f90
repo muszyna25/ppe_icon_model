@@ -43,7 +43,7 @@ MODULE mo_gribout_nml
 
 
   !> module name
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_handler'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_gribout_nml'
 
   ! constant for better readability
   INTEGER, PARAMETER :: UNDEFINED = -1

@@ -44,9 +44,6 @@ MODULE mo_gw_hines
 
   USE mo_gw_hines_config,      ONLY: gw_hines_config
 
-  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,&
-    & timer_gw_hines
-
   USE mo_math_constants,       ONLY: cos45, one_third
   USE mo_fast_math_lib,        ONLY: vec_cbrt ! cube root
 
@@ -242,7 +239,6 @@ CONTAINS
     tend_u_gwh(:,:) = 0.0_wp
     tend_v_gwh(:,:) = 0.0_wp
 
-    IF (ltimer) call timer_start(timer_gw_hines)
     !
     !--  Check consistency of nc, jcs and jce
     !
@@ -451,7 +447,6 @@ CONTAINS
       tend_v_gwh(jcs:jce,jk) = vtendgw(1:nc,jk)
     END DO
     !
-    IF (ltimer) call timer_stop(timer_gw_hines)
 
 #ifdef __PROFILE
   CALL trace_stop ('gw_hines', 20)

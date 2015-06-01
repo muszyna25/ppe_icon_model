@@ -24,6 +24,29 @@
 !!
 !! -------------------------------------------------------------------------
 !!
+!! The "namelist_output" module was originally written by Rainer
+!! Johanni. Some data structures used therein are duplicates of those
+!! created in the other parts of the model: In general, variable
+!! fields are introduced in ICON through the "add_var" mechanism in
+!! the module "shared/mo_var_list". This mechanism allocates "r_ptr"
+!! POINTERs for REAL(wp) variable fields, see the data structure in
+!! "t_var_list_element" (mo_var_list_element.f90). The "p_nh_state"
+!! variables, for example, then point to the same location. In the
+!! output, however, there exists a data structure "t_var_desc"
+!! (variable descriptor) which also contains an "r_ptr" POINTER. This
+!! also points to the original "r_ptr" location in memory.
+!!
+!! Exceptions and caveats for this described mechanism:
+!!
+!! - INTEGER fields are stored in "i_ptr" POINTERs.
+!! - After gathering the output data, so-called "post-ops" are
+!!   performed which modify the copied data (for example scaling from/to
+!!   percent values).
+!! - In asynchronous output mode, the "r_ptr" POINTERs are meaningless
+!!   on those PEs which are dedicated for output. These are NULL
+!!   pointers then.
+!!
+!!
 !! MPI roles in asynchronous communication:
 !! 
 !! - Compute PEs create local memory windows, buffering all variables
@@ -569,6 +592,7 @@ CONTAINS
     LOGICAL                                     :: l_error
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
+    INTEGER                                     :: nmiss    ! missing value indicator
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -743,6 +767,7 @@ CONTAINS
         CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
       END IF
 
+
       var_ignore_level_selection = .FALSE.
       IF(info%ndims < 3) THEN
         nlevs = 1
@@ -764,7 +789,7 @@ CONTAINS
             IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
               & (of%level_selection%global_idx(jk) > (info%used_dimensions(2)+1))) THEN
               var_ignore_level_selection = .TRUE.
-              IF (my_process_is_stdio()) &
+              IF (my_process_is_stdio() .AND. (msg_level >= 15)) &
                 &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
               nlevs = info%used_dimensions(2)
               EXIT CHECK_LOOP
@@ -845,6 +870,19 @@ CONTAINS
             END IF
           END IF ! my_process_is_mpi_test()
         END IF ! my_process_is_mpi_workroot()
+
+
+        ! set missval flag, if applicable
+        !
+        IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
+          IF (of%var_desc(iv)%info%lmiss ) THEN
+            nmiss = 1
+          ELSE
+            nmiss = 0
+          ENDIF
+        ELSE  ! i.e. NETCDF
+          nmiss = 0
+        ENDIF
 
 
         ! For all levels (this needs to be done level-wise in order to reduce 
@@ -943,9 +981,9 @@ CONTAINS
           
           IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
               IF (use_dp_mpi2io .OR. have_GRIB) THEN
-                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), 0)
+                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
               ELSE
-                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), 0)
+                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
               ENDIF
           ENDIF
           
@@ -1244,6 +1282,7 @@ CONTAINS
     TYPE(t_reorder_info) , POINTER :: p_ri
     LOGICAL                        :: have_GRIB
     INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
+    INTEGER                        :: nmiss    ! missing value indicator
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
@@ -1322,6 +1361,18 @@ CONTAINS
           &                               of%out_event%output_event%event_data%sim_start,  &
           &                               get_current_date(of%out_event))
       END IF
+
+      ! set missval flag, if applicable
+      !
+      IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
+        IF ( info%lmiss ) THEN
+          nmiss = 1
+        ELSE
+          nmiss = 0
+        ENDIF
+      ELSE  ! i.e. NETCDF
+        nmiss = 0
+      ENDIF
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
@@ -1431,6 +1482,7 @@ CONTAINS
         t_0 = p_mpi_wtime() ! performance measurement
 
         IF (use_dp_mpi2io) THEN
+          var3_dp(:) = 0._wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
@@ -1461,6 +1513,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
           ELSE
+            var3_sp(:) = 0._sp
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
             DO np = 0, num_work_procs-1
@@ -1480,10 +1533,10 @@ CONTAINS
         t_0 = p_mpi_wtime() ! performance measurement
 
         IF (use_dp_mpi2io .OR. have_GRIB) THEN
-          CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, 0)
+          CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, nmiss)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         ELSE
-          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, var3_sp, 0)
+          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, var3_sp, nmiss)
           mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
         ENDIF
         t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement

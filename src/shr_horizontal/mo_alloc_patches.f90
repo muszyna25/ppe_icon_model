@@ -132,6 +132,9 @@ CONTAINS
     call delete_distrib_read(p_patch%edges%dist_io_data)
     call delete_distrib_read(p_patch%verts%dist_io_data)
 
+    DEALLOCATE(p_patch%cells%dist_io_data, p_patch%edges%dist_io_data, &
+      &        p_patch%verts%dist_io_data)
+
     call deallocate_decomp_info(p_patch%cells%decomp_info)
     call deallocate_decomp_info(p_patch%edges%decomp_info)
     call deallocate_decomp_info(p_patch%verts%decomp_info)
