@@ -285,7 +285,10 @@ CONTAINS
       CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
         &                     extpar_varnames_dict)
 
+      CALL message( TRIM(routine),'Finished reading external data' )
+
       IF ( iforcing == inwp ) THEN
+
         DO jg = 1, n_dom
           CALL smooth_topography ( p_patch(jg)                   ,&
             &                      p_int_state(jg)               ,&
@@ -300,15 +303,11 @@ CONTAINS
             &                  ext_data(jg)%atm%grad_topo )
         END DO
 
-      END IF
 
-      CALL message( TRIM(routine),'Finished reading external data' )
 
-      ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
-      ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
-      ! daily basis.
-      !
-      IF ( iforcing == inwp ) THEN
+        ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
+        ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
+        ! daily basis.
 
         ! When initializing the model we set the target hour to 0 (midnight) as well. 
         ! When restarting, the target interpolation time must be set to cur_datetime 
