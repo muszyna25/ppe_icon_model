@@ -574,7 +574,7 @@ CONTAINS
         &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
 
       ! store surface state for relaxation (onyl 1.5 degrees from North/South boundary)
-      CALL create_surfaceRelaxState(patch_3d=patch_3d, ocean_tracer=ocean_temperature, 
+!       CALL create_surfaceRelaxState(patch_3d=patch_3d, ocean_tracer=ocean_temperature, 
 
 
     CASE (220)
