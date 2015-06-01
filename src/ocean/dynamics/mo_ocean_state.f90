@@ -35,7 +35,7 @@ MODULE mo_ocean_state
     &                               k_tracer_dianeutral_parameter,                          &
     &                               k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     &                               GMRedi_configuration,GMRedi_combined,                   &
-    &                               GM_only,Redi_only
+    &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp
   USE mo_ocean_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer ,    &
     &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
