@@ -54,7 +54,6 @@ MODULE mo_initicon_nml
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_ana_varlist         => ana_varlist,         &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
-    & config_wgtfac_geobal       => wgtfac_geobal,       &
     & config_ana_varnames_map_file => ana_varnames_map_file, &
     & config_latbc_varnames_map_file => latbc_varnames_map_file
 
@@ -108,8 +107,6 @@ MODULE mo_initicon_nml
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
-  REAL(wp) :: wgtfac_geobal  ! Weighting factor for artificial geostrophic balancing of meridional gradients
-                             ! of pressure increments in the tropical stratosphere
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -141,7 +138,7 @@ MODULE mo_initicon_nml
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          lp2cintp_incr, lp2cintp_sfcana, wgtfac_geobal,    &
+                          lp2cintp_incr, lp2cintp_sfcana,                   &
                           latbc_varnames_map_file, start_time_avg_fg,       &
                           end_time_avg_fg, interval_avg_fg, ltile_coldstart
                           
@@ -186,7 +183,6 @@ CONTAINS
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
-  wgtfac_geobal       = 0._wp  ! geostrophic balancing of pressure increments in the tropical stratosphere turned off
   type_iau_wgt= 1              ! Top-hat weighting function
   ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
                                ! or the entire set of default analysis fields. If any of these fields
@@ -327,7 +323,6 @@ CONTAINS
   config_ana_varlist         = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
-  config_wgtfac_geobal       = wgtfac_geobal
   config_latbc_varnames_map_file = latbc_varnames_map_file
 
   ! write the contents of the namelist to an ASCII file

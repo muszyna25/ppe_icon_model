@@ -62,10 +62,10 @@ ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing                             (EDMF, safer 90s)
-dtime=360       # advect, phys   R2B4:600  R2B5:450 (720) R2B6:360  R2B7:180  R2B8:90
-dtconv=720      # conv, SSO, GWD R2B4:600  R2B5:900 (720) R2B6:720  R2B7:360  R2B8:360
-dtrad=3600      # rad            R2B4:3600 R2B5:3600      R2B6:3600 R2B7:1800 R2B8:1800
-ndyn_substeps=5 # dyn/adv        R2B4:4    R2B5:5   (5)   R2B6:5    R2B7:5    R2B8:5
+dtime=360       # advect, phys   R2B4:600  R2B5:450 (720) R2B6:360  R2B7:180  R3B7: 120  R2B8:90
+dtconv=720      # conv, SSO, GWD R2B4:600  R2B5:900 (720) R2B6:720  R2B7:360  R3B7: 600  R2B8:360
+dtrad=3600      # rad            R2B4:3600 R2B5:3600      R2B6:3600 R2B7:1800 R3B7: 1800 R2B8:1800
+ndyn_substeps=5 # dyn/adv        R2B4:4    R2B5:5   (5)   R2B6:5    R2B7:5    R3B7: 5    R2B8:5
 ninc_mtgrm=10   # output interval 3600s             (25)
 ndays=10        # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
@@ -275,7 +275,7 @@ cat > ${atmo_namelist} << EOF
  itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
 /
 &radiation_nml
- irad_o3                      = 7           ! 6: GME, 7: GEMS
+ irad_o3                      = 7           ! 6: GME, 7: GEMS, 9: MACC
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo

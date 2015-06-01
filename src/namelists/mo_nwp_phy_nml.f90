@@ -24,7 +24,7 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: max_dom, icosmo, ismag
+  USE mo_impl_constants,      ONLY: max_dom, icosmo
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio

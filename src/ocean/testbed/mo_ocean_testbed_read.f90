@@ -176,6 +176,9 @@ CONTAINS
       dummy_patch%verts%decomp_info%glb_index(:) = &
         (/(i, i=p_pe_work+1, p_n_work * 2 * nproma, p_n_work)/)
 
+      ALLOCATE(dummy_patch%cells%dist_io_data, dummy_patch%edges%dist_io_data, &
+        &      dummy_patch%verts%dist_io_data)
+
       CALL setup_distrib_read(p_n_work * 2 * nproma, &
         &                     dummy_patch%cells%decomp_info, &
         &                     dummy_patch%cells%dist_io_data)
@@ -1266,6 +1269,10 @@ CONTAINS
       CALL delete_distrib_read(dummy_patch%cells%dist_io_data)
       CALL delete_distrib_read(dummy_patch%edges%dist_io_data)
       CALL delete_distrib_read(dummy_patch%verts%dist_io_data)
+
+      DEALLOCATE(dummy_patch%cells%dist_io_data, &
+        &        dummy_patch%edges%dist_io_data, &
+        &        dummy_patch%verts%dist_io_data)
 
       DEALLOCATE(dummy_patch%cells%decomp_info%glb_index, &
         &        dummy_patch%edges%decomp_info%glb_index, &

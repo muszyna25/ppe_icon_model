@@ -110,6 +110,7 @@ doc/icon-authors.txt -text
 doc/icon_nml_tables.tex -text
 doc/icon_ocean_nml_tables.tex -text
 doc/incompatible_changes.tex -text
+doc/mo_expression_doc.tex -text
 doc/resources/doxyfile_icon_html -text
 doc/resources/doxyfile_icon_pdf -text
 doc/resources/doxygen_html_footer.html -text
@@ -231,6 +232,7 @@ doc/technical/dwd_database/preface_intro.tex -text
 doc/technical/dwd_database/preface_title_toc.tex -text
 doc/technical/dwd_database/preface_versionhistory.tex -text
 doc/technical/dwd_database/quote.tex -text
+doc/technical/dwd_database/statproc.tex -text
 doc/technical/flux_diagram-crop.pdf -text
 doc/technical/flux_diagram.pdf -text
 doc/technical/flux_diagram.ps -text
@@ -876,8 +878,6 @@ run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
-run/post.nh35_tri_jws -text
-run/post.nh3_tri_tracer_solid_body -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.ocean_omip_long -text
@@ -1038,6 +1038,24 @@ scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/landfill_tri-hex.bash -text
 scripts/gmt_scripts/plot_model_domains -text
 scripts/postprocessing/.hluresfile -text
+scripts/postprocessing/amip_quickplots/amip_r2b4_ncl6.2.0.sh -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_2d_r2b4 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_3d_logp_r2b4 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_3d_r2b4 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/TABLEr2b4_job -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/VARS.txt -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_2d_r2b4_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_2d_r2b4_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_linp_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_linp_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_logp_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_logp_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_map_page.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_map_single.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/partab -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/tab.ncl -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/table_thunder.f90 -text
+scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/table_thunder.x -text
 scripts/postprocessing/climplot/Z500_bias_era_mm.met -text
 scripts/postprocessing/climplot/avgtime.f90 -text
 scripts/postprocessing/climplot/climate_obs.met -text
@@ -1395,6 +1413,7 @@ src/atm_phy_nwp/mo_nwp_turbtrans_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_ww.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
+src/atm_phy_nwp/mo_rttov_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
 src/atm_phy_schemes/data_hydci_pp_ice.f90 -text
@@ -1492,6 +1511,7 @@ src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text
 src/configure_model/mo_run_config.f90 -text
 src/configure_model/mo_sleve_config.f90 -text
+src/configure_model/mo_synsat_config.f90 -text
 src/configure_model/mo_time_config.f90 -text
 src/configure_model/mo_turbdiff_config.f90 -text
 src/configure_model/mo_vdiff_config.f90 -text
@@ -1547,6 +1567,7 @@ src/io/atmo/mo_util_vgrid.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
+src/io/shared/mo_grib2_util.f90 -text
 src/io/shared/mo_io_restart.f90 -text
 src/io/shared/mo_io_restart_attributes.f90 -text
 src/io/shared/mo_io_restart_namelist.f90 -text
@@ -1623,6 +1644,7 @@ src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text
 src/namelists/mo_sea_ice_nml.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
+src/namelists/mo_synsat_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
@@ -1718,6 +1740,7 @@ src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_exception.f90 -text
+src/shared/mo_expression.f90 -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
 src/shared/mo_fortran_tools.f90 -text
 src/shared/mo_get_utc_date_tr.f90 -text
@@ -1787,6 +1810,7 @@ src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
 src/shr_horizontal/mo_intp_data_strc.f90 -text
 src/shr_horizontal/mo_intp_lonlat.f90 -text
+src/shr_horizontal/mo_intp_lonlat_baryctr.f90 -text
 src/shr_horizontal/mo_intp_rbf.f90 -text
 src/shr_horizontal/mo_intp_rbf_coeffs.f90 -text
 src/shr_horizontal/mo_intp_state.f90 -text
@@ -1846,11 +1870,15 @@ src/testcases/mo_sw_test.f90 -text
 src/tests/test_divide_cell.f90 -text
 src/tests/test_divide_cell_mpi.f90 -text
 support/CMakeLists.txt -text
+support/cdi_int.h -text
 support/cdilib.c -text
 support/cfortran.h -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
 support/rtc_sx.s -text
+support/util_arithmetic_expr.c -text
+support/util_arithmetic_expr.h -text
+support/util_arithmetic_expr.rl -text
 support/util_backtrace.c -text
 support/util_convert.c -text
 support/util_file.c -text

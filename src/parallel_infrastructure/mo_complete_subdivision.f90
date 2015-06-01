@@ -207,7 +207,6 @@ CONTAINS
         CALL setup_comm_ubc_interpolation(patch(jg), patch(jgp))
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
-        CALL set_comm_pat_gather(p_patch_local_parent(jg))
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
           &                   patch(jg)%parent_child_index)
@@ -1393,7 +1392,7 @@ CONTAINS
 
       CALL setup_comm_gather_pattern(n_g, owner_local(:), &
         &                            decomp_info%glb_index(:), &
-        &                            comm_pat_gather(ip))
+        &                            comm_pat_gather(ip), .TRUE.)
     END DO
 
     DEALLOCATE(owner_local)

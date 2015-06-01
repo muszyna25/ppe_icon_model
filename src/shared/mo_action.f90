@@ -76,9 +76,7 @@ MODULE mo_action
 
   ! Functions/Subroutines
   PUBLIC :: getActiveAction
-  !!!! temporary workaround for gfortran 4.5 and potentially others !!!!!!
-  PUBLIC :: action_init    ! wrapper for CALL reset_act%initialize
-  PUBLIC :: reset_action   ! wrapper for CALL reset_act%execute
+
 
   ! PARAMETER
   PUBLIC :: ACTION_NAMES
@@ -542,30 +540,6 @@ CONTAINS
 
   END FUNCTION getActiveAction
 
-
-
-  !=================================================================================!
-  !       WORKAROUND for GFORTRAN 4.5 and potentially other ancient compilers       !
-  !=================================================================================!
-  !
-  ! wrapper for reset_act%initialize
-  !
-  SUBROUTINE action_init(actionTyp)
-    INTEGER, INTENT(IN) :: actionTyp
-
-    ! Initialize reset-Action, i.e. assign variables to action object
-    CALL reset_act%initialize(actionTyp)
-  END SUBROUTINE action_init
-
-  !
-  ! wrapper for reset_act%execute
-  !
-  SUBROUTINE reset_action(slack)
-    REAL(wp), INTENT(IN) :: slack
-
-    ! execute reset action
-    CALL reset_act%execute(slack)
-  END SUBROUTINE reset_action
 
 END MODULE mo_action
 

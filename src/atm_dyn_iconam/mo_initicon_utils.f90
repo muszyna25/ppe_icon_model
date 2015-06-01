@@ -49,7 +49,8 @@ MODULE mo_initicon_utils
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
-    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld, nlev_snow
+    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
+    &                               nlev_snow
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -122,7 +123,7 @@ MODULE mo_initicon_utils
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     TYPE(t_list_element), POINTER   :: element
-    CHARACTER(len=*), PARAMETER     :: routine = modname//':initicon_inverse_post_op'
+    CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
 
     !-------------------------------------------------------------------------
 
@@ -172,7 +173,7 @@ MODULE mo_initicon_utils
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(mapped_name)
+        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(mapped_name)//' ('//TRIM(varname)//')'
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
       IF (PRESENT(optvar_out2D)) THEN
@@ -202,9 +203,8 @@ MODULE mo_initicon_utils
   !! For Analysis (increments)
   !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
   !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - For MODE_DWDANA, MODE_COMBINED, and MODE_COSMODE check validity of 
-  !!   analysis validity time:  The analysis field's validity time must match 
-  !!   the model start time
+  !! - Check validity of analysis validity time:  The analysis field's validity 
+  !!   time must match the model's initialization time (ini_datetime)
   !! - MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC:  check for matching 
   !!   typeOfGeneratingProcess.
   !!
@@ -373,26 +373,19 @@ MODULE mo_initicon_utils
       !**************************************!
       !  Check Validity time of analysis     !
       !**************************************!
-      SELECT CASE (init_mode)
-      CASE(MODE_DWDANA,MODE_COMBINED,MODE_COSMODE)
-        !
-        ! analysis field's validity time must match the model start time
-        !
-        ! check correctness of validity-time
-        lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
+      !
+      ! analysis field's validity time must match the model's initialization time
+      !
+      lmatch_vtime = (this_list_element%field%vdatetime == mtime_inidatetime)
 
-        ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
-        ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
-        ! write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
+      ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
+      ! write(0,*) "vdatetime, inidatetime: ", this_list_element%field%vdatetime, mtime_inidatetime
 
-        IF (.NOT. lmatch_vtime) THEN
-          WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
-            &                       //TRIM(grp_vars_ana(ivar))//'.'
-          CALL finish(routine, TRIM(message_text))
-        ENDIF
-      CASE default
-        !
-      END SELECT
+      IF (.NOT. lmatch_vtime) THEN
+        WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
+          &                       //TRIM(grp_vars_ana(ivar))//'.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
 
       !****************************************!

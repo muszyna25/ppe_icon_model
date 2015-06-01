@@ -2013,13 +2013,42 @@ CONTAINS
 
   ! Heterogeneous nucleation using Hande et al. scheme
   IF (use_hdcp2_het) THEN
-     ! for now only Spring of Table 1
-     nin_imm = 1.0259e5
-     alf_imm = 0.2073
-     bet_imm = 1.2873
-     nin_dep = 1.7836e5
-     alf_dep = 0.0075
-     bet_dep = 2.0341
+     IF (nuc_typ.EQ.1) THEN 
+        ! Spring of Table 1
+        nin_imm = 1.5684e5
+        alf_imm = 0.2466
+        bet_imm = 1.2293
+        nin_dep = 1.7836e5
+        alf_dep = 0.0075
+        bet_dep = 2.0341
+     ELSEIF (nuc_typ.EQ.2) THEN 
+        ! Summer
+        nin_imm = 2.9694e4
+        alf_imm = 0.2813
+        bet_imm = 1.1778
+        nin_dep = 2.6543e4
+        alf_dep = 0.0020
+        bet_dep = 2.5128
+     ELSEIF (nuc_typ.EQ.3) THEN 
+        ! Autumn
+     ELSEIF (nuc_typ.EQ.4) THEN 
+        ! Winter
+        nin_imm = 1.0259e5
+        alf_imm = 0.2073
+        bet_imm = 1.2873
+        nin_dep = 1.1663e4
+        alf_dep = 0.0194
+        bet_dep = 1.6943
+     ELSEIF (nuc_typ.EQ.5) THEN 
+        ! Spring with 95th percentile scaling factor
+        nin_imm = 1.5684e5 * 17.82
+        alf_imm = 0.2466
+        bet_imm = 1.2293
+        nin_dep = 1.7836e5 * 5.87
+        alf_dep = 0.0075
+        bet_dep = 2.0341
+     END IF
+
   ELSE   
      ! Heterogeneous nucleation using Phillips et al. scheme
      IF (iphillips == 2010) THEN
@@ -2050,7 +2079,7 @@ CONTAINS
         e_si = e_es(T_a)
         ssi  = atmo%qv(i,k) * R_d * T_a / e_si
         
-        IF (T_a < T_nuc .AND. T_a > 180.0 .AND. ssi > 1.0_wp  &
+        IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
              & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
 
            IF (cloud%q(i,k) > 0.0_wp) THEN
@@ -2080,7 +2109,7 @@ CONTAINS
               IF (use_hdcp2_het) THEN  
                  ! Hande et al. scheme, Eq. (3) with (2) and (1) 
                  T_a = max(T_a,220.0_wp)
-                 if (T_a.lt.253.0_wp .AND. ssi > 1.0_wp) then
+                 if (T_a.lt.253.0_wp) then
                     ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(T_a - 220.0_wp)) )
                     ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
                  else
@@ -5460,7 +5489,7 @@ CONTAINS
         firstcall = 1
      ENDIF
      
-     const1 = ecoll_ic/(D_coll_c - D_crit_c)
+     const1 = ecoll_sc/(D_coll_c - D_crit_c)
 
      DO k = kstart,kend
         DO i = istart,iend
@@ -5928,6 +5957,7 @@ CONTAINS
     REAL(wp)           :: acoeff,bcoeff,ccoeff,dcoeff
     REAL(wp)           :: a_ccn(4),b_ccn(4),c_ccn(4),d_ccn(4)
 
+    ! Data from HDCP2_CCN_params.txt for 20130417
     DATA a_ccn(1),b_ccn(1),c_ccn(1),d_ccn(1) /183230691.161_wp,0.0001984051994_wp,16.2420263911_wp,287736034.13_wp/
     DATA a_ccn(2),b_ccn(2),c_ccn(2),d_ccn(2) /0.10147358938_wp,4.473190485e-05_wp,3.22011836758_wp,0.6258809883_wp/
     DATA a_ccn(3),b_ccn(3),c_ccn(3),d_ccn(3) /-0.2922395814_wp,0.0001843225275_wp,13.8499423719_wp,0.8907491812_wp/
@@ -5951,18 +5981,16 @@ CONTAINS
 
           if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
 
-             ! hard upper limit for number conc that
-             ! eliminates also unrealistic high value
-             ! that would come from the dynamical core
+             ! Based on write-up of Luke Hande of 6 May 2015
              
              acoeff = a_ccn(1) * atan(b_ccn(1) * pres - c_ccn(1)) + d_ccn(1)
              bcoeff = a_ccn(2) * atan(b_ccn(2) * pres - c_ccn(2)) + d_ccn(2)
              ccoeff = a_ccn(3) * atan(b_ccn(3) * pres - c_ccn(3)) + d_ccn(3)
              dcoeff = a_ccn(4) * atan(b_ccn(4) * pres - c_ccn(4)) + d_ccn(4)
 
-             nuc_n = acoeff * atan(bcoeff * log(wcb) + ccoeff) + dcoeff
+             nuc_n = acoeff * atan(bcoeff * log(wcb) + ccoeff) + dcoeff 
 
-             nuc_n = MAX(nuc_n,0.0d0)
+             nuc_n = MAX(MAX(nuc_n,10.0e-6_wp) - n_c,0.0_wp)
 
              nuc_q = MIN(nuc_n * cloud%x_min, atmo%qv(i,k))
              nuc_n = nuc_q / cloud%x_min
