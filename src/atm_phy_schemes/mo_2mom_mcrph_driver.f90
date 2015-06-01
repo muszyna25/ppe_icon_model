@@ -84,10 +84,9 @@ PUBLIC
 CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
 INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debug prints
 
-INTEGER :: cloud_type = 2603
+INTEGER :: cloud_type
 
-INTEGER, PARAMETER :: cloud_type_default = 2503, ccn_type = 1
-!INTEGER, PARAMETER :: cloud_type_default = 2503, ccn_type = 8
+INTEGER, PARAMETER :: cloud_type_default = 2603, ccn_type = 1
 
 ! AS: Runs without hail, e.g, 1503 are buggy and give a segmentation fault.
 !     So far I was not able to identify the problem, needs more detailed debugging.
@@ -201,6 +200,8 @@ CONTAINS
     ! mpi thread).
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
+
+    cloud_type = cloud_type_default + 10 * ccn_type
 
     ! inverse of vertical layer thickness
     rdz = 1._wp / dz
@@ -1034,29 +1035,10 @@ CONTAINS
 
     IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
 
+    cloud_type = cloud_type_default + 10 * ccn_type
+
     ! .. set the particle types, and calculate some coefficients
     CALL init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail,1)
-
-    IF (.not.PRESENT(N_cn0)) THEN
-       ! ... constant cloud droplet number (gscp=4)
-       cloud_type = cloud_type_default
-       qnc_const  = 200.0e6_wp
-       IF (msg_level>5)THEN
-          WRITE (message_text,'(1X,A,I4,A,E12.4)') "two-moment scheme with const. cloud drop number (gscp=4)"
-          CALL message(TRIM(routine),TRIM(message_text))
-          WRITE (message_text,'(1X,A,I4,A,E12.4)') "cloud_type = ",cloud_type,", qnc_const = ",qnc_const
-          CALL message(TRIM(routine),TRIM(message_text))
-       END IF
-    ELSE
-       ! ... prognostic cloud droplet number (gscp=5)
-       cloud_type = cloud_type_default + 10 * ccn_type
-       IF (msg_level>5)THEN
-          WRITE (message_text,'(1X,A,I4,A,E12.4)') "two-moment scheme with progn. cloud drop number (gscp=5)"
-          CALL message(TRIM(routine),TRIM(message_text))
-          WRITE (message_text,'(1X,A,I4,A,I2)') "cloud_type = ",cloud_type,", ccn_type = ",ccn_type
-          CALL message(TRIM(routine),TRIM(message_text))
-       END IF
-    END IF
 
     IF (present(N_cn0)) THEN
 

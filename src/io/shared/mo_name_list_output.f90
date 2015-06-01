@@ -968,13 +968,9 @@ CONTAINS
 
         ! set missval flag, if applicable
         !
-        IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
-          IF (of%var_desc(iv)%info%lmiss ) THEN
-            nmiss = 1
-          ELSE
-            nmiss = 0
-          ENDIF
-        ELSE  ! i.e. NETCDF
+        IF (of%var_desc(iv)%info%lmiss ) THEN
+          nmiss = 1
+        ELSE
           nmiss = 0
         ENDIF
 
