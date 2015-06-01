@@ -363,9 +363,6 @@ CONTAINS
         ELSE
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.0_wp
         ENDIF
-        WRITE(message_text,'(a,1x,I3,1x,G13.6,1x,G13.6)') &
-            &'fac_ozone vert: ', jk, z_mc_ref, atm_phy_nwp_config(jg)%fac_ozone(jk)
-        CALL message(TRIM(routine), TRIM(message_text))
       ENDDO
       ! Horizontal profile function for fac_ozone
       DO jb = 1, p_patch(jg)%nblks_c
