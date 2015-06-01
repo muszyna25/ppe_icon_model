@@ -171,7 +171,9 @@ REAL (KIND=ireals) ::         &
 ! tkhmin     =  1.0_ireals,   & ! scalar (heat) transport
 ! tkmmin     =  1.0_ireals      ! momentum transport
   tkhmin     =  0.75_ireals,   & ! scalar (heat) transport
-  tkmmin     =  0.75_ireals      ! momentum transport
+  tkmmin     =  0.75_ireals,   & ! momentum transport
+  tkhmin_strat = 5.0_ireals,   & ! scalar (heat) transport, enhanced value for stratosphere
+  tkmmin_strat = 5.0_ireals      ! momentum transport, enhanced value for stratosphere
 
 ! 5. Numerical parameters:
 !-------------------------
