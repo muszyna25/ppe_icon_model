@@ -84,9 +84,13 @@ PUBLIC
 CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
 INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debug prints
 
-INTEGER :: cloud_type
+INTEGER :: cloud_type, ccn_type
 
-INTEGER, PARAMETER :: cloud_type_default = 2603, ccn_type = 1
+INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2103, ccn_type_gscp4 = 1
+INTEGER, PARAMETER :: cloud_type_default_gscp5 = 2603, ccn_type_gscp5 = 8
+
+! AS: For gscp=4 use 2103 with ccn_type = 1 (HDCP2 IN and CCN schemes)
+!     For gscp=5 use 2603 with ccn_type = 8 (PDA ice nucleation and Segal&Khain CCN activation)
 
 ! AS: Runs without hail, e.g, 1503 are buggy and give a segmentation fault.
 !     So far I was not able to identify the problem, needs more detailed debugging.
@@ -201,7 +205,11 @@ CONTAINS
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
 
-    cloud_type = cloud_type_default + 10 * ccn_type
+    IF (PRESENT(nccn)) THEN
+       cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
+    ELSE
+       cloud_type = cloud_type_default_gscp4 + 10 * ccn_type
+    END IF
 
     ! inverse of vertical layer thickness
     rdz = 1._wp / dz
@@ -1035,7 +1043,13 @@ CONTAINS
 
     IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
 
-    cloud_type = cloud_type_default + 10 * ccn_type
+    IF (PRESENT(N_cn0)) THEN
+       ccn_type   = ccn_type_gscp5
+       cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
+    ELSE
+       ccn_type   = ccn_type_gscp4
+       cloud_type = cloud_type_default_gscp4 + 10 * ccn_type
+    END IF
 
     ! .. set the particle types, and calculate some coefficients
     CALL init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail,1)

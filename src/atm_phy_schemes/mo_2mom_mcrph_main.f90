@@ -729,12 +729,22 @@ CONTAINS
        cloud%n(:,:) = qnc_const
 
     ELSEIF (nuc_c_typ < 6) THEN
-       IF (isdebug) CALL message(TRIM(routine),'  ... according to SB2006')
-       !CALL cloud_nucleation()
-       CALL ccn_activation_hdcp2(atmo,cloud)
+       IF (isdebug) CALL message(TRIM(routine),'  ... Hande et al CCN activation')
+       IF (PRESENT(n_cn)) THEN
+          CALL finish(TRIM(routine),&
+               & 'Error in two_moment_mcrph: Hande et al activation not supported for progn. aerosol')
+       ELSE
+          CALL ccn_activation_hdcp2(atmo,cloud)
+       END IF
     ELSE
-       IF (isdebug) CALL message(TRIM(routine),'  ... look-up tables according to Segal& Khain')
-       CALL ccn_activation_sk(atmo,cloud,n_cn)
+       IF (isdebug) CALL message(TRIM(routine), &
+            & '  ... CCN activation using look-up tables according to Segal& Khain')
+       IF (PRESENT(n_cn)) THEN
+          CALL ccn_activation_sk(atmo,cloud,n_cn)
+       ELSE
+          CALL finish(TRIM(routine),&
+               & 'Error in two_moment_mcrph: Segal and Khain activation only supported for progn. aerosol')
+       END IF
     END IF
 
     IF (ischeck) CALL check('start',cloud,rain,ice,snow,graupel,hail)
@@ -1950,12 +1960,12 @@ CONTAINS
     REAL(wp)             :: q_i,n_i,x_i,r_i
     REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
 
-    ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
-    LOGICAL              :: use_hdcp2_het = .true.
-
     ! switch for version of Phillips et al. scheme 
     ! (but make sure you have the correct INCLUDE file)
     INTEGER             :: iphillips = 2010
+
+    ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
+    LOGICAL              :: use_hdcp2_het = .false.
 
     ! some more constants needed for homogeneous nucleation scheme
     REAL(wp), PARAMETER ::            &
@@ -2010,6 +2020,8 @@ CONTAINS
     CALL message(routine,TRIM(txt))
   END IF
 
+  ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
+  IF (nuc_typ.le.5) use_hdcp2_het = .true.
 
   ! Heterogeneous nucleation using Hande et al. scheme
   IF (use_hdcp2_het) THEN
@@ -2031,6 +2043,12 @@ CONTAINS
         bet_dep = 2.5128
      ELSEIF (nuc_typ.EQ.3) THEN 
         ! Autumn
+        nin_imm = 4.9920e4
+        alf_imm = 0.2622
+        bet_imm = 1.2044
+        nin_dep = 7.7167e4
+        alf_dep = 0.0406
+        bet_dep = 1.4705
      ELSEIF (nuc_typ.EQ.4) THEN 
         ! Winter
         nin_imm = 1.0259e5
@@ -2047,26 +2065,30 @@ CONTAINS
         nin_dep = 1.7836e5 * 5.87
         alf_dep = 0.0075
         bet_dep = 2.0341
+     ELSE
+        CALL finish(TRIM(routine),&
+             & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.true.')
      END IF
 
   ELSE   
      ! Heterogeneous nucleation using Phillips et al. scheme
      IF (iphillips == 2010) THEN
         ! possible pre-defined choices
-        IF (nuc_typ.EQ.4) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
+        IF (nuc_typ.EQ.6) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
            na_dust  = 160.e4_wp    ! initial number density of dust [1/m3]
            na_soot  =  30.e6_wp    ! initial number density of soot [1/m3]
-           na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]
-        END IF
-        IF (nuc_typ.EQ.5) THEN     ! with some organics and rather high soot, 
+           na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]        
+        ELSEIF (nuc_typ.EQ.7) THEN     ! with some organics and rather high soot, 
            na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
            na_soot  =  25.e6_wp 
            na_orga  =  30.e6_wp 
-        END IF
-        IF (nuc_typ.EQ.6) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
+        ELSEIF (nuc_typ.EQ.8) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
            na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
            na_soot  =   0.e6_wp 
            na_orga  =   0.e6_wp 
+        ELSE
+           CALL finish(TRIM(routine),&
+                & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.false.')
         END IF
      END IF
   END IF
