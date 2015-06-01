@@ -713,6 +713,7 @@ run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
+run/checksuite.ocean_internal/eddies/exp.SD_box_20-35N_baroclinic -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
