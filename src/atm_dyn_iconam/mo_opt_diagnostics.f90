@@ -153,7 +153,6 @@ MODULE mo_opt_diagnostics
     &  pres_msl(:,:),   &
     &  u(:,:,:),        &
     &  v(:,:,:),        &
-    &  z_mc(:,:,:),     &
     &  cosmu0(:,:)  ,   &
     &  flxdwswtoa(:,:), &
     &  aclcov(:,:)  ,   &
@@ -356,16 +355,6 @@ CONTAINS
         p_acc%l_pres_msl = .TRUE.
       END IF
     END IF
-    cf_desc    = t_cf_var('geometric_height_at_full_level_center', 'm',   &
-      &                   'geometric height at full level center', dataType)
-    grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'z_mc_m', p_acc%z_mc,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-                & ldims=shape3d_c,                                        &
-                & vert_interp=create_vert_interp_metadata(                &
-                &    vert_intp_type=vintp_types("P","Z","I"),             &
-                &    vert_intp_method=VINTP_METHOD_LIN),                  &
-                & in_group=groups("prog_timemean","atmo_timemean"))
 
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', dataType)
     grib2_desc = t_grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
@@ -646,7 +635,6 @@ CONTAINS
     CALL add_fields(acc%pres_sfc, nh_diag%pres_sfc, subset)
     IF (acc%l_pres_msl) &
       & CALL add_fields(acc%pres_msl, nh_diag%pres_msl, subset)
-    CALL add_fields(acc%z_mc    , nh_metrics%z_mc , subset, levels=levels)
     CALL add_fields(acc%rho     , rho             , subset, levels=levels)
     CALL dbg_print('RHO Update FROM',nh_prog%rho  ,'opt_diag',5, in_subset=subset)
     CALL dbg_print('RHO Update TO  ',acc%rho      ,'opt_diag',5, in_subset=subset)
@@ -675,7 +663,6 @@ CONTAINS
     acc%temp                         = 0.0_wp
     acc%pres_sfc                     = 0.0_wp
     IF (acc%l_pres_msl) acc%pres_msl = 0.0_wp
-    acc%z_mc                         = 0.0_wp
     acc%rho                          = 0.0_wp
     !WRITE(message_text,'(a,i2)') '(    ): numberOfAccumulations:',acc%numberOfAccumulations
     !CALL message('reset_opt_nh_acc', TRIM(message_text))
@@ -720,7 +707,6 @@ CONTAINS
     acc%temp     = acc%temp     /REAL(acc%numberOfAccumulations,wp)
     acc%pres_sfc = acc%pres_sfc /REAL(acc%numberOfAccumulations,wp)
     IF (acc%l_pres_msl) acc%pres_msl = acc%pres_msl /REAL(acc%numberOfAccumulations,wp)
-    acc%z_mc     = acc%z_mc     /REAL(acc%numberOfAccumulations,wp)
     acc%rho      = acc%rho      /REAL(acc%numberOfAccumulations,wp)
     !WRITE(message_text,'(a,i2)') '(    ): numberOfAccumulations:',acc%numberOfAccumulations
     !CALL message('calc_mean_opt_nh_acc', TRIM(message_text))
