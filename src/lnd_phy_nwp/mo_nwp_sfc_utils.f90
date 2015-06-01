@@ -1404,6 +1404,10 @@ CONTAINS
   !! non-restart runs. Sea-ice and open water points are distinguished
   !! based on fr_seaice which is provided by analysis.
   !!
+  !! Note that fr_seaice is potentially modified.
+  !! For fr_seaice in ]0,frsi_min[, it is set to 0
+  !! For fr_seaice in ]1-frsi_min,1[, it is set to 1.  
+  !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD (2012-08-03)
   !!
@@ -1411,7 +1415,7 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !< grid/patch info.
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_lnd_diag)     , INTENT(IN)    :: p_lnd_diag     !< diag vars for sfc
+    TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag     !< diag vars for sfc
     LOGICAL              , INTENT(IN)    :: lseaice        !< seaice model on/off
 
     ! Local array bounds:
@@ -1426,8 +1430,9 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: i_count_sea, i_count_ice, i_count_water
     INTEGER :: npoints_ice, npoints_wtr
+    REAL(wp):: frac_sea                  ! for sanity check
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_utils:init_sea_lists'
 !-------------------------------------------------------------------------
 
 
@@ -1444,29 +1449,12 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-!DR This code snippet should probably be moved to this central place and be removed 
-!DR at all other places it currently occurs. Placing it here will assure that it 
-!DR is executed i.e.e for all init_modes.
-!DR
-!!$          ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
-!!$          ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. This will ensure in 
-!!$          ! init_sea_lists, that sea-ice and water fractions sum up exactly to the total 
-!!$          ! sea fraction.
-!!$          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
-!!$             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
-!!$          ENDIF
-!!$          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
-!!$             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp
-!!$          ENDIF
-
-
-
     IF (lseaice) THEN
 
     ! generate sea-ice and open-water index list
     !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,i_count_sea,i_count_ice,i_count_water), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,ic,jc,i_count_sea,i_count_ice,i_count_water,frac_sea), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
 
@@ -1481,6 +1469,20 @@ CONTAINS
       i_count_water = 0
 
       IF (i_count_sea == 0) CYCLE ! skip loop if the index list for the given block is empty
+
+      ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
+      ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. 
+      ! This will ensure that sea-ice and water fractions sum up exactly 
+      ! to the total sea fraction.
+      DO ic = 1, i_count_sea
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        IF (p_lnd_diag%fr_seaice(jc,jb) < frsi_min ) THEN
+           p_lnd_diag%fr_seaice(jc,jb) = 0._wp
+        ENDIF
+        IF (p_lnd_diag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
+           p_lnd_diag%fr_seaice(jc,jb) = 1._wp
+        ENDIF
+      ENDDO  ! ic
 
 
 
@@ -1538,13 +1540,6 @@ CONTAINS
           ! simply copy from water tile. time-dependent fraction will be set lateron
           ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
 
-          ! NOTE:
-          ! Note that in copy_initicon2prog
-          ! - for fr_seaice in ]0,frsi_min[, we have set fr_seaice to 0
-          ! - for fr_seaice in ]1-frsi_min,1[, we have set fr_seaice to 1
-          ! This ensures that frac_t for sea-ice and open water at a given point
-          ! sums up to lc_frac_t(isub_water) exactly.
-
           !
           ! seaice point
           !
@@ -1582,18 +1577,19 @@ CONTAINS
             ext_data%atm%frac_t(jc,jb,isub_water)  = 0._wp
           ENDIF
 
-!DR DEBUG
-!!$         IF (ext_data%atm%frac_t(jc,jb,isub_water) &
-!!$           & + ext_data%atm%frac_t(jc,jb,isub_seaice) /= ext_data%atm%lc_frac_t(jc,jb,isub_water)) THEN
-!!$           write(0,*) "WARNING: fractions differ: frac_t_i+frac_t_w, lc_frac_t: ", &
-!!$             & ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice), &
-!!$             & ext_data%atm%lc_frac_t(jc,jb,isub_water), jc, jb
-!!$         ENDIF
-!DR END DEBUG
-
         ENDDO  ! ic
 
       ENDIF   ! IF (ntiles_total == 1)
+
+      ! Sanity check
+      ! Check whether fractions of seaice and non-seaice covered tiles sum up to total sea fraction. 
+      DO ic = 1, i_count_sea
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        frac_sea = ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice)
+        IF ( ABS(frac_sea - ext_data%atm%lc_frac_t(jc,jb,isub_water)) > dbl_eps ) THEN
+          CALL finish(routine, 'sea-ice + water fractions do not sum up to total sea fraction')
+        END IF
+      ENDDO  ! jc
 
     ENDDO  ! jb
 !$OMP END DO

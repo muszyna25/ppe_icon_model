@@ -1047,10 +1047,8 @@ MODULE mo_nh_init_nest_utils
         ! diagnose h_snow after interpolation
         p_child_ldiag%h_snow_t(jc,jb,1) = p_child_lprog%w_snow_t(jc,jb,1)/p_child_lprog%rho_snow_t(jc,jb,1)*rhoh2o
 
-        ! set limits and remove small fractions of fr_seaice
+        ! set limits
         p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
-        IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
-        IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
         p_child_ldiag%freshsnow_t(jc,jb,1) = MIN(1._wp,p_child_ldiag%freshsnow_t(jc,jb,1))
       ENDDO
 

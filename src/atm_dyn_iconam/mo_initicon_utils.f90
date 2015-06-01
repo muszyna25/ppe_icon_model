@@ -1501,17 +1501,6 @@ MODULE mo_initicon_utils
             ENDIF
           ENDIF
 
-          ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
-          ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. This will ensure in 
-          ! init_sea_lists, that sea-ice and water fractions sum up exactly to the total 
-          ! sea fraction.
-          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
-             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
-          ENDIF
-          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
-             p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp
-          ENDIF
-
         ENDDO
         ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
         ! be used to initialize lake points until something more reasonable becomes available
