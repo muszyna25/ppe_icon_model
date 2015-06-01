@@ -152,8 +152,8 @@ CONTAINS
 
       ! calculate relaxation term
       z_relax = 1.0_wp/(para_3dimrelax_temp*2.592e6_wp)
-      p_os%p_aux%forc_3dimrelax_temp(:,:,:) = -z_relax* &
-        & ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%data_3dimrelax_temp(:,:,:))
+      p_os%p_aux%forc_3dimrelax_temp(:,:,:) = -z_relax * p_os%p_aux%relax_3dim_coefficient(:,:,:) &
+        & * ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%data_3dimrelax_temp(:,:,:))
 
       ! add relaxation term to new temperature
       p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) + &

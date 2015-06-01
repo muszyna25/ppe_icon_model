@@ -573,10 +573,6 @@ CONTAINS
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
         &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
 
-      ! store surface state for relaxation (onyl 1.5 degrees from North/South boundary)
-!       CALL create_surfaceRelaxState(patch_3d=patch_3d, ocean_tracer=ocean_temperature, 
-
-
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     

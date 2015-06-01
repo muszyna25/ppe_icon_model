@@ -388,6 +388,8 @@ MODULE mo_ocean_types
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
       & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
+    REAL(wp), POINTER ::         &
+      & relax_3dim_coefficient(:,:,:) ! 3-dim relaxation coefficient when the relaxation varies
 
     TYPE(t_cartesian_coordinates), POINTER :: &
       & slopes(:,:,:)              ! neutral slopes at cell center in cartesian coordinates
