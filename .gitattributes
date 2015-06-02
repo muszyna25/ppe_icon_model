@@ -807,6 +807,7 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_amip_withTimeMeanOutput -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
