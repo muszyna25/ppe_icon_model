@@ -285,7 +285,10 @@ CONTAINS
       CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
         &                     extpar_varnames_dict)
 
+      CALL message( TRIM(routine),'Finished reading external data' )
+
       IF ( iforcing == inwp ) THEN
+
         DO jg = 1, n_dom
           CALL smooth_topography ( p_patch(jg)                   ,&
             &                      p_int_state(jg)               ,&
@@ -300,15 +303,11 @@ CONTAINS
             &                  ext_data(jg)%atm%grad_topo )
         END DO
 
-      END IF
 
-      CALL message( TRIM(routine),'Finished reading external data' )
 
-      ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
-      ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
-      ! daily basis.
-      !
-      IF ( iforcing == inwp ) THEN
+        ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
+        ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
+        ! daily basis.
 
         ! When initializing the model we set the target hour to 0 (midnight) as well. 
         ! When restarting, the target interpolation time must be set to cur_datetime 
@@ -2223,16 +2222,20 @@ CONTAINS
 
         SELECT CASE ( iforcing )
         CASE ( inwp )
-          CALL read_cdi_2d(parameters, 'PLCOV_MX', ext_data(jg)%atm%plcov_mx)
-          CALL read_cdi_2d(parameters, 'LAI_MX', ext_data(jg)%atm%lai_mx)
-          CALL read_cdi_2d(parameters, 'ROOTDP', ext_data(jg)%atm%rootdp)
-          CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
-          CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
-          CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
           CALL read_cdi_2d(parameters, 'Z0', ext_data(jg)%atm%z0)
           CALL read_cdi_2d(parameters, 'NDVI_MAX', ext_data(jg)%atm%ndvi_max)
           CALL read_cdi_2d(parameters, 'SOILTYP', ext_data(jg)%atm%soiltyp)
           CALL read_cdi_3d(parameters, 'LU_CLASS_FRACTION', nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction, opt_lev_dim=3 )
+
+          ! The following fields are only required without surface tiles
+          IF (ntiles_lnd == 1) THEN
+            CALL read_cdi_2d(parameters, 'PLCOV_MX', ext_data(jg)%atm%plcov_mx)
+            CALL read_cdi_2d(parameters, 'LAI_MX', ext_data(jg)%atm%lai_mx)
+            CALL read_cdi_2d(parameters, 'ROOTDP', ext_data(jg)%atm%rootdp)
+            CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
+            CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
+            CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
+          ENDIF
 
           IF (is_frglac_in(jg)) THEN
             ! for backward compatibility with extpar files generated prior to 2014-01-31
