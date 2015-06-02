@@ -37,13 +37,13 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T00:20:00Z"        # ISO-format date+time
+  end_date="1979-01-01T00:50:00Z"        # ISO-format date+time
 
 # restart interval
 (( dt_checkpoint = 99 * minute))
 (( dt_restart    = 99 * minute))
 #
-output_interval="PT4M"
+output_interval="PT10M"
 file_interval="P01D"
 
 # namelist files
@@ -67,7 +67,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 240         ! [s] time step
+ dtime            = 600         ! [s] time step
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -93,7 +93,7 @@ cat > ${atmo_namelist} << EOF
  iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
- ndyn_substeps    = 2           ! dtime/dt_dyn
+ ndyn_substeps    = 5           ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.10
  vwind_offctr     = 0.2
@@ -120,7 +120,7 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
- dt_rad           =  480.       ! [s] radiation time step
+ dt_rad           =  7200.      ! [s] radiation time step
  lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
