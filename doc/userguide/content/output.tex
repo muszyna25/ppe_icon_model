@@ -532,6 +532,16 @@ The shell script \texttt{exp.check\_timemean\_01} can be used for this purpose.
 
 The second check compares online and offline computations. Therefor both \texttt{exp.atm\_amip\_acc\_dtime} and \texttt{exp.atm\_amip\_acc\_2dtime} has to be run. For all variables in the \textbf{time mean} group, the values of the \texttt{exp.atm\_amip\_acc\_2dtime} experiment have to be equal to the mean values of the corresponding variables and timesteps in the results of \texttt{exp.atm\_amip\_acc\_dtime}.\\For example the time mean of timesteps 2 and 3 from \texttt{exp.atm\_amip\_acc\_dtime} should have no difference to timestep 2 of \texttt{exp.atm\_amip\_acc\_2dtime}. \texttt{exp.check\_timemean\_02} executes this check.
 
+\paragraph{Example Usage}
+
+For getting 6-hourly averaged output, two namelist variable of \texttt{output\_nml} has to be set up:
+
+\begin{itemize}
+  \item \texttt{output\_interval = "PT06H"}
+  \item \texttt{ml\_varlist} should contain the desired list of variables e.g. \texttt{ 'u\_m', 'v\_m', 'qv\_m', 'rho\_m', 'temp\_m', 'xlvi\_m', 'cosmu0\_m'} or \texttt{'group:prog\_timemean','group:echam\_timemean'}
+\end{itemize}
+
+
 \subsection*{Discussion}
 %This sction is for discussion only. Please add your notes, your name and date.
 Document last edited by \textit{\krauti} on \textit{29.11.2013}\\
