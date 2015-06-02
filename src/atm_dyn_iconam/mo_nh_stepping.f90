@@ -29,7 +29,7 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                     ONLY: wp, vp
+  USE mo_kind,                     ONLY: wp, vp, i8
   USE mo_nonhydro_state,           ONLY: p_nh_state, p_nh_state_lists
   USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
@@ -108,7 +108,7 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_config,            ONLY: isRestart
+  USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -154,7 +154,9 @@ MODULE mo_nh_stepping
        &                                 deallocateDatetime,                           &
        &                                 PROLEPTIC_GREGORIAN, setCalendar,             &
        &                                 timedelta, newTimedelta, deallocateTimedelta, &
-       &                                 MAX_DATETIME_STR_LEN, OPERATOR(-)
+       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,  &
+       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),  &
+       &                                 ASSIGNMENT(=), OPERATOR(==)
   USE mo_mtime_extensions,         ONLY: get_datetime_string
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -497,7 +499,11 @@ MODULE mo_nh_stepping
   TYPE(datetime),  POINTER             :: mtime_begin, mtime_date
   TYPE(timedelta), POINTER             :: forecast_delta
   CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_cur_datetime
+  CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dtime_str
   CHARACTER(LEN=128)                   :: forecast_delta_str
+
+  TYPE(datetime), POINTER              :: current_date => NULL()
+  TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -556,6 +562,14 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
   
+!LK++
+  ! Set time loop properties
+
+  current_date => newDatetime(tc_startdate) 
+  CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
+  model_time_step => newTimedelta(dtime_str)
+!LK++
+
   TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
 
     ! Check if a nested domain needs to be turned off
@@ -568,6 +582,12 @@ MODULE mo_nh_stepping
     ENDDO
 
     CALL add_time(dtime,0,0,0,datetime_current)
+
+!LK++
+    ! update model date and time
+
+    current_date = current_date + model_time_step
+!LK++
 
     ! store state of output files for restarting purposes
     IF (output_mode%l_nml .AND. jstep>=0 ) THEN
@@ -588,9 +608,13 @@ MODULE mo_nh_stepping
     ELSE
       lprint_timestep = MOD(jstep,25) == 0
     ENDIF
+ 
     ! always print the first and the last time step
     lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 .OR. jstep == jstep0+nsteps
 
+!LK++
+    lprint_timestep = .TRUE.
+!LK++
     IF (lprint_timestep) THEN
       CALL setCalendar(PROLEPTIC_GREGORIAN)
       ! compute current datetime in a format appropriate for mtime
@@ -604,16 +628,24 @@ MODULE mo_nh_stepping
       ! we append the forecast time delta as an ISO 8601 conforming
       ! string (where, for convenience, the 'T' token has been
       ! replaced by a blank character)
-      WRITE (forecast_delta_str,'(4(i2.2,a))') forecast_delta%day, 'D ',   &
+      WRITE (forecast_delta_str,'(4(i2.2,a))') forecast_delta%day, ' D ',   &
            &                                   forecast_delta%hour, 'H',   &
            &                                   forecast_delta%minute, 'M', &
            &                                   forecast_delta%second, 'S'
+!LK--
+      ! print current time step
+      CALL message('','')
+      WRITE(message_text,'(a,i8,a,a)') 'Time step: ', jstep, ' forecast time ', TRIM(forecast_delta_str)
+      CALL message('',message_text)
+      WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time    ', &
+           &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
+           &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second
+      CALL message('',message_text)
+      CALL message('','')
+!LK++
       CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_begin)
       CALL deallocateTimedelta(forecast_delta)
-      ! print current time step
-      WRITE(message_text,'(a,i10,a,a,a)') 'TIME STEP n: ', jstep, '      ( ', TRIM(forecast_delta_str), ' )'
-      CALL message(TRIM(routine),message_text)
     ENDIF
 
     ! Update the following surface fields, if a new day is coming
@@ -891,7 +923,10 @@ MODULE mo_nh_stepping
     IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
        CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
-
+!LK++
+! for later mtime based time control (tested):
+!   IF (current_date == tc_stopdate) EXIT TIME_LOOP
+!LK++
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
