@@ -108,7 +108,9 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate
+  USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
+       &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
+       &                                 tc_dt_checkpoint, tc_dt_restart
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -150,14 +152,18 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap
-  USE mtime,                       ONLY: datetime, newDatetime,                        &
-       &                                 deallocateDatetime,                           &
-       &                                 PROLEPTIC_GREGORIAN, setCalendar,             &
-       &                                 timedelta, newTimedelta, deallocateTimedelta, &
-       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,  &
-       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),  &
-       &                                 ASSIGNMENT(=), OPERATOR(==)
+  USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime,         &
+       &                                 PROLEPTIC_GREGORIAN, setCalendar,                  &
+       &                                 timedelta, newTimedelta, deallocateTimedelta,      &
+       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,       &
+       &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror, &
+       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),       &
+       &                                 ASSIGNMENT(=), OPERATOR(==),                       &
+       &                                 event, eventGroup, newEvent, newEventGroup,        &
+       &                                 addEventToEventGroup
   USE mo_mtime_extensions,         ONLY: get_datetime_string
+  USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup,    &
+       &                                 printEventGroup
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -191,6 +197,12 @@ MODULE mo_nh_stepping
   ! of model domains
   LOGICAL :: map_phyproc(iphysproc,iphysproc_short) !< mapping matrix
   INTEGER :: iproclist(iphysproc)  !< x-axis of mapping matrix
+
+  ! event handling manager, wrong place, have to move later
+
+  TYPE(eventGroup), POINTER :: checkpointEventGroup => NULL()  
+
+  CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
 
   PUBLIC :: prepare_nh_integration
   PUBLIC :: perform_nh_stepping
@@ -505,6 +517,15 @@ MODULE mo_nh_stepping
   TYPE(datetime), POINTER              :: current_date => NULL()
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
+  TYPE(datetime), POINTER              :: eventRefDate => NULL(), eventStartDate => NULL(), eventEndDate => NULL() 
+  TYPE(timedelta), POINTER             :: eventInterval => NULL()
+  TYPE(event), POINTER                 :: checkpointEvent => NULL()
+  TYPE(event), POINTER                 :: restartEvent => NULL()
+
+
+  INTEGER                              :: checkpointEvents
+  LOGICAL                              :: lret
+
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
@@ -562,8 +583,45 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
   
-!LK++
-  ! Set time loop properties
+!LK++ 
+  ! Should only be called once! Seems to be used more than once and
+  ! deleteted inbetween, so it is necessary to call here, needs to 
+  ! be tracked back
+
+  CALL setCalendar(PROLEPTIC_GREGORIAN)
+
+  ! set events, group and the events
+
+  CALL message('','')
+
+  CALL initEventManager(tc_exp_refdate)
+
+  checkpointEvents =  addEventGroup('checkpointEventGroup')
+  checkpointEventGroup => getEventGroup(checkpointEvents)
+
+  eventRefDate   => tc_exp_refdate
+  eventStartDate => tc_exp_startdate
+  eventEndDate   => tc_exp_stopdate
+
+  eventInterval  => tc_dt_checkpoint
+  checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+  IF (ierr /= no_Error) THEN
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', errstring)
+  ENDIF
+  lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
+
+  eventInterval  => tc_dt_restart
+  restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+  IF (ierr /= no_Error) THEN
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', errstring)
+  ENDIF
+  lret = addEventToEventGroup(restartEvent, checkpointEventGroup)
+  
+  CALL printEventGroup(checkpointEvents)
+
+  ! set time loop properties
 
   current_date => newDatetime(tc_startdate) 
   CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
@@ -616,7 +674,6 @@ MODULE mo_nh_stepping
     lprint_timestep = .TRUE.
 !LK++
     IF (lprint_timestep) THEN
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
       mtime_date     => newDatetime(mtime_cur_datetime)
@@ -635,11 +692,10 @@ MODULE mo_nh_stepping
 !LK--
       ! print current time step
       CALL message('','')
-      WRITE(message_text,'(a,i8,a,a)') 'Time step: ', jstep, ' forecast time ', TRIM(forecast_delta_str)
-      CALL message('',message_text)
-      WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time    ', &
+      WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2,a,a)') 'Time step: ', jstep, ' model time ',        &
            &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
-           &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second
+           &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second,  &
+           &             ' forecast time ', TRIM(forecast_delta_str)
       CALL message('',message_text)
       CALL message('','')
 !LK++
