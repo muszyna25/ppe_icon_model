@@ -2252,6 +2252,7 @@ MODULE mo_nonhydro_state
 
     IF(inextra_2d > 0) THEN
 
+
       ! extra_2d   p_diag%extra_2d(nproma,nblks_c,inextra_2d)
       !
       cf_desc    = t_cf_var('extra_field_2D', '-', 'extra field 2D', DATATYPE_FLT32)
@@ -2279,9 +2280,6 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                        &           vert_interp=create_vert_interp_metadata(                     &
-      &              vert_intp_type=vintp_types("P","Z","I"),                  &
-      &              vert_intp_method=VINTP_METHOD_LIN ), &
                   & ldims=shape3d_extra,                                        &
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
@@ -2290,12 +2288,8 @@ MODULE mo_nonhydro_state
         WRITE(ctrc,'(I2)')jt
         CALL add_ref( p_diag_list, 'extra_3d', 'extra_3d'//TRIM(ADJUSTL(ctrc)), &
           &           p_diag%extra_3d_ptr(jt)%p_3d,                             &
- 
           &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                        &
-          &           cf_desc, grib2_desc, ldims=shape3d_c, lrestart=.FALSE.,&
-                          &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN                   ))
+          &           cf_desc, grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
       ENDDO
     ENDIF
     
