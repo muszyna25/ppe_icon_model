@@ -1586,9 +1586,9 @@ CONTAINS
           jc = ext_data%atm%idx_lst_sp(ic,jb)
           frac_sea = ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice)
           IF ( ABS(frac_sea - ext_data%atm%lc_frac_t(jc,jb,isub_water)) > dbl_eps ) THEN
-            WRITE(message_text,'(a,e)') 'frac_seaice + frac_water: ', frac_sea
+            WRITE(message_text,'(a,f12.9)') 'frac_seaice + frac_water: ', frac_sea
             CALL message('', TRIM(message_text))
-            WRITE(message_text,'(a,e)') 'tot frac_sea: ',  ext_data%atm%lc_frac_t(jc,jb,isub_water)
+            WRITE(message_text,'(a,f12.9)') 'tot frac_sea: ',  ext_data%atm%lc_frac_t(jc,jb,isub_water)
             CALL message('', TRIM(message_text))
             CALL finish(routine, 'sea-ice + water fractions do not sum up to total sea fraction')
           END IF
