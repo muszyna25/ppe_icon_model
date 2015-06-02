@@ -26,7 +26,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_event_manager
+MODULE mo_icon_cpl_event_manager
 
   USE mo_time_config, ONLY : time_config
   USE mo_io_config, ONLY   : dt_checkpoint
@@ -224,4 +224,4 @@ CONTAINS
 
   END FUNCTION event_check
 
-END MODULE mo_event_manager
+END MODULE mo_icon_cpl_event_manager

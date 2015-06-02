@@ -26,7 +26,7 @@
 MODULE mo_icon_cpl_exchg
 
   USE mo_kind, ONLY          : wp
-  USE mo_event_manager, ONLY : event_check, events
+  USE mo_icon_cpl_event_manager, ONLY : event_check, events
   USE mo_run_config, ONLY    : dtime, nsteps
 
 #ifndef NOMPI

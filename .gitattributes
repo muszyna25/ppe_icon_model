@@ -1512,10 +1512,10 @@ src/configure_model/mo_sleve_config.f90 -text
 src/configure_model/mo_time_config.f90 -text
 src/configure_model/mo_turbdiff_config.f90 -text
 src/configure_model/mo_vdiff_config.f90 -text
-src/coupler/mo_event_manager.f90 -text
 src/coupler/mo_icon_cpl.f90 -text
 src/coupler/mo_icon_cpl_def_field.f90 -text
 src/coupler/mo_icon_cpl_def_grid.f90 -text
+src/coupler/mo_icon_cpl_event_manager.f90 -text
 src/coupler/mo_icon_cpl_exchg.f90 -text
 src/coupler/mo_icon_cpl_finalize.f90 -text
 src/coupler/mo_icon_cpl_init.f90 -text
