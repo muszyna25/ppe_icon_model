@@ -1868,6 +1868,7 @@ CONTAINS
     monitor%ice_volume_sh(:)              = 0.0_wp
     monitor%ice_extent_nh(:)              = 0.0_wp
     monitor%ice_extent_sh(:)              = 0.0_wp
+    monitor%ice_framStrait(:)             = 0.0_wp
     monitor%gibraltar(:)                  = 0.0_wp
     monitor%denmark_strait(:)             = 0.0_wp
     monitor%drake_passage(:)              = 0.0_wp
