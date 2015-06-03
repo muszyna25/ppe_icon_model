@@ -30,7 +30,7 @@ MODULE mo_initicon_nml
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
-  USE mo_initicon_config,    ONLY: &
+  USE mo_initicon_config,    ONLY: initicon_config,      &
     & config_init_mode           => init_mode,           &
     & config_nlevsoil_in         => nlevsoil_in,         &
     & config_zpbl1               => zpbl1,               &
@@ -52,7 +52,6 @@ MODULE mo_initicon_nml
     & config_dt_iau              => dt_iau,              &
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
-    & config_ana_varlist         => ana_varlist,         &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
     & config_ana_varnames_map_file => ana_varnames_map_file, &
     & config_latbc_varnames_map_file => latbc_varnames_map_file
@@ -112,6 +111,10 @@ MODULE mo_initicon_nml
                                                       ! This list can include a subset or the 
                                                       ! entire set of default analysis fields.
 
+  CHARACTER(LEN=vname_len) :: ana_varlist_n2(max_var_ml) ! list of mandatory analysis fields for patch 2 (nest 1). 
+                                                         ! This list can include a subset or the 
+                                                         ! entire set of default analysis fields.
+
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
@@ -137,10 +140,11 @@ MODULE mo_initicon_nml
                           lconsistency_checks, rho_incr_filter_wgt,         &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
-                          type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          lp2cintp_incr, lp2cintp_sfcana,                   &
-                          latbc_varnames_map_file, start_time_avg_fg,       &
-                          end_time_avg_fg, interval_avg_fg, ltile_coldstart
+                          type_iau_wgt, ana_varlist, ana_varlist_n2,        &
+                          ana_varnames_map_file, lp2cintp_incr,             &
+                          lp2cintp_sfcana, latbc_varnames_map_file,         &
+                          start_time_avg_fg, end_time_avg_fg,               &
+                          interval_avg_fg, ltile_coldstart
                           
 CONTAINS
 
@@ -190,6 +194,7 @@ CONTAINS
                                ! this list is empty, meaning that fields which are missing in the 
                                ! analysis file (when compared to the default set), are simply 
                                ! taken from the first guess.
+  ana_varlist_n2 = ''          ! Same for patch nr. 2 (nest 1) 
   ana_varnames_map_file = " "
   latbc_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -320,10 +325,12 @@ CONTAINS
   config_dt_iau              = dt_iau
   config_timeshift%dt_shift  = dt_shift
   config_type_iau_wgt        = type_iau_wgt
-  config_ana_varlist         = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
   config_latbc_varnames_map_file = latbc_varnames_map_file
+
+  initicon_config(1)%ana_varlist = ana_varlist
+  initicon_config(2)%ana_varlist = ana_varlist_n2
 
   ! write the contents of the namelist to an ASCII file
 

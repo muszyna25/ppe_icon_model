@@ -38,6 +38,10 @@ MODULE mo_initicon_config
   PRIVATE 
 
 
+  ! Types
+  PUBLIC :: t_initicon_config
+
+  ! Variables
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
@@ -58,7 +62,6 @@ MODULE mo_initicon_config
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
   PUBLIC :: dwdana_filename
-  PUBLIC :: ana_varlist
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
   PUBLIC :: latbc_varnames_map_file
@@ -68,6 +71,7 @@ MODULE mo_initicon_config
   PUBLIC :: rho_incr_filter_wgt
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
+  PUBLIC :: initicon_config
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -85,6 +89,14 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
   ! 1.0 Namelist variables for the init_icon preprocessing program
   ! ----------------------------------------------------------------------------
+  !
+  TYPE :: t_initicon_config
+    CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
+                                                        ! This list can include a subset or the 
+                                                        ! entire set of default analysis fields.
+  END TYPE t_initicon_config
+  !
+  ! probably those which are domain-dependent could be included into aboves type lateron
   !
   INTEGER  :: init_mode     ! initialization mode
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
@@ -131,10 +143,6 @@ MODULE mo_initicon_config
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
 
-  CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
-                                                      ! This list can include a subset or the 
-                                                      ! entire set of default analysis fields.
-
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
@@ -170,6 +178,9 @@ MODULE mo_initicon_config
 
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
+
+
+  TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
 CONTAINS
 
