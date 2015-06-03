@@ -28,6 +28,7 @@ MODULE mo_time_nml
   USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
   USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
+  USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, newDatetime
 
   IMPLICIT NONE
   PRIVATE
@@ -85,6 +86,7 @@ CONTAINS
    CHARACTER(LEN=*), INTENT(IN) :: filename
    INTEGER  :: istat, funit,calendar_old
    CHARACTER(len=32) :: ini_datetime_string_old
+   CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring
    INTEGER(i8) :: restart_calday
    REAL(wp)    :: restart_caltime
    REAL(wp)    :: restart_daysec
@@ -135,6 +137,10 @@ CONTAINS
       CALL get_restart_attribute( 'current_calday' , restart_calday  )
       CALL get_restart_attribute( 'current_daysec' , restart_daysec  )
 
+      ! and this cannot be overwritten easily by namelist
+      CALL get_restart_attribute('tc_startdate', dstring)
+      time_config%current_date => NULL()
+      time_config%current_date => newDatetime(TRIM(dstring))
     END IF
 
    !------------------------------------------------------------------------

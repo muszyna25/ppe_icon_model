@@ -26,6 +26,7 @@ MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime
+  USE mtime,                    ONLY: datetime             
   USE mo_impl_constants,        ONLY: max_dom
  
   IMPLICIT NONE
@@ -48,6 +49,8 @@ MODULE mo_time_config
     TYPE(t_datetime) :: ini_datetime       !< Starting time of model integration
     TYPE(t_datetime) :: end_datetime       !< Ending   time of model integration
     TYPE(t_datetime) :: cur_datetime       !< Current  time model time 
+
+    TYPE(datetime), POINTER :: current_date
 
     REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
 

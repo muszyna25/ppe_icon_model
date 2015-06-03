@@ -160,7 +160,7 @@ MODULE mo_nh_stepping
        &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),                 &
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(/=),                   &
        &                                 event, eventGroup, newEvent, newEventGroup,                  &
-       &                                 addEventToEventGroup, isCurrentEventActive
+       &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval
   USE mo_mtime_extensions,         ONLY: get_datetime_string
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY                       
@@ -513,7 +513,7 @@ MODULE mo_nh_stepping
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dtime_str
   CHARACTER(LEN=128)                   :: forecast_delta_str
 
-  TYPE(datetime), POINTER              :: current_date => NULL()
+  TYPE(datetime), POINTER              :: current_date => NULL(), end_date => NULL()
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
   TYPE(datetime), POINTER              :: eventRefDate => NULL(), eventStartDate => NULL(), eventEndDate => NULL() 
@@ -530,7 +530,6 @@ MODULE mo_nh_stepping
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
-
 
   ! allocate temporary variable for restarting purposes
   ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
@@ -585,8 +584,8 @@ MODULE mo_nh_stepping
   
 !LK++ 
   ! Should only be called once! Seems to be used more than once and
-  ! deleteted inbetween, so it is necessary to call here, needs to 
-  ! be tracked back
+  ! deleted inbetween, so it is necessary to call here, needs to be
+  ! tracked back
 
   CALL setCalendar(PROLEPTIC_GREGORIAN)
 
@@ -623,9 +622,15 @@ MODULE mo_nh_stepping
 
   ! set time loop properties
 
-  current_date => newDatetime(tc_startdate) 
   CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
   model_time_step => newTimedelta(dtime_str)
+  IF (isRestart()) THEN
+    current_date => newDatetime(time_config%current_date) 
+  ELSE
+    current_date => newDatetime(tc_startdate) 
+  ENDIF
+  end_date => newDatetime(current_date)
+  end_date = end_date + getEventInterval(restartEvent)
 !LK++
 
   TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
@@ -999,7 +1004,7 @@ MODULE mo_nh_stepping
     ENDIF
 !LK++
 ! for later mtime based time control (tested):
-!   IF (current_date == tc_stopdate) EXIT TIME_LOOP
+!   IF (current_date == end_date) EXIT TIME_LOOP
 !LK++
   ENDDO TIME_LOOP
 
