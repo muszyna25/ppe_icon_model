@@ -67,9 +67,9 @@ B=3   # number of bisections applied
 #
 #time stepping
 #
-dtime_atmo=${dtime_atmo:=2400}
+dtime_atmo=${dtime_atmo:=1200}
 dtime_ocean=$hour
-dtime_coupling=$dtime_atmo
+dtime_coupling=$dtime_ocean
 #
 #---------------------------------------------------------------------------
 #model timing
@@ -78,10 +78,10 @@ restart_months=1     # 1 month
 (( dt_checkpoint = restart_months * month )) # checkpointing not yet supported for coupling fields
 (( dt_restart    = restart_months * month ))
 #
-atmo_output_interval="PT06H"
-atmo_steps_per_file=120   # 1 month
+atmo_output_interval="PT6H"
+atmo_file_interval="P30D"    # 1 month
 ocean_output_interval="PT12H"
-ocean_steps_per_file=60   # 1 month
+ocean_file_interval="P30D"   # 1 month
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -523,8 +523,7 @@ cat >> ${atmo_namelist} << EOF
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "${atmo_output_interval}"        ! ISO-format interval
- steps_per_file   = ${atmo_steps_per_file}
-!file_interval    = "${atmo_file_interval}"          ! ISO-format interval
+ file_interval    = "${atmo_file_interval}"          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl',
                     'cosmu0'  , 'rsdt'    ,
@@ -555,8 +554,7 @@ cat >> ${atmo_namelist} << EOF
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "${atmo_output_interval}"        ! ISO-format interval
- steps_per_file   = ${atmo_steps_per_file}
-!file_interval    = "${atmo_file_interval}"          ! ISO-format interval
+ file_interval    = "${atmo_file_interval}"          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl'
                     'cosmu0'  , 'rsdt'    ,
@@ -601,36 +599,6 @@ cat >> ${atmo_namelist} << EOF
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
 
-/
-&output_nml
- output_filename  = "${EXPNAME}_3d_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${atmo_output_interval}"        ! ISO-format interval
- steps_per_file   = ${atmo_steps_per_file}
-!file_interval    = "${atmo_file_interval}"          ! ISO-format interval
- include_last     = .FALSE.
- pl_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg'
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
-                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 
-                    'tend_ua_cnv'  , 
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  , 
-                    'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
- p_levels         = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
-                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 EOF
 #
@@ -697,7 +665,7 @@ cat > ${ocean_namelist} << EOF
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
  output_interval  = "${ocean_output_interval}"       ! interval in ISO-format
- steps_per_file   = ${ocean_steps_per_file}
+ file_interval    = "${ocean_file_interval}"
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_ocean"
