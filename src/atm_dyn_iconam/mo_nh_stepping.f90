@@ -80,7 +80,7 @@ MODULE mo_nh_stepping
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
                                          prep_outer_bdy_nudging
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
-  USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday
+  USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
   USE mo_io_restart,               ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
@@ -152,18 +152,17 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap
-  USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime,         &
-       &                                 PROLEPTIC_GREGORIAN, setCalendar,                  &
-       &                                 timedelta, newTimedelta, deallocateTimedelta,      &
-       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,       &
-       &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror, &
-       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),       &
-       &                                 ASSIGNMENT(=), OPERATOR(==),                       &
-       &                                 event, eventGroup, newEvent, newEventGroup,        &
-       &                                 addEventToEventGroup
+  USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
+       &                                 PROLEPTIC_GREGORIAN, setCalendar,                            &
+       &                                 timedelta, newTimedelta, deallocateTimedelta,                &
+       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,                 &
+       &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
+       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),                 &
+       &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(/=),                   &
+       &                                 event, eventGroup, newEvent, newEventGroup,                  &
+       &                                 addEventToEventGroup, isCurrentEventActive
   USE mo_mtime_extensions,         ONLY: get_datetime_string
-  USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup,    &
-       &                                 printEventGroup
+  USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -522,6 +521,7 @@ MODULE mo_nh_stepping
   TYPE(event), POINTER                 :: checkpointEvent => NULL()
   TYPE(event), POINTER                 :: restartEvent => NULL()
 
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: dstring_old, dstring_new
 
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
@@ -926,9 +926,27 @@ MODULE mo_nh_stepping
     ! check whether time has come for writing restart file
     IF (is_checkpoint_time(jstep,n_chkpt) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
       lwrite_checkpoint = .TRUE.
+      
     ELSE
       lwrite_checkpoint = .FALSE.
     ENDIF
+
+    CALL message('','')
+    dstring_old = iso8601(datetime_current)
+    call datetimeToString(current_date, dstring_new) 
+    IF ((isCurrentEventActive(checkpointEvent, current_date) &
+         &              .and. tc_startdate /= current_date) &
+         &              .or. tc_exp_stopdate == current_date &
+         &              .and. .not. output_mode%l_none ) then
+      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
+           &                                ' new: ', dstring_new, ' old: ', dstring_old
+      CALL message('',message_text)
+    ELSE
+      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new F and old ', lwrite_checkpoint, &
+           &                                ' new: ', dstring_new, ' old: ', dstring_old
+      CALL message('',message_text)
+    ENDIF
+    CALL message('','')
 
     IF (lwrite_checkpoint) THEN
       IF (use_async_restart_output) THEN
