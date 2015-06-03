@@ -1889,11 +1889,19 @@ If this parameter has not been set, we try to determine the file type by its ext
 
 
 %\hline
-\textbf{ana\_varlist} &
-C& & &
-List of mandatory analysis fields that must be present in the analysis file. If these fields are not found, 
+ana\_varlist &
+C(:)& & &
+List of mandatory analysis fields for the \textbf{global domain} that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
 & init\_mode=1,5,6,8
+\tabularnewline
+
+%\hline
+ana\_varlist\_n2 &
+C(:)& & &
+List of mandatory analysis fields for \textbf{domain 2} that must be present in the analysis file. If these fields are not found, 
+the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+& init\_mode=5,6
 \tabularnewline
 
 
