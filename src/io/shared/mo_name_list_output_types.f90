@@ -91,13 +91,13 @@ MODULE mo_name_list_output_types
   INTEGER, PARAMETER :: IVERT                 = 3
 
   ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(9) =(/"z_ifc       ", "topography_c", &
-    &                                                 "hbas_con    ", "htop_con    ", &
-    &                                                 "hzerocl     ", "clcl        ", &
-    &                                                 "htop_dc     ", "c_t_lk      ", &
-    &                                                 "h_b1_lk     "/)
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(10) =(/"z_ifc       ", "topography_c", &
+    &                                                  "hbas_con    ", "htop_con    ", &
+    &                                                  "hzerocl     ", "clcl        ", &
+    &                                                  "htop_dc     ", "c_t_lk      ", &
+    &                                                  "h_b1_lk     ", "snowlmt     "/)
   ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(9)    =(/101, 101, 101, 101, 101, 1, 101, 162, 165/)
+  INTEGER          , PARAMETER :: second_tos(10)    =(/101, 101, 101, 101, 101, 1, 101, 162, 165, 101/)
 
   ! fields for which typeOfFirstFixedSurface must be re-set
   CHARACTER(LEN=12), PARAMETER :: ffs_name_list(4) =(/"t_mnw_lk    ", "depth_lk    ", &

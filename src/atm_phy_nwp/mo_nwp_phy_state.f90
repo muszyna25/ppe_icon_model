@@ -90,8 +90,10 @@ USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 USE mo_advection_config,     ONLY: advection_config
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
+USE mo_action_types,         ONLY: t_var_action
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
+USE mtime,                   ONLY: MAX_DATETIME_STR_LEN
 
 IMPLICIT NONE
 PRIVATE
@@ -260,15 +262,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), shape3dsubsw(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
-    INTEGER :: jsfc, ist
+    INTEGER :: jsfc, ist, jg
     CHARACTER(len=NF_MAX_NAME) :: long_name
     CHARACTER(len=21) :: name
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    LOGICAL :: lrestart
- 
+    LOGICAL :: lrestart, lhave_graupel
+
+    TYPE(t_var_action) :: action_list_reset
+
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
     shape2d      = (/nproma,           kblks            /)
@@ -277,11 +281,38 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
+
+    ! Quick and dirty implementation of domain-specific statistics intervals
+    ! Initially, global domain and nest have distinct statistics intervals (3h vs. 1h). 
+    ! However, after 78h the statistics interval of the nest is re-set to that of the global domain.  
+    SELECT CASE(k_jg)
+    CASE(1)  ! global domain
+      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
+    CASE(2)  ! nesting level 1
+      action_list_reset = actions(                                  &
+                  &               new_action(ACTION_RESET,"PT01H",  &
+                  &                          opt_end  ="P03DT06H"), &
+                  &               new_action(ACTION_RESET,"PT03H",  &
+                  &                          opt_start="P03DT06H",  &
+                  &                          opt_ref  ="P03DT06H")  &
+                  &               )
+    CASE DEFAULT
+      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
+    END SELECT
+
     ! Register a field list and apply default settings
 
     CALL new_var_list( diag_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( diag_list,                 &
                                   & lrestart=.TRUE.  )
+
+    lhave_graupel = .FALSE.
+    DO jg = 1, n_dom
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE (2,4,5,6)
+        lhave_graupel = .TRUE.
+      END SELECT
+    ENDDO
 
     !------------------------------
     ! Meteorological quantities
@@ -315,8 +346,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_INSTANT )
 
     ! For graupel scheme 
-    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (2,4,5,6)
+    IF (lhave_graupel) THEN
       
       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
@@ -326,7 +356,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d,                                             &
                   & isteptype=TSTEP_INSTANT )
-    END SELECT
+    ENDIF
 
     !For two moment microphysics
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
@@ -509,8 +539,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
 
     !Surface precipitation variables for graupel scheme and two moment microphysics
-    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (2,4,5,6)
+    IF (lhave_graupel) THEN
        ! &      diag%graupel_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
         &                   DATATYPE_FLT32)
@@ -519,7 +548,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
                   & isteptype=TSTEP_ACCUM )
-    END SELECT
+    ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
     CASE (4,5,6)
@@ -608,7 +637,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval_r=0._wp, resetval_r=0._wp,                           &
-                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
+                & action_list=action_list_reset )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
@@ -707,6 +736,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'ktop_envel', diag%ktop_envel,                    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.  )
+
+    !        diag%snowlmt(nproma,nblks_c)
+    cf_desc    = t_cf_var('snowlmt', 'm', 'Height of snow fall limit above MSL', &
+      &                   DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 204, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'snowlmt', diag%snowlmt,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc,           &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE.,                  &
+                & loutput=.TRUE.,                                              &
+                & lmiss=.TRUE., missval_r=-999._wp,                            &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
 
     ! &      diag%clc(nproma,nlev,nblks_c)
     cf_desc      = t_cf_var('clc', '',  'cloud cover', DATATYPE_FLT32)
@@ -1781,7 +1823,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & ldims=shape2d,                                                    &
           & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,                   &
           &                 new_cf=new_cf_desc),                              &
-          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in"), &
+          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in",               &
+          &                 "mode_iau_fg_in","mode_iau_old_fg_in"),           &
           & initval_r=0.01_wp )
 
 
@@ -1800,7 +1843,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
-          & action_list=actions(new_action(ACTION_RESET,'PT03H')),            &
+          & action_list=action_list_reset, &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -1811,7 +1854,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
           & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
-          & action_list=actions(new_action(ACTION_RESET,'PT03H')),            &
+          & action_list=action_list_reset, &
           & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
           &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 

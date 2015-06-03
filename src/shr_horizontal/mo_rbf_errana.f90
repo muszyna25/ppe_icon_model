@@ -347,8 +347,13 @@ CONTAINS
       &         min_stencil(1)
     LOGICAL  :: lflag(nproma)
 
+    ! for regional grids, a process may have something to do...
+    IF ((dst_nblks_c == 0) .OR. ((dst_nblks_c == 1) .AND. (dst_npromz_c == 0))) THEN
+      rbf_shape_param = 99.
+      RETURN
+    END IF
+    
     max_tests = MAX(min_tests,min_tests*max_tests_nproma/nproma)
-
     result_val(:) = 0._wp
     itest_stride = MAX(1, dst_nblks_c/max_tests)
 !$OMP PARALLEL DO PRIVATE(jb, start_idx, end_idx, min_stencil, c_seq, t_seq, q, &
@@ -411,6 +416,7 @@ CONTAINS
         END DO
         CALL rbf_error(c_seq(:,n),start_idx,end_idx,kdim,max_nstencil,jb, &
           &            center, intp_data_iidx, intp_data_iblk, t_seq(:,n), lflag)
+
         ! linear regression
         DO jc=start_idx,end_idx
           IF (lflag(jc)) CYCLE
@@ -422,6 +428,11 @@ CONTAINS
           a1       = (REAL(n,wp) * DOT_PRODUCT(y,z) - sum_y*sum_z)
           q(jc)    = a1/a2
           beta(jc) = (sum_y - q(jc)*sum_z)/n
+          ! In exact arithmetics the following check would not be
+          ! necessary due to the Cauchy Schwarz inequality:
+          IF ((REAL(n,wp)*DOT_PRODUCT(y,y) - sum_y*sum_y) < 0._wp) THEN
+            CYCLE
+          END IF
           denom    = SQRT(a2)*SQRT(REAL(n,wp)*DOT_PRODUCT(y,y) - sum_y*sum_y)
           IF (denom < tol_resample) THEN
             ! now, there seems to be a problem: the function samples

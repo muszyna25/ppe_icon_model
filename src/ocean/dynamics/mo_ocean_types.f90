@@ -20,7 +20,7 @@ MODULE mo_ocean_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,cvec2gvec,      &
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   
   PUBLIC :: t_hydro_ocean_base
@@ -290,6 +290,8 @@ MODULE mo_ocean_types
     ! dimension: (nproma, n_zlev, nblks_v)
       & vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
     ! dimension: (nproma, n_zlev, nblks_e)
+      & potential_vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_e)	
       & kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
     ! (nproma, n_zlev, alloc_cell_blocks)
       & mld(:,:)              ,& ! mixed layer depth [m].
@@ -389,6 +391,8 @@ MODULE mo_ocean_types
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
       & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
+    REAL(wp), POINTER ::         &
+      & relax_3dim_coefficient(:,:,:) ! 3-dim relaxation coefficient when the relaxation varies
 
     TYPE(t_cartesian_coordinates), POINTER :: &
       & slopes(:,:,:)              ! neutral slopes at cell center in cartesian coordinates

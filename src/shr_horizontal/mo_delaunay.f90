@@ -70,7 +70,7 @@ MODULE mo_delaunay
   ! guarantee the exact evaluation of determinants in the
   ! algorithm by rounding coordinates to 2^-17 (losing, however,
   ! accuracy), cf. [Lawson1984]
-  INTEGER,      PARAMETER :: ACCURACY = SELECTED_REAL_KIND(p=5)
+  INTEGER,      PARAMETER :: ACCURACY = wp
 
 CONTAINS
 
@@ -338,7 +338,7 @@ CONTAINS
     INTEGER                   :: edges_oedge(0:(MAX_EDGES-1))
     LOGICAL                   :: edges_valid(0:(MAX_EDGES-1))
                               
-    INTEGER                   :: jmin_t(0:nthreads)
+    INTEGER                   :: jmin_t
 
     ! copy all points since they will be re-ordered:
     npts = points%nentries
@@ -401,25 +401,27 @@ CONTAINS
       ! three edges of that triangle are added to the edge buffer and
       ! that triangle is removed.
 
-      jmin_t(:)    = 0
       ne           = 0 ! no. of entries in edge buffer
       ntri         = tri%nentries
+      jmin_t       = ntri
       new_ninvalid = 0
       new_ndiscard = 0
-!$omp parallel private(ithread,jtri,jmin,j,inside, oedge, jmin0, bedge, this_edge,k)
+!$omp parallel private(ithread,jtri,jmin,j,inside, oedge, jmin0, bedge, this_edge,k) &
+!$omp          reduction(min:jmin_t)
       ithread = 0
 !$    ithread = omp_get_thread_num()
       jmin    = ntri
 !$omp do reduction(+:new_ninvalid,new_ndiscard) 
       DO j=j0,(ntri-1)
         jtri => tri%a(j)
-        ! test if triangle remains on "discard" list
-        IF (ipoint%ps > jtri%rdiscard) THEN
-          new_ndiscard  = new_ndiscard-1
-          jtri%rdiscard = 1._wp
-        END IF
 
         IF (jtri%complete == 0) THEN
+          ! test if triangle remains on "discard" list
+          IF (ipoint%ps > jtri%rdiscard) THEN
+            new_ndiscard  = new_ndiscard-1
+            jtri%rdiscard = 1._wp
+          END IF
+
           oedge = jtri%oedge
           jmin0 = jmin
           IF (jmin == ntri)  jmin = j
@@ -457,9 +459,9 @@ CONTAINS
       END DO
 !$omp end do
       IF (jmin >= j0) THEN
-        jmin_t(ithread) = jmin
+        jmin_t = jmin
       ELSE
-        jmin_t(ithread) = ntri
+        jmin_t = ntri
       END IF
       
       ! remove multiple edges
@@ -478,15 +480,7 @@ CONTAINS
 !$omp end parallel
 
       ninvalid = ninvalid + new_ninvalid
-
-      ! "j0" denotes the smallest triangle index which is not yet
-      ! "complete" (significant speedup!)
-      LOOP2 : DO j=0,(nthreads-1)
-        IF (jmin_t(j) /= ntri) THEN
-          j0 = jmin_t(j)
-          EXIT LOOP2
-        END IF
-      END DO LOOP2
+      IF (jmin_t /= ntri)  j0 = jmin_t
 
       ! form new triangles for the current point. All edges are
       ! arranged in clockwise order.
@@ -577,7 +571,6 @@ CONTAINS
     CALL tri%resize(ntri)
     CALL pxyz%destructor()
   END SUBROUTINE triangulate_mthreaded
-
 
 
   !> perform triangulation in parallel

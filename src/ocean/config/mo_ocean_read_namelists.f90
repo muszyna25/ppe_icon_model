@@ -33,7 +33,7 @@ MODULE mo_ocean_read_namelists
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   ! USE mo_extpar_nml          ,ONLY: read_extpar_namelist
 
-  USE mo_ocean_nml           ,ONLY: setup_ocean_nml
+  USE mo_ocean_nml           ,ONLY: read_ocean_namelist
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
@@ -116,7 +116,7 @@ CONTAINS
 
     ! More namelists from the old setup
     !
-    CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
+    CALL read_ocean_namelist              (TRIM(oce_namelist_filename))
 
     ! Sea ice namelist
     !

@@ -32,14 +32,15 @@ MODULE mo_ocean_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: no_tracer,                                &
-    & basin_height_deg, basin_width_deg, basin_center_lat,                    &
+    & basin_height_deg, basin_width_deg, basin_center_lat, basin_center_lon,  &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,       &
     & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp,               &
     & type_surfRelax_Salt, type_surfRelax_Temp,                               &
     & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,         &
     & forcing_windstress_u_type, forcing_windstress_v_type,                   &
     & forcing_windspeed_type, forcing_windspeed_amplitude,                    &
-    & relax_temperature_min, relax_temperature_max,                           &
+    & relax_temperature_min, relax_temperature_max, initial_temperature_type, &
+	& initial_temperature_bottom,initial_temperature_north,initial_temperature_south,&
 #ifdef __SX__                                                                
     & forcing_windstress_zonalWavePhas,                                       &
 #else                                                                        
@@ -51,11 +52,11 @@ MODULE mo_ocean_forcing
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, pi_2
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
-  USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec, t_cartesian_coordinates
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes
   USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
+!   USE mo_ocean_initial_conditions, ONLY: SST_LinearMeridional, increaseTracerLevelsLinearly
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref
@@ -246,7 +247,8 @@ CONTAINS
         &          t_cf_var('data_surfRelax_Temp', 'C', 'data_surfRelax_Temp', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lrestart=.FALSE., loutput=.TRUE.)		
+!         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Salt', p_sfc_flx%data_surfRelax_Salt, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -461,7 +463,7 @@ CONTAINS
     CALL init_ocean_WindForcing(patch_3d, ocean_state, atmos_fluxes, fu10)
 
     IF (init_oce_relax > 0) THEN
-      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
+      CALL init_ho_relaxation(patch_3d, ocean_state, atmos_fluxes)
     END IF
   END SUBROUTINE init_ocean_forcing
   !-------------------------------------------------------------------------
@@ -477,9 +479,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
 !<Optimize:inUse>
-  SUBROUTINE init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
+  SUBROUTINE init_ho_relaxation(patch_3d, ocean_state, atmos_fluxes)
 
-    TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_atmos_fluxes)                    :: atmos_fluxes
@@ -498,10 +499,19 @@ CONTAINS
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_surfRelax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: temperature_difference, poleLat, waveNo
+	
+    REAL(wp):: distan
+    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
+    REAL(wp) :: basin_NorthBoundary, basin_SouthBoundary, lat_diff
+ 	
 
+    TYPE(t_patch),POINTER :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
+    patch_2d  => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
+    basin_NorthBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+    basin_SouthBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
 
     ! Read relaxation data from file
     IF (init_oce_relax == 1) THEN
@@ -644,7 +654,62 @@ CONTAINS
           END DO
         END DO
       END DO
+      CASE(5)
+      !Only valid for this specific testcase: temperature is resored to initial tempertaure without perturbation
+      IF(initial_temperature_type==215.OR.initial_temperature_type==214)THEN
 
+        atmos_fluxes%data_surfRelax_Temp(:,:) = 0.0_wp!initial_temperature_south
+
+       temperature_difference = initial_temperature_north - initial_temperature_south
+       lat_diff               = basin_NorthBoundary - basin_SouthBoundary  !  basin_height_deg*deg2rad
+
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            jk=1
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = initial_temperature_north &
+            &- temperature_difference*((basin_NorthBoundary-patch_2d%cells%center(jc,jb)%lat)/lat_diff)
+  
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
+            &initial_temperature_north, patch_2d%cells%center(jc,jb)%lat>basin_SouthBoundary)
+            
+			
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(&
+            &initial_temperature_north-1.0_wp, &			
+			      &ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
+			      &patch_2d%cells%center(jc,jb)%lat>(basin_center_lat + 1.0_wp*basin_height_deg) * deg2rad)!&
+			!&.AND.lat(jc,jb)<(basin_center_lat + 1.25_wp*basin_height_deg) * deg2rad)                    
+          END DO
+        END DO
+
+        !CALL SST_LinearMeridional(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
+        !atmos_fluxes%data_surfRelax_Temp(:,:)=ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
+      !ENDIF
+      ELSEIF(initial_temperature_type==203)THEN
+        perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+        perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
+        max_perturbation  = 0.1_wp!20.1_wp
+        perturbation_width  = 10.0_wp!1.5_wp
+
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            distan = SQRT((patch_2d%cells%center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
+            & (patch_2d%cells%center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
+  
+            atmos_fluxes%data_surfRelax_Temp(jc,jb)=ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
+            !Local cold perturbation
+            IF(distan<=5.0_wp*deg2rad)THEN
+              atmos_fluxes%data_surfRelax_Temp(jc,jb) =          &
+              & ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)        &
+              & - 2.0_wp*max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
+              !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
+              & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(1) / patch_3d%p_patch_1d(1)%zlev_i(2))
+             ENDIF !Local cold perturbation
+           END DO
+         END DO
+      ENDIF
+  
     END SELECT
 
     IF (type_surfRelax_Salt == 3) THEN
@@ -653,8 +718,16 @@ CONTAINS
       END IF
     END IF
 
-    IF (type_3dimRelax_Temp == 3) THEN
+    IF (type_3dimRelax_Temp >= 3) THEN
       ocean_state%p_aux%data_3dimRelax_Temp(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+      IF (type_3dimRelax_Temp ==4) THEN
+        CALL init_3Drelax_coefficient_NS( &
+          & patch_3D = patch_3d, &
+          & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
+          & SouthBoundary=basin_SouthBoundary, &
+          & NorthBoundary=basin_NorthBoundary, &
+          & relaxWidth=1.5_wp * deg2rad)
+      END IF
     END IF
     IF (type_3dimRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
@@ -683,6 +756,39 @@ CONTAINS
     CALL message( TRIM(routine),'end' )
 
   END SUBROUTINE init_ho_relaxation
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE  init_3Drelax_coefficient_NS(patch_3D, relax_coefficient, SouthBoundary, NorthBoundary, relaxWidth)
+
+    TYPE(t_patch_3d ),TARGET :: patch_3D
+    REAL(wp) :: relax_coefficient(:,:,:)
+    REAL(wp) :: SouthBoundary, NorthBoundary, relaxWidth
+
+    INTEGER :: jb, jc, start_cell_index, end_cell_index
+    REAL(wp) :: lat_diff
+    TYPE(t_patch),POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
+    patch_2d  => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    relax_coefficient(:,:,:) = 0.0_wp
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_diff = patch_2d%cells%center(jc,jb)%lat - SouthBoundary
+        IF (lat_diff > relaxWidth) & ! check the north boundary
+          lat_diff = NorthBoundary - patch_2d%cells%center(jc,jb)%lat
+          
+        IF (lat_diff >= 0.0_wp .AND. lat_diff <  relaxWidth) THEN
+          relax_coefficient(jc,:,jb) = (relaxWidth - lat_diff) / relaxWidth
+        ENDIF
+        
+      END DO
+    END DO
+
+  END SUBROUTINE  init_3Drelax_coefficient_NS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -787,7 +893,9 @@ CONTAINS
       CASE(111)
         CALL Wolfe_Cessi_TestCase(lon, lat, windstress, amplitude)
       CASE(112)       ! basin setup, zonally changed for Abernathey test case
-        CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)
+        CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)     
+      CASE(113)
+        CALL zentral_jet(lon, lat, windstress, amplitude)		        
       END SELECT
     END SELECT
     
@@ -917,6 +1025,17 @@ CONTAINS
       & (0.8_wp*EXP(-1*lat(:,:)*lat(:,:)/0.01) - COS(6.0_wp*lat(:,:)))
 
   END SUBROUTINE Wolfe_Cessi_TestCase
+
+  SUBROUTINE zentral_jet(lon, lat, field_2d, amplitude)
+    REAL(wp)                         :: lon(:,:), lat(:,:)
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+
+    field_2d(:,:) = amplitude *                                   &
+      & (0.8_wp*EXP(-1*lat(:,:)*lat(:,:)/0.5) )
+
+  END SUBROUTINE zentral_jet
+
 
   SUBROUTINE cells_zonal_periodic(lon, lat, field_2d, amplitude, zonal_waveno_opt)
     REAL(wp)                         :: lon(:,:), lat(:,:)

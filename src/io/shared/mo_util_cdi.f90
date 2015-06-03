@@ -31,7 +31,7 @@ MODULE mo_util_cdi
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata
-  USE mo_action,             ONLY: ACTION_RESET
+  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
@@ -39,10 +39,17 @@ MODULE mo_util_cdi
     &                              PROLEPTIC_GREGORIAN, setCalendar,        &
     &                              MAX_DATETIME_STR_LEN,                    &
     &                              OPERATOR(-)
+  USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
+    &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
+    &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
+    &                              zaxisInqNlevRef, vlistInqVarGrid, gridInqSize,           &
+    &                              zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32,            &
+    &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
+    &                              TSTEP_INSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
+    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,                 &
+    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR
 
   IMPLICIT NONE
-  INCLUDE 'cdi.inc'
-
   PRIVATE
 
   PUBLIC :: has_filetype_netcdf
@@ -237,7 +244,9 @@ CONTAINS
         WRITE(0,*) routine, ": Total read statistics for stream ID ", me%streamId
         WRITE(0,'(8X,A,I19,A)')   "amount:    ", me%readBytes, " bytes"
         WRITE(0,'(8X,A,F19.3,A)') "duration:  ", me%readDuration, " seconds"
-        WRITE(0,'(8X,A,F19.3,A)') "bandwidth: ", REAL(me%readBytes, dp)/(1048576.0_dp*me%readDuration), " MiB/s"
+        IF (me%readDuration > 0._wp) THEN
+          WRITE(0,'(8X,A,F19.3,A)') "bandwidth: ", REAL(me%readBytes, dp)/(1048576.0_dp*me%readDuration), " MiB/s"
+        ENDIF
     END IF
     CALL me%distribution%printStatistics()
 
@@ -359,6 +368,26 @@ CONTAINS
 
 
   !---------------------------------------------------------------------------------------------------------------------------------
+  !> small helper message to output the speed of an individual input operation
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE writeSpeedMessage(routineName, bytes, duration)
+    CHARACTER(len=*), INTENT(IN) :: routineName
+    INTEGER(i8), VALUE :: bytes
+    REAL(dp), VALUE :: duration
+
+    IF(msg_level >= 15) THEN
+        IF(duration /= 0.0) THEN
+            WRITE(0,*) routineName, ": Read ", bytes, " bytes in ", duration, " seconds (", &
+                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
+        ELSE
+            WRITE(0,*) routineName, ": Read ", bytes, " bytes in no time. ", &
+                &      "Failure to measure time may be due to compilation without MPI."
+        END IF
+    END IF
+  END SUBROUTINE
+
+
+  !---------------------------------------------------------------------------------------------------------------------------------
   !> wrapper for streamReadVarSlice() that measures the time
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE timeStreamReadVarSlice(parameters, varID, level, buffer, nmiss)
@@ -380,10 +409,7 @@ CONTAINS
         bytes = INT(SIZE(buffer, 1), i8) * 8_i8
         parameters%readDuration = parameters%readDuration + duration
         parameters%readBytes = parameters%readBytes + bytes
-        IF(msg_level >= 15) then
-            WRITE(0,*) routine, ": Read ", bytes, " bytes in ", duration, " seconds (", &
-                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
-        END IF
+        CALL writeSpeedMessage(routine, bytes, duration)
     END IF
   END SUBROUTINE timeStreamReadVarSlice
 
@@ -410,10 +436,7 @@ CONTAINS
         bytes = INT(SIZE(buffer, 1), i8) * 8_i8
         parameters%readDuration = parameters%readDuration + duration
         parameters%readBytes = parameters%readBytes + bytes
-        IF(msg_level >= 15) then
-            WRITE(0,*) routine, ": Read ", bytes, " bytes in ", duration, " seconds (", &
-                &      REAL(bytes, dp)/(1048576.0_dp*duration), " MiB/s)"
-        END IF
+        CALL writeSpeedMessage(routine, bytes, duration)
     END IF
   END SUBROUTINE timeStreamReadVarSliceF
 
@@ -556,7 +579,12 @@ CONTAINS
         gridId = vlistInqVarGrid(vlistId, varId)
         IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
             & (zaxisInqSize(zaxisId) /= nlevs)) THEN
-            CALL finish(routine, "Incompatible dimensions!")
+          WRITE (0,*)  "VAR ", TRIM(varname)
+          WRITE (0,*) "      gridInqSize(gridId) = ", gridInqSize(gridId),           &
+            &         " /= parameters%glb_arr_len = ", parameters%glb_arr_len
+          WRITE (0,*)  ".OR. zaxisInqSize(zaxisId) = ", zaxisInqSize(zaxisId), &
+            &         " /= nlevs = ", nlevs
+          CALL finish(routine, "Incompatible dimensions!")
         END IF
     END IF
 
@@ -788,6 +816,15 @@ CONTAINS
       &                    grib_conf%generatingProcessIdentifier)
 
 
+    IF (ANY((/TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN/) == steptype)) THEN
+      ! Always set
+      !   typeOfTimeIncrement = 2 
+      !   "Successive times processed have same start time of forecast, 
+      !    forecast time is incremented"
+      ! since this is the only type of time processing available in ICON
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfTimeIncrement", 2)
+    ENDIF
+
     IF (grib_conf%lspecialdate_invar) THEN
       ! Use special date for invariant and climatological fields
       !
@@ -903,10 +940,10 @@ CONTAINS
   !!
   !!  @author D. Reinert, F. Prill (DWD)
   !!
-  !!  TODOs
+  !!  CAVEATs
   !!
-  !!  - we implicitly assume that we always need to INQUIRE the interval from action 1.
-  !!  - we implicitly assume that the time range is always smaller than one month
+  !!  - we implicitly assume that actions are ordered according to increasing forecast time.
+  !!  - we implicitly assume that the statistical process time range is always smaller than one month
   !!
   SUBROUTINE set_timedependent_GRIB2_keys(streamID, varID, info, start_date, cur_date)
     INTEGER                             ,INTENT(IN) :: streamID, varID
@@ -924,11 +961,16 @@ CONTAINS
     TYPE(datetime),  POINTER      :: mtime_start                   ! model start (initialization) time
     TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
     TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
+    INTEGER                       :: var_actionId                  ! action from which metainfo is used
+    CHARACTER(len=*), PARAMETER   :: routine = 'set_timedependent_GRIB2_keys'
 
     ! special fields for which time-dependent metainfos should be set even though they are not of 
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
     ! performed over the entire model run but over only some intervals.
     CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
+
+
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     !---------------------------------------------------------
     ! Set time-dependent metainfo
@@ -954,20 +996,20 @@ CONTAINS
 
     IF (info%action_list%n_actions > 0) THEN
 
-      ! here we implicitly assume, that action Nr. 1 is the 'nullify'-action.
-      ! Currently this is true, but must not be true for all times. A less 
-      ! ad-hoc solution would be desirable. A warning is issued, if nr. 1 
-      ! is NOT the 'nullify' action.
-      IF (info%action_list%action(1)%actionID /= ACTION_RESET) THEN
-        write(0,*) 'set_timedependent_GRIB2_keys: actionID of action 1 is not equal to ACTION_RESET.'//&
+      ! more than one RESET action may be defined for a single variable.
+      ! get ID of currently active RESET action
+      var_actionId = getActiveAction(info, ACTION_RESET, mtime_cur)
+
+      IF (var_actionId == -1) THEN
+        write(0,*) 'set_timedependent_GRIB2_keys: no active action of type ACTION_RESET found. '//&
           &             'lengthOfTimeRange may not be set correctly'
+        CALL finish (routine, 'Illegal actionId')
       ENDIF
 
       ! get latest (intended) triggering time, which is equivalent to 
       ! the statistical process starting time
-      statProc_startDateTime = info%action_list%action(1)%EventLastTriggerDate
+      statProc_startDateTime = info%action_list%action(var_actionId)%EventLastTriggerDate
 
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
 
       ! get time interval, over which statistical process has been performed
       ! It is the time difference between the current time (rounded) mtime_cur and 
@@ -995,7 +1037,6 @@ CONTAINS
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
     ! Note that for statistical quantities, the forecast time is the time elapsed between the 
     ! model start time and the start time of the statistical process
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
     forecast_delta => newTimedelta("P01D")
     forecast_delta = statProc_startDateTime - mtime_start
 
@@ -1024,7 +1065,7 @@ CONTAINS
 
     !
     ! set length of time range: current time - statProc_startDateTime
-    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",  ilengthOfTimeRange)
     ! Note that if one of the statistics templates 4.8 or 4.11 is selected, the time unit 
     ! (GRIB2 key "indicatorOfUnitForTimeRange") is set automatically by CDI.
     ! It is always set identical to "indicatorOfUnitOFTimeRange"

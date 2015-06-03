@@ -26,7 +26,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    &                                  atmos_flux_analytical_type, no_tracer
+    &                                  atmos_flux_analytical_type, no_tracer, surface_module
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
@@ -45,6 +45,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_tracer_ab
   USE mo_ocean_bulk,             ONLY: update_surface_flux
+  USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
@@ -972,8 +973,13 @@ ENDIF
 
       !-----------------------------------------------------------------------------------------------------------------
       ! call component
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
-        &  operators_coefficients)
+      IF (surface_module == 1) THEN
+        CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+          &  operators_coefficients)
+      ELSEIF (surface_module == 2) THEN
+        CALL update_ocean_surface(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+          &  operators_coefficients)
+      ENDIF
       !-----------------------------------------------------------------------------------------------------------------
 
       !---  energy  -----------------------------------------------------------
@@ -1098,10 +1104,10 @@ ENDIF
       !---------------------------------------------------------------------
 
       ! hack for writing energy/salt budgets on ice%u/v:
-      p_ice%u(:,:) = energyDits(:,:)
-      p_ice%v(:,:) = saltBudget(:,:)
-      CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+   !  p_ice%u(:,:) = energyDits(:,:)
+   !  p_ice%v(:,:) = saltBudget(:,:)
+   !  CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+   !  CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
 
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
 

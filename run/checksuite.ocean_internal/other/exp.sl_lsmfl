@@ -233,7 +233,7 @@ cat > ${ocean_namelist} << EOF
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
   MAX_VERT_DIFF_TRAC = 3.0E-2    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
-  HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
+  HorizontalViscosity_type =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
