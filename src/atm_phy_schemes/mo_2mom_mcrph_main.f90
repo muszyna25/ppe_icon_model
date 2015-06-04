@@ -1992,6 +1992,8 @@ CONTAINS
   REAL(wp), PARAMETER :: c_dep = -1.3107_wp
   REAL(wp), PARAMETER :: d_dep =  2.6789_wp
 
+  REAL(wp), PARAMETER :: eps = 1.e-20_wp
+
   ! variables for interpolation in look-up table (real is good enough here)
   REAL      :: xt,xs 
   INTEGER   :: ss,tt
@@ -2110,9 +2112,8 @@ CONTAINS
 
               IF (use_hdcp2_het) THEN  
                  ! Hande et al. scheme, Eq. (1)
-                 T_a = max(T_a,237.15_wp)
                  if (T_a.lt.261.15_wp) then
-                    ndiag = nin_imm * exp( - alf_imm * exp(bet_imm*log(T_a - 237.15_wp)) )
+                    ndiag = nin_imm * exp( - alf_imm * exp(bet_imm*log(MAX(eps,T_a - 237.15_wp))) )
                  else
                     ndiag = 0.0_wp
                  end if
@@ -2130,9 +2131,8 @@ CONTAINS
 
               IF (use_hdcp2_het) THEN  
                  ! Hande et al. scheme, Eq. (3) with (2) and (1) 
-                 T_a = max(T_a,220.0_wp)
                  if (T_a.lt.253.0_wp) then
-                    ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(T_a - 220.0_wp)) )
+                    ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(MAX(eps,T_a - 220.0_wp))) )
                     ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
                  else
                     ndiag = 0.0_wp
