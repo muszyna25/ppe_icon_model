@@ -945,7 +945,6 @@ MODULE mo_nh_stepping
     ! check whether time has come for writing restart file
     IF (is_checkpoint_time(jstep,n_chkpt) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
       lwrite_checkpoint = .TRUE.
-      
     ELSE
       lwrite_checkpoint = .FALSE.
     ENDIF
@@ -958,13 +957,19 @@ MODULE mo_nh_stepping
          &              .and. tc_startdate /= current_date)                   &
          &              .or. tc_exp_stopdate == current_date                  &
          &              .and. .not. output_mode%l_none ) then
-      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
-           &                                ' new: ', dstring_new, ' old: ', dstring_old
-      CALL message('',message_text)
+#ifdef USE_MTIME_LOOP
+      lwrite_checkpoint = .TRUE.
+!      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
+!           &                                ' new: ', dstring_new, ' old: ', dstring_old
+!      CALL message('',message_text)
+#endif
     ELSE
-      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new F and old ', lwrite_checkpoint, &
-           &                                ' new: ', dstring_new, ' old: ', dstring_old
-      CALL message('',message_text)
+#ifdef USE_MTIME_LOOP
+      lwrite_checkpoint = .FALSE.
+!      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new F and old ', lwrite_checkpoint, &
+!           &                                ' new: ', dstring_new, ' old: ', dstring_old
+!      CALL message('',message_text)
+#endif
     ENDIF
     CALL message('','')
 
