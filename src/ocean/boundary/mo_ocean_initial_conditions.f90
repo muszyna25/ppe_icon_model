@@ -1304,7 +1304,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     alpha = 1.0_wp/3.0_wp
     
     
-    shear_depth  = 4.0_wp
+    shear_depth  = 0.05_wp
     shear_center = INT(0.5_wp*n_zlev)
     shear_top    = shear_center-INT(0.5_wp*shear_depth)
     shear_bottom = shear_center+INT(0.5_wp*shear_depth)
@@ -1315,42 +1315,30 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
       
-         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
-         uu = Galewsky_u(point_lon,point_lat,velocity_amplitude)
-         vv = Galewsky_v(point_lon,point_lat,velocity_amplitude)
-         edge_vn = 0.01_wp*(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2)
-              
-        !Above shear layer
-        DO level = 1, INT(shear_top)
-          vn(edge_index, level, edge_block) = edge_vn
-        ENDDO
-        
-        !Shear layer
-        DO level = INT(shear_top+1),INT(shear_bottom-1)
-          vn(edge_index, level, edge_block) = edge_vn* ((shear_center-level)/shear_depth)
-        ENDDO
-        
-        !Below shear layer
-        DO level = INT(shear_bottom),n_zlev
-          vn(edge_index, level, edge_block) = -edge_vn
-        ENDDO
-!         IF(level==INT(0.5*n_zlev)+1)THEN
-!           IF(point_lon<= pi .and. point_lon> -pi)THEN
-!           vn_perturb=120.0_wp*cos(point_lat)&
-!           &*exp(-(point_lon/alpha)**2)*exp(-((phi_2-point_lat)/beta)**2)
-!         
-!           vn(edge_index, level, edge_block) = vn(edge_index, level, edge_block)+vn_perturb
-! 
-!           ENDIF
-!         ENDIF
+         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon* rad2deg
+         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat* rad2deg
+!          IF(point_lat>=basin_center_lat)THEN	 
+!            !uu=tanh((point_lat-0.025)*300.0_wp) 
+!            uu=tanh((point_lat-shear_depth)*300.0_wp) 
+!          ELSEIF(point_lat<basin_center_lat)THEN
+!            !uu=tanh((0.75_wp-point_lat)*300.0_wp) 
+!            uu=tanh((shear_depth-point_lat)*300.0_wp) 
+!          ENDIF
+          IF(point_lat>=basin_center_lat)THEN	 
+            !uu=tanh((point_lat-0.025)*300.0_wp) 
+            uu=tanh((point_lat+shear_depth)*300.0_wp) 
+          ELSEIF(point_lat<basin_center_lat)THEN
+            !uu=tanh((0.75_wp-point_lat)*300.0_wp) 
+            uu=tanh((shear_depth-point_lat)*300.0_wp) 
+          ENDIF
+        vv=0.1_wp*sin(2.0_wp*pi*point_lon)
+   
+        edge_vn =(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+           & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2) 
+           vn(edge_index, 1:n_zlev, edge_block) = velocity_amplitude*edge_vn
+
       ENDDO
     ENDDO
-!     DO level = 1, n_zlev
-!      write(*,*)'velocity', level, maxval(vn(:, level,:))   
-!     ENDDO
-
 
   END SUBROUTINE  velocity_KelvinHelmholtzTest
   !-----------------------------------------------------------------------------------
@@ -1384,7 +1372,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-        lat_deg = patch_2d%cells%center(jc,jb)%lat * rad2deg
+        lat_deg = patch_2d%cells%center(jc,jb)%lat 
         lon_deg = patch_2d%cells%center(jc,jb)%lon * rad2deg
 
         IF((lon_deg-basin_center_lon) >= wallLonDeg) THEN
@@ -1660,27 +1648,26 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
     cell_center => patch_2d%cells%center
-	width=0.0
-	
+
+    width = 0.0_wp
+    ocean_temperature(:,:,:)=0.0_wp
+
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-		  
-	    lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
-	    lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
-		
+  
+        lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
+
          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-           IF(      lat_deg>= basin_center_lat+ width)THEN    				  		
+           IF( lat_deg>= basin_center_lat+ width)THEN    
 
-             ocean_temperature(jc,jk,jb) =  initial_temperature_north
+            ocean_temperature(jc,jk,jb) =  initial_temperature_north
           !lower channel boudary
-          ELSEIF(    lat_deg<= basin_center_lat- width )THEN 
-             ocean_temperature(jc,jk,jb) =  initial_temperature_south	  
-          ELSE!channel interior		  
-	       !write(123,*)'details3',lat_deg
-		   				  				  
-          ENDIF	
-
+          ELSEIF( lat_deg<= basin_center_lat- width )THEN 
+            ocean_temperature(jc,jk,jb) =  initial_temperature_south  
+          ELSE!channel interior  
+          ENDIF
         END DO
       END DO
     END DO

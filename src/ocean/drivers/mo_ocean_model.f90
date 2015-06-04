@@ -202,7 +202,7 @@ CONTAINS
     ! write initial state
     !------------------------------------------------------------------
     IF (output_mode%l_nml .and. write_initial_state) THEN
-      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice)
+      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice, operators_coefficients)
     ENDIF
 
     !------------------------------------------------------------------

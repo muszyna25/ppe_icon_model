@@ -232,7 +232,11 @@ CONTAINS
 
       !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, atmos_fluxes)
-
+      
+      !Assign the result of the sbr update_flux_analytical to the 
+      !total heat flux, otherwise the calculated flux is not taken into account !
+      atmos_fluxes%HeatFlux_Total=atmos_fluxes%topBoundCond_Temp_vdiff
+      
     CASE (OMIP_FluxFromFile)         !  12
 
       !  Driving the ocean with OMIP (no NCEP activated anymore):
@@ -788,7 +792,9 @@ CONTAINS
   
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('TopBC : windStr-u'    , p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('TopBC : windStr-v'    , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('TopBC : windStr-v'    , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)   
+    CALL dbg_print('TopBC : topBoundCond_Temp_vdiff', p_sfc_flx%topBoundCond_Temp_vdiff, str_module,&
+    & 2, in_subset=p_patch%cells%owned)    
     CALL dbg_print('TopBC : HF_ShortWave' , p_sfc_flx%HeatFlux_ShortWave       , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_LongWave'  , p_sfc_flx%HeatFlux_LongWave        , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('TopBC : HF_Sensible'  , p_sfc_flx%HeatFlux_Sensible        , str_module, 3, in_subset=p_patch%cells%owned)
@@ -861,7 +867,7 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: HeatFlxTotal[W/m2]',p_sfc_flx%HeatFlux_Total         ,str_module,2,in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: topBC_T_vd[K*m/s]', p_sfc_flx%topBoundCond_Temp_vdiff,str_module,4,in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: topBC_T_vd[K*m/s]', p_sfc_flx%topBoundCond_Temp_vdiff,str_module,2,in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! #slo# 2015-01: sst-change in surface module after sea-ice thermodynamics using HeatFlux_Total and old zUnderIce
@@ -1625,7 +1631,7 @@ CONTAINS
           END DO
         END DO
   
-      ELSEIF( initial_temperature_type==216)THEN
+      ELSEIF( initial_temperature_type==216.or.initial_temperature_type==214)THEN
         width=20.0_wp
         
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1655,6 +1661,7 @@ CONTAINS
           END DO
         END DO
     ENDIF  
+
    !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('UpdSfcRlx:HeatFlx_Rlx[W/m2]',atmos_fluxes%HeatFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfcRlx: T* to relax to'  ,atmos_fluxes%data_surfRelax_Temp,str_module,2, in_subset=p_patch%cells%owned)
@@ -1970,16 +1977,16 @@ CONTAINS
       atmos_fluxes%LWnetw(:,:)  = atmos_LWnetw_const
       atmos_fluxes%sensw(:,:)   = atmos_sensw_const
       atmos_fluxes%latw(:,:)    = atmos_lat_const
-	  
-	  
-	  CASE(200) 
+  
+  
+      CASE(200) 
 
         IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
 
-  		center = basin_center_lat * deg2rad
-  		length = basin_height_deg * deg2rad
-  		zonal_waveno = 2.0_wp
-  		amplitude    =10.0_wp
+          center = basin_center_lat * deg2rad
+          length = basin_height_deg * deg2rad
+          zonal_waveno = 2.0_wp
+          amplitude    =10.0_wp
 
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1989,21 +1996,20 @@ CONTAINS
 
                 z_lat    = p_patch%cells%center(jc,jb)%lat
                 z_lon    = p_patch%cells%center(jc,jb)%lon
-			  
-                atmos_fluxes%data_surfRelax_Temp(jc,jb) =0.0_wp			  
+  
+                atmos_fluxes%data_surfRelax_Temp(jc,jb) =0.0_wp
 
-  			  atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) &
-  		      &= amplitude * COS(zonal_waveno*pi*(z_lat-center)/length)
-  			  IF(z_lat<= center-0.5_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=0.0_wp
-  			  IF(z_lat>= center+0.5_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=0.0_wp			  
+                atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) &
+                &= amplitude * COS(zonal_waveno*pi*(z_lat-center)/length)
+                
+                !IF(z_lat<= center-0.5_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=0.0_wp
+                !IF(z_lat>= center+0.0_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=10.0_wp
+                !IF(z_lat>= center+0.75_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=&
+                !& -10.0_wp!amplitude * (COS(zonal_waveno*pi*(z_lat-center)/length))  
               ENDIF 
-			
-			
             END DO
           END DO
         ENDIF
-	  
-	   
 
     CASE default
 

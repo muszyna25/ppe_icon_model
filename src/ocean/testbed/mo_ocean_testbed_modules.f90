@@ -521,7 +521,7 @@ ENDIF
     ! write initial
     ! this is done 
       IF (output_mode%l_nml) THEN
-        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice)
+        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice, operators_coefficients)
       ENDIF
 
 

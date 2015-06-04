@@ -895,7 +895,12 @@ CONTAINS
       CASE(112)       ! basin setup, zonally changed for Abernathey test case
         CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)     
       CASE(113)
-        CALL zentral_jet(lon, lat, windstress, amplitude)		        
+        CALL zentral_jet(lon, lat, windstress, amplitude)
+        CASE(114)
+          CALL wind_shear_u(patch_2D, lon, lat, windstress, amplitude)		        
+          CASE(115)
+            CALL wind_shear_v(patch_2D, lon, lat, windstress, amplitude)		        
+				        
       END SELECT
     END SELECT
     
@@ -1035,6 +1040,79 @@ CONTAINS
       & (0.8_wp*EXP(-1*lat(:,:)*lat(:,:)/0.5) )
 
   END SUBROUTINE zentral_jet
+
+  SUBROUTINE wind_shear_u(patch_2d, lon, lat, field_2d, amplitude)
+    TYPE(t_patch), POINTER           :: patch_2d	  
+    REAL(wp)                         :: lon(:,:), lat(:,:)
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+
+	INTEGER :: edge_index,edge_block, start_edges_index, end_edges_index
+    TYPE(t_subset_range), POINTER :: all_edges	
+	REAL(wp) :: point_lon, point_lat, uu, vv	
+		
+		
+    all_edges => patch_2d%edges%ALL		
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+      
+         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+		 
+      	 IF(point_lat>=basin_center_lat)THEN		 
+  		   !uu=tanh((point_lat-0.025)*30.0_wp)	 
+ 		   uu=tanh((point_lat)*30.0_wp)	 		   
+  		 ELSEIF(point_lat<basin_center_lat)THEN
+ 		   !uu=tanh((0.75_wp-point_lat)*30.0_wp)	 			 
+  		   uu=tanh((-point_lat)*30.0_wp)	 
+  		 ENDIF
+  		 vv=0.1_wp*sin(2.0_wp*pi*point_lon)	   	 
+		   
+!      	 field_2d(edge_index,edge_block) =amplitude*(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+!    		         & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2) 
+        field_2d(edge_index,edge_block) =amplitude*uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 
+
+		 
+        ENDDO
+      ENDDO
+
+  END SUBROUTINE wind_shear_u
+  
+  SUBROUTINE wind_shear_v(patch_2d, lon, lat, field_2d, amplitude)
+    TYPE(t_patch), POINTER           :: patch_2d	  
+    REAL(wp)                         :: lon(:,:), lat(:,:)
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+
+	INTEGER :: edge_index,edge_block, start_edges_index, end_edges_index
+    TYPE(t_subset_range), POINTER :: all_edges	
+	REAL(wp) :: point_lon, point_lat, uu, vv	
+		
+		
+    all_edges => patch_2d%edges%ALL		
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+      
+         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+		 
+      	 !IF(point_lat>=basin_center_lat)THEN		 
+  		 !  uu=tanh((point_lat-0.025)*30.0_wp)	 
+  		 !ELSEIF(point_lat<basin_center_lat)THEN
+  		 !  uu=tanh((0.75_wp-point_lat)*30.0_wp)	 
+  		 !ENDIF
+  		 vv=0.1_wp*sin(2.0_wp*pi*point_lon)	   	 
+		   
+      	 field_2d(edge_index,edge_block) =amplitude*vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+		 
+        ENDDO
+      ENDDO
+
+
+
+  END SUBROUTINE wind_shear_v
 
 
   SUBROUTINE cells_zonal_periodic(lon, lat, field_2d, amplitude, zonal_waveno_opt)

@@ -421,13 +421,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice,p_phys_param)
+  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice, operators_coefficients, p_phys_param)
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_sfc_flx) , INTENT(INOUT)             :: p_sfc_flx
     TYPE(t_sea_ice),          INTENT(INOUT)     :: p_ice
+    TYPE(t_operator_coeff),   INTENT(inout)     :: operators_coefficients    
     TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
-
+    
     TYPE(t_patch), POINTER :: patch_2d
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -437,7 +438,10 @@ CONTAINS
     ! to the nold state. That's why the following manual copying is nec.
     ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
     
-    ! ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
+    ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
+    
+    CALL calc_scalar_product_veloc_3d( patch_3d,  ocean_state%p_prog(nnew(1))%vn,&
+    & ocean_state%p_diag, operators_coefficients)
     ! CALL calculate_thickness( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
     ! copy old tracer values to spot value fields for propper initial timestep

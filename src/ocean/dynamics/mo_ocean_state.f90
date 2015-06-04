@@ -933,13 +933,20 @@ CONTAINS
       & t_cf_var('vort','1/s','vorticity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_vertex),&
       & ldims=(/nproma,n_zlev,nblks_v/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
-	  
+  
    CALL add_var(ocean_restart_list, 'potential vort_e', ocean_state_diag%potential_vort_e, &
      & grid_unstructured_edge, za_depth_below_sea, &
      & t_cf_var('vort_e','1/s','potential vorticity at edges', DATATYPE_FLT32),&
      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_essentials"),lrestart_cont=.TRUE.)
-    
+
+
+   CALL add_var(ocean_restart_list, 'potential vort_c', ocean_state_diag%potential_vort_c, &
+     & grid_unstructured_cell, za_depth_below_sea, &
+     & t_cf_var('vort_e','1/s','potential vorticity at cells', DATATYPE_FLT32),&
+     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+     & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_essentials"),lrestart_cont=.TRUE.)
+
     ! kinetic energy component
     CALL add_var(ocean_default_list, 'kin', ocean_state_diag%kin, grid_unstructured_cell, &
       & za_depth_below_sea, &

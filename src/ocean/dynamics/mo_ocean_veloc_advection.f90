@@ -183,15 +183,20 @@ CONTAINS
     REAL(wp), INTENT(inout)  :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e) ! out
     !
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
-    INTEGER :: jk, blockNo, je
+    INTEGER :: jk, blockNo, je,cell_index,start_cell_index, end_cell_index, level,startLevel
     INTEGER :: start_edge_index, end_edge_index
+    INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     !REAL(wp) :: z_vort_flx(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_subset_range), POINTER :: edges_in_domain!, all_cells
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells
     TYPE(t_patch), POINTER         :: patch_2D
     !-----------------------------------------------------------------------
-    patch_2D   => patch_3D%p_patch_2D(1)
+    patch_2D        => patch_3D%p_patch_2D(1)
     edges_in_domain => patch_2D%edges%in_domain
-    !all_cells => patch_2D%cells%all
+    all_cells       => patch_2D%cells%all
+       
+    edge_of_cell_idx  => patch_2d%cells%edge_idx
+    edge_of_cell_blk  => patch_2d%cells%edge_blk    
+    startLevel      =1
     !-----------------------------------------------------------------------
 
     !calculate vorticity flux across dual edge
@@ -201,8 +206,25 @@ CONTAINS
       & p_diag%p_vn_dual,&
       & p_diag%vort,     &
       & p_op_coeff,      &
-      & veloc_adv_horz_e) !z_vort_flx
-      p_diag%potential_vort_e=veloc_adv_horz_e
+      & veloc_adv_horz_e)
+      
+    p_diag%potential_vort_e=veloc_adv_horz_e
+      
+    !Diagnostic potential vorticity at cells: !This work currently only for triangles  
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+      
+      DO cell_index =  start_cell_index, end_cell_index
+        DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)  
+        
+        p_diag%potential_vort_c(cell_index, level, blockNo)&
+        &=(p_diag%potential_vort_e(edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
+        &+p_diag%potential_vort_e(edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
+        &+p_diag%potential_vort_e(edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3)))/3.0_wp
+      
+        END DO
+      END DO
+    END DO
     !-------------------------------------------------------------------------------
     ! IF(L_ENSTROPHY_DISSIPATION)THEN
     !  DO jk = start_level, elev

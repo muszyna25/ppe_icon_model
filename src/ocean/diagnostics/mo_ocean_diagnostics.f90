@@ -351,14 +351,20 @@ CONTAINS
         & DATATYPE_FLT32),&
         & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
-		
+
         CALL add_var(ocean_diagnostics_list, 'potential_vort_e', ocean_state%p_diag%potential_vort_e, &
           & grid_unstructured_edge, za_depth_below_sea, &
-          & t_cf_var('vn_v','m/s','potential vorticity at edges', &
+          & t_cf_var('vn_v','1/s','potential vorticity at edges', &
           & DATATYPE_FLT32),&
           & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
           & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
-		
+
+        CALL add_var(ocean_diagnostics_list, 'potential_vort_c', ocean_state%p_diag%potential_vort_c, &
+          & grid_unstructured_cell, za_depth_below_sea, &
+          & t_cf_var('vn_v','1/s','potential vorticity at cells', &
+          & DATATYPE_FLT32),&
+          & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+          & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
     ENDIF
     

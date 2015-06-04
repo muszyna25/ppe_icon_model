@@ -287,8 +287,10 @@ MODULE mo_ocean_types
     ! dimension: (nproma, n_zlev, nblks_v)
       & vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
     ! dimension: (nproma, n_zlev, nblks_e)
-      & potential_vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
-    ! dimension: (nproma, n_zlev, nblks_e)	
+      & potential_vort_e(:,:,:)         ,& ! potential vorticity at triangle edges. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_e)
+      & potential_vort_c(:,:,:)         ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_c)
       & kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
     ! (nproma, n_zlev, alloc_cell_blocks)
       & mld(:,:)              ,& ! mixed layer depth [m].
