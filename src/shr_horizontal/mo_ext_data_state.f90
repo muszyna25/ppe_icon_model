@@ -2930,6 +2930,12 @@ CONTAINS
              ENDDO
            ENDDO  ! jc
 
+           ! Ensure consistency between fr_land and the adjusted sum of the tile fractions
+           DO jc = i_startidx, i_endidx
+             ext_data(jg)%atm%fr_land(jc,jb)     = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+             ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
+           ENDDO  ! jc
+
          ELSE ! overwrite fractional settings over water points if tile approach is turned off
            DO jc = i_startidx, i_endidx
              ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
@@ -2990,6 +2996,14 @@ CONTAINS
          ENDDO
          DO jc = i_startidx, i_endidx
            ext_data(jg)%atm%frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)
+           !
+           ! Ensure consistency between fr_lake and the rescaled tile fraction 
+           ext_data(jg)%atm%fr_lake(jc,jb)           = ext_data(jg)%atm%frac_t(jc,jb,isub_lake)
+           !
+           ! For consistency: remove depth_lk information, where fr_lake=0
+           ext_data(jg)%atm%depth_lk(jc,jb) = MERGE(ext_data(jg)%atm%depth_lk(jc,jb), &
+             &                                      -1._wp,                           &
+             &                                      ext_data(jg)%atm%fr_lake(jc,jb)>0._wp) 
          ENDDO
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
@@ -3087,16 +3101,13 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ext_data(jg)%atm%fr_land(:,jb) = 0._wp
-        ext_data(jg)%atm%fr_lake(:,jb) = 0._wp
-        !
-        ext_data(jg)%atm%plcov  (:,jb) = 0._wp
-        ext_data(jg)%atm%rootdp (:,jb) = 0._wp
-        ext_data(jg)%atm%lai    (:,jb) = 0._wp
-        ext_data(jg)%atm%rsmin  (:,jb) = 0._wp
-        ext_data(jg)%atm%tai    (:,jb) = 0._wp
-        ext_data(jg)%atm%eai    (:,jb) = 0._wp
-        ext_data(jg)%atm%sai    (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%plcov (:,jb) = 0._wp
+        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
+        ext_data(jg)%atm%lai   (:,jb) = 0._wp
+        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
+        ext_data(jg)%atm%tai   (:,jb) = 0._wp
+        ext_data(jg)%atm%eai   (:,jb) = 0._wp
+        ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
 
 
 
@@ -3111,13 +3122,6 @@ CONTAINS
             ! therefore we multiply by inv_frland_from_tiles
             area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)           &
               &       * ext_data(jg)%atm%inv_frland_from_tiles(jc,jb)
-
-            ! fr_land (small differences compared to original extpar-fr_land, due to 
-            !          land, lake and sea snippets whose fractions are below threshold. 
-            !          In that case, either the land- or sea-fraction is inflated; see above)
-            ext_data(jg)%atm%fr_land(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)   &
-              &                             + ext_data(jg)%atm%frac_t(jc,jb,jt)
-            ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
 
             ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
@@ -3159,17 +3163,6 @@ CONTAINS
               &             +  ext_data(jg)%atm%sai_t(jc,jb,jt) * area_frac
           ENDDO  ! jc
         ENDDO  !jt
-
-
-        ! fr_lake
-        DO jc = i_startidx, i_endidx
-          ext_data(jg)%atm%fr_lake(jc,jb) = ext_data(jg)%atm%frac_t(jc,jb,isub_lake)
-          !
-          ! For consistency: remove depth_lk information, where fr_lake=0
-          ext_data(jg)%atm%depth_lk(jc,jb) = MERGE(ext_data(jg)%atm%depth_lk(jc,jb), &
-            &                                      -1._wp,                           &
-            &                                      ext_data(jg)%atm%fr_lake(jc,jb)>0._wp) 
-        ENDDO  ! jc
 
       ENDDO  !jb
 !$OMP END DO
