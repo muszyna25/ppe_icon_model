@@ -49,6 +49,8 @@ MODULE mo_cover_koe
   
   USE mo_impl_constants,     ONLY: iedmf
 
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq
+
   IMPLICIT NONE
 
   PRIVATE
@@ -182,7 +184,7 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
-  & box_liq  = 0.05_wp  , & ! box width scale liquid clouds
+!  & box_liq  = 0.05_wp  , & ! box width scale liquid clouds - replaced by tuning namelist switch
   & box_ice  = 0.05_wp      ! box width scale ice clouds
 
 !-----------------------------------------------------------------------
@@ -266,7 +268,7 @@ CASE( 1 )
 !  liquid cloud
      ! quadratic increase of cloud cover from 0 to 1 between RH = 85% and 105%;
      ! diagnosed cloud water is proportional to clcov**2
-      deltaq = MIN(box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
+      deltaq = MIN(tune_box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)

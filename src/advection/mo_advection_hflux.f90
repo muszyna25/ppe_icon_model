@@ -68,7 +68,7 @@ MODULE mo_advection_hflux
 
   USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS,                   &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
     &                               UP, MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
     &                               MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,      &
@@ -85,12 +85,11 @@ MODULE mo_advection_hflux
     &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge                         
-  USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, timers_level
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c 
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
-    &                               sync_patch_array_mult, sync_patch_array_4de1
+    &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux, t_list2D

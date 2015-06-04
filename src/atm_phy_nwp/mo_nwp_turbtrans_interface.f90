@@ -55,7 +55,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
-    &                                isub_water, isub_lake, isub_seaice
+    &                                isub_lake, isub_seaice
 
   IMPLICIT NONE
 

@@ -291,6 +291,7 @@ USE mo_data_turbdiff, ONLY : &
     z0m_dia,      & ! roughness length of a typical synoptic station
 !
     alpha0,       & ! lower bound for Charnock-parameter
+    alpha0_max,   & ! upper bound for Charnock-parameter
     alpha1,       & ! parameter scaling the molek. roughness of water waves
 !
     c_lnd,        & ! surface area index of the land exept the leaves
@@ -6362,7 +6363,7 @@ ELEMENTAL FUNCTION alpha0_char(u10)
 
   ulim = MIN(u10,umax)
   ured = MAX(0._ireals, ulim-u2)
-  alpha0_char = MAX (alpha0, a + ulim*(b + c*ulim - d*ured))
+  alpha0_char = MIN(alpha0_max, MAX (alpha0, a + ulim*(b + c*ulim - d*ured)))
 
 END FUNCTION alpha0_char
 
