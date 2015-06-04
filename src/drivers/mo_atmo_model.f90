@@ -16,7 +16,7 @@
 MODULE mo_atmo_model
 
   ! basic modules
-  USE mo_exception,               ONLY: message, finish !, message_text
+  USE mo_exception,               ONLY: message, finish, message_text
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators,                           &
     &                                   p_pe_work, process_mpi_io_size,                       &
@@ -26,10 +26,12 @@ MODULE mo_atmo_model
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,               &
+  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
-  USE mo_master_config,           ONLY: isRestart
+  USE mo_master_config,           ONLY: isRestart, setStartdate, setStopdate, setExpStopdate, &
+       &                                tc_startdate, tc_stopdate, tc_dt_restart,             &
+       &                                tc_exp_stopdate, tc_exp_startdate
   USE mo_master_control,          ONLY: get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
@@ -136,12 +138,9 @@ MODULE mo_atmo_model
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: setCalendar,          &
-# ifdef YAC_coupling
-       &                                MAX_DATETIME_STR_LEN, &
-#endif
-       &                                PROLEPTIC_GREGORIAN
-
+  USE mtime,                      ONLY: setCalendar, MAX_DATETIME_STR_LEN,         &
+       &                                datetime, newDatetime, deallocateDatetime, &
+       &                                datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
   ! ART
@@ -241,8 +240,8 @@ CONTAINS
     INTEGER                 :: jg, jgp, jstep0, error_status
     TYPE(t_sim_step_info)   :: sim_step_info  
 
-    ! set mtime-Calendar
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
+    TYPE(datetime), POINTER :: calculatedStopDate => NULL()
+    CHARACTER(len=max_datetime_str_len) :: startDate = '', dstring
 
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
@@ -252,8 +251,49 @@ CONTAINS
     !---------------------------------------------------------------------
 
     IF (isRestart()) THEN
+      CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
-    END IF ! isRestart()
+      CALL get_restart_attribute('tc_startdate', startDate)
+    ELSE
+      call datetimeToString(tc_exp_startdate, startDate)
+    ENDIF
+
+    !---------------------------------------------------------------------
+    ! 0.1 check for start and stop dates
+    !---------------------------------------------------------------------
+
+    CALL setStartdate(startDate)
+    
+    IF (ASSOCIATED(tc_startdate) .AND. ASSOCIATED(tc_dt_restart)) THEN
+      calculatedStopDate => newDatetime('0001-01-01T00:00:00')
+      calculatedStopDate = tc_startdate + tc_dt_restart 
+      call datetimeToString(calculatedStopDate, dstring)
+      CALL setStopdate(dstring)
+      IF (.NOT. ASSOCIATED(tc_exp_stopdate)) THEN
+        CALL setExpStopdate(dstring)
+      ENDIF
+      CALL deallocateDatetime(calculatedStopDate)
+    ELSE
+      CALL finish('','Cannot calculate this runs stop date.')
+    ENDIF
+
+    IF (tc_exp_stopdate < tc_stopdate) THEN
+      CALL finish('','Premature experiment stop date. Check master_time_control_nml!')   
+    ENDIF
+
+    IF (ASSOCIATED(tc_startdate)) THEN
+      CALL datetimeToString(tc_startdate, dstring)
+      WRITE(message_text,'(a,a)') 'Start date of this run   : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    IF (ASSOCIATED(tc_stopdate)) THEN
+      CALL datetimeToString(tc_stopdate, dstring)
+      WRITE(message_text,'(a,a)') 'Stop date of this run    : ', dstring
+      CALL message('',message_text)
+    ENDIF
+
+    CALL message('','')
 
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the

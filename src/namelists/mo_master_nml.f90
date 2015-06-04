@@ -25,15 +25,15 @@ MODULE mo_master_nml
        &                       proleptic_gregorian, year_of_365_days,  year_of_360_days,     &
        &                       max_datetime_str_len, datetimeToString,                       &
        &                       datetime, newDatetime, deallocateDatetime,                    &
-       &                       max_timedelta_str_len, timedeltaToString, OPERATOR(+)
+       &                       max_timedelta_str_len, timedeltaToString,                     &
+       &                       OPERATOR(+), OPERATOR(<)
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
-       &                       setRestart, setModelBaseDir,                                  &
+       &                       setRestart, isREstart, setModelBaseDir,                       &
        &                       setExpRefdate,                                                &
        &                       setExpStartdate, setExpStopdate,                              &
-       &                       setStartdate, setStopdate,                                    &
        &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &
        &                       tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate,            &
-       &                       tc_startdate, tc_stopdate, tc_dt_checkpoint, tc_dt_restart
+       &                       tc_dt_checkpoint, tc_dt_restart
 
   IMPLICIT NONE
   
@@ -74,8 +74,6 @@ CONTAINS
     CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate = ''   
     CHARACTER(len=max_datetime_str_len) :: experimentStartDate = ''
     CHARACTER(len=max_datetime_str_len) :: experimentStopDate = ''
-    CHARACTER(len=max_datetime_str_len) :: startdate = ''
-    CHARACTER(len=max_datetime_str_len) :: stopdate = ''
     
     CHARACTER(len=max_timedelta_str_len) :: checkpointTimeIntval = ''
     CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval = ''
@@ -89,8 +87,6 @@ CONTAINS
          &    experimentReferenceDate, &   
          &    experimentStartDate,     &
          &    experimentStopDate,      &
-         &    startDate,               &
-         &    stopDate,                &
          &    checkpointTimeIntval,    &
          &    restartTimeIntval        
     
@@ -108,7 +104,6 @@ CONTAINS
     LOGICAL :: lrewind
 
     CHARACTER(len=max_datetime_str_len) :: dstring
-    TYPE(datetime), POINTER :: calculatedStopDate => NULL() 
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_master_nml:read_master_namelist'
     
@@ -150,6 +145,7 @@ CONTAINS
     CASE default
       CALL finish(routine,'No calendar selected or selected is unknown.')
     END SELECT
+
     CALL setCalendar(icalendar)
       
     ! take care that the reference date and start date strings are set 
@@ -165,20 +161,11 @@ CONTAINS
       IF (experimentStartDate /= '') THEN
         CALL setExpRefdate(experimentStartDate)
         CALL setExpStartdate(experimentStartDate)
-        IF (startDate /= '') THEN
-          CALL setStartdate(startDate)
-        ELSE
-          CALL setStartdate(experimentStartDate)
-        ENDIF
-      ELSE
-        IF (startDate /= '') THEN
-          CALL setExpRefdate(startDate)
-          CALL setExpStartdate(startDate)
-          CALL setStartdate(startDate)
-        ELSE
-          CALL message('','No start date given: depend on restart file.')
-        ENDIF
       ENDIF
+    ENDIF
+
+    IF (experimentStopDate /= '') THEN
+      CALL setExpStopdate(experimentStopDate)
     ENDIF
 
     ! next check for given restart, checkpoint interval
@@ -199,32 +186,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    ! check for stop dates
-    
-    IF (experimentStopDate /= '') THEN
-      CALL setExpStopdate(experimentStopDate)
-      IF (stopDate /= '') THEN
-        CALL setStopdate(stopDate)
-      ELSE
-        CALL setStopdate(experimentStopDate)
-      ENDIF
-    ELSE
-      IF (stopDate /= '') THEN
-        CALL setExpStopdate(stopDate)
-        CALL setStopdate(stopDate)
-      ELSE
-        IF (ASSOCIATED(tc_startdate) .AND. ASSOCIATED(tc_dt_restart)) THEN
-          calculatedStopDate => newDatetime('0001-01-01T00:00:00')
-          calculatedStopDate = tc_startdate + tc_dt_restart 
-          call datetimeToString(calculatedStopDate, dstring)
-          CALL setExpStopdate(dstring)
-          CALL setStopdate(dstring)
-          CALL deallocateDatetime(calculatedStopDate)
-        ELSE
-          CALL finish('','No stop date given or calculatable.')
-        ENDIF
-      ENDIF
-    ENDIF
+
 
     ! inform about time setup
 
@@ -250,18 +212,6 @@ CONTAINS
     IF (ASSOCIATED(tc_exp_stopdate)) THEN
       CALL datetimeToString(tc_exp_stopdate, dstring)
       WRITE(message_text,'(a,a)') 'Experiment stop date     : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_startdate)) THEN
-      CALL datetimeToString(tc_startdate, dstring)
-      WRITE(message_text,'(a,a)') 'Start date               : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_stopdate)) THEN
-      CALL datetimeToString(tc_stopdate, dstring)
-      WRITE(message_text,'(a,a)') 'Stop date                : ', dstring
       CALL message('',message_text)
     ENDIF
 

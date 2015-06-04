@@ -37,6 +37,8 @@ MODULE mo_nml_crosscheck
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD,     &
     &                              MODE_DWDANA_INC 
+  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
+  USE mtime,                 ONLY: OPERATOR(>) 
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -207,12 +209,20 @@ CONTAINS
 
     ! Length of this integration is limited by length of the restart cycle.
     !
+#ifdef USE_MTIME_LOOP
+    IF (tc_exp_stopdate > tc_stopdate) THEN
+      restart_experiment = .TRUE.
+    ELSE
+      restart_experiment = .FALSE.
+    ENDIF
+#else
     IF (nsteps > INT(time_config%dt_restart/dtime)) THEN
       nsteps = INT(time_config%dt_restart/dtime)
       restart_experiment = .TRUE.
     ELSE
       restart_experiment = .FALSE.
     ENDIF
+#endif
 !     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
 
 

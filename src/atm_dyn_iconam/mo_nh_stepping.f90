@@ -158,7 +158,7 @@ MODULE mo_nh_stepping
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,                 &
        &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
        &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),                 &
-       &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(/=),                   &
+       &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent, newEventGroup,                  &
        &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval
   USE mo_mtime_extensions,         ONLY: get_datetime_string
@@ -509,7 +509,7 @@ MODULE mo_nh_stepping
 
   TYPE(datetime),  POINTER             :: mtime_begin, mtime_date
   TYPE(timedelta), POINTER             :: forecast_delta
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_cur_datetime
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_cur_datetime, dstring
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dtime_str
   CHARACTER(LEN=128)                   :: forecast_delta_str
 
@@ -624,17 +624,26 @@ MODULE mo_nh_stepping
 
   CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
   model_time_step => newTimedelta(dtime_str)
-  IF (isRestart()) THEN
-    current_date => newDatetime(time_config%current_date) 
-  ELSE
-    current_date => newDatetime(tc_startdate) 
-  ENDIF
+  current_date => newDatetime(tc_startdate) 
   end_date => newDatetime(current_date)
   end_date = end_date + getEventInterval(restartEvent)
+
+  CALL message('','')
+  CALL datetimeToString(current_date, dstring)
+  WRITE(message_text,'(a,a)') 'Start date of this run: ', dstring
+  CALL message('',message_text)
+  CALL datetimeToString(end_date, dstring)
+  WRITE(message_text,'(a,a)') 'Stop date of this run:  ', dstring
+  CALL message('',message_text)
+  CALL message('','')
 !LK++
 
+#ifdef USE_MTIME_LOOP
+  jstep = jstep0+jstep_shift+1
+  TIME_LOOP: DO
+#else
   TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
-
+#endif
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom
       IF (p_patch(jg)%ldom_active .AND. time_config%sim_time(1) >= end_time(jg)) THEN
@@ -647,7 +656,7 @@ MODULE mo_nh_stepping
     CALL add_time(dtime,0,0,0,datetime_current)
 
 !LK++
-    ! update model date and time
+    ! update model date and time mtime based
 
     current_date = current_date + model_time_step
 !LK++
@@ -695,12 +704,17 @@ MODULE mo_nh_stepping
            &                                   forecast_delta%minute, 'M', &
            &                                   forecast_delta%second, 'S'
 !LK--
-      ! print current time step
       CALL message('','')
-      WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2,a,a)') 'Time step: ', jstep, ' model time ',        &
-           &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
-           &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second,  &
-           &             ' forecast time ', TRIM(forecast_delta_str)
+      IF (iforcing == inwp) THEN
+        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2,a,a)') 'Time step: ', jstep, ' model time ',        &
+             &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
+             &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second,  &
+             &             ' forecast time ', TRIM(forecast_delta_str)
+      ELSE
+        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time ',             &
+             &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
+             &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second
+      ENDIF
       CALL message('',message_text)
       CALL message('','')
 !LK++
@@ -939,9 +953,10 @@ MODULE mo_nh_stepping
     CALL message('','')
     dstring_old = iso8601(datetime_current)
     call datetimeToString(current_date, dstring_new) 
-    IF ((isCurrentEventActive(checkpointEvent, current_date) &
-         &              .and. tc_startdate /= current_date) &
-         &              .or. tc_exp_stopdate == current_date &
+    IF ((isCurrentEventActive(checkpointEvent, current_date)                  &
+         &              .or. isCurrentEventActive(restartEvent, current_date) &
+         &              .and. tc_startdate /= current_date)                   &
+         &              .or. tc_exp_stopdate == current_date                  &
          &              .and. .not. output_mode%l_none ) then
       WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
            &                                ' new: ', dstring_new, ' old: ', dstring_old
@@ -1002,10 +1017,11 @@ MODULE mo_nh_stepping
     IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
        CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
-!LK++
-! for later mtime based time control (tested):
-!   IF (current_date == end_date) EXIT TIME_LOOP
-!LK++
+
+#ifdef USE_MTIME_LOOP
+    IF (current_date >= end_date) EXIT TIME_LOOP
+    jstep = jstep + 1
+#endif
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
