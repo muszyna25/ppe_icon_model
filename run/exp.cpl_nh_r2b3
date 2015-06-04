@@ -78,7 +78,7 @@ restart_months=1     # 1 month
 (( dt_checkpoint = restart_months * month )) # checkpointing not yet supported for coupling fields
 (( dt_restart    = restart_months * month ))
 #
-atmo_output_interval="PT06H"
+atmo_output_interval="PT6H"
 atmo_file_interval="P30D"    # 1 month
 ocean_output_interval="PT12H"
 ocean_file_interval="P30D"   # 1 month
@@ -238,18 +238,18 @@ cat > $atmo_namelist << EOF
  ltransport           = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer              = 5            ! number of tracers
  iforcing             = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
- msg_level            = 15           ! detailed report during integration
+ msg_level            = 1            ! detailed report during integration
  ltimer               = .TRUE.
  timers_level         = 10
  activate_sync_timers = .TRUE.
 /
 &time_nml
- dt_restart   = ${dt_restart}  ! 
+ dt_restart   = ${dt_restart}
 /
 &nh_testcase_nml
- ctest_name      = 'APE_echam'  ! test case identifier
+ nh_test_name    = 'APEc_nh'  ! test case identifier
  ape_sst_case    = 'sst1'
- ape_sst_delta   = 0.0
+ rh_at_1000hpa   = 0.30       ! [] initial rel. humidity at 1000 hPa
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}
@@ -317,7 +317,7 @@ EOF
 # Dictionary
 # 
 dict_file="dict.${EXPNAME}"
-cat dict.icoham.mpim > ${dict_file}
+cat dict.iconam.mpim > ${dict_file}
 cat dict.echam.mpim >> ${dict_file}
 #
 # -------------------------------------
@@ -372,8 +372,8 @@ cat >> ${atmo_namelist} << EOF
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${atmo_output_interval}"             ! ISO-format interval
- file_interval    = "${atmo_file_interval}"               ! ISO-format interval
+ output_interval  = "${atmo_output_interval}"        ! ISO-format interval
+ file_interval    = "${atmo_file_interval}"          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl',
                     'cosmu0'  , 'rsdt'    ,
@@ -606,14 +606,14 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  profiling_output = 3
  msg_timestamp = .TRUE.
- msg_level     = 8
+ msg_level     = 1
 /
 &output_nml
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
  output_interval  = "${ocean_output_interval}"       ! interval in ISO-format
- file_interval    = "${ocean_file_interval}"
+ file_interval    = "${ocean_file_interval}"         ! interval in ISO-format
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_ocean"

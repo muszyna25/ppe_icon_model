@@ -388,7 +388,7 @@ cat > $atmo_namelist << EOF
  ltransport           = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer              = 5            ! number of tracers
  iforcing             = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
- msg_level            = 15           ! detailed report during integration
+ msg_level            = 1            ! detailed report during integration
  ltimer               = .TRUE.
  timers_level         = 10
  activate_sync_timers = .TRUE.
@@ -582,8 +582,7 @@ cat >> ${atmo_namelist} << EOF
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "${atmo_output_interval}"        ! ISO-format interval
- steps_per_file   = ${atmo_steps_per_file}
-!file_interval    = "${atmo_file_interval}"          ! ISO-format interval
+ file_interval    = "${atmo_file_interval}"          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc',
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -658,14 +657,14 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  profiling_output = 3
  msg_timestamp = .TRUE.
- msg_level     = 8
+ msg_level     = 1
 /
 &output_nml
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
  output_interval  = "${ocean_output_interval}"       ! interval in ISO-format
- file_interval    = "${ocean_file_interval}"
+ file_interval    = "${ocean_file_interval}"         ! interval in ISO-format
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_ocean"
