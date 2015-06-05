@@ -22,7 +22,7 @@
 
 echo "PREPICON_SST_ICE.SMS"
 
-SCRIPTDIR=%SCPERM%/icon-dev/scripts
+SCRIPTDIR=%SCPERM%/%USER_ICON_DIR%/scripts
 SSTICEDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/sstice/%YYYY%
 
 TMPDIR="${TEMP}"

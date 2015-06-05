@@ -39,6 +39,8 @@ lcatdata=1
 lcpdata=1
 ldeldata=1
 
+lreprocess=0           # after new model results reprocess - eithere in eom_prepare.sms or post_prepare.sms (normally)
+
 # delete data only on the very last day of the month
 EOFM=`python %ECBASEDIR%/gen/date_calc.py -a endofmonth -d %YMD%%INIHOUR%`
 if [[ "${EOFM}" -eq "1" ]] ; then
@@ -218,17 +220,18 @@ if [[ $lcatdata = 1 ]] ; then
 
 # split variable files in STEPs if variable file available -------------------
 
-      if [[ -f         grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb  &&        \
-        ! -f  ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_24.grb ]] ; then
-        grib_copy      grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb            \
-                                ${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
-        if [[ $ldeldata = 1 ]] ; then
-          \rm -rf      grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
+      if [[     -f           grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ]] ; then
+        if [[ ! -f  ${mondir}/tmp_dir/${base}_${ymdh}_DOM01_0001_${var}_24.grb  ||  $lreprocess = 1 ]] ; then
+          grib_copy          grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb            \
+                                      ${base}_${ymdh}_DOM01_0001_${var}_[endStep].grb
+          if [[ $ldeldata = 1 ]] ; then
+            \rm -rf          grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb
+          fi
+          cp -f ${base}_${ymdh}_DOM01_0001_${var}_0.grb   \
+                ${base}_${ymdh}_DOM01_0001_${var}_24.grb  \
+                ${base}_${ymdh}_DOM01_0001_${var}_240.grb ${mondir}/tmp_dir
+          rm -f ${base}_${ymdh}_DOM01_0001_${var}_*.grb
         fi
-        cp -f ${base}_${ymdh}_DOM01_0001_${var}_0.grb   \
-              ${base}_${ymdh}_DOM01_0001_${var}_24.grb  \
-              ${base}_${ymdh}_DOM01_0001_${var}_240.grb ${mondir}/tmp_dir
-        rm -f ${base}_${ymdh}_DOM01_0001_${var}_*.grb
       fi 
 
       cd ${mondir}/tmp_dir

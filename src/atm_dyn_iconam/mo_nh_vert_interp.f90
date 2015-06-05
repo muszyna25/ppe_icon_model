@@ -79,7 +79,7 @@ MODULE mo_nh_vert_interp
   PUBLIC :: prepare_vert_interp_p
   PUBLIC :: prepare_vert_interp_i
   PUBLIC :: prepare_extrap, prepare_extrap_ifspp
-  PUBLIC :: lin_intp, uv_intp, qv_intp, temperature_intp
+  PUBLIC :: lin_intp, uv_intp, qv_intp, temperature_intp, z_at_plevels
   PUBLIC :: diagnose_pmsl, diagnose_pmsl_gme, diagnose_pmsl_ifs
 
   

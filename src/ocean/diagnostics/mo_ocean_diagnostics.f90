@@ -76,7 +76,7 @@ MODULE mo_ocean_diagnostics
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
-  USE mo_grib2
+  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi_constants
   
   IMPLICIT NONE
@@ -286,85 +286,85 @@ CONTAINS
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('veloc_adv_horz_u','m/s','velocity advection zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
         
       CALL add_var(ocean_diagnostics_list, 'veloc_adv_horz_v', veloc_adv_horz_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('veloc_adv_horz_v','m/s','velocity advection meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'laplacian_horz_u', laplacian_horz_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('laplacian_horz_u','m/s','velocity laplacian zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'laplacian_horz_v', laplacian_horz_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('laplacian_horz_v','m/s','velocity laplacian meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
         
       CALL add_var(ocean_diagnostics_list, 'vn_u', vn_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('vn_u','m/s','edge velocity zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'vn_v', vn_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('vn_v','m/s','edge velocity meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'mass_flx_e_u', mass_flx_e_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('mass_flx_e_u','m*m/s','mass flux zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
         
       CALL add_var(ocean_diagnostics_list, 'mass_flx_e_v', mass_flx_e_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('mass_flx_e_v','m*m/s','mass flux meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
       CALL add_var(ocean_diagnostics_list, 'pressure_grad_u', pressure_grad_u, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('pressure_grad_u','N','pressure gradient zonal', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
         
       CALL add_var(ocean_diagnostics_list, 'pressure_grad_v', pressure_grad_v, &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('pressure_grad_v','N','pressure gradient meridional', &
         & DATATYPE_FLT32),&
-        & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
-        CALL add_var(ocean_diagnostics_list, 'potential_vort_e', ocean_state%p_diag%potential_vort_e, &
-          & grid_unstructured_edge, za_depth_below_sea, &
-          & t_cf_var('vn_v','1/s','potential vorticity at edges', &
-          & DATATYPE_FLT32),&
-          & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-          & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+      CALL add_var(ocean_diagnostics_list, 'potential_vort_e', ocean_state%p_diag%potential_vort_e, &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('vn_v','1/s','potential vorticity at edges', &
+        & DATATYPE_FLT32),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
-        CALL add_var(ocean_diagnostics_list, 'potential_vort_c', ocean_state%p_diag%potential_vort_c, &
-          & grid_unstructured_cell, za_depth_below_sea, &
-          & t_cf_var('vn_v','1/s','potential vorticity at cells', &
-          & DATATYPE_FLT32),&
-          & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-          & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+      CALL add_var(ocean_diagnostics_list, 'potential_vort_c', ocean_state%p_diag%potential_vort_c, &
+        & grid_unstructured_cell, za_depth_below_sea, &
+        & t_cf_var('vn_v','1/s','potential vorticity at cells', &
+        & DATATYPE_FLT32),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+        & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
     ENDIF
     

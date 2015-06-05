@@ -1526,6 +1526,52 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
 
   !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_AddLocalPerturbation'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
+
+!        IF(ABS(lon_deg) < 2.5_wp .AND. &
+!          ABS(lat_deg-basin_center_lat) < 0.25_wp*basin_height_deg) THEN
+!        write(123,*)'t-perturb',ocean_temperature(jc,1,jb),ocean_temperature(jc,2,jb)*&
+!            &0.01_wp*sin(50.0_wp*patch_2d%cells%center(jc,jb)%lon)
+          IF(  lat_deg<= basin_center_lat+ 0.5_wp*basin_height_deg)THEN    
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) +ocean_temperature(jc,jk,jb)*&
+            &0.01_wp*sin(50.0_wp*patch_2d%cells%center(jc,jb)%lon)
+          END DO
+
+        ENDIF
+
+      END DO
+    END DO
+	
+  END SUBROUTINE temperature_AddSinusoidalPerturbation
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
   SUBROUTINE temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)

@@ -32,7 +32,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
   USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, ltimer
+    &                               iqv, iqc, iqi, iqt
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
@@ -43,10 +43,12 @@ MODULE mo_echam_phy_main
   USE mo_cumastr,             ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
-  USE mo_timer,               ONLY: timer_start, timer_stop,          &
-    &                               timer_cover, timer_cloud,         &
-    &                               timer_radheat,                    &
-    &                               timer_cucall, timer_vdiff
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
+!!    &                               timer_cover, timer_radiation, timer_radheat,    &
+    &                               timer_cover, timer_radheat,                     &
+    &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
+    &                               timer_gw_hines, timer_ssodrag,                  &
+    &                               timer_cucall, timer_cloud
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
@@ -275,6 +277,7 @@ CONTAINS
 
       ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
 
+      ! TBD: use fractional mask here
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
@@ -524,10 +527,10 @@ CONTAINS
                           & o3_clim=field%o3(:,:,jb)                          )
             END SELECT
 
-!!        IF (ltimer) CALL timer_start(timer_radiation)
-
         zaedummy(:,:) = 0.0_wp
         zheight (:,:) = field%geom(:,:,jb)/grav
+
+!!        IF (ltimer) CALL timer_start(timer_radiation)
 
         CALL radiation(               &
           !
@@ -602,9 +605,6 @@ CONTAINS
           & par_dff_frc_sfc=field% pardffsfc  (:,jb)       &!< out    diffuse fraction in PAR net downw. flux
           )
 
-!!$          & field% nirsfc(:,jb)      ,&!< out    solar transmissivity in NIR, net downward
-!!$          & field% vissfc(:,jb)      ,&!< out    solar transmissivity in VIS, net downward
-        
 !!        IF (ltimer) CALL timer_stop(timer_radiation)
 
       END IF ! ltrig_rad
@@ -620,11 +620,12 @@ CONTAINS
 
       field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
 
-      IF (ltimer) CALL timer_start(timer_radheat)
-
       ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
       ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
       ! If radiation is called every time step, the longwave flux is not changed.
+
+      IF (ltimer) CALL timer_start(timer_radheat)
+
       CALL radheat (                                   &
         !
         ! input
@@ -712,7 +713,7 @@ CONTAINS
     !     downward sweep (Gaussian elimination from top till level nlev-1)
 
     IF (phy_config%lvdiff) THEN
-      IF (ltimer) CALL timer_start(timer_vdiff)
+      IF (ltimer) CALL timer_start(timer_vdiff_down)
 
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
@@ -770,7 +771,7 @@ CONTAINS
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                      & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
 
-      IF (ltimer) CALL timer_stop(timer_vdiff)
+      IF (ltimer) CALL timer_stop(timer_vdiff_down)
 
     ! 5.4 Surface processes that provide time-dependent lower boundary
     !     condition for wind, temperature, tracer concentraion, etc.
@@ -778,6 +779,8 @@ CONTAINS
         field% lhflx_tile(:,jb,:) = 0._wp
         field% shflx_tile(:,jb,:) = 0._wp
         field% evap_tile (:,jb,:) = 0._wp
+
+        IF (ltimer) CALL timer_start(timer_surface)
 
         CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
           & vdiff_config%lsfc_mom_flux,   &! in
@@ -861,13 +864,15 @@ CONTAINS
           & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
           & albnirdif_ice = field% albnirdif_ice(:,:,jb))  ! inout
 
+        IF (ltimer) CALL timer_stop(timer_surface)
+
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);
     !     - Back substitution to get solution of the tridiagonal system;
     !     - Compute tendencies and additional diagnostics.
 
-      IF (ltimer) CALL timer_start(timer_vdiff)
+      IF (ltimer) CALL timer_start(timer_vdiff_up)
 
       CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
@@ -915,6 +920,8 @@ CONTAINS
                    & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                    & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
 
+      IF (ltimer) CALL timer_stop(timer_vdiff_up)
+
       ! tendencies accumulated
       tend%    u(jcs:jce,:,jb)      = tend%    u(jcs:jce,:,jb)      + tend%    u_vdf(jcs:jce,:,jb)
       tend%    v(jcs:jce,:,jb)      = tend%    v(jcs:jce,:,jb)      + tend%    v_vdf(jcs:jce,:,jb)
@@ -948,7 +955,6 @@ CONTAINS
         field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
       ENDIF
 
-      IF (ltimer) CALL timer_stop(timer_vdiff)
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
       field% evap(jcs:jce,jb)= 0._wp
@@ -996,6 +1002,8 @@ CONTAINS
 
       zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
 
+      IF (ltimer) call timer_start(timer_gw_hines)
+
       CALL gw_hines ( jg                       ,&
         &             nbdim                    ,&
         &             jcs                      ,&
@@ -1012,6 +1020,8 @@ CONTAINS
         &             zdis_gwh(:,:)            ,&
         &             tend%    u_gwh(:,:,jb)   ,&
         &             tend%    v_gwh(:,:,jb) )
+
+      IF (ltimer) call timer_stop(timer_gw_hines)
 
       ! heating
       zq_gwh(jcs:jce,:) = zdis_gwh(jcs:jce,:) * zmair(jcs:jce,:)
@@ -1039,6 +1049,8 @@ CONTAINS
     ! 6.2   CALL SUBROUTINE SSODRAG
 
     IF (phy_config%lssodrag) THEN
+
+      IF (ltimer) call timer_start(timer_ssodrag)
 
        CALL ssodrag( nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
                      nbdim                                     ,& ! in,  dimension of block of cells/columns
@@ -1069,6 +1081,8 @@ CONTAINS
                      zdis_sso(:,:)                             ,& ! out, energy dissipation rate
                      tend%    u_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
                      tend%    v_sso(:,:,jb)                     ) ! out, tendency of meridional wind
+
+      IF (ltimer) call timer_stop(timer_ssodrag)
 
       ! heating
       zq_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * zmair(jcs:jce,:)
@@ -1176,9 +1190,9 @@ CONTAINS
         &          tend%   q_cnv(:,:,jb,iqv), &! out
         &          tend%   q_cnv(:,:,jb,iqt:) )! out
 
-      field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
+      IF (ltimer) CALL timer_stop(timer_cucall)
 
-      IF (ltimer) call timer_stop(timer_cucall)
+      field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
 
       ! tendencies accumulated
       tend%    u(jcs:jce,:,jb)      = tend%    u(jcs:jce,:,jb)      + tend%    u_cnv(jcs:jce,:,jb)
@@ -1206,7 +1220,6 @@ CONTAINS
     IF(phy_config%lcond) THEN
 
       !IF (lcotra) CALL get_col_pol( tend%temp(:,:,jb),tend%q(:,:,jb,iqv),jb )
-      IF (ltimer) CALL timer_start(timer_cloud)
 
       IF (ncdnc==0 .AND. nicnc==0) THEN
 
@@ -1215,6 +1228,8 @@ CONTAINS
 
   CALL dbg_print('xl_dtr',tend%xl_dtr,str_module,idt_src,in_subset=p_patch(1)%cells%owned)
   CALL dbg_print('xi_dtr',tend%xi_dtr,str_module,idt_src,in_subset=p_patch(1)%cells%owned)
+
+        IF (ltimer) CALL timer_start(timer_cloud)
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
           &        pdtime, psteplen,          &! in
@@ -1256,13 +1271,13 @@ CONTAINS
           &        tend%   q_cld(:,:,jb,iqc), &! out
           &        tend%   q_cld(:,:,jb,iqi)  )! out
 
+        IF (ltimer) CALL timer_stop(timer_cloud)
+
       ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
 !0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
       ELSE
         IF (my_process_is_stdio()) CALL finish('echam_phy_main', ' check setting of ncdnc and nicnc.')
       END IF
-
-      IF (ltimer) CALL timer_stop(timer_cloud)
 
     ELSE ! NECESSARY COMPUTATIONS IF *CLOUD* IS BY-PASSED.
 

@@ -256,8 +256,6 @@ CONTAINS
     ! this is not needed, since vort_v is on vertices in domain
     ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
-  
-
     IF(.NOT.l_ANTICIPATED_VORTICITY)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
 !ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &

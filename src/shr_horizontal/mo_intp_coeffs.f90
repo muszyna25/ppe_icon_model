@@ -150,18 +150,17 @@ MODULE mo_intp_coeffs
   !-------------------------------------------------------------------------
   !
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi2, pi_2, deg2rad
+  USE mo_math_constants,      ONLY: pi2, pi_2
   USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_char_length,&
-    & beta_plane_coriolis,full_coriolis,min_rledge_int,min_rlcell_int,min_rlvert_int
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
   USE mo_impl_constants_grf,  ONLY: grf_nudge_start_c, grf_nudge_start_e
-  USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_vertices, t_grid_cells, t_subset_range
-  USE mo_grid_config,         ONLY: lplane, lfeedback, grid_sphere_radius, grid_angular_velocity
+  USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_vertices, t_grid_cells
+  USE mo_grid_config,         ONLY: lplane, lfeedback, grid_sphere_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
     & gvec2cvec, cvec2gvec,                      &
     & t_cartesian_coordinates,                   &
     & rotate_latlon, arc_length,                 &
-    & t_geographical_coordinates, vector_product, plane_torus_closest_coordinates
+    & t_geographical_coordinates, plane_torus_closest_coordinates
   USE mo_dynamics_config,     ONLY: divavg_cntrwgt
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -170,7 +169,7 @@ MODULE mo_intp_coeffs
   USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coeff, &
     & nudge_efold_width
   
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_grid_subset,         ONLY: get_index_range
   USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
   USE mo_grid_subset,         ONLY: get_index_range
   
