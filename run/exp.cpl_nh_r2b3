@@ -764,7 +764,6 @@ add_required_file ${basedir}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01
 # -----------------------------
 #
 dict_file="dict.${EXPNAME}"
-rm -f ${dict_file}
 add_required_file ${basedir}/run/${dict_file}  ./
 #
 #-----------------------------------------------------------------------------
