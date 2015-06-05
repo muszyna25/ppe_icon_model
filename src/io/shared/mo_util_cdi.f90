@@ -344,7 +344,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':deleteInputParameters'
 
-    IF(msg_level >= 5 .and. my_process_is_stdio()) then
+    IF(msg_level >= 10 .and. my_process_is_stdio()) then
         WRITE(0,*) routine, ": Total read statistics for stream ID ", me%streamId
         WRITE(0,'(8X,A,I19,A)')   "amount:    ", me%readBytes, " bytes"
         WRITE(0,'(8X,A,F19.3,A)') "duration:  ", me%readDuration, " seconds"

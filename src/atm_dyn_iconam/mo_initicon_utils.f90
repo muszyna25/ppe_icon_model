@@ -450,9 +450,9 @@ MODULE mo_initicon_utils
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain those fields which 
+  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain all those fields that  
   !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based on two of a bunch of available ICON-internal output groups, depending on 
+  !! Both groups are based on two out of a bunch of available ICON-internal output groups, depending on 
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
   !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
@@ -774,6 +774,11 @@ MODULE mo_initicon_utils
         DO ivar=1,SIZE(initicon_config(jg)%ana_varlist)
           IF (initicon_config(jg)%ana_varlist(ivar) /= ' ') THEN
             nvars_ana_mandatory = nvars_ana_mandatory + 1
+            ! Sanity check
+            IF (nvars_ana_mandatory > SIZE(grp_vars_ana_mandatory)) THEN
+              WRITE(message_text,'(a)') 'Number of declared mandatory analysis fields exceeds internal limit.'
+              CALL finish(routine, TRIM(message_text))
+            ENDIF
             ! translate GRIB2 -> NetCDF
             grp_vars_ana_mandatory(ivar) = TRIM(dict_get(ana_varnames_dict,       &
               &                            initicon_config(jg)%ana_varlist(ivar), &
