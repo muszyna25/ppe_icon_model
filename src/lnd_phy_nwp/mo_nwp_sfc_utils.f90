@@ -2069,7 +2069,6 @@ CONTAINS
     INTEGER :: count_sea, count_ice, count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
     INTEGER :: n_now
-    INTEGER :: lc_water, lc_snow_ice
     REAL(wp):: t_water
     REAL(wp):: fracwater_old, fracice_old
 
@@ -2084,10 +2083,6 @@ CONTAINS
 
     DO jg = 1, n_dom
 
-
-
-    lc_snow_ice = ext_data(jg)%atm%i_lc_snow_ice
-    lc_water = ext_data(jg)%atm%i_lc_water
     n_now = nnow(jg)
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)

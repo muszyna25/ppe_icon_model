@@ -432,7 +432,7 @@ MODULE mo_nonhydro_state
     INTEGER :: nlev, nlevp1, ktracer
 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_chalf(3), &
-      &        shape3d_ehalf(3), shape4d_c(4)
+      &        shape4d_c(4)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -478,7 +478,6 @@ MODULE mo_nonhydro_state
     shape3d_e     = (/nproma, nlev,   nblks_e  /)
     shape3d_c     = (/nproma, nlev,   nblks_c  /)
     shape3d_chalf = (/nproma, nlevp1, nblks_c  /)
-    shape3d_ehalf = (/nproma, nlevp1, nblks_e /)
     shape4d_c     = (/nproma, nlev,   nblks_c, ntracer /)
 
     ! Suffix (mandatory for time level dependent variables)

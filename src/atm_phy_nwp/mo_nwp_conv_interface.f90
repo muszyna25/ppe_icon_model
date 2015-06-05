@@ -42,7 +42,6 @@ MODULE mo_nwp_conv_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_fortran_tools,        ONLY: t_ptr_tracer
   USE mo_art_config,           ONLY: art_config
   USE mo_util_phys,            ONLY: nwp_con_gust
 !!$  USE mo_cuparameters,         ONLY: lmfscv

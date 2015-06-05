@@ -15,7 +15,7 @@
 !!
 MODULE mo_initicon_config
 
-  USE mo_kind,               ONLY: wp, sp
+  USE mo_kind,               ONLY: wp
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
@@ -28,7 +28,7 @@ MODULE mo_initicon_config
     &                              max_timedelta_str_len, datetime, newDatetime,     &
     &                              deallocateDatetime, OPERATOR(+),                  &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
-    &                              datetimeToString,  getPTStringFromSeconds
+    &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text

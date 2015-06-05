@@ -59,8 +59,6 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_math_gradients,      ONLY: grad_fd_norm
-  USE mo_math_constants,      ONLY: rad2deg
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
