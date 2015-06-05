@@ -143,7 +143,8 @@ CONTAINS
     CASE ('360 day year')  
       icalendar = year_of_360_days
     CASE default
-      CALL finish(routine,'No calendar selected or selected is unknown.')
+      icalendar  = proleptic_gregorian
+      CALL message('','No calendar selected! Use default proleptic Gregorian.')
     END SELECT
 
     CALL setCalendar(icalendar)
