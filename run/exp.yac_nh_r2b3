@@ -74,9 +74,9 @@ dtime_coupling=$dtime_ocean
 #---------------------------------------------------------------------------
 #model timing
 # calculate model timesteps using $ndays
-restart_months=1     # 1 month
-(( dt_checkpoint = restart_months * month )) # checkpointing not yet supported for coupling fields
-(( dt_restart    = restart_months * month ))
+restart_units=1 
+(( dt_checkpoint = restart_units * month )) # checkpointing not yet supported for coupling fields
+(( dt_restart    = restart_units * month ))
 #
 atmo_output_interval="PT6H"
 atmo_file_interval="P30D"    # 1 month
