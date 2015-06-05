@@ -235,75 +235,79 @@ CONTAINS
           sumk = 0.0_wp
           DO ipr = 1, ngn(igc)
             iprsm = iprsm + 1
+            write(0,*) 'jt=',jt,'jp=',jp,'iprsm=',iprsm,'kao(jt,jp,iprsm)=',kao(jt,jp,iprsm)
+            write(0,*) 'rwgt(iprsm)=',rwgt(iprsm)
             sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm)
           ENDDO
+!!$          write(0,*) 'jt=',jt,'jp=',jp,'igc=',igc, 'size(ka,1)=',size(ka,1),'size(ka,2)=',size(ka,2),'size(ka,3)=',size(ka,3)
           ka(jt,jp,igc) = sumk
+!!$          ka(1,1,1)=sumk
         ENDDO
       ENDDO
-      DO jp = 13,59
-        iprsm = 0
-        DO igc = 1,ngc(1)
-          sumk = 0.0_wp
-          DO ipr = 1, ngn(igc)
-            iprsm = iprsm + 1
-            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm)
-          ENDDO
-          kb(jt,jp,igc) = sumk
-        ENDDO
-      ENDDO
+!!$      DO jp = 13,59
+!!$        iprsm = 0
+!!$        DO igc = 1,ngc(1)
+!!$          sumk = 0.0_wp
+!!$          DO ipr = 1, ngn(igc)
+!!$            iprsm = iprsm + 1
+!!$            sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm)
+!!$          ENDDO
+!!$          kb(jt,jp,igc) = sumk
+!!$        ENDDO
+!!$      ENDDO
     ENDDO
-
-    DO jt = 1,10
-      iprsm = 0
-      DO igc = 1,ngc(1)
-        sumk = 0.0_wp
-        DO ipr = 1, ngn(igc)
-          iprsm = iprsm + 1
-          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm)
-        ENDDO
-        selfref(jt,igc) = sumk
-      ENDDO
-    ENDDO
-
-    DO jt = 1,4
-      iprsm = 0
-      DO igc = 1,ngc(1)
-        sumk = 0.0_wp
-        DO ipr = 1, ngn(igc)
-          iprsm = iprsm + 1
-          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm)
-        ENDDO
-        forref(jt,igc) = sumk
-      ENDDO
-    ENDDO
-
-    DO jt = 1,19
-      iprsm = 0
-      DO igc = 1,ngc(1)
-        sumk1 = 0.0_wp
-        sumk2 = 0.0_wp
-        DO ipr = 1, ngn(igc)
-          iprsm = iprsm + 1
-          sumk1 = sumk1 + kao_mn2(jt,iprsm)*rwgt(iprsm)
-          sumk2 = sumk2 + kbo_mn2(jt,iprsm)*rwgt(iprsm)
-        ENDDO
-        ka_mn2(jt,igc) = sumk1
-        kb_mn2(jt,igc) = sumk2
-      ENDDO
-    ENDDO
-
-    iprsm = 0
-    DO igc = 1,ngc(1)
-      sumf1 = 0.0_wp
-      sumf2 = 0.0_wp
-      DO ipr = 1, ngn(igc)
-        iprsm = iprsm + 1
-        sumf1= sumf1+ fracrefao(iprsm)
-        sumf2= sumf2+ fracrefbo(iprsm)
-      ENDDO
-      fracrefa(igc) = sumf1
-      fracrefb(igc) = sumf2
-    ENDDO
+!!$
+!!$    DO jt = 1,10
+!!$      iprsm = 0
+!!$      DO igc = 1,ngc(1)
+!!$        sumk = 0.0_wp
+!!$        DO ipr = 1, ngn(igc)
+!!$          iprsm = iprsm + 1
+!!$          sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm)
+!!$        ENDDO
+!!$        selfref(jt,igc) = sumk
+!!$      ENDDO
+!!$    ENDDO
+!!$
+!!$    DO jt = 1,4
+!!$      iprsm = 0
+!!$      DO igc = 1,ngc(1)
+!!$        sumk = 0.0_wp
+!!$        DO ipr = 1, ngn(igc)
+!!$          iprsm = iprsm + 1
+!!$          sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm)
+!!$        ENDDO
+!!$        forref(jt,igc) = sumk
+!!$      ENDDO
+!!$    ENDDO
+!!$
+!!$    DO jt = 1,19
+!!$      iprsm = 0
+!!$      DO igc = 1,ngc(1)
+!!$        sumk1 = 0.0_wp
+!!$        sumk2 = 0.0_wp
+!!$        DO ipr = 1, ngn(igc)
+!!$          iprsm = iprsm + 1
+!!$          sumk1 = sumk1 + kao_mn2(jt,iprsm)*rwgt(iprsm)
+!!$          sumk2 = sumk2 + kbo_mn2(jt,iprsm)*rwgt(iprsm)
+!!$        ENDDO
+!!$        ka_mn2(jt,igc) = sumk1
+!!$        kb_mn2(jt,igc) = sumk2
+!!$      ENDDO
+!!$    ENDDO
+!!$
+!!$    iprsm = 0
+!!$    DO igc = 1,ngc(1)
+!!$      sumf1 = 0.0_wp
+!!$      sumf2 = 0.0_wp
+!!$      DO ipr = 1, ngn(igc)
+!!$        iprsm = iprsm + 1
+!!$        sumf1= sumf1+ fracrefao(iprsm)
+!!$        sumf2= sumf2+ fracrefbo(iprsm)
+!!$      ENDDO
+!!$      fracrefa(igc) = sumf1
+!!$      fracrefb(igc) = sumf2
+!!$    ENDDO
 
   END SUBROUTINE cmbgb1
 

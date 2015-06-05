@@ -137,7 +137,7 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 2           ! 2: horizontally and vertically constant
  irad_cfc12       = 2           ! 2: horizontally and vertically constant
- irad_aero        = 15          ! 0: no aerosol
+ irad_aero        = 0           ! 0: no aerosol
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
@@ -186,8 +186,8 @@ EOF
 # model files
 #
 #add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
-add_link_file /pool/data/ECHAM6/input/r0004/rrtmg_lw.nc
-add_link_file /pool/data/ECHAM6/input/r0004/rrtmg_sw.nc
+add_link_file /pool/data/ECHAM6/input/r0004/rrtmg_lw.nc                 ./
+add_link_file /pool/data/ECHAM6/input/r0004/rrtmg_sw.nc                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files

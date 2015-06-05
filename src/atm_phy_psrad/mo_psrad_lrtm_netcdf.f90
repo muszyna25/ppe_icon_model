@@ -90,7 +90,6 @@ CONTAINS
 
     USE rrlw_planck, ONLY: chi_mls, totplanck, totplanck16
 
-  
     nf_status = p_nf_open('rrtmg_lw.nc', nf_read, fileid)
     IF (nf_status /= nf_noerr) THEN
       CALL finish('mo_psrad_lrtm_netcdf/lrtm_read', 'File rrtmg_lw.nc cannot be opened')
@@ -143,7 +142,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb01
 
-      USE rrlw_kg01, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2, kbo_mn2, selfrefo, forrefo, no1
+      USE psrad_rrlw_kg01, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2, kbo_mn2, selfrefo, forrefo, no1
 
       INTEGER, PARAMETER :: bandNumber = 1
       INTEGER, PARAMETER :: numGPoints = no1
@@ -213,7 +212,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb02
 
-      USE rrlw_kg02, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no2
+      USE psrad_rrlw_kg02, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no2
 
       INTEGER, PARAMETER :: bandNumber = 2
       INTEGER, PARAMETER :: numGPoints = no2
@@ -269,7 +268,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb03
 
-      USE rrlw_kg03, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, selfrefo, forrefo, no3
+      USE psrad_rrlw_kg03, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, selfrefo, forrefo, no3
 
       INTEGER, PARAMETER :: bandNumber = 3
       INTEGER, PARAMETER :: numGPoints = no3
@@ -339,7 +338,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb04
 
-      USE rrlw_kg04, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no4
+      USE psrad_rrlw_kg04, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no4
 
       INTEGER, PARAMETER :: bandNumber = 4
       INTEGER, PARAMETER :: numGPoints = no4
@@ -395,7 +394,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb05
 
-      USE rrlw_kg05, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mo3, selfrefo, forrefo, ccl4o, no5
+      USE psrad_rrlw_kg05, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mo3, selfrefo, forrefo, ccl4o, no5
 
       INTEGER, PARAMETER :: bandNumber = 5
       INTEGER, PARAMETER :: numGPoints = no5
@@ -465,7 +464,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb06
 
-      USE rrlw_kg06, ONLY : fracrefao, kao, kao_mco2, selfrefo, forrefo, cfc11adjo, cfc12o, no6
+      USE psrad_rrlw_kg06, ONLY : fracrefao, kao, kao_mco2, selfrefo, forrefo, cfc11adjo, cfc12o, no6
 
       INTEGER, PARAMETER :: bandNumber = 6
       INTEGER, PARAMETER :: numGPoints = no6
@@ -528,7 +527,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb07 
 
-      USE rrlw_kg07, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mco2, kbo_mco2, selfrefo, forrefo, no7
+      USE psrad_rrlw_kg07, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mco2, kbo_mco2, selfrefo, forrefo, no7
 
       INTEGER, PARAMETER :: bandNumber = 7
       INTEGER, PARAMETER :: numGPoints = no7
@@ -598,7 +597,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb08         
 
-      USE rrlw_kg08, ONLY : fracrefao, fracrefbo, kao, kao_mco2, kao_mn2o, kao_mo3, kbo, kbo_mco2, kbo_mn2o, &
+      USE psrad_rrlw_kg08, ONLY : fracrefao, fracrefbo, kao, kao_mco2, kao_mn2o, kao_mo3, kbo, kbo_mco2, kbo_mn2o, &
            selfrefo, forrefo, cfc12o, cfc22adjo, no8
 
       INTEGER, PARAMETER :: bandNumber = 8
@@ -704,7 +703,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb09 
 
-      USE rrlw_kg09, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, selfrefo, forrefo, no9
+      USE psrad_rrlw_kg09, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, selfrefo, forrefo, no9
 
       INTEGER, PARAMETER :: bandNumber = 9
       INTEGER, PARAMETER :: numGPoints = no9
@@ -774,7 +773,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb10         
 
-      USE rrlw_kg10, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no10
+      USE psrad_rrlw_kg10, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no10
 
       INTEGER, PARAMETER :: bandNumber = 10
       INTEGER, PARAMETER :: numGPoints = no10
@@ -829,7 +828,7 @@ CONTAINS
     END SUBROUTINE lw_kgb10
 
     SUBROUTINE lw_kgb11
-      USE rrlw_kg11, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mo2, kbo_mo2, selfrefo, forrefo, no11
+      USE psrad_rrlw_kg11, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mo2, kbo_mo2, selfrefo, forrefo, no11
 
       INTEGER, PARAMETER :: bandNumber = 11
       INTEGER, PARAMETER :: numGPoints = no11
@@ -900,7 +899,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb12
 
-      USE rrlw_kg12, ONLY : fracrefao, kao, selfrefo, forrefo, no12
+      USE psrad_rrlw_kg12, ONLY : fracrefao, kao, selfrefo, forrefo, no12
 
       INTEGER, PARAMETER :: bandNumber = 12
       INTEGER, PARAMETER :: numGPoints = no12
@@ -942,7 +941,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb13         
 
-      USE rrlw_kg13, ONLY : fracrefao, fracrefbo, kao, kao_mco2, kao_mco, kbo_mo3, selfrefo, forrefo, no13
+      USE psrad_rrlw_kg13, ONLY : fracrefao, fracrefbo, kao, kao_mco2, kao_mco, kbo_mo3, selfrefo, forrefo, no13
 
       INTEGER, PARAMETER :: bandNumber = 13
       INTEGER, PARAMETER :: numGPoints = no13  
@@ -1012,7 +1011,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb14 
 
-      USE rrlw_kg14, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no14
+      USE psrad_rrlw_kg14, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no14
 
       INTEGER, PARAMETER :: bandNumber = 14
       INTEGER, PARAMETER :: numGPoints = no14
@@ -1068,7 +1067,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb15 
 
-      USE rrlw_kg15, ONLY : fracrefao, kao, kao_mn2, selfrefo, forrefo, no15
+      USE psrad_rrlw_kg15, ONLY : fracrefao, kao, kao_mn2, selfrefo, forrefo, no15
 
       INTEGER, PARAMETER :: bandNumber = 15
       INTEGER, PARAMETER :: numGPoints = no15
@@ -1117,7 +1116,7 @@ CONTAINS
 
     SUBROUTINE lw_kgb16         
 
-      USE rrlw_kg16, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no16
+      USE psrad_rrlw_kg16, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no16
 
       INTEGER, PARAMETER :: bandNumber = 16
       INTEGER, PARAMETER :: numGPoints = no16
