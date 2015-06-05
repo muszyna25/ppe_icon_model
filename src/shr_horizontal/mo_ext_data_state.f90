@@ -2997,8 +2997,8 @@ CONTAINS
          DO jc = i_startidx, i_endidx
            ext_data(jg)%atm%frac_t(jc,jb,isub_lake)  = ext_data(jg)%atm%lc_frac_t(jc,jb,isub_lake)
            !
-           ! Ensure consistency between fr_lake and the rescaled tile fraction 
-           ext_data(jg)%atm%fr_lake(jc,jb)           = ext_data(jg)%atm%frac_t(jc,jb,isub_lake)
+           ! If tiles are active, ensure consistency between fr_lake and the rescaled tile fraction 
+           IF (ntiles_lnd > 1) ext_data(jg)%atm%fr_lake(jc,jb) = ext_data(jg)%atm%frac_t(jc,jb,isub_lake)
            !
            ! For consistency: remove depth_lk information, where fr_lake=0
            ext_data(jg)%atm%depth_lk(jc,jb) = MERGE(ext_data(jg)%atm%depth_lk(jc,jb), &
