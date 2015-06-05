@@ -34,8 +34,8 @@ MODULE mo_initicon_utils
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
-    &                               timeshift,                                          &
-    &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
+    &                               timeshift, initicon_config,                         &
+    &                               ana_varnames_map_file, lread_ana,                   &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,                &
@@ -450,9 +450,9 @@ MODULE mo_initicon_utils
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain those fields which 
+  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain all those fields that  
   !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based on two of a bunch of available ICON-internal output groups, depending on 
+  !! Both groups are based on two out of a bunch of available ICON-internal output groups, depending on 
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
   !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
@@ -510,6 +510,9 @@ MODULE mo_initicon_utils
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_mandatory(SIZE(grp_vars_ana_default))
     INTEGER :: nvars_ana_mandatory
 
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anaatm_default(SIZE(grp_vars_ana_default))  ! default vars atm-ana
+    INTEGER                    :: ngrp_vars_anaatm_default ! default number grp_vars_anaatm
+
     ! additional list for LOG printout
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default_grib2(SIZE(grp_vars_fg_default))
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_default_grib2(SIZE(grp_vars_ana_default))
@@ -524,6 +527,7 @@ MODULE mo_initicon_utils
 
     INTEGER :: nelement                     ! element counter
     TYPE(t_inventory_element), POINTER :: current_element  ! pointer to linked list element
+
     !-------------------------------------------------------------------------
 
     IF(my_process_is_stdio()) THEN
@@ -534,6 +538,9 @@ MODULE mo_initicon_utils
       lmiss_ana = .FALSE.
       lmiss_fg  = .FALSE.
       nvars_ana_mandatory = 0
+      grp_vars_anafile(:) = ""
+      grp_vars_fgfile (:) = ""
+
 
       !===================
       ! 1: Collect groups
@@ -605,14 +612,35 @@ MODULE mo_initicon_utils
           ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
           ! the reading stuff
           !
-          IF (.NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
+          IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
+            ! full ANA read
             ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
 
             grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
             grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
             ngrp_vars_fg  = ngrp_vars_fg_default
             ngrp_vars_ana = ngrp_vars_ana_default
-          ELSE
+
+          ELSE IF (lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg)) THEN
+            ! SFC-ANA read
+            ! atmospheric analysis fieds are interpolated from parent domain, 
+            ! however surface analysis fields are read from file
+
+            ! Remove fields atmospheric analysis fields from grp_vars_ana_default
+            grp_name ='mode_iau_anaatm_in' 
+            CALL collect_group(TRIM(grp_name), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
+              &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+            CALL difference(grp_vars_ana_default, ngrp_vars_ana_default, &
+              &             grp_vars_anaatm_default, ngrp_vars_anaatm_default)
+
+
+            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+            ngrp_vars_fg  = ngrp_vars_fg_default
+            ngrp_vars_ana = ngrp_vars_ana_default
+
+          ELSE IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg) ) THEN
+            ! no ANA-read
             ! lump together grp_vars_fg_default and grp_vars_ana_default
             !
             ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
@@ -627,7 +655,12 @@ MODULE mo_initicon_utils
 
             ! grp_vars_ana = --
             ngrp_vars_ana = 0
+          ELSE
+            WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &
+              &                       ' and lp2cintp_sfcana=',lp2cintp_sfcana(jg),' not allowed'
+            CALL finish(routine, TRIM(message_text))
           ENDIF
+
 
         CASE(MODE_IAU_OLD)
           ! Collect group 'grp_vars_fg_default' from mode_iau_old_fg_in
@@ -645,14 +678,35 @@ MODULE mo_initicon_utils
           ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
           ! the reading stuff
           !
-          IF (.NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
+          IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
+            ! full ANA read
             ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
 
             grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
             grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
             ngrp_vars_fg  = ngrp_vars_fg_default
             ngrp_vars_ana = ngrp_vars_ana_default
-          ELSE
+
+          ELSE IF (lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg)) THEN
+            ! SFC-ANA read
+            ! atmospheric analysis fieds are interpolated from parent domain, 
+            ! however surface analysis fields are read from file
+
+            ! Remove fields atmospheric analysis fields from grp_vars_ana_default
+            grp_name ='mode_iau_anaatm_in' 
+            CALL collect_group(TRIM(grp_name), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
+              &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+            CALL difference(grp_vars_ana_default, ngrp_vars_ana_default,     &
+              &             grp_vars_anaatm_default, ngrp_vars_anaatm_default)
+
+
+            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+            ngrp_vars_fg  = ngrp_vars_fg_default
+            ngrp_vars_ana = ngrp_vars_ana_default
+
+          ELSE IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg) ) THEN
+            ! no ANA-read
             ! lump together grp_vars_fg_default and grp_vars_ana_default
             !
             ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
@@ -667,6 +721,10 @@ MODULE mo_initicon_utils
 
             ! grp_vars_ana = --
             ngrp_vars_ana = 0
+          ELSE
+            WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &
+              &                       ' and lp2cintp_sfcana=',lp2cintp_sfcana(jg),' not allowed'
+            CALL finish(routine, TRIM(message_text))
           ENDIF
 
         CASE(MODE_COMBINED,MODE_COSMODE)
@@ -709,15 +767,21 @@ MODULE mo_initicon_utils
       !    FG fields is allowed )
       !===============================================================================
 
-      IF( lread_ana .AND. ana_varlist(1) /= ' ' ) THEN
+      IF( lread_ana .AND. initicon_config(jg)%ana_varlist(1) /= ' ' ) THEN
         ! translate GRIB2 varname to internal netcdf varname
         ! If requested GRIB2 varname is not found in the dictionary 
         ! (i.e. due to typos) -> Model abort
-        DO ivar=1,SIZE(ana_varlist)
-          IF (ana_varlist(ivar) /= ' ') THEN
+        DO ivar=1,SIZE(initicon_config(jg)%ana_varlist)
+          IF (initicon_config(jg)%ana_varlist(ivar) /= ' ') THEN
             nvars_ana_mandatory = nvars_ana_mandatory + 1
+            ! Sanity check
+            IF (nvars_ana_mandatory > SIZE(grp_vars_ana_mandatory)) THEN
+              WRITE(message_text,'(a)') 'Number of declared mandatory analysis fields exceeds internal limit.'
+              CALL finish(routine, TRIM(message_text))
+            ENDIF
             ! translate GRIB2 -> NetCDF
-            grp_vars_ana_mandatory(ivar) = TRIM(dict_get(ana_varnames_dict, ana_varlist(ivar), &
+            grp_vars_ana_mandatory(ivar) = TRIM(dict_get(ana_varnames_dict,       &
+              &                            initicon_config(jg)%ana_varlist(ivar), &
               &                            linverse=.TRUE.))
           ELSE
             EXIT
@@ -743,6 +807,7 @@ MODULE mo_initicon_utils
           current_element => current_element%next_list_element
         ENDDO
       ENDIF
+
 
 
       ! get FG-file varnames from inventory list
@@ -871,8 +936,8 @@ MODULE mo_initicon_utils
           &                        linverse=.FALSE.))//" ("//          &
           &                        TRIM(grp_vars_ana(ivar))//")"
       ENDDO
-      WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
-      CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
+      WRITE(message_text,'(a,i2,a)') 'DOM ', jg, ': Juxtaposition of expected and actual input fields'
+      CALL message(" ", message_text)
       CALL init_bool_table(bool_table)
       IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ana_default_txt = "ANA_inc (expected)"

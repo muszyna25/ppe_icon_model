@@ -211,9 +211,6 @@ CONTAINS
        cloud_type = cloud_type_default_gscp4 + 10 * ccn_type
     END IF
 
-    ! inverse of vertical layer thickness
-    rdz = 1._wp / dz
-
     ! start/end indices
     IF (PRESENT(is)) THEN
       its = is
@@ -233,6 +230,9 @@ CONTAINS
       kts = 1
     END IF
     kte = ke
+
+    ! inverse of vertical layer thickness
+    rdz(its:ite,:) = 1._wp / dz(its:ite,:)
 
     IF (PRESENT(nccn)) THEN
        lprogccn = .true.

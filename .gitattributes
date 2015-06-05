@@ -1221,6 +1221,7 @@ scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
+scripts/preprocessing/ifs2icon -text
 scripts/preprocessing/mars4icon.all -text
 scripts/preprocessing/mars4icon_e4_sst -text
 scripts/preprocessing/mars4icon_monmean -text
