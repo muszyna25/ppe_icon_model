@@ -44,7 +44,7 @@ link_source_list "src/io/" "shared"
 link_source_list "src/advection/" "mo_advection_utils.f90"
 
 link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
-mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_lnd_nwp_config.f90 mo_extpar_config.f90"
+mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90"
 
 link_source_list "src/drivers/" "icon.f90 mo_master_control.f90"
 
