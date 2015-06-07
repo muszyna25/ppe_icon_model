@@ -573,6 +573,16 @@ CONTAINS
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
         &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
 
+    CASE (218)
+      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & bottom_value=initial_temperature_bottom)
+      CALL perturbeTracer_LonCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
+      CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
+        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
