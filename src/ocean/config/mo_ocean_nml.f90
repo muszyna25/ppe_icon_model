@@ -515,6 +515,7 @@ MODULE mo_ocean_nml
   REAL(WP) :: forcing_windspeed_amplitude          = 1.0_wp
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
+  REAL(wp) :: relax_width           = 1.5_wp     ! the spacial width in degrees where relaxation is applied
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
                                                               ! for temperature forcing (degrees)
   INTEGER  :: atmos_flux_analytical_type           = 0        ! type of atmospheric fluxes for analytical forcing
@@ -568,6 +569,7 @@ MODULE mo_ocean_nml
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
+    &                 relax_width,                          &
     &                 atmos_flux_analytical_type          , &
     &                 atmos_SWnet_const                   , &
     &                 atmos_LWnet_const                   , &

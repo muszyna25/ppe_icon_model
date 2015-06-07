@@ -40,7 +40,8 @@ MODULE mo_ocean_forcing
     & forcing_windstress_u_type, forcing_windstress_v_type,                   &
     & forcing_windspeed_type, forcing_windspeed_amplitude,                    &
     & relax_temperature_min, relax_temperature_max, initial_temperature_type, &
-	& initial_temperature_bottom,initial_temperature_north,initial_temperature_south,&
+    & initial_temperature_bottom,initial_temperature_north,initial_temperature_south,&
+    & relax_width, &
 #ifdef __SX__                                                                
     & forcing_windstress_zonalWavePhas,                                       &
 #else                                                                        
@@ -726,7 +727,7 @@ CONTAINS
           & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
           & SouthBoundary=basin_SouthBoundary, &
           & NorthBoundary=basin_NorthBoundary, &
-          & relaxWidth=1.5_wp * deg2rad)
+          & relaxWidth=relax_width * deg2rad)
       END IF
     END IF
     IF (type_3dimRelax_Salt == 3) THEN
