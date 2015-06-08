@@ -36,7 +36,6 @@ MODULE mo_ocean_coupling
   ! For the coupling
 #ifndef __NO_ICON_ATMO__
 # ifdef YAC_coupling
-  USE mo_mpi,                 ONLY: p_n_work
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
   USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp,                    &
@@ -44,8 +43,7 @@ MODULE mo_ocean_coupling
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, yac_fput, yac_fget,           &
-    &                               yac_redirstdout
+    &                               yac_ffinalize, yac_fput, yac_fget
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
@@ -168,9 +166,6 @@ CONTAINS
 
     patch_no = 1
     patch_horz => patch_3d%p_patch_2d(patch_no)
-
-    i = LEN_TRIM(comp_name)
-    CALL yac_redirstdout ( TRIM(comp_name), i, 1, p_pe_work, p_n_work, error_status )
 
     ! Initialise the coupler
     xml_filename = "coupling.xml"
@@ -314,31 +309,31 @@ CONTAINS
 
     ibuffer(:) = 0
  
-!!$    DO BLOCK = 1, patch_horz%nblks_c
-!!$      DO idx = 1, nproma
-!!$        mask_checksum = mask_checksum + ABS(patch_3d%surface_cell_sea_land_mask(idx, BLOCK))
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$    IF ( mask_checksum > 0 ) THEN
-!!$       DO BLOCK = 1, patch_horz%nblks_c
-!!$          DO idx = 1, nproma
-!!$            IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
-!!$              ! water (-2, -1)
-!!$              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
-!!$              ibuffer((BLOCK-1)*nproma+idx) = 0
-!!$            ELSE
-!!$              ! land or boundary
-!!$              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
-!!$              ibuffer((BLOCK-1)*nproma+idx) = 1
-!!$            ENDIF
-!!$          ENDDO
-!!$       ENDDO
-!!$    ELSE
-!!$       DO i = 1, patch_horz%n_patch_cells
-!!$          ibuffer(i) = 0
-!!$       ENDDO
-!!$    ENDIF
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        mask_checksum = mask_checksum + ABS(patch_3d%surface_cell_sea_land_mask(idx, BLOCK))
+      ENDDO
+    ENDDO
+
+    IF ( mask_checksum > 0 ) THEN
+       DO BLOCK = 1, patch_horz%nblks_c
+          DO idx = 1, nproma
+            IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
+              ! water (-2, -1)
+              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
+              ibuffer((BLOCK-1)*nproma+idx) = 0
+            ELSE
+              ! land or boundary
+              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
+              ibuffer((BLOCK-1)*nproma+idx) = 1
+            ENDIF
+          ENDDO
+       ENDDO
+    ELSE
+       DO i = 1, patch_horz%n_patch_cells
+          ibuffer(i) = 0
+       ENDDO
+    ENDIF
 
     CALL yac_fdef_mask (          &
       & patch_horz%n_patch_cells, &

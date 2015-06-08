@@ -42,7 +42,7 @@ MODULE mo_interface_echam_ocean
 #ifdef YAC_coupling
   USE mo_master_control      ,ONLY: get_my_process_name
 
-  USE mo_mpi                 ,ONLY: p_n_work, p_pe_work
+  USE mo_mpi                 ,ONLY: p_pe_work
   USE mo_math_constants      ,ONLY: pi
   USE mo_parallel_config     ,ONLY: nproma
 
@@ -59,7 +59,7 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, yac_redirstdout
+    &                               yac_ffinalize
 
 #else
   USE mo_master_control      ,ONLY: get_my_process_name, get_my_model_no
@@ -159,9 +159,6 @@ CONTAINS
 
     patch_no = 1
     patch_horz => p_patch(patch_no)
-
-    i = LEN_TRIM(comp_name)
-    CALL yac_redirstdout ( TRIM(comp_name), i, 1, p_pe_work, p_n_work, error_status )
 
     ! Initialise the coupler
     xml_filename = "coupling.xml"
