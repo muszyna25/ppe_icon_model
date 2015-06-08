@@ -382,7 +382,8 @@ case "$ac_sitename" in
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
                       STD_FLAGS       = -D__USE_RTTOV
-                      FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/lib -I/usr/local/pkg/for0adm/lib/unsupported
+#                      FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/lib -I/usr/local/pkg/for0adm/lib/unsupported
+                      FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       ;;
                     default|gcc)
                       load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
@@ -657,22 +658,24 @@ case "$ac_sitename" in
                 F77         = ftn
                 make_command="make" "-j" "8"
                 CFLAGS   = "$CFLAGS" -D_ECMWF
+                RTTOV_LIBS  = -L/home/ms/de/dfj/lib -L/home/ms/de/dfj/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                 case "$fortran_compiler" in
                     intel*)
                       load_modules    = "PrgEnv-intel/5.0.41" "netcdf" "cray-mpich/6.1.1" "${load_modules}"
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-                      FFLAGS          = ${FFLAGS}
+                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
-                      OTHER_LIBS      = -lirng $OTHER_LIBS
+                      OTHER_LIBS      = -lirng $RTTOV_LIBS $OTHER_LIBS
                       ;;
                     cray)
-                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
+                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       ;;
                     default|gcc)
                      #load_modules    = "PrgEnv-gnu/5.1.29" "netcdf" "grib_api" "cray-mpich/6.2.0" "${load_modules}"
-                      FFLAGS          = ${FFLAGS}
-                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
                       ;;
                 esac
         ;;
