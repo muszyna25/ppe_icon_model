@@ -22,7 +22,7 @@ module mo_psrad_interface
                              ! distinguish it from lrtm_setup in the "old"
                              ! version
   USE mo_psrad_lrtm_driver,     ONLY: lrtm
-!!$  USE mo_srtm_driver,     ONLY: srtm
+  USE mo_psrad_srtm_driver,     ONLY: srtm
 !!$  USE mo_submodel,        ONLY: lanysubmodel
 !!$  USE mo_submodel_interface, &
 !!$       ONLY: radiation_subm_1, radiation_subm_2  
