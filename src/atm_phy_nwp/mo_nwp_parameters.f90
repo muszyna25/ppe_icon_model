@@ -26,7 +26,7 @@ MODULE mo_nwp_parameters
 
   TYPE t_phy_params
     ! Level parameters for convection scheme
-    INTEGER  :: kcon1, kcon2, kcon3, kcon4, kcon5
+    INTEGER  :: kcon1, kcon2
     ! resolution-dependent parameters for convection scheme
     REAL(wp) :: tau, mfcfl, tau0
     ! characteristic horizontal length scale (grid-scale) for 

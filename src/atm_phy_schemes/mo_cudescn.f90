@@ -351,7 +351,7 @@ CONTAINS
   !=======================================================================
 
   SUBROUTINE cuddrafn &
-    & ( kidia,    kfdia,    klon,     ktdia,  klev, njkt3, &
+    & ( kidia,    kfdia,    klon,     ktdia,  klev, k950, &
     & lddraf,&
     & ptenh,    pqenh,                   &
     & pgeo,     pgeoh,    paph,     prfl,&
@@ -455,7 +455,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
     INTEGER(KIND=jpim),INTENT(in)    :: ktdia
-    INTEGER(KIND=jpim),INTENT(in)    :: njkt3
+    INTEGER(KIND=jpim),INTENT(in)    :: k950(klon)
     LOGICAL           ,INTENT(in)    :: lddraf(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
@@ -481,7 +481,7 @@ CONTAINS
       & zbuoy(klon)
     REAL(KIND=jprb)    :: zph(klon)
     LOGICAL            :: llo2(klon)
-    INTEGER(KIND=jpim) :: icall, ik, is, itopde, jk, jl
+    INTEGER(KIND=jpim) :: icall, ik, is, jk, jl
 
     REAL(KIND=jprb) :: zbuo, zbuoyz, zbuoyv, zdmfdp, zdz, zentr, zmfdqk,&
       & zmfdsk, zqdde, zqeen, zrain, &
@@ -495,7 +495,6 @@ CONTAINS
     !#include "cuadjtq.intfb.h"
 
     IF (lhook) CALL dr_hook('CUDDRAFN',0,zhook_handle)
-    itopde=njkt3
     zrg=1.0_JPRB/rg
     zfacbuo=0.5_JPRB/(1.0_JPRB+0.5_JPRB)
     z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB/rg
@@ -545,20 +544,21 @@ CONTAINS
         ENDIF
       ENDDO
 
-      IF(jk > itopde) THEN
-        DO jl=kidia,kfdia
+      DO jl=kidia,kfdia
+        IF (jk > k950(jl)) THEN
           IF(llo2(jl)) THEN
             zdmfen(jl)=0.0_JPRB
-            zdmfde(jl)=pmfd(jl,itopde)*&
+            zdmfde(jl)=pmfd(jl,k950(jl))*&
             !  & zdph(jl,jk-1)    /&
                      & (PAPH(JL,JK)-PAPH(JL,JK-1))/&
-              & (paph(jl,klev+1)-paph(jl,itopde))
+              & (paph(jl,klev+1)-paph(jl,k950(jl)))
           ENDIF
-        ENDDO
-      ENDIF
+        ENDIF
+      ENDDO
 
-      IF(jk <= itopde) THEN
-        DO jl=kidia,kfdia
+
+      DO jl=kidia,kfdia
+        IF (jk <= k950(jl)) THEN
           IF(llo2(jl)) THEN
             !>KF
             ZDZ=-(PGEOH(JL,JK-1)-PGEOH(JL,JK))*ZRG
@@ -573,9 +573,9 @@ CONTAINS
           ENDIF
 
           pdmfde(jl,jk)=zdmfen(jl)-zdmfde(jl)
+        ENDIF
+      ENDDO
 
-        ENDDO
-      ENDIF
       DO jl=kidia,kfdia
         IF(llo2(jl)) THEN
           pmfd(jl,jk)=pmfd(jl,jk-1)+zdmfen(jl)-zdmfde(jl)

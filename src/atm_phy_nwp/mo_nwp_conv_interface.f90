@@ -217,7 +217,7 @@ CONTAINS
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
-&            ldlake = ext_data%atm%llake_c(:,jb)                              ,& !! IN
+&            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
 &            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
 &            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
@@ -264,7 +264,7 @@ CONTAINS
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
-&            ldlake = ext_data%atm%llake_c(:,jb)                              ,& !! IN
+&            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
 &            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
 &            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
