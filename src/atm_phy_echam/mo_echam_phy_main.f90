@@ -143,6 +143,8 @@ CONTAINS
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
     REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
+    REAL(wp) :: zlw_net_clr_bnd(nbdim,2)!< Clear-sky net downward longwave  at TOA (:,1) and surface (:,2)
+    REAL(wp) :: zsw_net_clr_bnd(nbdim,2)!< Clear-sky net downward shortwave at TOA (:,1) and surface (:,2)
 
     REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
     REAL(wp) :: zheight(nbdim,nlev)       !< temp for height input
@@ -567,7 +569,20 @@ CONTAINS
             & geom1  =field%geom(:,:,jb)     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
             & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
             & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
-            & pxtm1  =field% q(:,:,jb,iqt:)   &! in     xtm1
+            & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
+            & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
+            & vis_frc_sfc=field%visfrcsfc(:,jb),&!< out  visible (250-680nm) fraction of net surface radiation
+            & par_dn_sfc=field%parsfcdn(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
+            & nir_dff_frc=field%nirdffsfc(:,jb),&!< out  diffuse fraction of downward surface near-infrared radiation
+            & vis_dff_frc=field%visdffsfc(:,jb),&!< out  diffuse fraction of downward surface visible radiation
+            & par_dff_frc=field%pardffsfc(:,jb),&!< out  diffuse fraction of downward surface par 
+            & lw_net_clr_bnd=zlw_net_clr_bnd   ,&!<out  Clear-sky net downward longwave  at TOA (:,1) and surface (:,2)
+            & sw_net_clr_bnd=zsw_net_clr_bnd   ,&!< out  Clear-sky net downward shortwave at TOA (:,1) and surface (:,2) 
+            & lw_net_clr=field%lwflxclr(:,:,jb),&!< out  Clear-sky net downward longwave  at all levels
+            & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net downward shortwave at all levels
+            & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net downward longwave  at all levels
+            & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net downward shortwave at all levels
+            & ozone=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
             &                           )
           CASE DEFAULT
             CALL finish('radiation','irad_type neither 1 nor 2, not supported')

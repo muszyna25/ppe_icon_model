@@ -757,7 +757,20 @@ MODULE mo_psrad_radiation
     & geom1      ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
     & cdnc       ,&!< in  cloud droplet number concentration
     & cld_frc    ,&!< in  cloud fraction
-    & pxtm1       &!< tracer concentration
+    & pxtm1      ,&!< tracer concentration
+    & cld_cvr    ,&!< cloud cover in a column
+    & vis_frc_sfc,&!< visible (250-680) fraction of net surface radiation
+    & par_dn_sfc ,&!< downward Photosynth. Active Radiation (PAR) at surface
+    & nir_dff_frc,&!< diffuse fraction of downw. surf. near-infrared radiation
+    & vis_dff_frc,&!< diffuse fraction of downward surface visible radiation
+    & par_dff_frc,&!< iffuse fraction of downward surface PAR
+    & lw_net_clr_bnd,&!< clear-sky net downward longwave  at TOA (:,1) and surface (:,2)
+    & sw_net_clr_bnd,&!< clear-sky net downward shortwave at TOA (:,1) and surface (:,2)
+    & lw_net_clr ,&!< clear-sky net downward longwave  at all levels
+    & sw_net_clr ,&!< clear-sky net downward shortwave at all levels
+    & lw_net     ,&!< all-sky net downward longwave  at all levels
+    & sw_net     ,&!< all-sky net downward shortwave at all levels
+    & ozone       &!< avoid leaving kproma+1:kbdim undefined ozone
     &              )
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
@@ -803,14 +816,28 @@ MODULE mo_psrad_radiation
     & xq_liq(kbdim,klev),           & !< cloud water
     & xq_ice(kbdim,klev),           & !< cloud ice
     & xc_frc(kbdim,klev),           & !< cloud fraction
-    & cld_cvr(kbdim),               & !< cloud cover
     & xm_co2(kbdim,klev),           & !< CO2 mixing ratio
     & xm_o3(kbdim,klev),            & !< Ozone mixing ratio
     & xm_o2(kbdim,klev),            & !< O2 mixing ratio
     & xm_ch4(kbdim,klev),           & !< Methane mixing ratio
     & xm_n2o(kbdim,klev),           & !< Nitrous Oxide mixing ratio
-    & xm_cfc(kbdim,klev,2),         & !< CFC mixing ratio
-    & ozone(kbdim,klev)
+    & xm_cfc(kbdim,klev,2)            !< CFC mixing ratio
+    REAL(wp), INTENT(OUT) ::      &
+    & cld_cvr(:),              & !< Cloud cover in a column
+    & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
+    & par_dn_sfc(kbdim),       & !< Downward Photosynthetically Active Radiation (PAR) at surface
+    & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
+    & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
+    & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
+    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward longwave  at TOA (:,1) and surface (:,2) 
+    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward shortwave at TOA (:,1) and surface (:,2) 
+    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net downward longwave  at all levels
+    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net downward shortwave at all levels
+    & lw_net(kbdim,klevp1),    & !< All-sky net downward longwave  at all levels
+    & sw_net(kbdim,klevp1)       !< All-sky net downward shortwave at all levels
+
+    REAL(wp), INTENT(INOUT) ::    & !< Avoid leaving kproma+1:kbdim undefined
+    & ozone(kbdim,klev)             !< ozone
     !
     ! 1.0 calculate variable input parameters (location and state variables)
     ! --------------------------------
