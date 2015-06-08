@@ -1440,9 +1440,10 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%snowfrac_ptr(jsfc)%p_2d,                           &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_t_'//csfc, '', '', DATATYPE_FLT32),        &
-               & grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL),      &
+               & grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL),        &
                & var_class=CLASS_TILE_LAND,                                    &
-               & ldims=shape2d, in_group=groups("land_tile_vars") )
+               & ldims=shape2d,                                                &
+               & in_group=groups("land_tile_vars", "dwd_fg_sfc_vars_t") )
     END DO
 
 
