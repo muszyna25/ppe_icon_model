@@ -217,6 +217,7 @@ CONTAINS
           & jstep, datetime, operators_coefficients)
       ELSEIF (surface_module == 2) THEN
         CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+    !     &  p_ocean_surface, &
           & jstep, datetime, operators_coefficients)
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)

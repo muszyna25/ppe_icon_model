@@ -27,7 +27,7 @@ MODULE mo_ocean_surface_types
 
   ! Definition of forcing types for ocean surface module
   ! public types
-  PUBLIC  :: t_ocean_surface_fluxes
+  PUBLIC  :: t_ocean_surface_types
   PUBLIC  :: t_ptr2d
 
 
@@ -41,7 +41,7 @@ MODULE mo_ocean_surface_types
   ! These fluxes will successively replace the fluxes defined in type t_sfc_flx,
   ! they are at the end exclusively used by module mo_ocean_surface
 
-  TYPE t_ocean_surface_fluxes
+  TYPE t_ocean_surface_types
 
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
@@ -104,10 +104,10 @@ MODULE mo_ocean_surface_types
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
     TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
-  END TYPE t_ocean_surface_fluxes
+  END TYPE t_ocean_surface_types
 
   ! global type variables
-  TYPE(t_ocean_surface_fluxes), PUBLIC, TARGET :: v_ocean_sfc_flx
+  TYPE(t_ocean_surface_types), PUBLIC, TARGET :: v_ocean_sfc_types
 
 END MODULE mo_ocean_surface_types
 
