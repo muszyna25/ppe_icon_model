@@ -74,14 +74,14 @@ dt_coupling=$hour
 #---------------------------------------------------------------------------
 #model timing
 # calculate model timesteps using $ndays
-restart_months=2                             # 2 days
-(( dt_checkpoint = restart_months * day )) # checkpointing not yet supported for coupling fields
-(( dt_restart    = restart_months * day )) # for long simulations, use month instead of days
+restart_units=2 # 2 days
+(( dt_checkpoint = restart_units * day ))
+(( dt_restart    = restart_units * day ))
 #
 atmo_output_interval="PT06H"
-atmo_steps_per_file=8    # 2 days
+atmo_file_interval="PT02D"   # 2 days
 ocean_output_interval="P01D"
-ocean_steps_per_file=2   # 2 days
+ocean_file_interval="P02D"   # 2 days
  
 #-----------------------------------------------------------------------------
 # define variable names
@@ -270,8 +270,8 @@ cat > $atmo_namelist << EOF
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
- output_interval  = "${atmo_output_interval}"                 ! interval in ISO-format
- steps_per_file   = ${atmo_steps_per_file}
+ output_interval  = "${atmo_output_interval}"        ! interval in ISO-format
+ file_interval    = "${atmo_file_interval}"          ! interval in ISO-format
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atmo"
@@ -491,7 +491,7 @@ cat > ${ocean_namelist} << EOF
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
  output_interval  = "${ocean_output_interval}"       ! interval in ISO-format
- steps_per_file   = ${ocean_steps_per_file}
+ file_interval    = "${ocean_file_interval}"         ! interval in ISO-format
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_ocean"
