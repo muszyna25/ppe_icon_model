@@ -26,81 +26,151 @@ MODULE mo_ocean_surface
 !
 !-------------------------------------------------------------------------
 !
-USE mo_kind,                ONLY: wp
-USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: dtime, ltimer
-USE mo_sync,                ONLY: sync_c, sync_patch_array, global_sum_array
-USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
-USE mo_io_units,            ONLY: filename_max
-USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
-USE mo_parallel_config,     ONLY: p_test_run
-USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
-  &                               onCells, read_2D_time, read_3D
-USE mo_datetime,            ONLY: t_datetime
-USE mo_time_config,         ONLY: time_config
-USE mo_ext_data_types,      ONLY: t_external_data
-USE mo_ocean_ext_data,      ONLY: ext_data
-USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
-  &                               no_tracer, n_zlev, basin_center_lat,                  &
-  &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
-  &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
-  &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
-  &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
-  &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
-  &                               i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
-  &                               forcing_set_runoff_to_zero,           &
-  &                               forcing_windstress_u_type,            &
-  &                               forcing_windstress_v_type,            &
-  &                               forcing_fluxes_type,                  &
-  &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
-  &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
-  &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
-  &                               limit_elevation, l_relaxsal_ice
-USE mo_dynamics_config,     ONLY: nold
-USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-USE mo_util_dbg_prnt,       ONLY: dbg_print
-USE mo_dbg_nml,             ONLY: idbg_mxmn
-USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-USE mo_exception,           ONLY: finish, message, message_text
-USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
-USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
-USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
-USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_ocean_surface_types, ONLY: t_ocean_surface_types
-USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
-USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
-USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
+  USE mo_kind,                ONLY: wp
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: dtime, ltimer
+  USE mo_sync,                ONLY: sync_c, sync_patch_array, global_sum_array
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
+  USE mo_io_units,            ONLY: filename_max
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
+  USE mo_parallel_config,     ONLY: p_test_run
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
+    &                               onCells, read_2D_time, read_3D
+  USE mo_cdi_constants,       ONLY: DATATYPE_FLT32, DATATYPE_PACK16,        &
+    &                               GRID_UNSTRUCTURED_CELL, GRID_REFERENCE, &
+    &                               GRID_CELL, ZA_GENERIC_ICE, ZA_SURFACE,  &
+    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
+    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
+  USE mo_var_list,            ONLY: add_var
+  USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
+  USE mo_datetime,            ONLY: t_datetime
+  USE mo_time_config,         ONLY: time_config
+  USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_ocean_ext_data,      ONLY: ext_data
+  USE mo_grid_config,         ONLY: nroot
+  USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
+    &                               no_tracer, n_zlev, basin_center_lat,                  &
+    &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
+    &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
+    &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
+    &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
+    &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
+    &                               i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
+    &                               forcing_set_runoff_to_zero,           &
+    &                               forcing_windstress_u_type,            &
+    &                               forcing_windstress_v_type,            &
+    &                               forcing_fluxes_type,                  &
+    &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
+    &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
+    &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
+    &                               limit_elevation, l_relaxsal_ice
+  USE mo_dynamics_config,     ONLY: nold
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_dbg_nml,             ONLY: idbg_mxmn
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
+  USE mo_exception,           ONLY: finish, message, message_text
+  USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
+  USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
+  USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
+  USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+  USE mo_ocean_surface_types, ONLY: t_ocean_surface_types
+  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+  USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
+  USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
+  USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
+  
+  USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
-USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
+  IMPLICIT NONE
+  
+  ! required for reading netcdf files
+  INCLUDE 'netcdf.inc'
 
-IMPLICIT NONE
+  PRIVATE
 
-! required for reading netcdf files
-INCLUDE 'netcdf.inc'
+  ! Public interface
+  PUBLIC  :: construct_ocean_surface
+  PUBLIC  :: update_ocean_surface
 
-PRIVATE
+  ! private routines
+  PRIVATE :: update_flux_analytical
+  PRIVATE :: update_flux_fromFile
+  PRIVATE :: update_flux_from_atm_flx
+  PRIVATE :: update_relaxation_flux
+  PRIVATE :: update_surface_relaxation
+  PRIVATE :: read_forc_data_oce
+  PRIVATE :: balance_elevation
 
-! Public interface
-PUBLIC  :: update_ocean_surface
-
-! private routines
-PRIVATE :: update_flux_analytical
-PRIVATE :: update_flux_fromFile
-PRIVATE :: update_flux_from_atm_flx
-PRIVATE :: update_relaxation_flux
-PRIVATE :: update_surface_relaxation
-PRIVATE :: read_forc_data_oce
-PRIVATE :: balance_elevation
-
-CHARACTER(len=12)           :: str_module    = 'oceanSurface'  ! Output of module for 1 line debug
-INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
-REAL(wp), PARAMETER         :: seconds_per_month = 2.592e6_wp  ! TODO: use real month length
+  CHARACTER(len=12)           :: str_module    = 'oceanSurface'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+  REAL(wp), PARAMETER         :: seconds_per_month = 2.592e6_wp  ! TODO: use real month length
 
 CONTAINS
+
+  !-------------------------------------------------------------------------
+  !
+  !> Constructor of ocean surface model, allocates all components and assigns zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2015-06).
+  !
+  SUBROUTINE construct_ocean_surface(p_patch_3D, p_sfc)
+    TYPE(t_patch_3D),             TARGET,INTENT(IN)    :: p_patch_3D
+    TYPE (t_ocean_surface_types),        INTENT(INOUT) :: p_sfc
+
+    !Local variables
+    !INTEGER i
+
+    INTEGER :: alloc_cell_blocks, nblks_v, nblks_e, ist
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface:construct_ocean_surface'
+
+    TYPE(t_patch),POINTER    :: p_patch
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(routine), 'start' )
+
+    p_patch           => p_patch_3D%p_patch_2D(1)
+    alloc_cell_blocks =  p_patch%alloc_cell_blocks
+    nblks_e           =  p_patch%nblks_e
+
+    CALL add_var(ocean_default_list, 'TopBC_WindStress_u', p_sfc%TopBC_WindStress_u , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('TopBC_WindStress_u', 'Pa', 'TopBC_WindStress_u', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(ocean_default_list, 'TopBC_WindStress_v', p_sfc%TopBC_WindStress_v , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('TopBC_WindStress_v', 'Pa', 'TopBC_WindStress_v', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+
+    CALL add_var(ocean_default_list, 'HeatFlux_Total', p_sfc%HeatFlux_Total , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('HeatFlux_Total', 'W/m2', 'HeatFlux_Total', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal', p_sfc%FrshFlux_VolumeTotal , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalIce', p_sfc%FrshFlux_TotalIce , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+
+    CALL message(TRIM(routine), 'end' )
+
+  END SUBROUTINE construct_ocean_surface
+
 
   !-------------------------------------------------------------------------
   !
