@@ -24,8 +24,8 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "216"                #---experiment number---
-set EXPNUM2       "212"                #---experiment number used for score comparison---
+set EXPNUM        "222"                #---experiment number---
+set EXPNUM2       "221"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
 set LAST_DATE     20130131
@@ -36,10 +36,11 @@ set ICON_HOME     /home/ms/de/deia
 set ICON_ID       deia 
 set RES           "R02B06"             #---ICON resolution dynamics
 set RESRAD        "R02B05"             #---ICON resolution radiation (requires namelist)
+set USER_ICON_DIR icon-nwp-dev         #---location of script, plot and sms files
+set DEIA_ICON_DIR icon-nwp-dev         #---location of build and binary in deia account (svn, build, cp)
 
-# no. of time steps (10x86400s/72s)
-set NSTEPS        9600   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
-#set NSTEPS       6000   # grey zone 48h: R2B7-3600, R2B8-7200
+# no. of time steps (10x86400s/360s)
+set NSTEPS        2400   # 10d forecast:  R2B5-turbdiff-1920, R2B5-edmf=1200/1152, R2B6-2400
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year), 4:B-matrix
 set SIMMODE       2
@@ -75,8 +76,8 @@ set SCPERM      /perm/ms/de/$USER
 set ECPERM      /$SCPREFIX$SCPERM          # mounted cca perm on ecgate
 set SCPERMIII   /perm/ms/de/$ICON_ID
 set ECPERMIII   /$SCPREFIX$SCPERMIII       # mounted cca perm on ecgate
-set SCBASEDIR   $SCPERM/icon-dev/schedulers/ecmwf
-set ECBASEDIR   $ECPERM/icon-dev/schedulers/ecmwf
+set SCBASEDIR   $SCPERM/$USER_ICON_DIR/schedulers/ecmwf
+set ECBASEDIR   $ECPERM/$USER_ICON_DIR/schedulers/ecmwf
 set SCSOFT      /perm/ms/de/deia
 
 # LOGDIR, LOGPORT
@@ -86,10 +87,10 @@ set SCLOGDIR    /scratch/ms/de/$ICON_ID/sms
 set SCLOGPORT   36730
 
 # place where suite and tasks are defined
-set SMSFILES    "$ECPERM/icon-dev/schedulers/ecmwf/sms"
+set SMSFILES    "$ECPERM/$USER_ICON_DIR/schedulers/ecmwf/sms"
 
 # place where include files are stored
-set SMSINCLUDE  "$ECPERM/icon-dev/schedulers/ecmwf/include"
+set SMSINCLUDE  "$ECPERM/$USER_ICON_DIR/schedulers/ecmwf/include"
 
 # place where generated job scripts are stored
 set SMSHOME     "$ICON_HOME/sms"
@@ -196,6 +197,8 @@ suite $USER
     edit NMEM       $NMEM
     edit WAITINTVL  $WAITINTVL
     edit USER       $USER
+    edit USER_ICON_DIR $USER_ICON_DIR
+    edit DEIA_ICON_DIR $DEIA_ICON_DIR
     edit SCPERM     $SCPERM
     edit ECPERM     $ECPERM
     edit SCPERMIII  $SCPERMIII
@@ -210,6 +213,7 @@ suite $USER
     edit SCSOFT     $SCSOFT
     edit MONTHS     $MONTHS
     edit MON_IFS_ICON $MON_IFS_ICON
+    edit LDATE_S    0                    # variable used for AMIP runs
 
     edit ICONNODES        $ICONNODES        
     edit ICONTOTALTASKS   $ICONTOTALTASKS

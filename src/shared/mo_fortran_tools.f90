@@ -21,6 +21,9 @@
 MODULE mo_fortran_tools
 
   USE mo_kind,                    ONLY: wp
+  USE mo_exception,               ONLY: finish
+  USE mo_var_metadata_types,      ONLY: VARNAME_LEN
+
   IMPLICIT NONE
   PRIVATE
 
@@ -44,8 +47,9 @@ MODULE mo_fortran_tools
   PUBLIC :: assign_if_present
   PUBLIC :: t_ptr_2d3d
   PUBLIC :: t_ptr_i2d3d
-  PUBLIC :: t_ptr_tracer!,pcen,ptenc
+  PUBLIC :: t_ptr_tracer
   PUBLIC :: swap
+  PUBLIC :: resize_arr_c1d
 
   INTERFACE assign_if_present
     MODULE PROCEDURE assign_if_present_character
@@ -139,5 +143,54 @@ CONTAINS
     a    = b
     b    = temp
   END SUBROUTINE swap_int
+
+
+
+  !>
+  !! Expand array by given size 
+  !!
+  !! Expand a 1D character array by given size.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-10-28)
+  !!
+  SUBROUTINE resize_arr_c1d(arr,nelem)
+    ! GCC 4.9.0 complained about CHARACTER(:); Cray did not!
+    CHARACTER(len=VARNAME_LEN), ALLOCATABLE, INTENT(INOUT) :: arr(:)   ! array to be resized
+    INTEGER                  , INTENT(IN)    :: nelem    ! number of elements to expand
+    !
+    ! local variables
+    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: tmp_arr(:)
+    INTEGER :: istat                   ! status
+    !-----------------------------
+
+    ! If arr has not yet been allocated, do it.
+    IF (.NOT. ALLOCATED(arr)) THEN
+      ALLOCATE(arr(1), STAT=istat)
+      IF (istat /= 0) THEN
+        CALL finish('mo_fortran_tools:resize_arr_c1d', &
+             &      ' initial allocation of array arr failed')
+      ENDIF
+    ELSE
+      ! check for appropriate nelem
+      IF ( nelem < 0) CALL finish('mo_fortran_tools:resize_arr_c1d', &
+        &                         ' nelem must be > 0')
+
+      ! allocate temporary array of size SIZE(arr)+nelem
+      ALLOCATE(tmp_arr(1:SIZE(arr)+nelem), STAT=istat)
+      IF (istat /= 0) THEN
+        CALL finish('mo_fortran_tools:resize_char_arr_1d', &
+             &      'allocation of array tmp_arr failed')
+      ENDIF
+
+      ! copy 
+      tmp_arr(1:SIZE(arr)) = arr(1:SIZE(arr))
+
+      CALL move_alloc(tmp_arr, arr)
+      ! now arr has been resized to the size of tmp_arr, 
+      ! and tmp_arr is deallocated.
+    ENDIF
+
+  END SUBROUTINE resize_arr_c1d
 
 END MODULE mo_fortran_tools

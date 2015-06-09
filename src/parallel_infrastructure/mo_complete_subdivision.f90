@@ -1392,7 +1392,7 @@ CONTAINS
 
       CALL setup_comm_gather_pattern(n_g, owner_local(:), &
         &                            decomp_info%glb_index(:), &
-        &                            comm_pat_gather(ip))
+        &                            comm_pat_gather(ip), .TRUE.)
     END DO
 
     DEALLOCATE(owner_local)

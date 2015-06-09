@@ -30,7 +30,7 @@ MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: ippm_v
-  USE mo_dynamics_config,    ONLY: idiv_method, nnow, nnew
+  USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch
@@ -40,7 +40,7 @@ MODULE mo_nh_dtp_interface
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_advection_config,   ONLY: advection_config
-    
+  USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
 
   IMPLICIT NONE
@@ -504,6 +504,15 @@ CONTAINS
              p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
            ENDDO  ! jc
          ENDDO  ! jk
+         IF (is_iau_active) THEN ! Correct 'old' air mass for IAU density increments
+           DO jk = 1, nlev
+!DIR$ IVDEP
+             DO jc= i_startidx, i_endidx
+               p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_now(jc,jk,jb) + &
+                 iau_wgt_adv*p_metrics%ddqz_z_full(jc,jk,jb)*p_nh_diag%rho_incr(jc,jk,jb)
+             ENDDO  ! jc
+           ENDDO  ! jk
+         ENDIF
        ENDIF
 
     ENDDO ! jb
