@@ -49,6 +49,7 @@ MODULE mo_initicon
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
+  USE mo_satad,               ONLY: sat_pres_ice, spec_humi 
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile
   USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
@@ -242,7 +243,7 @@ MODULE mo_initicon
       CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis (increments)
-      CALL process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+      CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
 
     CASE (MODE_IAU_OLD)
 
@@ -253,7 +254,7 @@ MODULE mo_initicon
       CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis (increments)
-      CALL process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+      CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
 
     CASE(MODE_IFSANA)   ! read in IFS analysis
 
@@ -506,9 +507,10 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2014-07-18)
   !!
   !!
-  SUBROUTINE process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(IN)    :: p_nh_state(:)
     TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
@@ -536,7 +538,7 @@ MODULE mo_initicon
 
 
     ! Add increments to time-shifted first guess in one go.
-    CALL create_iau_sfc (p_patch, p_lnd_state, ext_data)
+    CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
 
     ! get SST from first soil level t_so (for sea and lake points)
     ! perform consistency checks
@@ -1457,6 +1459,10 @@ MODULE mo_initicon
       ENDIF  ! dt_iau = 0
 
 
+      ! Recompute the hydrostatically integrated pressure from the first guess
+      CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+
     ENDDO  ! jg domain loop
 
   END SUBROUTINE create_dwdanainc_atm
@@ -1479,9 +1485,10 @@ MODULE mo_initicon
   !!
   !!
   !-------------------------------------------------------------------------
-  SUBROUTINE create_iau_sfc (p_patch, p_lnd_state, ext_data)
+  SUBROUTINE create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
 
     TYPE(t_patch)             ,INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state) , TARGET ,INTENT(IN)    :: p_nh_state(:)
     TYPE(t_lnd_state), TARGET ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)     ,INTENT(IN)    :: ext_data(:)
 
@@ -1493,6 +1500,7 @@ MODULE mo_initicon
 
     LOGICAL :: lerr                      ! error flag
 
+    TYPE(t_nh_diag) , POINTER :: p_diag            ! shortcut to diag state
     TYPE(t_lnd_prog), POINTER :: lnd_prog_now      ! shortcut to prognostic land state
     TYPE(t_lnd_diag), POINTER :: lnd_diag          ! shortcut to diagnostic land state
 
@@ -1515,6 +1523,7 @@ MODULE mo_initicon
       rl_end    = min_rlcell
 
       ! save some paperwork
+      p_diag       =>p_nh_state(jg)%diag
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
@@ -1610,7 +1619,6 @@ MODULE mo_initicon
                 ENDIF
               ENDIF
 
-! ** Where do we adjust t_g and qv_s to new snow coming from the analysis?? **
 
               ! maximum freshsnow factor: 1
               ! minimum freshsnow factor: 0
@@ -1622,8 +1630,24 @@ MODULE mo_initicon
                 &                                  ) )
 
               lnd_diag%freshsnow_t(jc,jb,jt) = MAX(0._wp,lnd_diag%freshsnow_t(jc,jb,jt))
+
+
+              ! adjust t_g and qv_s to new snow coming from the analysis, 
+              ! i.e. at new snow points, where h_snow increment > 0, but h_snow from first guess = 0
+              !
+              IF ( (initicon(jg)%sfc_inc%h_snow(jc,jb) >= min_hsnow_inc) .AND. (h_snow_t_fg(jc,jt) == 0._wp)) THEN
+                lnd_prog_now%t_snow_t(jc,jb,jt) = MIN(tmelt,lnd_prog_now%t_snow_t(jc,jb,jt))
+                lnd_prog_now%t_g_t   (jc,jb,jt) = lnd_diag%snowfrac_t(jc,jb,jt) * lnd_prog_now%t_snow_t(jc,jb,jt) &
+                  &                             + (1._wp - lnd_diag%snowfrac_t(jc,jb,jt)) * lnd_prog_now%t_so_t(jc,1,jb,jt)
+                lnd_diag%qv_s_t      (jc,jb,jt) = spec_humi(sat_pres_ice(lnd_prog_now%t_g_t(jc,jb,jt)),&
+                  &                               p_diag%pres_sfc(jc,jb) )
+              ENDIF
+
             ENDDO  ! ic
+
           ENDDO  ! jt
+
+
 
           ! consistency checks for rho_snow
           DO jt = 1, ntiles_total
