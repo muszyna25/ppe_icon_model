@@ -161,7 +161,7 @@ MODULE mo_pp_tasks
   !  @note There might be better places in the code for such a
   !  variable!
   TYPE t_simulation_status
-    LOGICAL :: status_flags(3)         !< l_output_step, l_first_step, l_last_step
+    LOGICAL :: status_flags(4)         !< l_output_step, l_first_step, l_last_step, l_accumulation_step
     LOGICAL :: ldom_active(max_dom)    !< active domains
     INTEGER :: i_timelevel(max_dom)    !< active time level (for output variables)
   END TYPE t_simulation_status

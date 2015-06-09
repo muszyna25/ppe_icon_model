@@ -278,7 +278,8 @@ CONTAINS
     ENDIF
 
     IF (tc_exp_stopdate < tc_stopdate) THEN
-      CALL finish('','Premature experiment stop date. Check master_time_control_nml!')   
+      CALL finish('','Experiment stop date earlier than run stop date. '// &
+           &         'Check master_time_control_nml!')   
     ENDIF
 
     IF (ASSOCIATED(tc_startdate)) THEN
