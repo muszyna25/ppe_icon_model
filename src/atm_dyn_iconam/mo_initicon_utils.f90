@@ -50,7 +50,8 @@ MODULE mo_initicon_utils
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow
+    &                               nlev_snow, ntiles_lnd
+  USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -97,6 +98,7 @@ MODULE mo_initicon_utils
   PUBLIC :: average_first_guess
   PUBLIC :: reinit_average_first_guess
   PUBLIC :: fill_tile_points
+  PUBLIC :: init_snowtiles
 
   CONTAINS
 
@@ -1205,6 +1207,44 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE fill_tile_points
 
+  !>
+  !! SUBROUTINE init_snowtiles
+  !! Active in the case of a tile warmstart in combination with snowtiles.
+  !! In this case, the tile-based index lists and the tile fractions (frac_t) need to be restored
+  !! from the landuse-class fractions and the snow-cover fractions
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2015-06-08)
+  !!
+  !!
+  SUBROUTINE init_snowtiles(p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    TYPE(t_lnd_diag),  POINTER :: lnd_diag
+
+    INTEGER :: jg, jt
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+
+      ! copy snowfrac_t to snowfrac_lc_t (needed for index list computation)
+      DO jt = ntiles_lnd+1, ntiles_total
+        lnd_diag%snowfrac_lc_t(:,:,jt)            = lnd_diag%snowfrac_t(:,:,jt)
+        lnd_diag%snowfrac_lc_t(:,:,jt-ntiles_lnd) = lnd_diag%snowfrac_t(:,:,jt)
+      ENDDO
+
+      CALL init_snowtile_lists(p_patch(jg), ext_data(jg), lnd_diag)
+
+    ENDDO
+
+  END SUBROUTINE init_snowtiles
 
   !>
   !! SUBROUTINE copy_initicon2prog_atm
