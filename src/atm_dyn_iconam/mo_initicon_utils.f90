@@ -34,7 +34,7 @@ MODULE mo_initicon_utils
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
-    &                               timeshift, initicon_config,                         &
+    &                               timeshift, initicon_config, ltile_coldstart,        &
     &                               ana_varnames_map_file, lread_ana,                   &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
@@ -549,7 +549,7 @@ MODULE mo_initicon_utils
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_DWDANA_INC,MODE_ICONVREMAP)
+        CASE(MODE_DWDANA, MODE_DWDANA_INC, MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
@@ -604,6 +604,12 @@ MODULE mo_initicon_utils
           grp_name ='mode_iau_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! in case of tile coldstart, we can omit snowfrac
+          ! Remove field 'snowfrac' from FG list
+          IF (ltile_coldstart) THEN
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+          ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
@@ -670,6 +676,12 @@ MODULE mo_initicon_utils
           grp_name ='mode_iau_old_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! in case of tile coldstart, we can omit snowfrac
+          ! Remove field 'snowfrac' from FG list
+          IF (ltile_coldstart) THEN
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+          ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
           !

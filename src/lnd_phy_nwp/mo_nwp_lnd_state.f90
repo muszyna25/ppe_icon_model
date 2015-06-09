@@ -1421,7 +1421,8 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,       &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
-           & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_iau_fg_in") )
+           & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_iau_fg_in",      &
+           & "mode_iau_old_fg_in") )
 
 
     ! & p_diag_lnd%snowfrac_t(nproma,nblks_c,ntiles_total)
