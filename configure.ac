@@ -812,6 +812,7 @@ my_srcdirs="externals/mtime/src ${my_srcdirs}"
 
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
+    FCFLAGS="${FFLAGS}"
     FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
     CFLAGS="${CFLAGS} -I`pwd`/${exec_prefix}/include"
     if test "x$with_mpi" != "xno" ; then
@@ -975,7 +976,8 @@ AC_SUBST(F77,$F77)
 
 AC_SUBST(ARFLAGS,$ARFLAGS)
 
-AC_SUBST(CFLAGS,$CFLAGS)
+AC_SUBST(FCFLAGS,$FCFLAGS)
+AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
