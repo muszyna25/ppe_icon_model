@@ -1717,10 +1717,12 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
+    write(0,*) 'vor shortwave fluxes'
     ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
     ! ----------------
     ! - TOA
     zflxsw(jcs:jce,1)      = ptrmsw(jcs:jce,1)      *        pi0(jcs:jce)
+    write(0,*) 'nach TOA shortwave'
     ! - Atmosphere
     zflxsw(jcs:jce,2:klev) = ptrmsw(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
     ! - Surface

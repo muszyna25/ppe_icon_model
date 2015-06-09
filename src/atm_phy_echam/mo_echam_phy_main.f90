@@ -566,7 +566,7 @@ CONTAINS
             & qm_vap =field%q(:,:,jb,iqv)    ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
             & qm_liq =field%q(:,:,jb,iqc)    ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
             & qm_ice =field%q(:,:,jb,iqi)    ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
-            & geom1  =field%geom(:,:,jb)     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
+            & pgeom1 =field%geom(:,:,jb)     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
             & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
             & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
             & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
@@ -584,6 +584,10 @@ CONTAINS
             & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net downward shortwave at all levels
             & ozone=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
             &                           )
+            field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
+            field%lwflxclr(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)
+            field%swtrmclr(jcs:jce,1,jb)=zsw_net_clr_bnd(jcs:jce,1)
+            field%swtrmclr(jcs:jce,nlevp1,jb)=zsw_net_clr_bnd(jcs:jce,2)
           CASE DEFAULT
             CALL finish('radiation','irad_type neither 1 nor 2, not supported')
         END SELECT

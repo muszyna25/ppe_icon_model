@@ -113,6 +113,7 @@ MODULE mo_psrad_radiation
                                            icfc11=>irad_cfc11, &
                                            icfc12=>irad_cfc12, &
                                            iaero=>irad_aero,   &
+                                           ighg,               &
                                            mmr_co2,            &
                                            mmr_ch4,            &
                                            mmr_n2o,            &
@@ -125,21 +126,56 @@ MODULE mo_psrad_radiation
                                            isolrad,            &
                                            ldiur,              &
                                            lyr_perp,           &
-                                           yr_perp
-!!$  USE mo_radiation_parameters, ONLY: ldiur, lradforcing,                          &
-!!$                                     l_interp_rad_in_time, zepzen,                &
-!!$                                     lyr_perp, yr_perp, nmonth, isolrad, nb_sw,   &
-!!$                                     lw_spec_samp, sw_spec_samp,                  & 
-!!$                                     lw_gpts_ts,   sw_gpts_ts,   rad_perm,        &
-!!$                                     l_do_sep_clear_sky, i_overlap,               &
-!!$                                     ih2o, ico2, ich4, io3, io2, in2o, icfc,      &
-!!$                                     ighg, fco2, nmonth, iaero,                   &
-!!$                                     co2vmr, ch4vmr, o2vmr, n2ovmr, cfcvmr,       &
-!!$                                     co2mmr, ch4mmr, o2mmr, n2ommr,               &
-!!$                                     ch4_v, n2o_v, cemiss, solc,                  &
-!!$                                     psct, psctm, ssi_factor,                     &
-!!$                                     flx_ratio_cur, flx_ratio_rad,                & 
-!!$                                     decl_sun_cur,solar_parameters
+                                           yr_perp,            &
+                                           lradforcing
+  USE mo_psrad_radiation_parameters, ONLY:                     &
+!!$                                     ldiur,                    &
+!!$                                     lradforcing,              &
+                                     l_interp_rad_in_time,     &
+                                     zepzen,                   &
+!!$                                     lyr_perp,                 &
+!!$                                     yr_perp,                  &
+!!$                                     nmonth,                   &
+!!$                                     isolrad,                  &
+!!$                                     nb_sw,                    &
+                                     lw_spec_samp,             &
+                                     sw_spec_samp,             &
+                                     lw_gpts_ts,               &
+                                     sw_gpts_ts,               &
+                                     rad_perm,                 &
+                                     l_do_sep_clear_sky,       &
+                                     i_overlap,                &
+!!$                                     ih2o,                     &
+!!$                                     ico2,                     &
+!!$                                     ich4,                     &
+!!$                                     io3,                      &
+!!$                                     io2,                      &
+!!$                                     in2o,                     &
+!!$                                     icfc,                     &
+!!$                                     ighg,                     &
+                                     fco2,                     &
+!!$                                     nmonth,                   &
+!!$                                     iaero,                    &
+!!$                                     co2vmr,                   &
+!!$                                     ch4vmr,                   &
+!!$                                     o2vmr,                    &
+!!$                                     n2ovmr,                   &
+!!$                                     cfcvmr,                   &
+!!$                                     co2mmr,                   &
+!!$                                     ch4mmr,                   &
+!!$                                     o2mmr,                    &
+!!$                                     n2ommr,                   &
+!!$                                     ch4_v,                    &
+!!$                                     n2o_v,                    &
+                                     cemiss,                   &
+                                     solc,                     &
+                                     psct,                     &
+                                     psctm,                    &
+                                     ssi_factor,               &
+                                     flx_ratio_cur,            &
+                                     flx_ratio_rad,            &
+                                     decl_sun_cur,             &
+                                     solar_parameters
 
 ! following module for diagnostic of radiative forcing only
 !  USE mo_radiation_forcing,ONLY: prepare_forcing
@@ -148,8 +184,7 @@ MODULE mo_psrad_radiation
 ! new to icon
 !  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
 !                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
-  USE mo_psrad_interface,ONLY : setup_psrad, &
-!, psrad_interface, &
+  USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : spec_sampling_strategy, &
                              & set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
@@ -158,12 +193,12 @@ MODULE mo_psrad_radiation
   
   PRIVATE
 
-    LOGICAL            :: lradforcing(2)=(/.FALSE.,.FALSE./)
-    INTEGER            :: lw_gpts_ts=1,  &
-                        & lw_spec_samp=1,&
-                        & rad_perm=0,    &
-                        & sw_gpts_ts=1,  &
-                        & sw_spec_samp=1
+!!$    LOGICAL            :: lradforcing(2)=(/.FALSE.,.FALSE./)
+!!$    INTEGER            :: lw_gpts_ts=1,  &
+!!$                        & lw_spec_samp=1,&
+!!$                        & rad_perm=0,    &
+!!$                        & sw_gpts_ts=1,  &
+!!$                        & sw_spec_samp=1
 
   
   PUBLIC :: pre_psrad_radiation, setup_psrad_radiation, psrad_radiation
@@ -754,7 +789,7 @@ MODULE mo_psrad_radiation
     & qm_vap     ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
     & qm_liq     ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
     & qm_ice     ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
-    & geom1      ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
+    & pgeom1     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
     & cdnc       ,&!< in  cloud droplet number concentration
     & cld_frc    ,&!< in  cloud fraction
     & pxtm1      ,&!< tracer concentration
@@ -799,11 +834,27 @@ MODULE mo_psrad_radiation
     & qm_vap(kbdim,klev), & !< Water vapor mixing ratio
     & qm_liq(kbdim,klev), & !< Liquid water mixing ratio
     & qm_ice(kbdim,klev), & !< Ice water mixing ratio
-    & geom1(kbdim,klev),  & !< Geopotential height at t-dt
+    & pgeom1(kbdim,klev), & !< Geopotential height at t-dt
     & cdnc(kbdim,klev),   & !< Cloud drop number concentration
     & cld_frc(kbdim,klev),& !< Cloud fraction
     & pxtm1(kbdim,klev,ktrac)!< non-water tracers
-    INTEGER              :: jk, jl, idx(kbdim)
+    REAL(wp), INTENT(OUT) ::      &
+    & cld_cvr(:),              & !< Cloud cover in a column
+    & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
+    & par_dn_sfc(kbdim),       & !< Downward Photosynthetically Active Radiation (PAR) at surface
+    & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
+    & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
+    & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
+    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward longwave  at TOA (:,1) and surface (:,2) 
+    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward shortwave at TOA (:,1) and surface (:,2) 
+    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net downward longwave  at all levels
+    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net downward shortwave at all levels
+    & lw_net(kbdim,klevp1),    & !< All-sky net downward longwave  at all levels
+    & sw_net(kbdim,klevp1)       !< All-sky net downward shortwave at all levels
+
+    REAL(wp), INTENT(INOUT) ::    & !< Avoid leaving kproma+1:kbdim undefined
+    & ozone(kbdim,klev)             !< ozone
+    INTEGER              :: jk, jl, idx(kbdim), iaero_call, number_rad_call, i_rad_call
     REAL(wp)             ::         &
     & cos_mu0(kbdim),               &
     & pp_sfc(kbdim),                &
@@ -821,23 +872,17 @@ MODULE mo_psrad_radiation
     & xm_o2(kbdim,klev),            & !< O2 mixing ratio
     & xm_ch4(kbdim,klev),           & !< Methane mixing ratio
     & xm_n2o(kbdim,klev),           & !< Nitrous Oxide mixing ratio
-    & xm_cfc(kbdim,klev,2)            !< CFC mixing ratio
-    REAL(wp), INTENT(OUT) ::      &
-    & cld_cvr(:),              & !< Cloud cover in a column
-    & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
-    & par_dn_sfc(kbdim),       & !< Downward Photosynthetically Active Radiation (PAR) at surface
-    & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
-    & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
-    & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
-    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward longwave  at TOA (:,1) and surface (:,2) 
-    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward shortwave at TOA (:,1) and surface (:,2) 
-    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net downward longwave  at all levels
-    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net downward shortwave at all levels
-    & lw_net(kbdim,klevp1),    & !< All-sky net downward longwave  at all levels
-    & sw_net(kbdim,klevp1)       !< All-sky net downward shortwave at all levels
+    & xm_cfc(kbdim,klev,2),         & !< CFC mixing ratio
+    & flux_factor(kbdim),           & !< 1D Scratch Array for diagnostics
+    & flx_uplw    (kbdim,klevp1),   & !<   All-sky   upward longwave  flux [Wm2]
+    & flx_uplw_clr(kbdim,klevp1),   & !< Clear-sky   upward longwave  flux [Wm2]
+    & flx_dnlw    (kbdim,klevp1),   & !<   All-sky downward longwave  flux [Wm2]
+    & flx_dnlw_clr(kbdim,klevp1),   & !< Clear-sky downward longwave  flux [Wm2]
+    & flx_upsw    (kbdim,klevp1),   & !<   All-sky   upward shortwave flux [Wm2]
+    & flx_upsw_clr(kbdim,klevp1),   & !< Clear-sky   upward shortwave flux [Wm2]
+    & flx_dnsw    (kbdim,klevp1),   & !<   All-sky downward shortwave flux [Wm2]
+    & flx_dnsw_clr(kbdim,klevp1)      !< Clear-sky downward shortwave flux [Wm2]
 
-    REAL(wp), INTENT(INOUT) ::    & !< Avoid leaving kproma+1:kbdim undefined
-    & ozone(kbdim,klev)             !< ozone
     !
     ! 1.0 calculate variable input parameters (location and state variables)
     ! --------------------------------
@@ -922,15 +967,58 @@ MODULE mo_psrad_radiation
     CASE (0)
       xm_o3(1:kproma,:) = EPSILON(1.0_wp)
 !!$    CASE (2)
-!!$      xm_o3(1:kproma,:) = o3_lwb(krow,ppd_hl,pp_hl)
+!!$      xm_o3(1:kproma,:) = o3_lwb(jb,ppd_hl,pp_hl)
 !!$    CASE (3)
-!!$      xm_o3(1:kproma,:) = o3clim(krow,kproma,kbdim,klev,pp_hl,pp_fl)
+!!$      xm_o3(1:kproma,:) = o3clim(jb,kproma,kbdim,klev,pp_hl,pp_fl)
 !!$    CASE (4)
-!!$      xm_o3(1:kproma,:) = o3clim(krow,kproma,kbdim,klev,pp_hl,pp_fl)
+!!$      xm_o3(1:kproma,:) = o3clim(jb,kproma,kbdim,klev,pp_hl,pp_fl)
     CASE default
       CALL finish('radiation','o3: this "io3" is not supported')
     END SELECT ozon
     ozone(1:kproma,:) = xm_o3(1:kproma,:)
+    ! 2.0 Radiation used to advance model, provide standard diagnostics, and radiative forcing if desired
+    !
+    ! --------------------------------
+    ! 2.1 Radiation call (number of calls depends on whether forcing is desired)
+    ! --------------------------------
+    number_rad_call = 1
+    IF (lradforcing(1).OR.lradforcing(2)) number_rad_call = 2 
+
+    DO i_rad_call = 1,number_rad_call
+      iaero_call = iaero
+      IF (i_rad_call < number_rad_call) iaero_call = 0
+
+      CALL psrad_interface( &
+           & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
+           & jb              ,ktrac           ,ktype           ,nb_sw           ,&
+           & loland          ,loglac          ,cemiss          ,cos_mu0         ,&
+           & pgeom1          ,alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,&
+           & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
+           & tk_fl           ,tk_hl           ,tk_sfc          ,xq_vap          ,&
+           & xq_liq          ,xq_ice          ,cdnc            ,xc_frc          ,&
+           & cld_cvr         ,xm_o3           ,xm_co2          ,xm_ch4          ,&
+           & xm_n2o          ,xm_cfc          ,xm_o2           ,pxtm1           ,&
+           & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
+           & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
+           & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
+           & par_dff_frc                                                         )
+      !
+      ! Compute net fluxes from up/down fluxes, and normalize solar fluxes by current value of solar constant
+      ! and zenith angle as they are renormalized when heating rates are calculated.
+      !
+      flux_factor(1:kproma) = 1._wp / (psctm*cos_mu0(1:kproma))
+      lw_net    (1:kproma,1:klevp1) =  flx_dnlw    (1:kproma, 1:klevp1) - flx_uplw    (1:kproma, 1:klevp1)       
+      sw_net    (1:kproma,1:klevp1) = (flx_dnsw    (1:kproma, 1:klevp1) - flx_upsw    (1:kproma, 1:klevp1)) * &
+           &                      SPREAD(flux_factor(1:kproma),2,klevp1)       
+      lw_net_clr(1:kproma,1:klevp1) =  flx_dnlw_clr(1:kproma, 1:klevp1) - flx_uplw_clr(1:kproma, 1:klevp1)       
+      sw_net_clr(1:kproma,1:klevp1) = (flx_dnsw_clr(1:kproma, 1:klevp1) - flx_upsw_clr(1:kproma, 1:klevp1)) * &
+           &                      SPREAD(flux_factor(1:kproma),2,klevp1)
+      par_dn_sfc(1:kproma) = par_dn_sfc(1:kproma) * flux_factor(1:kproma)
+
+!!$      IF (i_rad_call < number_rad_call) CALL prepare_forcing(                & 
+!!$           & kproma          ,kbdim           ,klevp1          ,jb          ,&
+!!$           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
+    END DO
 
 
 

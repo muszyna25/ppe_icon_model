@@ -456,26 +456,26 @@ CONTAINS
     ! 
     ! Potential pitfall - we're passing every argument but some may not be present
     !
-!!$    CALL srtm(kproma                                                           , & 
-!!$         &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
-!!$         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-!!$         &  alb_nir_dir     ,alb_nir_dif     ,pmu0            ,ssi_factor      , &
-!!$         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
-!!$         &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-!!$         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-!!$         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,vis_frc_sfc     , &
-!!$         &  par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,par_dff_frc       )
-!!$    !
-!!$    ! 5.0 Post Processing
-!!$    ! --------------------------------
-!!$    !
-!!$    ! Lw fluxes are vertically revered but SW fluxes are not
-!!$    !
-!!$    flx_uplw    (1:kproma,1:klev+1) = flx_uplw_vr    (1:kproma,klev+1:1:-1) 
-!!$    flx_uplw_clr(1:kproma,1:klev+1) = flx_uplw_clr_vr(1:kproma,klev+1:1:-1)
-!!$    flx_dnlw    (1:kproma,1:klev+1) = flx_dnlw_vr    (1:kproma,klev+1:1:-1)
-!!$    flx_dnlw_clr(1:kproma,1:klev+1) = flx_dnlw_clr_vr(1:kproma,klev+1:1:-1)
-!!$
+    CALL srtm(kproma                                                           , & 
+         &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
+         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
+         &  alb_nir_dir     ,alb_nir_dif     ,pmu0            ,ssi_factor      , &
+         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
+         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
+         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,vis_frc_sfc     , &
+         &  par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,par_dff_frc       )
+    !
+    ! 5.0 Post Processing
+    ! --------------------------------
+    !
+    ! Lw fluxes are vertically revered but SW fluxes are not
+    !
+    flx_uplw    (1:kproma,1:klev+1) = flx_uplw_vr    (1:kproma,klev+1:1:-1) 
+    flx_uplw_clr(1:kproma,1:klev+1) = flx_uplw_clr_vr(1:kproma,klev+1:1:-1)
+    flx_dnlw    (1:kproma,1:klev+1) = flx_dnlw_vr    (1:kproma,klev+1:1:-1)
+    flx_dnlw_clr(1:kproma,1:klev+1) = flx_dnlw_clr_vr(1:kproma,klev+1:1:-1)
+
 !!$    !
 !!$    ! 6.0 Interface for submodel diagnosics after radiation calculation:
 !!$    ! ------------------------------------------------------------------
