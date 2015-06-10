@@ -30,8 +30,8 @@ MODULE mo_nh_stepping
 !
 
   USE mo_kind,                     ONLY: wp, vp
-  USE mo_nonhydro_state,           ONLY: p_nh_state
-  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
+  USE mo_nonhydro_state,           ONLY: p_nh_state, p_nh_state_lists
+  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, divdamp_order,                     &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
@@ -48,7 +48,8 @@ MODULE mo_nh_stepping
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                                    timer_total, timer_model_init, timer_nudging,    &
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
-    &                                    timer_integrate_nh, timer_nh_diagnostics
+    &                                    timer_integrate_nh, timer_nh_diagnostics,        &
+    &                                    timer_iconam_echam
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
@@ -124,8 +125,10 @@ MODULE mo_nh_stepping
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
-    &                                    interval_avg_fg, is_avgFG_time
+    &                                    is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
+  USE mo_synsat_config,            ONLY: lsynsat, num_images
+  USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
   USE mo_sync_latbc,               ONLY: prepare_latbc_data , read_latbc_data, &
@@ -164,6 +167,7 @@ MODULE mo_nh_stepping
 
 #endif
 #endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -260,7 +264,7 @@ MODULE mo_nh_stepping
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
     &  routine = 'mo_nh_stepping:perform_nh_stepping'
 
-  INTEGER                              :: jg
+  INTEGER                              :: jg, jgc, jn
   INTEGER                              :: ierr
   REAL(wp)                             :: zdt_shift
 
@@ -355,7 +359,18 @@ MODULE mo_nh_stepping
           &                      p_lnd_state(jg)%diag_lnd,               & !in
           &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
           &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+          &                      ext_data(jg),                           & !in
           &                      prm_diag(jg)                            ) !inout
+
+        ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+          IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+        ENDDO
+        ! Compute synthetic sat images
+        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), num_images)
+
       ENDDO
 
       CALL fill_nestlatbc_phys
@@ -470,12 +485,12 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE perform_nh_timeloop (datetime_current)
 !
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime_current
 
-  INTEGER                              :: jg
+  INTEGER                              :: jg, jn, jgc
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_nml_output, lprint_timestep, &
@@ -737,7 +752,18 @@ MODULE mo_nh_stepping
             &                      p_lnd_state(jg)%diag_lnd,               & !in
             &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
             &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+            &                      ext_data(jg),                           & !in
             &                      prm_diag(jg)                            ) !inout
+
+          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+          DO jn = 1, p_patch(jg)%n_childdom
+            jgc = p_patch(jg)%child_id(jn)
+            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+          ENDDO
+          ! Compute synthetic sat images
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), num_images)
+
         ENDDO
 
         CALL fill_nestlatbc_phys
@@ -901,6 +927,8 @@ MODULE mo_nh_stepping
   IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
 
   END SUBROUTINE perform_nh_timeloop
+
+
   !-------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
@@ -1341,7 +1369,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+              &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
 
           ELSE ! is_les_phy
 
@@ -1372,11 +1400,12 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-                &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
 
             CASE (iecham) ! iforcing
 
               ! echam physics
+              IF (ltimer) CALL timer_start(timer_iconam_echam)
               CALL interface_iconam_echam( dt_loc                         ,& !in
                 &                          datetime_current               ,& !in
                 &                          p_patch(jg)                    ,& !in
@@ -1385,6 +1414,7 @@ MODULE mo_nh_stepping
                 &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
                 &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
                 &                          p_nh_state(jg)%diag            )  !inout
+              IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
             END SELECT ! iforcing
 
@@ -1925,7 +1955,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in
+        &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
   
     ELSE ! is_les_phy
   
@@ -1956,7 +1986,7 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-          &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
+          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in 
 
       CASE (iecham) ! iforcing
 
@@ -1973,6 +2003,7 @@ MODULE mo_nh_stepping
         CASE (2) ! idcphycpl
 
           ! echam physics, slow physics coupling
+          IF (ltimer) CALL timer_start(timer_iconam_echam)
           CALL interface_iconam_echam( dt_loc                         ,& !in
             &                          datetime_current               ,& !in
             &                          p_patch(jg)                    ,& !in
@@ -1981,6 +2012,7 @@ MODULE mo_nh_stepping
             &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%diag            )  !inout
+          IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
         CASE DEFAULT ! idcphycpl
 
@@ -2166,7 +2198,7 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        CALL interpol_phys_grf(jg, jgc, jn) 
+        CALL interpol_phys_grf(ext_data, jg, jgc, jn) 
 
         IF (lfeedback(jgc) .AND. ifeedback_type==1) CALL feedback_phys_diag(jgc, jg)
 

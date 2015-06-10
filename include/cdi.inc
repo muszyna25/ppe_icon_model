@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.6.4
+! Fortran interface for CDI library version 1.6.8
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   September 2014
+! Uwe Schulzweida, MPI-MET, Hamburg,   February 2015
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -185,6 +185,8 @@
       PARAMETER (DATATYPE_CPX           = 254)
       INTEGER    DATATYPE_UCHAR        
       PARAMETER (DATATYPE_UCHAR         = 255)
+      INTEGER    DATATYPE_LONG         
+      PARAMETER (DATATYPE_LONG          = 256)
 !
 !  Chunks
 !
@@ -375,6 +377,11 @@
       INTEGER    CALENDAR_NONE         
       PARAMETER (CALENDAR_NONE          =  5)
 !
+!  number of unsigned char needed to store UUID
+!
+      INTEGER    CDI_UUID_SIZE         
+      PARAMETER (CDI_UUID_SIZE          = 16)
+!
 !  CDI control routines
 !
 !                     cdiReset
@@ -383,11 +390,6 @@
       CHARACTER(80)   cdiStringError
 !                                    (INTEGER         cdiErrno)
       EXTERNAL        cdiStringError
-
-!                     cdiGetStringError
-!                                    (INTEGER         cdiErrno,
-!                                     CHARACTER*(*)   name)
-      EXTERNAL        cdiGetStringError
 
 !                     cdiDebug
 !                                    (INTEGER         debug)
@@ -486,6 +488,11 @@
 !
 !  STREAM control routines
 !
+      INTEGER         cdiGetFiletype
+!                                    (CHARACTER*(*)   path,
+!                                     INTEGER         byteorder)
+      EXTERNAL        cdiGetFiletype
+
       INTEGER         streamOpenRead
 !                                    (CHARACTER*(*)   path)
       EXTERNAL        streamOpenRead
@@ -575,10 +582,6 @@
       CHARACTER(80)   streamFilesuffix
 !                                    (INTEGER         filetype)
       EXTERNAL        streamFilesuffix
-
-      INTEGER         streamNtsteps
-!                                    (INTEGER         streamID)
-      EXTERNAL        streamNtsteps
 
       INTEGER         streamInqNvars
 !                                    (INTEGER         streamID)
@@ -1382,6 +1385,7 @@
 
 !                     gridPrint
 !                                    (INTEGER         gridID,
+!                                     INTEGER         index,
 !                                     INTEGER         opt)
       EXTERNAL        gridPrint
 
@@ -1666,12 +1670,12 @@
 
 !                     gridDefUUID
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid_cbuf)
+!                                     INTEGER*1(16)   uuid)
       EXTERNAL        gridDefUUID
 
 !                     gridInqUUID
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid_cbuf)
+!                                     INTEGER*1(16)   uuid)
       EXTERNAL        gridInqUUID
 
 !
@@ -1844,7 +1848,8 @@
       EXTERNAL        zaxisResize
 
 !                     zaxisPrint
-!                                    (INTEGER         zaxisID)
+!                                    (INTEGER         zaxisID,
+!                                     INTEGER         index)
       EXTERNAL        zaxisPrint
 
 !                     zaxisDefLevels
@@ -1888,12 +1893,12 @@
 
 !                     zaxisDefUUID
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   uuid_cbuf)
+!                                     INTEGER*1(16)   uuid)
       EXTERNAL        zaxisDefUUID
 
 !                     zaxisInqUUID
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   uuid_cbuf)
+!                                     INTEGER*1(16)   uuid)
       EXTERNAL        zaxisInqUUID
 
 !                     zaxisDefName
@@ -2368,3 +2373,21 @@
 !                                     INTEGER         revision_version)
       EXTERNAL        gribapiLibraryVersion
 
+
+      INTEGER         vlistInqVarSubtype
+      EXTERNAL        vlistInqVarSubtype
+
+      INTEGER         subtypeInqTile
+      EXTERNAL        subtypeInqTile
+
+      INTEGER         subtypeInqSize
+      EXTERNAL        subtypeInqSize
+
+      INTEGER         subtypeInqActiveIndex
+      EXTERNAL        subtypeDefActiveIndex
+
+
+!                     cdiGetStringError
+!                                    (INTEGER         cdiErrno,
+!                                     CHARACTER*(*)   name)
+      EXTERNAL        cdiGetStringError

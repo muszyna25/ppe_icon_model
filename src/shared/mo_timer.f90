@@ -56,29 +56,42 @@ MODULE mo_timer
     & timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   PUBLIC :: timer_physics
                         !< IDs of timers
-  PUBLIC :: timer_radiation
   PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton
-
-  PUBLIC :: timer_lrtm_1, timer_lrtm_2
+    & timer_preradiaton, timer_synsat
 
   PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
   PUBLIC :: timer_corio, timer_intp
   PUBLIC :: timer_transport
   PUBLIC :: timer_back_traj
-  PUBLIC :: timer_cover, timer_cloud
-  PUBLIC :: timer_cucall
-  PUBLIC :: timer_vdiff
-  PUBLIC :: timer_gw_hines
-  PUBLIC :: timer_echam_phy
-  PUBLIC :: timer_jsbach
-  PUBLIC :: timer_dyn2phy, timer_phy2dyn
-  PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers
   PUBLIC :: timer_nh_hdiffusion
 
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
   PUBLIC :: timer_nh_diagnostics
+
+  ! atmosphere - ocean coupling
+  PUBLIC :: timer_coupling, timer_coupling_init
+  PUBLIC :: timer_coupling_1stget, timer_coupling_get
+  PUBLIC :: timer_coupling_put
+
+  ! iconam - echam coupling
+  PUBLIC :: timer_iconam_echam
+  PUBLIC :: timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple
+  PUBLIC :: timer_echam_bcs, timer_echam_phy
+  PUBLIC :: timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
+  !
+  ! echam physics
+  PUBLIC :: timer_cover
+  PUBLIC :: timer_radiation, timer_radheat
+  PUBLIC :: timer_vdiff_down, timer_vdiff_up
+  PUBLIC :: timer_surface, timer_jsbach
+  PUBLIC :: timer_gw_hines, timer_ssodrag
+  PUBLIC :: timer_cucall, timer_cloud
+  !
+  ! echam radiation
+  PUBLIC :: timer_rrtm_prep, timer_rrtm_post
+  PUBLIC :: timer_lrtm, timer_srtm
+
 
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
@@ -90,7 +103,6 @@ MODULE mo_timer
   PUBLIC :: timer_nwp_convection
   PUBLIC :: timer_nwp_radiation
   PUBLIC :: timer_pre_radiation_nwp
-  PUBLIC :: timer_radheat
   PUBLIC :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
   PUBLIC :: timer_phys_sync_tracers
   PUBLIC :: timer_phys_sync_tempv
@@ -120,11 +132,6 @@ MODULE mo_timer
   PUBLIC :: timer_dbg_prnt
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
-  PUBLIC :: timer_coupling
-  PUBLIC :: timer_coupling_put
-  PUBLIC :: timer_coupling_get
-  PUBLIC :: timer_coupling_1stget
-  PUBLIC :: timer_coupling_init
   PUBLIC :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   PUBLIC :: timer_intrp_diagn
@@ -200,6 +207,7 @@ MODULE mo_timer
   INTEGER :: timer_fast_phys
   INTEGER :: timer_nwp_convection
   INTEGER :: timer_nwp_radiation
+  INTEGER :: timer_synsat
   INTEGER :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
     & timer_preradiaton
   INTEGER :: timer_pre_radiation_nwp
@@ -228,26 +236,33 @@ MODULE mo_timer
   INTEGER :: timer_transport    ! tracer transport
   INTEGER :: timer_back_traj
 
-  ! Timer ID's for ECHAM6 physics
-  INTEGER :: timer_cover
-  INTEGER :: timer_cloud
-  INTEGER :: timer_radiation
-  INTEGER :: timer_lrtm_1, timer_lrtm_2
-  INTEGER :: timer_radheat
-  INTEGER :: timer_cucall
-  INTEGER :: timer_vdiff
-  INTEGER :: timer_gw_hines
-  INTEGER :: timer_echam_phy
-  INTEGER :: timer_jsbach
-
   ! Timer ID's for forcings and testcases
   INTEGER :: timer_held_suarez_intr
 
+  ! Timer ID's for ocean-atmosphere coupling
+  INTEGER :: timer_coupling, timer_coupling_init
+  INTEGER :: timer_coupling_get, timer_coupling_1stget, timer_coupling_put
+
   ! Timer ID's for physics-dynamics coupling
 
-  INTEGER :: timer_dyn2phy
-  INTEGER :: timer_phy2dyn
-  INTEGER :: timer_echam_sync_temp, timer_echam_sync_tracers
+  ! iconam - echam coupling
+  INTEGER :: timer_iconam_echam
+  INTEGER :: timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple
+  INTEGER :: timer_echam_bcs, timer_echam_phy
+  INTEGER :: timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
+  !
+  ! echam physics
+  INTEGER :: timer_cover
+  INTEGER :: timer_radiation, timer_radheat
+  INTEGER :: timer_vdiff_down, timer_vdiff_up
+  INTEGER :: timer_surface, timer_jsbach
+  INTEGER :: timer_gw_hines, timer_ssodrag
+  INTEGER :: timer_cucall, timer_cloud
+  !
+  ! echam radiation
+  INTEGER :: timer_rrtm_prep, timer_rrtm_post
+  INTEGER :: timer_lrtm, timer_srtm
+
 
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
@@ -262,7 +277,6 @@ MODULE mo_timer
   INTEGER :: timer_dbg_prnt
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
-  INTEGER :: timer_coupling, timer_coupling_put, timer_coupling_get, timer_coupling_1stget, timer_coupling_init
   INTEGER :: timer_RK_tend, timer_RK_update, timer_step_RK
 
   INTEGER :: timer_intrp_diagn
@@ -336,12 +350,7 @@ CONTAINS
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
     timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
-    timer_coupling           = new_timer("coupling")
-    timer_coupling_init      = new_timer("coupling_init")
-    timer_coupling_put       = new_timer("coupling_put")
-    timer_coupling_get       = new_timer("coupling_get")
-    timer_coupling_1stget    = new_timer("coupling_1stget")
-    timer_write_output       = new_timer("wrt_output")
+    timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
 
     timer_integrate_nh      = new_timer  ("integrate_nh")
@@ -358,16 +367,12 @@ CONTAINS
     timer_nh_hdiffusion= new_timer("nh_hdiff")
 
     timer_physics   = new_timer("physics")
-    timer_echam_phy = new_timer("echam_phy")
-    timer_jsbach    = new_timer("jsbach")
     timer_transport = new_timer("transport")
     timer_back_traj = new_timer("back_traj")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
 
     timer_held_suarez_intr = new_timer("held_suarez_intr")
-
-    timer_gw_hines  = new_timer("gw_hines")
 
     ! dynamics timers
     timer_RK_tend = new_timer("RK_tend")
@@ -384,25 +389,52 @@ CONTAINS
     timer_corio     = new_timer("corio")
     timer_intp      = new_timer("intp")
 
-    ! physics timers
+    ! atmosphere-ocean coupling
+    timer_coupling        = new_timer("coupling")
+    timer_coupling_init   = new_timer("coupling_init")
+    timer_coupling_1stget = new_timer("coupling_1stget")
+    timer_coupling_get    = new_timer("coupling_get")
+    timer_coupling_put    = new_timer("coupling_put")
+
+    ! iconam - echam coupling
+    timer_iconam_echam= new_timer("iconam_echam")
+    timer_dyn2phy     = new_timer("dyn2phy")
+    timer_d2p_prep    = new_timer("d2p_prep")
+    timer_d2p_sync    = new_timer("d2p_sync")
+    timer_d2p_couple  = new_timer("d2p_couple")
+    timer_echam_bcs   = new_timer("echam_bcs")
+    timer_echam_phy   = new_timer("echam_phy")
+    timer_phy2dyn     = new_timer("phy2dyn")
+    timer_p2d_prep    = new_timer("p2d_prep")
+    timer_p2d_sync    = new_timer("p2d_sync")
+    timer_p2d_couple  = new_timer("p2d_couple")
+    !
+    ! echam physics
+    timer_cover     = new_timer("cover")
     timer_radiation = new_timer("radiation")
-    timer_lrtm_1    = new_timer("rad_lrtm_1")
-    timer_lrtm_2    = new_timer("rad_lrtm_2")
+    timer_radheat   = new_timer("radheat")
+    timer_vdiff_down= new_timer("vdiff_down")
+    timer_vdiff_up  = new_timer("vdiff_up")
+    timer_surface   = new_timer("surface")
+    timer_jsbach    = new_timer("jsbach")
+    timer_gw_hines  = new_timer("gw_hines")
+    timer_ssodrag   = new_timer("ssodrag")
+    timer_cucall    = new_timer("cucall")
+    timer_cloud     = new_timer("cloud")
+    !
+    ! echam radiation
+    timer_rrtm_prep = new_timer("rrtm_prep")
+    timer_rrtm_post = new_timer("rrtm_post")
+    timer_lrtm      = new_timer("lrtm")
+    timer_srtm      = new_timer("srtm")
+
+    ! physics timers
     timer_omp_radiation = new_timer("omp_radiation")
     timer_nwp_radiation = new_timer("nwp_radiation")
     timer_radiaton_recv = new_timer("radiaton_recv")
     timer_radiaton_comp  = new_timer("radiaton_comp")
     timer_radiaton_send  = new_timer("radiaton_send")
     timer_preradiaton = new_timer("preradiaton")
-    timer_radheat = new_timer("radheat")
-    timer_cover     = new_timer("cover")
-    timer_cloud     = new_timer("cloud")
-    timer_cucall    = new_timer("cucall")
-    timer_vdiff     = new_timer("vdiff")
-    timer_dyn2phy   = new_timer("dyn2phy")
-    timer_phy2dyn   = new_timer("phy2dyn")
-    timer_echam_sync_temp= new_timer("echam_sync_temp")
-    timer_echam_sync_tracers= new_timer("echam_sync_tracers")
     timer_phys_acc = new_timer("phys_acc_sync")
     timer_phys_exner = new_timer("phys_exner")
     timer_phys_acc_1 = new_timer("phys_acc_1")
@@ -430,7 +462,7 @@ CONTAINS
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
     timer_sso = new_timer("sso")
     timer_cover_koe = new_timer("cloud_cover")
-
+    timer_synsat    = new_timer("synsat")
 
     timer_model_init    = new_timer("model_init")
     timer_domain_decomp = new_timer("compute_domain_decomp")

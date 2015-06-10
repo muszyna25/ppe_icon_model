@@ -46,8 +46,11 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
+USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
-USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
+USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
+  &                                construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
 USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
@@ -141,7 +144,11 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
+      CALL configure_ensemble_pert()
+
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
+
+      CALL configure_synsat()
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
@@ -179,6 +186,11 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
     ENDIF
 
+    ALLOCATE (p_nh_state_lists(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_nh_state_lists failed')
+    ENDIF
+
     ! Note(GZ): Land state now needs to be allocated even if physics is turned
     ! off because ground temperature is included in feedback since r8133
     ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
@@ -196,7 +208,7 @@ CONTAINS
       l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl")
       l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")
     END DO
-    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
+    CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
@@ -228,7 +240,8 @@ CONTAINS
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme ) 
+       &                      idiv_method, itime_scheme,               &
+       &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
 
     !---------------------------------------------------------------------
@@ -425,8 +438,16 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi") 
-    ENDIF
+        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+
+        atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
+        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+     ENDIF
 
     !----------------------!
     !  Initialize actions  !
@@ -483,10 +504,14 @@ CONTAINS
    
     ! Delete state variables
 
-    CALL destruct_nh_state( p_nh_state )
+    CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
     DEALLOCATE (p_nh_state, STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
+    ENDIF
+    DEALLOCATE (p_nh_state_lists, STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for p_nh_state_lists failed')
     ENDIF
 
     IF (iforcing == inwp) THEN
