@@ -43,8 +43,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 (( dt_checkpoint = 300 * day))
 (( dt_restart    = 900 * day))
 #
-output_interval_2d="PT2H"
-output_interval_3d="PT6H"
+output_interval="P1D"
 file_interval="P300D"
 
 # namelist files
@@ -291,34 +290,6 @@ cat >> ${atmo_namelist} << EOF
 /
 EOF
 
-# Define grids for horizontal remapping
-# -------------------------------------
-#
-# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
-# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
-# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
-# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
-# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
-# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
-#
-# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
-# The tropical rows have 320 triangles or 160 rhombi.
-#
-# Therefore the following regular lon-lat grids are of interest for remapping:
-#
-# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
-reg_lat_def_reg=-89.0625,1.875,89.0625
-reg_lon_def_reg=0.,1.875,358.125
-#
-# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
-reg_lat_def_rmb=$reg_lat_def_reg
-reg_lon_def_rmb=0.,2.25,357.75
-#
-# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
-reg_lat_def_tri=$reg_lat_def_reg
-reg_lon_def_tri=0.,1.125,358.875
-
-
 # Define output files
 # -------------------
 #
@@ -330,32 +301,17 @@ if [[ "$output_atm_3d" == "yes" ]]; then
   #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_3d_fl"
+ output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_3d}"          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','dpres_mc'
-/
-EOF
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_3d_hl"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_3d}"          ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- ml_varlist       = 'wa','phalf'
+                    'zg','pfull'
 /
 EOF
 fi
@@ -373,7 +329,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_2d}"          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
@@ -406,7 +362,7 @@ EOF
 fi
 
 
-output_phy_3d=no  # "yes" increases the output volume significantly!
+output_phy_3d=yes # "yes" increases the output volume significantly!
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -418,7 +374,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_3d}"          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -451,7 +407,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_3d}"          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
@@ -475,7 +431,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_2d}"          ! ISO-format interval
+ output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
