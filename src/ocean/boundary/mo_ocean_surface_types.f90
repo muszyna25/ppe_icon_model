@@ -27,7 +27,7 @@ MODULE mo_ocean_surface_types
 
   ! Definition of forcing types for ocean surface module
   ! public types
-  PUBLIC  :: t_ocean_surface_types
+  PUBLIC  :: t_ocean_surface
   PUBLIC  :: t_ptr2d
 
 
@@ -41,7 +41,7 @@ MODULE mo_ocean_surface_types
   ! These fluxes will successively replace the fluxes defined in type t_sfc_flx,
   ! they are at the end exclusively used by module mo_ocean_surface
 
-  TYPE t_ocean_surface_types
+  TYPE t_ocean_surface
 
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
@@ -51,7 +51,9 @@ MODULE mo_ocean_surface_types
       &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
       &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux under sea ice             [m/s]
       &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
-      &  data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [K]
+      &  SST                       (:,:), & ! sea surface temperature                                   [C]
+      &  SSS                       (:,:), & ! sea surface salinity                                      [psu]
+      &  data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [C]
       &  data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
       &  HeatFlux_Relax            (:,:), & ! surface heat flux due to relaxation                       [W/m2]
       &  FrshFlux_Relax            (:,:), & ! surface freshwater flux due to relaxation                 [m/s]
@@ -61,6 +63,8 @@ MODULE mo_ocean_surface_types
       &  TopBC_WindStress_v_acc         (:,:),  &
       &  HeatFlux_Total_acc             (:,:),  &
       &  FrshFlux_TotalIce_acc          (:,:),  &
+      &  SST_acc                        (:,:),  &
+      &  SSS_acc                        (:,:),  &
       &  HeatFlux_Relax_acc             (:,:),  &
       &  FrshFlux_Relax_acc             (:,:),  &
       !
@@ -69,11 +73,11 @@ MODULE mo_ocean_surface_types
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: TopBC_WindStress_cc(:,:)
 
-    TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
-  END TYPE t_ocean_surface_types
+  ! TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+  END TYPE t_ocean_surface
 
   ! global type variables
-  TYPE(t_ocean_surface_types), PUBLIC, TARGET :: v_oce_sfc
+  TYPE(t_ocean_surface), PUBLIC, TARGET :: v_oce_sfc
 
 END MODULE mo_ocean_surface_types
 
