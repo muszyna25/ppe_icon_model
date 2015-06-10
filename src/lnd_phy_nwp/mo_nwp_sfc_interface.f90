@@ -410,6 +410,16 @@ CONTAINS
           rho_snow_now_t(ic)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
           w_i_now_t(ic)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
           h_snow_t(ic)              =  lnd_diag%h_snow_t(jc,jb,isubs)
+          freshsnow_t(ic)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
+
+          IF (isubs > ntiles_lnd) THEN ! snowtiles
+            ! assume a snow-cover fraction of 1 on the snow tiles except in cases of very low snow depths
+            ! (numerical stability issues in TERRA, particularly for the multi-layer scheme)
+            snowfrac_t(ic)          =  MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs)/0.01_wp)
+          ELSE
+            snowfrac_t(ic)          =  lnd_diag%snowfrac_t(jc,jb,isubs)
+          ENDIF
+
           IF (itype_interception == 2) THEN
             w_p_now_t(ic)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
             w_s_now_t(ic)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
@@ -417,8 +427,7 @@ CONTAINS
             w_p_now_t(ic)             =  0._wp
             w_s_now_t(ic)             =  0._wp
           END IF
-          freshsnow_t(ic)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
-          snowfrac_t(ic)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
+
           runoff_s_t(ic)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
@@ -890,12 +899,6 @@ CONTAINS
              ! copy rho_snow and freshsnow in order to get the right tile-averaged values
              lnd_prog_new%rho_snow_t(jc,jb,isubs)  = lnd_prog_new%rho_snow_t(jc,jb,isubs_snow)
              lnd_diag%freshsnow_t(jc,jb,isubs)     = lnd_diag%freshsnow_t(jc,jb,isubs_snow)
-
-             ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
-             ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
-             ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
-             ! time steps when associating traces of snow with a snow-cover fraction of 1)
-             lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)/0.01_wp)
 
              ! Rediagnose t_g according to the modified snow-cover fraction
              lnd_prog_new%t_g_t(jc,jb,isubs_snow) =  &
