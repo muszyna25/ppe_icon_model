@@ -146,7 +146,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 4,4 !two moment microphysics
+inwp_gscp       = 1,1 !temporary switched off:two moment microphysics
 inwp_convection = 0,0
 inwp_radiation  = 1,1
 inwp_cldcover   = 5,5
