@@ -206,7 +206,7 @@ CONTAINS
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
-    CALL construct_opt_diag(p_patch(1:), .TRUE.)
+    CALL construct_opt_diag(p_patch(1:), .TRUE.,iforcing==iecham,l_pres_msl=l_pres_msl(1))
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
