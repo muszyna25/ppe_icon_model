@@ -64,15 +64,14 @@ MODULE mo_nwp_lnd_state
     &                                groups, post_op
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
+  USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, TSTEP_ACCUM
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,     & 
     &                                GRID_CELL, ZA_SURFACE, ZA_SNOW,             &
     &                                ZA_SNOW_HALF, ZA_DEPTH_BELOW_LAND,          &
-    &                                ZA_DEPTH_BELOW_LAND_P1, DATATYPE_FLT32,     &
+    &                                ZA_DEPTH_BELOW_LAND_P1,     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
-    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER,          &
-    &                                DATATYPE_PACK16, DATATYPE_PACK24,           &
-    &                                TSTEP_ACCUM
+    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER
 
 
 

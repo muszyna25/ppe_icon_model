@@ -1875,6 +1875,7 @@ support/CMakeLists.txt -text
 support/cdi_int.h -text
 support/cdilib.c -text
 support/cfortran.h -text
+support/mo_cdi.f90 -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
 support/rtc_sx.s -text

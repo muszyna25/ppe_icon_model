@@ -28,13 +28,11 @@ MODULE mo_util_cdi_table
     &                             max_datetime_str_len, deallocateDatetime,       &
     &                             deallocateTimedelta, OPERATOR(-)
   USE mo_dictionary,       ONLY : t_dictionary, dict_get
-  USE mo_cdi_constants,    ONLY : vlistInqVarParam, vlistInqTaxis, taxisInqVdate, &
-    &                             taxisInqVtime, vlistInqVarIntKey,               &
-    &                             vlistInqVarTypeOfGeneratingProcess,             &
-    &                             taxisInqRdate, taxisInqRtime, vlistInqVarZaxis, &
-    &                             zaxisInqSize, vlistInqVarGrid, gridInqNumber,   &
-    &                             gridInqPosition, vlistNvars, FILETYPE_GRB2,     &
-    &                             vlistInqVarSubtype, subtypeInqSize
+  USE mo_cdi,              ONLY : vlistInqVarParam, vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistInqVarIntKey, &
+                                & vlistInqVarTypeOfGeneratingProcess, taxisInqRdate, taxisInqRtime, vlistInqVarZaxis, &
+                                & zaxisInqSize, vlistInqVarGrid, gridInqNumber, gridInqPosition, vlistNvars, FILETYPE_GRB2, &
+                                & vlistInqVarName, gridInqUUID, cdiDecodeParam, cdiDecodeDate, cdiDecodeTime, zaxisInqUUID, &
+                                & vlistInqVarSubtype, subtypeInqSize
 
 
   IMPLICIT NONE

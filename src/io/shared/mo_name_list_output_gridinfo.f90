@@ -14,7 +14,10 @@
 !!
 MODULE mo_name_list_output_gridinfo
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: DATATYPE_PACK16, TSTEP_CONSTANT, vlistDefVar, cdiEncodeParam, streamWriteVar, &
+                                                & vlistDefVarDatatype, vlistDefVarName, vlistDefVarTsteptype, vlistDefVarParam, &
+                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds
+  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE, GRID_CELL, ZA_surface
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish

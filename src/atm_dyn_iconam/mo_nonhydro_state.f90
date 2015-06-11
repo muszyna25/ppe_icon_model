@@ -80,9 +80,8 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
-    &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
-    &                                DATATYPE_PACK24, DATATYPE_INT, TSTEP_CONSTANT,  &
-    &                                TSTEP_AVG
+    &                                ZA_MEANSEA
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG
   USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
 

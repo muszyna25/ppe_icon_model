@@ -66,7 +66,21 @@
 !!
 MODULE mo_name_list_output_zaxes
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: CDI_UNDEFID, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_SURFACE, &
+                                                & ZAXIS_ISENTROPIC, ZAXIS_ALTITUDE, ZAXIS_PRESSURE, ZAXIS_CLOUD_BASE, &
+                                                & ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
+                                                & ZAXIS_HYBRID_HALF, ZAXIS_ISOTHERM_ZERO, ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, &
+                                                & ZAXIS_MIX_LAYER, ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SNOW, &
+                                                & ZAXIS_TOA, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
+                                                & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
+  USE mo_cdi_constants,                     ONLY: ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE, ZA_surface, &
+                                                & ZA_isentropic, ZA_altitude, ZA_pressure, ZA_cloud_base, ZA_cloud_top, &
+                                                & ZA_depth_below_land, ZA_depth_below_land_p1, ZA_depth_runoff_g, &
+                                                & ZA_depth_runoff_s, ZA_height_10m, ZA_height_2m, ZA_hybrid, ZA_hybrid_half, &
+                                                & ZA_hybrid_half_hhl, ZA_isotherm_zero, ZA_lake_bottom, ZA_lake_bottom_half, &
+                                                & ZA_meansea, ZA_mix_layer, ZA_pressure_0, ZA_pressure_400, ZA_pressure_800, &
+                                                & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, &
+                                                & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &

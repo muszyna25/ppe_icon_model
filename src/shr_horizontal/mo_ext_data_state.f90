@@ -102,12 +102,13 @@ MODULE mo_ext_data_state
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_master_control,     ONLY: is_restart_run
-  USE mo_cdi_constants,      ONLY: FILETYPE_GRB2, DATATYPE_PACK16, DATATYPE_FLT32, &
-    &                              GRID_REFERENCE, TSTEP_CONSTANT, TSTEP_MAX,      &
+  USE mo_cdi,                ONLY: FILETYPE_GRB2, DATATYPE_PACK16, DATATYPE_FLT32, &
+    &                              TSTEP_CONSTANT, TSTEP_MAX,      &
     &                              TSTEP_AVG, streamOpenRead, streamInqFileType,   &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize, &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,  &
-    &                              vlistInqVarIntKey, CDI_GLOBAL
+    &                              vlistInqVarIntKey, CDI_GLOBAL, streamClose, gridInqUUID
+  USE mo_cdi_constants,      ONLY: GRID_REFERENCE
   USE mo_math_gradients,     ONLY: grad_fe_cell
 
   IMPLICIT NONE

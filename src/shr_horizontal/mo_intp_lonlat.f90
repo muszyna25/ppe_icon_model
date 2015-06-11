@@ -72,9 +72,8 @@
     USE mo_lonlat_grid,         ONLY: rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, GRID_CELL,         &
-         &                            ZA_SURFACE, TSTEP_CONSTANT, DATATYPE_PACK16,            &
-         &                            DATATYPE_FLT32
+    USE mo_cdi,                 ONLY: TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, GRID_CELL, ZA_SURFACE
     USE mo_nonhydro_state,      ONLY: p_nh_state_lists
     USE mo_var_list,            ONLY: add_var
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
