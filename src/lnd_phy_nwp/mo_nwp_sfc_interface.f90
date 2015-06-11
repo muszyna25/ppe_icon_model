@@ -905,10 +905,13 @@ CONTAINS
              lnd_prog_new%rho_snow_t(jc,jb,isubs)  = lnd_prog_new%rho_snow_t(jc,jb,isubs_snow)
              lnd_diag%freshsnow_t(jc,jb,isubs)     = lnd_diag%freshsnow_t(jc,jb,isubs_snow)
 
-             ! Rediagnose t_g according to the modified snow-cover fraction
+            ! snow-cover fraction with respect to snow-tile fractional area used within TERRA
+             snowfrac_t(ic) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
+
+             ! Rediagnose t_g according to the adjusted snow-cover fraction
              lnd_prog_new%t_g_t(jc,jb,isubs_snow) =  &
-               lnd_diag%snowfrac_t(jc,jb,isubs_snow) * lnd_prog_new%t_snow_t(jc,jb,isubs_snow) + &
-               (1._wp-lnd_diag%snowfrac_t(jc,jb,isubs_snow))*lnd_prog_new%t_s_t(jc,jb,isubs_snow)
+               snowfrac_t(ic) * lnd_prog_new%t_snow_t(jc,jb,isubs_snow) + &
+               (1._wp-snowfrac_t(ic))*lnd_prog_new%t_s_t(jc,jb,isubs_snow)
 
              IF (lmulti_snow) THEN
                lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)

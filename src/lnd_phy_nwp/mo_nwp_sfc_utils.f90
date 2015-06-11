@@ -902,10 +902,13 @@ CONTAINS
             ! copy rho_snow in order to get the right tile average of snow density
             p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = p_prog_lnd_now%rho_snow_t(jc,jb,isubs_snow)
 
-            ! Rediagnose t_g according to the modified snow-cover fraction
+            ! snow-cover fraction with respect to snow-tile fractional area used within TERRA
+            snowfrac_t(ic,jb,isubs_snow) = MIN(1._wp,p_lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
+
+            ! Rediagnose t_g according to the local snow-cover fraction
             p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) =  &
-              p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) * p_prog_lnd_now%t_snow_t(jc,jb,isubs_snow) + &
-              (1._wp-p_lnd_diag%snowfrac_t(jc,jb,isubs_snow))*p_prog_lnd_now%t_s_t(jc,jb,isubs_snow)
+              snowfrac_t(ic,jb,isubs_snow) * p_prog_lnd_now%t_snow_t(jc,jb,isubs_snow) + &
+              (1._wp-snowfrac_t(ic,jb,isubs_snow))*p_prog_lnd_now%t_s_t(jc,jb,isubs_snow)
             ! Rediagnose qv_s_t because of the rediagnosed t_g_t
             p_lnd_diag%qv_s_t(jc,jb,isubs_snow)  =                                                  &
               &                    spec_humi(sat_pres_ice  (p_prog_lnd_now%t_g_t(jc,jb,isubs_snow)),&
