@@ -722,8 +722,6 @@ CONTAINS
     !
     buffer(nbr_hor_cells+1:nbr_cells,1:5) = 0.0_wp
     !
-    !rr CALL work_mpi_barrier ()
-    !
     ! SST
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
