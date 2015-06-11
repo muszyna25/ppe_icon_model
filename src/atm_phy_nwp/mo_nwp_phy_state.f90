@@ -2542,7 +2542,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
             
             cf_desc    = t_cf_var(TRIM(shortname), TRIM(unit), TRIM(longname), DATATYPE_FLT32)
             grib2_desc = grib2_var(idiscipline, icategory, inumber, ibits, GRID_REFERENCE, GRID_CELL)   &
-              &           + t_grib2_int_key("productDefinitionTemplateNumber", 32)                      &
               &           + t_grib2_int_key("scaledValueOfCentralWaveNumber", wave_no)                  &
               &           + t_grib2_int_key("satelliteSeries", 333)                                     &
               &           + t_grib2_int_key("satelliteNumber",  72)                                     &
