@@ -1,16 +1,16 @@
-!! @par Copyright and License
-!!
-!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.
-!! Please see the file LICENSE in the root of the source tree for this code.
-!! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
-MODULE mo_cuadjust
-#if !(defined __xlC__ && defined _ARCH_PWR6)
+#ifndef __xlC__
 #define SWDIV_NOCHK(a,b) (a)/(b)
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
 
+!>
+!! @par Copyright
+!! This code is subject to the MPI-M-Software - License - Agreement in it's most recent form.
+!! Please see URL http://www.mpimet.mpg.de/en/science/models/model-distribution.html and the
+!! file COPYING in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the headers of the routines.
+!!
+MODULE mo_cuadjust
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: vtmpc1
   USE mo_echam_convect_tables,     ONLY: prepare_ua_index_spline, lookup_ua_spline, &
@@ -18,12 +18,8 @@ MODULE mo_cuadjust
 #ifdef _PROFILE
   USE mo_profile,        ONLY: trace_start, trace_stop
 #endif
-
+                 
   IMPLICIT NONE
-
-  PRIVATE
-
-  PUBLIC :: cuadjtq
 
 CONTAINS
 

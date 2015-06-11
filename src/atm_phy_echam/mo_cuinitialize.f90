@@ -1,19 +1,19 @@
-!! @par Copyright and License
-!!
-!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.
-!! Please see the file LICENSE in the root of the source tree for this code.
-!! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
-MODULE mo_cuinitialize
 #ifdef __xlC__
 @PROCESS HOT
 #endif
  
-USE mo_kind,               ONLY: wp
-USE mo_physical_constants, ONLY: rd, cpd, vtmpc1, alv, als, tmelt
-USE mo_echam_conv_constants,ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy
-USE mo_cuadjust,           ONLY: cuadjtq
+!>
+!! @par Copyright
+!! This code is subject to the MPI-M-Software - License - Agreement in it's most recent form.
+!! Please see URL http://www.mpimet.mpg.de/en/science/models/model-distribution.html and the
+!! file COPYING in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the headers of the routines.
+!!
+MODULE mo_cuinitialize
+USE mo_kind,                 ONLY: wp
+USE mo_physical_constants,   ONLY: rd, vtmpc1, alv, als, tmelt
+USE mo_echam_conv_constants, ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy
+USE mo_cuadjust,             ONLY: cuadjtq
 
 IMPLICIT NONE
 

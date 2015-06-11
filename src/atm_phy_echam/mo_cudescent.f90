@@ -1,16 +1,16 @@
-!! @par Copyright and License
+!>
+!! @par Copyright
+!! This code is subject to the MPI-M-Software - License - Agreement in it's most recent form.
+!! Please see URL http://www.mpimet.mpg.de/en/science/models/model-distribution.html and the
+!! file COPYING in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.
-!! Please see the file LICENSE in the root of the source tree for this code.
-!! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
 MODULE mo_cudescent
 
-USE mo_kind,              ONLY : wp
-USE mo_physical_constants,ONLY : grav, rd, vtmpc1
-USE mo_echam_conv_constants,ONLY : lmfdudv, lmfdd, cmfdeps, cmfcmin, entrdd
-USE mo_cuadjust,          ONLY : cuadjtq
+USE mo_kind,                 ONLY : wp
+USE mo_physical_constants,   ONLY : grav, rd, vtmpc1
+USE mo_echam_conv_constants, ONLY : lmfdudv, lmfdd, cmfdeps, cmfcmin, entrdd
+USE mo_cuadjust,             ONLY : cuadjtq
 !
 IMPLICIT NONE
 

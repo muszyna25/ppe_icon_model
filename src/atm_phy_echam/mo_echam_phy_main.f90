@@ -107,6 +107,7 @@ CONTAINS
                                           !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
     INTEGER  :: invb (nbdim)
+    INTEGER  :: ictop (nbdim)             !< from massflux
 
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
@@ -1120,63 +1121,51 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      CALL cucall( echam_conv_config%iconv,   &! in
-!        &          echam_conv_config%lmfdudv, &! in
-!        &          echam_conv_config%lmfdd,   &! in
-!        &          echam_conv_config%lmfmid,  &! in
-!        &          echam_conv_config%dlev,    &! in
-!        &          echam_conv_config%cmftau,  &! in
-!        &          echam_conv_config%cmfctop, &! in
-!        &          echam_conv_config%cprcon,  &! in
-!        &          echam_conv_config%cminbuoy,&! in
-!        &          echam_conv_config%entrpen, &! in
-        &          echam_conv_config%nmctop,  &! in
-        &          echam_conv_config%cevapcu, &! in
-        &          jce, nbdim, nlev,          &! in
+      CALL cucall( jce, nbdim, nlev,          &! in
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
-        &          jb,                        &! in     row index
+!        &          jb,                        &! in     row index
         &          psteplen,                  &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% temp(:,:,jb),       &! in     tm1
         &          field% u(:,:,jb),          &! in     um1
         &          field% v(:,:,jb),          &! in     vm1
-        &          field% omega(:,:,jb),      &! in     vervel
-        &          field% geom(:,:,jb),       &! in     geom1
         &          field% q(:,:,jb,iqv),      &! in     qm1
         &          field% q(:,:,jb,iqc),      &! in     xlm1
         &          field% q(:,:,jb,iqi),      &! in     xim1
         &          field% q(:,:,jb,iqt:),     &! in     xtm1
-        &          zcd, zcv,                  &! in
-        &           tend% q(:,:,jb,iqc),      &! in     xlm1
-        &           tend% q(:,:,jb,iqi),      &! in     xim1
+        &          tend% q(:,:,jb,iqv),       &! in     qte  for internal updating
+        &          tend% q(:,:,jb,iqc),       &! in     xlte
+        &          tend% q(:,:,jb,iqi),       &! in     xite
+        &          field% omega(:,:,jb),      &! in     vervel
+        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
+        &          field% geom(:,:,jb),       &! in     geom1
         &          field% presm_new(:,:,jb),  &! in     app1
         &          field% presi_new(:,:,jb),  &! in     aphp1
-        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
-!0      &          field% tke,                &! in     tkem1 (from "vdiff")
         &          field% thvsig(:,jb),       &! in           (from "vdiff")
         &          tend% temp(:,:,jb),        &! in     tte  for internal updating
         &          tend% u(:,:,jb),           &! in     vom  for internal updating
         &          tend% v(:,:,jb),           &! in     vol  for internal updating
-        &          tend% q(:,:,jb,iqv),       &! in     qte  for internal updating
         &          tend% q(:,:,jb,iqt:),      &! in     xtte for internal updating
+        &          zqtec,                     &! inout
+        &          field% ch_concloud(:,jb),  &! inout condensational heat
+        &          field% cw_concloud(:,jb),  &! inout condensational heat
+        &          field% rsfc(:,jb),         &! out
+        &          field% ssfc(:,jb),         &! out
+        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
+        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
+        &          itype,                     &! inout
+        &          ictop,                     &! inout
+        &          ilab,                      &! out
+        &          field% topmax(:,jb),       &! inout
+        &          echam_conv_config%nmctop,  &! in
+        &          echam_conv_config%cevapcu, &! in
+        &          zcd, zcv,                  &! in
         &          tend% q_dyn(:,:,jb,iqv),   &! in     qte by transport
         &          tend% q_phy(:,:,jb,iqv),   &! in     qte by physics
-        &          zqtec,                     &! inout
-!        &          tend% x_dtr(:,:,jb),       &! inout  xtec
-        &          field% ch_concloud(:,jb),  &! inout condensational heat
         &          field% con_dtrl(:,jb),     &! inout detrained liquid
         &          field% con_dtri(:,jb),     &! inout detrained ice
         &          field% con_iteqv(:,jb),    &! inout v. int. tend of water vapor within conv
-        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
-        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
-        &          field% rsfc(:,jb),         &! out
-        &          field% ssfc(:,jb),         &! out
-        &          field% topmax(:,jb),       &! inout
-        &          itype,                     &! inout
-        &          ilab,                      &! out
-!        &          zcvcbot,                   &! out
-!        &          zwcape,                    &! out
         &          tend%temp_cnv(:,:,jb),     &! out
         &          tend%   u_cnv(:,:,jb),     &! out
         &          tend%   v_cnv(:,:,jb),     &! out
@@ -1226,38 +1215,41 @@ CONTAINS
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
           &        pdtime, psteplen,          &! in
+          &        invb,                      &! in (from "cover")
+          &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
+          &        field% omega(:,:,jb),      &! in. vervel
           &        field% presm_old(:,:,jb),  &! in
 !          &        field% presm_new(:,:,jb), &! in
-          &        field% temp (:,:,jb),      &! in. tm1
-          &        field%   tv (:,:,jb),      &! in. ztvm1
-          &        field% geom (:,:,jb),      &! in. geom1
-          &        field% omega(:,:,jb),      &! in. vervel
           &        field% acdnc(:,:,jb),      &! in. acdnc
           &        field% q(:,:,jb,iqv),      &! in.  qm1
+          &        field% temp (:,:,jb),      &! in. tm1
+          &        field%   tv (:,:,jb),      &! in. ztvm1
           &        field% q(:,:,jb,iqc),      &! in. xlm1
           &        field% q(:,:,jb,iqi),      &! in. xim1
           &        zcair(:,:),                &! in
-          &        invb,                      &! in (from "cover")
-          &        field% ch_concloud(:,jb),  &! inout condens. heat
-          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
-          &        field% cld_dtri(:,jb),     &! inout detrained ice
-          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
-          &        zqtec,                     &! inout (there is a clip inside)
-!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
-          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
-          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
-          &         tend% temp(:,:,jb),       &! inout.  tte
-          &         tend% q(:,:,jb,iqv),      &! inout.  qte
-          &         tend% q(:,:,jb,iqc),      &! inout. xlte
-          &         tend% q(:,:,jb,iqi),      &! inout. xite
-          &        field% aclc  (:,:,jb),     &! inout
+          &        field% geom (:,:,jb),      &! in. geom1
           &        field% aclcov(:,  jb),     &! out
           &        field%  qvi  (:,  jb),     &! out
           &        field% xlvi  (:,  jb),     &! out
           &        field% xivi  (:,  jb),     &! out
-          &        field% rsfl  (:,  jb),     &! out
+          &        itype,                     &!
+          &        field% ch_concloud(:,jb),  &! inout condens. heat
+          &        field% cw_concloud(:,jb),  &! inout condens. heat
+          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
+          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
+          &        zqtec,                     &! inout (there is a clip inside)
+          &         tend% q(:,:,jb,iqv),      &! inout.  qte
+          &         tend% temp(:,:,jb),       &! inout.  tte
+          &         tend% q(:,:,jb,iqc),      &! inout. xlte
+          &         tend% q(:,:,jb,iqi),      &! inout. xite
+          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
+          &        field% cld_dtri(:,jb),     &! inout detrained ice
+          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
+!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
+          &        field% aclc  (:,:,jb),     &! inout
           &        field% ssfl  (:,  jb),     &! out
+          &        field% rsfl  (:,  jb),     &! out
           &        field% relhum(:,:,jb),     &! out
           &        tend%temp_cld(:,:,jb),     &! out
           &        tend%   q_cld(:,:,jb,iqv), &! out

@@ -1,34 +1,37 @@
-!! @par Copyright and License
-!!
-!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.
-!! Please see the file LICENSE in the root of the source tree for this code.
-!! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
-MODULE mo_cuascent
 #ifdef __xlC__
 @PROCESS STRICT
-#endif
-#if !(defined __xlC__ && defined _ARCH_PWR6)
+#else
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
 
-USE mo_kind,         ONLY : wp
-USE mo_physical_constants,ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
-USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid, cmfcmin, cmfcmax,   &
-                            cprcon, entrmid, dlev_lnd, dlev_oce,         &
-                            cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy
-USE mo_cuadjust,     ONLY : cuadjtq
+!>
+!! @par Copyright
+!! This code is subject to the MPI-M-Software - License - Agreement in it's most recent form.
+!! Please see URL http://www.mpimet.mpg.de/en/science/models/model-distribution.html and the
+!! file COPYING in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the headers of the routines.
+!!
+MODULE mo_cuascent
+USE mo_kind,                 ONLY : wp
+USE mo_physical_constants,   ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
+#ifndef __ICON__
+USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cmfcmax,   &
+#else
+USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid,         cmfcmin, cmfcmax,   &
+#endif
+                                    cprcon, entrmid, cmfctop, centrmax, cbfac,   &
+                                    cminbuoy, cmaxbuoy
+USE mo_cuadjust,             ONLY : cuadjtq
 
 #ifdef _PROFILE
-USE mo_profile,      ONLY : trace_start, trace_stop
+USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
 
 IMPLICIT NONE
 
 PRIVATE
 
-PUBLIC :: cuasc,cuasct
+PUBLIC :: cuasc, cubasmc, cuentr
 
 CONTAINS
 
@@ -36,6 +39,7 @@ CONTAINS
 SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,              &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
+           ptime_step_len,                                             &
            pxtenh,   pxten,    pxtu,     pmfuxt,                       &
            pten,     pqen,     pqsen,                                  &
            pgeo,     pgeoh,    paphp1,   pthvsig,                      &
@@ -47,10 +51,12 @@ SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,              &
            pmful,    plude,    pqude,    pdmfup,                       &
            khmin,    phhatt,   phcbase,  pqsenh,                       &
            pcpen,    pcpcu,                                            &
-           kcbot,    kctop,    kctop0,   nmctop,                       &
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04, UL, 28.3.07):-------
-           pmwc,     pmrateprecip,       time_step_len                 )
-!---End Included for scavenging-----------------------------------------
+           kcbot,    kctop,    kctop0,                                 &
+#ifndef __ICON__
+           pmwc,     pmrateprecip                                     )
+#else
+           nmctop )
+#endif
 !
 !          THIS ROUTINE DOES THE CALCULATIONS FOR CLOUD ASCENTS
 !          FOR CUMULUS PARAMETERIZATION
@@ -91,8 +97,10 @@ SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,              &
 
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
-REAL(wp),INTENT (IN) :: time_step_len
+REAL(wp),INTENT (IN) :: ptime_step_len
+#ifdef __ICON__
 INTEGER, INTENT(IN)  :: nmctop
+#endif
 
 REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &
             puen(kbdim,klev),        pven(kbdim,klev),                 &
@@ -127,18 +135,17 @@ REAL(wp) :: zph(kbdim)
 REAL(wp) :: zodetr(kbdim,klev)
 REAL(wp) :: zoentr(kbdim,klev)
 REAL(wp) :: zbuoy(kbdim)
-LOGICAL  :: loflag(kbdim)
 REAL(wp) :: pxtenh(kbdim,klev,ktrac),pxten(kbdim,klev,ktrac),          &
             pxtu(kbdim,klev,ktrac),  pmfuxt(kbdim,klev,ktrac)
 REAL(wp) :: zcons2, zmfmax, zfac, zmftest, zqeen, zseen       &
           , zqude, zmfusk, zmfuqk, zmfulk, zxteen, zxtude, zmfuxtk     &
           , zbuo, zdnoprc, zprcon, zlnew, zz, zdmfeu, zdmfdu, zzdmf    &
           , zdz, zdrodz, zdprho, zalvs, zmse, znevn, zodmax, zga, zdt  &
-          , zscod, zqcod, zbuoyz, zscde, zlift
+          , zscod, zqcod, zbuoyz, zscde, zdlev, zlift
 !
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04, UL, 28.3.07):-------
+#ifndef __ICON__
 REAL(wp) :: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
-!---End Included for scavenging-----------------------------------------
+#endif
 !
 !      INTRINSIC FUNCTIONS
 INTRINSIC MAX, MIN, LOG
@@ -148,17 +155,18 @@ CALL trace_start ('cuasc', 40)
 #endif
 
 !
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04, UL, 28.3.07):----
+#ifndef __ICON__
 pmwc(1:kproma,:)=0._wp
 pmrateprecip(1:kproma,:)=0._wp
-!---End Included for scavenging-----------------------------------------
+#endif
 !----------------------------------------------------------------------
 !
 !*    1.           SPECIFY PARAMETERS
 !                  ------------------
 !
-  zcons2=1._wp/(grav*time_step_len)
+  zcons2=1._wp/(grav*ptime_step_len)
   zqold(1:kproma) = 0.0_wp
+  zdlev=3.0E4_wp
 !
 !
 !----------------------------------------------------------------------
@@ -296,7 +304,6 @@ pmrateprecip(1:kproma,:)=0._wp
           locnt = locnt + 1
           loidx(locnt) = jl
         END IF
-        loflag(jl) = klab(jl,jk+1).GT.0
         zph(jl)=paphp1(jl,jk)
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
            zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
@@ -447,7 +454,7 @@ pmrateprecip(1:kproma,:)=0._wp
 !
      ik=jk
      icall=1
-
+     
 
      CALL cuadjtq(kproma, kbdim, klev, ik,                             &
           zph,      ptu,      pqu,      loidx, locnt,  icall)
@@ -470,16 +477,16 @@ pmrateprecip(1:kproma,:)=0._wp
                        jk.GE.kctop0(jl)) THEN
              kctop(jl)=jk
              ldcum(jl)=.TRUE.
-             zdnoprc=MERGE(dlev_lnd,dlev_oce,ldland(jl))
+             zdnoprc=MERGE(zdlev,1.5e4_wp,ldland(jl))
              zprcon=MERGE(0._wp,cprcon,                                &
                                    zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
              zlnew=plu(jl,jk)/                                         &
                            (1._wp+zprcon*(pgeoh(jl,jk)-pgeoh(jl,jk+1)))
              pdmfup(jl,jk)=MAX(0._wp,(plu(jl,jk)-zlnew)*pmfu(jl,jk))
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
+#ifndef __ICON__
              pmrateprecip(jl,jk)=plu(jl,jk)-zlnew
              pmwc(jl,jk)=plu(jl,jk)
-!---End Included for scavenging-----------------------------------------
+#endif
              plu(jl,jk)=zlnew
            ELSE
              klab(jl,jk)=0
@@ -618,463 +625,6 @@ pmrateprecip(1:kproma,:)=0._wp
 #endif
 
 END SUBROUTINE cuasc
-
-SUBROUTINE cuasct(   kproma, kbdim, klev, klevp1, klevm1,              &
-           ptenh,    pqenh,    puen,     pven,                         &
-           ktrac,                                                      &
-           pxtenh,   pxten,    pxtu,     pmfuxt,                       &
-           pten,     pqen,     pqsen,                                  &
-           pgeo,     pgeoh,    paphp1,   pthvsig,                      &
-           pqte,     pverv,    klwmin,                                 &
-           ldcum,    ldland,   ktype,    klab,                         &
-           ptu,      pqu,      plu,      puu,      pvu,                &
-           pmfu,     pmfub,    pentr,                                  &
-           pmfus,    pmfuq,                                            &
-           pmful,    plude,    pqude,    pdmfup,                       &
-           pcpen,    pcpcu,                                            &
-           kcbot,    kctop,    kctop0,   nmctop,                       &
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
-           pmwc,     pmrateprecip,       time_step_len                 )
-!---End Included for scavenging-----------------------------------------
-!
-!          THIS ROUTINE DOES THE CALCULATIONS FOR CLOUD ASCENTS
-!          FOR CUMULUS PARAMETERIZATION
-!
-!          M.TIEDTKE         E.C.M.W.F.     7/86 MODIF. 12/89
-!
-!          PURPOSE.
-!          --------
-!          TO PRODUCE CLOUD ASCENTS FOR CU-PARAMETRIZATION
-!          (VERTICAL PROFILES OF T,Q,L,U AND V AND CORRESPONDING
-!           FLUXES AS WELL AS PRECIPITATION RATES)
-!
-!          INTERFACE
-!          ---------
-!
-!          THIS ROUTINE IS CALLED FROM *CUMASTRT*.
-!
-!          METHOD.
-!          --------
-!          LIFT SURFACE AIR DRY-ADIABATICALLY TO CLOUD BASE
-!          AND THEN CALCULATE MOIST ASCENT FOR
-!          ENTRAINING/DETRAINING PLUME.
-!          ENTRAINMENT AND DETRAINMENT RATES DIFFER FOR
-!          SHALLOW AND DEEP CUMULUS CONVECTION.
-!          IN CASE THERE IS NO PENETRATIVE OR SHALLOW CONVECTION
-!          CHECK FOR POSSIBILITY OF MID LEVEL CONVECTION
-!          (CLOUD BASE VALUES CALCULATED IN *CUBASMC*)
-!
-!          EXTERNALS
-!          ---------
-!          *CUADJTQ* ADJUST T AND Q DUE TO CONDENSATION IN ASCENT
-!          *CUENTR*  CALCULATE ENTRAINMENT/DETRAINMENT RATES
-!          *CUBASMC* CALCULATE CLOUD BASE VALUES FOR MIDLEVEL CONVECTION
-!
-!          REFERENCE
-!          ---------
-!          (TIEDTKE,1989)
-!
-
-INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
-INTEGER :: jl, jk, jt, ik, icall, is
-REAL(wp),INTENT (IN) :: time_step_len
-INTEGER, INTENT(IN)  :: nmctop
-!
-REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &
-            puen(kbdim,klev),        pven(kbdim,klev),                 &
-            pten(kbdim,klev),        pqen(kbdim,klev),                 &
-            pgeo(kbdim,klev),        pgeoh(kbdim,klev),                &
-            paphp1(kbdim,klevp1),    pthvsig(kbdim),                   &
-            pqsen(kbdim,klev),       pqte(kbdim,klev),                 &
-            pverv(kbdim,klev)
-!
-REAL(wp) :: ptu(kbdim,klev),         pqu(kbdim,klev),                  &
-            puu(kbdim,klev),         pvu(kbdim,klev),                  &
-            pmfu(kbdim,klev),                                          &
-            pmfub(kbdim),            pentr(kbdim),                     &
-            pmfus(kbdim,klev),       pmfuq(kbdim,klev),                &
-            plu(kbdim,klev),         plude(kbdim,klev),                &
-            pqude(kbdim,klev),                                         &
-            pmful(kbdim,klev),       pdmfup(kbdim,klev)
-REAL(wp) :: pcpen(kbdim,klev),       pcpcu(kbdim,klev)
-INTEGER  :: klwmin(kbdim),           ktype(kbdim),                     &
-            klab(kbdim,klev),        kcbot(kbdim),                     &
-            kctop(kbdim),            kctop0(kbdim)
-LOGICAL  :: ldcum(kbdim),            ldland(kbdim)
-!
-REAL(wp) :: zdmfen(kbdim),           zdmfde(kbdim),                    &
-            zmfuu(kbdim),            zmfuv(kbdim),                     &
-            zpbase(kbdim),           zqold(kbdim)
-REAL(wp) :: zph(kbdim)
-LOGICAL  :: loflag(kbdim)
-INTEGER  :: loidx(kbdim)
-REAL(wp) :: pxtenh(kbdim,klev,ktrac),pxten(kbdim,klev,ktrac),          &
-            pxtu(kbdim,klev,ktrac),  pmfuxt(kbdim,klev,ktrac)
-!
-REAL(wp) :: zcons2, zmfmax, zfac, zmftest, zqeen, zseen       &
-          , zscde, zqude, zmfusk, zmfuqk, zmfulk, zxteen, zxtude       &
-          , zmfuxtk, zbuo, zdnoprc, zprcon, zlnew, zz, zdmfeu, zdmfdu  &
-          , zzdmf, zlift
-!
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
-REAL(wp) :: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
-!---End Included for scavenging-----------------------------------------
-!
-!      INTRINSIC FUNCTIONS
-INTRINSIC MAX, MIN
-!
-#ifdef _PROFILE
-CALL trace_start ('cuasct', 40)
-#endif
-!
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04, UL, 28.3.07):----
-pmwc(1:kproma,:)=0._wp
-pmrateprecip(1:kproma,:)=0._wp
-!---End Included for scavenging-----------------------------------------
-!----------------------------------------------------------------------
-!
-!*    1.           SPECIFY PARAMETERS
-!                  ------------------
-!
-  zcons2=1._wp/(grav*time_step_len)
-!
-!
-!----------------------------------------------------------------------
-!
-!     2.           SET DEFAULT VALUES
-!                  ------------------
-!
-  DO 210 jl=1,kproma
-     zmfuu(jl)=0._wp
-     zmfuv(jl)=0._wp
-     IF(.NOT.ldcum(jl)) ktype(jl)=0
-210 END DO
-  DO 230 jk=1,klev
-     DO 220 jl=1,kproma
-        plu(jl,jk)=0._wp
-        pmfu(jl,jk)=0._wp
-        pmfus(jl,jk)=0._wp
-        pmfuq(jl,jk)=0._wp
-        pmful(jl,jk)=0._wp
-        plude(jl,jk)=0._wp
-        pqude(jl,jk)=0._wp
-        pdmfup(jl,jk)=0._wp
-        IF(.NOT.ldcum(jl).OR.ktype(jl).EQ.3) klab(jl,jk)=0
-        IF(.NOT.ldcum(jl).AND.paphp1(jl,jk).LT.4.e4_wp) kctop0(jl)=jk
-        IF(jk.LT.kcbot(jl)) klab(jl,jk)=0
-220  END DO
-     DO 2204 jt=1,ktrac
-        DO 2202 jl=1,kproma
-           pmfuxt(jl,jk,jt)=0._wp
-2202    END DO
-2204 END DO
-!
-230 END DO
-!
-!
-!----------------------------------------------------------------------
-!
-!     3.0          INITIALIZE VALUES AT LIFTING LEVEL
-!                  ----------------------------------
-!
-  DO 310 jl=1,kproma
-     kctop(jl)=klevm1
-     IF(.NOT.ldcum(jl)) THEN
-        kcbot(jl)=klevm1
-        pmfub(jl)=0._wp
-        pqu(jl,klev)=0._wp
-     END IF
-     pmfu(jl,klev)=pmfub(jl)
-     pmfus(jl,klev)=pmfub(jl)*(pcpcu(jl,klev)*ptu(jl,klev)             &
-                                       +pgeoh(jl,klev))
-     pmfuq(jl,klev)=pmfub(jl)*pqu(jl,klev)
-     IF(lmfdudv) THEN
-        zmfuu(jl)=pmfub(jl)*puu(jl,klev)
-        zmfuv(jl)=pmfub(jl)*pvu(jl,klev)
-     END IF
-310 END DO
-!
-  DO 3112 jt=1,ktrac
-     DO 3110 jl=1,kproma
-        IF(.NOT.ldcum(jl)) THEN
-           pxtu(jl,klev,jt)=0._wp
-        ENDIF
-        pmfuxt(jl,klev,jt)=pmfub(jl)*pxtu(jl,klev,jt)
-3110 END DO
-3112 END DO
-!
-  DO 320 jl=1,kproma
-     ldcum(jl)=.FALSE.
-320 END DO
-!
-!
-!----------------------------------------------------------------------
-!
-!     4.           DO ASCENT: SUBCLOUD LAYER (KLAB=1) ,CLOUDS (KLAB=2)
-!                  BY DOING FIRST DRY-ADIABATIC ASCENT AND THEN
-!                  BY ADJUSTING T,Q AND L ACCORDINGLY IN *CUADJTQ*,
-!                  THEN CHECK FOR BUOYANCY AND SET FLAGS ACCORDINGLY
-!                  -------------------------------------------------
-!
-  DO 480 jk=klevm1,2,-1
-!
-!                  SPECIFY CLOUD BASE VALUES FOR MIDLEVEL CONVECTION
-!                  IN *CUBASMC* IN CASE THERE IS NOT ALREADY CONVECTION
-!                  ----------------------------------------------------
-!
-     ik=jk
-     IF(lmfmid.AND.ik.LT.klevm1.AND.ik.GT.nmctop) THEN
-        CALL cubasmc(kproma,   kbdim,    klev,     ik,       klab,     &
-                     pten,     pqen,     pqsen,    puen,     pven,     &
-                     ktrac,                                            &
-                     pxten,    pxtu,     pmfuxt,                       &
-                     pverv,    pgeo,     pgeoh,    ldcum,    ktype,    &
-                     pmfu,     pmfub,    pentr,    kcbot,              &
-                     ptu,      pqu,      plu,      puu,      pvu,      &
-                     pmfus,    pmfuq,    pmful,    pdmfup,   zmfuu,    &
-                     pcpen,                                            &
-                     zmfuv                                            )
-     ENDIF
-!
-     is = 0
-     DO 409 jl=1,kproma
-       IF (klab(jl,jk+1) == 0) klab(jl,jk) = 0
-       loflag(jl) = .FALSE.
-       IF (klab(jl,jk+1) > 0) THEN
-         is = is+1
-         loidx(is) = jl
-         loflag(jl) = .TRUE.
-       ENDIF
-409  ENDDO
-     DO 410 jl=1,kproma
-        zph(jl)=paphp1(jl,jk)
-        IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-           zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
-           IF(pmfub(jl).GT.zmfmax) THEN
-              zfac=zmfmax/pmfub(jl)
-              pmfu(jl,jk+1)=pmfu(jl,jk+1)*zfac
-              pmfus(jl,jk+1)=pmfus(jl,jk+1)*zfac
-              pmfuq(jl,jk+1)=pmfuq(jl,jk+1)*zfac
-              zmfuu(jl)=zmfuu(jl)*zfac
-              zmfuv(jl)=zmfuv(jl)*zfac
-           END IF
-        END IF
-410  END DO
-     DO 4102 jt=1,ktrac
-        DO 4101 jl=1,kproma
-           IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-              zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
-              IF(pmfub(jl).GT.zmfmax) THEN
-                 zfac=zmfmax/pmfub(jl)
-                 pmfuxt(jl,jk+1,jt)=pmfuxt(jl,jk+1,jt)*zfac
-              END IF
-           END IF
-4101    END DO
-4102 END DO
-!
-! RESET PMFUB IF NECESSARY
-!
-     DO 4103 jl=1,kproma
-        IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-           zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
-           pmfub(jl)=MIN(pmfub(jl),zmfmax)
-        END IF
-4103 END DO
-!
-!
-!*                 SPECIFY ENTRAINMENT RATES IN *CUENTRT*
-!                  --------------------------------------
-!
-     ik=jk
-     CALL cuentrt(kproma,  kbdim,    klev,     klevp1,   ik,           &
-                 ptenh,    pqenh,    pqte,     paphp1,                 &
-                 klwmin,   ldcum,    ktype,    kcbot,    kctop0,       &
-                 zpbase,   pmfu,     pentr,                            &
-                 zdmfen,   zdmfde)
-!
-!
-!
-!                  DO ADIABATIC ASCENT FOR ENTRAINING/DETRAINING PLUME
-!                  ---------------------------------------------------
-!
-     DO 420 jl=1,kproma
-        IF(loflag(jl)) THEN
-           IF(jk.LT.kcbot(jl)) THEN
-              zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
-              zmfmax=MIN(zmftest,(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2)
-              zdmfen(jl)=MAX(zdmfen(jl)-MAX(zmftest-zmfmax,0._wp),0._wp)
-           END IF
-           zdmfde(jl)=MIN(zdmfde(jl),0.75_wp*pmfu(jl,jk+1))
-           pmfu(jl,jk)=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
-           zqeen=pqenh(jl,jk+1)*zdmfen(jl)
-           zseen=(pcpcu(jl,jk+1)*ptenh(jl,jk+1)+pgeoh(jl,jk+1))        &
-                                               *zdmfen(jl)
-           zscde=(pcpcu(jl,jk+1)*ptu(jl,jk+1)+pgeoh(jl,jk+1))          &
-                                               *zdmfde(jl)
-           zqude=pqu(jl,jk+1)*zdmfde(jl)
-           pqude(jl,jk)=zqude
-           plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)
-           zmfusk=pmfus(jl,jk+1)+zseen-zscde
-           zmfuqk=pmfuq(jl,jk+1)+zqeen-zqude
-           zmfulk=pmful(jl,jk+1)    -plude(jl,jk)
-           plu(jl,jk)=zmfulk*(1._wp/MAX(cmfcmin,pmfu(jl,jk)))
-           pqu(jl,jk)=zmfuqk*(1._wp/MAX(cmfcmin,pmfu(jl,jk)))
-           ptu(jl,jk)=(zmfusk*(1._wp/MAX(cmfcmin,pmfu(jl,jk)))-        &
-                                pgeoh(jl,jk))/pcpcu(jl,jk)
-           ptu(jl,jk)=MAX(100._wp,ptu(jl,jk))
-           ptu(jl,jk)=MIN(400._wp,ptu(jl,jk))
-           zqold(jl)=pqu(jl,jk)
-        END IF
-420  END DO
-!
-!
-     DO 4204 jt=1,ktrac
-        DO 4202 jl=1,kproma
-           IF(loflag(jl)) THEN
-              zxteen=pxtenh(jl,jk+1,jt)*zdmfen(jl)
-              zxtude=pxtu(jl,jk+1,jt)*zdmfde(jl)
-              zmfuxtk=pmfuxt(jl,jk+1,jt)+zxteen-zxtude
-              pxtu(jl,jk,jt)=zmfuxtk*(1._wp/MAX(cmfcmin,pmfu(jl,jk)))
-           ENDIF
-4202    END DO
-4204 END DO
-!
-!
-!                  DO CORRECTIONS FOR MOIST ASCENT
-!                  BY ADJUSTING T,Q AND L IN *CUADJTQ*
-!                  -----------------------------------
-!
-     ik=jk
-     icall=1
-     CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptu, pqu, loidx, is, icall)
-!
-!DIR$ IVDEP
-!OCL NOVREC
-     DO 440 jl=1,kproma
-        IF(loflag(jl).AND.pqu(jl,jk).LT.zqold(jl)) THEN
-           klab(jl,jk)=2
-           zlift=MAX(cminbuoy,MIN(cmaxbuoy,pthvsig(jl)*cbfac))
-           zlift=MIN(zlift,1.0_wp)
-           plu(jl,jk)=plu(jl,jk)+zqold(jl)-pqu(jl,jk)
-           zbuo=ptu(jl,jk)*(1._wp+vtmpc1*pqu(jl,jk)-plu(jl,jk))-       &
-                    ptenh(jl,jk)*(1._wp+vtmpc1*pqenh(jl,jk))
-           IF(klab(jl,jk+1).EQ.1) zbuo=zbuo+zlift
-           IF(zbuo.GT.0._wp.AND.pmfu(jl,jk).GE.0.1_wp*pmfub(jl)) THEN
-              kctop(jl)=jk
-              ldcum(jl)=.TRUE.
-              zdnoprc=MERGE(dlev_lnd,dlev_oce,ldland(jl))
-              zprcon=MERGE(0._wp,cprcon,                               &
-                               zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
-              zlnew=plu(jl,jk)/                                        &
-                           (1._wp+zprcon*(pgeoh(jl,jk)-pgeoh(jl,jk+1)))
-              pdmfup(jl,jk)=MAX(0._wp,(plu(jl,jk)-zlnew)*pmfu(jl,jk))
-!---Included for scavenging in wetdep_interface (Philip Stier, 19/02/04):-------
-             pmrateprecip(jl,jk)=plu(jl,jk)-zlnew
-             pmwc(jl,jk)=plu(jl,jk)
-!---End Included for scavenging-----------------------------------------
-              plu(jl,jk)=zlnew
-           ELSE
-              klab(jl,jk)=0
-              pmfu(jl,jk)=0._wp
-           END IF
-        END IF
-440  END DO
-     DO 455 jl=1,kproma
-        IF(loflag(jl)) THEN
-           pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
-           pmfus(jl,jk)=(pcpcu(jl,jk)*ptu(jl,jk)+pgeoh(jl,jk))         &
-                                 *pmfu(jl,jk)
-           pmfuq(jl,jk)=pqu(jl,jk)*pmfu(jl,jk)
-        END IF
-455  END DO
-     DO 4554 jt=1,ktrac
-        DO 4552 jl=1,kproma
-           IF(loflag(jl)) THEN
-              pmfuxt(jl,jk,jt)=pxtu(jl,jk,jt)*pmfu(jl,jk)
-           ENDIF
-4552    END DO
-4554 END DO
-!
-     IF(lmfdudv) THEN
-        DO 460 jl=1,kproma
-           IF(loflag(jl)) THEN
-              IF(ktype(jl).EQ.1.OR.ktype(jl).EQ.3) THEN
-                 zz=MERGE(3._wp,2._wp,zdmfen(jl).EQ.0._wp)
-              ELSE
-                 zz=MERGE(1._wp,0._wp,zdmfen(jl).EQ.0._wp)
-              END IF
-              zdmfeu=zdmfen(jl)+zz*zdmfde(jl)
-              zdmfdu=zdmfde(jl)+zz*zdmfde(jl)
-              zdmfdu=MIN(zdmfdu,0.75_wp*pmfu(jl,jk+1))
-              zmfuu(jl)=zmfuu(jl)+                                     &
-                             zdmfeu*puen(jl,jk)-zdmfdu*puu(jl,jk+1)
-              zmfuv(jl)=zmfuv(jl)+                                     &
-                             zdmfeu*pven(jl,jk)-zdmfdu*pvu(jl,jk+1)
-              IF(pmfu(jl,jk).GT.0._wp) THEN
-                 puu(jl,jk)=zmfuu(jl)*(1._wp/pmfu(jl,jk))
-                 pvu(jl,jk)=zmfuv(jl)*(1._wp/pmfu(jl,jk))
-              END IF
-           END IF
-460     END DO
-     END IF
-!
-480 END DO
-!
-!
-!----------------------------------------------------------------------
-!
-!     5.           DETERMINE CONVECTIVE FLUXES ABOVE NON-BUOYANCY LEVEL
-!                  ----------------------------------------------------
-!                  (NOTE: CLOUD VARIABLES LIKE T,Q AND L ARE NOT
-!                         AFFECTED BY DETRAINMENT AND ARE ALREADY KNOWN
-!                         FROM PREVIOUS CALCULATIONS ABOVE)
-!
-  DO 510 jl=1,kproma
-     IF(kctop(jl).EQ.klevm1) ldcum(jl)=.FALSE.
-     kcbot(jl)=MAX(kcbot(jl),kctop(jl))
-510 END DO
-!DIR$ IVDEP
-  DO 530 jl=1,kproma
-     IF(ldcum(jl)) THEN
-        jk=kctop(jl)-1
-        zzdmf=cmfctop
-        zdmfde(jl)=(1._wp-zzdmf)*pmfu(jl,jk+1)
-        plude(jl,jk)=zdmfde(jl)*plu(jl,jk+1)
-        pqude(jl,jk)=zdmfde(jl)*pqu(jl,jk+1)
-        pmfu(jl,jk)=pmfu(jl,jk+1)-zdmfde(jl)
-        pdmfup(jl,jk)=0._wp
-        pmfus(jl,jk)=(pcpcu(jl,jk)*ptu(jl,jk)+pgeoh(jl,jk))*pmfu(jl,jk)
-        pmfuq(jl,jk)=pqu(jl,jk)*pmfu(jl,jk)
-        pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
-        plude(jl,jk-1)=pmful(jl,jk)
-        pqude(jl,jk-1)=pmfuq(jl,jk)
-     END IF
-530 END DO
-  DO 5312 jt=1,ktrac
-     DO 5310 jl=1,kproma
-        IF(ldcum(jl)) THEN
-           jk=kctop(jl)-1
-           pmfuxt(jl,jk,jt)=pxtu(jl,jk,jt)*pmfu(jl,jk)
-        ENDIF
-5310 END DO
-5312 END DO
-!
-  IF(lmfdudv) THEN
-!DIR$      IVDEP
-     DO 540 jl=1,kproma
-        IF(ldcum(jl)) THEN
-           jk=kctop(jl)-1
-           puu(jl,jk)=puu(jl,jk+1)
-           pvu(jl,jk)=pvu(jl,jk+1)
-        END IF
-540  END DO
-  END IF
-!
-#ifdef _PROFILE
-  CALL trace_stop ('cuasct', 40)
-#endif
-!
-END SUBROUTINE cuasct
 
 SUBROUTINE cubasmc(  kproma, kbdim, klev, kk, klab,                    &
            pten,     pqen,     pqsen,    puen,     pven,               &
@@ -1339,97 +889,5 @@ INTEGER  :: icond1(kbdim),icond2(kbdim),icond3(kbdim),idx(kbdim)
 #endif
 !
 END SUBROUTINE cuentr
-
-SUBROUTINE cuentrt(  kproma, kbdim, klev, klevp1, kk,                  &
-           ptenh,    pqenh,    pqte,     paphp1,                       &
-           klwmin,   ldcum,    ktype,    kcbot,    kctop0,             &
-           ppbase,   pmfu,     pentr,                                  &
-           pdmfen,   pdmfde)
-!
-!          M.TIEDTKE         E.C.M.W.F.     12/89
-!
-!          PURPOSE.
-!          --------
-!          THIS ROUTINE CALCULATES ENTRAINMENT/DETRAINMENT RATES
-!          FOR UPDRAFTS IN CUMULUS PARAMETERIZATION
-!
-!          INTERFACE
-!          ---------
-!
-!          THIS ROUTINE IS CALLED FROM *CUASC*.
-!          INPUT ARE ENVIRONMENTAL VALUES T,Q ETC
-!          AND UPDRAFT VALUES T,Q ETC
-!          IT RETURNS ENTRAINMENT/DETRAINMENT RATES
-!
-!          METHOD.
-!          --------
-!          S. TIEDTKE (1989)
-!
-!          EXTERNALS
-!          ---------
-!          NONE
-!
-!
-INTEGER, INTENT (IN) :: kbdim, klev, klevp1, kproma, kk
-!
-REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &
-            paphp1(kbdim,klevp1),                                      &
-            pmfu(kbdim,klev),        pqte(kbdim,klev),                 &
-            pentr(kbdim),            ppbase(kbdim)
-INTEGER  :: klwmin(kbdim),           ktype(kbdim),                     &
-            kcbot(kbdim),            kctop0(kbdim)
-LOGICAL  :: ldcum(kbdim)
-!
-REAL(wp) :: pdmfen(kbdim),           pdmfde(kbdim)
-!
-LOGICAL  :: llo1,llo2
-!
-INTEGER  :: jl, iklwmin
-REAL(wp) :: zrg, zrrho, zdprho, zpmid, zentr, zentest
-
-!
-!----------------------------------------------------------------------
-!
-!*    1.           CALCULATE ENTRAINMENT AND DETRAINMENT RATES
-!                  -------------------------------------------
-!
-!
-!
-!*    1.1          SPECIFY ENTRAINMENT RATES FOR SHALLOW CLOUDS
-!                  --------------------------------------------
-!
-!
-!
-!*    1.2          SPECIFY ENTRAINMENT RATES FOR DEEP CLOUDS
-!                  -----------------------------------------
-!
-  zrg=1._wp/grav
-  DO 125 jl=1,kproma
-     ppbase(jl)=paphp1(jl,kcbot(jl))
-     zrrho=(rd*ptenh(jl,kk+1)*(1._wp+vtmpc1*pqenh(jl,kk+1)))           &
-                    /paphp1(jl,kk+1)
-     zdprho=(paphp1(jl,kk+1)-paphp1(jl,kk))*zrg
-     zpmid=0.5_wp*(ppbase(jl)+paphp1(jl,kctop0(jl)))
-     zentr=pentr(jl)*pmfu(jl,kk+1)*zdprho*zrrho
-     llo1=kk.LT.kcbot(jl).AND.ldcum(jl)
-     pdmfde(jl)=MERGE(zentr,0._wp,llo1)
-     llo2=llo1.AND.ktype(jl).EQ.2.AND.                                 &
-                   (ppbase(jl)-paphp1(jl,kk).LT.0.2e5_wp.OR.           &
-                    paphp1(jl,kk).GT.zpmid)
-     pdmfen(jl)=MERGE(zentr,0._wp,llo2)
-     iklwmin=MAX(klwmin(jl),kctop0(jl)+2)
-     llo2=llo1.AND.(ktype(jl).EQ.1 .OR. ktype(jl).EQ.3) .AND.          &
-                   (kk.GE.iklwmin.OR.paphp1(jl,kk).GT.zpmid)
-     IF(llo2) pdmfen(jl)=zentr
-     IF(llo2 .AND. pqenh(jl,kk+1).GT.1.E-5_wp) THEN
-        pmfu(jl,kk+1) = MAX(pmfu(jl,kk+1),cmfcmin)
-        zentest = MAX(pqte(jl,kk),0._wp)/pqenh(jl,kk+1)
-        zentest = MIN(centrmax,zentest/(pmfu(jl,kk+1)*zrrho))
-        pdmfen(jl) = zentr+zentest*pmfu(jl,kk+1)*zrrho*zdprho
-     ENDIF
-125 END DO
-!
-  RETURN
-END SUBROUTINE cuentrt
 
 END MODULE mo_cuascent

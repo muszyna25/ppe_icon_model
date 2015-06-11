@@ -1,4 +1,18 @@
+#ifdef __xlC__
+@PROCESS HOT
+@PROCESS XLF90(NOSIGNEDZERO)
+#else
+#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
+#define SWDIV_NOCHK(a,b) ((a)/(b))
+#endif
+
 !>
+!! @par Copyright
+!! This code is subject to the MPI-M-Software - License - Agreement in it's most recent form.
+!! Please see URL http://www.mpimet.mpg.de/en/science/models/model-distribution.html and the
+!! file COPYING in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the headers of the routines.
+!!
 !! @brief Module diagnoses cloud cover for current timestep
 !!
 !! @remarks
@@ -16,10 +30,36 @@
 !!     This scheme calculates cover diagnostically and is called
 !!     once at the beginning of each timestep.  It uses the
 !!     standard relative humidity calculation from Lohmann and
-!!     Roeckner (96).
+!!     Roeckner (96), or the method from the new prognostic
+!!     scheme of Tompkins.  The choice of which scheme to use is
+!!     controlled by the parameter switch ICOVER, which is set in
+!!     namelist PHYSCTL along with lsurf etc... Note that even if
+!!     icover.EQ.1 (RH scheme) you can't restart this model version
+!!     from restart files saved from a different model version, since
+!!     the two extra prognostic equations, pxvar and pxskew are still
+!!     stored even though they are not actively used.  However, this means
+!!     that once you have restart files from this version, you are able
+!!     change icover at will.
+!!
+!!     In the new scheme the variable xskew is provided
+!!     as outlined in the reference, this variable represents
+!!     directly the Beta distribution shape parameter "q"
+!!     The shape parameter "p" (zbetap) a tunable parameter and it is
+!!     recommended that this be set to a low constant 1.5<p<2.0
+!!     (This may be changed later to prognostic to allow negative skewness
+!!     from downdraft detrainment, see ref. for details).
+!!
+!!     from xi,xl,q,xskew and zbetap, the Beta distribution is defined
+!!     and cloud cover is diagnosable.  For the iteration, Ridders' method
+!!     is used (see Numerical Recipes).
+!!
+!!     Attention:
+!!     In the current version the advective tendencies of skewness
+!!     and variance are set to zero.
 !!
 !! @references.
 !!     Diagnostic CC scheme: Lohmann and Roeckner 96, Clim. Dyn.
+!!     Prognostic CC scheme: Tompkins 2002, J. Atmos. Sci.
 !!
 !! @author A. Tompkins    MPI-Hamburg        2000
 !!         K. Ketelesen   NEC,         April 2002
@@ -37,34 +77,20 @@
 !!            addressing scheme
 !! - Taken from ECHAM6.2, wrapped in module and modified for ICON
 !!   by Monika Esch, MPI-M (2013-11)
+!! - updated to ECHAM.6.3 and unified for use in ICON; removed Tompkins scheme
+!!   by Monika Esch, MPI-M (2015-05)
 !!
-!! @par Copyright and License
-!!
-!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.
-!! Please see the file LICENSE in the root of the source tree for this code.
-!! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
 !
-#if defined __xlC__ && !defined NOXLFPROCESS
-@PROCESS HOT
-@PROCESS XLF90(NOSIGNEDZERO)
-#endif
-#if !(defined __xlC__ && defined _ARCH_PWR6)
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
-#endif
-
 MODULE mo_cover
 
 USE mo_kind,                 ONLY : wp
 USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
-USE mo_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_eor_uaw_spline
+USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_eor_uaw_spline
 USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, nadd, cinv
 #ifdef _PROFILE
 USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
-
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
@@ -73,20 +99,13 @@ CONTAINS
 !>
 !!
 !!
-SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                  &
-!
-! - INPUT  1D .
-                         , ktype,    pfrw,     pfri                              &
-! - INPUT  2D .
-                         , paphm1,   papm1,    pgeo                              &
-                         , ptm1                                                  &
-                         , pqm1                                                  &
-                         , pxim1                                                 &
-! - INPUT AND OUTPUT, 2D
-                         , paclc                                                 &
-! - OUTPUT 1D .
-                         , knvb,     printop                                     &
-                 )
+SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                  & !in
+                         , ktype,    pfrw,     pfri                              & !in
+                         , paphm1,   papm1,    pgeo                              & !in
+                         , ptm1,     pqm1,     pxim1                             & !in
+                         , paclc                                                 & !inout
+                         , knvb,     printop                                     & !out
+       )
 !---------------------------------------------------------------------------------
 !
   INTEGER, INTENT(IN)    :: kbdim, klevp1, klev, kproma, ktdia
@@ -109,19 +128,19 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
   REAL(wp),INTENT(OUT)   ::  &
       & printop(kbdim)
 
-  INTEGER  :: jl, jk, jb, jbn
-  INTEGER  :: locnt, nl, ilev
-  REAL(wp) :: zdtdz, zcor, zrhc, zsat, zqr
-  INTEGER  :: itv1(kproma*klev), itv2(kproma*klev)
+  INTEGER :: jl, jk, jb, jbn
+  INTEGER :: locnt, nl, ilev
+  REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr
+  INTEGER :: itv1(kproma*klev), itv2(kproma*klev)
 
 !
 !   Temporary arrays
 !
-  REAL(wp) ::  zdtmin(kbdim), za(kbdim)
+  REAL(wp)   ::  zdtmin(kbdim), za(kbdim) 
 !
 !   Pointers and counters for iteration and diagnostic loop:
 !
-  INTEGER  :: nphase
+  INTEGER :: nphase
 !
 !   variables required for zriddr iteration scheme:
 !
@@ -129,13 +148,13 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
   REAL(wp) :: zqsm1(kproma*klev)
   REAL(wp) :: ua(kproma)
 
-  LOGICAL  :: lao, lao1
+  LOGICAL :: lao, lao1
 
   REAL(wp) :: zpapm1i(kbdim,klev),     ztmp(kproma*klev)
 
   REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
-  INTEGER  :: loidx(kproma*klev)
+  INTEGER :: loidx(kproma*klev)
 
 #ifdef _PROFILE
   CALL trace_start ('cover', 9)
@@ -157,7 +176,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
 !
 !       1.3   Checking occurrence of low-level inversion
 !             (below 2000 m, sea points only, no convection)
-!
+!  
   locnt = 0
   DO jl = 1,kproma
      IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
@@ -187,9 +206,6 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                 
      END DO
   END IF
   knvb(1:kproma) = INT(zknvb(1:kproma))
-!
-!   Tunable parameters now in mo_echam_cloud_params.f90
-!
 !
 !       1.   Calculate the saturation mixing ratio
 !
