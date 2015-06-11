@@ -412,15 +412,12 @@ CONTAINS
           w_i_now_t(ic)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
           h_snow_t(ic)              =  lnd_diag%h_snow_t(jc,jb,isubs)
           freshsnow_t(ic)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
+          snowfrac_t(ic)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
 
           IF (isubs > ntiles_lnd) THEN ! snowtiles
-            ! assume a snow-cover fraction of 1 on the snow tiles except in cases of very low snow depths
-            ! (numerical stability issues in TERRA, particularly for the multi-layer scheme)
-            snowfrac_t(ic)          =  MIN(1._wp,h_snow_t(ic)*100._wp)
             ! grid-point averaged snow depth needed for snow aging parameterization
             h_snow_gp_t(ic)         =  MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)*h_snow_t(ic)
           ELSE
-            snowfrac_t(ic)          =  lnd_diag%snowfrac_t(jc,jb,isubs)
             h_snow_gp_t(ic)         =  h_snow_t(ic)
           ENDIF
 
@@ -905,13 +902,16 @@ CONTAINS
              lnd_prog_new%rho_snow_t(jc,jb,isubs)  = lnd_prog_new%rho_snow_t(jc,jb,isubs_snow)
              lnd_diag%freshsnow_t(jc,jb,isubs)     = lnd_diag%freshsnow_t(jc,jb,isubs_snow)
 
-            ! snow-cover fraction with respect to snow-tile fractional area used within TERRA
-             snowfrac_t(ic) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
+             ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
+             ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
+             ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
+             ! time steps when associating traces of snow with a snow-cover fraction of 1)
+             lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
 
-             ! Rediagnose t_g according to the adjusted snow-cover fraction
+             ! Rediagnose t_g according to the modified snow-cover fraction
              lnd_prog_new%t_g_t(jc,jb,isubs_snow) =  &
-               snowfrac_t(ic) * lnd_prog_new%t_snow_t(jc,jb,isubs_snow) + &
-               (1._wp-snowfrac_t(ic))*lnd_prog_new%t_s_t(jc,jb,isubs_snow)
+               lnd_diag%snowfrac_t(jc,jb,isubs_snow) * lnd_prog_new%t_snow_t(jc,jb,isubs_snow) + &
+               (1._wp-lnd_diag%snowfrac_t(jc,jb,isubs_snow))*lnd_prog_new%t_s_t(jc,jb,isubs_snow)
 
              IF (lmulti_snow) THEN
                lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)

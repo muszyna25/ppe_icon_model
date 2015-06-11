@@ -1246,10 +1246,13 @@ MODULE mo_initicon_utils
 
       lnd_diag => p_lnd_state(jg)%diag_lnd
 
-      ! copy snowfrac_t to snowfrac_lc_t (needed for index list computation)
+      ! initialize snowfrac_t with appropriate values
       DO jt = ntiles_lnd+1, ntiles_total
-        lnd_diag%snowfrac_lc_t(:,:,jt)            = lnd_diag%snowfrac_t(:,:,jt)
-        lnd_diag%snowfrac_lc_t(:,:,jt-ntiles_lnd) = lnd_diag%snowfrac_t(:,:,jt)
+        WHERE (lnd_diag%snowfrac_lc_t(:,:,jt) > 0._wp) 
+          lnd_diag%snowfrac_t(:,:,jt) = 1._wp
+        ELSEWHERE
+          lnd_diag%snowfrac_t(:,:,jt) = 0._wp
+        END WHERE
       ENDDO
 
       CALL init_snowtile_lists(p_patch(jg), ext_data(jg), lnd_diag)

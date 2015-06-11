@@ -1587,6 +1587,11 @@ MODULE mo_initicon
           ! add h_snow and freshsnow increments onto respective first guess fields
           DO jt = 1, ntiles_total
 
+            IF (.NOT. lsnowtile) THEN ! copy snowfrac_lc_t to snowfrac_t (with snow tiles, snowfrac_t was
+                                      ! already initialized in SR init_snowtiles)
+              lnd_diag%snowfrac_t(:,jb,jt) = lnd_diag%snowfrac_lc_t(:,jb,jt)
+            ENDIF
+
             DO ic = 1, ext_data(jg)%atm%gp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
 
@@ -1597,7 +1602,7 @@ MODULE mo_initicon
               ELSE 
                 IF (lsnowtile .AND. jt > ntiles_lnd) THEN
                   ! add increment to snow-covered tiles only, rescaled with the snow-cover fraction
-                  snowfrac_lim = MAX(0.01_wp, lnd_diag%snowfrac_t(jc,jb,jt))
+                  snowfrac_lim = MAX(0.01_wp, lnd_diag%snowfrac_lc_t(jc,jb,jt))
                   lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
                     &                            + initicon(jg)%sfc_inc%h_snow(jc,jb)/snowfrac_lim ))
                 ELSE IF (lsnowtile .AND. initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp .AND. &
@@ -1618,7 +1623,6 @@ MODULE mo_initicon
                     &                                             + initicon(jg)%sfc_inc%h_snow(jc,jb)))
                 ENDIF
               ENDIF
-
 
               ! maximum freshsnow factor: 1
               ! minimum freshsnow factor: 0
