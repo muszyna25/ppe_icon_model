@@ -68,7 +68,7 @@ MODULE mo_sea_ice
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, init_fem_wgts, destruct_fem_wgts,             &
     &                               ice_fem_grid_init, ice_fem_grid_post, ice_advection,        &
-    &                               ice_ocean_stress
+    &                               ice_advection_vla, ice_ocean_stress
   USE mo_grid_config,         ONLY: n_dom
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
@@ -1437,7 +1437,53 @@ CONTAINS
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
-      CALL ice_advection( p_patch_3D, p_op_coeff, ice )
+!      CALL ice_advection( p_patch_3D, p_op_coeff, ice )
+
+
+      CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module, 1, in_subset=p_patch%verts%owned)
+      CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module, 1, in_subset=p_patch%verts%owned)
+
+      CALL dbg_print('IceSlow: ice%vol bef.adv'     ,ice%vol,                 str_module, 1, in_subset=p_patch%cells%owned)
+
+      ! direct calculation of the sea-ice volume
+!      ice_vol=0_wp
+!      DO blockNo = p_patch%cells%owned%start_block, p_patch%cells%owned%end_block
+!        CALL get_index_range(p_patch%cells%owned, blockNo, start_cell_index, end_cell_index)
+!        !We are dealing with the surface layer first
+!        DO jc =  start_cell_index, end_cell_index
+!     ! northern hemisphere
+!          IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
+!            ice_vol  = ice_vol + p_patch%cells%area(jc,blockNo)*SUM(ice%vol(jc,:,blockNo))!*ice%conc(jc,:,blockNo))
+!          ENDIF
+!        END DO
+!      END DO
+!      IF (my_process_is_stdio()) then
+!      write(0,*) global_sum_array(ice_vol)/1.0e9_wp
+!      write(0,*) '-----------------------advection-------------------------'
+!      ENDIF
+
+!      CALL ice_advection( p_patch_3D, p_op_coeff, ice )
+      CALL ice_advection_vla( p_patch_3D, p_op_coeff, ice )
+
+     ! direct calculation of the sea-ice volume
+!     ice_vol=0_wp
+!      DO blockNo = p_patch%cells%owned%start_block, p_patch%cells%owned%end_block
+!        CALL get_index_range(p_patch%cells%owned, blockNo, start_cell_index, end_cell_index)
+!        !We are dealing with the surface layer first
+!        DO jc =  start_cell_index, end_cell_index
+!!     ! northern hemisphere
+!          IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
+!            ice_vol  = ice_vol + p_patch%cells%area(jc,blockNo)*SUM(ice%vol(jc,:,blockNo))!*ice%conc(jc,:,blockNo))
+!          ENDIF
+!        END DO
+!      END DO
+!      IF (my_process_is_stdio()) then
+!      write(0,*) global_sum_array(ice_vol)/1.0e9_wp
+!      write(0,*) '---------------------------------------------------------'
+!      ENDIF
+
+    CALL dbg_print('IceSlow: ice%vol aft.adv'     ,ice%vol,                 str_module, 1, in_subset=p_patch%cells%owned)
+
     ELSE
       ice%u = 0._wp
       ice%v = 0._wp
@@ -1448,6 +1494,7 @@ CONTAINS
     CALL dbg_print('IceSlow: Conc. bef.cleanup',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
 
     CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+!    CALL ice_clean_up_vla( p_patch_3D, ice )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module, 3, in_subset=p_patch%cells%owned)
@@ -1578,6 +1625,47 @@ CONTAINS
     !---------------------------------------------------------------------
 
   END SUBROUTINE ice_clean_up
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! !  ice_clean_up_vla: Basic fix for overshoots
+  !! @par Revision History
+  !! Initial release by Vladimir Lapin, MPI-M (2015-06).
+  !!
+  SUBROUTINE ice_clean_up_vla( p_patch_3D, p_ice )
+    TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
+    TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
+
+    ! Local variables
+    ! ranges
+!    TYPE(t_subset_range), POINTER                                            :: all_cells
+    ! patch
+    TYPE(t_patch),POINTER                                                    :: p_patch
+!    TYPE(t_patch_vert),POINTER                                               :: p_patch_vert
+    ! counters
+!    INTEGER                                                                  :: k, jb, jc, i_startidx_c, i_endidx_c
+
+    ! subset range pointer
+    p_patch      => p_patch_3D%p_patch_2D(1)
+!    p_patch_vert => p_patch_3D%p_patch_1D(1)
+!    all_cells    => p_patch%cells%all
+
+    ! Fix over shoots
+    WHERE ( p_ice%conc(:,1,:) > 1._wp )
+      p_ice%conc(:,1,:) = 1._wp
+
+      ! New ice and snow thickness
+      p_ice%hi   (:,1,:) = p_ice%vol (:,1,:)/( p_ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+      p_ice%hs   (:,1,:) = p_ice%vols(:,1,:)/( p_ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+    ENDWHERE
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+!    CALL dbg_print('iceClUp: hi aft. limiter'     ,p_ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE ice_clean_up_vla
 
   !-------------------------------------------------------------------------
   !
