@@ -736,17 +736,17 @@ CONTAINS
     CALL dbg_print('UpdSfc: aft.Bulk/Ice: hi' , p_ice%hi                 , str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: aft.Bulk/Ice: hs' , p_ice%hs                 , str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: aft.Bulk/Ice:conc', p_ice%conc               , str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFLx SW-flux'     , atmos_fluxes%HeatFlux_ShortWave    , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFLx LW-flux'     , atmos_fluxes%HeatFlux_LongWave     , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFLx Sens.  HF'   , atmos_fluxes%HeatFlux_Sensible     , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFLx Latent HF'   , atmos_fluxes%HeatFlux_Latent       , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFLx Total  HF'   , atmos_fluxes%HeatFlux_Total        , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: Precipitation'    , atmos_fluxes%FrshFlux_Precipitation, str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: SnowFall'         , atmos_fluxes%FrshFlux_SnowFall     , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFLx Evaporation' , atmos_fluxes%FrshFlux_Evaporation  , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFlx TotalSalt'   , atmos_fluxes%FrshFlux_TotalSalt    , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFlx TotalIce'    , atmos_fluxes%FrshFlux_TotalIce     , str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aFlx TotalOcean'  , atmos_fluxes%FrshFlux_TotalOcean   , str_module, 5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFLx SW-flux'     , atmos_fluxes%HeatFlux_ShortWave    , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFLx LW-flux'     , atmos_fluxes%HeatFlux_LongWave     , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFLx Sens.  HF'   , atmos_fluxes%HeatFlux_Sensible     , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFLx Latent HF'   , atmos_fluxes%HeatFlux_Latent       , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFLx Total  HF'   , atmos_fluxes%HeatFlux_Total        , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: Precipitation'    , atmos_fluxes%FrshFlux_Precipitation, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: SnowFall'         , atmos_fluxes%FrshFlux_SnowFall     , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFLx Evaporation' , atmos_fluxes%FrshFlux_Evaporation  , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFlx TotalSalt'   , atmos_fluxes%FrshFlux_TotalSalt    , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFlx TotalIce'    , atmos_fluxes%FrshFlux_TotalIce     , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aFlx TotalOcean'  , atmos_fluxes%FrshFlux_TotalOcean   , str_module, 3, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     !-----------------------------------------------------------------------
@@ -832,9 +832,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: windStr-cc%x(1)',p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 4, &
+      CALL dbg_print('UpdSfc: windStr-cc%x(1)',p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 3, &
         &  in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: windStr-cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 4, &
+      CALL dbg_print('UpdSfc: windStr-cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 3, &
         &  in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
@@ -862,7 +862,7 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: HeatFlxTotal[W/m2]',p_sfc_flx%HeatFlux_Total         ,str_module,2,in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: topBC_T_vd[K*m/s]', p_sfc_flx%topBoundCond_Temp_vdiff,str_module,4,in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: topBC_T_vd[K*m/s]', p_sfc_flx%topBoundCond_Temp_vdiff,str_module,3,in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! #slo# 2015-01: sst-change in surface module after sea-ice thermodynamics using HeatFlux_Total and old zUnderIce
@@ -979,13 +979,13 @@ CONTAINS
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('UpdSfcEnd: VolumeTotal' ,p_sfc_flx%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: TotalIce'    ,p_sfc_flx%FrshFlux_TotalIce   , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: zUnderIceIni',zUnderIceIni,                   str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: zUnderIceTst',zUnderIceTst,                   str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: zUnderIceOld',zUnderIceOld,                   str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: zUnderIcetsx',zUnderIcetsx,                   str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: zUnderIce  ' ,p_ice%zUnderIce,                str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: s_top_inter' ,s_top_inter,                    str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: TotalIce'    ,p_sfc_flx%FrshFlux_TotalIce   , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: zUnderIceIni',zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: zUnderIceTst',zUnderIceTst,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: zUnderIceOld',zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: zUnderIcetsx',zUnderIcetsx,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: zUnderIce  ' ,p_ice%zUnderIce,                str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: s_top_inter' ,s_top_inter,                    str_module, 3, in_subset=p_patch%cells%owned)
     IF (no_tracer>=2) &
       & CALL dbg_print('UpdSfcEnd: SSS'         ,s_top,                          str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEnd: SST'         ,t_top,                          str_module, 2, in_subset=p_patch%cells%owned)
