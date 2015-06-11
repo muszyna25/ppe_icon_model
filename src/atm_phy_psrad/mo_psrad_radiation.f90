@@ -182,8 +182,8 @@ MODULE mo_psrad_radiation
 
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
-!  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
-!                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
+  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
+                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : spec_sampling_strategy, &
@@ -205,7 +205,7 @@ MODULE mo_psrad_radiation
 
   CONTAINS
 
-  SUBROUTINE pre_psrad_radiation(p_patch,datetime_radiation,ltrig_rad,amu0_x,rdayl_x)
+  SUBROUTINE pre_psrad_radiation(p_patch,datetime_radiation,ltrig_rad,amu0_x,rdayl_x,amu0m_x,rdaylm_x)
   !-----------------------------------------------------------------------------
   !>
   !! @brief Prepares information for radiation call
@@ -214,12 +214,14 @@ MODULE mo_psrad_radiation
     TYPE(t_patch), INTENT(IN)        :: p_patch
     TYPE(t_datetime), INTENT(IN)     :: datetime_radiation !< date and time of radiative transfer calculation
     LOGICAL         , INTENT(IN)     :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
-    REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:)
+    REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:), &
+                                        amu0m_x(:,:), rdaylm_x(:,:)
 
     LOGICAL  :: l_rad_call, l_write_solar
     INTEGER  :: icurrentyear, icurrentmonth, iprevmonth, i
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
-    REAL(wp) :: solcm, orbit_date, flx_ratio_cur
+    REAL(wp) :: orbit_date
+    REAL(wp) :: solcm
     LOGICAL  :: l_orbvsop87
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -239,63 +241,63 @@ MODULE mo_psrad_radiation
          &                p_patch,                         &
          &                flx_ratio_cur, amu0_x, rdayl_x)
 
-!!$    IF (lrad) THEN
+    IF (phy_config%lrad) THEN
 !!$
-!!$      SELECT CASE (isolrad)
-!!$      CASE (0)
-!!$        solc = SUM(ssi_default)
+      SELECT CASE (isolrad)
+      CASE (0)
+        solc = SUM(ssi_default)
 !!$      CASE (1)
 !!$        CALL get_solar_irradiance(current_date, next_date)
 !!$        CALL set_solar_irradiance(solc)
-!!$      CASE (2)
-!!$        solc = SUM(ssi_preind)
-!!$      CASE (3)
-!!$        solc = SUM(ssi_amip)
-!!$      CASE (4)
-!!$        solc = SUM(ssi_RCEdiurnOn)
-!!$      CASE (5)
-!!$        solc = SUM(ssi_RCEdiurnOff)
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'isolrad = ', isolrad, ' in radctl namelist is not supported'
-!!$        CALL message('pre_radiation', message_text)
-!!$      END SELECT
-!!$      psct = flx_ratio_cur*solc
-!!$
-!!$    END IF ! lrad
+      CASE (2)
+        solc = SUM(ssi_preind)
+      CASE (3)
+        solc = SUM(ssi_amip)
+      CASE (4)
+        solc = SUM(ssi_RCEdiurnOn)
+      CASE (5)
+        solc = SUM(ssi_RCEdiurnOff)
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'isolrad = ', isolrad, ' in radctl namelist is not supported'
+        CALL message('pre_radiation', message_text)
+      END SELECT
+      psct = flx_ratio_cur*solc
+
+    END IF ! lrad
 
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-!!$    IF (phy_config%lrad .AND. ltrig_rad) THEN
-!!$      l_rad_call = .TRUE.
-!!$      CALL get_orbit_times(datetime_radiation, time_of_day , &
-!!$           &               orbit_date)
-!!$
-!!$      IF ( l_orbvsop87 ) THEN 
-!!$        CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
-!!$      ELSE
-!!$        CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
-!!$      END IF
-!!$      CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
+    IF (phy_config%lrad .AND. ltrig_rad) THEN
+      l_rad_call = .TRUE.
+      CALL get_orbit_times(datetime_radiation, time_of_day , &
+           &               orbit_date)
+
+      IF ( l_orbvsop87 ) THEN 
+        CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
+      ELSE
+        CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
+      END IF
+      CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-!!$           &                p_patch,                         &
-!!$           &                flx_ratio_rad ,amu0m_x, rdaylm_x)
-!!$      !
-!!$      ! consider curvature of the atmosphere for high zenith angles
-!!$      !
-!!$      zrae = rae*(rae+2.0_wp)
-!!$      amu0m_x(:,:)  = rae/(SQRT(amu0m_x(:,:)**2+zrae)-amu0m_x(:,:))
-!!$      !
-!!$      ! For the calculation of radiative transfer, a maximum zenith angle
-!!$      ! of about 84 degrees is applied in order to avoid to much overshooting
-!!$      ! when the extrapolation of the radiative fluxes from night time
-!!$      ! regions to daytime regions is done for time steps at which no
-!!$      ! radiation calculation is performed. This translates into cosines
-!!$      ! of the zenith angle > 0.1.  This approach limits the calculation of the 
-!!$      ! curvature effect above, and should be reconsidered in the future
-!!$      ! 
-!!$      amu0m_x(:,:) = MAX(amu0m_x(:,:),0.1_wp)
+           &                p_patch,                         &
+           &                flx_ratio_rad ,amu0m_x, rdaylm_x)
+      !
+      ! consider curvature of the atmosphere for high zenith angles
+      !
+      zrae = rae*(rae+2.0_wp)
+      amu0m_x(:,:)  = rae/(SQRT(amu0m_x(:,:)**2+zrae)-amu0m_x(:,:))
+      !
+      ! For the calculation of radiative transfer, a maximum zenith angle
+      ! of about 84 degrees is applied in order to avoid to much overshooting
+      ! when the extrapolation of the radiative fluxes from night time
+      ! regions to daytime regions is done for time steps at which no
+      ! radiation calculation is performed. This translates into cosines
+      ! of the zenith angle > 0.1.  This approach limits the calculation of the 
+      ! curvature effect above, and should be reconsidered in the future
+      ! 
+      amu0m_x(:,:) = MAX(amu0m_x(:,:),0.1_wp)
 !!$      !
 !!$      ! --- Prepare Ozone climatology
 !!$      !
@@ -307,46 +309,46 @@ MODULE mo_psrad_radiation
 !!$      END SELECT
 !!$      !
 !!$
-!!$      !++jsr&hs
-!!$      ! 3.0 Prepare possibly time dependent total solar and spectral irradiance
-!!$      ! --------------------------------
-!!$      ! ATTENTION: 
-!!$      ! This part requires some further work. Currently, a solar constant of
-!!$      ! 1361.371 is used as default. This is the TSI averaged over the
-!!$      ! years 1979 to 1988, and should be used for AMIP type runs. If lcouple is
-!!$      ! true, a solar constant of 1360.875 is used, the average for the years 1844
-!!$      ! to 1856. This should be used for a preindustrial control run.
-!!$      ! The spectral distribution of this TSI is currently also prescribed for
-!!$      ! these two cases depending on the lcouple switch.
-!!$      ! For transient CMIP5 simulations, the available time
-!!$      ! varying TSI and SSI has to be read in and used here.
-!!$
-!!$      SELECT CASE (isolrad)
-!!$      CASE (0)
-!!$        solcm = SUM(ssi_default)
-!!$        ssi_factor = ssi_default
+      !++jsr&hs
+      ! 3.0 Prepare possibly time dependent total solar and spectral irradiance
+      ! --------------------------------
+      ! ATTENTION: 
+      ! This part requires some further work. Currently, a solar constant of
+      ! 1361.371 is used as default. This is the TSI averaged over the
+      ! years 1979 to 1988, and should be used for AMIP type runs. If lcouple is
+      ! true, a solar constant of 1360.875 is used, the average for the years 1844
+      ! to 1856. This should be used for a preindustrial control run.
+      ! The spectral distribution of this TSI is currently also prescribed for
+      ! these two cases depending on the lcouple switch.
+      ! For transient CMIP5 simulations, the available time
+      ! varying TSI and SSI has to be read in and used here.
+
+      SELECT CASE (isolrad)
+      CASE (0)
+        solcm = SUM(ssi_default)
+        ssi_factor = ssi_default
 !!$      CASE (1)
 !!$        CALL get_solar_irradiance_m(prev_radiation_date, radiation_date, nb_sw)
 !!$        CALL set_solar_irradiance_m(solcm, ssi_factor, nb_sw)
-!!$      CASE (2)
-!!$        solcm = SUM(ssi_preind)
-!!$        ssi_factor = ssi_preind
-!!$      CASE (3)
-!!$        solcm = SUM(ssi_amip)
-!!$        ssi_factor = ssi_amip
-!!$      CASE (4)
-!!$        solcm = SUM(ssi_RCEdiurnOn)
-!!$        ssi_factor = ssi_RCEdiurnOn
-!!$      CASE (5)
-!!$        solcm = SUM(ssi_RCEdiurnOff)
-!!$        ssi_factor = ssi_RCEdiurnOff
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'isolrad = ', isolrad, ' in radctl namelist is not supported'
-!!$        CALL message('pre_radiation', message_text)
-!!$      END SELECT
-!!$      psctm = flx_ratio_rad*solcm
-!!$      ssi_factor(:) = ssi_factor(:)/solcm
+      CASE (2)
+        solcm = SUM(ssi_preind)
+        ssi_factor = ssi_preind
+      CASE (3)
+        solcm = SUM(ssi_amip)
+        ssi_factor = ssi_amip
+      CASE (4)
+        solcm = SUM(ssi_RCEdiurnOn)
+        ssi_factor = ssi_RCEdiurnOn
+      CASE (5)
+        solcm = SUM(ssi_RCEdiurnOff)
+        ssi_factor = ssi_RCEdiurnOff
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'isolrad = ', isolrad, ' in radctl namelist is not supported'
+        CALL message('pre_radiation', message_text)
+      END SELECT
+      psctm = flx_ratio_rad*solcm
+      ssi_factor(:) = ssi_factor(:)/solcm
 !!$
 !!$      ! output of solar constant every month
 !!$
@@ -369,9 +371,9 @@ MODULE mo_psrad_radiation
 !!$          CALL message('',message_text)
 !!$        END DO
 !!$      END IF
-!!$      !--jsr&hs
-!!$
-!!$    END IF ! lrad .AND. l_trigrad
+      !--jsr&hs
+
+    END IF ! lrad .AND. l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
 
