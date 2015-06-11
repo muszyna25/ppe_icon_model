@@ -141,6 +141,7 @@ CONTAINS
     REAL(wp) :: rho_snow_new_t (nproma)
 
     REAL(wp) :: h_snow_t (nproma)
+    REAL(wp) :: h_snow_gp_t (nproma)
     REAL(wp) :: meltrate (nproma)
 
     REAL(wp) :: w_i_now_t (nproma)
@@ -280,7 +281,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -415,9 +416,12 @@ CONTAINS
           IF (isubs > ntiles_lnd) THEN ! snowtiles
             ! assume a snow-cover fraction of 1 on the snow tiles except in cases of very low snow depths
             ! (numerical stability issues in TERRA, particularly for the multi-layer scheme)
-            snowfrac_t(ic)          =  MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs)/0.01_wp)
+            snowfrac_t(ic)          =  MIN(1._wp,h_snow_t(ic)*100._wp)
+            ! grid-point averaged snow depth needed for snow aging parameterization
+            h_snow_gp_t(ic)         =  MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)*h_snow_t(ic)
           ELSE
             snowfrac_t(ic)          =  lnd_diag%snowfrac_t(jc,jb,isubs)
+            h_snow_gp_t(ic)         =  h_snow_t(ic)
           ENDIF
 
           IF (itype_interception == 2) THEN
@@ -540,6 +544,7 @@ CONTAINS
         &  rho_snow_mult_new = rho_snow_mult_new_t, & !OUT snow density                 (kg/m**3) 
 !
         &  h_snow        = h_snow_t              , & !INOUT snow height
+        &  h_snow_gp     = h_snow_gp_t           , & !IN grid-point averaged snow height
         &  meltrate      = meltrate              , & !OUT snow melting rate
 !
         &  w_i_now       = w_i_now_t             , & !INOUT water content of interception water(m H2O)
