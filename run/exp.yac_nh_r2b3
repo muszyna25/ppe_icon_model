@@ -26,7 +26,8 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
-grids_folder=${icon_data_poolFolder}/grids/buildbot
+# grids_folder=${icon_data_poolFolder}/grids/buildbot
+grids_folder=${basedir}/grids
 #
 # Number of ocean processes
 #
@@ -58,29 +59,29 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
+  end_date="3000-01-01T00:00:00Z"
 # global resolution
 #
 R=2   # nroot
-B=4   # number of bisections applied
+B=3   # number of bisections applied
 #
 #time stepping
 #
-dtime_atmo=${dtime_atmo:=600}
+dtime_atmo=${dtime_atmo:=1200}
 dtime_ocean=$hour
 dtime_coupling=$dtime_ocean
 #
 #---------------------------------------------------------------------------
 #model timing
 # calculate model timesteps using $ndays
-restart_units=2
-(( dt_checkpoint = restart_units * day ))
-(( dt_restart    = restart_units * day ))
+restart_units=1 
+(( dt_checkpoint = restart_units * month ))
+(( dt_restart    = restart_units * month ))
 #
 atmo_output_interval="PT6H"
-atmo_file_interval="P02D"    # 1 month
+atmo_file_interval="P30D"    # 1 month
 ocean_output_interval="PT12H"
-ocean_file_interval="P02D"   # 1 month
+ocean_file_interval="P30D"   # 1 month
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -106,116 +107,266 @@ ozon_file="ape_o3_${ocean_grids}"
 nproma=${nproma:=32}
 #-----------------------------------------------------------------------------
 #
+# write YAC coupling xml file
+#
+atm_lag=2 # 2 for cold start, 1 for normal restart
+#
+cat > coupling.xml << EOF
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<coupling xmlns="http://www.w3schools.com"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
+   <redirect redirect_of_root="false" redirect_stdout="true"/>
+   <components>
+      <component id="1">
+         <name>atmo</name>
+         <model>ICON</model>
+         <simulated>atmosphere</simulated>
+         <transient_grid_refs>
+            <transient_grid_ref collection_size="2" grid_ref="1" id="1" transient_ref="1"/>
+            <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
+            <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="4" transient_ref="4"/>
+            <transient_grid_ref collection_size="4" grid_ref="1" id="5" transient_ref="5"/>
+            <transient_grid_ref collection_size="4" grid_ref="1" id="6" transient_ref="6"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="9" transient_ref="9"/>
+            <transient_grid_ref collection_size="5" grid_ref="1" id="10" transient_ref="10"/>
+         </transient_grid_refs>
+      </component>
+      <component id="2">
+         <name>ocean</name>
+         <model>ICON</model>
+         <simulated>ocean</simulated>
+         <transient_grid_refs>
+            <transient_grid_ref collection_size="2" grid_ref="1" id="1" transient_ref="1"/>
+            <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
+            <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="4" transient_ref="4"/>
+            <transient_grid_ref collection_size="4" grid_ref="1" id="5" transient_ref="5"/>
+            <transient_grid_ref collection_size="4" grid_ref="1" id="6" transient_ref="6"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="9" transient_ref="9"/>
+            <transient_grid_ref collection_size="5" grid_ref="1" id="10" transient_ref="10"/>
+         </transient_grid_refs>
+      </component>
+   </components>
+   <transients>
+      <transient id="1" transient_standard_name="surface_downward_eastward_stress"/>
+      <transient id="2" transient_standard_name="surface_downward_northward_stress"/>
+      <transient id="3" transient_standard_name="surface_fresh_water_flux"/>
+      <transient id="4" transient_standard_name="surface_temperature"/>
+      <transient id="5" transient_standard_name="total_heat_flux"/>
+      <transient id="6" transient_standard_name="atmosphere_sea_ice_bundle"/>
+      <transient id="7" transient_standard_name="sea_surface_temperature"/>
+      <transient id="8" transient_standard_name="eastward_sea_water_velocity"/>
+      <transient id="9" transient_standard_name="northward_sea_water_velocity"/>
+      <transient id="10" transient_standard_name="ocean_sea_ice_bundle"/>
+   </transients>
+   <grids>
+      <grid alias_name="grid1" id="1"/>
+   </grids>
+   <dates>
+      <start_date>+1800-01-01T00:00:00.000</start_date>
+      <end_date>+2100-01-01T00:00:00.000</end_date>
+      <calendar>proleptic-gregorian</calendar>
+   </dates>
+   <timestep_unit>second</timestep_unit>
+   <couples>
+      <couple>
+         <component1 component_id="1"/>
+         <component2 component_id="2"/>
+         <transient_couple transient_id="1">
+            <source component_ref="1" transient_grid_ref="1"/>
+            <target transient_grid_ref="1"/>
+            <timestep>
+               <source>${dtime_atmo}</source>
+               <target>${dtime_ocean}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="2">
+            <source component_ref="1" transient_grid_ref="2"/>
+            <target transient_grid_ref="2"/>
+            <timestep>
+               <source>${dtime_atmo}</source>
+               <target>${dtime_ocean}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="3">
+            <source component_ref="1" transient_grid_ref="3"/>
+            <target transient_grid_ref="3"/>
+            <timestep>
+               <source>${dtime_atmo}</source>
+               <target>${dtime_ocean}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="4">
+            <source component_ref="1" transient_grid_ref="4"/>
+            <target transient_grid_ref="4"/>
+            <timestep>
+               <source>${dtime_atmo}</source>
+               <target>${dtime_ocean}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="5">
+            <source component_ref="1" transient_grid_ref="5"/>
+            <target transient_grid_ref="5"/>
+            <timestep>
+               <source>${dtime_atmo}</source>
+               <target>${dtime_ocean}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="6">
+            <source component_ref="1" transient_grid_ref="6"/>
+            <target transient_grid_ref="6"/>
+            <timestep>
+               <source>${dtime_atmo}</source>
+               <target>${dtime_ocean}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="7">
+            <source component_ref="2" transient_grid_ref="7"/>
+            <target transient_grid_ref="7"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="8">
+            <source component_ref="2" transient_grid_ref="8"/>
+            <target transient_grid_ref="8"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="9">
+            <source component_ref="2" transient_grid_ref="9"/>
+            <target transient_grid_ref="9"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="10">
+            <source component_ref="2" transient_grid_ref="10"/>
+            <target transient_grid_ref="10"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+      </couple>
+   </couples>
+</coupling>
+EOF
+#
 #-----------------------------------------------------------------------------
+#
 # write ICON namelist parameters
-# ------------------------
+# ------------------------------
+#
+# TODO: check nh_testcase_nml
+#
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #  
 atm_lag=2 # 2 for cold start, 1 for normal restart
 #
 cat > $atmo_namelist << EOF
 &coupling_mode_nml
-  debug_coupler_level = 0
-/
-&coupling_nml
-  name                = 'TAUX'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'TAUY'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SFWFLX'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SFTEMP'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'THFLX'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'ICEATM'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SST'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'OCEANU'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'OCEANV'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'ICEOCE'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
+  coupled_mode = .TRUE.
 /
 &parallel_nml
  nproma         = ${nproma}
@@ -486,106 +637,7 @@ ocean_model_equations=-1 # equation system
 cat > ${ocean_namelist} << EOF
 !
 &coupling_mode_nml
-  debug_coupler_level = 0
-/
-&coupling_nml
-  name                = 'TAUX'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'TAUY'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SFWFLX'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SFTEMP'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'THFLX'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'ICEATM'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SST'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'OCEANU'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'OCEANV'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'ICEOCE'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
+  coupled_mode = .TRUE.
 /
 &parallel_nml
  nproma         = ${nproma}
@@ -756,7 +808,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 # ------------------------------
 #
 # - ozone
-ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
+ozone_file="ape_o3_iconR2B03-ocean_aqua_planet.nc"
 add_required_file ${basedir}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
@@ -764,5 +816,12 @@ add_required_file ${basedir}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01
 #
 dict_file="dict.${EXPNAME}"
 add_required_file ${basedir}/run/${dict_file}  ./
+#
+# xsd and xml files for yac
+# -------------------------
+#
+add_required_file ${basedir}/run/coupling.xml  ./
+add_required_file ${basedir}/run/coupling.xsd  ./
+add_required_file ${basedir}/run/component.xsd ./
 #
 #-----------------------------------------------------------------------------

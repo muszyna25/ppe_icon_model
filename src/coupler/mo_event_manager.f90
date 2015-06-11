@@ -179,12 +179,12 @@ CONTAINS
 
        ! fast-forward internal event by lag coupling time steps
 
-       events(id)%event_time    = -1 * lag * time_step
+       events(id)%elapsed_time  = lag * time_step
        events(id)%lag           = lag
 
        ! Update date and time for this event
 
-       seconds = events(id)%time_step
+       seconds = lag * events(id)%time_step
        days    = 0
 
        CALL add_time ( days, seconds, events(id)%current_date )

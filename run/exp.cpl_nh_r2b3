@@ -26,7 +26,8 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
-grids_folder=${icon_data_poolFolder}/grids/buildbot
+# grids_folder=${icon_data_poolFolder}/grids/buildbot
+grids_folder=${basedir}/grids
 #
 # Number of ocean processes
 #
@@ -58,29 +59,29 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
+  end_date="3000-01-01T00:00:00Z"
 # global resolution
 #
 R=2   # nroot
-B=4   # number of bisections applied
+B=3   # number of bisections applied
 #
 #time stepping
 #
-dtime_atmo=${dtime_atmo:=600}
+dtime_atmo=${dtime_atmo:=1200}
 dtime_ocean=$hour
 dtime_coupling=$dtime_ocean
 #
 #---------------------------------------------------------------------------
 #model timing
 # calculate model timesteps using $ndays
-restart_units=2
-(( dt_checkpoint = restart_units * day ))
-(( dt_restart    = restart_units * day ))
+restart_units=1
+(( dt_checkpoint = restart_units * month ))
+(( dt_restart    = restart_units * month ))
 #
 atmo_output_interval="PT6H"
-atmo_file_interval="P02D"    # 1 month
+atmo_file_interval="P30D"    # 1 month
 ocean_output_interval="PT12H"
-ocean_file_interval="P02D"   # 1 month
+ocean_file_interval="P30D"   # 1 month
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -756,7 +757,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 # ------------------------------
 #
 # - ozone
-ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
+ozone_file="ape_o3_iconR2B03-ocean_aqua_planet.nc"
 add_required_file ${basedir}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
