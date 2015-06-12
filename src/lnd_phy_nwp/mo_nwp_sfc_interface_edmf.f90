@@ -624,6 +624,7 @@ IF ( .true. ) THEN
         &  rho_snow_mult_new = rho_snow_mult_new_t(:,:,isubs), & ! snow density                      (kg/m**3)
 !
         &  h_snow        = h_snow_t(:,isubs)                 , & ! snow height
+        &  h_snow_gp     = h_snow_t(:,isubs)                 , & ! snow height
         &  meltrate      = meltrate(:)                       , & ! snow melting rate
 !
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)

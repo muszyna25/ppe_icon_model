@@ -21,7 +21,6 @@
 MODULE mo_nwp_tuning_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -116,7 +115,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &

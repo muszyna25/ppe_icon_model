@@ -114,9 +114,9 @@ CONTAINS
 
   !
 SUBROUTINE cumastrn &
- & (  kidia,    kfdia,    klon,     ktdia,    klev,&
- & ldland, ldlake, ptsphy, phy_params, capdcfac, &
- & paer_ss,                                      &
+ & (  kidia,    kfdia,    klon,   ktdia,   klev, &
+ & ldland, ldlake, ptsphy, phy_params, k950,     &
+ & capdcfac,  paer_ss,                           &
  & pten,     pqen,     puen,     pven, plitot,   &
  & pvervel,  pqhfl,    pahfs,                    &
  & pap,      paph,     pgeo,     pgeoh,          &
@@ -317,6 +317,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: klev
 INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktrac
+INTEGER(KIND=jpim),INTENT(in)    :: k950(klon)
 INTEGER(KIND=jpim)               :: ktdia
 LOGICAL           ,INTENT(in)    :: ldland(klon) 
 LOGICAL           ,INTENT(in)    :: ldlake(klon)
@@ -810,8 +811,7 @@ IF(lmfdd) THEN
 
   CALL cuddrafn &
     & ( kidia,    kfdia,    klon,   ktdia,  klev,&
-    & phy_params%kcon3, llddraf,         &
-    & ztenh,    zqenh                   ,&
+    & k950, llddraf, ztenh,    zqenh            ,&
     & pgeo,     pgeoh,    paph,     zrfl,&
     & zdph,     zdgeoh,                  &
     & ztd,      zqd,      pmfu,&
@@ -884,7 +884,7 @@ DO jl = kidia, kfdia
         zcapdcycl(jl) = zcappbl(jl)*ztau(jl)*phy_params%tau0
       ELSE
         zduten = 2.0_jprb + SQRT(0.5*(puen(jl,ikb)**2 + pven(jl,ikb)**2 + &
-          puen(jl,phy_params%kcon3)**2 + pven(jl,phy_params%kcon3)**2))
+          puen(jl,k950(jl))**2 + pven(jl,k950(jl))**2))
         ztaupbl(jl) = MIN(1.e4_jprb, pgeoh(jl,ikb)-pgeoh(jl,klev+1))/(rg*zduten)
         zcapdcycl(jl) = zcappbl(jl)*ztaupbl(jl)
       ENDIF

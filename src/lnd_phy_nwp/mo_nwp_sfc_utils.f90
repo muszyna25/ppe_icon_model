@@ -24,7 +24,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell, dzsoil
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell, dzsoil, MODE_IAU
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
@@ -36,7 +36,7 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               itype_interception
-  USE mo_initicon_config,     ONLY: init_mode_soil
+  USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini_min, hice_ini_max
@@ -112,6 +112,7 @@ CONTAINS
     ! Local scalars:
 
     INTEGER :: jc,jb,isubs,jk
+    LOGICAL :: lsnowtile_warmstart
 
 
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -202,6 +203,12 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    IF (lsnowtile .AND. init_mode == MODE_IAU .AND. .NOT. ltile_coldstart) THEN
+      lsnowtile_warmstart = .TRUE.
+    ELSE
+      lsnowtile_warmstart = .FALSE.
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
@@ -332,37 +339,35 @@ CONTAINS
 
         ! Preliminary diagnosis of snow-cover fraction for initialization of split tile index list
 
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! the snow cover fraction must be restored from the tile fractions instead of being diagnosed here!
+        IF (.NOT. lsnowtile_warmstart) THEN
 
-! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
-! a segmentation fault otherwise
-!CDIR NOIEXPAND
-        CALL diag_snowfrac_tg(                           &
-          &  istart = 1, iend = i_count                , & ! start/end indices
-          &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
-          &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
-          &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
-          &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
-          &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
-          &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
-          &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-          &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
-          &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
-          &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
+            &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
+            &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
-          p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
-        ENDDO
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
+            p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          ENDDO
+
+        ENDIF
 
       ENDDO
 
       ! create index lists for snow tiles (first call)
-      IF(lsnowtile) THEN      ! snow is considered as separate tiles
+      IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
           isubs_snow = isubs + ntiles_lnd
 
@@ -412,27 +417,23 @@ CONTAINS
         &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow (m H2O)
         &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       ) ! layer thickness between half levels in snow  (  m  )
 
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! w_snow_now_t must be multiplied with the snow cover fraction before entering the following computation!
-! Alternatively, the diagnosis may be skipped in this case because the snow cover fraction has already
-! been restored from the tile fractions
+        IF (.NOT. lsnowtile_warmstart) THEN
 
-! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
-! a segmentation fault otherwise
-!CDIR NOIEXPAND
-        CALL diag_snowfrac_tg(                           &
-          &  istart = 1, iend = i_count                , & ! start/end indices
-          &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
-          &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
-          &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
-          &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
-          &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
-          &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
-          &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-          &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
-          &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
-          &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
+            &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
+            &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+
+        ENDIF
 
 !  Recover fields from index list
 !
@@ -445,22 +446,21 @@ CONTAINS
           p_prog_lnd_now%w_snow_t(jc,jb,isubs)   = w_snow_now_t(ic,jb,isubs)
           p_lnd_diag%h_snow_t(jc,jb,isubs)       = h_snow_t(ic,jb,isubs)
           p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_t(jc,jb,isubs)     = snowfrac_t(ic,jb,isubs)
-          p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
-          p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          IF (.NOT. lsnowtile_warmstart) THEN
+            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
+            p_lnd_diag%snowfrac_t(jc,jb,isubs)     = snowfrac_t(ic,jb,isubs)
+            p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+            p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          ENDIF
         ENDDO
 
-        IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
-!CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
+        IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
+          ! copy snowfrac_t to snow-free tile (needed for index list computation)
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)
           ENDDO
-
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! the following computatation must not be executed! In this case, w_snow and h_snow are already rescaled
-! to the partial tile fraction
 
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -483,13 +483,9 @@ CONTAINS
             ENDDO
           ENDDO
 
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! the following computatation must not be executed! In this case, w_snow and h_snow are already rescaled
-! to the partial tile fraction
-
 !CDIR UNROLL=nlsnow
           DO jk=1,nlev_snow
-            IF (lsnowtile .AND. isubs > ntiles_lnd) THEN
+            IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
               DO ic = 1, i_count
                 jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
                 p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
@@ -871,7 +867,7 @@ CONTAINS
 
 
 
-      IF(lsnowtile) THEN      ! snow is considered as separate tiles
+      IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
 
           isubs_snow = isubs + ntiles_lnd
@@ -910,7 +906,7 @@ CONTAINS
             ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
             ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
             ! time steps when associating traces of snow with a snow-cover fraction of 1)
-            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,p_lnd_diag%h_snow_t(jc,jb,isubs_snow)/0.01_wp)
+            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,p_lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
 
             ! Rediagnose t_g according to the modified snow-cover fraction
             p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) =  &
@@ -943,6 +939,17 @@ CONTAINS
         END DO
       END IF
 
+
+      ! Remove snow on non-existing grid points. This has no impact on the prognostic
+      ! results but is needed in order to have meaningful data on the tile-based fields 
+      DO isubs = 1, ntiles_total
+        DO jc = i_startidx, i_endidx
+          IF (ext_data%atm%frac_t(jc,jb,isubs) < 1.e-10_wp) THEN
+            p_lnd_diag%h_snow_t(jc,jb,isubs)     = 0._wp
+            p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
+          ENDIF
+        ENDDO
+      END DO
 
 
     ENDDO  ! jb loop
@@ -2069,7 +2076,6 @@ CONTAINS
     INTEGER :: count_sea, count_ice, count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
     INTEGER :: n_now
-    INTEGER :: lc_water, lc_snow_ice
     REAL(wp):: t_water
     REAL(wp):: fracwater_old, fracice_old
 
@@ -2084,10 +2090,6 @@ CONTAINS
 
     DO jg = 1, n_dom
 
-
-
-    lc_snow_ice = ext_data(jg)%atm%i_lc_snow_ice
-    lc_water = ext_data(jg)%atm%i_lc_water
     n_now = nnow(jg)
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)

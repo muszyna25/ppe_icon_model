@@ -1234,7 +1234,6 @@ ruvper=0.3_JPRB
 
 phy_params%kcon1=2
 phy_params%kcon2=2
-phy_params%kcon3=nflevg-2
 DO jlev=nflevg,2,-1
   ! IF(STPRE(JLEV) > 350.E2_JPRB)NJKT1=JLEV
   ! IF(STPRE(JLEV) >  60.E2_JPRB)NJKT2=JLEV
@@ -1248,11 +1247,7 @@ DO jlev=nflevg,2,-1
   !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 500.E2_JPRB)NJKT5=JLEV
   IF(pmean(jlev) > 350.e2_jprb) phy_params%kcon1=jlev
   IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
-  IF(pmean(jlev) > 950.e2_jprb) phy_params%kcon3=jlev
-  IF(pmean(jlev) > 850.e2_jprb) phy_params%kcon4=jlev
-  IF(pmean(jlev) > 500.e2_jprb) phy_params%kcon5=jlev
 ENDDO
-phy_params%kcon3=MIN(nflevg-2,phy_params%kcon3)
 
 #ifdef __GME__
 WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
@@ -1265,9 +1260,8 @@ WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
 #endif
 
 #ifdef __ICON__
-CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
-!WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
-WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
+CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, KSMAX')
+WRITE(message_text,'(2i7,E12.5)') phy_params%kcon1, phy_params%kcon2, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV, ENTRORG')
 !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU

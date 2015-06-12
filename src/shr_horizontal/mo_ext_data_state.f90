@@ -64,7 +64,8 @@ MODULE mo_ext_data_state
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
-    &                              p_comm_work_test, p_comm_work
+    &                              p_comm_work_test, p_comm_work, my_process_is_mpi_test, &
+    &                              my_process_is_mpi_workroot
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_linked_list,        ONLY: t_var_list
@@ -355,7 +356,7 @@ CONTAINS
     ! close CDI stream (file):
     DO jg=1,n_dom
       IF (cdi_extpar_id(jg) == -1) CYCLE
-      IF (my_process_is_stdio())  CALL streamClose(cdi_extpar_id(jg))
+      IF (my_process_is_mpi_workroot())  CALL streamClose(cdi_extpar_id(jg))
     END DO
     DEALLOCATE (cdi_extpar_id, cdi_filetype, stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'DEALLOCATE failed!')
@@ -1633,13 +1634,13 @@ CONTAINS
     !---------------------------------------------!
     ! Check validity of external parameter file   !
     !---------------------------------------------!
-    IF (my_process_is_stdio()) THEN
+    IF (my_process_is_mpi_workroot()) THEN
       ! generate file name
       extpar_file = generate_filename(extpar_filename,                   &
         &                             model_base_dir,                    &
         &                             TRIM(p_patch(jg)%grid_filename))
       CALL message(routine, "extpar_file = "//TRIM(extpar_file))
-
+      
       INQUIRE (FILE=extpar_file, EXIST=l_exist)
       IF (.NOT.l_exist)  CALL finish(routine,'external data file is not found.')
 
@@ -1741,7 +1742,7 @@ CONTAINS
         is_frglac_in = .TRUE.
       ENDIF
 
-    ENDIF ! my_process_is_stdio()
+    ENDIF ! my_process_is_mpi_workroot()
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -1790,7 +1791,7 @@ CONTAINS
 !--------------------------------------------------------------------------
 
     ! set stream IDs to "uninitialized":
-    IF( my_process_is_stdio()) THEN
+    IF(my_process_is_mpi_workroot()) THEN
       cdi_extpar_id(:) = -1
     END IF
 
@@ -2487,7 +2488,7 @@ CONTAINS
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 
-         IF(my_process_is_stdio()) THEN
+         IF(my_process_is_mpi_workroot()) THEN
 
           CALL message  (routine, TRIM(sst_td_file))
 

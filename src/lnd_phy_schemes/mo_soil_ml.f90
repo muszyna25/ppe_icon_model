@@ -505,7 +505,8 @@ END SUBROUTINE message
                   rho_snow_mult_now, & ! snow density                                  (kg/m**3)
                   rho_snow_mult_new, & ! snow density                                  (kg/m**3)
 !
-                  h_snow           , & ! snow height                                   (  m  )
+                  h_snow           , & ! snow depth                                   (  m  )
+                  h_snow_gp        , & ! grid-point averaged snow depth               (  m  )
                   meltrate         , & ! snow melting rate                             (kg/(m**2*s))
 !
                   w_i_now          , & ! water content of interception water           (m H2O)
@@ -640,7 +641,9 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(OUT) :: &
                   rho_snow_mult_new    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  h_snow               ! snow height  
+                  h_snow               ! snow depth
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
+                  h_snow_gp            ! grid-point averaged snow depth  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   meltrate             ! snow melting rate  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -1795,7 +1798,7 @@ END SUBROUTINE message
         ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
         ! an offset is added in order to ensure moderate aging for low snow depths
         zuv = MIN(300._ireals, u_10m(i)**2 + v_10m(i)**2 + 12._ireals )
-        ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow(i))/zuv))
+        ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow_gp(i))/zuv))
 
         ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
         zdsn_old   = zdt/ztau_snow + zdt*zrain_rate*0.1_ireals
