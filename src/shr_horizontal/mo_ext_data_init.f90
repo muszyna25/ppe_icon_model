@@ -971,6 +971,13 @@ CONTAINS
           CALL read_cdi_2d(parameters, 'NDVI_MAX', ext_data(jg)%atm%ndvi_max)
           CALL read_cdi_2d(parameters, 'SOILTYP', ext_data(jg)%atm%soiltyp)
           CALL read_cdi_3d(parameters, 'LU_CLASS_FRACTION', nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction, opt_lev_dim=3 )
+          CALL read_cdi_2d(parameters, 'T_CL', ext_data(jg)%atm%t_cl)
+          CALL read_cdi_2d(parameters, 'SSO_STDH', ext_data(jg)%atm%sso_stdh)
+          CALL read_cdi_2d(parameters, 'SSO_THETA', ext_data(jg)%atm%sso_theta)
+          CALL read_cdi_2d(parameters, 'SSO_GAMMA', ext_data(jg)%atm%sso_gamma)
+          CALL read_cdi_2d(parameters, 'SSO_SIGMA', ext_data(jg)%atm%sso_sigma)
+          CALL read_cdi_2d(parameters, 'FR_LAKE', ext_data(jg)%atm%fr_lake)
+          CALL read_cdi_2d(parameters, 'DEPTH_LK', ext_data(jg)%atm%depth_lk)
 
           ! The following fields are only required without surface tiles
           IF (ntiles_lnd == 1) THEN
@@ -991,23 +998,15 @@ CONTAINS
             ext_data(jg)%atm%fr_glac(:,:) = ext_data(jg)%atm%lu_class_fraction(:,:,ext_data(jg)%atm%i_lc_snow_ice)
           ENDIF
 
-
           IF ( l_emiss ) THEN
             CALL read_cdi_2d(parameters, 'EMIS_RAD', ext_data(jg)%atm%emis_rad)
           ELSE
             ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
           ENDIF
 
-          CALL read_cdi_2d(parameters, 'T_CL', ext_data(jg)%atm%t_cl)
-          CALL read_cdi_2d(parameters, 'SSO_STDH', ext_data(jg)%atm%sso_stdh)
-          CALL read_cdi_2d(parameters, 'SSO_THETA', ext_data(jg)%atm%sso_theta)
-          CALL read_cdi_2d(parameters, 'SSO_GAMMA', ext_data(jg)%atm%sso_gamma)
-          CALL read_cdi_2d(parameters, 'SSO_SIGMA', ext_data(jg)%atm%sso_sigma)
-          CALL read_cdi_2d(parameters, 'FR_LAKE', ext_data(jg)%atm%fr_lake)
-          CALL read_cdi_2d(parameters, 'DEPTH_LK', ext_data(jg)%atm%depth_lk)
-
           ! Copy sso_stdh to sso_stdh_raw before applying correction for orography filtering
           ext_data(jg)%atm%sso_stdh_raw(:,:) = ext_data(jg)%atm%sso_stdh(:,:)
+
 
           ! Read time dependent data
           IF ( irad_aero == 6 ) THEN
@@ -1047,47 +1046,47 @@ CONTAINS
 
 
             IF (itune_albedo >= 1) THEN
-            ! Test: reduce albedo over land where modis albedo is higher than 0.3 (variable albthresh)
+              ! Test: reduce albedo over land where modis albedo is higher than 0.3 (variable albthresh)
 !$OMP DO PRIVATE(jb,jc,im,i_startidx,i_endidx,albfac)
-            DO jb = i_startblk, i_endblk
-              CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 
-              DO im = 1, 12
-                DO jc = i_startidx,i_endidx
-                  IF (ext_data(jg)%atm%soiltyp(jc,jb) >= 2 .AND. ext_data(jg)%atm%soiltyp(jc,jb) <= 8) THEN
-                    IF (ext_data(jg)%atm_td%alb_dif(jc,jb,im) > albthresh) THEN
-                      albfac = (albthresh+2._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))/ &
-                        (3._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))
-                      ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = albfac*ext_data(jg)%atm_td%alb_dif(jc,jb,im)
-                      ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
-                      ext_data(jg)%atm_td%albni_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albni_dif(jc,jb,im)
+                DO im = 1, 12
+                  DO jc = i_startidx,i_endidx
+                    IF (ext_data(jg)%atm%soiltyp(jc,jb) >= 2 .AND. ext_data(jg)%atm%soiltyp(jc,jb) <= 8) THEN
+                      IF (ext_data(jg)%atm_td%alb_dif(jc,jb,im) > albthresh) THEN
+                        albfac = (albthresh+2._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))/ &
+                          (3._wp*ext_data(jg)%atm_td%alb_dif(jc,jb,im))
+                        ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = albfac*ext_data(jg)%atm_td%alb_dif(jc,jb,im)
+                        ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
+                        ext_data(jg)%atm_td%albni_dif(jc,jb,im) = albfac*ext_data(jg)%atm_td%albni_dif(jc,jb,im)
+                      ENDIF
                     ENDIF
-                  ENDIF
-                ENDDO
+                  ENDDO
+               ENDDO
               ENDDO
-            ENDDO
 !$OMP END DO
             ENDIF  ! Sahara albedo tuning
 
             IF (itune_albedo >= 2) THEN
-            ! Increase albedo over the Antarctic plateau by 5% (from 70% to 75%) in order to get rid of summertime warm bias
+              ! Increase albedo over the Antarctic plateau by 5% (from 70% to 75%) in order to get rid of summertime warm bias
 !$OMP DO PRIVATE(jb,jc,im,i_startidx,i_endidx,albfac)
-            DO jb = i_startblk, i_endblk
-              CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 
-              DO im = 1, 12
-                DO jc = i_startidx,i_endidx
-                  IF (ext_data(jg)%atm%soiltyp(jc,jb) == 1 .AND. p_patch(jg)%cells%center(jc,jb)%lat*rad2deg < -65._wp ) THEN
-                    IF (ext_data(jg)%atm%topography_c(jc,jb) > 1000._wp) THEN
-                      albfac = MIN(1._wp,1.e-3_wp*(ext_data(jg)%atm%topography_c(jc,jb)-1000._wp))
-                      ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = 0.05_wp*albfac + ext_data(jg)%atm_td%alb_dif(jc,jb,im)
-                      ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = 0.05_wp*albfac + ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
-                      ext_data(jg)%atm_td%albni_dif(jc,jb,im) = 0.05_wp*albfac + ext_data(jg)%atm_td%albni_dif(jc,jb,im)
+                DO im = 1, 12
+                  DO jc = i_startidx,i_endidx
+                    IF (ext_data(jg)%atm%soiltyp(jc,jb) == 1 .AND. p_patch(jg)%cells%center(jc,jb)%lat*rad2deg < -65._wp ) THEN
+                      IF (ext_data(jg)%atm%topography_c(jc,jb) > 1000._wp) THEN
+                        albfac = MIN(1._wp,1.e-3_wp*(ext_data(jg)%atm%topography_c(jc,jb)-1000._wp))
+                        ext_data(jg)%atm_td%alb_dif(jc,jb,im)   = 0.05_wp*albfac + ext_data(jg)%atm_td%alb_dif(jc,jb,im)
+                        ext_data(jg)%atm_td%albuv_dif(jc,jb,im) = 0.05_wp*albfac + ext_data(jg)%atm_td%albuv_dif(jc,jb,im)
+                        ext_data(jg)%atm_td%albni_dif(jc,jb,im) = 0.05_wp*albfac + ext_data(jg)%atm_td%albni_dif(jc,jb,im)
+                      ENDIF
                     ENDIF
-                  ENDIF
+                  ENDDO
                 ENDDO
               ENDDO
-            ENDDO
 !$OMP END DO
             ENDIF  ! Antarctic albedo tuning
 !$OMP END PARALLEL
@@ -1096,6 +1095,7 @@ CONTAINS
 
         END SELECT ! iforcing
         CALL deleteInputParameters(parameters)
+
 
         !
         ! derived external parameter fields
@@ -1131,7 +1131,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        !DR !!!! Quick fix, as long as a routine for computing smoothed external 
+        ! As long as a routine for computing smoothed external 
         ! parameter fields is missing. Just copy.
         !
         DO jb = i_startblk, i_endblk
@@ -1217,10 +1217,11 @@ CONTAINS
       ENDDO ! ndom
     END IF ! irad_o3
 
-!------------------------------------------
-! Read time dependent SST and ICE Fraction  
-!------------------------------------------
-   IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
+
+    !------------------------------------------
+    ! Read time dependent SST and ICE Fraction  
+    !------------------------------------------
+    IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
 
       DO jg = 1,n_dom
        !Read the climatological values for SST and ice cover
