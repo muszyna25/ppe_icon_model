@@ -34,7 +34,7 @@ MODULE mo_initicon_utils
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
-    &                               timeshift, initicon_config,                         &
+    &                               timeshift, initicon_config, ltile_coldstart,        &
     &                               ana_varnames_map_file, lread_ana,                   &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
@@ -50,7 +50,8 @@ MODULE mo_initicon_utils
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow
+    &                               nlev_snow, ntiles_lnd
+  USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -97,6 +98,7 @@ MODULE mo_initicon_utils
   PUBLIC :: average_first_guess
   PUBLIC :: reinit_average_first_guess
   PUBLIC :: fill_tile_points
+  PUBLIC :: init_snowtiles
 
   CONTAINS
 
@@ -547,7 +549,7 @@ MODULE mo_initicon_utils
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_DWDANA_INC,MODE_ICONVREMAP)
+        CASE(MODE_DWDANA, MODE_DWDANA_INC, MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
@@ -602,6 +604,12 @@ MODULE mo_initicon_utils
           grp_name ='mode_iau_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! in case of tile coldstart, we can omit snowfrac
+          ! Remove field 'snowfrac' from FG list
+          IF (ltile_coldstart) THEN
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+          ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
@@ -668,6 +676,12 @@ MODULE mo_initicon_utils
           grp_name ='mode_iau_old_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! in case of tile coldstart, we can omit snowfrac
+          ! Remove field 'snowfrac' from FG list
+          IF (ltile_coldstart) THEN
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+          ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
           !
@@ -1205,6 +1219,47 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE fill_tile_points
 
+  !>
+  !! SUBROUTINE init_snowtiles
+  !! Active in the case of a tile warmstart in combination with snowtiles.
+  !! In this case, the tile-based index lists and the tile fractions (frac_t) need to be restored
+  !! from the landuse-class fractions and the snow-cover fractions
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2015-06-08)
+  !!
+  !!
+  SUBROUTINE init_snowtiles(p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    TYPE(t_lnd_diag),  POINTER :: lnd_diag
+
+    INTEGER :: jg, jt
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+
+      ! initialize snowfrac_t with appropriate values
+      DO jt = ntiles_lnd+1, ntiles_total
+        WHERE (lnd_diag%snowfrac_lc_t(:,:,jt) > 0._wp) 
+          lnd_diag%snowfrac_t(:,:,jt) = 1._wp
+        ELSEWHERE
+          lnd_diag%snowfrac_t(:,:,jt) = 0._wp
+        END WHERE
+      ENDDO
+
+      CALL init_snowtile_lists(p_patch(jg), ext_data(jg), lnd_diag)
+
+    ENDDO
+
+  END SUBROUTINE init_snowtiles
 
   !>
   !! SUBROUTINE copy_initicon2prog_atm
