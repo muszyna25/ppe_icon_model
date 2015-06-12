@@ -154,40 +154,41 @@ CONTAINS
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
     REAL(wp), INTENT(IN)    :: pdelta_time, ptime_step_len
     REAL(wp), INTENT(IN)    ::     &
-      & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                        (n-1)
-      & pvervel  (kbdim,klev)     ,&!< vertical velocity in pressure coordinate       (n)
-      & papm1    (kbdim,klev)     ,&!< pressure at full levels                        (n-1)
+      & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                   (n-1)
+      & pvervel  (kbdim,klev)     ,&!< vertical velocity in pressure coordinate  (n)
+      & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
 #ifndef __ICON__
-      & papp1    (kbdim,klev)     ,&!< pressure at full levels                        (n+1)
+      & papp1    (kbdim,klev)     ,&!< pressure at full levels                   (n+1)
 #endif
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
-      & pqm1     (kbdim,klev)     ,&!< specific humidity                              (n-1)
-      & ptm1     (kbdim,klev)     ,&!< temperature                                    (n-1)
-      & ptvm1    (kbdim,klev)     ,&!< virtual temperature                            (n-1)
-      & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                             (n-1)
-      & pxim1    (kbdim,klev)     ,&!< cloud ice                                      (n-1)
+      & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
+      & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
+      & ptvm1    (kbdim,klev)     ,&!< virtual temperature                       (n-1)
+      & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
+      & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
       & pcair    (kbdim,klev)     ,&!< specific heat of moist air
       & pgeo     (kbdim,klev)       !< geopotential minus its surface value
 #ifndef __ICON__
     REAL(wp), INTENT(IN)    ::     &
-      & paphp1   (kbdim,klevp1)     !< pressure at half levels                        (n+1)
+      & paphp1   (kbdim,klevp1)     !< pressure at half levels                   (n+1)
     REAL(wp), INTENT(IN)    ::     &
       & pxtm1    (kbdim,klev,ktrac) !< tracer (aerosol etc) concentration
 #endif
     REAL(wp), INTENT(INOUT) ::     &
       & paclcov  (kbdim)          ,&!< total cloud cover
 #ifndef __ICON__
-      & paprl    (kbdim)          ,&!< total stratiform precipitation (rain+snow), accumulated
+      & paprl    (kbdim)          ,&!< total stratiform precipitation (rain+snow), acc
       & paprs    (kbdim)          ,&!< snowfall, accumulated
 #endif
-      & pqvi     (kbdim)          ,&!< vertically integrated spec. humidity, accumulated
-      & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, accumulated
+      & pqvi     (kbdim)          ,&!< vertically integrated spec. humidity, acc
+      & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, acc
       & pxivi    (kbdim)          ,&!< vertically integrated cloud ice, accumulated
-      & pch_concloud(kbdim)       ,&!< checking the global heat budget due to convection + cloud processes
-      & pcw_concloud(kbdim)         !< checking the local water budget due to convection + cloud processes
+      & pch_concloud(kbdim)       ,&!< checking the global heat budget and 
+      & pcw_concloud(kbdim)         !< checking the local water budget 
+                                    !< due to convection + cloud processes
     REAL(wp), INTENT(INOUT) ::     &
-      & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water        (n)
-      & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice                 (n)
+      & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
+      & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
       & pqtec    (kbdim,klev)     ,&!< 
       & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
@@ -218,30 +219,30 @@ CONTAINS
     !
     !   Temporary arrays
     !
-    REAL(wp):: zclcpre(kbdim)       ,zclcpre_inv(kbdim)                            &
-             , zcnd(kbdim)          ,zdep(kbdim)          ,zdp(kbdim)              &
-             , zevp(kbdim)          ,zxievap(kbdim)       ,zxlevap(kbdim)          &
-             , zfrl(kbdim)          ,zimlt(kbdim)         ,zsmlt(kbdim)            &
-             , zrpr(kbdim)          ,zspr(kbdim)          ,zsub(kbdim)             &
-             , zxiflux(kbdim)       ,zclcauxi(kbdim)      ,zdqsat1(kbdim)          &
-             , zsacl(kbdim)         ,zdz(kbdim)           ,zqp1(kbdim)             &
-             , zlsdcp(kbdim)        ,zlvdcp(kbdim)        ,zcoeff(kbdim)           &
-             , ztp1tmp(kbdim)       ,zqp1tmp(kbdim)                                &
-             , zrfl(kbdim)          ,zsfl(kbdim)          ,ztp1(kbdim)             &
-             , zxlb(kbdim)          ,zxib(kbdim)          ,zqrho(kbdim)            &
-             , zqrho_sqrt(kbdim)    ,zpapm1_inv(kbdim)    ,zpapp1i(kbdim)          &
-             , zclcov(kbdim)        ,zclcaux(kbdim)       ,zqsed(kbdim)            &
-             , zqvi(kbdim)          ,zxlvi(kbdim)         ,zxivi(kbdim)            &
-             , zxlvitop(kbdim)      ,zxlvibot(kbdim)      ,zxrp1(kbdim)            &
-             , zxsp1(kbdim)         ,zxsp2(kbdim)         ,zgenti(kbdim)           &
-             , zgentl(kbdim)        ,zgeoh(kbdim,klevp1)  ,zauloc(kbdim)           &
-             , zqsi(kbdim)          ,ztmp1(kbdim)         ,ztmp2(kbdim)            &
-             , ztmp3(kbdim)         ,ztmp4(kbdim)         ,zxised(kbdim)           &
-             , zqvdt(kbdim)         ,zqsm1(kbdim)         ,zdtdt(kbdim)            &
-             , zstar1(kbdim)        ,zlo2(kbdim)          ,za(kbdim)               &
-             , ub(kbdim)            ,ua(kbdim)            ,dua(kbdim)              &
-             , uaw(kbdim)           ,duaw(kbdim)          ,zclten(kbdim)           &
-             , zcpten(kbdim,klev)   ,zqviten(kbdim)       ,zqten(kbdim,klev)
+    REAL(wp):: zclcpre(kbdim)       ,zclcpre_inv(kbdim)                              &
+      &      , zcnd(kbdim)          ,zdep(kbdim)          ,zdp(kbdim)                &
+      &      , zevp(kbdim)          ,zxievap(kbdim)       ,zxlevap(kbdim)            &
+      &      , zfrl(kbdim)          ,zimlt(kbdim)         ,zsmlt(kbdim)              &
+      &      , zrpr(kbdim)          ,zspr(kbdim)          ,zsub(kbdim)               &
+      &      , zxiflux(kbdim)       ,zclcauxi(kbdim)      ,zdqsat1(kbdim)            &
+      &      , zsacl(kbdim)         ,zdz(kbdim)           ,zqp1(kbdim)               &
+      &      , zlsdcp(kbdim)        ,zlvdcp(kbdim)        ,zcoeff(kbdim)             &
+      &      , ztp1tmp(kbdim)       ,zqp1tmp(kbdim)                                  &
+      &      , zrfl(kbdim)          ,zsfl(kbdim)          ,ztp1(kbdim)               &
+      &      , zxlb(kbdim)          ,zxib(kbdim)          ,zqrho(kbdim)              &
+      &      , zqrho_sqrt(kbdim)    ,zpapm1_inv(kbdim)    ,zpapp1i(kbdim)            &
+      &      , zclcov(kbdim)        ,zclcaux(kbdim)       ,zqsed(kbdim)              &
+      &      , zqvi(kbdim)          ,zxlvi(kbdim)         ,zxivi(kbdim)              &
+      &      , zxlvitop(kbdim)      ,zxlvibot(kbdim)      ,zxrp1(kbdim)              &
+      &      , zxsp1(kbdim)         ,zxsp2(kbdim)         ,zgenti(kbdim)             &
+      &      , zgentl(kbdim)        ,zgeoh(kbdim,klevp1)  ,zauloc(kbdim)             &
+      &      , zqsi(kbdim)          ,ztmp1(kbdim)         ,ztmp2(kbdim)              &
+      &      , ztmp3(kbdim)         ,ztmp4(kbdim)         ,zxised(kbdim)             &
+      &      , zqvdt(kbdim)         ,zqsm1(kbdim)         ,zdtdt(kbdim)              &
+      &      , zstar1(kbdim)        ,zlo2(kbdim)          ,za(kbdim)                 &
+      &      , ub(kbdim)            ,ua(kbdim)            ,dua(kbdim)                &
+      &      , uaw(kbdim)           ,duaw(kbdim)          ,zclten(kbdim)             &
+      &      , zcpten(kbdim,klev)   ,zqviten(kbdim)       ,zqten(kbdim,klev)
                       
     REAL(wp):: zrho(kbdim,klev)
     !
@@ -255,19 +256,18 @@ CONTAINS
     !!$ used in Revised Bergeron-Findeisen process only  
     !!$  LOGICAL   locc
 
-    REAL(wp):: zdqsat, zqcdif, zfrho    &
-             , zifrac, zdtime, zepsec, zxsec     &
-             , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar  &
-             , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat  &
-             , zqsw, zsusatw, zdv, zast, zbst, zzepr, zxip1, zxifall, zal1, zal2   &
-             , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum   &
-             , zes, zcor, zqsp1tmp, zoversat, zqcon, zdepos      &
-             , zcond, zradl, zf1, zraut, zexm1, zexp, zrac1, zrac2, zrieff         &
-             , zcolleffi, zc1, zdt2, zsaut, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm &
-             , zzdrr, zzdrs, zpretot, zpredel, zpresum, zxlp1       &
-             , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d       &
-             , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, zxitop, zxibot  &
-             , zqvte, zxlte, zxite, ztte
+    REAL(wp):: zdqsat, zqcdif, zfrho, zifrac, zdtime, zepsec, zxsec                  &
+      &      , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar             &
+      &      , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat            &
+      &      , zqsw, zsusatw, zdv, zast, zbst, zzepr, zxip1, zxifall, zal1, zal2     &
+      &      , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum                      &
+      &      , zes, zcor, zqsp1tmp, zoversat, zqcon, zdepos                          &
+      &      , zcond, zradl, zf1, zraut, zexm1, zexp, zrac1, zrac2, zrieff           &
+      &      , zcolleffi, zc1, zdt2, zsaut, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm   &
+      &      , zzdrr, zzdrs, zpretot, zpredel, zpresum, zxlp1                        &
+      &      , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d         &
+      &      , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, zxitop, zxibot         &
+      &      , zqvte, zxlte, zxite, ztte
     !!$ used in Revised Bergeron-Findeisen process only  
     !!$  REAL(wp):: zzevp, zeps
     !!$  REAL(wp):: zsupsatw(kbdim)
@@ -275,20 +275,20 @@ CONTAINS
     ! mpuetz : the following tendencies don't have to be vectors
     !
     REAL(wp):: zmratepr(kbdim,klev), & ! Rain formation rate in cloudy part
-                                       ! of the grid box [kg/kg]
-               zmrateps(kbdim,klev), & ! Ice  formation rate in cloudy part
-                                       ! of the grid box  [kg/kg]
-               zfrain(kbdim,klev),   & ! Rain flux before evaporation
-                                       ! [kg/m2/s]
-               zfsnow(kbdim,klev),   & ! Snow flux before sublimation
-                                       ! [kg/m2/s]
-               zfevapr(kbdim,klev),  & ! Evaporation of rain [kg/m2/s]
-               zfsubls(kbdim,klev),  & ! Sublimation of snow [kg/m2/s]
-               zmlwc(kbdim,klev),    & ! In-cloud liquid water mass mixing
-                                       ! ratio before rain formation [kg/kg]
-               zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio
-                                       ! before snow formation [kg/kg]
-               zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud
+      &                                ! of the grid box [kg/kg]
+      &        zmrateps(kbdim,klev), & ! Ice  formation rate in cloudy part
+      &                                ! of the grid box  [kg/kg]
+      &        zfrain(kbdim,klev),   & ! Rain flux before evaporation
+      &                                ! [kg/m2/s]
+      &        zfsnow(kbdim,klev),   & ! Snow flux before sublimation
+      &                                ! [kg/m2/s]
+      &        zfevapr(kbdim,klev),  & ! Evaporation of rain [kg/m2/s]
+      &        zfsubls(kbdim,klev),  & ! Sublimation of snow [kg/m2/s]
+      &        zmlwc(kbdim,klev),    & ! In-cloud liquid water mass mixing
+      &                                ! ratio before rain formation [kg/kg]
+      &        zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio
+      &                                ! before snow formation [kg/kg]
+      &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud
                                        ! droplets in cloudy part of the
                                        ! grid box  [kg/kg]
     REAL(wp):: pclcpre(kbdim,klev)
@@ -302,8 +302,8 @@ CONTAINS
     zmlwc(:,:)    = 0._wp
     zmiwc(:,:)    = 0._wp
     zmsnowacl(:,:)= 0._wp
-    ! special treatment for prelhum: actual parameter is stream element and must be defined for 
-    !                                all array elements.
+    ! special treatment for prelhum: actual parameter is stream element and must
+    !                                be defined for all array elements.
     prelhum(:,:)  = 0._wp
 
 #ifdef __ICON__
@@ -319,8 +319,8 @@ CONTAINS
     pcld_etri=0._wp                       ! entrained ice
     DO jk=1,klev
       DO jl=1,kproma
-        pcld_etrl(jl) = pcld_etrl(jl) + pxtecl(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
-        pcld_etri(jl) = pcld_etri(jl) + pxteci(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
+        pcld_etrl(jl)=pcld_etrl(jl)+pxtecl(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
+        pcld_etri(jl)=pcld_etri(jl)+pxteci(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
       END DO
     END DO
 #endif
@@ -345,12 +345,11 @@ CONTAINS
     ztmst  = REAL(ptime_step_len,wp)
     zcons2 = 1._wp/(ztmst*grav)
     !
-    !     ---------------------------------------------------------------------------
+    !     ----------------------------------------------------------------------------
     !
     !       1.   Top boundary conditions, air density and geopotential
     !            height at half levels
-    !
-    !       1.1   Set to zero precipitation fluxes etc.
+    !            Set to zero precipitation fluxes etc.
     !
     nclcpre = 0
 
@@ -395,9 +394,9 @@ CONTAINS
       CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
       CALL lookup_uaw_spline(kproma,loidx(1),za(1),uaw(1),duaw(1))
       !
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !       2.    Set to zero some local tendencies (increments)
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !
 !IBM* NOVECTOR
       DO 201 jl = 1,kproma
@@ -416,7 +415,7 @@ CONTAINS
          zlsdcp(jl)     = als*zrc
 201   END DO
       !
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !
       !       3.   Modification of incoming precipitation fluxes by
       !            melting, sublimation and evaporation
@@ -425,7 +424,6 @@ CONTAINS
       CALL trace_start ('cloud_loop_3', 13)
 #endif
       IF (jk .GT. 1) THEN
-        !
         !
         !       3.1   Melting of snow and ice
         !
@@ -570,9 +568,9 @@ CONTAINS
       CALL trace_start ('cloud_loop_4', 14)
 #endif
       !
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !       4.    Sedimentation of cloud ice from grid-mean values.
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !
       !             Updating the tendency 'pxite' to include sedimentation.
       !             At jk=klev, the sedimentation sink is balanced by
@@ -640,7 +638,7 @@ CONTAINS
       DO 421 jl = 1,kproma
 
       !       IF ((ptm1(jl,jk).LT.cthomi).OR.
-      !         (ptm1(jl,jk).LT.tmelt.AND.zxised(jl).GT.csecfrli                       &
+      !         (ptm1(jl,jk).LT.tmelt.AND.zxised(jl).GT.csecfrli                     &
       !                                         .AND.zsupsatw(jl).LT.zeps)) THEN
       !         cond1(jl) = 1
       !       ELSE 
@@ -666,7 +664,7 @@ CONTAINS
         zxib(jl)     = 0.0_wp
         zxlb(jl)     = 0.0_wp
         zclcauxi(jl) = 0.0_wp
-        zxip1        = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst+zqsed(jl) &
+        zxip1        = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst+zqsed(jl)     &
                                                                       -zimlt(jl)
         zxlp1        = pxlm1(jl,jk)+(pxlte(jl,jk)+pxtecl(jl,jk))*ztmst+zimlt(jl)
         zxievap(jl)  = MAX(0.0_wp,zxip1)
@@ -678,7 +676,7 @@ CONTAINS
       DO 431 nl = 1,locnt
         jl = loidx(nl)
         zclcauxi(jl) = 1._wp/zclcaux(jl)
-        zxip1        = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst+zqsed(jl) &
+        zxip1        = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst+zqsed(jl)     &
                                                                       -zimlt(jl)
         zxlp1        = pxlm1(jl,jk)+(pxlte(jl,jk)+pxtecl(jl,jk))*ztmst+zimlt(jl)
         zxib(jl)     = zxip1*zclcauxi(jl)
@@ -687,9 +685,9 @@ CONTAINS
       !  zxlevap(jl)  = (1.0_wp-zclcaux(jl))*MAX(0.0_wp,zxlp1)
 431   END DO
       !
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !       5.    Condensation/deposition and evaporation/sublimation
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !
       !             zlc       =  L_{v/s} / c_p
       !             zlcdqsdt  = L dq_sat / c_p dT
@@ -706,8 +704,8 @@ CONTAINS
         zqsm1(jl)   = zqsm1(jl)*zcor
         zdqsdt      = zpapm1_inv(jl)*zcor**2*zdua
         zlcdqsdt    = zlc*zdqsdt
-        zdtdt(jl)   = ptte(jl,jk)*ztmst-zlvdcp(jl)*(zevp(jl)+zxlevap(jl))        &
-                    - zlsdcp(jl)*(zsub(jl)+zxievap(jl))                          &
+        zdtdt(jl)   = ptte(jl,jk)*ztmst-zlvdcp(jl)*(zevp(jl)+zxlevap(jl))            &
+                    - zlsdcp(jl)*(zsub(jl)+zxievap(jl))                              &
                     - (zlsdcp(jl)-zlvdcp(jl))*(zsmlt(jl)+zimlt(jl))
         zstar1(jl)  = zclcaux(jl)*zlc*pqte(jl,jk)*ztmst
         zdqsat1(jl) = zdqsdt/(1._wp+zclcaux(jl)*zlcdqsdt)
@@ -757,16 +755,15 @@ CONTAINS
       DO jl = 1,kproma
         ztp1tmp(jl) = ztp1(jl) + zlvdcp(jl)*zcnd(jl) + zlsdcp(jl)*zdep(jl)
         zqp1tmp(jl) = zqp1(jl) -            zcnd(jl) -            zdep(jl)
-        zxip1       = MAX(pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst        &
+        zxip1       = MAX(pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst            &
                       +zqsed(jl)-zimlt(jl)-zxievap(jl)+zgenti(jl)+zdep(jl),0.0_wp)
         ztmp1(jl)   = zxip1
       END DO
      
       CALL lookup_ubc('cloud (2)',kproma,ztp1tmp(1),ub(1))
-      CALL prepare_ua_index_spline('cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)    &
+      CALL prepare_ua_index_spline('cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
                                                ,ztmp1(1),nphase,zlo2(1),cond1(1))
-      CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1)    &
-                                               ,dua(1))
+      CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
       zpapp1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
 
 !IBM* NOVECTOR
@@ -817,7 +814,7 @@ CONTAINS
         ztp1tmp(jl) = ztp1(jl)+zlvdcp(jl)*zcnd(jl)+zlsdcp(jl)*zdep(jl)
 553   END DO
       !
-      !     ----------------------------------------------------------------------------
+      !     --------------------------------------------------------------------------
       !       6.    Freezing of cloud water
       !
       !       6.1   Freezing of cloud water for T < 238 K
@@ -860,10 +857,10 @@ CONTAINS
 !IBM* NOVECTOR
       DO 622 nl = 1,locnt
         jl = loidx(nl)
-        zfrho     = zrho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
-        zfrl(jl)  = 100._wp*(ztmp1(nl)-1._wp)*zfrho
-        zfrl(jl)  = zxlb(jl)*(1._wp-SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
-        ztmp1(nl) = 0.75_wp*zxlb(jl)*zfrho/pi
+        zfrho    = zrho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
+        zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
+        zfrl(jl) = zxlb(jl)*(1._wp-SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
+        ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
 622   END DO
      
       ztmp1(1:locnt) = ztmp1(1:locnt)**(1._wp/3._wp)
@@ -873,8 +870,7 @@ CONTAINS
       DO 623 nl = 1,locnt
         jl = loidx(nl)
         zradl    = ztmp1(nl)
-        zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp                       &
-                                               *(tmelt-3._wp-ztp1tmp(jl))
+        zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp*(tmelt-3._wp-ztp1tmp(jl))
         zf1      = zval/zrho(jl,jk)
         zf1      = MAX(0.0_wp,zf1)
         zfrl(jl) = zfrl(jl)+ztmst*1.4e-20_wp*zf1
@@ -1240,13 +1236,16 @@ CONTAINS
     !
     !       local tendencies due to cloud microphysics
     !
-       zqvte  = (-zcnd(jl)-zgentl(jl)+zevp(jl)+zxlevap(jl)                              &
-                 -zdep(jl)-zgenti(jl)+zsub(jl)+zxievap(jl))/ztmst
-       zxlte  = (zimlt(jl)-zfrl(jl)-zrpr(jl)-zsacl(jl)+zcnd(jl)+zgentl(jl)-zxlevap(jl))/ztmst
-       zxite  = (zfrl(jl)-zspr(jl)+zdep(jl)+zgenti(jl)-zxievap(jl)-zimlt(jl)+zqsed(jl))/ztmst
-       ztte   = (zlvdcp(jl)*(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl))                  &
-               + zlsdcp(jl)*(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl))                  &
-               +(zlsdcp(jl)-zlvdcp(jl))*(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/ztmst
+       zqvte  = (-zcnd(jl)-zgentl(jl)+zevp(jl)+zxlevap(jl)                           &
+         &       -zdep(jl)-zgenti(jl)+zsub(jl)+zxievap(jl))/ztmst
+       zxlte  = (zimlt(jl)-zfrl(jl)-zrpr(jl)-zsacl(jl)                               &
+         &                     +zcnd(jl)+zgentl(jl)-zxlevap(jl))/ztmst
+       zxite  = (zfrl(jl)-zspr(jl)+zdep(jl)+zgenti(jl)                               &
+         &                     -zxievap(jl)-zimlt(jl)+zqsed(jl))/ztmst
+       ztte   = (zlvdcp(jl)*(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl))               &
+         &     + zlsdcp(jl)*(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl))               &
+         &     +(zlsdcp(jl)-zlvdcp(jl))                                              &
+         &     *(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/ztmst
 
        pqte(jl,jk)   = pqte(jl,jk)  + zqvte
        pxlte(jl,jk)  = pxlte(jl,jk) + pxtecl(jl,jk) + zxlte
@@ -1288,7 +1287,8 @@ CONTAINS
        ! Here mulitply with the same specific heat as used in the definition
        ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
        ! to obtain the specific heating by cloud processes in [W/kg].
-       zcpten(jl,jk)  = pcair(jl,jk)*(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor) ! [W/kg]
+       zcpten(jl,jk)  = pcair(jl,jk)                                                 &
+                              *(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor) 
        !
 821 END DO
 
@@ -1319,13 +1319,13 @@ CONTAINS
     !! b) wet scavenging
     !!
     IF (lanysubmodel) THEN
-      CALL cloud_subm(kproma,     kbdim,      klev,       ktdia,                   &
-                      krow,                                                        &
-                      zmlwc,      zmiwc,      zmratepr,   zmrateps,                &
-                      zfrain,     zfsnow,     zfevapr,    zfsubls,                 &
-                      zmsnowacl,  paclc,      ptm1,       ptte,                    &
-                      pxtm1,      pxtte,      paphp1,     papp1,                   &
-                      zrho,       pclcpre                                          )
+      CALL cloud_subm(kproma,     kbdim,      klev,       ktdia,                     &
+        &             krow,                                                          &
+        &             zmlwc,      zmiwc,      zmratepr,   zmrateps,                  &
+        &             zfrain,     zfsnow,     zfevapr,    zfsubls,                   &
+        &             zmsnowacl,  paclc,      ptm1,       ptte,                      &
+        &             pxtm1,      pxtte,      paphp1,     papp1,                     &
+        &             zrho,       pclcpre                                          )
     END IF
 #endif
     !     ----------------------------------------------------------------------------
@@ -1362,7 +1362,7 @@ CONTAINS
     DO 923 jk      = 2,klev
 !IBM* NOVECTOR
       DO 922 jl    = 1,kproma
-         zclcov(jl) = zclcov(jl) * ((1._wp-MAX(paclc(jl,jk),paclc(jl,jk-1)))      &
+         zclcov(jl) = zclcov(jl) * ((1._wp-MAX(paclc(jl,jk),paclc(jl,jk-1)))         &
                                  / (1._wp-MIN(paclc(jl,jk-1),zxsec)))
 922   END DO
 923 END DO
@@ -1427,7 +1427,7 @@ CONTAINS
     pcld_iteq=0._wp
     DO jk=1,klev
       DO jl=1,kproma
-        pcld_iteq(jl) = pcld_iteq(jl) + (pqte(jl,jk)+pxlte(jl,jk)+pxite(jl,jk))   &
+        pcld_iteq(jl) = pcld_iteq(jl) + (pqte(jl,jk)+pxlte(jl,jk)+pxite(jl,jk))      &
                                          *(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
       END DO
     END DO
@@ -1466,6 +1466,6 @@ CONTAINS
     pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
 #endif
 
-END SUBROUTINE cloud
+  END SUBROUTINE cloud
 
 END MODULE mo_cloud
