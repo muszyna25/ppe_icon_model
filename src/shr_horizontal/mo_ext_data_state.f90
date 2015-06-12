@@ -59,7 +59,7 @@ MODULE mo_ext_data_state
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
-  USE mo_extpar_config,      ONLY: i_lctype
+  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext 
   USE mo_cdi_constants,      ONLY: DATATYPE_PACK16, DATATYPE_FLT32, GRID_REFERENCE, &
     &                              GRID_UNSTRUCTURED_CELL, GRID_CELL,               &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
@@ -73,17 +73,14 @@ MODULE mo_ext_data_state
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_ext_data_state'
 
+  ! necessary information when reading ozone from file
   CHARACTER(len=6)  :: levelname
   CHARACTER(len=6)  :: cellname
   CHARACTER(len=5)  :: o3name
-  CHARACTER(len=20) :: o3unit
-
-  INTEGER::  nlev_o3, nmonths
-
-  INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
-                                        !< dim: n_dom
-  INTEGER, ALLOCATABLE :: nmonths_ext(:)!< number of months in external data file
-                                        !< dim: n_dom
+  CHARACTER(len=20) :: o3unit 
+  !
+  INTEGER :: nlev_o3
+  INTEGER :: nmonths
 
   ! variables
   PUBLIC :: nmonths
@@ -92,8 +89,6 @@ MODULE mo_ext_data_state
   PUBLIC :: cellname
   PUBLIC :: o3name
   PUBLIC :: o3unit
-  PUBLIC :: nclass_lu
-  PUBLIC :: nmonths_ext
 
   ! state
   PUBLIC :: ext_data
@@ -1305,7 +1300,7 @@ CONTAINS
   !!
   SUBROUTINE destruct_ext_data
 
-    INTEGER :: jg, errstat
+    INTEGER :: jg
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':destruct_ext_data'
     !-------------------------------------------------------------------------
@@ -1324,10 +1319,6 @@ CONTAINS
       CALL delete_var_list( ext_data(jg)%atm_td_list )
     ENDDO
     END IF
-
-    DEALLOCATE(nclass_lu, STAT=errstat)
-    IF (errstat /= 0)  &
-      CALL finish (TRIM(routine), 'Error in DEALLOCATE operation!')
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data finished')

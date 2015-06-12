@@ -42,7 +42,7 @@ MODULE mo_ext_data_init
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
-  USE mo_run_config,         ONLY: iforcing, check_uuid_gracefully
+  USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
@@ -50,7 +50,7 @@ MODULE mo_ext_data_init
                                    ci_td_filename, llake, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename, extpar_varnames_map_file, &
-    &                              i_lctype 
+    &                              i_lctype, nclass_lu, nmonths_ext
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
@@ -68,7 +68,7 @@ MODULE mo_ext_data_init
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
-    &                              nlev_o3, nmonths, nclass_lu, nmonths_ext
+    &                              nlev_o3, nmonths
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_io_config,          ONLY: default_read_method
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, onCells, &
@@ -156,16 +156,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     !  1.  inquire external files for their data structure
     !-------------------------------------------------------------------------
-
-    ALLOCATE(nclass_lu(n_dom))
-    ! Set default value for nclass_lu. Will be overwritten, if external data 
-    ! are read from file
-    nclass_lu(1:n_dom) = 1
-
-    ALLOCATE(nmonths_ext(n_dom))
-    ! Set default value for nmonths_ext. Will be overwritten, if external data 
-    ! are read from file
-    nmonths_ext(1:n_dom) = 1
 
     ALLOCATE(is_frglac_in(n_dom))
     ! Set default value for is_frglac_in. Will be overwritten, if external data 
@@ -344,14 +334,12 @@ CONTAINS
   !
   ! @author F. Prill, DWD (2014-01-07)
   !-------------------------------------------------------------------------
-  SUBROUTINE inquire_extpar_file(p_patch, jg, cdi_extpar_id, cdi_filetype, nclass_lu, &
-    &                            nmonths_ext, is_frglac_in)
+  SUBROUTINE inquire_extpar_file(p_patch, jg, cdi_extpar_id, cdi_filetype, &
+    &                            is_frglac_in)
     TYPE(t_patch), INTENT(IN)      :: p_patch(:)
     INTEGER,       INTENT(IN)      :: jg
     INTEGER,       INTENT(INOUT)   :: cdi_extpar_id     !< CDI stream ID
     INTEGER,       INTENT(INOUT)   :: cdi_filetype      !< CDI filetype
-    INTEGER,       INTENT(INOUT)   :: nclass_lu         !< number of landuse classes
-    INTEGER,       INTENT(INOUT)   :: nmonths_ext       !< time dimension from external data file
     LOGICAL,       INTENT(OUT)     :: is_frglac_in      !< check for fr_glac in Extpar file
 
     ! local variables
@@ -397,14 +385,30 @@ CONTAINS
       lu_class_fraction_id = get_cdi_varID(cdi_extpar_id, "LU_CLASS_FRACTION")
       vlist_id             = streamInqVlist(cdi_extpar_id)
       zaxis_id             = vlistInqVarZaxis(vlist_id, lu_class_fraction_id)
-      nclass_lu            = zaxisInqSize(zaxis_id)
+      nclass_lu(jg)        = zaxisInqSize(zaxis_id)
 
       ! get time dimension from external data file
-      nmonths_ext     = vlistNtsteps(vlist_id)
+      nmonths_ext(jg)      = vlistNtsteps(vlist_id)
 
-      WRITE(message_text,'(A,I4)')  &
-        & 'Number of months in external data file = ', nmonths_ext
-      CALL message(routine,message_text)
+      ! make sure that num_lcc is equal to nclass_lu. If not, then the internal 
+      ! land-use lookup tables and the external land-use class field are inconsistent.
+
+      IF (nclass_lu(jg) /= num_lcc) THEN
+        WRITE(message_text,'(A,I3,A,I3)')  &
+          & 'Number of land-use classes in external file ', nclass_lu(jg), &
+          & ' does not match ICON-internal value num_lcc ', num_lcc
+        CALL finish(routine,TRIM(message_text))
+      ENDIF
+
+      IF ( msg_level>10 ) THEN
+        WRITE(message_text,'(A,I4)')  &
+          & 'Number of land_use classes in external data file = ', nclass_lu(jg)
+        CALL message(routine,message_text)
+
+        WRITE(message_text,'(A,I4)')  &
+          & 'Number of months in external data file = ', nmonths_ext(jg)
+        CALL message(routine,message_text)
+      ENDIF
 
 
       ! Compare UUID of external parameter file with UUID of grid.
@@ -494,9 +498,9 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
     ! broadcast nclass_lu from I-Pe to WORK Pes
-    CALL p_bcast(nclass_lu, p_io, mpi_comm)
+    CALL p_bcast(nclass_lu(jg), p_io, mpi_comm)
     ! broadcast nmonths from I-Pe to WORK Pes
-    CALL p_bcast(nmonths_ext, p_io, mpi_comm)
+    CALL p_bcast(nmonths_ext(jg), p_io, mpi_comm)
     ! broadcast is_frglac_in from I-Pe to WORK Pes
     CALL p_bcast(is_frglac_in, p_io, mpi_comm)
     ! broadcast i_lctype from I-Pe to WORK Pes
@@ -553,7 +557,7 @@ CONTAINS
 
       IF ( itopo == 1 .AND. iforcing == inwp) THEN
         CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
-          &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
+          &                      is_frglac_in(jg))
       END IF
 
       !------------------------------------------------!
@@ -1294,7 +1298,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    LOGICAL  :: tile_mask(num_lcc) = .true. 
+    LOGICAL  :: tile_mask(num_lcc) 
     REAL(wp) :: tile_frac(num_lcc), sum_frac
     INTEGER  :: lu_subs, it_count(ntiles_total)
     INTEGER  :: npoints, npoints_sea, npoints_lake
