@@ -469,7 +469,7 @@ CONTAINS
     ! 5.0 Post Processing
     ! --------------------------------
     !
-    ! Lw fluxes are vertically revered but SW fluxes are not
+    ! Lw fluxes are vertically reversed but SW fluxes are not
     !
     flx_uplw    (1:kproma,1:klev+1) = flx_uplw_vr    (1:kproma,klev+1:1:-1) 
     flx_uplw_clr(1:kproma,1:klev+1) = flx_uplw_clr_vr(1:kproma,klev+1:1:-1)

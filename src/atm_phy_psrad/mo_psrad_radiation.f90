@@ -801,12 +801,13 @@ MODULE mo_psrad_radiation
     & nir_dff_frc,&!< diffuse fraction of downw. surf. near-infrared radiation
     & vis_dff_frc,&!< diffuse fraction of downward surface visible radiation
     & par_dff_frc,&!< iffuse fraction of downward surface PAR
-    & lw_net_clr_bnd,&!< clear-sky net downward longwave  at TOA (:,1) and surface (:,2)
-    & sw_net_clr_bnd,&!< clear-sky net downward shortwave at TOA (:,1) and surface (:,2)
-    & lw_net_clr ,&!< clear-sky net downward longwave  at all levels
-    & sw_net_clr ,&!< clear-sky net downward shortwave at all levels
-    & lw_net     ,&!< all-sky net downward longwave  at all levels
-    & sw_net     ,&!< all-sky net downward shortwave at all levels
+    & lw_flx_up_sfc,&!< longwave upward surface radiation
+    & lw_net_clr_bnd,&!< clear-sky net longwave  at TOA (:,1) and surface (:,2)
+    & sw_net_clr_bnd,&!< clear-sky net shortwave at TOA (:,1) and surface (:,2)
+    & lw_net_clr ,&!< clear-sky net longwave  at all levels
+    & sw_net_clr ,&!< clear-sky net shortwave at all levels
+    & lw_net     ,&!< all-sky net longwave  at all levels
+    & sw_net     ,&!< all-sky net shortwave at all levels
     & ozone       &!< avoid leaving kproma+1:kbdim undefined ozone
     &              )
     INTEGER, INTENT(in)  :: &
@@ -847,12 +848,13 @@ MODULE mo_psrad_radiation
     & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
     & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
     & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
-    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward longwave  at TOA (:,1) and surface (:,2) 
-    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net downward shortwave at TOA (:,1) and surface (:,2) 
-    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net downward longwave  at all levels
-    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net downward shortwave at all levels
-    & lw_net(kbdim,klevp1),    & !< All-sky net downward longwave  at all levels
-    & sw_net(kbdim,klevp1)       !< All-sky net downward shortwave at all levels
+    & lw_flx_up_sfc(kbdim),    & !< longwave upward surface radiation
+    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net longwave  at TOA (:,1) and surface (:,2) 
+    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
+    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net longwave  at all levels
+    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net shortwave at all levels
+    & lw_net(kbdim,klevp1),    & !< All-sky net longwave  at all levels
+    & sw_net(kbdim,klevp1)       !< All-sky net shortwave at all levels
 
     REAL(wp), INTENT(INOUT) ::    & !< Avoid leaving kproma+1:kbdim undefined
     & ozone(kbdim,klev)             !< ozone
@@ -1010,6 +1012,7 @@ MODULE mo_psrad_radiation
       !
       flux_factor(1:kproma) = 1._wp / (psctm*cos_mu0(1:kproma))
       lw_net    (1:kproma,1:klevp1) =  flx_dnlw    (1:kproma, 1:klevp1) - flx_uplw    (1:kproma, 1:klevp1)       
+      lw_flx_up_sfc (1:kproma)      =  flx_uplw(1:kproma,klevp1)
       sw_net    (1:kproma,1:klevp1) = (flx_dnsw    (1:kproma, 1:klevp1) - flx_upsw    (1:kproma, 1:klevp1)) * &
            &                      SPREAD(flux_factor(1:kproma),2,klevp1)       
       lw_net_clr(1:kproma,1:klevp1) =  flx_dnlw_clr(1:kproma, 1:klevp1) - flx_uplw_clr(1:kproma, 1:klevp1)       
@@ -1021,8 +1024,18 @@ MODULE mo_psrad_radiation
 !!$           & kproma          ,kbdim           ,klevp1          ,jb          ,&
 !!$           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
     END DO
-
-
+    !
+    ! 2.1 Fluxes to advance to the model, compute cloud radiative effect 
+    ! --------------------------------
+    !
+    ! --- Total (net) fluxes, used to advance the model 
+    !
+    !
+    ! --- Clear sky fluxes
+    lw_net_clr_bnd(1:kproma,1)    = lw_net_clr(1:kproma,1)
+    lw_net_clr_bnd(1:kproma,2)    = lw_net_clr(1:kproma,klevp1)
+    sw_net_clr_bnd(1:kproma,1)    = sw_net_clr(1:kproma,1)        
+    sw_net_clr_bnd(1:kproma,2)    = sw_net_clr(1:kproma,klevp1) 
 
   END SUBROUTINE psrad_radiation
 

@@ -434,6 +434,77 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
+output_rad_2d_3d_rmb=yes
+#
+if [[ "$output_rad_2d_3d_rmb" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_rad_2d_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "${output_interval}"             ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'cosmu0', 'prm_daylght_frc',
+		    'prm_visfrcsfc', 'prm_parsfcdn', 
+                    'prm_nirdffsfc', 'prm_visdffsfc',
+                    'prm_pardffsfc', 'prm_lwflxupsfc', 
+                    'prm_lwflxclr', 'prm_swtrmclr',
+                    'prm_lwflxall', 'prm_swtrmall'
+/
+EOF
+fi
+
+output_phy_2d_rmb=yes
+#
+if [[ "$output_phy_2d_rmb" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_phy_2d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "${output_interval}"             ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'cosmu0'  , 'prm_daylght_frc',      'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
+                    'sic'     , 'sit'     ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'tauu'    , 'tauv'    ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
+                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+/
+EOF
+fi
+
 
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 #
@@ -457,8 +528,6 @@ if [[ "$output_aer_3d" == "yes" ]]; then
 /
 EOF
 fi
-
-
 output_lnd=yes
 #
 if [[ "$output_lnd" == "yes" ]]; then

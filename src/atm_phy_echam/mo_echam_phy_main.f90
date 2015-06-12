@@ -143,8 +143,8 @@ CONTAINS
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
     REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
-    REAL(wp) :: zlw_net_clr_bnd(nbdim,2)!< Clear-sky net downward longwave  at TOA (:,1) and surface (:,2)
-    REAL(wp) :: zsw_net_clr_bnd(nbdim,2)!< Clear-sky net downward shortwave at TOA (:,1) and surface (:,2)
+    REAL(wp) :: zlw_net_clr_bnd(nbdim,2)!< Clear-sky net longwave  at TOA (:,1) and surface (:,2)
+    REAL(wp) :: zsw_net_clr_bnd(nbdim,2)!< Clear-sky net shortwave at TOA (:,1) and surface (:,2)
 
     REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
     REAL(wp) :: zheight(nbdim,nlev)       !< temp for height input
@@ -575,13 +575,14 @@ CONTAINS
             & par_dn_sfc=field%parsfcdn(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
             & nir_dff_frc=field%nirdffsfc(:,jb),&!< out  diffuse fraction of downward surface near-infrared radiation
             & vis_dff_frc=field%visdffsfc(:,jb),&!< out  diffuse fraction of downward surface visible radiation
-            & par_dff_frc=field%pardffsfc(:,jb),&!< out  diffuse fraction of downward surface par 
-            & lw_net_clr_bnd=zlw_net_clr_bnd   ,&!<out  Clear-sky net downward longwave  at TOA (:,1) and surface (:,2)
-            & sw_net_clr_bnd=zsw_net_clr_bnd   ,&!< out  Clear-sky net downward shortwave at TOA (:,1) and surface (:,2) 
-            & lw_net_clr=field%lwflxclr(:,:,jb),&!< out  Clear-sky net downward longwave  at all levels
-            & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net downward shortwave at all levels
-            & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net downward longwave  at all levels
-            & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net downward shortwave at all levels
+            & par_dff_frc=field%pardffsfc(:,jb),&!< out  diffuse fraction of downward surface par
+            & lw_flx_up_sfc=field%lwflxupsfc(:,jb),&!< out  longwave upward surface radiation
+            & lw_net_clr_bnd=zlw_net_clr_bnd   ,&!<out  Clear-sky net longwave  at TOA (:,1) and surface (:,2)
+            & sw_net_clr_bnd=zsw_net_clr_bnd   ,&!< out  Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
+            & lw_net_clr=field%lwflxclr(:,:,jb),&!< out  Clear-sky net longwave  at all levels
+            & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net shortwave at all levels
+            & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net longwave  at all levels
+            & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net shortwave at all levels
             & ozone=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
             &                           )
             field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
