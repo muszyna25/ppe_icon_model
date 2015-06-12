@@ -548,9 +548,12 @@ CONTAINS
     !  (3) call surface model: sea ice
     !-----------------------------------------------------------------------
 
+    ! assign freeboard before sea ice model
     IF (i_sea_ice==0) THEN
       p_ice%zUnderIce(:,:) = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)+p_os%p_prog(nold(1))%h(:,:))
+      p_oce_sfc%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
     ENDIF
+    ! freeboard used for thermal boundary condition (Eq.1)
     zUnderIceIni(:,:) = p_ice%zUnderIce(:,:)
 
     SELECT CASE (iforc_oce)
@@ -920,7 +923,7 @@ CONTAINS
       ! total heat flux calculated in sea ice module
       p_oce_sfc%HeatFlux_Total(:,:) = atmos_fluxes%HeatFlux_Total(:,:)
 
-      ! #slo# 2015-01: sst-change in surface module after sea-ice thermodynamics using HeatFlux_Total and old zUnderIce
+      ! sst-change in surface module after sea-ice thermodynamics using HeatFlux_Total and old freeboard zUnderIceIni
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -948,12 +951,14 @@ CONTAINS
           IF (p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0) THEN
 
 !  ******  (Thermodynamic Eq. 3)  ******
-            !! First, calculate salinity change caused by melting of snow and melt or growth of ice:
+            !! First, calculate internal salinity change caused by melting of snow and melt or growth of ice:
             !!   S_new * zUnderIce = S_old * zUnderIceArt
-            !!   zUnderIceArt is used for internal Salinity change only:
+            !!   artificial freeboard zUnderIceArt is used for internal Salinity change only:
             !!   - melt/growth of ice and snow to ice conversion imply a reduced water flux compared to saltfree water
             !!   - reduced water flux is calculated in FrshFlux_TotalIce by the term  (1-Sice/SSS)
-            !!   - respective zUnderIceArt for calculating salt change is derived from this flux
+            !!   - respective zUnderIceArt for calculating salt change is derived from these fluxes
+            !!     which are calculated in sea ice thermodynamics (upper_ocean_TS)
+            !    - for i_sea_ice=0 flux and no change here
             zUnderIceArt(jc,jb)= p_ice%zUnderIce(jc,jb) - atmos_fluxes%FrshFlux_TotalIce(jc,jb)*dtime
             s_top_inter(jc,jb) = s_top(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
 
