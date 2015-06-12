@@ -4608,6 +4608,75 @@ read smoothed topography from file (TRUE) or compute internally (FALSE)&
 Defined and used in: \verb+src/namelists/mo_sleve_nml.f90+
 
 
+%-----------------------------------------------------------------------------
+% synsat_nml:
+%-----------------------------------------------------------------------------
+\subsection[synsat\_nml]{synsat\_nml%
+\footnote{Important note: This feature is currently active for configuration \texttt{dwd+cray} only.}}
+
+This namelist enables the RTTOV library incorporated into ICON for
+simulating satellite radiance and brightness temperatures.
+%
+RTTOV is a radiative transfer model for nadir-viewing passive visible, infrared
+and microwave satellite radiometers, spectrometers and
+interferometers, see
+\begin{center}
+\verb+https://nwpsaf.eu/deliverables/rtm+
+\end{center}
+for detailed information.
+
+\begin{longtab}
+
+%\hline
+{lsynsat}&
+L (max\_dom) & .FALSE.& 
+& Main switch: Enables/disables computation of synthetic satellite imagery for each model domain.
+&
+\tabularnewline
+
+%\hline
+{nlev\_rttov}&
+I& 51&
+& Number of RTTOV levels.
+&
+\tabularnewline
+
+%\hline
+\end{longtab}
+
+Enabling the synsat module makes the following 32 two-dimensional output fields available:
+%
+{\renewcommand{\baselinestretch}{1.25}\normalsize%
+\begin{tabbing}
+\hspace*{14em} \= \hspace*{14em} \= \hspace*{14em} \= \hspace*{14em} \kill
+\verb+SYNMSG_RAD_CL_IR3.9+   \>  \verb+SYNMSG_BT_CL_IR3.9+    \>
+\verb+SYNMSG_RAD_CL_WV6.2+   \>   \verb+SYNMSG_BT_CL_WV6.2+   \\
+\verb+SYNMSG_RAD_CL_WV7.3+   \>   \verb+SYNMSG_BT_CL_WV7.3+   \>
+\verb+SYNMSG_RAD_CL_IR8.7+   \>   \verb+SYNMSG_BT_CL_IR8.7+   \\
+\verb+SYNMSG_RAD_CL_IR9.7+   \>   \verb+SYNMSG_BT_CL_IR9.7+   \>
+\verb+SYNMSG_RAD_CL_IR10.8+  \>   \verb+SYNMSG_BT_CL_IR10.8+  \\
+\verb+SYNMSG_RAD_CL_IR12.1+  \>   \verb+SYNMSG_BT_CL_IR12.1+  \>
+\verb+SYNMSG_RAD_CL_IR13.4+  \>   \verb+SYNMSG_BT_CL_IR13.4+  \\
+\verb+SYNMSG_RAD_CS_IR3.9+   \>   \verb+SYNMSG_BT_CS_IR3.9+   \>
+\verb+SYNMSG_RAD_CS_WV6.2+   \>   \verb+SYNMSG_BT_CS_WV6.2+   \\
+\verb+SYNMSG_RAD_CS_WV7.3+   \>   \verb+SYNMSG_BT_CS_WV7.3+   \>
+\verb+SYNMSG_RAD_CS_IR8.7+   \>   \verb+SYNMSG_BT_CS_IR8.7+   \\
+\verb+SYNMSG_RAD_CS_IR9.7+   \>   \verb+SYNMSG_BT_CS_IR9.7+   \>
+\verb+SYNMSG_RAD_CS_IR10.8+  \>   \verb+SYNMSG_BT_CS_IR10.8+  \\
+\verb+SYNMSG_RAD_CS_IR12.1+  \>   \verb+SYNMSG_BT_CS_IR12.1+  \>
+\verb+SYNMSG_RAD_CS_IR13.4+  \>   \verb+SYNMSG_BT_CS_IR13.4+
+\end{tabbing}
+}
+Here, 
+\verb+RAD+ denotes radiance, 
+\verb+BT+ brightness temperature,
+\verb+CL+ cloudy, and
+\verb+CS+ clear sky, 
+supplemented by the channel name.
+
+Defined and used in: \verb+src/namelists/mo_synsat_nml.f90+
+
+
 %------------------------------------------------------------------------------
 % time_nml
 %------------------------------------------------------------------------------
