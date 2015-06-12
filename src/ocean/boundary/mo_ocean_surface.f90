@@ -834,17 +834,9 @@ CONTAINS
 
     END SELECT
 
- !  ! windstress
+    ! windstress
     p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
     p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
-
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('UpdSfc: aft.Bulk/Ice: hi' , p_ice%hi                 , str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aft.Bulk/Ice: hs' , p_ice%hs                 , str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: aft.Bulk/Ice:conc', p_ice%conc               , str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: windStr-u', p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: windStr-v', p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
-    !---------------------------------------------------------------------
 
     !
     ! After final updating of zonal and merdional components (from file, bulk formula, or coupling)
@@ -870,14 +862,55 @@ CONTAINS
         END DO
       END DO
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: windStr-cc%x(1)',p_sfc_flx%topBoundCond_windStress_cc%x(1), str_module, 4, &
-        &  in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: windStr-cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2), str_module, 4, &
-        &  in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
     END IF
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('UpdSfc: aft.Bulk/Ice: hi' , p_ice%hi                 , str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aft.Bulk/Ice: hs' , p_ice%hs                 , str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: aft.Bulk/Ice:conc', p_ice%conc               , str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: windStr-u', p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: windStr-v', p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: widStrcc1', p_sfc_flx%topBoundCond_windStress_cc%x(1),str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: wndStrcc2', p_sfc_flx%topBoundCond_windStress_cc%x(2),str_module,4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+ !  ! windstress boundary condition
+ !  !  - on new surface type - not yet, since p_oce_sfc argument must be passed through some routines
+ !  !  - needs allocation of cartesian coordinate variable
+ !  p_oce_sfc%TopBC_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
+ !  p_oce_sfc%TopBC_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
+
+ !  !
+ !  ! After final updating of zonal and merdional components (from file, bulk formula, or coupling)
+ !  ! cartesian coordinates are calculated
+ !  !
+ !  IF (iforc_oce > NO_FORCING) THEN
+ !    DO jb = all_cells%start_block, all_cells%end_block
+ !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+ !      DO jc = i_startidx_c, i_endidx_c
+ !        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+ !          CALL gvec2cvec(  p_oce_sfc%TopBC_windStress_u(jc,jb),&
+ !                         & p_oce_sfc%TopBC_windStress_v(jc,jb),&
+ !                         & p_patch%cells%center(jc,jb)%lon,&
+ !                         & p_patch%cells%center(jc,jb)%lat,&
+ !                         & p_oce_sfc%TopBC_windStress_cc(jc,jb)%x(1),&
+ !                         & p_oce_sfc%TopBC_windStress_cc(jc,jb)%x(2),&
+ !                         & p_oce_sfc%TopBC_windStress_cc(jc,jb)%x(3))
+ !        ENDIF
+ !      END DO
+ !    END DO
+
+ !  !---------DEBUG DIAGNOSTICS-------------------------------------------
+ !  CALL dbg_print('UpdSfc: aft.Bulk/Ice: hi' , p_ice%hi             , str_module, 2, in_subset=p_patch%cells%owned)
+ !  CALL dbg_print('UpdSfc: aft.Bulk/Ice: hs' , p_ice%hs             , str_module, 2, in_subset=p_patch%cells%owned)
+ !  CALL dbg_print('UpdSfc: aft.Bulk/Ice:conc', p_ice%conc           , str_module, 2, in_subset=p_patch%cells%owned)
+ !  CALL dbg_print('oce_sfc: windStr-u', p_oce_sfc%TopBC_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
+ !  CALL dbg_print('oce_sfc: windStr-v', p_oce_sfc%TopBC_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+ !  CALL dbg_print('oce_sfc: windStr-cc1', p_oce_sfc%TopBC_windStress_cc%x(1), str_module, 3, in_subset=p_patch%cells%owned)
+ !  CALL dbg_print('oce_sfc: windStr-cc2', p_oce_sfc%TopBC_windStress_cc%x(2), str_module, 4, in_subset=p_patch%cells%owned)
+ !  !---------------------------------------------------------------------
+
+ !  END IF
 
 !  ******  (Thermodynamic Eq. 1)  ******
     !-------------------------------------------------------------------------
@@ -917,7 +950,7 @@ CONTAINS
 !  ******  (Thermodynamic Eq. 3)  ******
             !! First, calculate salinity change caused by melting of snow and melt or growth of ice:
             !!   S_new * zUnderIce = S_old * zUnderIceArt
-            !!   zUnderIceArt is used for Salinity change only:
+            !!   zUnderIceArt is used for internal Salinity change only:
             !!   - melt/growth of ice and snow to ice conversion imply a reduced water flux compared to saltfree water
             !!   - reduced water flux is calculated in FrshFlux_TotalIce by the term  (1-Sice/SSS)
             !!   - respective zUnderIceArt for calculating salt change is derived from this flux
