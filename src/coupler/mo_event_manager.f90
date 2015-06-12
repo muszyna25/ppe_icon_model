@@ -179,6 +179,7 @@ CONTAINS
 
        ! fast-forward internal event by lag coupling time steps
 
+       events(id)%event_time    = lag * time_step
        events(id)%elapsed_time  = lag * time_step
        events(id)%lag           = lag
 
@@ -204,12 +205,12 @@ CONTAINS
 
     l_action = .FALSE.
 
-    events(event_id)%event_time = &
-    events(event_id)%event_time + events(event_id)%time_step
-
     IF ( events(event_id)%event_time == events(event_id)%delta_time ) THEN
-       events(event_id)%event_time = 0
+       events(event_id)%event_time = events(event_id)%time_step
        l_action = .TRUE.
+    ELSE
+       events(event_id)%event_time = &
+       events(event_id)%event_time + events(event_id)%time_step
     ENDIF
 
     events(event_id)%elapsed_time = &
