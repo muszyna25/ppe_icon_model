@@ -255,7 +255,7 @@ doc/userguide/content/output.tex -text
 doc/userguide/content/preface.tex -text
 doc/userguide/content/title.tex -text
 doc/userguide/content/visualization.tex -text
-doc/userguide/icon_user_guide.pdf -text
+doc/userguide/icon_user_guide.pdf -text svneol=unset#unset
 doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
 doc/userguide/pictures/contour_plot.png -text
@@ -710,6 +710,11 @@ run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_2dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime_sp -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_01 -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.ocean_internal/buildbot/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
@@ -803,6 +808,8 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_amip_withTimeMeanOutput -text
+run/exp.atm_amip_withTimeMeanOutput_only -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text

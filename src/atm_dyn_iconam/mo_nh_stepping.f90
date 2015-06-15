@@ -35,7 +35,7 @@ MODULE mo_nh_stepping
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
-  USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
+  USE mo_dynamics_config,          ONLY: nnow,nnew, nold, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,                ONLY: is_checkpoint_time, is_totint_time, n_chkpt, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
@@ -143,6 +143,8 @@ MODULE mo_nh_stepping
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
                                          write_vertical_profiles, write_time_series, &
                                          sampl_freq_step
+  USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
+    &                                    calc_mean_opt_acc, p_nh_opt_diag, t_nh_acc
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list  
   USE mo_async_latbc,              ONLY: prefetch_input
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
@@ -383,9 +385,17 @@ MODULE mo_nh_stepping
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
+    CALL update_opt_acc(p_nh_opt_diag(1)%acc,           &
+      &                 p_nh_state(1)%prog(nnow_rcf(1)), &
+      &                 p_nh_state(1)%prog(nnow(1))%rho, &
+      &                 p_nh_state(1)%diag,          &
+      &                 p_nh_state(1)%metrics,       &
+      &                 p_patch(1)%cells%owned,      &
+      &                 p_patch(1)%nlev,iforcing==iecham)
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
+    CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -721,7 +731,7 @@ MODULE mo_nh_stepping
 
 
     ! Compute diagnostics for output if necessary
-    IF (l_compute_diagnostic_quants) THEN
+    IF (l_compute_diagnostic_quants .OR. iforcing==iecham) THEN
       CALL diag_for_output_dyn ()
       IF (iforcing == inwp) THEN
         CALL aggr_landvars
@@ -765,10 +775,14 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
-    simulation_status = new_simulation_status(l_output_step  = l_nml_output,             &
-      &                                       l_last_step    = (jstep==(nsteps+jstep0)), &
-      &                                       l_dom_active   = p_patch(1:)%ldom_active,  &
-      &                                       i_timelevel    = nnow)
+    !
+    ! Mean sea level pressure needs to be computed also at 
+    ! no-output-steps for accumulation purposes; set by l_accumulation_step
+    simulation_status = new_simulation_status(l_output_step       = l_nml_output,             &
+      &                                       l_last_step         = (jstep==(nsteps+jstep0)), &
+      &                                       l_accumulation_step = (iforcing == iecham),&
+      &                                       l_dom_active        = p_patch(1:)%ldom_active,  &
+      &                                       i_timelevel         = nnow)
     CALL pp_scheduler_process(simulation_status)
 
 #ifdef MESSY
@@ -777,6 +791,15 @@ MODULE mo_nh_stepping
     END DO
 #endif
 
+    ! update accumlated values
+    CALL update_opt_acc(p_nh_opt_diag(1)%acc,               &
+      &                 p_nh_state(1)%prog(nnow_rcf(1)), &
+      &                 p_nh_state(1)%prog(nnow(1))%rho, &
+      &                 p_nh_state(1)%diag,              &
+      &                 p_nh_state(1)%metrics,           &
+      &                 p_patch(1)%cells%owned,          &
+      &                 p_patch(1)%nlev,iforcing==iecham)
+    IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
@@ -823,7 +846,7 @@ MODULE mo_nh_stepping
 !DR      CALL reset_act%execute(slack=dtime)
 !DR Workaround for gfortran 4.5 (and potentially others)
     CALL reset_action(dtime)
-    !
+    IF ( l_nml_output ) CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
     IF (is_avgFG_time(datetime_current)) THEN
       IF (p_nh_state(1)%diag%nsteps_avg(1) == 0) THEN
