@@ -39,6 +39,8 @@ MODULE mo_cuadjust
 #endif
                  
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: cuadjtq
 
 CONTAINS
   !>
