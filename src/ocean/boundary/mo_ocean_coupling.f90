@@ -320,11 +320,9 @@ CONTAINS
           DO idx = 1, nproma
             IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
               ! water (-2, -1)
-              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
               ibuffer((BLOCK-1)*nproma+idx) = 0
             ELSE
               ! land or boundary
-              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
               ibuffer((BLOCK-1)*nproma+idx) = 1
             ENDIF
           ENDDO
@@ -628,7 +626,6 @@ CONTAINS
        CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is put for restart')
 #else
        WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layers says it is put for restart"
-       !rr CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
 #endif
     ENDIF
     !
@@ -644,10 +641,11 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 2
     CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
@@ -673,9 +671,10 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     CALL icon_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -705,10 +704,11 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 3
     CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_cells,1:3), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -747,10 +747,11 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(4), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 1
     CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -782,10 +783,11 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 4
     CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -828,10 +830,11 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(6), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
 #else
     field_shape(3) = 4
     CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !

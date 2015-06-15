@@ -193,7 +193,6 @@ MODULE mo_icon_cpl
      INTEGER                :: dt_model
      LOGICAL                :: l_diagnostic
      LOGICAL                :: l_activated
-     LOGICAL                :: restart_flag    ! flag to indicate that its time for writing a restart
      INTEGER                :: cdi_varID       ! cdi ID for restart field
      INTEGER                :: cdi_gridID      ! cdi ID for restart grid
   END TYPE t_coupling

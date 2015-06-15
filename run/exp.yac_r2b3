@@ -120,8 +120,8 @@ atm_lag=2 # 2 for cold start, 1 for normal restart
 cat > coupling.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
    <redirect redirect_of_root="false" redirect_stdout="true"/>
    <components>
       <component id="1">
@@ -175,7 +175,7 @@ cat > coupling.xml << EOF
       <grid alias_name="grid1" id="1"/>
    </grids>
    <dates>
-      <start_date>+1800-01-01T00:00:00.000</start_date>
+      <start_date>+2000-01-01T00:00:00.000</start_date>
       <end_date>+2100-01-01T00:00:00.000</end_date>
       <calendar>proleptic-gregorian</calendar>
    </dates>
@@ -184,6 +184,74 @@ cat > coupling.xml << EOF
       <couple>
          <component1 component_id="1"/>
          <component2 component_id="2"/>
+         <transient_couple transient_id="10">
+            <source component_ref="2" transient_grid_ref="10"/>
+            <target transient_grid_ref="10"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="9">
+            <source component_ref="2" transient_grid_ref="9"/>
+            <target transient_grid_ref="9"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="8">
+            <source component_ref="2" transient_grid_ref="8"/>
+            <target transient_grid_ref="8"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
+         <transient_couple transient_id="7">
+            <source component_ref="2" transient_grid_ref="7"/>
+            <target transient_grid_ref="7"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="average">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+         </transient_couple>
          <transient_couple transient_id="1">
             <source component_ref="1" transient_grid_ref="1"/>
             <target transient_grid_ref="1"/>
@@ -195,7 +263,7 @@ cat > coupling.xml << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -212,7 +280,7 @@ cat > coupling.xml << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -229,7 +297,7 @@ cat > coupling.xml << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -246,7 +314,7 @@ cat > coupling.xml << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -263,7 +331,7 @@ cat > coupling.xml << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -280,75 +348,7 @@ cat > coupling.xml << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="7">
-            <source component_ref="2" transient_grid_ref="7"/>
-            <target transient_grid_ref="7"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="none">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="8">
-            <source component_ref="2" transient_grid_ref="8"/>
-            <target transient_grid_ref="8"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="none">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="9">
-            <source component_ref="2" transient_grid_ref="9"/>
-            <target transient_grid_ref="9"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="none">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="10">
-            <source component_ref="2" transient_grid_ref="10"/>
-            <target transient_grid_ref="10"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="none">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="false"/>
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>

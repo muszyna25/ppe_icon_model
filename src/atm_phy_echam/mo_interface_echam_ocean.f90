@@ -65,6 +65,7 @@ MODULE mo_interface_echam_ocean
   USE mo_master_control      ,ONLY: get_my_process_name, get_my_model_no
 
   USE mo_mpi                 ,ONLY: p_pe_work
+  USE mo_icon_cpl            ,ONLY: RESTART
   USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_def_field  ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_icon_cpl_init       ,ONLY: icon_cpl_init
@@ -722,8 +723,6 @@ CONTAINS
     !
     buffer(nbr_hor_cells+1:nbr_cells,1:5) = 0.0_wp
     !
-    !rr CALL work_mpi_barrier ()
-    !
     ! SST
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
@@ -733,6 +732,7 @@ CONTAINS
 #else
     field_shape(3) = 1
     CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
@@ -760,6 +760,7 @@ CONTAINS
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is put for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -787,6 +788,7 @@ CONTAINS
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is put for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -815,6 +817,7 @@ CONTAINS
 #else
     field_shape(3) = 5
     CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is put for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !

@@ -51,7 +51,6 @@ MODULE mo_icon_cpl_exchg
    &                      INITIAL,          &
    &                      XCHANGE
 
-  USE mo_icon_cpl_restart, ONLY : cpl_read_restart ! , cpl_write_restart
   USE mo_master_control,  ONLY  : is_restart_run
   USE mo_io_config, ONLY        : dt_checkpoint
   USE mo_time_config, ONLY      : time_config
@@ -94,9 +93,6 @@ MODULE mo_icon_cpl_exchg
   ! Logical to activate MPI_Send/MPI_Recv behind the put/get
 
   LOGICAL                        :: l_action
-
-  INTEGER                        :: msg_type = NOTHING
-  CHARACTER(len=13)              :: timeString
 
 #else
 
@@ -199,7 +195,7 @@ CONTAINS
 
     ! No get action at the end of the run
 
-    IF ( l_end_of_run ) RETURN
+    IF ( l_end_of_run ) info = RESTART
 
     ! ----------------------------------------------------------------------
     ! First check whether this process has to receive data from someone else
@@ -370,7 +366,7 @@ CONTAINS
 
     ENDIF
 
-    info = INITIAL
+    info = MAX(INITIAL,RESTART)
 
     DEALLOCATE ( lrequests )
     DEALLOCATE ( msg_fm_src )
@@ -591,9 +587,6 @@ CONTAINS
           fptr%accumulation_count = 0
        ENDIF
 
-       !
-       ! Do not accumulated events which are already covered be the restart
-       !
        IF ( debug_coupler_level > 1 ) &
          WRITE ( cplout , * ) 'Accumulation for ', TRIM(cpl_fields(field_id)%field_name)
 
@@ -611,24 +604,11 @@ CONTAINS
                                         + NINT(dt_checkpoint)
     ENDIF
 
-    IF ( l_restart .OR. l_checkpoint ) THEN
+    ! set restart flag
 
-       IF ( debug_coupler_level > 1 ) &
-            WRITE ( cplout , * ) ICON_global_rank, ' : writing restart for ', &
-            TRIM(cpl_fields(field_id)%field_name)
+    IF ( l_restart .OR. l_checkpoint ) info = RESTART
 
-       ! set restart flag
-
-       fptr%coupling%restart_flag = .TRUE.
-
-       info = RESTART
-
-       ! CALL cpl_write_restart ( field_id, field_shape, &
-       !     fptr%send_field_acc, fptr%accumulation_count, l_checkpoint, ierror )
-
-    ENDIF
-
-    IF ( .NOT. l_action .OR. l_restart ) RETURN
+    IF ( .NOT. l_action ) RETURN
 
     ! -------------------------------------------------------------------
     ! Loop over the number of send operation (determined during the search)
