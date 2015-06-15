@@ -366,7 +366,7 @@ CONTAINS
 
     ENDIF
 
-    info = MAX(INITIAL,RESTART)
+    info = MAX(INITIAL,info)
 
     DEALLOCATE ( lrequests )
     DEALLOCATE ( msg_fm_src )
