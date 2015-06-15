@@ -43,6 +43,8 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 (( dt_checkpoint =  8 * minute))
 (( dt_restart    = 16 * minute))
 #
+checkpoint_interval="PT8M" 
+restart_interval="PT16M"
 output_interval="PT4M"
 file_interval="PT4M"
 
@@ -67,6 +69,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev          = 47          ! number of full levels
  dtime            = 240         ! [s] time step
+ modelTimeStep    = "PT4M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport

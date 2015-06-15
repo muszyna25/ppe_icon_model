@@ -267,7 +267,14 @@ CONTAINS
     IF (ASSOCIATED(tc_startdate) .AND. ASSOCIATED(tc_dt_restart)) THEN
       calculatedStopDate => newDatetime('0001-01-01T00:00:00')
       calculatedStopDate = tc_startdate + tc_dt_restart 
-      call datetimeToString(calculatedStopDate, dstring)
+      IF (ASSOCIATED(tc_exp_stopdate)) THEN
+        IF (tc_exp_stopdate < calculatedStopDate) THEN
+          calculatedStopDate = tc_exp_stopdate
+          CALL message('','Experiment stop date earlier than run stop date. '// &
+           &         'Reset end to experiment stop date!')   
+        ENDIF
+      ENDIF
+      CALL datetimeToString(calculatedStopDate, dstring)
       CALL setStopdate(dstring)
       IF (.NOT. ASSOCIATED(tc_exp_stopdate)) THEN
         CALL setExpStopdate(dstring)
@@ -280,22 +287,6 @@ CONTAINS
       CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
 #endif
     ENDIF
-
-#ifndef USE_MTIME_LOOP
-    IF (ASSOCIATED(tc_exp_stopdate) .AND. ASSOCIATED(tc_stopdate)) THEN
-#endif
-    IF (tc_exp_stopdate < tc_stopdate) THEN
-#ifdef USE_MTIME_LOOP
-      CALL finish('','Experiment stop date earlier than run stop date. '// &
-           &         'Check master_time_control_nml!')   
-#else
-      CALL message('use_mtime_loop','Experiment stop date earlier than run stop date. '// &
-           &         'Check master_time_control_nml!')   
-#endif
-    ENDIF
-#ifndef USE_MTIME_LOOP
-    ENDIF
-#endif
 
     IF (ASSOCIATED(tc_startdate)) THEN
       CALL datetimeToString(tc_startdate, dstring)
