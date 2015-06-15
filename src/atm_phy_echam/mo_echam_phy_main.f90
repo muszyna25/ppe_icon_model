@@ -572,7 +572,7 @@ CONTAINS
             & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
             & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
             & vis_frc_sfc=field%visfrcsfc(:,jb),&!< out  visible (250-680nm) fraction of net surface radiation
-            & par_dn_sfc=field%parsfcdn(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
+            & par_dn_sfc=field%partrmdnsfc(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
             & nir_dff_frc=field%nirdffsfc(:,jb),&!< out  diffuse fraction of downward surface near-infrared radiation
             & vis_dff_frc=field%visdffsfc(:,jb),&!< out  diffuse fraction of downward surface visible radiation
             & par_dff_frc=field%pardffsfc(:,jb),&!< out  diffuse fraction of downward surface par
