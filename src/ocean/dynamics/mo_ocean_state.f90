@@ -1310,7 +1310,7 @@ CONTAINS
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', DATATYPE_FLT32),&
         & grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
       CALL add_var(ocean_default_list,'relax_3dim_coefficient',ocean_state_aux%relax_3dim_coefficient,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', DATATYPE_FLT32),&
