@@ -283,7 +283,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
-      &        wave_no, iimage, isens, k
+      &        wave_no, wave_no_scalfac, iimage, isens, k
     CHARACTER(LEN=VARNAME_LEN) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
 
@@ -2538,11 +2538,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
             CALL get_synsat_name(lradiance, lcloudy, ichan, shortname, longname)
             CALL get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
-              &                         idiscipline, icategory, inumber, wave_no)
+              &                         idiscipline, icategory, inumber, &
+              &                         wave_no, wave_no_scalfac)
             
             cf_desc    = t_cf_var(TRIM(shortname), TRIM(unit), TRIM(longname), DATATYPE_FLT32)
             grib2_desc = grib2_var(idiscipline, icategory, inumber, ibits, GRID_REFERENCE, GRID_CELL)   &
               &           + t_grib2_int_key("scaledValueOfCentralWaveNumber", wave_no)                  &
+              &           + t_grib2_int_key("scaleFactorOfCentralWaveNumber", wave_no_scalfac)          &
               &           + t_grib2_int_key("satelliteSeries", 333)                                     &
               &           + t_grib2_int_key("satelliteNumber",  72)                                     &
               &           + t_grib2_int_key("instrumentType",  207)

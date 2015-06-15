@@ -1563,6 +1563,9 @@ MODULE mo_initicon_io
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
+        my_ptr2d => lnd_diag%snowfrac_lc_t(:,:,jt)
+        CALL read_data_2d(parameters, filetype, 'snowfrac', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+
         my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
@@ -1573,7 +1576,7 @@ MODULE mo_initicon_io
         CALL read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype,'t_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 't_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
