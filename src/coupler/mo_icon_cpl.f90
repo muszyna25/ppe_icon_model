@@ -236,7 +236,6 @@ MODULE mo_icon_cpl
   TYPE (t_cpl_field), POINTER :: cpl_fields(:) => NULL()
 
   TYPE(t_julian_date)       :: initial_date
-  TYPE(t_julian_date)       :: final_date
 
   ! Number of active components and grids
 
@@ -250,7 +249,6 @@ MODULE mo_icon_cpl
 
   INTEGER                   :: nbr_ICON_grids
   INTEGER                   :: nbr_ICON_fields
-  INTEGER                   :: nbr_ICON_couplings
 
   ! Marker for the physical component on a process
 

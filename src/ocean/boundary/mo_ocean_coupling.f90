@@ -49,6 +49,7 @@ MODULE mo_ocean_coupling
   USE mo_output_event_types,  ONLY: t_sim_step_info
 # else
   USE mo_master_control,      ONLY: get_my_model_no
+  USE mo_icon_cpl,            ONLY: RESTART
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
   USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
