@@ -372,12 +372,14 @@ MODULE mo_synsat_config
   !
   SUBROUTINE get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
     &                               idiscipline, icategory, inumber, &
-    &                               scaledValueOfCentralWaveNumber)
+    &                               scaledValueOfCentralWaveNumber,  &
+    &                               scaleFactorOfCentralWaveNumber)
     LOGICAL, INTENT(IN)  :: lradiance        ! shortname for radiance or brightness temp
     LOGICAL, INTENT(IN)  :: lcloudy          ! shortname for cloudy or clear sky
     INTEGER, INTENT(IN)  :: ichan            ! channel index
     INTEGER, INTENT(OUT) :: idiscipline, icategory, inumber ! result: GRIB2 triple
     INTEGER, INTENT(OUT) :: scaledValueOfCentralWaveNumber  ! result: GRIB2 meta-data
+    INTEGER, INTENT(OUT) :: scaleFactorOfCentralWaveNumber  ! result: GRIB2 meta-data
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_synsat_grib_triple'
 
@@ -404,20 +406,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
           scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
@@ -425,20 +435,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
           scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
@@ -449,20 +467,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
-          scaledValueOfCentralWaveNumber =  92592 
+          scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
@@ -470,20 +496,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
           scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
