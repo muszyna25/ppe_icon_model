@@ -721,14 +721,25 @@ CONTAINS
 
     IF (type_3dimRelax_Temp >= 3) THEN
       ocean_state%p_aux%data_3dimRelax_Temp(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-      IF (type_3dimRelax_Temp ==4) THEN
-        CALL init_3Drelax_coefficient_NS( &
+      SELECT CASE (type_3dimRelax_Temp)
+      CASE (4)
+        ! 3D-relax the north and south boundary
+        CALL init_3Drelax_coefficient_NS_boundaries( &
           & patch_3D = patch_3d, &
           & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
           & SouthBoundary=basin_SouthBoundary, &
           & NorthBoundary=basin_NorthBoundary, &
           & relaxWidth=relax_width * deg2rad)
-      END IF
+          
+      CASE (5)
+        ! 3D-relax the north boundary
+        CALL init_3Drelax_coefficient_NS_boundaries( &
+          & patch_3D = patch_3d, &
+          & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
+          & NorthBoundary=basin_NorthBoundary, &
+          & relaxWidth=relax_width * deg2rad)
+      END SELECT
+      
     END IF
     IF (type_3dimRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
@@ -760,36 +771,49 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE  init_3Drelax_coefficient_NS(patch_3D, relax_coefficient, SouthBoundary, NorthBoundary, relaxWidth)
+  SUBROUTINE  init_3Drelax_coefficient_NS_boundaries(patch_3D, relax_coefficient, SouthBoundary, NorthBoundary, relaxWidth)
 
     TYPE(t_patch_3d ),TARGET :: patch_3D
     REAL(wp) :: relax_coefficient(:,:,:)
-    REAL(wp) :: SouthBoundary, NorthBoundary, relaxWidth
+    REAL(wp), OPTIONAL :: SouthBoundary, NorthBoundary
+    REAL(wp) :: relaxWidth
 
     INTEGER :: jb, jc, start_cell_index, end_cell_index
-    REAL(wp) :: lat_diff
+    REAL(wp) :: lat_diff, south_boundary, north_boundary
     TYPE(t_patch),POINTER :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
     patch_2d  => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
 
+    IF (PRESENT(SouthBoundary)) THEN
+      south_boundary = SouthBoundary
+    ELSE
+      south_boundary = -200.0_wp - relaxWidth
+    ENDIF
+    IF (PRESENT(NorthBoundary)) THEN
+      north_boundary = NorthBoundary
+    ELSE
+      north_boundary = 200.0_wp + relaxWidth
+    ENDIF
+      
     relax_coefficient(:,:,:) = 0.0_wp
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-        lat_diff = patch_2d%cells%center(jc,jb)%lat - SouthBoundary
+        write(0,*) start_cell_index, end_cell_index, jc, jb
+        lat_diff = patch_2d%cells%center(jc,jb)%lat - south_boundary
         IF (lat_diff > relaxWidth) & ! check the north boundary
-          lat_diff = NorthBoundary - patch_2d%cells%center(jc,jb)%lat
+          lat_diff = north_boundary - patch_2d%cells%center(jc,jb)%lat
           
-        IF (lat_diff >= 0.0_wp .AND. lat_diff <  relaxWidth) THEN
+        IF (lat_diff >= 0.0_wp .AND. lat_diff < relaxWidth) THEN
           relax_coefficient(jc,:,jb) = (relaxWidth - lat_diff) / relaxWidth
         ENDIF
         
       END DO
     END DO
 
-  END SUBROUTINE  init_3Drelax_coefficient_NS
+  END SUBROUTINE  init_3Drelax_coefficient_NS_boundaries
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

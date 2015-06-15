@@ -45,7 +45,8 @@ MODULE mo_ocean_initial_conditions
     & forcing_temperature_poleLat, InitialState_InputFileName,                  &
     & smooth_initial_height_weights, smooth_initial_salinity_weights,           &
     & smooth_initial_temperature_weights, &
-    & initial_perturbation_waveNumber, initial_perturbation_max_ratio
+    & initial_perturbation_waveNumber, initial_perturbation_max_ratio,         &
+    & relax_width 
 
   USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
 
@@ -449,6 +450,7 @@ CONTAINS
 
     REAL(wp) :: temperature_profile(n_zlev)
     REAL(wp), ALLOCATABLE :: old_temperature(:,:,:)
+    REAL(wp) :: lower_lat
     INTEGER ::jk
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
     !-------------------------------------------------------------------------
@@ -545,12 +547,12 @@ CONTAINS
 
     !------------------------------
     CASE (214)
-      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
-      !  exponential temperature profile following Abernathey et al., 2011
-      ! CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
-      !   &                                    initial_temperature_scale_depth)
-      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & bottom_value=initial_temperature_bottom)
+      ! not used
+      CALL finish(method_name, "214 is not used any more")
+!       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+!       !  exponential temperature profile following Abernathey et al., 2011
+!       ! CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+!       !   &                                    initial_temperature_scale_depth)
     CASE (215)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
       !  exponential temperature profile following Abernathey et al., 2011
@@ -589,6 +591,19 @@ CONTAINS
       !CALL de_increaseTracerVertically(patch_3d, ocean_salinity,2,12, 20,32)
       !& decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
 
+    CASE (221)
+      ! Abernathey setup 01
+      CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, constant_temperature=initial_temperature_top)
+      ! put 10C at the north boundary
+      lower_lat = (basin_center_lat + 0.5_wp * basin_height_deg - relax_width) * deg2rad
+      CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
+        & constant_temperature=initial_temperature_north, &
+        & LowerLat=lower_lat)
+
+      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+        &                                    initial_temperature_scale_depth)
+
+      
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
      CALL temperature_KelvinHelmholtzTest(patch_3d, ocean_temperature,&
@@ -1972,11 +1987,11 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
     basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
     lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
-
+    
+    jk=1
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-        jk=1
         ocean_temperature(jc,jk,jb) = initial_temperature_north - temperature_difference*((basin_northBoundary-lat(jc,jb))/lat_diff)
         ocean_temperature(jc,jk,jb) = MERGE(ocean_temperature(jc,jk,jb), initial_temperature_north, lat(jc,jb)<basin_northBoundary)
         ocean_temperature(jc,jk,jb) = MERGE(ocean_temperature(jc,jk,jb), initial_temperature_south, lat(jc,jb)>basin_southBoundary)
@@ -1984,6 +1999,48 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     END DO
 
   END SUBROUTINE SST_LinearMeridional
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE SST_constant(patch_3d, ocean_temperature, constant_temperature, LowerLat)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), INTENT(in) :: constant_temperature
+    REAL(wp), OPTIONAL :: LowerLat
+    
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: lower_lat
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':SST_constant'
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(method_name), ' using meridional gradient over basin height')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    IF (PRESENT(LowerLat)) THEN
+      lower_lat = LowerLat
+    ELSE
+      lower_lat = -100.0
+    ENDIF
+    
+    jk=1
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        IF (patch_2d%cells%center(jc,jb)%lat >= lower_lat) THEN
+          ocean_temperature(jc,jk,jb) = constant_temperature
+        ENDIF
+      END DO
+    END DO
+
+  END SUBROUTINE SST_constant
+  !-------------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------------
 !  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
