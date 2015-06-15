@@ -274,13 +274,28 @@ CONTAINS
       ENDIF
       CALL deallocateDatetime(calculatedStopDate)
     ELSE
+#ifdef USE_MTIME_LOOP
       CALL finish('','Cannot calculate this runs stop date.')
+#else
+      CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
+#endif
     ENDIF
 
+#ifndef USE_MTIME_LOOP
+    IF (ASSOCIATED(tc_exp_stopdate) .AND. ASSOCIATED(tc_stopdate)) THEN
+#endif
     IF (tc_exp_stopdate < tc_stopdate) THEN
+#ifdef USE_MTIME_LOOP
       CALL finish('','Experiment stop date earlier than run stop date. '// &
            &         'Check master_time_control_nml!')   
+#else
+      CALL message('use_mtime_loop','Experiment stop date earlier than run stop date. '// &
+           &         'Check master_time_control_nml!')   
+#endif
     ENDIF
+#ifndef USE_MTIME_LOOP
+    ENDIF
+#endif
 
     IF (ASSOCIATED(tc_startdate)) THEN
       CALL datetimeToString(tc_startdate, dstring)

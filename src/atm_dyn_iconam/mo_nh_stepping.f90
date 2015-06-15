@@ -592,6 +592,7 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
   
+#ifdef USE_MTIME_LOOP
 !LK++ 
   ! Should only be called once! Seems to be used more than once and
   ! deleted inbetween, so it is necessary to call here, needs to be
@@ -647,6 +648,7 @@ MODULE mo_nh_stepping
   CALL message('',message_text)
   CALL message('','')
 !LK++
+#endif
 
 #ifdef USE_MTIME_LOOP
   jstep = jstep0+jstep_shift+1
@@ -665,11 +667,12 @@ MODULE mo_nh_stepping
 
     CALL add_time(dtime,0,0,0,datetime_current)
 
+#ifdef USE_MTIME_LOOP
 !LK++
     ! update model date and time mtime based
-
     current_date = current_date + model_time_step
 !LK++
+#endif
 
     ! store state of output files for restarting purposes
     IF (output_mode%l_nml .AND. jstep>=0 ) THEN
@@ -972,6 +975,7 @@ MODULE mo_nh_stepping
       lwrite_checkpoint = .FALSE.
     ENDIF
 
+#ifdef USE_MTIME_LOOP
     CALL message('','')
     dstring_old = iso8601(datetime_current)
     call datetimeToString(current_date, dstring_new) 
@@ -980,21 +984,18 @@ MODULE mo_nh_stepping
          &              .and. tc_startdate /= current_date)                   &
          &              .or. tc_exp_stopdate == current_date                  &
          &              .and. .not. output_mode%l_none ) then
-#ifdef USE_MTIME_LOOP
       lwrite_checkpoint = .TRUE.
 !      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
 !           &                                ' new: ', dstring_new, ' old: ', dstring_old
 !      CALL message('',message_text)
-#endif
     ELSE
-#ifdef USE_MTIME_LOOP
       lwrite_checkpoint = .FALSE.
 !      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new F and old ', lwrite_checkpoint, &
 !           &                                ' new: ', dstring_new, ' old: ', dstring_old
 !      CALL message('',message_text)
-#endif
     ENDIF
     CALL message('','')
+#endif
 
     IF (lwrite_checkpoint) THEN
       IF (use_async_restart_output) THEN
