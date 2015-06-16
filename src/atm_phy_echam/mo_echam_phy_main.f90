@@ -583,7 +583,7 @@ CONTAINS
             & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net shortwave at all levels
             & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net longwave  at all levels
             & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net shortwave at all levels
-            & ozone=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
+            & xm_o3=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
             &                           )
             field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
             field%lwflxclr(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)

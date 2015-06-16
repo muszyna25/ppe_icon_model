@@ -525,24 +525,24 @@ MODULE mo_psrad_radiation
       !
       ! --- Check O3
       ! 
-      SELECT CASE (io3)
-      CASE(0)
-        CALL message('','irad_o3  = 0 --> no O3 in radiation')
-      CASE(1)
-        CALL message('','irad_o3  = 1 --> transported O3 is not yet implemented')
-        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
-      CASE(2)
-        CALL message('','irad_o3  = 2 --> spectral O3 climatology (ECHAM4), no implemented')
-        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
-      CASE(8)
-        CALL message('','irad_o3  = 8 --> gridpoint O3 climatology from NetCDF file, not implemented')
-        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
-      CASE default
-        WRITE (message_text, '(a,i2,a)') &
-             'irad_o3  =', io3, ' in radctl namelist is not supported'
-        CALL message('',message_text)
-        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
-      END SELECT
+!!$      SELECT CASE (io3)
+!!$      CASE(0)
+!!$        CALL message('','irad_o3  = 0 --> no O3 in radiation')
+!!$      CASE(1)
+!!$        CALL message('','irad_o3  = 1 --> transported O3 is not yet implemented')
+!!$        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
+!!$      CASE(2)
+!!$        CALL message('','irad_o3  = 2 --> spectral O3 climatology (ECHAM4), no implemented')
+!!$        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
+!!$      CASE(8)
+!!$        CALL message('','irad_o3  = 8 --> gridpoint O3 climatology from NetCDF file, not implemented')
+!!$        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
+!!$      CASE default
+!!$        WRITE (message_text, '(a,i2,a)') &
+!!$             'irad_o3  =', io3, ' in radctl namelist is not supported'
+!!$        CALL message('',message_text)
+!!$        CALL finish('setup_psrad_radiation','Run terminated irad_o3')
+!!$      END SELECT
       !
       ! --- Check N2O
       ! 
@@ -808,7 +808,7 @@ MODULE mo_psrad_radiation
     & sw_net_clr ,&!< clear-sky net shortwave at all levels
     & lw_net     ,&!< all-sky net longwave  at all levels
     & sw_net     ,&!< all-sky net shortwave at all levels
-    & ozone       &!< avoid leaving kproma+1:kbdim undefined ozone
+    & xm_o3       &!< ozone mixing ratio
     &              )
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
@@ -856,8 +856,8 @@ MODULE mo_psrad_radiation
     & lw_net(kbdim,klevp1),    & !< All-sky net longwave  at all levels
     & sw_net(kbdim,klevp1)       !< All-sky net shortwave at all levels
 
-    REAL(wp), INTENT(INOUT) ::    & !< Avoid leaving kproma+1:kbdim undefined
-    & ozone(kbdim,klev)             !< ozone
+    REAL(wp), INTENT(IN) ::    & !< Avoid leaving kproma+1:kbdim undefined
+    & xm_o3(kbdim,klev)             !< ozone
     INTEGER              :: jk, jl, idx(kbdim), iaero_call, number_rad_call, i_rad_call
     REAL(wp)             ::         &
     & cos_mu0(kbdim),               &
@@ -872,7 +872,6 @@ MODULE mo_psrad_radiation
     & xq_ice(kbdim,klev),           & !< cloud ice
     & xc_frc(kbdim,klev),           & !< cloud fraction
     & xm_co2(kbdim,klev),           & !< CO2 mixing ratio
-    & xm_o3(kbdim,klev),            & !< Ozone mixing ratio
     & xm_o2(kbdim,klev),            & !< O2 mixing ratio
     & xm_ch4(kbdim,klev),           & !< Methane mixing ratio
     & xm_n2o(kbdim,klev),           & !< Nitrous Oxide mixing ratio
@@ -967,19 +966,19 @@ MODULE mo_psrad_radiation
          &  )
     xm_o2(1:kproma,:)    = gas_profile(kproma, klev, io2,  gas_mmr = mmr_o2)     
 
-    ozon: SELECT CASE (io3)
-    CASE (0)
-      xm_o3(1:kproma,:) = EPSILON(1.0_wp)
+!!$    ozon: SELECT CASE (io3)
+!!$    CASE (0)
+!!$      xm_o3(1:kproma,:) = EPSILON(1.0_wp)
 !!$    CASE (2)
 !!$      xm_o3(1:kproma,:) = o3_lwb(jb,ppd_hl,pp_hl)
 !!$    CASE (3)
 !!$      xm_o3(1:kproma,:) = o3clim(jb,kproma,kbdim,klev,pp_hl,pp_fl)
 !!$    CASE (4)
 !!$      xm_o3(1:kproma,:) = o3clim(jb,kproma,kbdim,klev,pp_hl,pp_fl)
-    CASE default
-      CALL finish('radiation','o3: this "io3" is not supported')
-    END SELECT ozon
-    ozone(1:kproma,:) = xm_o3(1:kproma,:)
+!!$    CASE default
+!!$      CALL finish('radiation','o3: this "io3" is not supported')
+!!$    END SELECT ozon
+!!$    ozone(1:kproma,:) = xm_o3(1:kproma,:)
     ! 2.0 Radiation used to advance model, provide standard diagnostics, and radiative forcing if desired
     !
     ! --------------------------------
