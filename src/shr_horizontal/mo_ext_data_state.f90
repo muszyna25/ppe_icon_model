@@ -56,7 +56,7 @@ MODULE mo_ext_data_state
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: iforcing
   USE mo_dynamics_config,    ONLY: iequations
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, llake, &
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
   USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext 

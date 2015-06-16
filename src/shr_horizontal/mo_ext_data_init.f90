@@ -47,7 +47,7 @@ MODULE mo_ext_data_init
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
-                                   ci_td_filename, llake, itype_lndtbl
+                                   ci_td_filename, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              i_lctype, nclass_lu, nmonths_ext
@@ -57,13 +57,12 @@ MODULE mo_ext_data_init
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_exception,          ONLY: message, message_text, finish, warning
+  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
-    &                              p_comm_work_test, p_comm_work, my_process_is_mpi_test, &
-    &                              my_process_is_mpi_workroot
+    &                              p_comm_work_test, p_comm_work, my_process_is_mpi_workroot
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_ext_data_types,     ONLY: t_external_data
