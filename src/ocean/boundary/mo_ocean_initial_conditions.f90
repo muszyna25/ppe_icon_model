@@ -593,13 +593,15 @@ CONTAINS
 
     CASE (221)
       ! Abernathey setup 01
-      CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, constant_temperature=initial_temperature_top)
-      ! put 10C at the north boundary
-      lower_lat = (basin_center_lat + 0.5_wp * basin_height_deg - relax_width) * deg2rad
-      CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
-        & constant_temperature=initial_temperature_north, &
-        & LowerLat=lower_lat)
-
+      CALL SST_Abernathey_01(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
+        & BaseTemperature=initial_temperature_top, &
+        & VariationAmplitude=(initial_temperature_top-initial_temperature_bottom) * 0.9_wp, &
+        & VariationLength = basin_height_deg * deg2rad, &
+        & VariationWaveNo=3.0_wp, &
+        & NorthTemperature=initial_temperature_north, &
+        & NorthLat=(basin_center_lat + 0.5_wp * basin_height_deg - relax_width) * deg2rad, &
+        & SouthLat=(basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad)
+            
       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
         &                                    initial_temperature_scale_depth)
 
@@ -1999,6 +2001,48 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     END DO
 
   END SUBROUTINE SST_LinearMeridional
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE SST_Abernathey_01(patch_3d, ocean_temperature, BaseTemperature, VariationAmplitude, VariationLength, VariationWaveNo, &
+    & NorthTemperature, NorthLat, SouthLat)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), INTENT(in) :: BaseTemperature, VariationAmplitude, VariationLength, VariationWaveNo
+    REAL(wp), INTENT(in) :: NorthTemperature, NorthLat, SouthLat
+    
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: y_lat
+              
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%all
+    
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        IF (patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+
+          y_lat = patch_2d%cells%center(jc,jb)%lat - SouthLat
+
+          ocean_temperature(jc,1,jb) = &
+            & BaseTemperature - VariationAmplitude * COS(VariationWaveNo * pi * y_lat/VariationLength)
+
+        ENDIF
+      END DO
+    END DO
+    
+    CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
+      & constant_temperature=NorthTemperature, &
+      & LowerLat=NorthLat)
+    
+          
+  END SUBROUTINE SST_Abernathey_01
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -4458,7 +4502,7 @@ stop
     radius_bubble = 2.5_wp  !5.0_wp
     layers_above_bubble = 78 !31
     layers_bubble = 2 !46 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer=layers_bubble/2.0_wp !radius in z direction
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
     CALL assign_if_present(radius_bubble,radius_bubble_opt)
@@ -4546,7 +4590,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble = 35 !15 !35
     layers_bubble = 40 !20 !40 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
     layers_perturbation = 1
     amplitude_perturbation = 0.10_wp
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
@@ -4659,7 +4703,7 @@ stop
     layers_bubble = 35 
     lat_small_bubble= 20.0_wp
 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
     small_bubble_inside = 2.0_wp * ( bubble_outside - bubble_inside ) + bubble_inside
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
@@ -4857,7 +4901,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble = 35
     layers_bubble = 40 
-    dist_layer = layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer = layers_bubble/2.0_wp !radius in z direction
     bubble_inside2 = bubble_outside + bubble_inside
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
@@ -4965,7 +5009,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble =47  !45
     layers_bubble = 20 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z directions
+    dist_layer=layers_bubble/2.0_wp !radius in z directions
     a = 250000.0_wp  ! inner radius in meter
     s = 250000.0_wp  ! outer radius in meter
   

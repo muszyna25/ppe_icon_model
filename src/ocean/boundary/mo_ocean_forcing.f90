@@ -801,7 +801,7 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-        write(0,*) start_cell_index, end_cell_index, jc, jb
+!         write(0,*) start_cell_index, end_cell_index, jc, jb
         lat_diff = patch_2d%cells%center(jc,jb)%lat - south_boundary
         IF (lat_diff > relaxWidth) & ! check the north boundary
           lat_diff = north_boundary - patch_2d%cells%center(jc,jb)%lat
