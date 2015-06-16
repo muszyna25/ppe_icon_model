@@ -234,7 +234,7 @@ CONTAINS
         &          t_cf_var('topBoundCond_Temp_vdiff', 'K*m/s', 'topBoundCond_Temp_vdiff', DATATYPE_FLT32),&
         &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.true.)
 
       CALL add_var(var_list, 'topBoundCond_Salt_vdiff', p_sfc_flx%topBoundCond_Salt_vdiff, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &

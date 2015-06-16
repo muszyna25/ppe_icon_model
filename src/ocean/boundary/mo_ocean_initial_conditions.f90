@@ -554,12 +554,13 @@ CONTAINS
 !       ! CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
 !       !   &                                    initial_temperature_scale_depth)
     CASE (215)
-      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
-      !  exponential temperature profile following Abernathey et al., 2011
-      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & bottom_value=initial_temperature_bottom)
-
-      !CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+      ! not used
+      CALL finish(method_name, "215 is not used any more")
+!      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+!      !  exponential temperature profile following Abernathey et al., 2011
+!      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!        & bottom_value=initial_temperature_bottom)
+!      !CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
 
      CASE (216)
 
@@ -594,8 +595,8 @@ CONTAINS
     CASE (221)
       ! Abernathey setup 01
       CALL SST_Abernathey_01(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
-        & BaseTemperature=initial_temperature_top, &
-        & VariationAmplitude=(initial_temperature_top-initial_temperature_bottom) * 0.9_wp, &
+        & BaseTemperature=initial_temperature_top * 0.5_wp, &
+        & VariationAmplitude=(initial_temperature_top * 0.5_wp - initial_temperature_bottom) * 0.95_wp, &
         & VariationLength = basin_height_deg * deg2rad, &
         & VariationWaveNo=3.0_wp, &
         & NorthTemperature=initial_temperature_north, &
