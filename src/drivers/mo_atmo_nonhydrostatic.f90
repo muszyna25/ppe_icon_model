@@ -61,7 +61,8 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
 USE mo_initicon_config,     ONLY: timeshift
-USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
+USE mo_ext_data_state,      ONLY: ext_data
+USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config

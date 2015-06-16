@@ -55,7 +55,8 @@ MODULE mo_nh_stepping
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
-  USE mo_ext_data_state,           ONLY: ext_data, interpol_monthly_mean
+  USE mo_ext_data_state,           ONLY: ext_data
+  USE mo_ext_data_init,            ONLY: interpol_monthly_mean
   USE mo_extpar_config,            ONLY: itopo
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch
