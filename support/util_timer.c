@@ -6,9 +6,6 @@
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/param.h>
-#ifdef __XT3__
-#include <catamount/dclock.h>
-#endif
 
 #include "cfortran.h"
 
@@ -58,16 +55,11 @@ extern clock_t times (struct tms *buffer);
 
 int cf_util_cputime(double *user_time, double *system_time)
 {
-#ifdef __XT3__
-  *user_time   = dclock()-clock0;
-  *system_time = (double) 0;
-#else
   struct tms tbuf;
   if (times(&tbuf) == -1) return ((int) (-1));
 
   *user_time   = ((double) tbuf.tms_utime) / clock_ticks;
   *system_time = ((double) tbuf.tms_stime) / clock_ticks;
-#endif
 
   return (0);
 }

@@ -143,9 +143,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           &                istart, iend, i_rlstart, i_rlend)
         
         ! Call the ART diagnostics
-        CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), p_nh_state%metrics%ddqz_z_full(:,:,jb), &
-          &                            istart, iend, nlev, jb, art_config(jg), p_art_data(jg))
-        
+        IF (art_config(jg)%lart_diag_out) THEN
+          CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), p_nh_state%metrics%ddqz_z_full(:,:,jb), &
+            &                            istart, iend, nlev, jb, art_config(jg), p_art_data(jg))
+        ENDIF
         ! ----------------------------------
         ! --- Preparations for emission routines
         ! ----------------------------------

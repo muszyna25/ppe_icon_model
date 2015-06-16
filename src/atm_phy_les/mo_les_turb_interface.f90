@@ -40,6 +40,8 @@ MODULE mo_les_turb_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_sgs_turbulence,       ONLY: drive_subgrid_diffusion
+  USE mo_sgs_turbmetric,       ONLY: drive_subgrid_diffusion_m
+  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE
 
@@ -52,7 +54,6 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
 SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
-                          & linit,                            & !>in
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
                           & p_int,                            & !>in
@@ -77,7 +78,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for turbulence
-  LOGICAL,                     INTENT(in)   :: linit
 
   ! Local array bounds
 
@@ -106,20 +106,40 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   !is made outside the block loop next. However, the tendencies it calculates
   !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
   IF ( atm_phy_nwp_config(jg)%inwp_turb==ismag )THEN
-    CALL drive_subgrid_diffusion(linit,        & !in
-                                 p_prog,       & !inout for w (it is updated inside)
-                                 p_prog_rcf,   & !in
-                                 p_diag,       & !inout
-                                 p_metrics,    & !in
-                                 p_patch,      & !in
-                                 p_int,        & !in
-                                 lnd_prog_now, & !in
-                                 lnd_prog_new, & !inout only for idealized cases
-                                 lnd_diag,     & !inout
-                                 prm_diag,     & !inout
-                                 prm_nwp_tend, & !inout
-                                 tcall_turb_jg & !in
-                                 )
+
+    ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
+    IF (les_config(jg)%les_metric) THEN
+      CALL drive_subgrid_diffusion_m(p_prog,       & !inout for w (it is updated inside)
+                                     p_prog_rcf,   & !in
+                                     p_diag,       & !inout
+                                     p_metrics,    & !in
+                                     p_patch,      & !in
+                                     p_int,        & !in
+                                     lnd_prog_now, & !in
+                                     lnd_prog_new, & !inout only for idealized cases
+                                     lnd_diag,     & !inout
+                                     prm_diag,     & !inout
+                                     prm_nwp_tend, & !inout
+                                     tcall_turb_jg & !in
+                                     )
+
+
+    ELSE
+      CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
+                                   p_prog_rcf,   & !in
+                                   p_diag,       & !inout
+                                   p_metrics,    & !in
+                                   p_patch,      & !in
+                                   p_int,        & !in
+                                   lnd_prog_now, & !in
+                                   lnd_prog_new, & !inout only for idealized cases
+                                   lnd_diag,     & !inout
+                                   prm_diag,     & !inout
+                                   prm_nwp_tend, & !inout
+                                   tcall_turb_jg & !in
+                                   )
+    END IF
+
   END IF
 
   

@@ -1,18 +1,5 @@
 !>
-!! <Short description of module for listings and indices>
-!!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
-!!
-!! @author <name, affiliation>
-!! @author <name, affiliation>
-!!
-!!
-!! @par Revision History
-!! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
+!! Configuration for interpolation and reconstruction.
 !!
 !! @par Copyright and License
 !!

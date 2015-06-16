@@ -32,11 +32,15 @@ MODULE mo_icon_cpl_restart
        &                        comps, grids, cpl_fields,    &
        &                        cplout, debug_coupler_level
   USE mo_time_config, ONLY    : time_config
+  USE mo_cdi_constants, ONLY  : DATATYPE_FLT64, FILETYPE_NC2, GRID_GENERIC, &
+       &                        TIME_CONSTANT, ZAXIS_SURFACE, vlistCreate,  &
+       &                        zaxisCreate, gridCreate, &
+       &                        streamOpenRead, cdiStringError, streamInqVlist, &
+       &                        vlistNvars, streamDefTimestep, streamOpenWrite, &
+       &                        vlistDefVar
 
   PRIVATE
  
-  INCLUDE 'cdi.inc'
-
   TYPE(t_grid), POINTER      :: gptr ! pointer to grid struct
   TYPE(t_cpl_field), POINTER :: fptr ! pointer to field struct
 

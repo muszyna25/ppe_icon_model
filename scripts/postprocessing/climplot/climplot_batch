@@ -101,9 +101,9 @@ fi
 # --- metview troubleshooting
 
 #metview=metview4_old
-#metview=metview4_dev
+metview=metview4_dev
 #metview=metview4_new
-metview=/usr/local/apps/Metview/4.5.0/bin/metview     # 4.4.8-4.4.10 not working with zonal shades
+#metview=/usr/local/apps/Metview/4.5.0/bin/metview     # 4.4.8-4.4.10 not working with zonal shades
 
 #deia_grib_api=/home/ms/de/deia/grib_api # inlcudes fix add back in the MARS definitions for level reading
 #                                        # this will be fixed in 1.12.3 by Gramalla
@@ -187,9 +187,9 @@ set -A mm_start `$metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT $dayl | grep
 set -A mm_len   `$metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT $dayl | grep mm_len   | sed 's/mm_len//'   | sed 'y/[],/   /'`
 
 # --- reverse order of periods: all-season-month
-set -A yy_start `echo ${yy_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
-set -A mm_start `echo ${mm_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
-set -A mm_len   `echo ${mm_len[*]}   | awk '{for (i=NF; i>=1; i--) print $i}'`
+#dmk set -A yy_start `echo ${yy_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
+#    set -A mm_start `echo ${mm_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
+#xxx set -A mm_len   `echo ${mm_len[*]}   | awk '{for (i=NF; i>=1; i--) print $i}'`
 
 set -A inidates `echo ${DATESTR} | sed 's/\// /g'`
 set -A timestr  `echo ${INITIME} | sed 's/\// /g'`

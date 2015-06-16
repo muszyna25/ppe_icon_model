@@ -32,18 +32,19 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
-    &                                INWP, IECHAM,                       &
-    &                                VINTP_METHOD_VN,                    &
-    &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
-    &                                VINTP_METHOD_LIN,                   &
-    &                                VINTP_METHOD_LIN_NLEVP1,            &
-    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,     &
-    &                                iedmf, MODE_DWDANA_INC, MODE_IAU,   &
-    &                                TASK_COMPUTE_OMEGA
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,             &
+    &                                INWP, IECHAM,                         &
+    &                                VINTP_METHOD_VN,                      &
+    &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,   &
+    &                                VINTP_METHOD_LIN,                     &
+    &                                VINTP_METHOD_LIN_NLEVP1,              &
+    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
+    &                                iedmf, MODE_DWDANA_INC, MODE_IAU,     &
+    &                                MODE_IAU_OLD, TASK_COMPUTE_OMEGA
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
+  USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
+                                     t_nh_prog, t_nh_diag,               &
     &                                t_nh_ref, t_nh_metrics
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
@@ -83,7 +84,6 @@ MODULE mo_nonhydro_state
     &                                TSTEP_AVG
   USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
-  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE
 
@@ -98,9 +98,11 @@ MODULE mo_nonhydro_state
   PUBLIC :: duplicate_prog_state  ! Copy the prognostic state
 
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
+  PUBLIC :: p_nh_state_lists      ! lists for state vector of nonhydrostatic variables (variable)
   
 
-  TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
+  TYPE(t_nh_state),       TARGET, ALLOCATABLE :: p_nh_state(:)
+  TYPE(t_nh_state_lists), TARGET, ALLOCATABLE :: p_nh_state_lists(:)
 
   CONTAINS
 
@@ -120,12 +122,14 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels, l_pres_msl, l_omega)
+  SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, l_pres_msl, l_omega)
 !
-    TYPE(t_patch),     INTENT(IN)   ::  & ! patch
+    TYPE(t_patch),     INTENT(IN)   ::        & ! patch
       &  p_patch(n_dom)
-    TYPE(t_nh_state),  INTENT(INOUT)::  & ! nh state at different grid levels
+    TYPE(t_nh_state),  INTENT(INOUT)::        & ! nh state at different grid levels
       &  p_nh_state(n_dom)
+    TYPE(t_nh_state_lists),  INTENT(INOUT)::  & ! nh state at different grid levels
+      &  p_nh_state_lists(n_dom)
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
     LOGICAL, INTENT(IN) :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
@@ -183,14 +187,14 @@ MODULE mo_nonhydro_state
       ENDIF
 
       ! create state list
-      ALLOCATE(p_nh_state(jg)%prog_list(1:ntl), STAT=ist)
+      ALLOCATE(p_nh_state_lists(jg)%prog_list(1:ntl), STAT=ist)
       IF(ist/=SUCCESS)THEN
         CALL finish (TRIM(routine),                                    &
           &          'allocation of prognostic state list array failed')
       ENDIF
 
       ! create tracer list (no extra timelevels)
-      ALLOCATE(p_nh_state(jg)%tracer_list(1:ntl_pure), STAT=ist)
+      ALLOCATE(p_nh_state_lists(jg)%tracer_list(1:ntl_pure), STAT=ist)
       IF(ist/=SUCCESS)THEN
         CALL finish (TRIM(routine),                                    &
           &          'allocation of prognostic tracer list array failed')
@@ -219,7 +223,7 @@ MODULE mo_nonhydro_state
         ! varname_prefix = 'nh_prog_'
         varname_prefix = ''
         CALL new_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt),  &
-          &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
+          &  p_nh_state_lists(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
           &  l_extra_timelev, jt)
 
         !
@@ -230,8 +234,8 @@ MODULE mo_nonhydro_state
           WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_tracer_of_domain_',jg, &
             &                               '_and_timelev_',jt
           varname_prefix = ''
-          CALL new_nh_state_tracer_list(p_patch(jg), p_nh_state(jg)%prog_list(jt), &
-            &  p_nh_state(jg)%tracer_list(jt), listname )
+          CALL new_nh_state_tracer_list(p_patch(jg), p_nh_state_lists(jg)%prog_list(jt), &
+            &  p_nh_state_lists(jg)%tracer_list(jt), listname )
         ENDIF
       ENDDO ! jt
 
@@ -241,7 +245,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
-        &  p_nh_state(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
+        &  p_nh_state_lists(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
 
       !
       ! Build metrics state list
@@ -249,7 +253,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_metrics_of_domain_',jg
       CALL new_nh_metrics_list(p_patch(jg), p_nh_state(jg)%metrics, &
-        &  p_nh_state(jg)%metrics_list, listname )
+        &  p_nh_state_lists(jg)%metrics_list, listname )
 
       !
       ! Build ref state list (not needed so far for real case applications)
@@ -258,7 +262,7 @@ MODULE mo_nonhydro_state
       IF ( ltestcase ) THEN
         WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
         CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
-          &  p_nh_state(jg)%ref_list, listname)
+          &  p_nh_state_lists(jg)%ref_list, listname)
       ENDIF
 
     ENDDO ! jg
@@ -280,10 +284,13 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE destruct_nh_state(p_nh_state)
+  SUBROUTINE destruct_nh_state(p_nh_state, p_nh_state_lists)
 !
-    TYPE(t_nh_state), INTENT(INOUT) :: & ! nh state at different grid levels
+    TYPE(t_nh_state), INTENT(INOUT) ::       & ! nh state at different grid levels
       &  p_nh_state(n_dom)
+                                             
+    TYPE(t_nh_state_lists), INTENT(INOUT) :: & ! lists of nh state at different grid levels
+      &  p_nh_state_lists(n_dom)
                                              
     INTEGER  :: ntl_prog, & ! number of timelevels prog state
                 ntl_tra,  & ! number of timelevels 
@@ -305,40 +312,40 @@ MODULE mo_nonhydro_state
         CALL finish(TRIM(routine), 'prognostic array has no timelevels')
       ENDIF
 
-      ntl_tra = SIZE(p_nh_state(jg)%tracer_list(:))
+      ntl_tra = SIZE(p_nh_state_lists(jg)%tracer_list(:))
       IF(ntl_tra==0)THEN
         CALL finish(TRIM(routine), 'tracer list has no timelevels')
       ENDIF
 
       ! delete reference state list elements
       IF ( ltestcase ) THEN
-        CALL delete_var_list( p_nh_state(jg)%ref_list )
+        CALL delete_var_list( p_nh_state_lists(jg)%ref_list )
       ENDIF
 
       ! delete diagnostic state list elements
-      CALL delete_var_list( p_nh_state(jg)%diag_list )
+      CALL delete_var_list( p_nh_state_lists(jg)%diag_list )
 
       ! delete metrics state list elements
-      CALL delete_var_list( p_nh_state(jg)%metrics_list )
+      CALL delete_var_list( p_nh_state_lists(jg)%metrics_list )
 
 
       ! delete prognostic state list elements
       DO jt = 1, ntl_prog
-        CALL delete_var_list( p_nh_state(jg)%prog_list(jt) )
+        CALL delete_var_list( p_nh_state_lists(jg)%prog_list(jt) )
       ENDDO
 
       ! delete tracer list list elements
       DO jt = 1, ntl_tra
-        CALL delete_var_list( p_nh_state(jg)%tracer_list(jt) )
+        CALL delete_var_list( p_nh_state_lists(jg)%tracer_list(jt) )
       ENDDO
 
 
       ! destruct state lists and arrays
-      DEALLOCATE(p_nh_state(jg)%prog_list, STAT=ist )
+      DEALLOCATE(p_nh_state_lists(jg)%prog_list, STAT=ist )
       IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
         & 'deallocation of prognostic state list array failed')
 
-      DEALLOCATE(p_nh_state(jg)%tracer_list, STAT=ist )
+      DEALLOCATE(p_nh_state_lists(jg)%tracer_list, STAT=ist )
       IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
         & 'deallocation of tracer list array failed')
 
@@ -495,7 +502,8 @@ MODULE mo_nonhydro_state
       &             l_hires_intp=.FALSE., l_restore_fricred=.FALSE.),           &
       &           ldims=shape3d_e,                                              &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",             &
-      &                           "mode_dwd_fg_in","mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+      &                           "mode_dwd_fg_in","mode_iau_fg_in",            &
+      &                           "mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
 
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity', DATATYPE_FLT32)
@@ -508,7 +516,8 @@ MODULE mo_nonhydro_state
       &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                &
       &          in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
       &                          "dwd_fg_atm_vars","mode_dwd_fg_in",           &
-      &                          "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+      &                          "mode_iau_fg_in","mode_iau_old_fg_in",        &
+      &                          "LATBC_PREFETCH_VARS") )
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', DATATYPE_FLT32)
@@ -520,7 +529,8 @@ MODULE mo_nonhydro_state
       &              vert_intp_type=vintp_types("P","Z","I"),                  &
       &              vert_intp_method=VINTP_METHOD_LIN ),                      &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",            &
-      &                           "mode_dwd_fg_in","mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+      &                           "mode_dwd_fg_in","mode_iau_fg_in",           &
+      &                           "mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
 
     ! theta_v      p_prog%theta_v(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('virtual_potential_temperature', 'K', &
@@ -530,7 +540,8 @@ MODULE mo_nonhydro_state
       &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,             &
       &           ldims=shape3d_c,                                                    &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",                   &
-      &           "mode_dwd_fg_in","mode_iau_fg_in", "LATBC_PREFETCH_VARS") )
+      &           "mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in",             &
+      &           "LATBC_PREFETCH_VARS") )
 
     ! Initialize pointers that are not always allocated to NULL
     p_prog%exner      => NULL()
@@ -586,8 +597,10 @@ MODULE mo_nonhydro_state
             &                       l_satlimit=.FALSE.,                                &
             &                       lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-            &                           "dwd_fg_atm_vars","mode_dwd_ana_in", "LATBC_PREFETCH_VARS", &
-            &                           "mode_iau_fg_in","mode_iau_ana_in") )
+            &                           "dwd_fg_atm_vars","mode_dwd_ana_in",           &
+            &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &
+            &                           "mode_iau_old_fg_in","mode_iau_ana_in",        &
+            &                           "mode_iau_old_ana_in" ) )
         END IF ! iqv 
 
         !QC
@@ -612,7 +625,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                         "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqc
         !QI
         IF ( iqi /= 0 ) THEN
@@ -635,7 +648,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                         "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqi
         !QR
         IF ( iqr /= 0 ) THEN
@@ -659,7 +672,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqr
         !QS
         IF ( iqs /= 0 ) THEN
@@ -683,11 +696,11 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","LATBC_PREFETCH_VARS") )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqs
 
         !CK>
-        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==2) THEN
+        IF (ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp==2)) THEN
           !QG
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
@@ -1042,7 +1055,8 @@ MODULE mo_nonhydro_state
           &             vert_intp_type=vintp_types("P","Z","I"),                  &
           &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),               &
           &           in_group=groups("atmo_ml_vars", "atmo_pl_vars",             &
-          &           "atmo_zl_vars", "dwd_fg_atm_vars", "mode_dwd_fg_in", "mode_iau_fg_in") )
+          &           "atmo_zl_vars", "dwd_fg_atm_vars", "mode_dwd_fg_in",        &
+          &           "mode_iau_fg_in","mode_iau_old_fg_in") )
         
       ELSE
 
@@ -1279,7 +1293,8 @@ MODULE mo_nonhydro_state
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
-                &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )  
+                &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
+                &                 "LATBC_PREFETCH_VARS") )  
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
     !
@@ -1294,7 +1309,8 @@ MODULE mo_nonhydro_state
                 &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
-                &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
+                &                 "LATBC_PREFETCH_VARS") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1410,7 +1426,8 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_LIN ),              &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
-                &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
+                &                 "LATBC_PREFETCH_VARS") )
 
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
@@ -1448,7 +1465,7 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_PRES ),             &
                 & in_group=groups("atmo_ml_vars","atmo_zl_vars",                &
                 & "dwd_fg_atm_vars","mode_dwd_ana_in",                          &
-                & "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
+                & "mode_iau_ana_in","mode_iau_old_ana_in","LATBC_PREFETCH_VARS") )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
     !
@@ -2075,7 +2092,7 @@ MODULE mo_nonhydro_state
     ENDIF  !  ntracer >0
 
 
-    IF ( (init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU)) THEN
+    IF ( ANY((/MODE_IAU,MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
       cf_desc    = t_cf_var('vn_incr', ' ',                   &
@@ -2119,7 +2136,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
 
-    ENDIF  ! init_mode = MODE_DWDANA_INC, MODE_IAU
+    ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
       ! NOTE: the following time-averaged fields are not written into the restart file, 
@@ -2142,7 +2159,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
       ! v_avg   p_diag%v_avg(nproma,nlev,nblks_c)
       !
@@ -2157,7 +2175,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
 
@@ -2174,7 +2193,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! temp_avg   p_diag%temp_avg(nproma,nlev,nblks_c)
@@ -2190,7 +2210,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! qv_avg   p_diag%qv_avg(nproma,nlev,nblks_c)
@@ -2206,7 +2227,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,             &
                   &             TRIM(iso8601_interval_avg_fg),               &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg), &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))  )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),&
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))  )
 
 
       ! nsteps_avg  p_diag%nsteps_avg(1)
@@ -2222,7 +2244,8 @@ MODULE mo_nonhydro_state
                   & action_list=actions(new_action(ACTION_RESET,              &
                   &             TRIM(iso8601_interval_avg_fg),                &
                   &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg)))   )
+                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg), &
+                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg)))   )
 
     ENDIF
 
@@ -2410,6 +2433,8 @@ MODULE mo_nonhydro_state
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
+    jg     = p_patch%id
+
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
     IF (gribout_config(p_patch%id)%lgribout_24bit) THEN  ! analysis
@@ -2479,6 +2504,30 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
 #ifndef __MIXED_PRECISION
+    ! slope of the terrain in normal direction (full level)
+    ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+      &                   'terrain slope in normal direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+
+    ! slope of the terrain in tangential direction (full level)
+    ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & isteptype=TSTEP_CONSTANT )
+
+    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
     ! slope of the terrain in normal direction (half level)
     ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
     !
@@ -2503,16 +2552,6 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in normal direction (full level)
-    ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
-                & isteptype=TSTEP_CONSTANT )
 
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full_c  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
@@ -2575,17 +2614,6 @@ MODULE mo_nonhydro_state
 
 
     ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
-                & isteptype=TSTEP_CONSTANT )
-
-    ! slope of the terrain in tangential direction (full level)
     ! ddxt_z_full_c  p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
@@ -2607,6 +2635,7 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_v, loutput=.TRUE.,                             &
                 & isteptype=TSTEP_CONSTANT )
+    ENDIF
 
 
     ! functional determinant of the metrics [sqrt(gamma)]
@@ -2632,32 +2661,35 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf, loutput=.FALSE.,                         &
                 & isteptype=TSTEP_CONSTANT )
 #else
-    ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
-             p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
-             p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
-             p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
-             p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
-             p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
-             p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
-             p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
+    ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
              p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
-             p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
-             p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v),  &
              p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
              p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
-    p_metrics%ddxn_z_half_e = 0._vp
-    p_metrics%ddxn_z_half_c = 0._vp
     p_metrics%ddxn_z_full   = 0._vp
-    p_metrics%ddxn_z_full_c = 0._vp
-    p_metrics%ddxn_z_full_v = 0._vp
-    p_metrics%ddxt_z_half_e = 0._vp
-    p_metrics%ddxt_z_half_c = 0._vp
-    p_metrics%ddxt_z_half_v = 0._vp
     p_metrics%ddxt_z_full   = 0._vp
-    p_metrics%ddxt_z_full_c = 0._vp
-    p_metrics%ddxt_z_full_v = 0._vp
     p_metrics%ddqz_z_full_e = 0._vp
     p_metrics%ddqz_z_half   = 0._vp
+
+    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+      ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
+               p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
+               p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
+               p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
+               p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
+               p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
+               p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
+               p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
+               p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v) )
+      p_metrics%ddxn_z_half_e = 0._vp
+      p_metrics%ddxn_z_half_c = 0._vp
+      p_metrics%ddxn_z_full_c = 0._vp
+      p_metrics%ddxn_z_full_v = 0._vp
+      p_metrics%ddxt_z_half_e = 0._vp
+      p_metrics%ddxt_z_half_c = 0._vp
+      p_metrics%ddxt_z_half_v = 0._vp
+      p_metrics%ddxt_z_full_c = 0._vp
+      p_metrics%ddxt_z_full_v = 0._vp
+    ENDIF
 #endif
 
 
@@ -3133,7 +3165,6 @@ MODULE mo_nonhydro_state
 
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
-    jg = p_patch%id
     IF(atm_phy_nwp_config(jg)%is_les_phy)THEN
 
       ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
@@ -3156,15 +3187,17 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_e,                                                   &
                   & isteptype=TSTEP_CONSTANT )
 
-      ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
-        &                   'metrics functional determinant', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v,         &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_v, loutput=.TRUE.,                              &
-                  & isteptype=TSTEP_CONSTANT )
+      IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+        ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
+        !
+        cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
+          &                   'metrics functional determinant', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
+        CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v,         &
+                    & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+                    & ldims=shape3d_v, loutput=.TRUE.,                              &
+                    & isteptype=TSTEP_CONSTANT )
+      ENDIF
 
       ! inv_ddqz_z_half  p_metrics%inv_ddqz_z_half(nproma,nlevp1,nblks_c)
       !

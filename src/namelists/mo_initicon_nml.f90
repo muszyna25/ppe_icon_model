@@ -24,7 +24,8 @@ MODULE mo_initicon_nml
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
-    &                              MODE_DWDANA_INC, MODE_IAU, MODE_COMBINED, &
+    &                              MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,  &
+    &                              MODE_COMBINED,                            &
     &                              MODE_COSMODE, MODE_ICONVREMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
@@ -53,6 +54,7 @@ MODULE mo_initicon_nml
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_ana_varlist         => ana_varlist,         &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
+    & config_wgtfac_geobal       => wgtfac_geobal,       &
     & config_ana_varnames_map_file => ana_varnames_map_file, &
     & config_latbc_varnames_map_file => latbc_varnames_map_file
 
@@ -97,15 +99,17 @@ MODULE mo_initicon_nml
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
-                            ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
   REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
 
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
-                            ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_DWDANA_INC, MODE_IAU
+                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+  REAL(wp) :: wgtfac_geobal  ! Weighting factor for artificial geostrophic balancing of meridional gradients
+                             ! of pressure increments in the tropical stratosphere
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -137,7 +141,7 @@ MODULE mo_initicon_nml
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          lp2cintp_incr, lp2cintp_sfcana,                   &
+                          lp2cintp_incr, lp2cintp_sfcana, wgtfac_geobal,    &
                           latbc_varnames_map_file, start_time_avg_fg,       &
                           end_time_avg_fg, interval_avg_fg, ltile_coldstart
                           
@@ -159,7 +163,7 @@ CONTAINS
 
   !local variable
   INTEGER :: i_status
-  INTEGER :: z_go_init(7)   ! for consistency check
+  INTEGER :: z_go_init(8)   ! for consistency check
   INTEGER :: iunit
 
   CHARACTER(len=*), PARAMETER ::  &
@@ -182,6 +186,7 @@ CONTAINS
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
+  wgtfac_geobal       = 0._wp  ! geostrophic balancing of pressure increments in the tropical stratosphere turned off
   type_iau_wgt= 1              ! Top-hat weighting function
   ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
                                ! or the entire set of default analysis fields. If any of these fields
@@ -229,15 +234,15 @@ CONTAINS
   ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
-      &  'Invalid initialization mode. init_mode must be between 1 and 7')
+      &  'Invalid initialization mode. init_mode must be between 1 and 8')
   ENDIF
 
   ! Check whether a NetCDF<=>GRIB2 Map File is needed, and if so, whether 
   ! it is provided
-  IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED/)==init_mode)) THEN
+  IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED/)==init_mode)) THEN
     ! NetCDF<=>GRIB2 Map File required
     IF(ana_varnames_map_file == ' ') THEN
     CALL finish( TRIM(routine),                         &
@@ -322,6 +327,7 @@ CONTAINS
   config_ana_varlist         = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
+  config_wgtfac_geobal       = wgtfac_geobal
   config_latbc_varnames_map_file = latbc_varnames_map_file
 
   ! write the contents of the namelist to an ASCII file
