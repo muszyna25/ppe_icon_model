@@ -535,12 +535,12 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)') 'prm_field_D',jg
       CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, ctracer, &
-                                   & nsfc_type, TRIM(listname), 'prm_',         &
+                                   & nsfc_type, TRIM(listname), '',             &
                                    & prm_field_list(jg), prm_field(jg)          )
 
       WRITE(listname,'(a,i2.2)') 'prm_tend_D',jg
       CALL new_echam_phy_tend_list( jg, nproma, nlev, nblks, ntracer, ctracer, &
-                                  & TRIM(listname), 'prm_tend_',               &
+                                  & TRIM(listname), 'tend_',                   &
                                   & prm_tend_list(jg), prm_tend(jg)            )
     ENDDO
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
@@ -628,43 +628,43 @@ CONTAINS
     !------------------------------
 
     ! &       field% u         (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind in physics', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'ua', field%u,                                     &
+    CALL add_var( field_list, prefix//'ua_phy', field%u,                                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
     ! &       field% v         (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind in physics', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'va', field%v,                                     &
+    CALL add_var( field_list, prefix//'va_phy', field%v,                                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
     ! &       field% vor       (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('vorticity', 's-1', 'relative vorticity', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('vorticity', 's-1', 'relative vorticity in physics', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 12, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'vor', field%vor,                         &
+    CALL add_var( field_list, prefix//'vor_phy', field%vor,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! &       field% temp      (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('temperature', 'K', 'temperature in physics', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'ta', field%temp,                         &
+    CALL add_var( field_list, prefix//'ta_phy', field%temp,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! &       field% tv        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature in physics', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0,0,1, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tv', field%tv,                           &
+    CALL add_var( field_list, prefix//'tv_phy', field%tv,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
@@ -755,9 +755,10 @@ CONTAINS
                 &   l_extrapol=.FALSE. ) )
 
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &
-    CALL add_var( field_list, prefix//'tracer', field%q,                       &
+    CALL add_var( field_list, prefix//'tracer_phy', field%q,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tracer', 'kg kg-1', 'mass mixing ratio of tracers',&
+                & t_cf_var('tracer_phy', 'kg kg-1',                            &
+                &          'mass mixing ratio of tracers in physics',          &
                 &          DATATYPE_FLT32),                                    &
                 & t_grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL),       &
                 & ldims = (/kproma,klev,kblks,ktracer/),                       &
@@ -765,11 +766,12 @@ CONTAINS
 
     ALLOCATE(field%q_ptr(ktracer))
     DO jtrc = 1,ktracer
-      CALL add_ref( field_list, prefix//'tracer',                              &
-                  & prefix//TRIM(ctracer(jtrc)), field%q_ptr(jtrc)%p,          &
+      CALL add_ref( field_list, prefix//'tracer_phy',                          &
+                  & prefix//TRIM(ctracer(jtrc))//'_phy', field%q_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                         &
                   & t_cf_var(TRIM(ctracer(jtrc)), 'kg kg-1',                   &
-                  &          'mass mixing ratio of tracer '//TRIM(ctracer(jtrc)), &
+                  &          'mass mixing ratio of tracer '//                  &
+                  &          TRIM(ctracer(jtrc))//' in physics',               &
                   &          DATATYPE_FLT32),                                  &
                   & t_grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL),     &
                   & ldims=(/kproma,klev,kblks/),                               &
@@ -795,9 +797,9 @@ CONTAINS
                 &             lower_limit=0._wp  ) )
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0,2,8, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'omega', field%omega,                     &
+    CALL add_var( field_list, prefix//'omega_phy', field%omega,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                       &
                 &             vert_intp_type=vintp_types("P","Z","I"),           &
@@ -1303,8 +1305,8 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
-    cf_desc    = t_cf_var('TOTPREC', 'kg m-2 s-1',               &
-         &                'total precipitation flux',            &
+    cf_desc    = t_cf_var('pr', 'kg m-2 s-1',                    &
+         &                'precipitation flux',                  &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'pr', field%totprec,       &
