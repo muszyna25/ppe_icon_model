@@ -1003,6 +1003,7 @@ scripts/SuperMUC_scripts/set_target_compiler -text
 scripts/SuperMUC_scripts/set_target_supermuc -text
 scripts/SuperMUC_scripts/setup_utils.sh -text
 scripts/buildbot_scripts/ICON.cfg -text
+scripts/buildbot_scripts/ICON_test.cfg.patch -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/archive_exp.ksh -text
 scripts/buildbot_scripts/bb_make -text
