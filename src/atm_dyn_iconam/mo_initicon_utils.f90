@@ -50,7 +50,7 @@ MODULE mo_initicon_utils
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow, ntiles_lnd
+    &                               nlev_snow, ntiles_lnd, lsnowtile
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
@@ -588,7 +588,7 @@ MODULE mo_initicon_utils
 
           ! in case of tile coldstart, we can omit snowfrac
           ! Remove field 'snowfrac' from FG list
-          IF (ltile_coldstart) THEN
+          IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN
             CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
           ENDIF
 
