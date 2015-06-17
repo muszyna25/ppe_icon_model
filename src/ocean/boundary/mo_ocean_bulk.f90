@@ -2024,7 +2024,7 @@ CONTAINS
           max_flux_y  = length - no_flux_length
           
           zonal_waveno =  3.0_wp
-          amplitude    = 10.0_wp
+          amplitude    = 12.0_wp
 
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
@@ -2037,7 +2037,7 @@ CONTAINS
               IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary .AND. z_lat < max_flux_y) THEN
 
                 atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) = &
-                  & -amplitude * COS(zonal_waveno * pi * z_lat/length)
+                  & -amplitude * COS(zonal_waveno * pi * z_lat/length) - 4.0_wp
 
               ENDIF
             END DO
