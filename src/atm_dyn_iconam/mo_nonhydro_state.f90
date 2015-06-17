@@ -39,8 +39,8 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_LIN,                     &
     &                                VINTP_METHOD_LIN_NLEVP1,              &
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
-    &                                iedmf, MODE_DWDANA_INC, MODE_IAU,     &
-    &                                MODE_IAU_OLD, TASK_COMPUTE_OMEGA
+    &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
+    &                                TASK_COMPUTE_OMEGA
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
@@ -2128,7 +2128,7 @@ MODULE mo_nonhydro_state
     p_diag%exner_incr => NULL()
     p_diag%rho_incr   => NULL()
     p_diag%qv_incr    => NULL()
-    IF ( ANY((/MODE_IAU,MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN
+    IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
       cf_desc    = t_cf_var('vn_incr', ' ',                   &
@@ -2172,7 +2172,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
 
-    ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+    ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
       ! NOTE: the following time-averaged fields are not written into the restart file, 
