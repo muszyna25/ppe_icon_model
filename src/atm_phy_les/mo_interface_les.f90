@@ -290,7 +290,7 @@ CONTAINS
       rl_start = 1
       rl_end   = min_rlcell
 
-      CALL nh_update_prog_phy( pt_patch             ,& !in
+      CALL update_tracers_les ( pt_patch            ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  prm_nwp_tend          ,& !in
            &                  pt_prog_rcf           ,& !inout tracer
@@ -1479,7 +1479,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, prm_nwp_tend, &
+  SUBROUTINE update_tracers_les( pt_patch, pdtime, prm_nwp_tend, &
     &                            pt_prog_rcf, rl_start, rl_end )
 
     TYPE(t_patch),       INTENT(IN)   :: pt_patch     !!grid/patch info.
@@ -1530,7 +1530,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  END SUBROUTINE nh_update_prog_phy
+  END SUBROUTINE update_tracers_les
 
 END MODULE mo_interface_les
 
