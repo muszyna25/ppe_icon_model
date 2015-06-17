@@ -876,10 +876,13 @@ CONTAINS
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-             IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2) THEN ! new snow point
+             IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2 .AND. .NOT. lmulti_snow) THEN ! new snow point
                ! in this case, the h_snow and w_snow are not yet rescaled according to the snow-cover fraction
-                lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) / &
-                  MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
+               ! ** In principle, this rescaling also needs to be made for the multi-layer scheme, but this leads         **
+               ! ** to a crash because of a division by zero. Adding the rescaling for wliq_snow, wtot_snow and dzh_snow  **
+               ! ** (which is still missing here) does NOT cure this problem                                              **
+               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) / &
+                 MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
                lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) / &
                   MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
              ELSE
