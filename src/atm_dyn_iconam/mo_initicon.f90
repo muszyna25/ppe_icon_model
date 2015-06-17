@@ -40,9 +40,9 @@ MODULE mo_initicon
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,        &
-    &                               MODE_IFSANA, MODE_ICONVREMAP, MODE_COMBINED,    &
-    &                               MODE_COSMODE, min_rlcell, INWP, min_rledge_int, &
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,            &
+    &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,   &
+    &                               min_rlcell, INWP, min_rledge_int,               &
     &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
@@ -177,7 +177,7 @@ MODULE mo_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) &
+    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) &
       &  == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
@@ -219,17 +219,6 @@ MODULE mo_initicon
 
       ! process ICON (DWD) atmosphere first-guess data (having different vertical levels than the current grid)
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
-
-      ! process DWD land/surface analysis data
-      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
-
-    CASE (MODE_DWDANA_INC)
-
-      CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
-        &                        'incremental analysis update')
-
-      ! process DWD atmosphere analysis increments
-      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
@@ -337,7 +326,7 @@ MODULE mo_initicon
 
     ! close first guess and analysis files and corresponding inventory lists
     ! 
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 

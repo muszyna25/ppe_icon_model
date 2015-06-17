@@ -35,8 +35,7 @@ MODULE mo_nml_crosscheck
     &                              UP3, MCYCL, MIURA_MCYCL, MIURA3_MCYCL,     &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD,     &
-    &                              MODE_DWDANA_INC 
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -956,7 +955,7 @@ CONTAINS
     ! Realcase runs
     !--------------------------------------------------------------------
 
-    IF ( ANY((/MODE_IAU,MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
+    IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
       ! check analysis update window
       !
@@ -969,10 +968,10 @@ CONTAINS
       ENDIF 
 
 
-      ! IAU modes MODE_IAU_OLD, MODE_DWDANA_INC cannot be combined with snowtiles
+      ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
       ! when performing snowtile warmstart.
       IF ((ntiles_lnd > 1) .AND. (.NOT. ltile_coldstart) .AND. (lsnowtile)) THEN
-        IF ( ANY((/MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN
+        IF ( init_mode == MODE_IAU_OLD ) THEN
           WRITE (message_text,'(a,i2)') "lsnowtile=.TRUE. not allowed for IAU-Mode ", init_mode   
           CALL finish(method_name, TRIM(message_text))
         ENDIF

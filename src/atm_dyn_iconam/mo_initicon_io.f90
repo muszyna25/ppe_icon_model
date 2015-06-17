@@ -39,8 +39,8 @@ MODULE mo_initicon_io
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,            &
-    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
+    &                               MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
@@ -1297,12 +1297,12 @@ MODULE mo_initicon_io
   !>
   !! Read DA-analysis fields (atmosphere only)
   !!
-  !! Depending on the initialization mode, either ful fields or increments
+  !! Depending on the initialization mode, either full fields or increments
   !! are read (atmosphere only):
   !! MODE_DWDANA: The following full fields are read, if available
   !!              u, v, t, p, qv
-  !! MODE_DWDANA_INC: The following increments are read, if available
-  !!              u, v, t, p, qv
+  !! MODE_IAO_OLD: 
+  !! MODE_IAU:
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1355,7 +1355,7 @@ MODULE mo_initicon_io
 
       ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         IF (lp2cintp_incr(jg)) THEN
           ! Perform parent-to-child interpolation of atmospheric DA increments
           jgp = p_patch(jg)%parent_id
@@ -1394,7 +1394,7 @@ MODULE mo_initicon_io
       my_ptr3d => my_ptr%v
       CALL read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         my_ptr3d => my_ptr%qv
       ELSE
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
