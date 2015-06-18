@@ -21,7 +21,7 @@ MODULE mo_initicon_config
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
-    &                              MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD
+    &                              MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
@@ -131,7 +131,7 @@ MODULE mo_initicon_config
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
-                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
 
   TYPE(t_timeshift) :: &    ! Allows IAU runs to start earlier than the nominal simulation start date 
     &  timeshift            ! without showing up in the output metadata
@@ -139,9 +139,9 @@ MODULE mo_initicon_config
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
-                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -219,7 +219,7 @@ CONTAINS
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
-    ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC/) == init_mode) ) THEN
+    ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
        init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE
        init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis

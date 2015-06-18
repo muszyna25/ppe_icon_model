@@ -29,6 +29,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag, t_lnd_state
   USE mo_parallel_config,     ONLY: nproma
   USe mo_extpar_config,       ONLY: itopo
@@ -47,7 +48,6 @@ MODULE mo_nwp_sfc_utils
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: nnow
   USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
-  USE mo_ext_data_state,      ONLY: diagnose_ext_aggr
 
   IMPLICIT NONE
 

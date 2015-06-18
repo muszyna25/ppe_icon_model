@@ -37,9 +37,9 @@ MODULE mo_initicon_utils
     &                               timeshift, initicon_config, ltile_coldstart,        &
     &                               ana_varnames_map_file, lread_ana,                   &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
-    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,                &
-    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS,&
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
+                                    MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
+    &                               MODE_COSMODE, MODE_ICONVREMAP, MODIS,               &
     &                               min_rlcell_int, grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
@@ -50,7 +50,7 @@ MODULE mo_initicon_utils
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow, ntiles_lnd
+    &                               nlev_snow, ntiles_lnd, lsnowtile
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
@@ -207,8 +207,7 @@ MODULE mo_initicon_utils
   !!   match the uuidOfHgrid of the horizontal grid file.
   !! - Check validity of analysis validity time:  The analysis field's validity 
   !!   time must match the model's initialization time (ini_datetime)
-  !! - MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC:  check for matching 
-  !!   typeOfGeneratingProcess.
+  !! - MODE_IAU, MODE_IAU_OLD:  check for matching typeOfGeneratingProcess.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
@@ -237,13 +236,11 @@ MODULE mo_initicon_utils
     INTEGER :: index_inc, index_ful
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_inc(20)
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_inc(20)
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_inc(20)
     !
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_ful(SIZE(grp_vars_ana))
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_ful(SIZE(grp_vars_ana))
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_ful(SIZE(grp_vars_ana))
     !
-    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful, nvars_mode_dwdana_inc_grp_ful
+    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful
     CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_inc(:)  ! pointer to mode-specific 'inc' group
     CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_ful(:)  ! pointer to mode-specific 'full' group
     !
@@ -264,23 +261,18 @@ MODULE mo_initicon_utils
     ! MODE_IAU_OLD: mandatory increments
     mode_iau_old_grp_inc(1:6)    = (/'u        ','v        ','pres     ','temp     ', &
       &                              'qv       ','w_so     '/)
-    ! MODE_DWDANA_INC: mandatory increments
-    mode_dwdana_inc_grp_inc(1:5) = (/'u        ','v        ','pres     ','temp     ', &
-      &                              'qv       '/)
+
     !
     ! groups containing mandatory full fields (= grp_vars_ana - inc fields)
-    mode_iau_grp_ful        = grp_vars_ana
-    mode_iau_old_grp_ful    = grp_vars_ana
-    mode_dwdana_inc_grp_ful = grp_vars_ana
+    mode_iau_grp_ful      = grp_vars_ana
+    mode_iau_old_grp_ful  = grp_vars_ana
     !
-    nvars_mode_iau_grp_ful        = ngrp_vars_ana
-    nvars_mode_iau_old_grp_ful    = ngrp_vars_ana
-    nvars_mode_dwdana_inc_grp_ful = ngrp_vars_ana
+    nvars_mode_iau_grp_ful      = ngrp_vars_ana
+    nvars_mode_iau_old_grp_ful  = ngrp_vars_ana
 
     ! Remove mandatory 'inc' fields to arrrive at list of mandatory 'full' fields
     CALL difference(mode_iau_grp_ful, nvars_mode_iau_grp_ful, mode_iau_grp_inc, 8)
     CALL difference(mode_iau_old_grp_ful, nvars_mode_iau_old_grp_ful, mode_iau_old_grp_inc, 6)
-    CALL difference(mode_dwdana_inc_grp_ful, nvars_mode_dwdana_inc_grp_ful, mode_dwdana_inc_grp_inc, 5)
 
 
 
@@ -403,10 +395,6 @@ MODULE mo_initicon_utils
         !
         grp_inc => mode_iau_old_grp_inc
         grp_ful => mode_iau_old_grp_ful
-      CASE(MODE_DWDANA_INC)
-        !
-        grp_inc => mode_dwdana_inc_grp_inc
-        grp_ful => mode_dwdana_inc_grp_ful
       CASE default
         !
         grp_inc => NULL()
@@ -549,20 +537,13 @@ MODULE mo_initicon_utils
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_DWDANA_INC, MODE_ICONVREMAP)
+        CASE(MODE_DWDANA, MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-
-          ! When starting from analysis increments, we need both 
-          ! the full FG field and the analysis increment
-          ! maybe we should create separate groups for MODE_DWDANA_INC
-          IF (init_mode == MODE_DWDANA_INC) THEN
-             CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default, (/'qv'/) , 1)
-          ENDIF
 
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
@@ -607,7 +588,7 @@ MODULE mo_initicon_utils
 
           ! in case of tile coldstart, we can omit snowfrac
           ! Remove field 'snowfrac' from FG list
-          IF (ltile_coldstart) THEN
+          IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN
             CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
           ENDIF
 
@@ -953,7 +934,7 @@ MODULE mo_initicon_utils
       WRITE(message_text,'(a,i2,a)') 'DOM ', jg, ': Juxtaposition of expected and actual input fields'
       CALL message(" ", message_text)
       CALL init_bool_table(bool_table)
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+      IF ((init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ana_default_txt = "ANA_inc (expected)"
         ana_this_txt    = "ANA_inc (this run)"
       ELSE
@@ -1880,7 +1861,7 @@ MODULE mo_initicon_utils
 
 
       ! atmospheric assimilation increments
-      IF ( ANY((/MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &

@@ -55,7 +55,8 @@ MODULE mo_nh_stepping
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
-  USE mo_ext_data_state,           ONLY: ext_data, interpol_monthly_mean
+  USE mo_ext_data_state,           ONLY: ext_data
+  USE mo_ext_data_init,            ONLY: interpol_monthly_mean
   USE mo_extpar_config,            ONLY: itopo
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch
@@ -86,7 +87,7 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
-    &                                    MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD, MODIS
+    &                                    MODE_IAU, MODE_IAU_OLD, MODIS
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -1211,7 +1212,7 @@ MODULE mo_nh_stepping
         ! For the time being, we hand over the dynamics time step and replace iadv_rcf by 
         ! ndyn_substeps (for bit-reproducibility).
         IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-            init_mode /= MODE_DWDANA_INC .AND. init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+            init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
         ENDIF
@@ -1820,7 +1821,7 @@ MODULE mo_nh_stepping
         lsave_mflx = .FALSE.
       ENDIF
 
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
         cur_time = time_config%sim_time(jg)-timeshift%dt_shift+ &
          (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         CALL compute_iau_wgt(cur_time, dt_dyn, lclean_mflx)

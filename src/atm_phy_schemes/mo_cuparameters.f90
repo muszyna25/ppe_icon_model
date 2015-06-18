@@ -1050,7 +1050,7 @@ INTEGER(KIND=jpim) :: nulout=6
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
-REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov
+REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov, zfac
 !-----------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
@@ -1155,6 +1155,16 @@ ENDIF
 
 ! tuning parameter for organized entrainment of deep convection
 phy_params%entrorg = tune_entrorg + 1.8E-4_JPRB*LOG(zres_thresh/rsltn)
+
+
+! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
+
+! This factor is 1 for dx = 20 km or coarser and 0 for dx = 1 km or finer
+zfac = MIN(1._JPRB,LOG(MAX(1._JPRB,1.e-3_jprb*rsltn))/LOG(1.e-3_jprb*zres_thresh))
+
+phy_params%texc = zfac*0.125_JPRB   ! K
+phy_params%qexc = zfac*1.25e-2_JPRB ! relative perturbation of grid-scale QV
+
 
 !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
 !     OF MODEL RESOLUTION
