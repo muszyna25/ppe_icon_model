@@ -239,7 +239,8 @@ lsq_high_ord      = 2
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ ml_varlist       = 'qv','qc','qi','qr','qs','u','v','w','temp','pres'
  output_grid      = .TRUE.
 /
 &output_nml
