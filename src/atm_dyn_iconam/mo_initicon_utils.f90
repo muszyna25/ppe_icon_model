@@ -1546,9 +1546,9 @@ MODULE mo_initicon_utils
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
-    INTEGER  :: jg, jb, jc, jt, js, jp, ic
+    INTEGER  :: jg, jb, jc, jt, js, jp, ic, ilu
     INTEGER  :: nblks_c, npromz_c, nlen
-    REAL(wp) :: zfrice_thrhld, zminsnow_alb, t_fac
+    REAL(wp) :: zfrice_thrhld, zminsnow_alb, zmaxsnow_alb, zsnowalb_lu, t_fac
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c)
     DO jg = 1, n_dom
@@ -1559,7 +1559,7 @@ MODULE mo_initicon_utils
       npromz_c  = p_patch(jg)%npromz_c
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -1614,8 +1614,16 @@ MODULE mo_initicon_utils
         IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
             DO jc = 1, nlen
-              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)           = &
-                &                                                initicon(jg)%sfc%tsnow   (jc,jb)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt) = initicon(jg)%sfc%tsnow(jc,jb)
+
+              ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
+              zsnowalb_lu = ABS(ext_data(jg)%atm%snowalb_lcc(ilu))
+
+              IF (ntiles_total > 1 .AND. albedo_type == MODIS) THEN
+                zmaxsnow_alb = MIN(csalb_snow_max,zsnowalb_lu)
+              ELSE
+                zmaxsnow_alb = csalb_snow_max
+              ENDIF
 
                ! Initialize freshsnow
                ! for seapoints, freshsnow is set to 0
@@ -1626,7 +1634,7 @@ MODULE mo_initicon_utils
                     t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
                     zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data(jg)%atm%alb_dif(jc,jb)
                   ELSE
-                    zminsnow_alb = csalb_snow_min
+                    zminsnow_alb = MAX(0.5_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
                   ENDIF
                 ELSE
                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,jt) == ext_data(jg)%atm%i_lc_snow_ice) THEN
@@ -1639,7 +1647,7 @@ MODULE mo_initicon_utils
 
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
             &                           (initicon(jg)%sfc%snowalb (jc,jb)-zminsnow_alb)   &
-            &                          /(csalb_snow_max-zminsnow_alb)))                   &
+            &                          /(zmaxsnow_alb-zminsnow_alb)))                     &
             &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
