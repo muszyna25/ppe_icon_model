@@ -294,6 +294,14 @@ CONTAINS
         wkl_vr(jl,7,jk)   = xm_o2 (jl,jkb)*amd/amo2
       END DO
     END DO
+!!$!baustelle+
+!!$write(0,*) 'xm_o2(1,klev)=',xm_o2(1,klev)
+!!$write(0,*) 'xm_o3(1,klev)=',xm_o3(1,klev)
+!!$write(0,*) 'xm_n2o(1,klev)=',xm_n2o(1,klev)
+!!$write(0,*) 'xm_ch4(1,klev)=',xm_ch4(1,klev)
+!!$write(0,*) 'xm_co2(1,klev)=',xm_co2(1,klev)
+!!$write(0,*) 'xm_cfc(1,klev,1),xm_cfc(1,klev,2)=',xm_cfc(1,klev,1),xm_cfc(1,klev,2)
+!!$!baustelle-
     !
     ! --- CFCs are in volume mixing ratio 
     ! 

@@ -91,8 +91,7 @@ MODULE mo_psrad_radiation
 !                                get_solar_irradiance_m, set_solar_irradiance_m
 ! cloud optics does not exist in icon
   USE mo_psrad_cloud_optics,    ONLY: setup_cloud_optics  
-! greenhouse gases in mo_radiation_config, but probably in different "units" (ppm...)
-!  USE mo_greenhouse_gases, ONLY: mmr_co2, mmr_ch4, mmr_n2o, ghg_cfcvmr
+  USE mo_bc_greenhouse_gases,   ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
 ! ozone: read by mo_bc_ozone in icon, does not contain full functionality like here.
 !  USE mo_o3clim,          ONLY: pre_o3clim_4, pre_o3clim_3, o3clim,            &
 !       &                        read_o3clim_3
@@ -122,6 +121,7 @@ MODULE mo_psrad_radiation
                                            vmr_cfc12,          &
                                            ch4_v,              &
                                            n2o_v,              &
+                                           vmr_o2,             &
                                            nmonth,             &
                                            isolrad,            &
                                            ldiur,              &
@@ -471,13 +471,13 @@ MODULE mo_psrad_radiation
              'irad_co2 = 2 --> CO2 mass mixing ratio=', mmr_co2
         CALL message('',message_text)
 !!$        co2mmr = co2vmr*amco2/amd
-!!$      CASE(4)
-!!$        CALL message('','irad_co2 = 4 --> CO2 mass mixing ratio from scenario')
-!!$        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
-!!$           WRITE (message_text, '(a,e16.8,a)') &
-!!$                'fco2 = ', fco2, ' --> Factor for CO2 scenario'
-!!$           CALL message('',message_text)
-!!$        END IF
+      CASE(4)
+        CALL message('','irad_co2 = 4 --> CO2 mass mixing ratio from scenario')
+        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
+           WRITE (message_text, '(a,e16.8,a)') &
+                'fco2 = ', fco2, ' --> Factor for CO2 scenario'
+           CALL message('',message_text)
+        END IF
 !!$        co2mmr = co2vmr*fco2*amco2/amd    ! This is only a dummy value for the first
 !!$                                          ! initialization of co2m1 in the co2-module. 
 !!$                                          ! co2m1 will be overwritten with the correct
@@ -514,8 +514,8 @@ MODULE mo_psrad_radiation
              'irad_ch4 = 3 --> CH4 (trop) mass mixing ratio =', mmr_ch4
         CALL message('',message_text)
 !!$        ch4mmr = ch4vmr*amch4/amd
-!!$      CASE(4)
-!!$        CALL message('','irad_ch4 = 4 --> CH4 volume mixing ratio from scenario')
+      CASE(4)
+        CALL message('','irad_ch4 = 4 --> CH4 volume mixing ratio from scenario')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_ch4 =', ich4, ' in radctl namelist is not supported'
@@ -562,8 +562,8 @@ MODULE mo_psrad_radiation
              'irad_n2o = 3 --> N2O (trop) mass mixing ratio=', mmr_n2o
         CALL message('',message_text)
 !!$        n2ommr = n2ovmr*amn2o/amd
-!!$      CASE(4)
-!!$        CALL message('','irad_n2o = 4 --> N2O volume mixing ratio from scenario')
+      CASE(4)
+        CALL message('','irad_n2o = 4 --> N2O volume mixing ratio from scenario')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_n2o =',in2o,' in radctl namelist is not supported'
@@ -583,8 +583,8 @@ MODULE mo_psrad_radiation
         WRITE (message_text, '(a,e16.8)') &
              'irad_cfc11 = 2 --> CFC11    volume mixing ratio=', vmr_cfc11
         CALL message('',message_text)
-!!$      CASE(4)
-!!$        CALL message('','irad_cfc11 = 4 --> CFC11 volume mixing ratio from scenario')
+      CASE(4)
+        CALL message('','irad_cfc11 = 4 --> CFC11 volume mixing ratio from scenario')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_cfc11=', icfc11, ' in radctl namelist is not supported'
@@ -602,40 +602,40 @@ MODULE mo_psrad_radiation
         WRITE (message_text, '(a,e16.8)') &
              'irad_cfc12 = 2 --> CFC12    volume mixing ratio=', vmr_cfc12
         CALL message('',message_text)
-!!$      CASE(4)
-!!$        CALL message('','irad_cfc12 = 4 --> CFC12 volume mixing ratio from scenario')
+      CASE(4)
+        CALL message('','irad_cfc12 = 4 --> CFC12 volume mixing ratio from scenario')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_cfc12=', icfc12, ' in radctl namelist is not supported'
         CALL message('',message_text)
         CALL finish('setup_psrad_radiation','Run terminated irad_cfc12')
       END SELECT
-!!$      !
-!!$      ! --- Check Scenario
-!!$      ! 
-!!$      SELECT CASE (ighg)
-!!$      CASE(0)
-!!$        CALL message('','ighg = 0 --> no scenario, fixed greenhouse gases and/or cfc')
-!!$      CASE(1)
-!!$        CALL message('','ighg = 1 --> greenhouse gases from scenario, check setting of switches')
-!!$      END SELECT
-!!$      !
-!!$      ! --- Check O2
-!!$      ! 
-!!$      SELECT CASE (io2)
-!!$      CASE(0)
-!!$        CALL message('','io2  = 0 --> no O2  in radiation')
-!!$      CASE(2)
-!!$        WRITE (message_text, '(a,e16.8)') &
-!!$             'io2  = 2 --> O2    volume mixing ratio=', o2vmr
-!!$        CALL message('',message_text)
-!!$        o2mmr = o2vmr*amo2/amd
-!!$      CASE default
-!!$        WRITE (message_text, '(a,i2,a)') &
-!!$             'io2 =', io2, ' in radctl namelist is not supported'
-!!$        CALL message('',message_text)
-!!$        CALL finish('setup_psrad_radiation','Run terminated io2')
-!!$      END SELECT
+      !
+      ! --- Check Scenario
+      ! 
+      SELECT CASE (ighg)
+      CASE(0)
+        CALL message('','ighg = 0 --> no scenario, fixed greenhouse gases and/or cfc')
+      CASE(1)
+        CALL message('','ighg = 1 --> greenhouse gases from scenario, check setting of switches')
+      END SELECT
+      !
+      ! --- Check O2
+      ! 
+      SELECT CASE (io2)
+      CASE(0)
+        CALL message('','io2  = 0 --> no O2  in radiation')
+      CASE(2)
+        WRITE (message_text, '(a,e16.8)') &
+             'io2  = 2 --> O2    volume mixing ratio=', vmr_o2
+        CALL message('',message_text)
+        mmr_o2 = vmr_o2*amo2/amd
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'io2 =', io2, ' in radctl namelist is not supported'
+        CALL message('',message_text)
+        CALL finish('setup_psrad_radiation','Run terminated io2')
+      END SELECT
 !!$      !
 !!$      ! --- Check aerosol
 !!$      ! 
@@ -948,21 +948,21 @@ MODULE mo_psrad_radiation
     !
     ! --- gases
     ! 
-    xm_co2(1:kproma,:)   = gas_profile(kproma, klev, ico2, gas_mmr = mmr_co2     &
-!         &  gas_scenario = ghg_co2mmr, &
+    xm_co2(1:kproma,:)   = gas_profile(kproma, klev, ico2, gas_mmr = mmr_co2,     &
+         &  gas_scenario = ghg_co2mmr &
 !         &  gas_val = co2 &
           & )
-    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, ich4, gas_mmr = mmr_ch4,    &
-!         &  gas_scenario = ghg_ch4mmr, &
+    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, ich4, gas_mmr = mmr_ch4,     &
+         &  gas_scenario = ghg_ch4mmr, &
          &  pressure = pp_fl, xp = ch4_v)
-    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, in2o, gas_mmr = mmr_n2o,    &
-!         &  gas_scenario = ghg_n2ommr, &
+    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, in2o, gas_mmr = mmr_n2o,     &
+         &  gas_scenario = ghg_n2ommr, &
          &  pressure = pp_fl, xp = n2o_v)
-    xm_cfc(1:kproma,:,1) =  gas_profile(kproma, klev, icfc11, gas_mmr=vmr_cfc11   &
-!         &  gas_scenario = ghg_cfcvmr(1) &
+    xm_cfc(1:kproma,:,1) =  gas_profile(kproma, klev, icfc11, gas_mmr=vmr_cfc11,  &
+         &  gas_scenario = ghg_cfcvmr(1) &
          &  )
-    xm_cfc(1:kproma,:,2) =  gas_profile(kproma, klev, icfc12, gas_mmr=vmr_cfc12   &
-!         &  gas_scenario = ghg_cfcvmr(2) &
+    xm_cfc(1:kproma,:,2) =  gas_profile(kproma, klev, icfc12, gas_mmr=vmr_cfc12,  &
+         &  gas_scenario = ghg_cfcvmr(2) &
          &  )
     xm_o2(1:kproma,:)    = gas_profile(kproma, klev, io2,  gas_mmr = mmr_o2)     
 
