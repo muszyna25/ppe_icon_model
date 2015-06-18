@@ -31,7 +31,7 @@ MODULE mo_initicon_config
     &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
-  USE mo_exception,          ONLY: finish, message_text
+  USE mo_exception,          ONLY: finish, message_text, message
 
   IMPLICIT NONE
 
@@ -195,7 +195,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-11)
   !!
-  SUBROUTINE configure_initicon
+  SUBROUTINE configure_initicon(dtime)
+    !
+    REAL(wp), INTENT(IN)        :: dtime       ! advection/fast physics time step
     !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !
@@ -203,8 +205,10 @@ CONTAINS
     TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
     !
-    TYPE(datetime), POINTER               :: inidatetime          ! in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
+    TYPE(datetime), POINTER              :: inidatetime          ! in mtime format
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: iso8601_ini_datetime ! ISO_8601
+
+    REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
     !-----------------------------------------------------------------------
     !
@@ -225,6 +229,21 @@ CONTAINS
        init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
 
+    !
+    ! timeshift-operations
+    !
+
+    ! Round dt_shift to the nearest integer multiple of the advection time step
+    !
+    IF (timeshift%dt_shift < 0._wp) THEN
+      zdt_shift = REAL(NINT(timeshift%dt_shift/dtime),wp)*dtime
+      IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
+        WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
+          &                               ' s in order to be a multiple of the advection time step ***'
+        CALL message('',message_text)
+      ENDIF
+      timeshift%dt_shift = zdt_shift
+    END IF
     !
     ! transform timeshift to mtime-format
     !

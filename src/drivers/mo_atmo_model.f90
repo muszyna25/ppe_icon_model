@@ -283,7 +283,7 @@ CONTAINS
 
 
     ! complete initicon config-state
-    CALL configure_initicon
+    CALL configure_initicon(dtime)
 
 
     !-------------------------------------------------------------------
