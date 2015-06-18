@@ -1464,7 +1464,9 @@ n\_dom$>$1\tabularnewline
 %\hline
 rbf\_scale\_grf\_e&
 R(n\_dom)& 0.5& &
-RBF scale factor for grid refinement (edges)&
+RBF scale factor for grid refinement (lateral boundary interpolation to edges). Refers to the
+respective parent domain and thus does not need to be specified for the innermost nest. Lower values
+than the default of 0.5 are needed for child mesh sizes less than about 500 m.&
 n\_dom$>$1\tabularnewline
 
 %\hline
