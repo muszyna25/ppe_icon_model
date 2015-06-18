@@ -89,6 +89,9 @@ USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
+
+USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
+USE mo_synsat_config,       ONLY: lsynsat
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -244,6 +247,10 @@ CONTAINS
        &                      idiv_method, itime_scheme,               &
        &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
+
+    ! initialize RTTOV (if enabled)
+    IF (ANY(lsynsat(:)))  CALL rttov_initialize()
+
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -498,6 +505,9 @@ CONTAINS
 
     ! Destruction of post-processing job queue
     CALL pp_scheduler_finalize()
+
+    ! Destruction of some RTTOV data structures  (if enabled)
+    IF (ANY(lsynsat(:)))  CALL rttov_finalize()
 
     ! Delete optional diagnostics
     CALL destruct_opt_diag()

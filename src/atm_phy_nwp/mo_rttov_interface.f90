@@ -16,50 +16,194 @@
 !!
 
 MODULE mo_rttov_interface
-!
-!
-USE mo_kind,                ONLY: wp
-USE mo_exception,           ONLY: message_text, message, finish
-USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
-USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
-USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
-USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
-USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqs, ltimer
-USE mo_nwp_phy_state,       ONLY: prm_diag
-USE mo_nonhydro_state,      ONLY: p_nh_state
-USE mo_ext_data_state,      ONLY: ext_data
-USE mo_ext_data_types,      ONLY: t_external_atmos
-USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
-USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
-  &                               RTTOV_RAD_CL, RTTOV_RAD_CS
-USE mo_loopindices,         ONLY: get_indices_c
-USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c
-USE mo_communication,       ONLY: exchange_data, exchange_data_mult
-USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp, z_at_plevels
-USE mo_satad,               ONLY: qsat_rho
-USE mo_physical_constants,  ONLY: rd, vtmpc1, earth_radius, grav
-USE mo_cufunctions,         ONLY: foealfa
-USE mo_math_constants,      ONLY: rad2deg
-USE mo_timer,               ONLY: timer_start, timer_stop, timer_synsat
-USE mo_synsat_config
+  !
+  !
+  USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: SUCCESS
+  USE mo_exception,           ONLY: message_text, message, finish
+  USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
+  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqs, ltimer
+  USE mo_nwp_phy_state,       ONLY: prm_diag
+  USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_ext_data_state,      ONLY: ext_data
+  USE mo_ext_data_types,      ONLY: t_external_atmos
+  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
+    &                               RTTOV_RAD_CL, RTTOV_RAD_CS
+  USE mo_loopindices,         ONLY: get_indices_c
+  USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c
+  USE mo_communication,       ONLY: exchange_data, exchange_data_mult
+  USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp, z_at_plevels
+  USE mo_satad,               ONLY: qsat_rho
+  USE mo_physical_constants,  ONLY: rd, vtmpc1, earth_radius, grav
+  USE mo_cufunctions,         ONLY: foealfa
+  USE mo_math_constants,      ONLY: rad2deg
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_synsat
+  USE mo_synsat_config,       ONLY: sat_compute, num_sensors, jpnsat, mchans,        &
+    &                               total_numchans, total_channels, instruments,     &
+    &                               addclouds, nlev_rttov, num_images, iwc2effdiam,  &
+    &                               iceshape, zenmax10, get_synsat_name
+  USE mo_name_list_output_config, ONLY: first_output_name_list, &
+    &                               is_variable_in_output
+  USE mo_var_metadata_types,  ONLY: VARNAME_LEN
+  USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs
 #ifdef __USE_RTTOV
-USE mo_rttov_ifc,           ONLY: rttov_fill_input, rttov_direct_ifc, NO_ERROR, rttov_ifc_errMsg
+  USE mo_rttov_ifc,           ONLY: rttov_init, rttov_fill_input, rttov_direct_ifc, &
+    &                               NO_ERROR, rttov_ifc_errMsg
 #endif
 
-IMPLICIT NONE
+  IMPLICIT NONE
 
-PRIVATE
+  PRIVATE
+
+  PUBLIC :: rttov_initialize
+  PUBLIC :: rttov_finalize
+  PUBLIC :: copy_rttov_ubc, rttov_driver
 
 
-PUBLIC :: copy_rttov_ubc, rttov_driver
+  REAL(wp), PARAMETER :: conv_qv = 1.60771704e6_wp ! conversion factor kg/kg -> ppmv for humidity
 
-REAL(wp), PARAMETER :: conv_qv = 1.60771704e6_wp ! conversion factor kg/kg -> ppmv for humidity
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_rttov_interface'
+
+  !> LOGICAL switches: which of the available channels and synsat images are actually computed?
+  LOGICAL, ALLOCATABLE :: lsynsat_product(:), lsynsat_chan(:,:)
+
+  !> Number of channels that are actually computed
+  INTEGER  :: numchans(jpnsat)
+
+  !> computed channel index (necessary if only a small number of channels is selected)
+  INTEGER, ALLOCATABLE :: chan_idx(:,:) ! (1:numchans, isens)
 
 CONTAINS
+
+  !> Initialize RTTOV interface.
+  !
+  SUBROUTINE rttov_initialize()
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::rttov_initialize"
+    INTEGER                    :: n_chans(num_sensors)
+    INTEGER                    :: channels(mchans, num_sensors)
+    CHARACTER(LEN=VARNAME_LEN) :: shortname
+    CHARACTER(LEN=128)         :: longname
+    INTEGER                    :: isens, ierrstat, k, isynsat, j
+#ifdef __USE_RTTOV
+    INTEGER                    :: istatus
+#endif
+
+    ! --- determine, which of the satellite images have been actually
+    !     requested by the user:
+
+    ALLOCATE(lsynsat_product(SUM(total_numchans(:))), &
+      &      lsynsat_chan(num_sensors, mchans), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    lsynsat_product(:) = .FALSE.
+    lsynsat_chan(:,:)  = .FALSE.
+    DO isens = 1, num_sensors
+      IF (sat_compute(isens)%lcloud_tem) THEN
+        DO k = 1, total_numchans(isens)
+          ! determine name of the synsat_idx'th satellite image:
+          CALL get_synsat_name(.FALSE., .TRUE., k, shortname, longname)
+          isynsat = (k-1)*4+RTTOV_BT_CL
+          ! check if image is in any of our output namelists
+          lsynsat_product(isynsat) =  &
+            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+          IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
+        ENDDO
+      ENDIF
+      IF (sat_compute(isens)%lclear_tem) THEN
+        DO k = 1, total_numchans(isens)
+          CALL get_synsat_name(.FALSE., .FALSE., k, shortname, longname)
+          isynsat = (k-1)*4+RTTOV_BT_CS
+          lsynsat_product(isynsat) =  &
+            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+          IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
+        ENDDO
+      ENDIF
+      IF (sat_compute(isens)%lcloud_rad) THEN
+        DO k = 1, total_numchans(isens)
+          CALL get_synsat_name(.TRUE., .TRUE., k, shortname, longname)
+          isynsat = (k-1)*4+RTTOV_RAD_CL
+          lsynsat_product(isynsat) =  &
+            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+          IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
+        ENDDO
+      ENDIF
+      IF (sat_compute(isens)%lclear_rad) THEN
+        DO k = 1, total_numchans(isens)
+          CALL get_synsat_name(.TRUE., .FALSE., k, shortname, longname)
+          isynsat = (k-1)*4+RTTOV_RAD_CS
+          lsynsat_product(isynsat) =  &
+            &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
+          IF (lsynsat_product(isynsat))  lsynsat_chan(isens, k) = .TRUE.
+        ENDDO
+      ENDIF
+    END DO
+
+    DO isens = 1, num_sensors
+      channels(:,isens) = 0
+      n_chans(isens)    = 0
+      DO k=1,mchans
+        n_chans(isens) = n_chans(isens) + 1
+        IF (lsynsat_chan(isens, k))  channels(n_chans(isens),isens) = total_channels(k,isens)
+      END DO
+      numchans(isens) = n_chans(isens)
+    END DO
+
+    ! --- set up a mapping: computed channel -> list of available channels
+
+    ALLOCATE(chan_idx(1:MAXVAL(numchans(1:num_sensors)),num_sensors), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    DO isens = 1, num_sensors
+      j = 0
+      DO k=1,mchans
+        IF (lsynsat_chan(isens, k)) THEN
+          j = j + 1
+          chan_idx(j,isens) = k
+        END IF
+      END DO
+    END DO
+
+    ! --- initialize RTTOV
+
+#ifdef __USE_RTTOV
+    IF (ANY(n_chans(1:num_sensors) > 0)) THEN
+      istatus = rttov_init(  &
+        instruments     , &
+        channels        , &
+        n_chans         , &
+        p_pe            , &
+        num_work_procs  , &
+        p_io            , &
+        p_comm_work     , &
+        appRegLim=.TRUE., &
+        readCloud=addclouds)
+
+      IF (istatus /= NO_ERROR) THEN
+        WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
+        CALL finish(routine ,message_text)
+      ENDIF
+    END IF
+#endif
+  END SUBROUTINE rttov_initialize
+
+
+  !> Deallocate some data structures for RTTOV
+  !
+  SUBROUTINE rttov_finalize()
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::rttov_finalize"
+    INTEGER :: ierrstat
+
+    DEALLOCATE(lsynsat_product, lsynsat_chan, chan_idx, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+  END SUBROUTINE rttov_finalize
 
 
 !>
@@ -69,11 +213,10 @@ CONTAINS
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2015-04-30
 !!
-SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
+SUBROUTINE rttov_driver (jg, jgp, nnow)
 
   INTEGER, INTENT(IN) :: jg, jgp ! grid ID and parent grid ID
   INTEGER, INTENT(IN) :: nnow    ! time level nnow valid for long time step
-  INTEGER, INTENT(IN) :: nimg    ! number of synthetic satellite images contained in synsat_arr
 
   TYPE(t_grid_cells),     POINTER :: p_gcp
   TYPE(t_patch),          POINTER :: p_pp
@@ -87,7 +230,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
   REAL(wp), DIMENSION(nproma, nlev_rttov, p_patch_local_parent(jg)%nblks_c) :: &
     temp_rttov, qv_rttov, qc_rttov, qcc_rttov, qi_rttov, qs_rttov, clc_rttov
 
-  REAL(wp) :: rg_synsat(nproma, nimg, p_patch_local_parent(jg)%nblks_c)
+  REAL(wp) :: rg_synsat(nproma, num_images, p_patch_local_parent(jg)%nblks_c)
 
   REAL(wp), DIMENSION(nproma, p_patch_local_parent(jg)%nblks_c) :: &
     rg_cosmu0, rg_psfc, rg_hsfc, rg_tsfc, rg_t2m, rg_qv2m, rg_u10m, rg_v10m
@@ -99,15 +242,16 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
   REAL(wp), DIMENSION(nlev_rttov,nproma) :: temp, pres, qv
   REAL(wp), DIMENSION(6,nlev_rttov-1,nproma) :: clc, cld
 
-  INTEGER,  DIMENSION(nproma*MAXVAL(numchans(:))) :: iprof, ichan
-  REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, t_b, t_b_clear, rad, rad_clear
+  INTEGER,  DIMENSION(nproma*mchans) :: iprof, ichan
+  REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, T_b, T_b_clear, rad, rad_clear
 
   REAL(wp) :: pres_rttov(nlev_rttov), r_sat, sat_a(nproma), sat_z(nproma), alpha_e, r_atm, lon
 
   INTEGER :: idg(nproma), ish(nproma)
 
   INTEGER :: jb, jc, jk, i_startblk, i_endblk, is, ie, j, k
-  INTEGER :: nlev_rg, isens, n_profs, ncalc, iprint, istatus
+  INTEGER :: nlev_rg, isens, n_profs, ncalc, iprint, &
+    &        istatus, synsat_idx, isynsat
 
   IF (ltimer) CALL timer_start(timer_synsat)
 
@@ -126,8 +270,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
   ! distance of satellite from middle of the earth
   r_sat       = 35880.e3_wp + earth_radius
 
-
-
+      
   CALL prepare_rttov_input(jg, jgp, nlev_rg, p_nh_metrics%z_ifc, p_nh_diag%pres,               &
     p_nh_diag%dpres_mc, p_nh_diag%temp, prm_diag(jg)%tot_cld, prm_diag(jg)%clc,                &
     p_nh_prog%tracer(:,:,:,iqs), prm_diag(jg)%con_udd(:,:,:,3), prm_diag(jg)%con_udd(:,:,:,7), &
@@ -226,7 +369,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
       DO j = 1, numchans(isens)
         iprof(j:ncalc:numchans(isens)) = (/ (k, k=1,n_profs) /)
         ichan(j:ncalc:numchans(isens)) = &
-           (/ (sat_compute(isens)%nchan_list(j), k=1,n_profs) /)
+           (/ (sat_compute(isens)%nchan_list(chan_idx(j,isens)), k=1,n_profs) /)
       ENDDO
 
 
@@ -236,7 +379,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
         ! Since the emissitivy is intent(inout) in RTTOV, we have to 
         ! reinitialize it
         DO k = 1,  numchans(isens)
-          emiss(k, jc-is+1) = sat_compute(isens)%emissivity(k)
+          emiss(k, jc-is+1) = sat_compute(isens)%emissivity(chan_idx(k,isens))
         ENDDO
         lon = p_gcp%center(jc,jb)%lat - sat_compute(isens)%longitude
         ! Calculate the satellite zenith angle 
@@ -264,28 +407,32 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
              radClear  = rad_clear(1:numchans(isens), 1:n_profs), &
              iprint    = iprint)
 
-    IF (istatus /= NO_ERROR) THEN
-      WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
-    ENDIF
+      IF (istatus /= NO_ERROR) THEN
+        WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
+      ENDIF
 
       IF (sat_compute(isens)%lcloud_tem) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie,(k-1)*4+RTTOV_BT_CL, jb) = T_b(k, 1:n_profs) 
+          isynsat = (chan_idx(k,isens)-1)*4+RTTOV_BT_CL
+          if (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = T_b(k, 1:n_profs) 
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lclear_tem) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie, (k-1)*4+RTTOV_BT_CS, jb) = T_b_clear(k, 1:n_profs) 
+          isynsat = (chan_idx(k,isens)-1)*4+RTTOV_BT_CS
+          IF (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = T_b_clear(k, 1:n_profs) 
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lcloud_rad) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie, (k-1)*4+RTTOV_RAD_CL, jb) = Rad(k, 1:n_profs) 
+          isynsat = (chan_idx(k,isens)-1)*4+RTTOV_RAD_CL
+          IF (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = Rad(k, 1:n_profs) 
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lclear_rad) THEN
         DO k = 1, numchans(isens)
-          rg_synsat(is:ie, (k-1)*4+RTTOV_RAD_CS, jb) = Rad_clear(k, 1:n_profs) 
+          isynsat = (chan_idx(k,isens)-1)*4+RTTOV_RAD_CS
+          IF (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = Rad_clear(k, 1:n_profs) 
         ENDDO
       ENDIF
 
@@ -296,10 +443,9 @@ SUBROUTINE rttov_driver (jg, jgp, nnow, nimg)
 !!$OMP END PARALLEL
 #endif
 
-  CALL downscale_rttov_output(jg, jgp, nimg, rg_synsat, prm_diag(jg)%synsat_arr)
+  CALL downscale_rttov_output(jg, jgp, num_images, rg_synsat, prm_diag(jg)%synsat_arr)
 
   IF (ltimer) CALL timer_stop(timer_synsat)
-
 END SUBROUTINE rttov_driver
 
 
