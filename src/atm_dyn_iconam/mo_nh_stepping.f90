@@ -31,11 +31,11 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                     ONLY: wp, vp
   USE mo_nonhydro_state,           ONLY: p_nh_state, p_nh_state_lists
-  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
+  USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, divdamp_order,                     &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
-  USE mo_dynamics_config,          ONLY: nnow,nnew, nold, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
+  USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,                ONLY: is_checkpoint_time, is_totint_time, n_chkpt, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
@@ -124,8 +124,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
-  USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
-    &                                    interval_avg_fg, is_avgFG_time
+  USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
@@ -144,7 +143,7 @@ MODULE mo_nh_stepping
                                          write_vertical_profiles, write_time_series, &
                                          sampl_freq_step
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
-    &                                    calc_mean_opt_acc, p_nh_opt_diag, t_nh_acc
+    &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list  
   USE mo_async_latbc,              ONLY: prefetch_input
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
@@ -385,12 +384,11 @@ MODULE mo_nh_stepping
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
-    CALL update_opt_acc(p_nh_opt_diag(1)%acc,           &
+    CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
       &                 p_nh_state(1)%prog(nnow_rcf(1)), &
       &                 p_nh_state(1)%prog(nnow(1))%rho, &
-      &                 p_nh_state(1)%diag,          &
-      &                 p_nh_state(1)%metrics,       &
-      &                 p_patch(1)%cells%owned,      &
+      &                 p_nh_state(1)%diag,              &
+      &                 p_patch(1)%cells%owned,          &
       &                 p_patch(1)%nlev,iforcing==iecham)
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
@@ -792,11 +790,10 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    CALL update_opt_acc(p_nh_opt_diag(1)%acc,               &
+    CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
       &                 p_nh_state(1)%prog(nnow_rcf(1)), &
       &                 p_nh_state(1)%prog(nnow(1))%rho, &
       &                 p_nh_state(1)%diag,              &
-      &                 p_nh_state(1)%metrics,           &
       &                 p_patch(1)%cells%owned,          &
       &                 p_patch(1)%nlev,iforcing==iecham)
     IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
