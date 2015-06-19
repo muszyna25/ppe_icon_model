@@ -60,9 +60,6 @@ MODULE mo_ocean_surface
     &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
     &                               i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
     &                               forcing_set_runoff_to_zero,           &
-    &                               forcing_windstress_u_type,            &
-    &                               forcing_windstress_v_type,            &
-    &                               forcing_fluxes_type,                  &
     &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
     &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
     &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
@@ -443,13 +440,8 @@ CONTAINS
 
       ! assign wind-stress directly to p_sfc_flx in case of reading omip wind-stress only (no other fluxes)
       !  TODO: use_windstress_only should be set accordingly
-      IF (forcing_windstress_u_type > 0 .AND. forcing_windstress_u_type < 101 ) &
-        & p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
-      IF (forcing_windstress_v_type > 0 .AND. forcing_windstress_v_type < 101 ) &
-        & p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
-
-      !IF (iforc_type == 2 .OR. iforc_type == 5) THEN                         !  OMIP or NCEP
-      !IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN      !  TODO: cleanup
+      p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
+      p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
 
       ! put things from the file into atmos_fluxes for later inport to p_sfc_flx, which where done in update_flux_fromFile
       atmos_fluxes%FrshFlux_Precipitation(:,:)    = p_as%FrshFlux_Precipitation(:,:)
@@ -632,14 +624,10 @@ CONTAINS
         IF (i_therm_slo==1) CALL ice_slow_slo(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
 
         ! provide total salinity forcing flux
-        !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
-        !IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
         IF ( forcing_enable_freshwater) THEN
-
           atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:) &
             &                          + atmos_fluxes%FrshFlux_TotalIce(:,:) &
             &                          + atmos_fluxes%FrshFlux_TotalOcean(:,:)
-
         ENDIF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -661,8 +649,6 @@ CONTAINS
       ! }}}
 
     CASE (OMIP_FluxFromFile)         !  12
-
-      IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN      !  TODO: cleanup
 
         IF (i_sea_ice >= 1) THEN
 
@@ -737,7 +723,6 @@ CONTAINS
 
           ! provide total salinity forcing flux
           !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
-          !IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
           IF ( forcing_enable_freshwater) THEN
 
             atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:) &
@@ -800,8 +785,6 @@ CONTAINS
             &                      + atmos_fluxes%HeatFlux_Sensible(:,:)  + atmos_fluxes%HeatFlux_Latent(:,:)
 
         ENDIF  !  sea ice
-
-      ENDIF  !  fluxes_type=1 (>0 & <101)
 
     CASE (Coupled_FluxFromAtmo)      !  14
       ! call of sea ice model
@@ -1071,68 +1054,6 @@ CONTAINS
     dsec  = datetime%daysec        ! real seconds since begin of day
    !ytim  = datetime%yeatim        ! real time since begin of year
 
-    !-------------------------------------------------------------------------
-    ! Applying annual forcing read from file in mo_ext_data:
-    !  - stepping daily in monthly data (preliminary solution)
-
-    !jdmon = mod(jdays+1,30)-1     ! no of days in month
-
-    ! To Do: use fraction of month for interpolation
-    !frcmon= datetime%monfrc       ! fraction of month
-    !rday1 = frcmon+0.5_wp
-    !rday2 = 1.0_wp-rday1
-    !IF (rday1 > 1.0_wp)  THEN
-    !  rday2=rday1
-    !  rday1=1.0_wp-rday1
-    !END IF
-
-    !njday = int(86400._wp/dtime)  ! no of timesteps per day
-
-    ! iforc_type: read time varying OMIP or NCEP flux forcing from file:
-         ! 1: read wind stress (records 1, 2) and temperature (record 3)
-         ! 2: read full OMIP dataset for bulk formula in mo_ocean_bulk (12 records)
-         ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
-         ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
-         ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-
-    ! Read forcing file in chunks of one year length fixed
-    !  - #slo# 2012-02-17: first quick solution for reading NCEP data
-    !  - ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
-
-    ! Check if file should be read:
-    !   - for iforc_type=5 only - NCEP type forcing
-    !   - read annual data at Jan, 1st: seconds of year are less than a timestep
-    !   - or at begin of each run (must not be first of january)
-    !IF (iforc_type == 5) THEN
-    IF (forcing_windstress_u_type == 5 .AND. forcing_windstress_v_type == 5 .AND. forcing_fluxes_type == 5) THEN
-      dtm1 = dtime - 1.0_wp
-
-      IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) THEN
-
-        ! use initial date to define correct set (year) of reading NCEP data
-        !  - with offset=0 always the first year of NCEP data is used
-        iniyear = time_config%ini_datetime%year
-        !curyear = time_config%cur_datetime%year  ! not updated each timestep
-        curyear = datetime%year
-        offset = 0
-        no_set = offset + curyear-iniyear + 1 
-
-        idt_src=2  ! output print level (1-5, fix)
-     !  IF (idbg_mxmn >= idt_src) THEN
-     !    WRITE(message_text,'(a,i2,a,i2,a,e15.5))') 'Read NCEP data: month=', &
-     !      &  jmon,' day=',jdmon,' seconds=',dsec
-     !    CALL message(TRIM(routine), message_text) 
-        WRITE(message_text,'(a,3i5)') 'Read NCEP data: init. year, current year, no. of set:', &
-          &                            iniyear, curyear, no_set
-        CALL message(TRIM(routine), message_text) 
-     !  END IF
-
-        CALL read_forc_data_oce(p_patch, ext_data, no_set)
-
-      END IF
-
-    END IF
-
     !
     ! use annual forcing-data:
     !
@@ -1188,123 +1109,109 @@ CONTAINS
     !
     ! OMIP data read in mo_ext_data into variable ext_data
     !
-    ! IF (iforc_type >= 1)  THEN
-    IF (forcing_windstress_u_type > 0 .AND. forcing_windstress_u_type < 101 ) THEN ! file based forcing
 
-      ! provide OMIP fluxes for wind stress forcing
-      ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [Pa]
-      ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [Pa]
+    ! file based wind forcing:
+    ! provide OMIP fluxes for wind stress forcing
+    ! data set 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [Pa]
+    ! data set 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [Pa]
+    !  - forcing_windstress_u_type and v_type not used anymore
+    !  - full OMIP data read if iforc_oce=OMIP_FluxFromFile (=11)
 
-      ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
-      p_as%topBoundCond_windStress_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
-        &                                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
+    ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
+    !IF (forcing_windstress_u_type == 1)
+    p_as%topBoundCond_windStress_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
+      &                                   rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
 
-     ! Wind stress boundary condition for vertical diffusion D:
-     !   D = d/dz(K_v*du/dz)  where
-     ! Boundary condition at surface (upper bound of D at center of first layer)
-     !   derived from wind-stress boundary condition Tau (in Pascal Pa=N/m2) read from OMIP data (or elsewhere)
-     !   K_v*du/dz(surf) = F_D = Tau/Rho [ m2/s2 ]
-     ! discretized:
-     !   top_bc_u_c = topBoundCond_windStress_u / rho_ref
-     !
-     ! This is equivalent to an additonal forcing term F_u in the velocity equation, i.e. outside
-     ! the vertical diffusion, following MITGCM:
-     !   F_u = F_D/dz = Tau / (Rho*dz)  [ m/s2 ]
+    !IF (forcing_windstress_v_type == 1) THEN
+    p_as%topBoundCond_windStress_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
+      &                                   rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
 
-     ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
-    END IF
-
-    IF (forcing_windstress_v_type > 0 .AND. forcing_windstress_v_type < 101 ) THEN
-      p_as%topBoundCond_windStress_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
-        &                                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
-    END IF
+    !-------------------------------------------------------------------------
+    ! provide OMIP fluxes for sea ice (interface to ocean)
+    ! data set 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+    ! data set 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+    ! data set 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+    ! data set 7:  fclou(:,:),  &  ! Fractional cloud cover
+    ! data set 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+    ! data set 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+    ! data set 10:  precip(:,:), &  ! precipitation rate                              [m/s]
+    ! data set 11:  evap  (:,:), &  ! evaporation   rate                              [m/s]
+    ! data set 12:  runoff(:,:)     ! river runoff  rate                              [m/s]
+    ! data set 13: u(:,:),      &  ! 10m zonal wind speed                             [m/s]
+    ! data set 14: v(:,:),      &  ! 10m meridional wind speed                        [m/s]
 
     !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
-    IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN
+    !IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN
+    !  - forcing_fluxes_type = 1 not used anymore,
+    !  - full OMIP data read if iforc_oce=OMIP_FluxFromFile (=11)
 
-      !-------------------------------------------------------------------------
-      ! provide OMIP fluxes for sea ice (interface to ocean)
-      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
-      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
-      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
-      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
-      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
-      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
-      ! 10:  precip(:,:), &  ! precipitation rate                              [m/s]
-      ! 11:  evap  (:,:), &  ! evaporation   rate                              [m/s]
-      ! 12:  runoff(:,:)     ! river runoff  rate                              [m/s]
-      ! 13: u(:,:),      &  ! 10m zonal wind speed                             [m/s]
-      ! 14: v(:,:),      &  ! 10m meridional wind speed                        [m/s]
+    p_as%tafo(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
+    !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+    p_as%tafo(:,:)  = p_as%tafo(:,:) - tmelt
+    p_as%ftdew(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
+    p_as%fu10(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,6) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,6)
+    p_as%fclou(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,7) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,7)
+    p_as%pao(:,:)   = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
+    !  don't - change units to mb/hPa
+    !p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
+    p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
+    p_as%u(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,13) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,13)
+    p_as%v(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,14) + &
+      &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,14)
 
-      p_as%tafo(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      p_as%tafo(:,:)  = p_as%tafo(:,:) - tmelt
-      p_as%ftdew(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
-      p_as%fu10(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,6) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,6)
-      p_as%fclou(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,7) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,7)
-      p_as%pao(:,:)   = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
-      !  don't - change units to mb/hPa
-      !p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
-      p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
-      p_as%u(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,13) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,13)
-      p_as%v(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,14) + &
-        &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,14)
+    ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean 
+    !  - not changed via bulk formula, stored in surface flux data
+    !  - Attention: as in MPIOM evaporation is calculated from latent heat flux (which is depentent on current SST)
+    !               therefore not applied here
+    p_as%FrshFlux_Precipitation(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
+      &                                     rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
+    !p_as%FrshFlux_Evaporation  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
+    !  &                                     rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
+    IF (forcing_set_runoff_to_zero) THEN
+      p_as%FrshFlux_Runoff(:,:) = 0.0_wp
+    ELSE
+      p_as%FrshFlux_Runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
+        &                              rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+    ENDIF
 
-      ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean 
-      !  - not changed via bulk formula, stored in surface flux data
-      !  - Attention: as in MPIOM evaporation is calculated from latent heat flux (which is depentent on current SST)
-      !               therefore not applied here
-      p_as%FrshFlux_Precipitation(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
-        &                                     rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
-      !p_as%FrshFlux_Evaporation  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
-      !  &                                     rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
-      IF (forcing_set_runoff_to_zero) THEN
-        p_as%FrshFlux_Runoff(:,:) = 0.0_wp
-      ELSE
-        p_as%FrshFlux_Runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
-          &                              rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
-      ENDIF
+ !  ! for test only - introduced temporarily
+ !  p_as%tafo(:,:)  = 292.9_wp
+ !  !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+ !  p_as%tafo(:,:)  = p_as%tafo(:,:) - 273.15
+ !  p_as%ftdew(:,:) = 289.877
+ !  p_as%fu10(:,:)  = 7.84831
+ !  p_as%fclou(:,:) = 0.897972
+ !  p_as%fswr(:,:)  = 289.489
+ !  p_as%u(:,:)     = 0.0_wp
+ !  p_as%v(:,:)     = 0.0_wp
+ !  p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
+ !  p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
+ !  p_as%FrshFlux_Precipitation(:,:) = 1.04634e-8
+ !  p_as%FrshFlux_Runoff(:,:) = 0.0_wp
+ !  p_as%pao(:,:)   = 101300.0_wp
 
- !    ! for test only - introduced temporarily
- !    p_as%tafo(:,:)  = 292.9_wp
- !    !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
- !    p_as%tafo(:,:)  = p_as%tafo(:,:) - 273.15
- !    p_as%ftdew(:,:) = 289.877
- !    p_as%fu10(:,:)  = 7.84831
- !    p_as%fclou(:,:) = 0.897972
- !    p_as%fswr(:,:)  = 289.489
- !    p_as%u(:,:)     = 0.0_wp
- !    p_as%v(:,:)     = 0.0_wp
- !    p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
- !    p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
- !    p_as%FrshFlux_Precipitation(:,:) = 1.04634e-8
- !    p_as%FrshFlux_Runoff(:,:) = 0.0_wp
- !    p_as%pao(:,:)   = 101300.0_wp
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
+    CALL dbg_print('FlxFil: Ext data4-ta/mon1' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
+    z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
+    CALL dbg_print('FlxFil: Ext data4-ta/mon2' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: p_as%tafo'         ,p_as%tafo   ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: p_as%windStr-v',p_as%topBoundCond_windStress_v, str_module,4,in_subset=p_patch%cells%owned)
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-      CALL dbg_print('FlxFil: Ext data4-ta/mon1' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
-      z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-      CALL dbg_print('FlxFil: Ext data4-ta/mon2' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: p_as%tafo'         ,p_as%tafo   ,str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module,3,in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: p_as%windStr-v',p_as%topBoundCond_windStress_v, str_module,4,in_subset=p_patch%cells%owned)
-
-      IF (forcing_enable_freshwater) THEN
-        CALL dbg_print('FlxFil: Precipitation',p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
-        CALL dbg_print('FlxFil: Runoff'       ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
-      ENDIF
-      !---------------------------------------------------------------------
-
-    END IF  !  iforc_type=2 or 5
+    IF (forcing_enable_freshwater) THEN
+      CALL dbg_print('FlxFil: Precipitation',p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Runoff'       ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
+    ENDIF
+    !---------------------------------------------------------------------
 
     IF (type_surfRelax_Temp == 2)  THEN
 
@@ -1323,10 +1230,6 @@ CONTAINS
 
       !-------------------------------------------------------------------------
       ! Apply salinity relaxation data (record ??) from stationary forcing
-
-    !  p_as%data_surfRelax_Salt(:,:) = &
-    !    &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,x)-tmelt) + &
-    !    &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,x)-tmelt)
       CALL finish(TRIM(ROUTINE),' type_surfRelax_Salt=2 (reading from flux file) not yet implemented')
 
     END IF
