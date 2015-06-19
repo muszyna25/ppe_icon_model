@@ -367,7 +367,7 @@ CONTAINS
           &  list, 'tracer', 'hus_m', p_acc%tracer_ptr(jt)%p,               &
           &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
           &  t_cf_var('specific_humidity', 'kg kg-1',                       &
-          &           'specific_cloud_ice_content (time mean)', dataType),  &
+          &           'specific_humidity (time mean)', dataType),           &
           &  t_grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
           &  ldims=shape3d_c,                                               &
           &  tlev_source=1,                                                 &
@@ -386,7 +386,7 @@ CONTAINS
           &  list, 'tracer', 'clw_m', p_acc%tracer_ptr(jt)%p,               &
           &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
           &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
-          &           'specific_cloud_ice_content (time mean)', dataType),  &
+          &           'specific_cloud_water_content (time mean)', dataType),&
           &  t_grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),       &
           &  ldims=shape3d_c,                                               &
           &  tlev_source=1,                                                 &
