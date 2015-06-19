@@ -26,7 +26,7 @@
 MODULE mo_icon_cpl_exchg
 
   USE mo_kind, ONLY          : wp
-  USE mo_event_manager, ONLY : event_check, events
+  USE mo_event_manager, ONLY : event_check, event_update, events
   USE mo_run_config, ONLY    : dtime, nsteps
 
 #ifndef NOMPI
@@ -137,7 +137,7 @@ CONTAINS
     REAL(wp)               :: recv_avg(field_shape(3))
 
     INTEGER                :: nsum
-    LOGICAL                :: l_end_of_run = .FALSE.
+    LOGICAL                :: l_restart = .FALSE.
 
     ! -------------------------------------------------------------------
     ! Initialisation
@@ -182,20 +182,20 @@ CONTAINS
                             events(fptr%event_id)%lag
     ENDIF
 
-    l_end_of_run = events(fptr%event_id)%elapsed_time >  &
-                   events(fptr%event_id)%restart_time
+    l_restart = events(fptr%event_id)%elapsed_time >=  &
+                events(fptr%event_id)%restart_time
+
+    CALL event_update ( fptr%event_id )
 
     IF ( .NOT. l_action ) RETURN
 
     IF ( debug_coupler_level > 1 ) THEN
        WRITE ( cplout , '(A10,A8,A10,A16,L1)' ) 'Receiving ', &
             TRIM(cpl_fields(field_id)%field_name), ' for date ', &
-            iso8601(time_config%cur_datetime), l_end_of_run
+            iso8601(time_config%cur_datetime), l_restart
     ENDIF
 
-    ! No get action at the end of the run
-
-    IF ( l_end_of_run ) info = RESTART
+    IF ( l_restart ) info = RESTART
 
     ! ----------------------------------------------------------------------
     ! First check whether this process has to receive data from someone else
@@ -506,7 +506,7 @@ CONTAINS
     ! Check field id and return if field was not declared.
     ! -------------------------------------------------------------------
 
-    IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
+    IF ( field_id < 1 .OR. field_id > nbr_ICON_fields ) RETURN
 
     IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
 
@@ -538,10 +538,6 @@ CONTAINS
 
     ! -------------------------------------------------------------------
     ! Check event
-    !
-    ! The differentiation between end of run and restart is necessary as
-    ! the non-hydrostatic atmosphere performs one more time step than requested.
-    !
     ! -------------------------------------------------------------------
 
     l_action = event_check ( fptr%event_id )
@@ -553,7 +549,7 @@ CONTAINS
                             events(fptr%event_id)%restart_time
     ENDIF
 
-    l_restart    = events(fptr%event_id)%elapsed_time == &
+    l_restart    = events(fptr%event_id)%elapsed_time >= &
                    events(fptr%event_id)%restart_time
 
     IF ( .NOT. l_restart ) &
@@ -604,11 +600,13 @@ CONTAINS
                                         + NINT(dt_checkpoint)
     ENDIF
 
-    ! set restart flag
+    ! Update event for next time step
 
-    IF ( l_restart .OR. l_checkpoint ) info = RESTART
+    CALL event_update ( fptr%event_id )
 
     IF ( .NOT. l_action ) RETURN
+
+    IF ( l_restart .OR. l_checkpoint ) info = RESTART
 
     ! -------------------------------------------------------------------
     ! Loop over the number of send operation (determined during the search)
