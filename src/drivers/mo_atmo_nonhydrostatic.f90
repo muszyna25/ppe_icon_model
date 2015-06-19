@@ -248,9 +248,6 @@ CONTAINS
        &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
 
-    ! initialize RTTOV (if enabled)
-    IF (ANY(lsynsat(:)))  CALL rttov_initialize()
-
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -386,6 +383,9 @@ CONTAINS
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
     CALL pp_scheduler_init( (iforcing == inwp) )
+
+    ! setup of RTTOV interface (assumes expanded variable groups)
+    IF (ANY(lsynsat(:)))  CALL rttov_initialize()
 
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO

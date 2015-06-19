@@ -53,7 +53,8 @@ MODULE mo_rttov_interface
   USE mo_name_list_output_config, ONLY: first_output_name_list, &
     &                               is_variable_in_output
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
-  USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs
+  USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs, p_barrier, &
+    &                               get_my_mpi_all_id
 #ifdef __USE_RTTOV
   USE mo_rttov_ifc,           ONLY: rttov_init, rttov_fill_input, rttov_direct_ifc, &
     &                               NO_ERROR, rttov_ifc_errMsg
@@ -72,6 +73,9 @@ MODULE mo_rttov_interface
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_rttov_interface'
+
+  !> parameter: output verbosity (for debugging purposes)
+  INTEGER, PARAMETER :: dbg_level = 0
 
   !> LOGICAL switches: which of the available channels and synsat images are actually computed?
   LOGICAL, ALLOCATABLE :: lsynsat_product(:), lsynsat_chan(:,:)
@@ -97,10 +101,14 @@ CONTAINS
     INTEGER                    :: istatus
 #endif
 
+    IF (dbg_level > 1) THEN
+      WRITE (0,*) routine, ": Enter"
+    END IF
+
     ! --- determine, which of the satellite images have been actually
     !     requested by the user:
 
-    ALLOCATE(lsynsat_product(SUM(total_numchans(:))), &
+    ALLOCATE(lsynsat_product(4*mchans), &
       &      lsynsat_chan(num_sensors, mchans), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     lsynsat_product(:) = .FALSE.
@@ -110,6 +118,7 @@ CONTAINS
         DO k = 1, total_numchans(isens)
           ! determine name of the synsat_idx'th satellite image:
           CALL get_synsat_name(.FALSE., .TRUE., k, shortname, longname)
+          IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_BT_CL
           ! check if image is in any of our output namelists
           lsynsat_product(isynsat) =  &
@@ -120,6 +129,7 @@ CONTAINS
       IF (sat_compute(isens)%lclear_tem) THEN
         DO k = 1, total_numchans(isens)
           CALL get_synsat_name(.FALSE., .FALSE., k, shortname, longname)
+          IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_BT_CS
           lsynsat_product(isynsat) =  &
             &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
@@ -129,6 +139,7 @@ CONTAINS
       IF (sat_compute(isens)%lcloud_rad) THEN
         DO k = 1, total_numchans(isens)
           CALL get_synsat_name(.TRUE., .TRUE., k, shortname, longname)
+          IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_RAD_CL
           lsynsat_product(isynsat) =  &
             &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
@@ -138,6 +149,7 @@ CONTAINS
       IF (sat_compute(isens)%lclear_rad) THEN
         DO k = 1, total_numchans(isens)
           CALL get_synsat_name(.TRUE., .FALSE., k, shortname, longname)
+          IF (dbg_level > 1)  WRITE (0,*) TRIM(shortname), " (k=", k, ")"
           isynsat = (k-1)*4+RTTOV_RAD_CS
           lsynsat_product(isynsat) =  &
             &    is_variable_in_output(first_output_name_list, var_name=TRIM(shortname))
@@ -146,35 +158,44 @@ CONTAINS
       ENDIF
     END DO
 
+    IF (dbg_level > 1) THEN
+      WRITE (0,*) routine, ": lsynsat_product = ", lsynsat_product
+    END IF
+
+    ! --- set up a mapping: computed channel -> list of available channels
+
+    ALLOCATE(chan_idx(mchans,num_sensors), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    chan_idx(:,:) = 0    
+    numchans(:)   = 0
     DO isens = 1, num_sensors
       channels(:,isens) = 0
       n_chans(isens)    = 0
       DO k=1,mchans
-        n_chans(isens) = n_chans(isens) + 1
-        IF (lsynsat_chan(isens, k))  channels(n_chans(isens),isens) = total_channels(k,isens)
+        IF (lsynsat_chan(isens, k)) THEN
+          n_chans(isens) = n_chans(isens) + 1
+          channels(n_chans(isens),isens) = total_channels(k,isens)
+          chan_idx(n_chans(isens),isens) = k
+        END IF
       END DO
       numchans(isens) = n_chans(isens)
     END DO
 
-    ! --- set up a mapping: computed channel -> list of available channels
 
-    ALLOCATE(chan_idx(1:MAXVAL(numchans(1:num_sensors)),num_sensors), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
-    DO isens = 1, num_sensors
-      j = 0
-      DO k=1,mchans
-        IF (lsynsat_chan(isens, k)) THEN
-          j = j + 1
-          chan_idx(j,isens) = k
-        END IF
-      END DO
-    END DO
+    IF (dbg_level > 1) THEN
+      WRITE (0,*) routine, ": n_chans  = ", n_chans
+      WRITE (0,*) routine, ": chan_idx = ", chan_idx
+    END IF
 
     ! --- initialize RTTOV
 
 #ifdef __USE_RTTOV
-    IF (ANY(n_chans(1:num_sensors) > 0)) THEN
+    IF (ANY(n_chans(1:num_sensors) > 0)) THEN    
+      IF (dbg_level > 2) THEN
+        CALL p_barrier(p_comm_work)
+        WRITE (0,*) routine, ": CALL to rttov_init"
+      END IF
       istatus = rttov_init(  &
         instruments     , &
         channels        , &
@@ -190,6 +211,10 @@ CONTAINS
         WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
         CALL finish(routine ,message_text)
       ENDIF
+      IF (dbg_level > 2) THEN
+        CALL p_barrier(p_comm_work)
+        WRITE (0,*) routine, ": CALL to rttov_init done."
+      END IF
     END IF
 #endif
   END SUBROUTINE rttov_initialize
@@ -242,7 +267,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   REAL(wp), DIMENSION(nlev_rttov,nproma) :: temp, pres, qv
   REAL(wp), DIMENSION(6,nlev_rttov-1,nproma) :: clc, cld
 
-  INTEGER,  DIMENSION(nproma*mchans) :: iprof, ichan
+  INTEGER,  DIMENSION(1:nproma*MAXVAL(numchans(:))) :: iprof, ichan
   REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, T_b, T_b_clear, rad, rad_clear
 
   REAL(wp) :: pres_rttov(nlev_rttov), r_sat, sat_a(nproma), sat_z(nproma), alpha_e, r_atm, lon
@@ -252,6 +277,9 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   INTEGER :: jb, jc, jk, i_startblk, i_endblk, is, ie, j, k
   INTEGER :: nlev_rg, isens, n_profs, ncalc, iprint, &
     &        istatus, synsat_idx, isynsat
+
+  ! first, check if nothing to do:
+  IF (MAXVAL(numchans(:)) == 0)  RETURN
 
   IF (ltimer) CALL timer_start(timer_synsat)
 
@@ -304,6 +332,8 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
     ish(:) = iceshape    ! hexagonal crystals
 
     ! Copy input variables into RTTOV buffer
+    IF (dbg_level > 2)  WRITE (0,*) "Copy input variables into RTTOV buffer"
+
     clc(:,:,:) = 0._wp
     cld(:,:,:) = 0._wp
     DO jk = 1, nlev_rttov
@@ -329,6 +359,10 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
         ENDIF
       ENDDO
     ENDDO
+
+    IF (dbg_level > 2) THEN
+      WRITE (0,*) "CALL rttov_fill_input"
+    END IF
 
     istatus = rttov_fill_input(                            &
           press      = pres(:,is:ie) ,                     &
@@ -359,6 +393,9 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
     IF (istatus /= NO_ERROR) THEN
       WRITE(0,*) 'RTTOV fill_input ERROR ', TRIM(rttov_ifc_errMsg(istatus))
     ENDIF
+    IF (dbg_level > 2) THEN
+      WRITE (0,*) "CALL rttov_fill_input done, blk=", jb, "/", i_endblk
+    END IF
 
     sensor_loop: DO isens = 1, num_sensors
 
@@ -368,16 +405,17 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
       ncalc = n_profs * numchans(isens)
       DO j = 1, numchans(isens)
         iprof(j:ncalc:numchans(isens)) = (/ (k, k=1,n_profs) /)
-        ichan(j:ncalc:numchans(isens)) = &
-           (/ (sat_compute(isens)%nchan_list(chan_idx(j,isens)), k=1,n_profs) /)
+        ! note: ichan contains the list of channel indices wrt. the
+        ! list provided to rttov_init:
+        ichan(j:ncalc:numchans(isens)) =  (/ (j, k=1,n_profs) /)
       ENDDO
-
 
       ! Set/compute some sensor dependent quantities
 
       DO jc = is, ie 
         ! Since the emissitivy is intent(inout) in RTTOV, we have to 
         ! reinitialize it
+        emiss(:, jc-is+1) = 0.
         DO k = 1,  numchans(isens)
           emiss(k, jc-is+1) = sat_compute(isens)%emissivity(chan_idx(k,isens))
         ENDDO
@@ -394,6 +432,12 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 
       iprint = 0
 
+      IF (dbg_level > 2) THEN
+        WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: CALL to rttov_direct_ifc: isens = ", isens, &
+          &         "; iprof = ", iprof(1:ncalc),                                                &
+          &         ", ichan=", ichan(1:ncalc), ", emiss=", emiss(1:numchans(isens), 1:n_profs), &
+          &         ", numchans=", numchans(isens)
+      END IF
       istatus = rttov_direct_ifc(                                 &
              isens,                                               &
              iprof(1:ncalc),                                      &
@@ -406,33 +450,56 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
              rad       = rad      (1:numchans(isens), 1:n_profs), &
              radClear  = rad_clear(1:numchans(isens), 1:n_profs), &
              iprint    = iprint)
-
       IF (istatus /= NO_ERROR) THEN
         WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
       ENDIF
+      IF (dbg_level > 2) THEN
+        WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: Leave rttov_direct_ifc, blk=", jb, "/", i_endblk
+      END IF
 
+      IF (dbg_level > 2)  WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: copy result into rg_synsat array"
       IF (sat_compute(isens)%lcloud_tem) THEN
         DO k = 1, numchans(isens)
           isynsat = (chan_idx(k,isens)-1)*4+RTTOV_BT_CL
-          if (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = T_b(k, 1:n_profs) 
+          IF (lsynsat_product(isynsat)) THEN
+            IF (dbg_level > 2)  WRITE (0,*) "copy synsat product ", isynsat, " into place."
+            rg_synsat(is:ie, isynsat, jb) = T_b(k, 1:n_profs) 
+          ELSE
+            rg_synsat(is:ie, isynsat, jb) = 0._wp
+          END IF
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lclear_tem) THEN
         DO k = 1, numchans(isens)
           isynsat = (chan_idx(k,isens)-1)*4+RTTOV_BT_CS
-          IF (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = T_b_clear(k, 1:n_profs) 
+          IF (lsynsat_product(isynsat)) THEN
+            IF (dbg_level > 2)  WRITE (0,*) "copy synsat product ", isynsat, " into place."
+            rg_synsat(is:ie, isynsat, jb) = T_b_clear(k, 1:n_profs) 
+          ELSE
+            rg_synsat(is:ie, isynsat, jb) = 0._wp
+          END IF
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lcloud_rad) THEN
         DO k = 1, numchans(isens)
           isynsat = (chan_idx(k,isens)-1)*4+RTTOV_RAD_CL
-          IF (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = Rad(k, 1:n_profs) 
+          IF (lsynsat_product(isynsat)) THEN
+            IF (dbg_level > 2)  WRITE (0,*) "copy synsat product ", isynsat, " into place."
+            rg_synsat(is:ie, isynsat, jb) = Rad(k, 1:n_profs) 
+          ELSE
+            rg_synsat(is:ie, isynsat, jb) = 0._wp
+          END IF
         ENDDO
       ENDIF
       IF (sat_compute(isens)%lclear_rad) THEN
         DO k = 1, numchans(isens)
           isynsat = (chan_idx(k,isens)-1)*4+RTTOV_RAD_CS
-          IF (lsynsat_product(isynsat))  rg_synsat(is:ie, isynsat, jb) = Rad_clear(k, 1:n_profs) 
+          IF (lsynsat_product(isynsat)) THEN
+            IF (dbg_level > 2)  WRITE (0,*) "copy synsat product ", isynsat, " into place."
+            rg_synsat(is:ie, isynsat, jb) = Rad_clear(k, 1:n_profs) 
+          ELSE
+            rg_synsat(is:ie, isynsat, jb) = 0._wp
+          END IF
         ENDDO
       ENDIF
 
@@ -443,7 +510,19 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 !!$OMP END PARALLEL
 #endif
 
-  CALL downscale_rttov_output(jg, jgp, num_images, rg_synsat, prm_diag(jg)%synsat_arr)
+  IF (dbg_level > 2) THEN
+    CALL p_barrier(p_comm_work)
+    WRITE (0,*) "CALL to downscale_rttov_output"
+  END IF
+
+  CALL downscale_rttov_output(jg, jgp, num_images, rg_synsat, &
+  &                           prm_diag(jg)%synsat_arr, lsynsat_product)
+
+  IF (dbg_level > 2) THEN
+    CALL p_barrier(p_comm_work)
+    WRITE (0,*) "Leave downscale_rttov_output"
+  END IF
+
 
   IF (ltimer) CALL timer_stop(timer_synsat)
 END SUBROUTINE rttov_driver
@@ -921,7 +1000,7 @@ END SUBROUTINE prepare_rttov_input
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2015-04-30
 !!
-SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg)
+SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg, l_enabled)
 
   ! Input grid parameters
   INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
@@ -932,6 +1011,9 @@ SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg)
 
   ! Array with sat images on full grid
   REAL(wp), INTENT(OUT) :: satimg(:,:,:)
+
+  ! LOGICAL field: skip image if .FALSE.
+  LOGICAL, INTENT(IN) :: l_enabled(:)
 
   ! Indices
   INTEGER :: i_chidx, jb, jk, jc, i_startblk, i_endblk, i_startidx, i_endidx
@@ -956,11 +1038,23 @@ SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg)
   i_chidx  = p_patch(jg)%parent_child_index
 
   ! Synchronize sat image array before interpolation
+  IF (dbg_level > 2) THEN
+    CALL p_barrier(p_comm_work)
+    WRITE (0,*) "Synchronize sat image array before interpolation"
+  END IF
   CALL exchange_data(p_pp%comm_pat_c, rg_satimg)
 
   ! Execute interpolation from reduced grid to full grid
+  IF (dbg_level > 2) THEN
+    CALL p_barrier(p_comm_work)
+    WRITE (0,*) "Execute interpolation from reduced grid to full grid"
+  END IF
   CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 1, 1, &
-    &                         rg_satimg, satimg, overshoot_fac=1.0_wp)
+    &                         rg_satimg, satimg, overshoot_fac=1.0_wp,opt_l_enabled=l_enabled)
+  IF (dbg_level > 2) THEN
+    CALL p_barrier(p_comm_work)
+    WRITE (0,*) "CALL to interpol_scal_nudging done."
+  END IF
 
   ! Fill nest boundary points by copying the values from the reduced grid to the full grid
   rl_start = -1
@@ -987,6 +1081,7 @@ SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg)
       jb4 = iblk(jc,jb,4)
 
       DO jk = 1,nimg
+        IF (.NOT. l_enabled(jk))  CYCLE
         satimg(jc1,jk,jb1) = rg_satimg(jc,jk,jb)
         satimg(jc2,jk,jb2) = rg_satimg(jc,jk,jb)
         satimg(jc3,jk,jb3) = rg_satimg(jc,jk,jb)

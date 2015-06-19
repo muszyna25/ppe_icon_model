@@ -1943,7 +1943,8 @@ CONTAINS
           ENDIF
         ENDDO
 
-        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
+        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar))//&
+          &", patch "//int2string(p_of%log_patch_id,'(i0)'))
       ENDIF
 
       ! append variable descriptor to list
