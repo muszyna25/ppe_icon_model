@@ -2046,9 +2046,9 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       END DO
     END DO
     
-    CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
-      & constant_temperature=NorthTemperature, &
-      & LowerLat=NorthLat)
+!     CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
+!       & constant_temperature=NorthTemperature, &
+!       & LowerLat=NorthLat)
     
           
   END SUBROUTINE SST_Abernathey_01
