@@ -88,7 +88,8 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
                                         ! over sea and land
      &                      rat_lam,  & ! ratio of laminar scaling factors for vapour and heat
      &                      z0m_dia,  & ! roughness length of a typical synoptic station
-     &                      alpha0,   & ! Charnock-parameter
+     &                      alpha0,   & ! minimum Charnock-parameter
+     &                      alpha0_max,& ! maximum Charnock-parameter
      &                      alpha1,   & ! parameter scaling the molek. roughness of water waves
 !
      &                      c_lnd,    & ! surface area index of the land exept the leaves
@@ -169,7 +170,7 @@ INTEGER (KIND=iintegers) :: &
 !
     itype_tran   =2,       & ! type of surface-atmosphere transfer
     imode_tran   =0,       & ! mode of surface-atmosphere transfer
-    icldm_tran   =-1,      & ! mode of cloud representation in transfer parametr.
+    icldm_tran   =2,       & ! mode of cloud representation in transfer parametr.
 !
     imode_turb   =1,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
@@ -187,6 +188,7 @@ LOGICAL :: &
     lprfcor      =.FALSE., & ! using the profile values of the lowest main level instead of
                              ! the mean value of the lowest layer for surface flux calulations
     lnonloc      =.FALSE., & ! nonlocal calculation of vertical gradients used for turbul. diff.
+    lfreeslip    =.FALSE., & ! .true.: apply a free-slip lower boundary condition (use for idealized runs only!)
     lcpfluc      =.FALSE., & ! consideration of fluctuations of the heat capacity of air
     lsflcnd      =.TRUE.     ! lower flux condition for vertical diffusion calculation
 !DR    limpltkediff =.TRUE.     ! use semi-implicit TKE diffusion
@@ -237,6 +239,7 @@ LOGICAL :: &
      ltmpcor      = turbdiff_config(jg)%ltmpcor
      lprfcor      = turbdiff_config(jg)%lprfcor
      lnonloc      = turbdiff_config(jg)%lnonloc
+     lfreeslip    = turbdiff_config(jg)%lfreeslip
      lcpfluc      = turbdiff_config(jg)%lcpfluc
      lsflcnd      = turbdiff_config(jg)%lsflcnd
 
@@ -246,6 +249,8 @@ LOGICAL :: &
      tur_len      = turbdiff_config(jg)%tur_len
      pat_len      = turbdiff_config(jg)%pat_len
      a_stab       = turbdiff_config(jg)%a_stab
+     alpha0       = turbdiff_config(jg)%alpha0
+     alpha0_max   = turbdiff_config(jg)%alpha0_max
      tkhmin       = turbdiff_config(jg)%tkhmin
      tkmmin       = turbdiff_config(jg)%tkmmin
      c_diff       = turbdiff_config(jg)%c_diff

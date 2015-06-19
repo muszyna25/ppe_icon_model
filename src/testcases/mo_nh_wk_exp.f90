@@ -80,7 +80,7 @@ MODULE mo_nh_wk_exp
 
   ! Data for the initial profile of relative humidity:
    REAL(wp), PARAMETER :: rh_min_wk   = 0.10_wp        ! [%] ! rel. hum. above the tropopause level
-   REAL(wp), PARAMETER :: rh_max_wk   = 0.90_wp        ! [%]  
+   REAL(wp), PARAMETER :: rh_max_wk   = 0.95_wp        ! [%]  
 
    INTEGER,  PARAMETER :: niter=20
    REAL(wp), PUBLIC :: qv_max_wk   != 0.012_wp  - 0.016_wp  !NAMELIST PARAMETER
@@ -170,10 +170,10 @@ MODULE mo_nh_wk_exp
     INTEGER        :: k_tropo
 
     REAL(wp)       :: z_u, exner_tropo, e_tropo, pres_tropo, qv_tropo, theta_v_tropo,    &
-                      exner_aux, temp_aux, e_aux, pres_aux, qv_aux, theta_v_aux, qv_extrap
+                      exner_aux, temp_aux, e_aux, ew_aux, ei_aux ,pres_aux, qv_aux, theta_v_aux, qv_extrap
 
     REAL(wp), DIMENSION(ptr_patch%nlev) :: z_full, theta, exner, pres, qv, theta_v, rh, &
-                                           temp, rhcheck
+                                           temp, rhwcheck, rhicheck
 
 !--------------------------------------------------------------------
 !
@@ -222,6 +222,7 @@ MODULE mo_nh_wk_exp
     DO jk = k_tropo+1, nlev
       theta(jk) = theta_0_wk+(theta_tropo_wk-theta_0_wk)*(z_full(jk)/h_tropo_wk)**expo_theta_wk
       rh(jk)    = 1._wp-0.75_wp*(z_full(jk)/h_tropo_wk)**expo_relhum_wk
+      rh(jk)    = min(rh(jk),rh_max_wk)
     ENDDO
 
     ! Piecewise vertical integration from the TP towards the bottom
@@ -304,18 +305,12 @@ MODULE mo_nh_wk_exp
     CALL message('', TRIM(message_text))
     DO jk = 1, nlev
       ! recalculate RH from final atmospheric profile
-      IF (temp(jk) > tmelt) THEN
-        e_aux = sat_pres_water(temp(jk))
-      ELSE
-        e_aux = sat_pres_ice(temp(jk))
-      ENDIF
-      rhcheck(jk) = qv(jk)*pres(jk)/(rdv - (1._wp-rdv)*qv(jk))/e_aux
-      ! Limit analytic RH to the value corresponding to qv_max_wk
-      e_aux = e_aux*rh(jk)
-      qv_aux = spec_humi(e_aux,pres(jk))
-      IF (qv_aux > qv_max_wk) rh(jk) = rh(jk)*qv_max_wk/qv_aux
-      WRITE(message_text,'(a,i4,2(a,f7.2))') 'level ',jk,': analytical RH(%)',rh(jk)*100._wp, &
-        ', actual RH(%) ',rhcheck(jk)*100._wp
+      ew_aux = sat_pres_water(temp(jk))
+      ei_aux = sat_pres_ice(temp(jk))
+      rhwcheck(jk) = qv(jk)*pres(jk)/(rdv - (1._wp-rdv)*qv(jk))/ew_aux
+      rhicheck(jk) = qv(jk)*pres(jk)/(rdv - (1._wp-rdv)*qv(jk))/ei_aux
+      WRITE(message_text,'(a,i4,3(a,f7.2))') 'level ',jk,': analytical RH(%)',rh(jk)*100._wp, &
+        ', actual RH(%) ',rhwcheck(jk)*100._wp,', actual RHi(%) ',rhicheck(jk)*100._wp
       CALL message('', TRIM(message_text))
     ENDDO
 

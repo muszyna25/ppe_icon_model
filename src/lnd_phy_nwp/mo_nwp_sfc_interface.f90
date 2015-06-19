@@ -44,9 +44,10 @@ MODULE mo_nwp_sfc_interface
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
   USE mo_flake,               ONLY: flake_interface
+  USE mo_data_flake,          ONLY: h_Ice_min_flk
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, lh_v=>alv
+  USE mo_physical_constants,  ONLY: tmelt
   USE mo_data_turbdiff,       ONLY: itype_tran
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 
@@ -140,6 +141,7 @@ CONTAINS
     REAL(wp) :: rho_snow_new_t (nproma)
 
     REAL(wp) :: h_snow_t (nproma)
+    REAL(wp) :: meltrate (nproma)
 
     REAL(wp) :: w_i_now_t (nproma)
     REAL(wp) :: w_i_new_t (nproma)
@@ -277,8 +279,8 @@ CONTAINS
 !$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t, &
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
-!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t  &
-!$OMP   ) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
+!$OMP   meltrate) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -361,6 +363,11 @@ CONTAINS
                rain_con_rate(jc,isubs)    = 0._wp
                snow_con_rate(jc,isubs)    = 0._wp
                graupel_gsp_rate(jc,isubs) = 0._wp
+               rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
+               snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
+               rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
+               snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
+               graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
              END IF
            END DO
          END DO
@@ -398,7 +405,7 @@ CONTAINS
           t_snow_now_t(ic)          =  lnd_prog_now%t_snow_t(jc,jb,isubs) 
           t_s_now_t(ic)             =  lnd_prog_now%t_s_t(jc,jb,isubs)   
           t_g_t (ic)                =  lnd_prog_now%t_g_t(jc,jb,isubs)
-          qv_s_t(ic)                =  lnd_diag%qv_s_t(jc,jb,isubs)  
+          qv_s_t(ic)                =  lnd_diag%qv_s_t(jc,jb,isubs)
           w_snow_now_t(ic)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
           w_i_now_t(ic)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
@@ -524,6 +531,7 @@ CONTAINS
         &  rho_snow_mult_new = rho_snow_mult_new_t, & !OUT snow density                 (kg/m**3) 
 !
         &  h_snow        = h_snow_t              , & !INOUT snow height
+        &  meltrate      = meltrate              , & !OUT snow melting rate
 !
         &  w_i_now       = w_i_now_t             , & !INOUT water content of interception water(m H2O)
         &  w_i_new       = w_i_new_t             , & !OUT water content of interception water(m H2O)
@@ -586,6 +594,19 @@ CONTAINS
         &  zqhfl_sfc     = qhfl_s_t                ) !OUT moisture flux surface interface          (kg/m2/s) 
 
 
+        ! Multiply w_snow with old snow fraction in order to obtain the area-average SWE needed for
+        ! diagnosing the new snow fraction
+        IF (lsnowtile .AND. isubs > ntiles_lnd) THEN
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            w_snow_now_t(ic) = w_snow_new_t(ic)*MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)
+            meltrate(ic) = meltrate(ic)*MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)
+          ENDDO
+        ELSE
+          DO ic = 1, i_count
+            w_snow_now_t(ic) = w_snow_new_t(ic)
+          ENDDO
+        ENDIF
 
         CALL diag_snowfrac_tg(               &
           &  istart = 1, iend = i_count    , & ! start/end indices
@@ -593,9 +614,10 @@ CONTAINS
           &  i_lc_urban = ext_data%atm%i_lc_urban  , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_new_t      , & ! snow temp
           &  t_soiltop = t_s_new_t         , & ! soil top temp
-          &  w_snow    = w_snow_new_t      , & ! snow WE
-          &  rho_snow  = rho_snow_new_t    , & ! snow depth
+          &  w_snow    = w_snow_now_t      , & ! snow WE
+          &  rho_snow  = rho_snow_new_t    , & ! snow density
           &  freshsnow = freshsnow_t       , & ! fresh snow fraction
+          &  meltrate  = meltrate          , & ! snow melting rate
           &  sso_sigma = sso_sigma_t       , & ! sso stdev
           &  tai       = tai_t             , & ! effective leaf area index
           &  snowfrac  = snowfrac_t        , & ! OUT: snow cover fraction
@@ -610,7 +632,9 @@ CONTAINS
           lnd_prog_new%t_snow_t  (jc,jb,isubs) = t_snow_new_t  (ic)         
           lnd_prog_new%t_s_t     (jc,jb,isubs) = t_s_new_t     (ic)              
           lnd_prog_new%t_g_t     (jc,jb,isubs) = t_g_t         (ic)
-          lnd_diag%qv_s_t        (jc,jb,isubs) = qv_s_t        (ic)                
+          ! qv_s may violate the saturation constraint in cases of numerical instability
+          lnd_diag%qv_s_t        (jc,jb,isubs) = MIN(qv_s_t    (ic), &
+            spec_humi(sat_pres_water(t_g_t(ic)),ps_t(ic)) )
           lnd_prog_new%w_snow_t  (jc,jb,isubs) = w_snow_new_t  (ic)          
           lnd_prog_new%rho_snow_t(jc,jb,isubs) = rho_snow_new_t(ic)        
           lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic)
@@ -841,16 +865,22 @@ CONTAINS
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-             ! snow depth per surface unit -> snow depth per fraction
-             lnd_diag%w_snow_eff_t(jc,jb,isubs_snow) = &
-               lnd_prog_new%w_snow_t(jc,jb,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs_snow),small)
+             ! Rescale SWE and snow depth according to changes in the snow cover fraction
+             lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
+               frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+             lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
+               frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
 
              ! reset field for actual snow-cover for grid points / land-cover classes for which there
              ! are seperate snow-free and snow-covered tiles 
              lnd_diag%snowfrac_t(jc,jb,isubs)      = 0._wp
              lnd_prog_new%w_snow_t(jc,jb,isubs)    = 0._wp
+             lnd_diag%h_snow_t(jc,jb,isubs)        = 0._wp
              lnd_prog_new%t_snow_t(jc,jb,isubs)    = lnd_prog_new%t_s_t(jc,jb,isubs)
              lnd_prog_new%t_g_t(jc,jb,isubs)       = lnd_prog_new%t_s_t(jc,jb,isubs)
+
+             ! copy rho_snow in order to get the right tile average of snow density
+             lnd_prog_new%rho_snow_t(jc,jb,isubs)  = lnd_prog_new%rho_snow_t(jc,jb,isubs_snow)
 
              ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
              ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
@@ -878,6 +908,15 @@ CONTAINS
                  lnd_prog_new%wliq_snow_t(jc,jk,jb,isubs) = 0._wp
                  lnd_prog_new%wtot_snow_t(jc,jk,jb,isubs) = 0._wp
                  lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs) = 0._wp
+
+                 ! Rescale mass-related variables according to changes in the snow cover fraction
+                 lnd_prog_new%wliq_snow_t(jc,jk,jb,isubs_snow) = lnd_prog_new%wliq_snow_t(jc,jk,jb,isubs_snow) * &
+                   frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+                 lnd_prog_new%wtot_snow_t(jc,jk,jb,isubs_snow) = lnd_prog_new%wtot_snow_t(jc,jk,jb,isubs_snow) * &
+                   frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+                 lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs_snow) = lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs_snow) * &
+                   frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+
                ENDDO
              ENDDO
            ENDIF
@@ -908,7 +947,7 @@ CONTAINS
     !
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
       CALL nwp_seaice(p_patch, p_diag, prm_diag, p_prog_wtr_now, p_prog_wtr_new, &
-        &             lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
+        &             lnd_prog_now, lnd_prog_new, ext_data, lnd_diag, tcall_sfc_jg)
     ENDIF
 
     !
@@ -1020,15 +1059,16 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
-  SUBROUTINE nwp_seaice (p_patch, p_diag, prm_diag, p_prog_wtr_now, &
-    &                    p_prog_wtr_new, lnd_prog_new, ext_data,    &
-    &                    p_lnd_diag, dtime)
+  SUBROUTINE nwp_seaice (p_patch, p_diag, prm_diag, p_prog_wtr_now,  &
+    &                    p_prog_wtr_new, lnd_prog_now, lnd_prog_new, &
+    &                    ext_data, p_lnd_diag, dtime)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !< grid/patch info
     TYPE(t_nh_diag),      TARGET,INTENT(in)   :: p_diag         !< diag vars
     TYPE(t_nwp_phy_diag),        INTENT(in)   :: prm_diag       !< atm phys vars
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_now !< prog vars for wtr
     TYPE(t_wtr_prog),            INTENT(inout):: p_prog_wtr_new !< prog vars for wtr
+    TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now   !< prog vars for sfc
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new   !< prog vars for sfc
     TYPE(t_external_data),       INTENT(inout):: ext_data       !< external data
     TYPE(t_lnd_diag),            INTENT(inout):: p_lnd_diag     !< diag vars for sfc
@@ -1160,6 +1200,8 @@ CONTAINS
         &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
         &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
+        &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
+        &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
         &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water)       )!inout
 
 
@@ -1371,11 +1413,11 @@ CONTAINS
         ! for consistency, set 
         ! t_so(0) = t_g            if the lake is not frozen
         ! t_so(0) = 273.15         if the lake is frozen
-        lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>0._wp)
+        lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>h_Ice_min_flk)
 
         ! surface saturation specific humidity over water/ice 
         !
-        IF ( h_ice_new (ic) > 0._wp ) THEN
+        IF ( h_ice_new (ic) > h_Ice_min_flk ) THEN
           p_lnd_diag%qv_s_t(jc,jb,isub_lake)  = spec_humi(sat_pres_ice(t_scf_lk_new(ic)),&
             &                                   p_diag%pres_sfc(jc,jb) )
           ! keep fr_seaice synchronized with h_ice

@@ -37,8 +37,8 @@ MODULE mo_initicon_utils
     &                               timeshift,                                          &
     &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA,                       &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,                &
     &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS,&
     &                               min_rlcell_int, grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
@@ -49,7 +49,8 @@ MODULE mo_initicon_utils
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
-    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld, nlev_snow
+    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
+    &                               nlev_snow
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -83,7 +84,7 @@ MODULE mo_initicon_utils
 
 
   PUBLIC :: initicon_inverse_post_op
-  PUBLIC :: check_input_validity
+  PUBLIC :: validate_input
   PUBLIC :: create_input_groups
   PUBLIC :: copy_initicon2prog_atm
   PUBLIC :: copy_initicon2prog_sfc
@@ -94,6 +95,7 @@ MODULE mo_initicon_utils
   PUBLIC :: deallocate_extana_atm 
   PUBLIC :: deallocate_extana_sfc
   PUBLIC :: average_first_guess
+  PUBLIC :: reinit_average_first_guess
   PUBLIC :: fill_tile_points
 
   CONTAINS
@@ -121,7 +123,7 @@ MODULE mo_initicon_utils
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     TYPE(t_list_element), POINTER   :: element
-    CHARACTER(len=*), PARAMETER     :: routine = modname//':initicon_inverse_post_op'
+    CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
 
     !-------------------------------------------------------------------------
 
@@ -171,7 +173,7 @@ MODULE mo_initicon_utils
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(mapped_name)
+        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(mapped_name)//' ('//TRIM(varname)//')'
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
       IF (PRESENT(optvar_out2D)) THEN
@@ -201,16 +203,17 @@ MODULE mo_initicon_utils
   !! For Analysis (increments)
   !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
   !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - For MODE_DWDANA, MODE_COMBINED, and MODE_COSMODE check validity of 
-  !!   analysis validity time:  The analysis field's validity time must match 
-  !!   the model start time
+  !! - Check validity of analysis validity time:  The analysis field's validity 
+  !!   time must match the model's initialization time (ini_datetime)
+  !! - MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC:  check for matching 
+  !!   typeOfGeneratingProcess.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
   !!
-  SUBROUTINE check_input_validity(p_patch, inventory_list_fg, inventory_list_ana, &
-    &                             grp_vars_fg, grp_vars_ana, ngrp_vars_fg,        &
-    &                             ngrp_vars_ana)
+  SUBROUTINE validate_input(p_patch, inventory_list_fg, inventory_list_ana, &
+    &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg,        &
+    &                       ngrp_vars_ana)
 
     TYPE(t_patch)                , INTENT(IN) :: p_patch
     TYPE(t_inventory_list)       , INTENT(IN) :: inventory_list_fg
@@ -229,13 +232,56 @@ MODULE mo_initicon_utils
     TYPE(datetime),  POINTER :: mtime_inidatetime  ! INI-datetime in mtime format
     TYPE(datetime)           :: start_datetime     ! true start date (includes timeshift)
     !
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_input_validity'
+    INTEGER :: index_inc, index_ful
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_inc(20)
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_inc(20)
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_inc(20)
+    !
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_ful(SIZE(grp_vars_ana))
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_ful(SIZE(grp_vars_ana))
+    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_ful(SIZE(grp_vars_ana))
+    !
+    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful, nvars_mode_dwdana_inc_grp_ful
+    CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_inc(:)  ! pointer to mode-specific 'inc' group
+    CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_ful(:)  ! pointer to mode-specific 'full' group
+    !
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':validate_input'
 
   !-------------------------------------------------------------------
 
+    !*************
 
     ! initialization
     !
+
+    ! setup groups for checking the generating process type of analysis fields
+    !
+    ! MODE_IAU: mandatory increments
+    mode_iau_grp_inc(1:8)        = (/'u        ','v        ','pres     ','temp     ', &
+      &                              'qv       ','w_so     ','h_snow   ','freshsnow'/)
+    ! MODE_IAU_OLD: mandatory increments
+    mode_iau_old_grp_inc(1:6)    = (/'u        ','v        ','pres     ','temp     ', &
+      &                              'qv       ','w_so     '/)
+    ! MODE_DWDANA_INC: mandatory increments
+    mode_dwdana_inc_grp_inc(1:5) = (/'u        ','v        ','pres     ','temp     ', &
+      &                              'qv       '/)
+    !
+    ! groups containing mandatory full fields (= grp_vars_ana - inc fields)
+    mode_iau_grp_ful        = grp_vars_ana
+    mode_iau_old_grp_ful    = grp_vars_ana
+    mode_dwdana_inc_grp_ful = grp_vars_ana
+    !
+    nvars_mode_iau_grp_ful        = ngrp_vars_ana
+    nvars_mode_iau_old_grp_ful    = ngrp_vars_ana
+    nvars_mode_dwdana_inc_grp_ful = ngrp_vars_ana
+
+    ! Remove mandatory 'inc' fields to arrrive at list of mandatory 'full' fields
+    CALL difference(mode_iau_grp_ful, nvars_mode_iau_grp_ful, mode_iau_grp_inc, 8)
+    CALL difference(mode_iau_old_grp_ful, nvars_mode_iau_old_grp_ful, mode_iau_old_grp_inc, 6)
+    CALL difference(mode_dwdana_inc_grp_ful, nvars_mode_dwdana_inc_grp_ful, mode_dwdana_inc_grp_inc, 5)
+
+
+
     lmatch_uuid  = .FALSE. 
     lmatch_vtime = .FALSE.
 
@@ -301,7 +347,7 @@ MODULE mo_initicon_utils
 
 
     !
-    ! Analysis (increments)
+    ! Analysis (full fields/increments)
     !
     DO ivar = 1,ngrp_vars_ana
       ! find matching list element
@@ -327,33 +373,77 @@ MODULE mo_initicon_utils
       !**************************************!
       !  Check Validity time of analysis     !
       !**************************************!
+      !
+      ! analysis field's validity time must match the model's initialization time
+      !
+      lmatch_vtime = (this_list_element%field%vdatetime == mtime_inidatetime)
+
+      ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
+      ! write(0,*) "vdatetime, inidatetime: ", this_list_element%field%vdatetime, mtime_inidatetime
+
+      IF (.NOT. lmatch_vtime) THEN
+        WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
+          &                       //TRIM(grp_vars_ana(ivar))//'.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+
+
+      !****************************************!
+      !  Check typeOfGeneratingProcess         !
+      !   (quick hack)                         !
+      !****************************************!
       SELECT CASE (init_mode)
-      CASE(MODE_DWDANA,MODE_COMBINED,MODE_COSMODE)
+      CASE(MODE_IAU)
         !
-        ! analysis field's validity time must match the model start time
+        grp_inc => mode_iau_grp_inc
+        grp_ful => mode_iau_grp_ful
+      CASE(MODE_IAU_OLD)
         !
-        ! check correctness of validity-time
-        lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
-
-        ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
-        ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
-        ! write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
-
-        IF (.NOT. lmatch_vtime) THEN
-          WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
-            &                       //TRIM(grp_vars_ana(ivar))//'.'
-          CALL finish(routine, TRIM(message_text))
-        ENDIF
+        grp_inc => mode_iau_old_grp_inc
+        grp_ful => mode_iau_old_grp_ful
+      CASE(MODE_DWDANA_INC)
+        !
+        grp_inc => mode_dwdana_inc_grp_inc
+        grp_ful => mode_dwdana_inc_grp_ful
       CASE default
         !
+        grp_inc => NULL()
+        grp_ful => NULL()
       END SELECT
+
+      IF (ASSOCIATED(grp_inc) .AND. ASSOCIATED(grp_ful)) THEN
+        ! determine whether the field is required as inc- or full- field
+        index_inc = one_of(TRIM(this_list_element%field%name),grp_inc(:))
+        index_ful = one_of(TRIM(this_list_element%field%name),grp_ful(:))
+
+        IF ( index_inc /= -1) THEN  ! field required as increment
+          IF (this_list_element%field%typeOfGeneratingProcess /=201) THEN
+            WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
+              &                       //TRIM(this_list_element%field%name)//'. 201 expected'
+            CALL finish(routine, TRIM(message_text))
+          ENDIF
+        
+        ELSE IF ( index_ful /= -1) THEN  ! field required as full field
+          IF (this_list_element%field%typeOfGeneratingProcess /=0) THEN
+            WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
+              &                       //TRIM(this_list_element%field%name)//'. 0 expected'
+            CALL finish(routine, TRIM(message_text))
+          ENDIF
+        ELSE   ! index_inc = index_ful = -1
+          WRITE(message_text,'(a)') 'Unidentified field: '//TRIM(this_list_element%field%name)// &
+            &                       ' typeOfGeneratingProcess could not be checked'
+          CALL finish(routine, TRIM(message_text))
+        ENDIF
+        !
+      ENDIF  ! associated
+
     ENDDO
 
 
     ! cleanup
     CALL deallocateDatetime(mtime_inidatetime)
 
-  END SUBROUTINE check_input_validity
+  END SUBROUTINE validate_input
 
 
 
@@ -366,6 +456,7 @@ MODULE mo_initicon_utils
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
   !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
+  !! groups for MODE_IAU_OLD : mode_iau_old_fg_in, mode_iau_old_ana_in
   !! groups for MODE_COMBINED: mode_combined_in
   !! groups for MODE_COSMODE : mode_cosmode_in
   !!
@@ -537,6 +628,47 @@ MODULE mo_initicon_utils
             ! grp_vars_ana = --
             ngrp_vars_ana = 0
           ENDIF
+
+        CASE(MODE_IAU_OLD)
+          ! Collect group 'grp_vars_fg_default' from mode_iau_old_fg_in
+          !
+          grp_name ='mode_iau_old_fg_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
+          !
+          grp_name ='mode_iau_old_ana_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! the reading stuff
+          !
+          IF (.NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
+            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
+
+            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+            ngrp_vars_fg  = ngrp_vars_fg_default
+            ngrp_vars_ana = ngrp_vars_ana_default
+          ELSE
+            ! lump together grp_vars_fg_default and grp_vars_ana_default
+            !
+            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
+            ngrp_vars_fg = 0
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
+              &              ngrp_vars_fg_default)
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
+              &              ngrp_vars_ana_default)
+
+            ! Remove fields 'u', 'v', 'temp', 'pres'
+            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
+
+            ! grp_vars_ana = --
+            ngrp_vars_ana = 0
+          ENDIF
+
         CASE(MODE_COMBINED,MODE_COSMODE)
 
           IF (init_mode == MODE_COMBINED) THEN
@@ -742,7 +874,7 @@ MODULE mo_initicon_utils
       WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
       CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
+      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ana_default_txt = "ANA_inc (expected)"
         ana_this_txt    = "ANA_inc (this run)"
       ELSE
@@ -777,8 +909,8 @@ MODULE mo_initicon_utils
       ! additional sanity checks for input fields
       !
       IF ( lconsistency_checks ) THEN
-        CALL check_input_validity(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
-          &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
+        CALL validate_input(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
+          &                 grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
       ENDIF
 
     ENDIF  ! my_process_is_stdio()
@@ -1138,90 +1270,7 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE copy_initicon2prog_atm
 
-!!$  !> !!!!!!! OBSOLETE !!!!!!!!
-!!$  !! SUBROUTINE average_first_guess_obsolete
-!!$  !! Averages atmospheric variables needed as first guess for data assimilation 
-!!$  !!
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! Initial version by Guenther Zaengl, DWD(2014-11-24)
-!!$  !!
-!!$  !!
-!!$  SUBROUTINE average_first_guess_obsolete(p_patch, p_int, p_diag, p_prog_dyn, p_prog, lreset, lfinalize)
-!!$
-!!$    TYPE(t_patch),          INTENT(IN) :: p_patch
-!!$    TYPE(t_int_state),      INTENT(IN) :: p_int
-!!$
-!!$    TYPE(t_nh_diag),     INTENT(INOUT) :: p_diag
-!!$    TYPE(t_nh_prog),     INTENT(INOUT) :: p_prog_dyn, p_prog
-!!$
-!!$    LOGICAL, INTENT(IN)  :: lreset, lfinalize
-!!$
-!!$    INTEGER :: jb, jk, jc
-!!$    INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-!!$    REAL(wp) :: r_nsteps
-!!$
-!!$    CALL rbf_vec_interpol_cell(p_prog_dyn%vn, p_patch, p_int, p_diag%u, p_diag%v, &
-!!$                               opt_rlend=min_rlcell_int)
-!!$
-!!$    nlev = p_patch%nlev
-!!$
-!!$    rl_start = 1
-!!$    rl_end   = min_rlcell_int
-!!$
-!!$    i_startblk = p_patch%cells%start_block(rl_start)
-!!$    i_endblk   = p_patch%cells%end_block(rl_end)
-!!$
-!!$!$OMP PARALLEL
-!!$!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,r_nsteps)
-!!$    DO jb = i_startblk, i_endblk
-!!$
-!!$      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-!!$
-!!$      IF (lreset) THEN ! to be called immediately after writing averaged output
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_diag%u_avg(jc,jk,jb)    = 0._wp
-!!$            p_diag%v_avg(jc,jk,jb)    = 0._wp
-!!$            p_diag%temp_avg(jc,jk,jb) = 0._wp
-!!$            p_diag%pres_avg(jc,jk,jb) = 0._wp
-!!$            p_diag%qv_avg(jc,jk,jb)   = 0._wp
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      IF (lfinalize) THEN ! divide accumulated fields by number of time steps - 
-!!$                          ! to be called immediately before writing output
-!!$        r_nsteps = 1._wp/REAL(p_diag%nsteps_avg,wp)
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_diag%u_avg(jc,jk,jb)    = r_nsteps*p_diag%u_avg(jc,jk,jb)
-!!$            p_diag%v_avg(jc,jk,jb)    = r_nsteps*p_diag%v_avg(jc,jk,jb)
-!!$            p_diag%temp_avg(jc,jk,jb) = r_nsteps*p_diag%temp_avg(jc,jk,jb)
-!!$            p_diag%pres_avg(jc,jk,jb) = r_nsteps*p_diag%pres_avg(jc,jk,jb)
-!!$            p_diag%qv_avg(jc,jk,jb)   = r_nsteps*p_diag%qv_avg(jc,jk,jb)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ELSE   ! accumulate variables - to be called after physics interface
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_diag%u_avg(jc,jk,jb)    = p_diag%u_avg(jc,jk,jb)    + p_diag%u(jc,jk,jb)
-!!$            p_diag%v_avg(jc,jk,jb)    = p_diag%v_avg(jc,jk,jb)    + p_diag%v(jc,jk,jb) 
-!!$            p_diag%temp_avg(jc,jk,jb) = p_diag%temp_avg(jc,jk,jb) + p_diag%temp(jc,jk,jb)
-!!$            p_diag%pres_avg(jc,jk,jb) = p_diag%pres_avg(jc,jk,jb) + p_diag%pres(jc,jk,jb)
-!!$            p_diag%qv_avg(jc,jk,jb)   = p_diag%qv_avg(jc,jk,jb)   + p_prog%tracer(jc,jk,jb,iqv)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$    ENDDO
-!!$!$OMP END DO
-!!$!$OMP END PARALLEL
-!!$
-!!$    IF (lreset) p_diag%nsteps_avg = 0
-!!$    IF (.NOT. lfinalize) p_diag%nsteps_avg = p_diag%nsteps_avg + 1
-!!$
-!!$  END SUBROUTINE average_first_guess_obsolete
+
 
 
   !>
@@ -1247,8 +1296,8 @@ MODULE mo_initicon_utils
     INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
     REAL(wp):: wgt                     ! time average weight
 
+    CHARACTER(len=*), PARAMETER     :: routine = modname//':average_first_guess'
     !------------------------------------------------------------------------------
-
 
     CALL rbf_vec_interpol_cell(p_prog_dyn%vn, p_patch, p_int, p_diag%u, p_diag%v, &
                                opt_rlend=min_rlcell_int)
@@ -1263,7 +1312,6 @@ MODULE mo_initicon_utils
 
 
     p_diag%nsteps_avg = p_diag%nsteps_avg + 1
-
 
     ! compute weight
     wgt = 1._wp/REAL(p_diag%nsteps_avg(1),wp)
@@ -1298,7 +1346,78 @@ MODULE mo_initicon_utils
 !$OMP END DO
 !$OMP END PARALLEL
 
+
+    ! debug output
+    IF(my_process_is_stdio() .AND. msg_level>=13) THEN
+      WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
+      CALL message(TRIM(routine), TRIM(message_text))
+    ENDIF
+
   END SUBROUTINE average_first_guess
+
+
+  !>
+  !! SUBROUTINE reinit_average_first_guess
+  !! Re-Initialization routine for SUBROUTINE average_first_guess.
+  !! Ensures that the average is centered in time. 
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD (2015-02-10)
+  !!
+  !!
+  SUBROUTINE reinit_average_first_guess(p_patch, p_diag, p_prog)
+
+    TYPE(t_patch),       INTENT(IN)    :: p_patch
+
+    TYPE(t_nh_diag),     INTENT(INOUT) :: p_diag
+    TYPE(t_nh_prog),     INTENT(IN)    :: p_prog
+
+    INTEGER :: jb, jk, jc
+    INTEGER :: nlev, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+
+    CHARACTER(len=*), PARAMETER     :: routine = modname//':reinit_average_first_guess'
+
+    !------------------------------------------------------------------------------
+
+    nlev = p_patch%nlev
+
+    rl_start = 1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          p_diag%u_avg(jc,jk,jb)    = p_diag%u(jc,jk,jb)
+          p_diag%v_avg(jc,jk,jb)    = p_diag%v(jc,jk,jb)
+          p_diag%temp_avg(jc,jk,jb) = p_diag%temp(jc,jk,jb)
+          p_diag%pres_avg(jc,jk,jb) = p_diag%pres(jc,jk,jb)
+          p_diag%qv_avg(jc,jk,jb)   = p_prog%tracer(jc,jk,jb,iqv)
+        ENDDO
+      ENDDO
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    p_diag%nsteps_avg = 1
+
+    ! debug output
+    IF(my_process_is_stdio() .AND. msg_level>=13) THEN
+      WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
+      CALL message(TRIM(routine), TRIM(message_text))
+    ENDIF
+
+  END SUBROUTINE reinit_average_first_guess
+
 
 
   !-------------
@@ -1644,7 +1763,7 @@ MODULE mo_initicon_utils
 
 
       ! atmospheric assimilation increments
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
+      IF ( ANY((/MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &
@@ -1656,9 +1775,8 @@ MODULE mo_initicon_utils
       ENDIF
 
       ! surface assimilation increments
-      IF ( (init_mode == MODE_IAU) ) THEN
+      IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ALLOCATE(initicon(jg)%sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
-
 
         ! initialize with 0, since some increments are only read 
         ! for specific times
@@ -1667,7 +1785,22 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL WORKSHARE
 
         initicon(jg)%sfc_inc%linitialized = .TRUE.
+
+        ! allocate additional fields for MODE_IAU
+        IF (init_mode == MODE_IAU) THEN
+          ALLOCATE(initicon(jg)%sfc_inc%h_snow    (nproma,nblks_c ), &
+            &      initicon(jg)%sfc_inc%freshsnow (nproma,nblks_c )  )
+
+        ! initialize with 0, since some increments are only read 
+        ! for specific times
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%sfc_inc%h_snow   (:,:) = 0._wp
+        initicon(jg)%sfc_inc%freshsnow(:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
+        ENDIF  ! MODE_IAU
+
       ENDIF
+
 
 
     ENDDO ! loop over model domains
@@ -1860,6 +1993,8 @@ MODULE mo_initicon_utils
       ! surface assimilation increments
       IF ( initicon(jg)%sfc_inc%linitialized ) THEN
         DEALLOCATE(initicon(jg)%sfc_inc%w_so )
+        IF (ALLOCATED(initicon(jg)%sfc_inc%h_snow))    DEALLOCATE(initicon(jg)%sfc_inc%h_snow )
+        IF (ALLOCATED(initicon(jg)%sfc_inc%freshsnow)) DEALLOCATE(initicon(jg)%sfc_inc%freshsnow )
       ENDIF
 
 

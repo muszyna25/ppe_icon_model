@@ -37,7 +37,7 @@ module load cdo
 YYYYMM=`echo %YMD% | cut -c 1-6`
 cd %ECTEMP%
 mkdir -p ../ifs_data
-cd ../ifs_data
+cd       ../ifs_data
 
 
 if [[ $lgetecfs = 1 ]] ; then
@@ -62,7 +62,7 @@ retrieve,
   expver  = 1,
   class   = od,
   type    = fc,
-  param   = TCWV/TCLW/TCIW/TCC/HCC/MCC/LCC/10U/10V/2T/CP/LSP/TP/SSTK/SD/RSN/SKT/SSR/STR/TSR/TTR/SLHF/SSHF/SP,
+  param   = TCWV/TCLW/TCIW/TCC/HCC/MCC/LCC/10U/10V/2T/CP/LSP/TP/SSTK/SD/RSN/SKT/SSR/STR/TSR/TTR/SLHF/SSHF/SP/CAPE,
   grid    = 1/1,
   target  = "ifs_oper_1x1_${YYYYMM}.sfc.grb"
 EOF_SFC
@@ -159,6 +159,38 @@ fi
 #scp /e/uwork/mkoehler/icon/ifs.data/ifs_oper_2x2_20110101-20.sfc.grb \
 #  oflxs04:/uwork1/mkoehler/ifs.data/oper
 
+
+#-----------------------------------------------------------------------------
+# --- retrieve WHOI oaflux observational data from ECFS
+# --- (data includes error maps, which could be read as well, "err")
+
+YYYYMM=`echo %YMD% | cut -c 1-6`
+YYYY=`echo %YMD% | cut -c 1-4`
+MM=`echo %YMD% | cut -c 5-6`
+
+cd %ECTEMP%
+mkdir -p ../obs_data
+cd       ../obs_data
+
+cdo griddes ../ifs_data/ifs_oper_1x1_${YYYYMM}.sfc.grb > icon.grid
+
+for VAR in lh sh ta ts qa ws ; do
+  ecp ec:/deia/climplot.obs/whoi/${VAR}_oaflux/${VAR}_oaflux_${YYYY}.nc.gz .
+  gunzip -f                                    ${VAR}_oaflux_${YYYY}.nc.gz
+  cdo -seltimestep,${MM}                       ${VAR}_oaflux_${YYYY}.nc tmp.nc
+  case ${VAR} in
+    lh) cdo -selvar,lhtfl -mulc,-1     tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+    sh) cdo -selvar,shtfl -mulc,-1     tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+    ta) cdo -selvar,tmp2m -addc,273.16 tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+    ts) cdo -selvar,tmpsf -addc,273.16 tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+    qa) cdo -selvar,hum2m -mulc,0.001  tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+    ws) cdo -selvar,wnd10              tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+  esac
+  cdo -f grb2 remapcon,icon.grid tmp_var.nc ${VAR}_oaflux_${YYYYMM}.grb
+  cdo -f grb2 remapcon,icon.grid tmp_err.nc ${VAR}_err_oaflux_${YYYYMM}.grb
+done
+
+rm -rf tmp.nc tmp_var.nc tmp_err.nc
 
 
 # -------------------------------------------------

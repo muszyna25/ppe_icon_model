@@ -89,7 +89,6 @@ CONTAINS
                   t_g_ex           , & ! weighted surface temperature                  (  K  )
                   qv_s_ex          , & ! specific humidity at the surface              (kg/kg)
                   w_snow_ex        , & ! water content of snow                         (m H2O)
-                  w_snow_eff_ex    , & ! water content of snow, effective              (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   rho_snow_mult_ex , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height                                   (  m  )
@@ -174,7 +173,6 @@ CONTAINS
                   t_snow_ex        , & ! temperature of the snow-surface (K)
                   t_s_ex           , & ! temperature of the ground surface             (  K  )
                   w_snow_ex        , & ! water content of snow                         (m H2O)
-                  w_snow_eff_ex    , & ! water content of snow                         (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height
                   w_i_ex           , & ! water content of interception water           (m H2O)
@@ -280,6 +278,7 @@ CONTAINS
     REAL(wp) :: rho_snow_new_t (nproma, ntiles_total)
 
     REAL(wp) :: h_snow_t   (nproma, ntiles_total)
+    REAL(wp) :: meltrate   (nproma)
 
     REAL(wp) :: w_i_now_t  (nproma, ntiles_total)
     REAL(wp) :: w_i_new_t  (nproma, ntiles_total)
@@ -625,6 +624,7 @@ IF ( .true. ) THEN
         &  rho_snow_mult_new = rho_snow_mult_new_t(:,:,isubs), & ! snow density                      (kg/m**3)
 !
         &  h_snow        = h_snow_t(:,isubs)                 , & ! snow height
+        &  meltrate      = meltrate(:)                       , & ! snow melting rate
 !
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)
         &  w_i_new       = w_i_new_t(:,isubs)                , & ! water content of interception water (m H2O)
@@ -735,6 +735,7 @@ if (.true.) then
           &  w_snow    = w_snow_new_t      (:,isubs), & ! snow WE
           &  rho_snow  = rho_snow_new_t    (:,isubs), & ! snow depth
           &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
+          &  meltrate  = meltrate          (:),       & ! snow melting rate
           &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
           &  tai       = tai_t             (:,isubs), & ! effective leaf area index
           &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
@@ -974,10 +975,6 @@ endif
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-             ! snow depth per surface unit -> snow depth per fraction
-             w_snow_eff_ex(jc,isubs_snow) = &
-               w_snow_ex(jc,isubs_snow)/MAX(snowfrac_lc_ex(jc,isubs_snow),small)
-
              ! reset field for actual snow-cover for grid points / land-cover classes for which there
              ! are seperate snow-free and snow-covered tiles
              snowfrac_ex(jc,isubs)  = 0._wp
@@ -1037,7 +1034,8 @@ endif
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
 
       CALL nwp_seaice(ext_data    , jb          , tcall_sfc_jg,                      &
-                   &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex  , thbs_ex,  &
+                   &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex    , sobs_ex,  &
+                   &  thbs_ex,                                                       &
                    &  shfl_soil_ex, lhfl_soil_ex,                                    &
                    &  t_ice       , h_ice       , t_snow_si   , h_snow_si,           &
                    &  fr_seaice                                                      )
@@ -1100,7 +1098,8 @@ endif
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
   SUBROUTINE nwp_seaice (ext_data    , jb          , dtime       ,                         &
-                      &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex     , thbs_ex,  &
+                      &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex       , sobs_ex,  &
+                      &  thbs_ex,                                                          &
                       &  shfl_soil_ex, lhfl_soil_ex,                                       &
                       &  t_ice_ex    , h_ice_ex    , t_snow_si_ex, h_snow_si_ex,           &
                       &  fr_seaice                                                         )
@@ -1113,6 +1112,7 @@ endif
                   dtime                ! time interval for sea ice
     REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
                   t_g_ex           , & ! weighted surface temperature                  (  K  )
+                  t_s_ex           , & ! weighted surface temperature                  (  K  )
                   qv_s_ex              ! specific humidity at the surface              (kg/kg)
     REAL(wp), DIMENSION(nproma),                           INTENT(IN)    :: &
                   ps_ex                ! surface pressure                              ( pa  )
@@ -1145,6 +1145,7 @@ endif
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
 
+    REAL(wp) :: t_s_dummy(nproma)   ! dummy for surface temperature
     ! Local scalars:
     !
     INTEGER :: jc, ic               !loop indices
@@ -1235,6 +1236,8 @@ endif
         &   hice_old      = h_ice_ex(:),                             &!inout
         &   tice_old      = t_ice_ex(:),                             &!inout
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
+        &   t_s_t_now     = t_s_ex(:,isub_water),                    &!inout  !DR quick hack
+        &   t_s_t_new     = t_s_ex(:,isub_water),                    &!inout
         &   qv_s_t        = qv_s_ex(:,isub_water)                    )!inout
 
 

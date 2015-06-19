@@ -41,10 +41,10 @@ MODULE mo_nh_feedback
   USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
     grf_bdywidth_c
   USE mo_communication,       ONLY: exchange_data_mult
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_wtr_prog
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
@@ -1425,7 +1425,7 @@ CONTAINS
           DO jk = 1, nlev_c
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
-              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( p_patch(jgp)%edges%tangent_orientation(je,jb) *     &
               ( rot_diff_vn(jk,ievidx(je,jb,2),ievblk(je,jb,2))    &
               - rot_diff_vn(jk,ievidx(je,jb,1),ievblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &
@@ -1440,7 +1440,7 @@ CONTAINS
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
-              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( p_patch(jgp)%edges%tangent_orientation(je,jb) *     &
               ( rot_diff_vn(ievidx(je,jb,2),jk,ievblk(je,jb,2))    &
               - rot_diff_vn(ievidx(je,jb,1),jk,ievblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &

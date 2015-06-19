@@ -383,7 +383,6 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow,                     &
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 USE mo_impl_constants,     ONLY: iedmf
 USE mo_data_turbdiff,      ONLY: itype_tran
 #endif
@@ -507,6 +506,7 @@ END SUBROUTINE message
                   rho_snow_mult_new, & ! snow density                                  (kg/m**3)
 !
                   h_snow           , & ! snow height                                   (  m  )
+                  meltrate         , & ! snow melting rate                             (kg/(m**2*s))
 !
                   w_i_now          , & ! water content of interception water           (m H2O)
                   w_i_new          , & ! water content of interception water           (m H2O)
@@ -641,6 +641,8 @@ END SUBROUTINE message
                   rho_snow_mult_new    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   h_snow               ! snow height  
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  meltrate             ! snow melting rate  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_i_now              ! water content of interception water           (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
@@ -1374,6 +1376,7 @@ END SUBROUTINE message
   soil_list(:)    =0
   rockice_list(:) =0
   melt_list(:)    =0
+  meltrate(:)     = 0._ireals
 
 
   DO i = istarts, iends
@@ -1387,6 +1390,8 @@ END SUBROUTINE message
       icount_rockice=icount_rockice+1
       rockice_list(icount_rockice)=i
     END IF
+    ! ensure that glaciers are covered with at least 1 m of snow
+    IF (mstyp == 1) h_snow(i) = MAX(1._ireals, h_snow(i))
     zdw   (i,:)  = cdw0  (mstyp)
     zdw1  (i,:)  = cdw1  (mstyp)
     zkw   (i,:)  = ckw0  (mstyp)
@@ -1668,15 +1673,21 @@ END SUBROUTINE message
         zshfl(i) = tch(i)*zuv*zrho_atm(i)*cp_d*zdt_atm(i)
         zlhfl(i) = tch(i)*zuv*zrho_atm(i)*lh_v*zdq_atm(i)
     
-        IF (ABS(zshfl(i)) <= zepsi) zshfl(i)=SIGN(zepsi,zshfl(i))
+        IF (zshfl(i)*zlhfl(i) >= 0._ireals) THEN
+          zthfl(i) = zshfl(i) + zlhfl(i)
+        ELSE IF (ABS(zshfl(i)) > ABS(zlhfl(i))) THEN
+          zthfl(i) = zshfl(i) + SIGN(MIN(500._ireals,ABS(zlhfl(i))),zlhfl(i))
+        ELSE
+          zthfl(i) = zlhfl(i) + SIGN(MIN(500._ireals,ABS(zshfl(i))),zshfl(i))
+        ENDIF
     
-        zthfl(i) = zshfl(i)+zlhfl(i)
-    
+        IF (ABS(zthfl(i)) <= zepsi) zthfl(i)=SIGN(zepsi,zthfl(i))
+
 !   net radiative fluxes at surface
         zradfl(i) = sobs(i)+thbs(i)
 
 !   unconstrained estimated energy budget of topmost soil layer
-        zeb1(i) = zshfl(i)+zlhfl(i)+zradfl(i)-zg1(i)
+        zeb1(i) = zthfl(i)+zradfl(i)-zg1(i)
 
 !   energy required to melt existing snow
         ze_melt(i)=w_snow_now(i)*rho_w*lh_f     ! (J/m**2)
@@ -1690,10 +1701,8 @@ END SUBROUTINE message
         IF (zeb1(i)<0.0_ireals .AND. zthfl(i)<0.0_ireals) THEN 
     ! cooling of 1st soil layer&upward SHF+LHF
 
-          ztchv_max(i) =  &
-               (-zlim_dtdt*(zch_soil*zdzhs(1)+zch_snow(i))/zdt            &
-                +zg1(i)-zradfl(i) )                                     &
-               / zthfl(i) * tch(i) * zuv
+          ztchv_max(i) = ( zlim_dtdt*(zch_soil*zdzhs(1)+zch_snow(i))/zdt    &
+                       + ABS(zg1(i)-zradfl(i)) ) / ABS(zthfl(i)) * tch(i)*zuv
         ELSEIF (zeb1(i)>0.0_ireals .AND. zthfl(i)>0.0_ireals) THEN 
     ! heating of 1st soil layer & downward SHF+LHF
     !   Note: The heat capacity of snow is only relevant for the difference 
@@ -1705,18 +1714,20 @@ END SUBROUTINE message
           ELSE
             zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow_now(i)+t_so_now(i,1)))
           ENDIF
-          ztchv_max(i) =  &
-          ( (zlim_dtdt*zch_soil*zdzhs(1)+zdT_snow*zch_snow(i)+ze_melt(i))/zdt  &
-            + zg1(i)-zradfl(i) )                                               &
-                      / zthfl(i) * tch(i) * zuv
+          ztchv_max(i) = ( (zlim_dtdt*zch_soil*zdzhs(1)+zdT_snow*zch_snow(i)+ze_melt(i))/zdt  &
+                       + ABS(zg1(i)-zradfl(i)) ) / zthfl(i) * tch(i)*zuv
         ELSE                                                    
           ! unlimited transfer coefficient
           ztchv_max(i) = HUGE(1._ireals)
         ENDIF
                                                         ! required constraint as non-turbulent
                                                         ! energy budget components alone may
-        ztchv_max(i) =MAX( ztchv_max(i) ,zepsi)     ! exceed the upper limit in the energy
+        ztchv_max(i) =MAX( ztchv_max(i), zepsi)         ! exceed the upper limit in the energy
                                                         ! budget of the 1st soil layer
+
+        ! Additional limitation for better numerical stability at long time steps
+        ztchv_max(i) = MIN(ztchv_max(i),(4._ireals*zlim_dtdt*(zch_soil*zdzhs(1)+zch_snow(i))/zdt &
+                      +ABS(zradfl(i)))/ABS(zthfl(i))*tch(i)*zuv)
 
         ztchv(i)    = tch(i)*zuv  ! transfer coefficient * velocity
 
@@ -1778,12 +1789,12 @@ END SUBROUTINE message
 
         zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
 
-        ! temperature-dependent aging timescale: 3 days at freezing point, 28 days below -5 deg C
-        ztau_snow = 86400._ireals*MIN(28.0_ireals,3._ireals+5._ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
+        ! temperature-dependent aging timescale: 3 days at freezing point, 28 days below -10 deg C
+        ztau_snow = 86400._ireals*MIN(28.0_ireals,3._ireals+2.5_ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
         ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
         ! an offset is added in order to ensure moderate aging for low snow depths
-        zuv = MIN(300._ireals, u(i)**2 + v(i)**2 + 12._ireals )
+        zuv = MIN(300._ireals, u_10m(i)**2 + v_10m(i)**2 + 12._ireals )
         ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow(i))/zuv))
 
         ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
@@ -3539,7 +3550,7 @@ ELSE   IF (itype_interception == 2) THEN
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
         ELSEIF (zwsnow(i) == 0.0_ireals .AND.                            &
                (1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) THEN
-          zsprs  (i) = lh_f*zrr(i)
+          zsprs  (i) = MIN(lh_f*zrr(i),(t0_melt-t_s_now(i))*zroc(i,1)/zdt)
           zdwidt (i) = zdwidt (i) - zrr(i)
           zdwsndt(i) = zdwsndt(i) + zrr(i)
         END IF
@@ -3580,8 +3591,7 @@ IF (msg_level >= 19) THEN
          ABS( zlhfl_s(i) )  > 2000.0_ireals ) THEN
       write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
         '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
-        '  ...CH,CM...  ', tch(i), tcm(i), &
-        '  ...const...  ', cp_d,lh_v,lh_s
+        '  ...CH,CM...  ', tch(i), tcm(i)
     ENDIF
   ENDIF
   END DO
@@ -4086,6 +4096,7 @@ ENDIF
                                (.5_ireals* (zts(i) - (t0_melt - zepsi)) - lh_f/chc_i)
               zdwsnm(i)    = zdwsnm(i)*z1d2dt*rho_w 
               zdwsndt(i)   = zdwsndt (i) + zdwsnm(i)
+              meltrate(i)  = - zdwsnm(i)
               ztsnownew    = t0_melt - zepsi
               zdtsnowdt(i) = zdtsnowdt(i) + (ztsnownew - ztsnown(i))*z1d2dt
               runoff_s (i) = runoff_s(i) - zdwsnm(i)*zroffdt
@@ -4118,6 +4129,7 @@ ENDIF
                 ! a reduction factor which controls additional run-off
                 zdwsnm(i)   = zfr_melt*zwsnew(i)*z1d2dt*rho_w  ! available water
                 zdwsndt(i)  = zdwsndt (i) - zdwsnm(i)
+                meltrate(i) = meltrate(i) + zdwsnm(i)
                 zdwgme        = zdwsnm(i)*zrock(i)             ! contribution to w_so
                 zro           = (1._ireals - zrock(i))*zdwsnm(i)      ! surface runoff
                 zredfu        = MAX( 0.0_ireals,  MIN( 1.0_ireals, (zw_fr(i,1) -  &
@@ -4453,6 +4465,16 @@ ENDIF
 !      END IF          ! land-points only
      END DO
 
+  ! Reset t_snow_new to t_so(0) if no snow was present at the beginning of the time step
+  ! The heat balance calculation is incomplete in this case and sometimes yields unreasonable results
+  DO i = istarts, iends
+    IF (w_snow_now(i) < zepsi .AND. w_snow_new(i) >= zepsi) THEN
+      t_snow_new(i) = MIN(t0_melt,t_so_new(i,0))
+      IF (lmulti_snow) THEN
+        t_snow_mult_new(i,:) = t_snow_new(i)
+      ENDIF
+    ENDIF
+  ENDDO
 
 !>JH New solution of heat conduction for snow points which melted completly 
 !    during time step
@@ -4984,8 +5006,8 @@ ENDIF
 !       i=melt_list(ic) 
       DO i = istarts, iends
 
-        IF (t_snow_new(i) > 355._ireals) THEN
-!        IF (i == 182 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.0499 .AND. plcov(i).LT.0.0501) THEN
+        IF (t_snow_new(i) > 355._ireals .OR. t_s_now(i) > 355._ireals .OR. t_s_new(i) > 355._ireals .OR. &
+            t_snow_new(i) < 190._ireals .OR. t_s_now(i) < 200._ireals .OR. t_s_new(i) < 200._ireals) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
 !   (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. & 

@@ -41,7 +41,9 @@ MODULE mo_nwp_soil_init
   USE mo_phyparam_soil,      ONLY: cdw0, cdw1, ckw0, ckw1, cik2, &
     &                              cporv, cpwp, cadp, cfcap,     & 
     &                              crock, crhoc, cala0, cala1,   &
-    &                              csandf, cclayf  
+    &                              csandf, cclayf, csnow_tmin,   &
+   &                               crhosmax_tmin, crhosmax_ml
+
 
   IMPLICIT NONE
 
@@ -50,6 +52,7 @@ MODULE mo_nwp_soil_init
 
 
   PUBLIC  :: terra_multlay_init
+  PUBLIC  :: get_wsnow
 
 CONTAINS
 
@@ -820,6 +823,7 @@ CONTAINS
       ! rho_snow_now and w_snow_now contain the first guess.
       CALL get_wsnow(h_snow,         &  ! in
         &            rho_snow_now,   &  ! inout
+        &            t_snow_now,     &  ! in
         &            istarts, iends, &  ! in
         &            soiltyp_subs,   &  ! in
         &            w_snow_now      )  ! out
@@ -880,10 +884,11 @@ CONTAINS
   !! Adapted to ICON by Daniel Reinert, DWD (2014-04-01)
   !! Original implementation by Michael Buchhold (see below)
   !!
-  SUBROUTINE get_wsnow(h_snow, rho_snow, istart, iend, soiltyp, w_snow)
+  SUBROUTINE get_wsnow(h_snow, rho_snow, t_snow, istart, iend, soiltyp, w_snow)
 
-    REAL(ireals), INTENT(INOUT) :: h_snow(:)    ! snow height           [m]
+    REAL(ireals), INTENT(INOUT) :: h_snow(:)    ! snow depth            [m]
     REAL(ireals), INTENT(INOUT) :: rho_snow(:)  ! snow density          [kg/m**3]
+    REAL(ireals), INTENT(IN)    :: t_snow(:)    ! snow temperature      [K]
     REAL(ireals), INTENT(INOUT) :: w_snow(:)    ! snow water equivalent [m H2O]
     INTEGER,  INTENT(IN)    :: istart       ! start index
     INTEGER,  INTENT(IN)    :: iend         ! end index
@@ -898,17 +903,20 @@ CONTAINS
     ! calculate water equivalent from snow depth
     !
     DO jc = istart, iend
+      IF (rho_snow(jc) < 1._ireals) rho_snow(jc)=rho_snw_default      ! average initial density
       IF (h_snow(jc) > 0._ireals) THEN
-        IF (rho_snow(jc) < 1._ireals) rho_snow(jc)=rho_snw_default      ! average initial density
         ! multiply analysed snow depth [m] by (first-guess) density 
         ! to get water equivalent in [m H2O]
         IF (soiltyp(jc) /= 1) THEN       ! 1=ice
-          ! limit snow height to 4m for non-ice points
+          ! limit snow depth to 4m for non-glacier points
           h_snow(jc) = MIN(h_snow(jc), 4._ireals)
           w_snow(jc) = h_snow(jc) * rho_snow(jc)/rho_w
         ELSE
-          ! no limitation for permanent snow/ice
-          w_snow(jc) = h_snow(jc) * rho_snow(jc)/rho_w
+          ! limit snow depth to at least 1 m and set snow density to the equilibrium value for the current snow temperature
+          h_snow(jc)   = MAX(h_snow(jc), 1._ireals)
+          rho_snow(jc) = crhosmax_tmin + MAX(0._ireals,(t_snow(jc)-csnow_tmin)/(t0_melt-csnow_tmin)) &
+                         * (crhosmax_ml-crhosmax_tmin)
+          w_snow(jc)   = h_snow(jc) * rho_snow(jc)/rho_w
         ENDIF  ! soiltyp
       ENDIF
     ENDDO

@@ -235,7 +235,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
   i_startblk = ptr_patch%cells%start_blk(i_rlstart,1)
 
 !$OMP PARALLEL
-  IF ( lsq_dim_c == ptr_patch%cell_type ) THEN
+  IF ( lsq_dim_c == ptr_patch%geometry_info%cell_type ) THEN
     ! The stencil consists of 3 cells surrounding the control volume
     ! i.e. the direct neighbors are taken.
 
@@ -489,17 +489,17 @@ INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
 REAL(wp), DIMENSION(lsq_dim_c,2) ::  &      ! geographical coordinates of all cell centers
   & xytemp_c                                ! in the stencil
 
-REAL(wp), DIMENSION(ptr_patch%cell_type,2)   ::  &  ! geogr. coordinates of vertices of the
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type,2)   ::  &  ! geogr. coordinates of vertices of the
   & xytemp_v                                ! control volume
 
 REAL(wp), ALLOCATABLE,DIMENSION(:,:,:,:) ::  &
   & z_dist_g                                ! distance vectors to neighbouring cell
                                             ! centers stored for each cell
 
-REAL(wp), DIMENSION(ptr_patch%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
   & distxy_v
 
-REAL(wp), DIMENSION(ptr_patch%cell_type) :: dely, delx ! difference in latitude and longitude between
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type) :: dely, delx ! difference in latitude and longitude between
                                                ! vertices
 
 REAL(wp), DIMENSION(nproma,lsq_dim_c,lsq_dim_unk) ::  & ! lsq matrix
@@ -520,7 +520,7 @@ REAL(wp) :: z_norm                     ! vector length (distance between control
                                        ! center and cell centers in the stencil on tangent
                                        ! plane) (also used for normalization)
 
-REAL(wp), DIMENSION(ptr_patch%cell_type) ::  & ! integrand for each edge
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type) ::  & ! integrand for each edge
   & fx, fy, fxx, fyy, fxy,           & ! for analytical calculation of moments
   & fxxx, fyyy, fxxy, fxyy
 
@@ -529,7 +529,7 @@ INTEGER, POINTER  ::       &           ! pointer to stencil size (cell dependent
 
 INTEGER, DIMENSION(lsq_dim_c) ::  &    ! line and block indices of cells in the stencil
   & ilc_s, ibc_s
-INTEGER, DIMENSION(ptr_patch%cell_type) :: jlv, jbv      ! line and block indices of vertex
+INTEGER, DIMENSION(ptr_patch%geometry_info%cell_type) :: jlv, jbv      ! line and block indices of vertex
 INTEGER :: cnt                         ! counter
 INTEGER :: jrow                        ! matrix row-identifier
 INTEGER :: nel                         ! number of matrix elements
@@ -617,7 +617,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
-      IF (ptr_patch%cell_type == 3 )THEN
+      IF (ptr_patch%geometry_info%cell_type == 3 )THEN
         nverts  = 3
       ELSE
         nverts = ptr_patch%cells%num_edges(jc,jb)
@@ -1250,16 +1250,16 @@ INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
 
 
 !CC of points in the stencil
-TYPE(t_cartesian_coordinates) :: cc_cv, cc_cell(lsq_dim_c), cc_vert(ptr_patch%cell_type)
+TYPE(t_cartesian_coordinates) :: cc_cv, cc_cell(lsq_dim_c), cc_vert(ptr_patch%geometry_info%cell_type)
 
 REAL(wp), ALLOCATABLE,DIMENSION(:,:,:,:) ::  &
   & z_dist_g                                ! distance vectors to neighbouring cell
                                             ! centers stored for each cell
 
-REAL(wp), DIMENSION(ptr_patch%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
   & distxy_v
 
-REAL(wp), DIMENSION(ptr_patch%cell_type) :: dely, delx ! difference in latitude and longitude between
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type) :: dely, delx ! difference in latitude and longitude between
                                                ! vertices
 
 REAL(wp), DIMENSION(nproma,lsq_dim_c,lsq_dim_unk) ::  & ! lsq matrix
@@ -1277,7 +1277,7 @@ REAL(wp) :: z_norm                     ! vector length (distance between control
                                        ! center and cell centers in the stencil on tangent
                                        ! plane) (also used for normalization)
 
-REAL(wp), DIMENSION(ptr_patch%cell_type) ::  & ! integrand for each edge
+REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type) ::  & ! integrand for each edge
   & fx, fy, fxx, fyy, fxy,           & ! for analytical calculation of moments
   & fxxx, fyyy, fxxy, fxyy
 
@@ -1286,7 +1286,7 @@ INTEGER, POINTER  ::       &           ! pointer to stencil size (cell dependent
 
 INTEGER, DIMENSION(lsq_dim_c) ::  &    ! line and block indices of cells in the stencil
   & ilc_s, ibc_s
-INTEGER, DIMENSION(ptr_patch%cell_type) :: jlv, jbv      ! line and block indices of vertex
+INTEGER, DIMENSION(ptr_patch%geometry_info%cell_type) :: jlv, jbv      ! line and block indices of vertex
 INTEGER :: cnt                         ! counter
 INTEGER :: jrow                        ! matrix row-identifier
 INTEGER :: nel                         ! number of matrix elements
@@ -1374,7 +1374,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
-      IF (ptr_patch%cell_type == 3 )THEN
+      IF (ptr_patch%geometry_info%cell_type == 3 )THEN
         nverts  = 3
       ELSE
         nverts = ptr_patch%cells%num_edges(jc,jb)
@@ -2093,7 +2093,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
                                            ptr_patch%edges%dual_edge_length(je,jb)
       ptr_int_state%c_lin_e(je,2,jb) = 1._wp - ptr_int_state%c_lin_e(je,1,jb)
 
-      IF (ptr_patch%cell_type == 6) THEN
+      IF (ptr_patch%geometry_info%cell_type == 6) THEN
         ilv1 = ptr_patch%edges%vertex_idx(je,jb,1)
         ilv2 = ptr_patch%edges%vertex_idx(je,jb,2)
         ibv1 = ptr_patch%edges%vertex_blk(je,jb,1)
@@ -2113,7 +2113,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
   ! b2) vert to edge averages
   !-------------------------
-  IF (ptr_patch%cell_type == 6) THEN
+  IF (ptr_patch%geometry_info%cell_type == 6) THEN
     ! The calculation cannot be done for boundary edges
     i_startblk = ptr_patch%edges%start_blk(2,1)
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -2156,7 +2156,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
        ptr_int_state%verts_aw_cells(jc,:,jb) = 0.0_wp
 
-       IF (ptr_patch%cell_type == 6) z_sum = 0.0_wp
+       IF (ptr_patch%geometry_info%cell_type == 6) z_sum = 0.0_wp
 
        DO je = 1, ptr_patch%cells%num_edges(jc,jb)
 
@@ -2174,7 +2174,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
               ptr_patch%edges%primal_edge_length(ile,ibe)/&
               ptr_patch%cells%area(jc,jb)
 
-          IF (ptr_patch%cell_type == 6) THEN
+          IF (ptr_patch%geometry_info%cell_type == 6) THEN
             ptr_int_state%e_aw_c(jc,je,jb) = 0.5_wp*&
               ptr_patch%edges%edge_cell_length(ile,ibe,idx_ce)*&
               ptr_patch%edges%primal_edge_length(ile,ibe)/&
@@ -2211,7 +2211,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
           ENDDO
 
        ENDDO
-       IF (ptr_patch%cell_type == 6) THEN
+       IF (ptr_patch%geometry_info%cell_type == 6) THEN
          ptr_int_state%r_aw_c(jc,:,jb)=ptr_int_state%r_aw_c(jc,:,jb)/z_sum
        ENDIF
 
@@ -2256,7 +2256,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
             &*ptr_patch%edges%dual_edge_length(ile,ibe) &
             &/ptr_patch%verts%dual_area(jv,jb)
 
-          IF (ptr_patch%cell_type == 6 ) THEN
+          IF (ptr_patch%geometry_info%cell_type == 6 ) THEN
             ptr_int_state%e_inn_v(jv,je,jb) = &
             & ptr_patch%edges%edge_vert_length(ile,ibe,idx_ve) &
             &*ptr_patch%edges%dual_edge_length(ile,ibe) &
@@ -2406,7 +2406,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
   CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%cells_aw_verts)
   CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%cells_plwa_verts)
   CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_aw_v)
-  IF (ptr_patch%cell_type == 6) THEN
+  IF (ptr_patch%geometry_info%cell_type == 6) THEN
     CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%tria_aw_rhom)
     CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%v_1o2_e)
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_aw_c)

@@ -108,7 +108,7 @@ MODULE mo_icon_cpl_exchg
 
 #endif
 
-  PUBLIC :: ICON_cpl_get, ICON_cpl_get_init, ICON_cpl_get_field, ICON_cpl_put, ICON_cpl_put_init
+  PUBLIC :: ICON_cpl_get, ICON_cpl_get_field, ICON_cpl_put
 
 CONTAINS
   !>
@@ -117,8 +117,7 @@ CONTAINS
   !!  processes which share common grid points with the caller. Received
   !!  data are gather on the local array and provided to the caller of
   !!  ICON_cpl_get. By calling ICON_cpl_get the internal event handler
-  !!  gets updated. A corresponding call to either ICON_cpl_put
-  !!  or ICON_cpl_put_init is required.
+  !!  gets updated. 
   !!
   SUBROUTINE ICON_cpl_get ( field_id,          &! in
                             field_shape,       &! in
@@ -188,12 +187,7 @@ CONTAINS
     ENDIF
 
     l_end_of_run = events(fptr%event_id)%elapsed_time >  &
-                   events(fptr%event_id)%restart_time -  &
-                   events(fptr%event_id)%lag *           &
-                   events(fptr%event_id)%time_step
-
-    IF ( .NOT. l_end_of_run ) &
-       l_end_of_run = events(fptr%event_id)%elapsed_time > INT((nsteps-events(fptr%event_id)%lag)*dtime)
+                   events(fptr%event_id)%restart_time
 
     IF ( .NOT. l_action ) RETURN
 
@@ -395,265 +389,6 @@ CONTAINS
 
   END SUBROUTINE ICON_cpl_get
 
-  ! ---------------------------------------------------------------------
-  !>
-  !!  This routine is used on the receiver side to get a coupling field
-  !!  from a remote component. It receives messages from those remote
-  !!  processes which share common grid points with the caller. Received
-  !!  data are gather on the local array and provided to the caller of
-  !!  ICON_cpl_get. By calling ICON_cpl_get_init the internal event handler
-  !!  does not(!) get updated. A corresponding call to either ICON_cpl_put
-  !!  or ICON_cpl_put_init is required.
-  !!
-  SUBROUTINE ICON_cpl_get_init ( field_id,          &! in
-                                 field_shape,       &! in
-                                 recv_field,        &! out
-                                 info,              &! out
-                                 ierror )            ! out
-
-    INTEGER, INTENT(in)    :: field_id         !<  field id
-    INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of recv field
-    REAL(wp), INTENT(out)  :: recv_field (field_shape(1):field_shape(2),field_shape(3))
-    INTEGER, INTENT(out)   :: info             !<  action performed
-    INTEGER, INTENT(out)   :: ierror           !<  returned error code
-
-#ifndef NOMPI
-
-    ! for coupling diagnostic
-    !
-    REAL(wp)               :: recv_buf(field_shape(3))
-    REAL(wp)               :: recv_min(field_shape(3))
-    REAL(wp)               :: recv_max(field_shape(3))
-    REAL(wp)               :: recv_avg(field_shape(3))
-    INTEGER                :: nsum
-
-    ierror = 0
-    info   = NOTHING
-
-    ! -------------------------------------------------------------------
-    ! Check field id and return if field was not declared.
-    ! -------------------------------------------------------------------
-
-    IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
-
-    IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
-
-    ! -------------------------------------------------------------------
-    ! Check event
-    ! -------------------------------------------------------------------
-
-    fptr => cpl_fields(field_id)
-
-    IF ( .NOT. fptr%coupling%l_activated ) THEN
-       IF ( debug_coupler_level > 0 ) THEN
-          WRITE ( cplout , * ) ICON_global_rank, ' field ', &
-               TRIM(fptr%field_name), ' is not activatd for coupling!'
-       ENDIF
-       RETURN
-    ENDIF
-
-    IF ( debug_coupler_level > 1 ) THEN
-       WRITE ( cplout , * ) ICON_global_rank, ' : get_init   for event ', &
-                            fptr%event_id
-
-    ENDIF
-
-    IF ( .NOT. is_restart_run() ) events(fptr%event_id)%event_time = 0
-
-    ! ----------------------------------------------------------------------
-    ! First check whether this process has to receive data from someone else
-    ! ----------------------------------------------------------------------
-
-    n_recv = 0
-
-    IF ( ASSOCIATED (target_locs) ) THEN
-       DO  i = 1, SIZE(target_locs)
-          IF ( target_locs(i)%source_list_len > 0 ) n_recv = n_recv + 1
-       ENDDO
-    ELSE
-       RETURN
-    ENDIF
-
-    IF ( n_recv == 0 ) RETURN
-
-    ALLOCATE ( lrequests(n_recv), STAT = ierr )
-    IF ( ierr > 0 ) THEN
-       WRITE ( * , * ) ' Error allocating lrequests for field id ', field_id
-       CALL MPI_Abort ( ICON_comm, 1, ierr )
-    ENDIF
-
-    ALLOCATE ( msg_fm_src(msg_len, n_recv), STAT = ierr )
-    IF ( ierr > 0 ) THEN
-       WRITE ( * , * ) ' Error allocating msg_fm_src for field id ', field_id
-       CALL MPI_Abort ( ICON_comm, 1, ierr )
-    ENDIF
-
-    ! -------------------------------------------------------------------
-    ! Post Receives of header messages
-    ! -------------------------------------------------------------------
-
-    DO n = 1, size(target_locs) ! n_recv
-
-       tptr => target_locs(n)
-
-       IF ( tptr%source_list_len > 0 ) THEN
-
-          msgtag = initag + 1000 * fptr%global_field_id
-
-          IF ( debug_coupler_level > 2 ) &
-               WRITE ( cplout , * ) ICON_global_rank, ' irecv : tag ', msgtag, &
-               ' length ', msg_len, ' from ', tptr%source_rank
-
-          CALL MPI_Irecv ( msg_fm_src(1,n), msg_len, MPI_INTEGER, &
-               tptr%source_rank, msgtag, ICON_comm_active, lrequests(n), ierr )
-
-       ENDIF
-
-    ENDDO
-
-    ! -------------------------------------------------------------------
-    ! Loop over the number of send operation (determined during the search)
-    ! -------------------------------------------------------------------
-
-    recv_field = dummy
-
-    DO n = 1, n_recv
-
-       CALL MPI_Waitany ( n_recv, lrequests, index, wstatus, ierr )
-
-       len         = msg_fm_src(1, index)
-       nbr_bundles = msg_fm_src(2, index)
-
-       ! ----------------------------------------------------------------
-       ! Receive and store lists except empty lists
-       ! ----------------------------------------------------------------
-
-       IF ( len > 0 ) THEN
-
-          tptr => target_locs(index)
-
-          source_rank = wstatus(MPI_SOURCE)
-          msgtag      = wstatus(MPI_TAG) + 1
-
-          IF ( tptr%source_rank /= msg_fm_src(3, index) ) THEN
-             WRITE ( * , '(a,2i6)') ' Error: Messages got mixed up ', &
-                   tptr%source_rank, msg_fm_src(3, index)
-                   CALL MPI_Abort ( ICON_comm, 1, ierr )
-          ENDIF
-
-          IF ( msg_fm_src(4, index) > NOTHING ) THEN
-
-             ALLOCATE ( recv_buffer(len,nbr_bundles), STAT = ierr )
-             IF ( ierr > 0 ) THEN
-                WRITE ( * , '(a,i4)') ' Error allocating receive buffer for field id ', field_id
-                CALL MPI_Abort ( ICON_comm, 1, ierr )
-             ENDIF
-
-             CALL MPI_Recv ( recv_buffer, len*nbr_bundles, datatype, &
-                  source_rank, msgtag, ICON_comm_active, rstatus, ierr )
-
-             ! -------------------------------------------------------------
-             ! Scatter data into user buffer. Note that only internal values
-             ! get updated. The coupling routines do not work on the halos!
-             ! -------------------------------------------------------------
-
-             IF ( nbr_bundles /= field_shape(3) ) THEN
-                WRITE ( * , '(a,i4,a4,i4)' ) 'Number of bundles does not match!', &
-                     nbr_bundles, ' /= ', field_shape(3)
-                CALL MPI_Abort ( ICON_comm, 1, ierr )
-             ENDIF
-
-             DO m = 1, nbr_bundles
-                DO i = 1, len
-                   recv_field(tptr%source_list(i),m) = recv_buffer(i,m)
-                ENDDO
-             ENDDO
-
-             IF ( debug_coupler_level > 2 ) THEN
-                DO m = 1, nbr_bundles
-                   DO i = 1, len
-                      WRITE ( cplout, '(i4,a,i4,a,i4,f13.6)' ) ICON_global_rank, &
-                        &  ' extract from ', &
-                           source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
-                   ENDDO
-                ENDDO
-                PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
-             ENDIF
-
-             IF ( fptr%coupling%l_diagnostic ) THEN
-
-                DO m = 1, nbr_bundles
-                   recv_min(m) = MINVAL(recv_buffer(:,m))
-                   recv_max(m) = MAXVAL(recv_buffer(:,m))
-                   recv_avg(m) = 0.0_wp
-                   DO i = 1, len
-                      recv_avg(m) = recv_avg(m) + recv_buffer(i,m)
-                   ENDDO
-                ENDDO
-             ENDIF
-
-             DEALLOCATE (recv_buffer)
-
-          ENDIF
-
-       ENDIF
-
-    ENDDO
-
-    DEALLOCATE ( lrequests )
-
-    IF ( msg_fm_src(4, index) == NOTHING ) THEN
-        DEALLOCATE ( msg_fm_src )
-        RETURN 
-    ENDIF
-
-    DEALLOCATE ( msg_fm_src )
-
-    info = INITIAL
-
-    IF ( fptr%coupling%l_diagnostic ) THEN
-
-       CALL MPI_Allreduce ( recv_min, recv_buf, nbr_bundles, datatype, &
-            MPI_MIN, ICON_comp_comm, ierror )
-       recv_min(:) = recv_buf(:)
-
-       CALL MPI_Allreduce ( recv_max, recv_buf, nbr_bundles, datatype, &
-            MPI_MAX, ICON_comp_comm, ierror )
-       recv_max(:) = recv_buf(:)
-
-       CALL MPI_Allreduce ( recv_avg, recv_buf, nbr_bundles, datatype, &
-            MPI_SUM, ICON_comp_comm, ierror )
-       recv_avg(:) = recv_buf(:)
-
-       CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
-            MPI_SUM, ICON_comp_comm, ierror )
-
-       recv_avg(:) = recv_avg(:) / REAL(nsum,wp)
-
-       DO i = 1, nbr_bundles
-          WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
-            ' Min: ', recv_min(i), &      
-            ' Avg: ', recv_avg(i), &
-            ' Max: ', recv_max(i)
-       ENDDO
-
-    ENDIF
-
-#else
-
-    PRINT *, ' Restart requires MPI! '
-    PRINT *, ' field ID    ', field_id
-    PRINT *, ' field shape ', field_shape
-
-    recv_field(:,:) = 0.0_wp
-
-    ierror = -1
-    info   = 0
-
-#endif
-
-  END SUBROUTINE ICON_cpl_get_init
-
   ! --------------------------------------------------------------------
   !>
   !!  This routine is used on the sender side to get accumulated fields
@@ -734,8 +469,7 @@ CONTAINS
   !!  This routine is used on the sender side to either accumulate/average
   !!  coupling field or send instant/accumulated/averaged fields to a
   !!  remote component. By calling ICON_cpl_put the internal event handler
-  !!  gets updated. A corresponding call to either ICON_cpl_get
-  !!  or ICON_cpl_get_init is required.
+  !!  gets updated.
   !!
   SUBROUTINE ICON_cpl_put ( field_id,    &! in
                             field_shape, &! in
@@ -816,31 +550,19 @@ CONTAINS
 
     l_action = event_check ( fptr%event_id )
 
-    IF ( fptr%coupling%lag > 0 ) THEN
-
-       IF ( debug_coupler_level > 0 ) THEN
-          WRITE ( cplout , * ) 'restart check: ', &
-                               nsteps*dtime,                         &
-                               events(fptr%event_id)%elapsed_time,   &
-                               events(fptr%event_id)%restart_time +  &
-                                        events(fptr%event_id)%lag *  &
-                                        events(fptr%event_id)%time_step
-       ENDIF
-
-       l_restart    = events(fptr%event_id)%elapsed_time == &
-                      events(fptr%event_id)%restart_time +  &
-                      events(fptr%event_id)%lag *           &
-                      events(fptr%event_id)%time_step
-
-       IF ( .NOT. l_restart ) &
-       l_restart = events(fptr%event_id)%elapsed_time == INT(nsteps*dtime)
-
-       IF ( .NOT. l_restart ) &
-       l_checkpoint = events(fptr%event_id)%elapsed_time == &
-                      events(fptr%event_id)%check_time +    &
-                      events(fptr%event_id)%lag *           &
-                      events(fptr%event_id)%time_step
+    IF ( debug_coupler_level > 0 ) THEN
+       WRITE ( cplout , * ) 'restart check: ', &
+                            nsteps*dtime,                         &
+                            events(fptr%event_id)%elapsed_time,   &
+                            events(fptr%event_id)%restart_time
     ENDIF
+
+    l_restart    = events(fptr%event_id)%elapsed_time == &
+                   events(fptr%event_id)%restart_time
+
+    IF ( .NOT. l_restart ) &
+       l_checkpoint = events(fptr%event_id)%elapsed_time == &
+                         events(fptr%event_id)%check_time
 
     IF ( debug_coupler_level > 1 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
@@ -872,15 +594,11 @@ CONTAINS
        !
        ! Do not accumulated events which are already covered be the restart
        !
-       IF ( events(fptr%event_id)%elapsed_time > &
-     &      events(fptr%event_id)%lag * events(fptr%event_id)%time_step ) THEN 
-          IF ( debug_coupler_level > 1 ) &
-            WRITE ( cplout , * ) 'Accumulation for ', TRIM(cpl_fields(field_id)%field_name)
+       IF ( debug_coupler_level > 1 ) &
+         WRITE ( cplout , * ) 'Accumulation for ', TRIM(cpl_fields(field_id)%field_name)
 
-          fptr%accumulation_count  = fptr%accumulation_count + 1
-          fptr%send_field_acc(:,:) = fptr%send_field_acc(:,:) + send_field(:,:)
-
-       ENDIF
+       fptr%accumulation_count  = fptr%accumulation_count + 1
+       fptr%send_field_acc(:,:) = fptr%send_field_acc(:,:) + send_field(:,:)
 
     ENDIF
 
@@ -1071,222 +789,5 @@ CONTAINS
 #endif
 
   END SUBROUTINE ICON_cpl_put
-
-  ! --------------------------------------------------------------------
-  !>
-  !!  This routine is used on the sender side to send the input field
-  !!  (send_field) or instant/accumulated/averaged fields to a remote
-  !!  component. If a restart file is available it gets the data
-  !!  from the restart file and overwrites the send_field. By calling
-  !!  ICON_cpl_put_init the internal event handler does not(!) get
-  !!  updated. A corresponding call to either ICON_cpl_get or
-  !!  ICON_cpl_get_init is required.
-  !!
-  SUBROUTINE ICON_cpl_put_init ( field_id,    &! in
-                                 field_shape, &! in
-                                 send_field,  &! in
-                                 ierror )      ! out
-
-    INTEGER, INTENT(in)    :: field_id         !<  field id
-    INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of send field
-
-    REAL (wp), INTENT(in)  :: send_field (field_shape(1):field_shape(2),field_shape(3))
-
-    INTEGER, INTENT(out)   :: ierror           !<  returned error code
-
-#ifndef NOMPI
-
-    ! Local variables
-
-    INTEGER                :: info
-    REAL (wp)              :: rest_field (field_shape(1):field_shape(2),field_shape(3))
-    !
-    ! for coupling diagnostic
-    !
-    REAL(wp)               :: send_buf(field_shape(3))
-    REAL(wp)               :: send_min(field_shape(3))
-    REAL(wp)               :: send_max(field_shape(3))
-    REAL(wp)               :: send_avg(field_shape(3))
-    INTEGER                :: j, nsum
-
-    ierror = 0
-
-    fptr => cpl_fields(field_id)
-
-    ! -------------------------------------------------------------------
-    ! Check field id and return if field was not declared.
-    ! -------------------------------------------------------------------
-
-    IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
-
-    IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
-
-    IF ( .NOT. cpl_fields(field_id)%coupling%l_activated ) THEN
-       IF ( debug_coupler_level > 0 ) THEN
-          WRITE ( cplout , * ) ICON_global_rank, ' : field ', &
-               TRIM(cpl_fields(field_id)%field_name), ' is not activatd for coupling!'
-       ENDIF
-       RETURN
-    ENDIF
-
-    IF ( debug_coupler_level > 1 ) &
-       WRITE ( cplout , * ) ICON_global_rank, ' : put_init   for event ', &
-                            fptr%event_id
-
-    ! -------------------------------------------------------------------
-    ! Check whether field is available from a restart file
-    ! -------------------------------------------------------------------
-
-    CALL cpl_read_restart ( field_id, field_shape, rest_field, info, ierror )
-
-    IF ( info == 0 ) THEN
-       ! no restart available
-       rest_field = send_field
-       msg_type   = INITIAL
-       ! This is bad coding style, but ...
-       WRITE ( * , '(A,I2,A)') ' WARNING: a lag of ', events(fptr%event_id)%lag,' has been set for'
-       WRITE ( * , '(A,A)' )   '          ', TRIM(fptr%field_name)
-       WRITE ( * , '(A)' )     '          The lag has been reset to zero in ICON_cpl_put_init!'
-       events(fptr%event_id)%lag        = 0
-       events(fptr%event_id)%event_time = 0
-    ELSE
-       msg_type   = RESTART
-    ENDIF
-
-    ! -------------------------------------------------------------------
-    ! First check whether this process has to send data to someone else
-    ! -------------------------------------------------------------------
-
-    IF ( ASSOCIATED (target_locs) ) THEN
-       n_send = SIZE(target_locs)
-    ELSE
-       RETURN
-    ENDIF
-
-    IF ( n_send == 0 ) RETURN
-
-    ! -------------------------------------------------------------------
-    ! Loop over the number of send operation (determined during the search)
-    ! -------------------------------------------------------------------
-
-    DO n = 1, n_send
-
-       sptr => source_locs(n)
-
-       len         = sptr%source_list_len
-       nbr_bundles = field_shape(3)
-
-       ! ----------------------------------------------------------------
-       ! Send data except of empty lists
-       ! ----------------------------------------------------------------
-
-       IF ( len > 0 ) THEN
-
-          ALLOCATE ( send_buffer(len,nbr_bundles), STAT = ierr )
-          IF ( ierr > 0 ) THEN
-             WRITE ( * , * ) ' Error allocating send buffer for field id ', field_id
-             CALL MPI_Abort ( ICON_comm, 1, ierr )
-          ENDIF
-
-          ! -------------------------------------------------------------
-          ! Gather data into a compact send buffer
-          ! -------------------------------------------------------------
-
-          DO m = 1, nbr_bundles
-             DO i = 1, len
-                send_buffer(i,m) = rest_field(sptr%source_list(i),m)
-                IF ( debug_coupler_level > 2 ) &
-                     WRITE ( cplout, '(i4,a,i4,a,f13.6)' ) ICON_global_rank, &
-                     ' extract for ', sptr%target_rank, ' : ', send_buffer(i,m) 
-             ENDDO
-          ENDDO
-
-          ! -------------------------------------------------------------
-          ! Prepare and send header messages
-          ! -------------------------------------------------------------
-
-          msgtag = initag + 1000 * fptr%global_field_id
-
-          msg_to_tgt(1) = len
-          msg_to_tgt(2) = nbr_bundles
-          msg_to_tgt(3) = ICON_global_rank
-          msg_to_tgt(4) = msg_type
-
-          CALL psmile_bsend ( msg_to_tgt, msg_len, &
-               MPI_INTEGER, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
-
-          info = msg_type
-
-          IF ( msg_type == NOTHING ) RETURN
-
-          ! -------------------------------------------------------------
-          ! Send data 
-          ! -------------------------------------------------------------
-
-          msgtag = msgtag + 1
-
-          CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
-               datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
-
-          IF ( fptr%coupling%l_diagnostic ) THEN
-
-             send_avg(:) = 0.0_wp
-
-             DO i = 1, nbr_bundles
-                send_min(i) = MINVAL(send_buffer(:,i))
-                send_max(i) = MAXVAL(send_buffer(:,i))
-                DO j = 1, len
-                   send_avg(i) = send_avg(i) + send_buffer(j,i)
-                ENDDO
-             ENDDO
-
-             CALL MPI_Allreduce ( send_min, send_buf, nbr_bundles, datatype, &
-                  MPI_MIN, ICON_comp_comm, ierror )
-             send_min(:) = send_buf(:)
-
-             CALL MPI_Allreduce ( send_max, send_buf, nbr_bundles, datatype, &
-                  MPI_MAX, ICON_comp_comm, ierror )
-             send_max(:) = send_buf(:)
-
-             CALL MPI_Allreduce ( send_avg, send_buf, nbr_bundles, datatype, &
-                  MPI_SUM, ICON_comp_comm, ierror )
-             send_avg(:) = send_buf(:)
-
-             CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
-                  MPI_SUM, ICON_comp_comm, ierror )
-
-             send_avg(:) = send_avg(:) / REAL(nsum,wp)
-
-             DO i = 1, nbr_bundles
-                WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
-                     ' Min: ', send_min(i), &      
-                     ' Avg: ', send_avg(i), &
-                     ' Max: ', send_max(i)
-             ENDDO
-
-          ENDIF
-
-          ! -------------------------------------------------------------
-          ! Deallocate send buffer as the memory management is done inside
-          ! psmile_bsend 
-          ! -------------------------------------------------------------
-
-          DEALLOCATE (send_buffer)
-
-       ENDIF ! len > 0
-
-    ENDDO
-
-#else
-
-    PRINT *, ' Restart requires MPI! '
-    PRINT *, ' field ID    ', field_id
-    PRINT *, ' field shape ', field_shape
-    PRINT *, ' send field  ', send_field(1,1)
-    ierror = -1
-
-#endif
-
-  END SUBROUTINE ICON_cpl_put_init
 
 END MODULE mo_icon_cpl_exchg

@@ -45,34 +45,8 @@ MODULE mo_les_utilities
 
   PRIVATE
 
-  REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: &
-    ddxt_z_full, &
-    ddxt_z_full_c, &
-    ddxt_z_full_v,&
-    ddxt_z_half_e,&
-    ddxt_z_half_v,&
-    ddxt_z_half_c,&
-    ddxn_z_full,&
-    ddxn_z_full_c,&
-    ddxn_z_full_v,&
-    ddxn_z_half_e,&
-    ddxn_z_half_c
-
   PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_hor_mean
   PUBLIC :: vertical_derivative, brunt_vaisala_freq, init_vertical_grid_for_les
-  PUBLIC :: &
-    ddxt_z_full, &
-    ddxt_z_full_c, &
-    ddxt_z_full_v,&
-    ddxt_z_half_e,&
-    ddxt_z_half_v,&
-    ddxt_z_half_c,&
-    ddxn_z_full,&
-    ddxn_z_full_c,&
-    ddxn_z_full_v,&
-    ddxn_z_half_e,&
-    ddxn_z_half_c
-
 
   CONTAINS
 
@@ -93,114 +67,85 @@ MODULE mo_les_utilities
     INTEGER :: nlevp1, i_nchdom, nlev, nlen
     INTEGER :: jk, je, jc, jb, jkm1
 
+    ! helper for syncing single-precision array
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: ddx_arg, ddx
+
     nlev        = p_patch%nlev
     nlevp1      = p_patch%nlevp1
 
     IF(.NOT.les_config(jg)%les_metric) &
       RETURN
 
-    ALLOCATE(&
-    ddxt_z_full(nproma,p_patch%nlev,p_patch%nblks_e), &
-    ddxt_z_full_c(nproma,p_patch%nlev,p_patch%nblks_c), &
-    ddxt_z_full_v(nproma,p_patch%nlev,p_patch%nblks_v),&
-    ddxt_z_half_e(nproma,p_patch%nlevp1,p_patch%nblks_e),&
-    ddxt_z_half_v(nproma,p_patch%nlevp1,p_patch%nblks_v),&
-    ddxt_z_half_c(nproma,p_patch%nlevp1,p_patch%nblks_c),&
-    ddxn_z_full(nproma,p_patch%nlev,p_patch%nblks_e),&
-    ddxn_z_full_c(nproma,p_patch%nlev,p_patch%nblks_c),&
-    ddxn_z_full_v(nproma,p_patch%nlev,p_patch%nblks_v),&
-    ddxn_z_half_e(nproma,p_patch%nlevp1,p_patch%nblks_e),&
-    ddxn_z_half_c(nproma,p_patch%nlevp1,p_patch%nblks_c))
-
-    ddxt_z_full(:,:,:)   = p_metrics%ddxt_z_full(:,:,:)
-    ddxt_z_half_e(:,:,:) = p_metrics%ddxt_z_half_e(:,:,:)
-    ddxn_z_full(:,:,:)   = p_metrics%ddxn_z_full(:,:,:)
-    ddxn_z_half_e(:,:,:) = p_metrics%ddxn_z_half_e(:,:,:)
-
-    CALL sync_patch_array(SYNC_E, p_patch, ddxn_z_full)
-    CALL sync_patch_array(SYNC_E, p_patch, ddxn_z_half_e)
-    CALL sync_patch_array(SYNC_E, p_patch, ddxt_z_full)
-    CALL sync_patch_array(SYNC_E, p_patch, ddxt_z_half_e)
-
     IF (p_test_run) THEN
-      ddxt_z_half_v(:,:,:) = 0._wp
-      ddxn_z_half_c(:,:,:) = 0._wp
-      ddxn_z_full_c(:,:,:) = 0._wp
-      ddxn_z_full_v(:,:,:) = 0._wp
-      ddxt_z_half_c(:,:,:) = 0._wp
-      ddxt_z_full_c(:,:,:) = 0._wp
-      ddxt_z_full_v(:,:,:) = 0._wp
+      p_metrics%ddxt_z_half_v(:,:,:) = 0._wp
+      p_metrics%ddxn_z_half_c(:,:,:) = 0._wp
+      p_metrics%ddxn_z_full_c(:,:,:) = 0._wp
+      p_metrics%ddxn_z_full_v(:,:,:) = 0._wp
+      p_metrics%ddxt_z_half_c(:,:,:) = 0._wp
+      p_metrics%ddxt_z_full_c(:,:,:) = 0._wp
+      p_metrics%ddxt_z_full_v(:,:,:) = 0._wp
       p_metrics%inv_ddqz_z_full_v(:,:,:) = 0._wp
-!      p_metrics%inv_ddqz_z_full_e(:,:,:) = 0._wp
     END IF
 
-    !
-    ! normal metric derivative
-    !
-    CALL edges2cells_scalar(ddxn_z_half_e, p_patch, p_int%e_bln_c_s, &
-      ddxn_z_half_c)
-    CALL sync_patch_array(SYNC_C, p_patch, ddxn_z_half_c)
+    ! half_c sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_e))
+    ALLOCATE(ddx(nproma,p_patch%nlevp1,p_patch%nblks_c))
+    ddx_arg(:,:,:) = p_metrics%ddxn_z_half_e(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxn_z_half_c(:,:,:) = ddx(:,:,:)
 
-    CALL edges2cells_scalar(ddxn_z_full, p_patch, p_int%e_bln_c_s, &
-      ddxn_z_full_c)
-    CALL sync_patch_array(SYNC_C, p_patch, ddxn_z_full_c)
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_half_e(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxt_z_half_c(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
-    CALL cells2verts_scalar(ddxn_z_full_c, p_patch, p_int%cells_aw_verts, &
-      ddxn_z_full_v)
-    CALL sync_patch_array(SYNC_V, p_patch, ddxn_z_full_v)
+    ! full_c sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_e))
+    ALLOCATE(ddx(nproma,p_patch%nlev,p_patch%nblks_c))
+    ddx_arg(:,:,:) = p_metrics%ddxn_z_full(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxn_z_full_c(:,:,:) = ddx(:,:,:)
 
-    !
-    ! tangential metric derivative
-    !
-    CALL edges2cells_scalar(ddxt_z_half_e, p_patch, p_int%e_bln_c_s, &
-      ddxt_z_half_c)
-    CALL sync_patch_array(SYNC_C, p_patch, ddxt_z_half_c)
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_full(:,:,:)
+    CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
+    CALL sync_patch_array(SYNC_C, p_patch, ddx)
+    p_metrics%ddxt_z_full_c(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
-    CALL cells2verts_scalar(ddxt_z_half_c, p_patch, p_int%cells_aw_verts, &
-      ddxt_z_half_v)
-    CALL sync_patch_array(SYNC_V, p_patch, ddxt_z_half_v)
+    ! full_v sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_c))
+    ALLOCATE(ddx(nproma,p_patch%nlev,p_patch%nblks_v))
+    ddx_arg(:,:,:) = p_metrics%ddxn_z_full_c(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%ddxn_z_full_v(:,:,:) = ddx(:,:,:)
 
-    CALL edges2cells_scalar(ddxt_z_full, p_patch, p_int%e_bln_c_s, &
-      ddxt_z_full_c)
-    CALL sync_patch_array(SYNC_C, p_patch, ddxt_z_full_c)
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_full_c(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%ddxt_z_full_v(:,:,:) = ddx(:,:,:)
 
-    CALL cells2verts_scalar(ddxt_z_full_c, p_patch, p_int%cells_aw_verts, &
-      ddxt_z_full_v)
-    CALL sync_patch_array(SYNC_V, p_patch, ddxt_z_full_v)
+    ddx_arg(:,:,:) = p_metrics%inv_ddqz_z_full(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%inv_ddqz_z_full_v(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
-    CALL cells2verts_scalar(p_metrics%inv_ddqz_z_full, p_patch, p_int%cells_aw_verts, &
-      p_metrics%inv_ddqz_z_full_v)
-    CALL sync_patch_array(SYNC_V, p_patch, p_metrics%inv_ddqz_z_full_v)
-    CALL sync_patch_array(SYNC_E, p_patch, p_metrics%inv_ddqz_z_full_e)
-
-    ! SB for testing
-    IF (.false.) THEN
-      ddxt_z_full(:,:,:)   = 0._wp
-      ddxt_z_full_c(:,:,:) = 0._wp
-      ddxt_z_full_v(:,:,:) = 0._wp
-      ddxt_z_half_e(:,:,:) = 0._wp
-      ddxt_z_half_v(:,:,:) = 0._wp
-      ddxt_z_half_c(:,:,:) = 0._wp
-
-      ddxn_z_full(:,:,:)   = 0._wp
-      ddxn_z_full_c(:,:,:) = 0._wp
-      ddxn_z_full_v(:,:,:) = 0._wp
-      ddxn_z_half_e(:,:,:) = 0._wp
-      ddxn_z_half_c(:,:,:) = 0._wp
-    ELSE IF (.false.) THEN
-      ddxt_z_full   = p_metrics%ddxt_z_full
-      ddxt_z_full_c = p_metrics%ddxt_z_full_c
-      ddxt_z_full_v = p_metrics%ddxt_z_full_v
-      ddxt_z_half_e = p_metrics%ddxt_z_half_e
-      ddxt_z_half_v = p_metrics%ddxt_z_half_v
-      ddxt_z_half_c = p_metrics%ddxt_z_half_c
-
-      ddxn_z_full   = p_metrics%ddxn_z_full
-      ddxn_z_full_c = p_metrics%ddxn_z_full_c
-      ddxn_z_full_v = p_metrics%ddxn_z_full_v
-      ddxn_z_half_e = p_metrics%ddxn_z_half_e
-      ddxn_z_half_c = p_metrics%ddxn_z_half_c
-    END IF
+    ! half_v sync
+    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_c))
+    ALLOCATE(ddx(nproma,p_patch%nlevp1,p_patch%nblks_v))
+    ddx_arg(:,:,:) = p_metrics%ddxt_z_half_c(:,:,:)
+    CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
+    CALL sync_patch_array(SYNC_V, p_patch, ddx)
+    p_metrics%ddxt_z_half_v(:,:,:) = ddx(:,:,:)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
   END SUBROUTINE init_vertical_grid_for_les
 

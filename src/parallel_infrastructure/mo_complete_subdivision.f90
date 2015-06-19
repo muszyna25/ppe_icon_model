@@ -207,7 +207,6 @@ CONTAINS
         CALL setup_comm_ubc_interpolation(patch(jg), patch(jgp))
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
-        CALL set_comm_pat_gather(p_patch_local_parent(jg))
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
           &                   patch(jg)%parent_child_index)
@@ -262,7 +261,7 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      DO i=1,p_patch%cell_type
+      DO i=1,p_patch%geometry_info%cell_type
 
 !CDIR IEXPAND
         CALL remap_index(p_patch%cells%decomp_info%glb2loc_index, &
@@ -403,7 +402,7 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      DO i=1,9-p_patch%cell_type
+      DO i=1,9-p_patch%geometry_info%cell_type
 
 !CDIR IEXPAND
         CALL remap_index(p_patch%verts%decomp_info%glb2loc_index, &
@@ -1393,7 +1392,7 @@ CONTAINS
 
       CALL setup_comm_gather_pattern(n_g, owner_local(:), &
         &                            decomp_info%glb_index(:), &
-        &                            comm_pat_gather(ip))
+        &                            comm_pat_gather(ip), .TRUE.)
     END DO
 
     DEALLOCATE(owner_local)

@@ -1795,7 +1795,7 @@ CONTAINS
         p_pd%id              = p_patch(jg)%id
         p_pd%work_pe0_id     = p_patch(jg)%proc0
         p_pd%nlev            = p_patch(jg)%nlev
-        p_pd%cell_type       = p_patch(jg)%cell_type
+        p_pd%cell_type       = p_patch(jg)%geometry_info%cell_type
         p_pd%nblks_glb_c     = (p_patch(jg)%n_patch_cells-1)/nproma + 1
         p_pd%nblks_glb_e     = (p_patch(jg)%n_patch_edges-1)/nproma + 1
         p_pd%nblks_glb_v     = (p_patch(jg)%n_patch_verts-1)/nproma + 1
@@ -2796,7 +2796,8 @@ CONTAINS
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
     REAL(wp), POINTER               :: r_ptr(:,:,:)
-    INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk
+    INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk, &
+      &                                var_ref_pos
     INTEGER(i8)                     :: ioff
     CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'compute_write_var_list'
 
@@ -2857,10 +2858,34 @@ CONTAINS
           ALLOCATE(r_ptr(p_info%used_dimensions(1),1,p_info%used_dimensions(2)), &
             &      STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-          r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,:,nindex,1,1)
+          var_ref_pos = 3
+          IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr(:,1,:) = p_vars(iv)%r_ptr(nindex,:,:,1,1)
+          CASE (2)
+            r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,nindex,:,1,1)
+          CASE (3)
+            r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(SUBNAME, "internal error!")
+          END SELECT
         CASE (3)
           ! copy the pointer
-          r_ptr => p_vars(iv)%r_ptr(:,:,:,nindex,1)
+          var_ref_pos = 4
+          IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr => p_vars(iv)%r_ptr(nindex,:,:,:,1)
+          CASE (2)
+            r_ptr => p_vars(iv)%r_ptr(:,nindex,:,:,1)
+          CASE (3)
+            r_ptr => p_vars(iv)%r_ptr(:,:,nindex,:,1)
+          CASE (4)
+            r_ptr => p_vars(iv)%r_ptr(:,:,:,nindex,1)
+          CASE default
+            CALL finish(SUBNAME, "internal error!")
+          END SELECT
         CASE (4)
           CALL message(subname, p_info%name)
           CALL finish(subname,'4d arrays not handled yet.')

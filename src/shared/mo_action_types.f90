@@ -36,15 +36,17 @@ MODULE mo_action_types
   ! defines single variable specific action
   !
   TYPE t_var_action_element
-    INTEGER                             :: actionID              ! action ID
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start                 ! action start time (duration)
-                                                                 ! [PnYnMnDTnHnMn]
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: end                   ! action end time   (duration)
-                                                                 ! [PnYnMnDTnHnMn]
+    INTEGER                             :: actionTyp             ! Type of action
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start                 ! action start time (TimeStamp)
+                                                                 ! [YYYY-MM-DDThh:mm:ss]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: end                   ! action end time   (TimeStamp)
+                                                                 ! [YYYY-MM-DDThh:mm:ss]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: ref                   ! action reference time (TimeStamp)
+                                                                 ! [YYYY-MM-DDThh:mm:ss]
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: intvl                 ! action interval (duration)
                                                                  ! [PnYnMnDTnHnMn]
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: lastActive            ! date of last triggering
-                                                                 ! [YYY-MM-DDThh:mm:ss]
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: lastActive            ! date of last triggering (TimeStamp)
+                                                                 ! [YYYY-MM-DDThh:mm:ss]
     TYPE(datetime)                      :: EventLastTriggerDate  ! last intended trigger date.
                                                                ! Differs from lastActive in the sense 
                                                                ! that it is the intended trigger date, whereas 

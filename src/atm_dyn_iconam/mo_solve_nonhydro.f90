@@ -500,14 +500,10 @@ MODULE mo_solve_nonhydro
             z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
             z_rth_pr(2,jc,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
-            ! perturbation virtual potential temperature at main levels (needed in both substeps - see branch below)
-            z_theta_v_pr_mc_m1 = z_rth_pr(2,jc,jk-1,jb)
-            z_theta_v_pr_mc   = z_rth_pr(2,jc,jk,jb)
-
             ! perturbation virtual potential temperature at interface levels
             z_theta_v_pr_ic(jc,jk) = &
-              p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_v_pr_mc +       &
-              (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc_m1
+              p_nh%metrics%wgtfac_c(jc,jk,jb)*z_rth_pr(2,jc,jk,jb) +       &
+              (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_rth_pr(2,jc,jk-1,jb)
 
             ! virtual potential temperature at interface levels
             p_nh%diag%theta_v_ic(jc,jk,jb) = &
@@ -854,7 +850,7 @@ MODULE mo_solve_nonhydro
                   dtime * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*           &
                  (p_nh%prog(nnow)%rho(icidx(je,jb,2),jk,icblk(je,jb,2)) -                                    &
                   p_nh%prog(nnow)%rho(icidx(je,jb,1),jk,icblk(je,jb,1)) ) + p_nh%diag%vt(je,jk,jb) *         &
-                  p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%system_orientation(je,jb) *    &
+                  p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%tangent_orientation(je,jb) *    &
                  (z_rho_v(ividx(je,jb,2),jk,ivblk(je,jb,2)) - z_rho_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) ) )
 
                 z_theta_v_e(je,jk,jb) =                                                                          &
@@ -863,7 +859,7 @@ MODULE mo_solve_nonhydro
                   dtime * (p_nh%prog(nnow)%vn(je,jk,jb)*p_patch%edges%inv_dual_edge_length(je,jb)*               &
                  (p_nh%prog(nnow)%theta_v(icidx(je,jb,2),jk,icblk(je,jb,2)) -                                    &
                   p_nh%prog(nnow)%theta_v(icidx(je,jb,1),jk,icblk(je,jb,1)) ) + p_nh%diag%vt(je,jk,jb) *         &
-                  p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%system_orientation(je,jb) *        &
+                  p_patch%edges%inv_primal_edge_length(je,jb) * p_patch%edges%tangent_orientation(je,jb) *        &
                  (z_theta_v_v(ividx(je,jb,2),jk,ivblk(je,jb,2)) - z_theta_v_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) ))
 
               ENDDO ! loop over edges
@@ -2222,7 +2218,7 @@ MODULE mo_solve_nonhydro
         ENDIF
 
       ENDDO
-!OMP END DO
+!$OMP END DO
 
     ENDIF
 

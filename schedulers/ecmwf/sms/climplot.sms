@@ -44,7 +44,7 @@ cd ${EXPDIR}
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
-dirscripts=%ECPERM%/icon-dev/scripts/postprocessing/climplot
+dirscripts=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/climplot
 cp -f $dirscripts/climplot_batch .
 chmod a+x climplot_batch
 #cp $dirscripts/dates.met .
@@ -70,14 +70,15 @@ LEVELS=91
 INIDATE1=%TIME_LIST%
 BASETIME=%YMD%%INIHOUR%
 FCLENGTH=%FCLENGTH%
-PLOT_OPT=011
+#PLOT_OPT=0101
+PLOT_OPT=0010
 #-----------------------------------------------------------------------------
 # setup
 
 EXPVER=%SUITE%_%EXPNUM%
 VERFEXP1=%SUITE%_%EXPNUM%
-#VERFEXP2=%SUITE2%_%EXPNUM2%
-VERFEXP2=fycq
+VERFEXP2=%SUITE2%_%EXPNUM2%
+#VERFEXP2=fycq
 
 exp=${EXPVER}
 ##  if [[ $FSFAMILY = "/climplot" ]] ; then
@@ -161,7 +162,7 @@ dayl=24
 ##  # First guess plots: (after first simulation of each ensemble)
 ##  # ---------------------------------------------------------------
 ##  
-###      PLOT_OPT=010
+###      PLOT_OPT=0100
 ##  
 ##      nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
 ##    # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
@@ -208,7 +209,7 @@ while (( ${i}+1 <= ${#INIDATE1[*]} )) ; do
 
 #FCLENGTH=3216    # forecast length in hours it is really 3168
 
-###      PLOT_OPT=011
+###      PLOT_OPT=0101
       nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
     # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
       if (( %PLOTPERIOD% <= ${nperiods} )) ; then
@@ -219,7 +220,7 @@ while (( ${i}+1 <= ${#INIDATE1[*]} )) ; do
                               -m $lclimatoplot -t %TASK% -x %PLOTPERIOD% -i $timestr -v $lclassan \
                               -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif -w $lwavfreq \
                               -g $lvdspect -q $lzonnoml
-    fi
+      fi
 
 # -----------------------------------------------------------
 
