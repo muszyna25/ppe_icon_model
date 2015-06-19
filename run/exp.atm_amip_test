@@ -137,7 +137,7 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 2: horizontally and vertically constant
  irad_cfc12       = 4           ! 2: horizontally and vertically constant
- irad_aero        = 14          ! 0: no aerosol
+ irad_aero        = 15          ! 0: no aerosol
                                 !13: only Kinne's tropospheric aerosols 
                                 !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere

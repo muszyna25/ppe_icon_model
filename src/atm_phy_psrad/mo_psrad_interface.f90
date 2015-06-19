@@ -380,13 +380,11 @@ CONTAINS
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
 
-!baustelle+
-!!$      CALL rad_aero_diag (                                  &
-!!$      & jg              ,krow            ,kproma          , &
-!!$      & kbdim           ,klev            ,nbndlw          , &
-!!$      & nb_sw           ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
-!!$      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
-!baustelle-
+      CALL rad_aero_diag (                                  &
+      & jg              ,krow            ,kproma          , &
+      & kbdim           ,klev            ,nbndlw          , &
+      & nb_sw           ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
+      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
 
     CALL cloud_optics(                                                  &
          & laglac        ,laland        ,kproma        ,kbdim          ,& 
