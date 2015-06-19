@@ -68,13 +68,13 @@ MODULE mo_latitude_interpolation
     inmw2_lat(1:kproma)=inmw1_lat(1:kproma)+1
     wgt2_lat(1:kproma)=n_order*(zlat(1:kproma)-r_lat_clim(inmw1_lat(1:kproma)))*p_rdeltalat
     wgt1_lat(1:kproma)=1.0_wp-wgt2_lat(1:kproma)
-    write(0,*) '++++++++++++++++++++++++++++++'
-    write(0,*) 'latitudes=',MAXVAL(zlat(1:kproma))
-    write(0,*) 'p_lat_shift=',p_lat_shift, 'p_rdeltalat=',p_rdeltalat,'r_lat_clim=',r_lat_clim
-    DO jl=1,kproma
-      write(0,*) zlat(jl),inmw1_lat(jl),inmw2_lat(jl),wgt1_lat(jl),wgt2_lat(jl)
-    END DO
-    write(0,*) '++++++++++++++++++++++++++++++'
+!!$    write(0,*) '++++++++++++++++++++++++++++++'
+!!$    write(0,*) 'latitudes=',MAXVAL(zlat(1:kproma))
+!!$    write(0,*) 'p_lat_shift=',p_lat_shift, 'p_rdeltalat=',p_rdeltalat,'r_lat_clim=',r_lat_clim
+!!$    DO jl=1,kproma
+!!$      write(0,*) zlat(jl),inmw1_lat(jl),inmw2_lat(jl),wgt1_lat(jl),wgt2_lat(jl)
+!!$    END DO
+!!$    write(0,*) '++++++++++++++++++++++++++++++'
   END SUBROUTINE latitude_weights_li
 
 END MODULE mo_latitude_interpolation
