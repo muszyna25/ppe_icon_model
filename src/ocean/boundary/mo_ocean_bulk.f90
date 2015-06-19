@@ -2023,7 +2023,7 @@ CONTAINS
           south_bound = (basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad
           length      = basin_height_deg * deg2rad
           max_flux_y  = length - no_flux_length
-          zonal_waveno =  3.0_wp
+          zonal_waveno =  2.5_wp
           amplitude    = forcing_HeatFlux_amplitude
 
           DO jb = all_cells%start_block, all_cells%end_block

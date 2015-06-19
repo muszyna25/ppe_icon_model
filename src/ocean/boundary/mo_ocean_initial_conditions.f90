@@ -598,7 +598,7 @@ CONTAINS
         & BaseTemperature=initial_temperature_top * 0.5_wp, &
         & VariationAmplitude=initial_temperature_south, &
         & VariationLength = basin_height_deg * deg2rad, &
-        & VariationWaveNo=3.0_wp, &
+        & VariationWaveNo=2.5_wp, &
         & NorthTemperature=initial_temperature_north, &
         & NorthLat=(basin_center_lat + 0.5_wp * basin_height_deg - relax_width) * deg2rad, &
         & SouthLat=(basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad)
