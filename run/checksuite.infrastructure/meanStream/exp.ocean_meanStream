@@ -1,119 +1,52 @@
-#!/bin/ksh
+#!/bin/bash
 #=============================================================================
-#
-# This section of the run script containes the specifications of the ocean experiment.
-# The specifications are passed by namelist to the program.
-# For a complete list see Namelist_overview.pdf
-#
-# Default EXPNAME is the suffix of this script after "exp."
-#
-#-----------------------------------------------------------------------------
-# Basic specifications for the hydrostatic ocean model
-# --------------------------------------
-# Stephan Lorenz, MPI-M, 2011-01 / 2012-03
-#
-#-----------------------------------------------------------------------------
-#
-# The following information is included to present some information on the buildbot-html main page
-#
-# _bb_table_Description_  unforced flat bottom aqua planet
-# _bb_table_Model_        ocean
-# _bb_table_Grid_         triangle
-#-----------------------------------------------------------------------------
-#
-# These variables are set in the header section of the completed run script:
-#
-# EXPNAME = experiment name
-# NPROMA  = array blocking length / inner loop length
-#-----------------------------------------------------------------------------
-# The following values must be set here as shell variables so that they can be used
-# also in the executing section of the completed run script
-#
 #-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
-# prognostic ocean initialization file must match the vertical levels
-# provide name suffix for vertical resolution
-# number of levels and thickness of surface and bottom layer
-#init_oce_suff='L10_50-1000m.nc'  # 10 levels, 10-1000m varying thickness
-#init_oce_suff='L10x500m.nc'      # 10 levels, 500m each
-#   ts_phc_annual-iconR${R}B0{B}-${init_oce_suff}
-#
-#-----------------------------------------------------------------------------
-# surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
-init_relax=0   # 1: use relaxation initialization file
-# provide name suffix for thickness of surface layer
-#   number of levels and thickness of surface and bottom layer
-#init_rel_suff='50m.nc'  # 50m thickness
-#init_rel_suff='20m.nc'  # 20m thickness
-#   ts_surf_annual-iconR${R}B0{B}-${init_rel_suff}
-#
-#-----------------------------------------------------------------------------
-# ocean forcing (iforc=12) needs an additional flux file 
-# NO_FORCING                 = 10
-# ANALYT_FORC                = 11  - dependent on testcase
-# FORCING_FROM_FILE_FLUX     = 12  - OMIP or NCEP type forcing
-# FORCING_FROM_FILE_FIELD    = 13  - not yet
-# FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
-# FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=10
-#
-# type of OMIP or NCEP forcing to read (iforc=12 only)
-#  1 = u/v-stress [and temperature relaxation, depending on "type_surfRelax_Temp" below]
-#  2 = use all 12 datasets of full OMIP forcing
-#  3 = u/v-stress [and temperature relaxation], heat and mass flux
-#  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
-iforc_type=1
-forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by forcing_timescale
-#   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
-#   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
-#
-#-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-01T01:00:00Z"
+  end_date="2001-01-01T04:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-output_interval="PT02H"
-steps_per_file=9999
+((  hours_checkp   =24  ))  # write restart file interval [days]
+(( years_restart     = 25 ))    # stop model for restart [days]
+(( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
-# model parameters
-ocean_model_equations=-1     # equation system: -1=hydrost. ocean
-#
+# calculate model timesteps using $days_data
+leading_zero=""
+if [[ $days_data -lt 10 ]] ; then leading_zero="0"; fi
+output_interval="P$leading_zero${days_data}D"     # ocean model output interval in days
+output_interval="PT01H"
+output_interval_mean="PT02H"
+output_interval_mean_long="PT04H"
+(( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
+(( dt_checkpoint  = hours_checkp  * hour ))
+(( dt_restart     = years_restart     * year ))
+(( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
+#steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
-#
-LOC='none'
-# grids_folder=/pool/data/ICON/grids/private/leonidas/grids.ocean
-# ocean_grids="iconR2B04-ocean_etopo40_planet_m-no_inland.nc"
-# ocean_grids="iconR2B04-ocean_etopo40_planet_m-noland.nc"
-# ocean_grids="iconR2B04-ocean_etopo40_planet_m-no_vertex_inland.nc"
-#
-#grids_folder=""
-#ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
-grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
-ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
-
+# global resolution
+iforc=12
+forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+init_relax=1
+ocean_vertical_levels=40
+ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
+#grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
 # -------------------------
-# For a complete list see Namelist_overview.pdf
-#
 cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma       = ${nproma}
  l_fast_sum   = .false.
- p_test_run   = .true.
- l_test_openmp= .true.
- l_log_checks=  .false.
- division_method = 102
+! p_test_run   = .true.
+! l_test_openmp= .true.
+! l_log_checks=  .false.
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -121,7 +54,7 @@ cat > ${ocean_namelist} << EOF
  use_duplicated_connectivity = .false.
 /
 &dynamics_nml
- iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
+ iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
  dtime       = 3600
@@ -131,31 +64,42 @@ cat > ${ocean_namelist} << EOF
  ! msg_timestamp        = .TRUE.
 /
 &output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_splot"
+  output_filename  = "${EXPNAME}_spot_1h"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}                ! error with ""
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  include_last     = .false.
+  include_last     = .true.
   output_grid      = .TRUE.
-  ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'u','v'
 /
 &output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean"
+  output_filename  = "${EXPNAME}_mean_2h"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${output_interval}"
+  output_interval  = "${output_interval_mean}"
   steps_per_file   = ${steps_per_file}                ! error with ""
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  include_last     = .false.
+  include_last     = .true.
   operation        = "mean"
   output_grid      = .TRUE.
-  ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'u','v'
+/
+&output_nml
+  output_filename  = "${EXPNAME}_mean_4h"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${output_interval_mean_long}"
+  steps_per_file   = ${steps_per_file}                ! error with ""
+  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .true.
+  operation        = "mean"
+  output_grid      = .TRUE.
+  ml_varlist       =  'u','v'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -190,22 +134,30 @@ cat > ${ocean_namelist} << EOF
   fast_performance_level = 50
 /
 &ocean_tracer_transport_nml
- !no_tracer                               =  2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
- ! FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
- ! FLUX_CALCULATION_VERT  = 7      ! 7=upwind biased ppm
+! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+! FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
+! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
+  ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
+  fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
+  fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1
+  threshold_min_T       = -4.0   ! to avoid abort
 /
 &ocean_diffusion_nml
-  !k_veloc_h                          = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
-  HORZ_VELOC_DIFF_TYPE = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_v                            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC   = 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h                    = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v                    = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                                = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v                                = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for salinity
-  MAX_VERT_DIFF_TRAC     = 0.1           ! max vertical tracer diffusion for convection used in case of instability
-  !veloc_diffusion_order      = 1             ! 1=harmonic, 2=biharmonic friction
-  !veloc_diffusion_form       = 1             ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
+  HORZ_VELOC_DIFF_TYPE            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
+  biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
+  k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
+  k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v                         =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
+! convection_InstabilityThreshold =  -5.0E-5  ! used in update_ho_params - default=-5e-8
+! RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
+  k_tracer_GM_kappa_parameter     = 600.0     !
+  k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_dianeutral_parameter   =   1.0E-5  !
 /
 &ocean_physics_nml
   !i_sea_ice                =    1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
