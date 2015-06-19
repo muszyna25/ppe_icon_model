@@ -30,6 +30,7 @@ MODULE mo_nh_stepping
 !
 
   USE mo_kind,                     ONLY: wp, vp, i8
+  USE mo_io_units
   USE mo_nonhydro_state,           ONLY: p_nh_state, p_nh_state_lists
   USE mo_nonhydrostatic_config,    ONLY: lhdiff_rcf, itime_scheme, nest_substeps, divdamp_order,      &
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
@@ -703,6 +704,7 @@ MODULE mo_nh_stepping
     IF (lprint_timestep) THEN
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+
       mtime_date     => newDatetime(mtime_cur_datetime)
       ! compute current forecast time (delta):
       CALL get_datetime_string(mtime_sim_start, time_config%ini_datetime)
@@ -712,17 +714,27 @@ MODULE mo_nh_stepping
       ! we append the forecast time delta as an ISO 8601 conforming
       ! string (where, for convenience, the 'T' token has been
       ! replaced by a blank character)
-      WRITE (forecast_delta_str,'(4(i2.2,a))') forecast_delta%day, ' D ',   &
-           &                                   forecast_delta%hour, 'H',   &
-           &                                   forecast_delta%minute, 'M', &
-           &                                   forecast_delta%second, 'S'
+      IF (forecast_delta%ms /= 0) THEN
+        WRITE (forecast_delta_str,'(4(i2.2,a),i3.3,a)') &
+             &                                   forecast_delta%day, ' D ',  &
+             &                                   forecast_delta%hour, 'H',   &
+             &                                   forecast_delta%minute, 'M', &
+             &                                   forecast_delta%second, '.', &
+             &                                   forecast_delta%ms, 'S'
+      ELSE
+        WRITE (forecast_delta_str,'(4(i2.2,a))') &
+             &                                   forecast_delta%day, ' D ',  &
+             &                                   forecast_delta%hour, 'H',   &
+             &                                   forecast_delta%minute, 'M', &
+             &                                   forecast_delta%second, 'S'
+      ENDIF
 !LK--
       CALL message('','')
       IF (iforcing == inwp) THEN
-        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2,a,a)') 'Time step: ', jstep, ' model time ',        &
-             &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
-             &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second,  &
-             &             ' forecast time ', TRIM(forecast_delta_str)
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ' model time ',            &
+             &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ',     &    
+             &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second, '.', &
+             &             mtime_date%time%ms, ' forecast time ', TRIM(forecast_delta_str)
       ELSE
         WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time ',             &
              &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
