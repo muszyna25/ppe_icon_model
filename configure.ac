@@ -980,7 +980,7 @@ AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
-ac_libs="${ac_libs} -lmtime"
+ac_libs="${ac_libs} -lmtime -lself"
 
 AC_SUBST(LIB,$ac_libs)
 

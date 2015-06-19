@@ -6239,7 +6239,7 @@ FlibFLAGS=$FlibFLAGS
 F77FLAGS=$F77FLAGS
 
 
-ac_libs="${ac_libs} -lmtime"
+ac_libs="${ac_libs} -lmtime -lself"
 
 LIB=$ac_libs
 

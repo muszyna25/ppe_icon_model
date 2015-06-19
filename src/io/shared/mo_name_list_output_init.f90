@@ -147,6 +147,9 @@ MODULE mo_name_list_output_init
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
+  USE self_vector
+  USE self_map
+  USE self_assert
 
 #ifndef __NO_ICON_ATMO__
   USE mo_vertical_coord_table,              ONLY: vct
@@ -952,6 +955,10 @@ CONTAINS
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
     TYPE (t_output_name_list), POINTER      :: p_onl
 
+    type(map) :: meanMap
+    type(vector) :: meanVariables
+
+
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
     ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
@@ -961,6 +968,7 @@ CONTAINS
     ! -- loop over all output namelists
     p_onl => first_output_name_list
     
+
     DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT
       IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
@@ -983,8 +991,17 @@ CONTAINS
    
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
+
+          IF (i_typ == level_type_ml) THEN
+            meanVariables = vector()
+            call meanVariables%add_list(varlist(1:nvars))
+            call print_aqua('collected variables:')
+            call meanVariables%print()
+          END IF
+
         END DO
       END IF
+      ! 
       p_onl => p_onl%next
     END DO
     !
