@@ -225,6 +225,7 @@ MODULE mo_echam_phy_memory
       & sh_vdiff (:,  :),   &!< sensible heat flux of vdiff
       & qv_vdiff (:,  :),   &!< qv flux of vdiff
       & ch_concloud (:,  :),&!< condensational heating, convection, large scale clouds
+      & cw_concloud (:,  :),&!< condensational moistening, convection, large scale clouds
       & con_dtrl (:,  :),   &!< detrainment of liquid from convection
       & con_dtri (:,  :),   &!< detrainment of ice from convection 
       & con_iteqv (:,  :),  &!< v. int. tendency of water vapor within convection
@@ -1406,6 +1407,10 @@ CONTAINS
        cf_desc    = t_cf_var('ch_concloud','J m-2 s-1', '', DATATYPE_FLT32)
        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
        CALL add_var( field_list, prefix//'ch_concloud', field%ch_concloud,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('cw_concloud','J/m^2/s', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'cw_concloud', field%cw_concloud,       &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
        cf_desc    = t_cf_var('con_dtrl','?', '', DATATYPE_FLT32)
        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
