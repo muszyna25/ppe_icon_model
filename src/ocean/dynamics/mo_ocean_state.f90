@@ -1315,8 +1315,8 @@ CONTAINS
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', DATATYPE_FLT32),&
         & grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp 
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
+!       ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp 
     END IF
     IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
       CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_state_aux%data_3dimRelax_Salt,&

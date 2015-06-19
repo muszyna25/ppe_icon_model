@@ -62,7 +62,8 @@ USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical
   &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
   &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
   &                               limit_elevation, l_relaxsal_ice, initial_temperature_type, &
-  & relax_width
+  & relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base
+
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -2018,13 +2019,12 @@ CONTAINS
 
         IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
 
-          no_flux_length = 3.0_wp * relax_width * deg2rad
+          no_flux_length = 2.0_wp * relax_width * deg2rad
           south_bound = (basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad
           length      = basin_height_deg * deg2rad
           max_flux_y  = length - no_flux_length
-          
           zonal_waveno =  3.0_wp
-          amplitude    = 12.0_wp
+          amplitude    = forcing_HeatFlux_amplitude
 
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
@@ -2037,7 +2037,8 @@ CONTAINS
               IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary .AND. z_lat < max_flux_y) THEN
 
                 atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) = &
-                  & -amplitude * COS(zonal_waveno * pi * z_lat/length) - 4.0_wp
+                  & - amplitude * COS(zonal_waveno * pi * z_lat/max_flux_y) &
+                  & + forcing_HeatFlux_base
 
               ENDIF
             END DO

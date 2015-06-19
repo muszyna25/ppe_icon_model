@@ -593,10 +593,10 @@ CONTAINS
       !& decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
 
     CASE (221)
-      ! Abernathey setup 01
+      ! Abernathey setup 01; initial SST reflects the heat fluxes
       CALL SST_Abernathey_01(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
         & BaseTemperature=initial_temperature_top * 0.5_wp, &
-        & VariationAmplitude=(initial_temperature_top * 0.5_wp - initial_temperature_bottom) * 0.95_wp, &
+        & VariationAmplitude=initial_temperature_south, &
         & VariationLength = basin_height_deg * deg2rad, &
         & VariationWaveNo=3.0_wp, &
         & NorthTemperature=initial_temperature_north, &
@@ -606,6 +606,12 @@ CONTAINS
       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
         &                                    initial_temperature_scale_depth)
 
+    CASE (222)
+      ! Abernathey setup 02; initial SST ls linear
+      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+
+      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+        &                                    initial_temperature_scale_depth)
       
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
@@ -2019,9 +2025,11 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: y_lat
               
+    CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+
+    ! add a perturbation analogous to the forcing
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%all
-    
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
@@ -2032,7 +2040,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
           y_lat = patch_2d%cells%center(jc,jb)%lat - SouthLat
 
           ocean_temperature(jc,1,jb) = &
-            & BaseTemperature - VariationAmplitude * COS(VariationWaveNo * pi * y_lat/VariationLength)
+            & ocean_temperature(jc,1,jb) - VariationAmplitude * COS(VariationWaveNo * pi * y_lat/VariationLength)
 
         ENDIF
       END DO
