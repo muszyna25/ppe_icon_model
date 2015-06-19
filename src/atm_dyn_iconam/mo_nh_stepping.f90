@@ -704,7 +704,6 @@ MODULE mo_nh_stepping
     IF (lprint_timestep) THEN
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-
       mtime_date     => newDatetime(mtime_cur_datetime)
       ! compute current forecast time (delta):
       CALL get_datetime_string(mtime_sim_start, time_config%ini_datetime)
