@@ -566,7 +566,7 @@ CONTAINS
 #else
     field_shape(3) = 2
     CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -590,7 +590,7 @@ CONTAINS
     IF ( info > 1 ) write_coupler_restart = .TRUE.
 #else
     CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -625,7 +625,7 @@ CONTAINS
 #else
     field_shape(3)  = 3
     CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_cells,1:3), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -648,7 +648,7 @@ CONTAINS
 #else
     field_shape(3) = 1
     CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -677,7 +677,7 @@ CONTAINS
 #else
     field_shape(3)  = 4
     CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -706,7 +706,7 @@ CONTAINS
 #else
     field_shape(3)  = 4
     CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -760,7 +760,7 @@ CONTAINS
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is put for restart"
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -788,7 +788,7 @@ CONTAINS
     if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
 #else
     CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is put for restart"
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -817,7 +817,7 @@ CONTAINS
 #else
     field_shape(3) = 5
     CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
-    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is put for restart"
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !

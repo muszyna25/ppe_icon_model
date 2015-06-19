@@ -618,7 +618,7 @@ CONTAINS
 #else
     field_shape(3) = 5
     CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
