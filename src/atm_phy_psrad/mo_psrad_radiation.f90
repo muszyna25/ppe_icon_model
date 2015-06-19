@@ -639,9 +639,9 @@ MODULE mo_psrad_radiation
 !!$      !
 !!$      ! --- Check aerosol
 !!$      ! 
-      SELECT CASE (iaero)
-      CASE(0)
-        CALL message('','irad_aero= 0 --> no aerosol in radiation')
+!!$      SELECT CASE (iaero)
+!!$      CASE(0)
+!!$        CALL message('','irad_aero= 0 --> no aerosol in radiation')
 !!$      CASE(1)
 !!$        CALL message('','iaero= 1 --> prognostic aerosol (sub model)')
 !!$      CASE(3)
@@ -662,12 +662,12 @@ MODULE mo_psrad_radiation
 !!$        CALL su_aero_kinne(nb_sw)
 !!$        CALL su_aero_prop_crow
 !!$        CALL read_aero_volc_tables
-      CASE default
-        WRITE (message_text, '(a,i2,a)') &
-             'irad_aero=', iaero, ' in radctl namelist is not supported'
-        CALL message('',message_text)
-        CALL finish('setup_psrad_radiation','Run terminated irad_aero')
-      END SELECT
+!!$      CASE default
+!!$        WRITE (message_text, '(a,i2,a)') &
+!!$             'irad_aero=', iaero, ' in radctl namelist is not supported'
+!!$        CALL message('',message_text)
+!!$        CALL finish('setup_psrad_radiation','Run terminated irad_aero')
+!!$      END SELECT
       !
       ! --- Check annual cycle
       ! 
@@ -991,7 +991,7 @@ MODULE mo_psrad_radiation
       iaero_call = iaero
       IF (i_rad_call < number_rad_call) iaero_call = 0
 
-      CALL psrad_interface( &
+      CALL psrad_interface( jg,       &
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
            & jb              ,ktrac           ,ktype           ,nb_sw           ,&
            & loland          ,loglac          ,cemiss          ,cos_mu0         ,&

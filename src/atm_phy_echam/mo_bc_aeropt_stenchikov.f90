@@ -29,6 +29,9 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
+!baustelle+
+  USE mo_echam_phy_memory,     ONLY: prm_field  
+!baustelle-
 
   IMPLICIT NONE
 
@@ -183,7 +186,8 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
 ! !LOCAL VARIABLES
   
   INTEGER, PARAMETER                    :: norder=-1 ! latitudes in climatology order from N->S
-  INTEGER, PARAMETER                    :: nm1=1, nm2=2 ! there are only two months stored
+  INTEGER, PARAMETER                    :: nm1=1, nm2=2 ! there are only two months of a year
+                                                        ! stored in the field (saves memory)
   INTEGER                               :: jl,jk,jki,jwl
   INTEGER                               :: idx_lat_1, idx_lat_2, idx_lev
   REAL(wp)                              :: w1_lat, w2_lat
@@ -218,6 +222,18 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
                         & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat     &
                         & ,inmw2_lat           ,p_lat_shift      ,p_rdeltalat   &
                         & ,r_lat_clim           ,lat_clim         ,norder        )
+!baustelle+
+      prm_field(jg)%aer_ssa_533 (1:kproma,1,krow) = &
+                   wgt1_lat(1:kproma)
+      prm_field(jg)%aer_ssa_533 (1:kproma,2,krow) = &
+                   wgt2_lat(1:kproma)
+      prm_field(jg)%aer_ssa_533 (1:kproma,3,krow) = &
+                   REAL(inmw1_lat(1:kproma))
+      prm_field(jg)%aer_ssa_533 (1:kproma,4,krow) = &
+                   REAL(inmw2_lat(1:kproma))
+      prm_field(jg)%aer_ssa_533 (1:kproma,5,krow) = &
+                   wgt1_lat(1:kproma)*REAL(inmw1_lat(1:kproma))+wgt2_lat(1:kproma)*REAL(inmw2_lat(1:kproma))
+!baustelle-
 ! 2. Solar radiation
 ! 2.1 interpolate optical properties solar radiation
   DO jwl=1,nb_sw
@@ -228,10 +244,14 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
+!baustelle+
            zext_s(jl,jk,jwl)=wi%wgt1*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
                              wi%wgt2*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm2))
+!!$           zext_s(jl,jk,jwl)=wi%wgt1*(w1_lat*REAL(idx_lat_1)+ &
+!!$                                     w2_lat*REAL(idx_lat_2))
+!baustelle-
            zomg_s(jl,jk,jwl)=wi%wgt1*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
                              wi%wgt2*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
@@ -255,6 +275,10 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
                                w2_lat*aod_v_s(jwl,idx_lat_2,nm2))
      END DO
   END DO
+!baustelle+
+      prm_field(jg)%aer_ssa_533 (1:kproma,6,krow) = &
+                   zaod_s(1:kproma,10)
+!baustelle-
 ! 2.2 normalize zext to the correct total optical depth
 !     the normalization factor generally depends on the wavelength if
 !     the ratios of the extinction at different wavelengths are not 
@@ -262,6 +286,10 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
 !     depends on height, this leads to different ratios of the extinction
 !     between two given wavelengths at different heights.
   zext_s_int(1:kproma,1:nb_sw)=0._wp
+!baustelle+
+      prm_field(jg)%aer_aod_533 (1:kproma,:,krow) = &
+           zext_s(1:kproma,:,10)
+!baustelle-
   DO jwl=1,nb_sw
      DO jk=1,klev
         zext_s_int(1:kproma,jwl)=zext_s_int(1:kproma,jwl) + &
@@ -280,6 +308,18 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
              zdeltag(1:kproma,jk)*zfact_s(1:kproma,jwl)
      END DO
   END DO
+!baustelle+
+      prm_field(jg)%aer_ssa_533 (1:kproma,7,krow) = &
+                   SUM(zdeltag(1:kproma,1:klev))
+      prm_field(jg)%aer_ssa_533 (1:kproma,8,krow) = &
+           zfact_s(1:kproma,10)
+      prm_field(jg)%aer_ssa_533 (1:kproma,9,krow) = &
+           zext_s_int(1:kproma,10)
+      prm_field(jg)%aer_asy_533 (1:kproma,:,krow) = &
+           zdeltag(1:kproma,:)
+      prm_field(jg)%aer_aod_2325 (1:kproma,:,krow) = &
+           zext_s(1:kproma,:,10)
+!baustelle-
 ! 2.3 add optical parameters to the optical parameters of aerosols
 !     inverse height profile
   DO jk=1,klev

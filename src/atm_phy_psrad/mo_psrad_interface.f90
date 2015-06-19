@@ -5,7 +5,7 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-module mo_psrad_interface
+MODULE MO_PSRAD_INTERFACE
   USE mo_kind,            ONLY: wp
   USE mo_physical_constants, ONLY: grav, rd, avo,                               &
        &                        amco2, amch4, amn2o, amo3, amo2, amd, amw
@@ -13,7 +13,8 @@ module mo_psrad_interface
   USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
   USE mo_rrtm_params,     ONLY: maxxsec, maxinpx, nbndsw, nbndlw
   USE mo_psrad_cloud_optics,    ONLY: cloud_optics
-!!$  USE mo_aero_kinne,      ONLY: set_aop_kinne  
+  USE mo_bc_aeropt_kinne,       ONLY: set_bc_aeropt_kinne  
+  USE mo_bc_aeropt_stenchikov,  ONLY: add_bc_aeropt_stenchikov 
 !!$  USE mo_aero_volc,       ONLY: add_aop_volc
 !!$  USE mo_aero_volc_tab,   ONLY: add_aop_volc_ham, add_aop_volc_crow
 !!$  USE mo_lrtm_setup,      ONLY: lrtm_setup
@@ -31,6 +32,7 @@ module mo_psrad_interface
 !!$                                cisccp_cldtau3d, cisccp_cldemi3d
   USE mo_psrad_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
   USE mo_random_numbers,  ONLY: seed_size_random
+  USE mo_rad_diag,             ONLY: rad_aero_diag
 
   IMPLICIT NONE
   PUBLIC :: setup_psrad, psrad_interface, & 
@@ -88,7 +90,7 @@ CONTAINS
   !!    index = 7 => O2
   !
 
-  SUBROUTINE psrad_interface( &
+  SUBROUTINE psrad_interface( jg,          &
        & iaero           ,kproma          ,kbdim           ,klev            ,&
        & krow            ,ktrac           ,ktype           ,nb_sw           ,&
        & laland          ,laglac          ,cemiss          ,pmu0            ,&
@@ -104,6 +106,7 @@ CONTAINS
        & par_dff_frc                                                         )
 
     INTEGER,INTENT(IN)  ::             &
+         jg,                           & !< domain index
          iaero,                        & !< aerosol control
          kproma,                       & !< number of longitudes
          kbdim,                        & !< first dimension of 2-d arrays
@@ -331,64 +334,59 @@ CONTAINS
     ! --------------------------------
     ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
 
-    SELECT CASE (iaero)
-    CASE (0)
+! IF (aero == ...) THEN
+! iaero=0: No aerosol
+! iaero=13: only tropospheric Kinne aerosols
+! iaero=14: only Stenchikov's volcanic aerosols
+! iaero=15: tropospheric Kinne aerosols + volcanic Stenchikov's aerosols
+    IF (iaero==0 .OR. iaero==14) THEN
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
-      aer_piz_sw_vr(:,:,:) = 0.0_wp
+      aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-!!$    CASE (3)
-!!$      CALL set_aop_kinne( &
-!!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
-!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$           & tk_fl            ,pgeom1 )
-!!$    CASE (5)
-!!$      CALL set_aop_kinne( &
-!!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
-!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$           & tk_fl            ,pgeom1 )
-!!$      CALL add_aop_volc( &
-!!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
-!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$           & tk_fl )
-!!$    CASE (6)
-!!$      CALL set_aop_kinne( &
-!!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
-!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$           & tk_fl            ,pgeom1 )
-!!$      CALL add_aop_volc( &
-!!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
-!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$           & tk_fl )
+    END IF
+    IF (iaero==13 .OR. iaero==15) THEN
+! iaero=13: only Kinne aerosols are used
+! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
+      CALL set_bc_aeropt_kinne( jg                                     ,&
+           & kproma           ,kbdim                 ,klev             ,&
+           & krow             ,nbndlw                ,nb_sw            ,&
+           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+           & tk_fl                                                      )
+    END IF
+    IF (iaero==14 .OR. iaero==15) THEN
+! iaero=14: only Stechnikov's volcanic aerosols are used (added to zero)
+! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
+      CALL add_bc_aeropt_stenchikov( jg                                ,&
+           & kproma           ,kbdim                 ,klev             ,&
+           & krow             ,nbndlw                ,nb_sw            ,&
+           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+           & tk_fl                                                      )
+   END IF
+!!$    IF (iaero==16) THEN
 !!$      CALL add_aop_volc_ham( &
 !!$           & kproma           ,kbdim                 ,klev             ,&
 !!$           & krow             ,nbndlw                ,nb_sw            ,&
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
-!!$    CASE (7)
-!!$      CALL set_aop_kinne( &
-!!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
-!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$           & tk_fl            ,pgeom1 )
+!!$    END IF
+!!$    IF (iaero==17) THEN
 !!$      CALL add_aop_volc_crow( &
 !!$           & kproma           ,kbdim                 ,klev             ,&
 !!$           & krow             ,nbndlw                ,nb_sw            ,&
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
-    CASE DEFAULT
-    END SELECT
+!!$    END IF
+
+!baustelle+
+!!$      CALL rad_aero_diag (                                  &
+!!$      & jg              ,krow            ,kproma          , &
+!!$      & kbdim           ,klev            ,nbndlw          , &
+!!$      & nb_sw           ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
+!!$      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
+!baustelle-
 
     CALL cloud_optics(                                                  &
          & laglac        ,laland        ,kproma        ,kbdim          ,& 
@@ -490,4 +488,4 @@ CONTAINS
 !!$    IF (lanysubmodel)  CALL radiation_subm_2(kproma, kbdim, krow, klev, ktrac, iaero, pxtm1)
 !!$
   END SUBROUTINE psrad_interface
-end module mo_psrad_interface
+END MODULE mo_psrad_interface
