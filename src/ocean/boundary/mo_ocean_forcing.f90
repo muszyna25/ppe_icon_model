@@ -248,7 +248,7 @@ CONTAINS
         &          t_cf_var('data_surfRelax_Temp', 'C', 'data_surfRelax_Temp', DATATYPE_FLT32),&
         &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), &
-        &          lrestart=.FALSE., loutput=.TRUE.)		
+        &          lrestart=.FALSE., loutput=.TRUE.)
 !         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.TRUE.)
 
       CALL add_var(var_list, 'data_surfRelax_Salt', p_sfc_flx%data_surfRelax_Salt, &
@@ -874,18 +874,20 @@ CONTAINS
 
 !<Optimize:inUse>
   SUBROUTINE set_windstress(patch_2D, windstress, &
-      &                     control, amplitude, zonal_waveno, meridional_waveno,center,length)
+      &                     control, amplitude, zonal_waveno, meridional_waveno)
     TYPE(t_patch), POINTER           :: patch_2d
     REAL(wp), INTENT(INOUT)          :: windstress(:,:)
     INTEGER,  INTENT(IN)             :: control
     REAL(wp), INTENT(IN)             :: amplitude,zonal_waveno,meridional_waveno
-    REAL(wp), INTENT(IN),OPTIONAL    :: center, length
 
 !     REAL(wp)                         :: lon(:,:), lat(:,:)
     REAL(wp), TARGET                 :: lon(nproma,patch_2D%nblks_e), lat(nproma,patch_2D%nblks_e)
+    REAL(wp)                         :: center, length
 
     lat(:,:) = patch_2D%edges%center(:,:)%lat
     lon(:,:) = patch_2D%edges%center(:,:)%lon
+    center = basin_center_lat * deg2rad
+    length = basin_height_deg * deg2rad
     
     SELECT CASE (control)
     CASE (0) ! NO FORCING, SET TO ZERO ========================================
@@ -898,9 +900,9 @@ CONTAINS
       CASE(101)       ! constant amplitude
         windstress = amplitude
       CASE(102)       ! basin setup, zonally changed
-        CALL basin_zonal(lon, lat, windstress,amplitude,length)
+        CALL basin_zonal(lon, lat, windstress,amplitude,zonal_waveno, length)
       CASE(103)       ! basin setup, meridionally changed
-        CALL basin_meridional(lon, lat, windstress,amplitude,length)
+        CALL basin_meridional(lon, lat, windstress,amplitude,meridional_waveno, length)
       CASE(104)       ! zonally periodic, nonzero at pols, meridionally constant
         CALL zonal_periodic_nonzero_around_center_zero_at_pols(lon, lat,  windstress, amplitude)
       CASE(105)
@@ -918,53 +920,33 @@ CONTAINS
       CASE(111)
         CALL Wolfe_Cessi_TestCase(lon, lat, windstress, amplitude)
       CASE(112)       ! basin setup, zonally changed for Abernathey test case
-        CALL basin_zonal_zeroOutside(lon, lat, windstress,amplitude,length)     
+        CALL basin_zonal_zeroOutside(lon, lat, windstress, amplitude, zonal_waveno, center, length)     
       CASE(113)
         CALL zentral_jet(lon, lat, windstress, amplitude)
-        CASE(114)
-          CALL wind_shear_u(patch_2D, lon, lat, windstress, amplitude)		        
-          CASE(115)
-            CALL wind_shear_v(patch_2D, lon, lat, windstress, amplitude)		        
-				        
+      CASE(114)
+        CALL wind_shear_u(patch_2D, lon, lat, windstress, amplitude)
+      CASE(115)
+        CALL wind_shear_v(patch_2D, lon, lat, windstress, amplitude)
       END SELECT
-    END SELECT
-    
+    END SELECT    
 
   END SUBROUTINE set_windstress
 
-  SUBROUTINE basin_zonal(lon, lat, field_2d, amplitude,length_opt, zonal_waveno_opt)
+  SUBROUTINE basin_zonal(lon, lat, field_2d, amplitude, zonal_waveno, length)
     REAL(wp)                         :: lon(:,:), lat(:,:)
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
-    REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,zonal_waveno_opt
-
-    REAL(wp) :: length, zonal_waveno
-
-    length = basin_height_deg * deg2rad
-    zonal_waveno = forcing_windstress_zonal_waveno
-
-    CALL assign_if_present(length,length_opt)
-    CALL assign_if_present(zonal_waveno,zonal_waveno_opt)
+    REAL(wp), INTENT(IN)             :: zonal_waveno, length 
 
     field_2d(:,:) = amplitude * COS(zonal_waveno*pi*(lat(:,:)-length)/length)
 
   END SUBROUTINE basin_zonal
 
-  SUBROUTINE basin_zonal_zeroOutside(lon, lat, field_2d, amplitude, center_opt, length_opt, zonal_waveno_opt)
+  SUBROUTINE basin_zonal_zeroOutside(lon, lat, field_2d, amplitude, zonal_waveno, center, length)
     REAL(wp)                         :: lon(:,:), lat(:,:)
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
-    REAL(wp), INTENT(IN) , OPTIONAL  :: center_opt,length_opt,zonal_waveno_opt
-
-    REAL(wp) :: center, length, zonal_waveno
-
-    center = basin_center_lat * deg2rad
-    length = basin_height_deg * deg2rad
-    zonal_waveno = forcing_windstress_zonal_waveno
-
-    CALL assign_if_present(center,center_opt)
-    CALL assign_if_present(length,length_opt)
-    CALL assign_if_present(zonal_waveno,zonal_waveno_opt)
+    REAL(wp), INTENT(IN)             :: zonal_waveno, center, length
 
     field_2d(:,:) = amplitude * COS(zonal_waveno*pi*(lat(:,:)-center)/length)
     field_2d(:,:) = MERGE(field_2d(:,:),0.0_wp, lat(:,:) > center-0.5_wp*length)
@@ -972,21 +954,15 @@ CONTAINS
 
   END SUBROUTINE basin_zonal_zeroOutside
 
-  SUBROUTINE basin_meridional(lon, lat, field_2d, amplitude,length_opt,meridional_waveno_opt)
+  SUBROUTINE basin_meridional(lon, lat, field_2d, amplitude, meridional_waveno, length)
     REAL(wp)                         :: lon(:,:), lat(:,:)
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
-    REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,meridional_waveno_opt
+    REAL(wp), INTENT(IN)             :: meridional_waveno, length
 
-    REAL(wp) :: length, meridional_waveno
-
-    length            = basin_width_deg * deg2rad
-    meridional_waveno = forcing_windstress_merid_waveno
-
-    CALL assign_if_present(length,length_opt)
-    CALL assign_if_present(meridional_waveno,meridional_waveno_opt)
 
     field_2d(:,:) = amplitude * COS(meridional_waveno*pi*(lon(:,:)-length)/length)
+    
   END SUBROUTINE basin_meridional
 
   SUBROUTINE zonal_periodic_nonzero_around_center_zero_at_pols(lon, lat, field_2d, amplitude,&
@@ -1067,73 +1043,60 @@ CONTAINS
   END SUBROUTINE zentral_jet
 
   SUBROUTINE wind_shear_u(patch_2d, lon, lat, field_2d, amplitude)
-    TYPE(t_patch), POINTER           :: patch_2d	  
+    TYPE(t_patch), POINTER           :: patch_2d
     REAL(wp)                         :: lon(:,:), lat(:,:)
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
 
-	INTEGER :: edge_index,edge_block, start_edges_index, end_edges_index
-    TYPE(t_subset_range), POINTER :: all_edges	
-	REAL(wp) :: point_lon, point_lat, uu, vv	
-		
-		
-    all_edges => patch_2d%edges%ALL		
+    INTEGER :: edge_index,edge_block, start_edges_index, end_edges_index
+    TYPE(t_subset_range), POINTER :: all_edges
+    REAL(wp) :: point_lon, point_lat, uu, vv
+
+    all_edges => patch_2d%edges%ALL
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
       
-         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
-		 
-      	 IF(point_lat>=basin_center_lat)THEN		 
-  		   !uu=tanh((point_lat-0.025)*30.0_wp)	 
- 		   uu=tanh((point_lat)*30.0_wp)	 		   
-  		 ELSEIF(point_lat<basin_center_lat)THEN
- 		   !uu=tanh((0.75_wp-point_lat)*30.0_wp)	 			 
-  		   uu=tanh((-point_lat)*30.0_wp)	 
-  		 ENDIF
-  		 vv=0.1_wp*sin(2.0_wp*pi*point_lon)	   	 
-		   
-!      	 field_2d(edge_index,edge_block) =amplitude*(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-!    		         & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2) 
+        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+ 
+        IF(point_lat>=basin_center_lat)THEN
+          uu=tanh((point_lat)*30.0_wp)
+        ELSEIF (point_lat<basin_center_lat) THEN
+          uu=tanh((-point_lat)*30.0_wp)
+        ENDIF
+        
+        vv=0.1_wp*sin(2.0_wp*pi*point_lon)
+  
         field_2d(edge_index,edge_block) =amplitude*uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 
 
-		 
         ENDDO
       ENDDO
 
   END SUBROUTINE wind_shear_u
   
   SUBROUTINE wind_shear_v(patch_2d, lon, lat, field_2d, amplitude)
-    TYPE(t_patch), POINTER           :: patch_2d	  
+    TYPE(t_patch), POINTER           :: patch_2d
     REAL(wp)                         :: lon(:,:), lat(:,:)
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
 
-	INTEGER :: edge_index,edge_block, start_edges_index, end_edges_index
-    TYPE(t_subset_range), POINTER :: all_edges	
-	REAL(wp) :: point_lon, point_lat, uu, vv	
-		
-		
-    all_edges => patch_2d%edges%ALL		
+    INTEGER :: edge_index,edge_block, start_edges_index, end_edges_index
+    TYPE(t_subset_range), POINTER :: all_edges
+    REAL(wp) :: point_lon, point_lat, uu, vv
+
+    all_edges => patch_2d%edges%ALL
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
       
-         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
-		 
-      	 !IF(point_lat>=basin_center_lat)THEN		 
-  		 !  uu=tanh((point_lat-0.025)*30.0_wp)	 
-  		 !ELSEIF(point_lat<basin_center_lat)THEN
-  		 !  uu=tanh((0.75_wp-point_lat)*30.0_wp)	 
-  		 !ENDIF
-  		 vv=0.1_wp*sin(2.0_wp*pi*point_lon)	   	 
-		   
-      	 field_2d(edge_index,edge_block) =amplitude*vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
-		 
-        ENDDO
+        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+        vv=0.1_wp*sin(2.0_wp*pi*point_lon)
+        field_2d(edge_index,edge_block) =amplitude*vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+        
       ENDDO
+    ENDDO
 
 
 
