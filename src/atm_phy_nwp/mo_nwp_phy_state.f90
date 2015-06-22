@@ -91,7 +91,7 @@ USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 USE mo_advection_config,     ONLY: advection_config
 USE mo_synsat_config,        ONLY: lsynsat, num_images, get_synsat_name, num_sensors, &
-  &                                numchans, get_synsat_grib_triple
+  &                                total_numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
@@ -2519,7 +2519,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       iimage = 0
       sensor_loop: DO isens = 1, num_sensors
 
-        DO ichan = 1,numchans(isens)
+        DO ichan = 1,total_numchans(isens)
 
           DO k=1,4
             ! the following translation can be derived by gazing at the corresponding RTTOV loop

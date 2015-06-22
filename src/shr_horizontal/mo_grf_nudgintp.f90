@@ -329,7 +329,8 @@ SUBROUTINE interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, i_chidx, nshift,    
                                   nfields, istart_blk, f3din1, f3dout1, f3din2,  &
                                   f3dout2, f3din3, f3dout3, f3din4, f3dout4,     &
                                   f3din5, f3dout5, f4din, f4dout,                &
-                                  llimit_nneg, rlimval, overshoot_fac            )
+                                  llimit_nneg, rlimval, overshoot_fac,           &
+                                  opt_l_enabled)
 !
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pp
 
@@ -369,6 +370,9 @@ REAL(wp), INTENT(IN), OPTIONAL :: rlimval(nfields)
 
 ! factor up to to which overshooting is allowed
 REAL(wp), INTENT(IN), OPTIONAL :: overshoot_fac
+
+! LOGICAL field: skip level if .FALSE.
+LOGICAL, OPTIONAL, INTENT(IN) :: opt_l_enabled(:)
 
 INTEGER :: jb, jk, jc, jn, n         ! loop indices
 INTEGER :: js                        ! shift parameter
@@ -492,8 +496,14 @@ DO jn = 1, nfields
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = 1, elev
+      IF (PRESENT(opt_l_enabled)) THEN
+        IF (.NOT. opt_l_enabled(jk)) CYCLE
+      END IF
 #else
     DO jk = 1, elev
+      IF (PRESENT(opt_l_enabled)) THEN
+        IF (.NOT. opt_l_enabled(jk)) CYCLE
+      END IF
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -545,6 +555,9 @@ DO jn = 1, nfields
     ENDDO
 
     DO jk = 1, elev
+      IF (PRESENT(opt_l_enabled)) THEN
+        IF (.NOT. opt_l_enabled(jk)) CYCLE
+      END IF
       DO jc = i_startidx, i_endidx
         min_expval = MIN(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
                          grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
@@ -594,6 +607,9 @@ DO jn = 1, nfields
     ENDDO
 
     DO jk = 1, elev
+      IF (PRESENT(opt_l_enabled)) THEN
+        IF (.NOT. opt_l_enabled(jk)) CYCLE
+      END IF
       DO jc = i_startidx, i_endidx
 
         h_aux(jc,jk,jb,1,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
@@ -636,8 +652,14 @@ DO jn = 1, nfields
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = 1, elev
+          IF (PRESENT(opt_l_enabled)) THEN
+            IF (.NOT. opt_l_enabled(jk)) CYCLE
+          END IF
 #else
       DO jk = 1, elev
+        IF (PRESENT(opt_l_enabled)) THEN
+          IF (.NOT. opt_l_enabled(jk)) CYCLE
+        END IF
 !CDIR NODEP,VOVERTAKE,VOB
         DO jc = i_startidx, i_endidx
 #endif
@@ -658,8 +680,14 @@ DO jn = 1, nfields
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = 1, elev
+          IF (PRESENT(opt_l_enabled)) THEN
+            IF (.NOT. opt_l_enabled(jk)) CYCLE
+          END IF
 #else
       DO jk = 1, elev
+        IF (PRESENT(opt_l_enabled)) THEN
+          IF (.NOT. opt_l_enabled(jk)) CYCLE
+        END IF
 !CDIR NODEP,VOVERTAKE,VOB
         DO jc = i_startidx, i_endidx
 #endif

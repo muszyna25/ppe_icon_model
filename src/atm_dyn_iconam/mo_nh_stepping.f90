@@ -361,7 +361,7 @@ MODULE mo_nh_stepping
           IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
         ENDDO
         ! Compute synthetic sat images
-        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), num_images)
+        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
       ENDDO
 
@@ -754,7 +754,7 @@ MODULE mo_nh_stepping
             IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
           ENDDO
           ! Compute synthetic sat images
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), num_images)
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
         ENDDO
 
