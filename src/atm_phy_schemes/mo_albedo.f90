@@ -478,9 +478,8 @@ CONTAINS
       ! as in Ritter-Geleyn's fesft. So far we do not distinguish between  
       ! visible and NIR spectral bands.
       DO jc = i_startidx, i_endidx
-        prm_diag%albvisdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))   &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2)
+
+        prm_diag%albvisdir(jc,jb) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),prm_diag%albvisdif(jc,jb))
 
         ! no need to do the computation twice, since albvisdif=albnirdif=albdif
         ! Thus: just copy
@@ -890,13 +889,10 @@ CONTAINS
 
               ! Tile-specific direct beam albedo
               IF (ext_data%atm%frac_t(jc,jb,jt) > 0._wp) THEN
-                zalbvisdir_t = MIN(0.999_wp,( 1.0_wp                                                           &
-                  &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif_t(jc,jb,jt) - 1.0_wp)))   &
-                  & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif_t(jc,jb,jt) - 1.0_wp)))**2)
 
-                zalbnirdir_t = MIN(0.999_wp,( 1.0_wp                                                           &
-                  &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif_t(jc,jb,jt) - 1.0_wp)))   &
-                  & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif_t(jc,jb,jt) - 1.0_wp)))**2)
+                zalbvisdir_t = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),prm_diag%albvisdif_t(jc,jb,jt))
+
+                zalbnirdir_t = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),prm_diag%albnirdif_t(jc,jb,jt))
 
                 ! Limit direct beam albedo to diffuse albedo for landuse classes with "rough" vegetation
                 ! and in mountainous regions
@@ -973,13 +969,11 @@ CONTAINS
       ! as in Ritter-Geleyn's fesft.
       IF (ntiles_total == 1 .OR. atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
         DO jc = i_startidx, i_endidx
-          prm_diag%albvisdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
-            &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))   &
-            & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2)
 
-          prm_diag%albnirdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
-            &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))   &
-            & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))**2)
+          prm_diag%albvisdir(jc,jb) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),prm_diag%albvisdif(jc,jb))
+
+          prm_diag%albnirdir(jc,jb) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),prm_diag%albnirdif(jc,jb))
+
         ENDDO
       ENDIF
 
@@ -990,6 +984,80 @@ CONTAINS
 
 
   END SUBROUTINE sfc_albedo_modis
+
+
+
+
+  !>
+  !! Surface albedo (SA) for direct beam
+  !!
+  !! Surface albedo for direct beam, according to Ritter-Geleyn 
+  !! radiation scheme.
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  FUNCTION sfc_albedo_dir_rg (cosmu0, alb_dif)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+     alb_dir = MIN(0.999_wp,( 1.0_wp                             &
+       &     +  0.5_wp * (cosmu0 * (1.0_wp/alb_dif - 1.0_wp)))   &
+       &     / (1.0_wp + (cosmu0 * (1.0_wp/alb_dif - 1.0_wp)))**2)
+
+  END FUNCTION sfc_albedo_dir_rg
+
+
+!!$  !>
+!!$  !! Surface albedo (SA) for direct beam over land after Zaengl
+!!$  !!
+!!$  !! Surface albedo (SA) for direct beam over land after Zaengl.
+!!$  !! It builds upon the parameterization used in the 
+!!$  !! Ritter-Geleyn radiation scheme. However, the derived direct 
+!!$  !! albedo is not allowed to exceed the corresponding diffuse 
+!!$  !! albedo over 'rough' surfaces. Surfaces are regarded as 'rough', 
+!!$  !! if z0>= 15 cm or SSO standard deviation >= 150 m. 
+!!$  !!
+!!$  !!
+!!$  !! @par Revision History
+!!$  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+!!$  !!
+!!$  FUNCTION sfc_albedo_dir_zaengl (cosmu0, alb_dif, z0, sso_stdh)  RESULT (alb_dir)
+!!$    !
+!!$    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+!!$
+!!$    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+!!$
+!!$    REAL(wp), INTENT(IN) :: z0               !< surface roughness length
+!!$
+!!$    REAL(wp), INTENT(IN) :: sso_stdh         !< Standard deviation of sub-grid scale orography
+!!$
+!!$    REAL(wp) :: alb_dir
+!!$
+!!$    REAL(wp) :: zalb_dir                     !< unlimited direct albedo
+!!$    REAL(wp) :: zalbdirlim                   !< limit, which the computed albedo must not exceed
+!!$    REAL(wp) :: zalbdirfac                   !< factor for limit computation
+!!$
+!!$  !------------------------------------------------------------------------------
+!!$
+!!$    ! unlimited direct albedo according to Ritter-Geleyn's formulation
+!!$    zalb_dir = sfc_albedo_dir_rg(cosmu0, alb_dif)
+!!$
+!!$
+!!$    ! Full limitation is applied for a roughness length >= 15 cm or an SSO standard deviation >= 150 m
+!!$    zalbdirfac = MAX(0.01_wp*(sso_stdh - 50._wp), 10._wp *(z0 - 0.05_wp) )
+!!$    zalbdirfac = MIN(1._wp, MAX(0._wp, zalbdirfac))
+!!$
+!!$    zalbdirlim = zalbdirfac*alb_dif + (1._wp-zalbdirfac)*zalb_dir
+!!$    alb_dir     = MIN(zalb_dir, zalbdirlim)
+!!$
+!!$  END FUNCTION sfc_albedo_dir_zaengl
 
 END MODULE mo_albedo
 
