@@ -5,7 +5,7 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE MO_PSRAD_INTERFACE
+MODULE mo_psrad_interface
   USE mo_kind,            ONLY: wp
   USE mo_physical_constants, ONLY: grav, rd, avo,                               &
        &                        amco2, amch4, amn2o, amo3, amo2, amd, amw

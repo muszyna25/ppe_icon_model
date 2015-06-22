@@ -187,7 +187,6 @@ EOF
 
 # model files
 #
-#add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
 add_link_file /pool/data/ECHAM6/input/r0004/rrtmg_lw.nc                 ./
 add_link_file /pool/data/ECHAM6/input/r0004/rrtmg_sw.nc                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
@@ -268,9 +267,6 @@ do
   fi
   (( year = year+1 ))
 done
-#
-# - cloud optical properties
-  add_link_file /pool/data/ECHAM6/input/r0003/ECHAM6_CldOptProps.nc ./
 #
 # - sst and sic
 datadir=$INDATA/r2b4_amip/oce
