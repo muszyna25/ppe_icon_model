@@ -393,37 +393,6 @@ cat >> ${atmo_namelist} << EOF
                     'prm_rintop', 'prm_rtype', 'prm_topmax'
 /
 &output_nml
- output_filename  = "${EXPNAME}_2d_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${atmo_output_interval}"        ! ISO-format interval
- file_interval    = "${atmo_file_interval}"          ! ISO-format interval
- include_last     = .FALSE.
- ml_varlist       = 'ps','psl'
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'ts'      , 'ts_rad'  ,
-                    'swvis_dif_frac', 'swnir_dif_frac', 'swvis', 'swnir',
-                    'albedo'  ,
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'tauu'    , 'tauv'    ,
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
-                    'prm_rintop', 'prm_rtype', 'prm_topmax'
-/
-&output_nml
  output_filename  = "${EXPNAME}_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
@@ -433,20 +402,7 @@ cat >> ${atmo_namelist} << EOF
  output_interval  = "${atmo_output_interval}"        ! ISO-format interval
  file_interval    = "${atmo_file_interval}"          ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg','pfull','dpres_mc',
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
-                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 
-                    'tend_ua_cnv'  , 
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  , 
-                    'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
-
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho','zg','pfull'
 /
 EOF
 #
