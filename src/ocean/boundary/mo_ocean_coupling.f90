@@ -49,6 +49,7 @@ MODULE mo_ocean_coupling
   USE mo_output_event_types,  ONLY: t_sim_step_info
 # else
   USE mo_master_control,      ONLY: get_my_model_no
+  USE mo_icon_cpl,            ONLY: RESTART
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
   USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
@@ -320,11 +321,9 @@ CONTAINS
           DO idx = 1, nproma
             IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
               ! water (-2, -1)
-              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
               ibuffer((BLOCK-1)*nproma+idx) = 0
             ELSE
               ! land or boundary
-              WRITE ( 6 , * ) "Ocean Mask", BLOCK, idx, patch_3d%surface_cell_sea_land_mask(idx, BLOCK)
               ibuffer((BLOCK-1)*nproma+idx) = 1
             ENDIF
           ENDDO
@@ -619,7 +618,7 @@ CONTAINS
 #else
     field_shape(3) = 5
     CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
+    IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
@@ -627,7 +626,7 @@ CONTAINS
 #ifdef YAC_coupling
        CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is put for restart')
 #else
-       WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layers says it is put for restart"
+       WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is put for restart"
 #endif
     ENDIF
     !
@@ -643,14 +642,16 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 2
     CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
-    IF (info > 0 ) THEN
+    IF (info > 0 .AND. info < 7 ) THEN
       !
       ! atmos_fluxes%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       ! atmos_fluxes%stress_x (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) ) !TODO + 100.0_wp
@@ -672,13 +673,15 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     CALL icon_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF (info > 0 ) THEN
+    IF (info > 0 .AND. info < 7 ) THEN
       !
       ! atmos_fluxes%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       ! atmos_fluxes%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 100.0_wp
@@ -704,14 +707,16 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 3
     CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_cells,1:3), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF (info > 0 ) THEN
+    IF (info > 0 .AND. info < 7 ) THEN
       !
       ! atmos_fluxes%FrshFlux_Precipitation(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       ! atmos_fluxes%FrshFlux_SnowFall     (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )
@@ -746,14 +751,16 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(4), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 1
     CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF (info > 0 ) THEN
+    IF (info > 0 .AND. info < 7 ) THEN
       !
       ! atmos_fluxes%data_surfRelax_Temp(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
@@ -781,14 +788,16 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 4
     CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF (info > 0 ) THEN
+    IF (info > 0 .AND. info < 7 ) THEN
       !
       ! atmos_fluxes%HeatFlux_ShortWave(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
       ! atmos_fluxes%HeatFlux_LongWave (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )  !TODO+ 300.0_wp
@@ -827,14 +836,16 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(6), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    if ( info > 1 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 4
     CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF (info > 0 ) THEN
+    IF (info > 0 .AND. info < 7 ) THEN
       !
       ! ice%qtop(:,1,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
       ! ice%qbot(:,1,:) = RESHAPE(buffer(:,2),(/ nproma, patch_horz%nblks_c /) )

@@ -67,7 +67,7 @@ B=3   # number of bisections applied
 #
 #time stepping
 #
-dtime_atmo=${dtime_atmo:=600}
+dtime_atmo=${dtime_atmo:=1200}
 dtime_ocean=$hour
 dtime_coupling=$dtime_ocean
 #
