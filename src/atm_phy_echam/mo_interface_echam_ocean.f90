@@ -728,7 +728,8 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 1
     CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
@@ -736,7 +737,7 @@ CONTAINS
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
-    IF ( info > 0 ) THEN
+    IF ( info > 0 .AND. info < 7 ) THEN
       !
       ! prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
       !
@@ -757,14 +758,15 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 #else
     CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF ( info > 0 ) THEN
+    IF ( info > 0 .AND. info < 7 ) THEN
       !
       ! prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
       !
@@ -785,14 +787,15 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(9), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 #else
     CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF ( info > 0 ) THEN
+    IF ( info > 0 .AND. info < 7 ) THEN
       !
       ! prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
       !
@@ -813,7 +816,8 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(10), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
-    if ( info > 1 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 5
     CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
@@ -821,7 +825,7 @@ CONTAINS
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
-    IF ( info > 0 ) THEN
+    IF ( info > 0 .AND. info < 7 ) THEN
       !
       ! prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
       ! prm_field(jg)%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
