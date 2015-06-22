@@ -101,10 +101,6 @@ CONTAINS
     INTEGER                    :: istatus
 #endif
 
-    IF (dbg_level > 1) THEN
-      WRITE (0,*) routine, ": Enter"
-    END IF
-
     ! --- determine, which of the satellite images have been actually
     !     requested by the user:
 
@@ -360,10 +356,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
       ENDDO
     ENDDO
 
-    IF (dbg_level > 2) THEN
-      WRITE (0,*) "CALL rttov_fill_input"
-    END IF
-
     istatus = rttov_fill_input(                            &
           press      = pres(:,is:ie) ,                     &
           temp       = temp(:,is:ie),                      &
@@ -393,9 +385,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
     IF (istatus /= NO_ERROR) THEN
       WRITE(0,*) 'RTTOV fill_input ERROR ', TRIM(rttov_ifc_errMsg(istatus))
     ENDIF
-    IF (dbg_level > 2) THEN
-      WRITE (0,*) "CALL rttov_fill_input done, blk=", jb, "/", i_endblk
-    END IF
 
     sensor_loop: DO isens = 1, num_sensors
 
@@ -453,9 +442,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
       IF (istatus /= NO_ERROR) THEN
         WRITE(0,*) 'RTTOV synsat calc ERROR ', TRIM(rttov_ifc_errMsg(istatus))
       ENDIF
-      IF (dbg_level > 2) THEN
-        WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: Leave rttov_direct_ifc, blk=", jb, "/", i_endblk
-      END IF
 
       IF (dbg_level > 2)  WRITE (0,*) "PE ", get_my_mpi_all_id(), " :: copy result into rg_synsat array"
       IF (sat_compute(isens)%lcloud_tem) THEN
