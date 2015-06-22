@@ -32,7 +32,7 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_io_config,         ONLY: dt_checkpoint, write_initial_state
   USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
   USE mo_ocean_nml
-  USE mo_master_control,    ONLY: is_restart_run
+  USE mo_master_config,     ONLY: isRestart
 
   IMPLICIT NONE
 
@@ -213,7 +213,7 @@ CONTAINS
       CALL message(method_name, "Set use_duplicated_connectivity to FALSE")
     ENDIF
     
-    IF (is_restart_run() .AND. write_initial_state) THEN
+    IF (isRestart() .AND. write_initial_state) THEN
       CALL warning(method_name, "write_initial_state is disbaled for restarts")
       write_initial_state = .false.
     ENDIF

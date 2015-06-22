@@ -18,7 +18,7 @@ USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
-USE mo_master_control,       ONLY: is_restart_run
+USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -152,7 +152,7 @@ CONTAINS
     ENDIF
 
     ! initialize ldom_active flag if this is not a restart run
-    IF (.NOT. is_restart_run()) THEN
+    IF (.NOT. isRestart()) THEN
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) - timeshift%dt_shift > 0._wp) THEN
           p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
@@ -268,7 +268,7 @@ CONTAINS
     !
     ! Read restart files (if necessary)
     !
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       ! This is a resumed integration. Read model state from restart file(s).
 
       IF (timers_level > 5) CALL timer_start(timer_read_restart)
@@ -299,7 +299,7 @@ CONTAINS
     !
     ! Initialize model with real atmospheric data if appropriate switches are set
     !
-    IF (.NOT. ltestcase .AND. .NOT. is_restart_run() ) THEN
+    IF (.NOT. ltestcase .AND. .NOT. isRestart() ) THEN
 
       IF (iforcing == inwp) THEN
 
@@ -383,7 +383,7 @@ CONTAINS
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF
@@ -450,11 +450,11 @@ CONTAINS
     IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_plane_torus)THEN
       atm_phy_nwp_config(1)%lcalc_moist_integral_avg = .TRUE.
 
-      IF(is_restart_run()) &
+      IF(isRestart()) &
         CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
                                time_config%sim_time(1), l_rh(1), ldelete=.FALSE.)
 
-      IF(.NOT.is_restart_run()) &
+      IF(.NOT.isRestart()) &
         CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
                                time_config%sim_time(1), l_rh(1), ldelete=.TRUE.)
     END IF
