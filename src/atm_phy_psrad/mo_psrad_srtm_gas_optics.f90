@@ -13,6 +13,10 @@ MODULE mo_psrad_srtm_gas_optics
 
   IMPLICIT NONE
 
+  PRIVATE
+
+  PUBLIC :: gpt_taumol, ih2o, ich4, ico2, io2, io3
+
   LOGICAL :: initialized = .FALSE.
   REAL(wp), PARAMETER :: oneminus = 1.0_wp - 1.0e-6_wp
   REAL(wp) ::                &

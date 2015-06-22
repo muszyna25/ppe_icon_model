@@ -35,6 +35,9 @@ MODULE MO_PSRAD_INTERFACE
   USE mo_rad_diag,             ONLY: rad_aero_diag
 
   IMPLICIT NONE
+
+  PRIVATE
+
   PUBLIC :: setup_psrad, psrad_interface, & 
             lw_strat, sw_strat
   

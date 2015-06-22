@@ -41,6 +41,10 @@ MODULE mo_psrad_rrtm_coeffs
   USE mo_rrtm_params, ONLY : preflog, tref
   USE rrlw_planck,    ONLY : chi_mls
   IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: lrtm_coeffs, srtm_coeffs
   
   REAL(wp), PARAMETER :: stpfac  = 296._wp/1013._wp
 

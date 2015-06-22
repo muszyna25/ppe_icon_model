@@ -31,6 +31,11 @@ MODULE mo_psrad_lrtm_gas_optics
   USE rrlw_planck,    ONLY : chi_mls
 
   IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: gas_optics_lw
+
   REAL(wp), PARAMETER :: oneminus = 1.0_wp - 1.0e-06_wp
 
 CONTAINS

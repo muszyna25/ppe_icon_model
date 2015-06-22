@@ -8,7 +8,11 @@
 MODULE rrlw_planck
   USE mo_kind,        ONLY : wp 
   USE mo_rrtm_params, ONLY : nbndlw
+
+  PUBLIC
   
+  SAVE 
+
   REAL(wp) :: chi_mls(7,59)
   REAL(wp) :: totplanck(181,nbndlw) !< planck function for each band
   REAL(wp) :: totplanck16(181)      !< for band 16
@@ -23,6 +27,10 @@ MODULE psrad_rrlw_kg01
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no1  = 16 !< original abs coefficients
 
@@ -52,6 +60,10 @@ MODULE psrad_rrlw_kg02
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no2  = 16
 
   REAL(wp) :: fracrefao(no2)   , fracrefbo(no2)
@@ -78,6 +90,10 @@ MODULE psrad_rrlw_kg03
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no3  = 16
 
@@ -109,6 +125,10 @@ MODULE psrad_rrlw_kg04
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no4  = 16
 
   REAL(wp) :: fracrefao(no4,9)  ,fracrefbo(no4,5)
@@ -134,6 +154,10 @@ MODULE psrad_rrlw_kg05
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE 
 
   INTEGER, PARAMETER :: no5  = 16
 
@@ -166,6 +190,10 @@ MODULE psrad_rrlw_kg06
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no6  = 16
 
@@ -201,6 +229,10 @@ MODULE psrad_rrlw_kg07
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no7  = 16
 
   REAL(wp) , DIMENSION(no7) :: fracrefbo
@@ -234,6 +266,10 @@ MODULE psrad_rrlw_kg08
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no8  = 16
 
@@ -281,6 +317,10 @@ MODULE psrad_rrlw_kg09
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no9  = 16
 
   REAL(wp) , DIMENSION(no9) :: fracrefbo
@@ -316,6 +356,10 @@ MODULE psrad_rrlw_kg10
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no10 = 16
 
   REAL(wp) , DIMENSION(no10) :: fracrefao
@@ -347,6 +391,10 @@ MODULE psrad_rrlw_kg11
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no11 = 16
 
@@ -384,6 +432,10 @@ MODULE psrad_rrlw_kg12
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no12 = 16
 
   REAL(wp) :: fracrefao(no12,9)
@@ -409,6 +461,10 @@ MODULE psrad_rrlw_kg13
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no13 = 16
 
@@ -446,6 +502,10 @@ MODULE psrad_rrlw_kg14
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no14 = 16
 
   REAL(wp) , DIMENSION(no14) :: fracrefao
@@ -478,6 +538,10 @@ MODULE psrad_rrlw_kg15
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no15 = 16
 
   REAL(wp) :: fracrefao(no15,9)
@@ -505,6 +569,10 @@ MODULE psrad_rrlw_kg16
 
   USE mo_kind ,ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no16 = 16
 

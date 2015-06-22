@@ -13,6 +13,10 @@ MODULE mo_psrad_lrtm_setup
   USE mo_psrad_fastmath,ONLY : setup_psrad_fastmath
 
   IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: ngb, ngs, ngc, nspa, nspb, delwave, setup_lrtm
   !
   ! spectra information that is entered at run time
   !

@@ -10,6 +10,10 @@ MODULE rrsw_kg16
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no16 = 16
   REAL(wp) :: kao(9,5,13,no16)
   REAL(wp) :: kbo(5,13:59,no16)
@@ -31,6 +35,10 @@ MODULE rrsw_kg17
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no17 = 16
   REAL(wp) :: kao(9,5,13,no17)
@@ -54,6 +62,10 @@ MODULE rrsw_kg18
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no18 = 16
   REAL(wp) :: kao(9,5,13,no18)
   REAL(wp) :: kbo(5,13:59,no18)
@@ -76,6 +88,10 @@ MODULE rrsw_kg19
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no19 = 16
   REAL(wp) :: kao(9,5,13,no19)
   REAL(wp) :: kbo(5,13:59,no19)
@@ -97,6 +113,10 @@ MODULE rrsw_kg20
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no20 = 16
 
@@ -124,6 +144,10 @@ MODULE rrsw_kg21
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no21 = 16
   REAL(wp) :: kao(9,5,13,no21)
   REAL(wp) :: kbo(5,5,13:59,no21)
@@ -145,6 +169,10 @@ MODULE rrsw_kg22
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no22 = 16
 
@@ -170,6 +198,10 @@ MODULE rrsw_kg23
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no23 = 16
   REAL(wp) :: kao(5,13,no23)
   REAL(wp) :: selfrefo(10,no23), forrefo(3,no23)
@@ -189,6 +221,10 @@ MODULE rrsw_kg24
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no24 = 16
   REAL(wp) :: kao(9,5,13,no24)
@@ -215,6 +251,10 @@ MODULE rrsw_kg25
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no25 = 16
   REAL(wp) :: kao(5,13,no25)
   REAL(wp) :: sfluxrefo(no25)
@@ -236,6 +276,10 @@ MODULE rrsw_kg26
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no26 = 16
   REAL(wp) :: sfluxrefo(no26)
   REAL(wp) :: raylo(no26)
@@ -250,6 +294,10 @@ MODULE rrsw_kg27
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no27 = 16
   REAL(wp) :: kao(5,13,no27)
@@ -272,6 +320,10 @@ MODULE rrsw_kg28
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
 
+  PUBLIC
+
+  SAVE
+
   INTEGER, PARAMETER :: no28 = 16
   REAL(wp) :: kao(9,5,13,no28)
   REAL(wp) :: kbo(5,5,13:59,no28)
@@ -291,6 +343,10 @@ MODULE rrsw_kg29
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
+
+  PUBLIC
+
+  SAVE
 
   INTEGER, PARAMETER :: no29 = 16
   REAL(wp) :: kao(5,13,no29)

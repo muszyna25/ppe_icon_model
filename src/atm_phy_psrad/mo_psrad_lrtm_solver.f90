@@ -42,6 +42,10 @@ MODULE mo_psrad_lrtm_solver
 
   IMPLICIT NONE
 
+  PRIVATE
+
+  PUBLIC :: lrtm_solver, find_secdiff
+
   REAL(wp), PARAMETER :: fluxfac = 2.0e+04_wp * pi
   
 CONTAINS
