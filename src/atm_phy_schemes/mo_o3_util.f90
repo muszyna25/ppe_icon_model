@@ -43,9 +43,9 @@ MODULE mo_o3_util
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_o3_macc_data,         ONLY: rghg7_macc
   USE mo_radiation_config,     ONLY: irad_o3
-  USE mo_physical_constants,   ONLY: amd,amo3
+  USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
   USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm_radt
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
   
   IMPLICIT NONE
 
@@ -924,13 +924,15 @@ CONTAINS
     REAL(wp) :: zo3(nproma,1:nlev_gems,pt_patch%nblks_c)
     REAL(wp) :: zviozo(nproma,0:pt_patch%nlev)
     REAL(wp) :: zozovi(nproma,0:nlev_gems,pt_patch%nblks_c)
+    REAL(wp) :: deltaz(nproma,pt_patch%nlev),dtdz(nproma,pt_patch%nlev)
     LOGICAL  :: l_found(nproma)
 
     ! local scalars
-    INTEGER  :: jk,jkk,jl,jc,jb !loop indices
+    INTEGER  :: jk,jkk,jk1,jl,jc,jb !loop indices
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
-    INTEGER  :: rl_start,rl_end
+    INTEGER  :: rl_start,rl_end,k350,k100,ktp
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3
+    REAL(wp) :: dzsum,dtdzavg,o3_350,o3_100,tpshp,wfac
     LOGICAL  :: lfound_all
 
 
@@ -1029,8 +1031,8 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,jkk,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
-!$OMP zint,zviozo,zadd_o3) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,jkk,jk1,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
+!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,k350,k100,o3_350,o3_100) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1117,6 +1119,68 @@ CONTAINS
 
         ENDDO
       ENDDO
+
+      ! Ozone adaptation around the extratropical tropopause
+      ! The procedure starts with diagnosing the thermal tropopause including its sharpness (dTdz_up - dTdz_down),
+      ! the latter is used to compute a weighting factor. Afterwards, climatological O3 mixing ratios are modified
+      ! in order to get a sharp jump at the tropopause, using the climatological values at 100 hPa (350 hPa) as
+      ! proxies for the lower stratospheric (tropospheric) ozone values
+      IF (icpl_o3_tp == 1) THEN
+        DO jk = 1,pt_patch%nlev-1
+          DO jc = i_startidx,i_endidx
+            deltaz(jc,jk) = -rd/grav*(p_diag%temp(jc,jk,jb)+p_diag%temp(jc,jk+1,jb))*                       &
+              (p_diag%pres(jc,jk,jb)-p_diag%pres(jc,jk+1,jb))/(p_diag%pres(jc,jk,jb)+p_diag%pres(jc,jk+1,jb))
+            dtdz(jc,jk) = (p_diag%temp(jc,jk,jb)-p_diag%temp(jc,jk+1,jb))/deltaz(jc,jk)
+          ENDDO
+        ENDDO
+
+        DO jc = i_startidx,i_endidx
+          l_found(jc) = .FALSE.
+          IF (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 30._wp) THEN
+            ! Determine thermal tropopause according to WMO definition
+            DO jk = pt_patch%nlev-2, 3, -1
+              IF (p_diag%pres(jc,jk,jb) < 35000._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
+                IF (dtdz(jc,jk) < -2.e-3_wp .AND. dtdz(jc,jk-1) > -2.e-3_wp) THEN
+                  l_found(jc) = .TRUE.
+                  DO jk1 = jk-2, 2, -1
+                    dzsum = SUM(deltaz(jc,jk1:jk-1))
+                    IF (dzsum > 2.e3_wp) EXIT
+                    dtdzavg = (p_diag%temp(jc,jk1,jb)-p_diag%temp(jc,jk,jb))/dzsum
+                    IF (dtdzavg < -2.e-3_wp) l_found(jc) = .FALSE.
+                  ENDDO
+                ENDIF
+              ENDIF
+              IF (l_found(jc)) THEN
+                ! weighting factor; the latitude-dependent component increases from 0 to 1 between 30 and 40 deg lat,
+                ! the component depending on the tropopause sharpness increases from 0 to 1 between 2.5 K/km and 7.5 K/km
+                ktp = jk
+                tpshp = 0.5_wp*(dtdz(jc,jk-1)+dtdz(jc,jk-2)) - 0.5_wp*(dtdz(jc,jk)+dtdz(jc,jk+1))
+                wfac = MIN(1._wp,0.1_wp*(ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg-30._wp)) * &
+                  MIN(1._wp,200._wp*MAX(0._wp,tpshp-2.5e-3_wp))
+                EXIT
+              ENDIF
+            ENDDO
+          ENDIF
+          IF (l_found(jc)) THEN
+            ! Determine level indices closest to 100 and 350 hPa
+            DO jk = pt_patch%nlev-2, 3, -1
+              IF (p_diag%pres(jc,jk,jb) > 35000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 35000._wp) k350 = jk
+              IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) k100 = jk
+              IF (p_diag%pres(jc,jk,jb) < 10000._wp) EXIT
+            ENDDO
+            o3_350 = ext_data%atm%o3(jc,k350,jb)
+            o3_100 = ext_data%atm%o3(jc,k100,jb)
+            DO jk = k100, k350
+              ! Modify ozone profiles
+              IF (jk < ktp) THEN
+                ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_100
+              ELSE IF (jk > ktp) THEN
+                ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_350
+              ENDIF
+            ENDDO
+          ENDIF
+        ENDDO
+      ENDIF
 
     ENDDO !jb
 !$OMP END DO NOWAIT

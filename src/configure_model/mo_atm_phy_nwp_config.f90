@@ -47,7 +47,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: configure_atm_phy_nwp
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
-  PUBLIC :: ltuning_kessler, icpl_aero_conv
+  PUBLIC :: ltuning_kessler, icpl_aero_conv, icpl_o3_tp
   PUBLIC :: ltuning_ozone
 
   !!--------------------------------------------------------------------------
@@ -128,6 +128,7 @@ MODULE mo_atm_phy_nwp_config
   CHARACTER(LEN=filename_max) :: cldopt_filename
 
   INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
+  INTEGER  :: icpl_o3_tp         !! type of coupling between ozone and the tropopause
 
   REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for
     &  dt_phy(max_dom,iphysproc_short) !! each domain and phys. process
