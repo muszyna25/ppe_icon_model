@@ -646,16 +646,28 @@ CONTAINS
               zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
             ELSE
               ! otherwise take minimum snow albedo as 60% of the landuse-class specific maximum snow albedo
-              zminsnow_alb = MAX(0.5_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
+              zminsnow_alb = MAX(0.4_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
             ENDIF
 
             ! maximum snow albedo depending on landuse class if tile approach is used
             ! (without tiles, this would conflict with the snow albedo limit depending on the forest fraction)
             IF (ntiles_lnd > 1) THEN
               zmaxsnow_alb = MIN(csalb_snow_max,zsnowalb_lu)
+              zlimsnow_alb = MIN(csalb_snow_max,SQRT(zsnowalb_lu))
             ELSE
               zmaxsnow_alb = csalb_snow_max
+              zlimsnow_alb = csalb_snow_max
             ENDIF
+
+            ! Further limitation of maximum snow albedo in case of thin snow cover depending on landuse 
+            ! roughness length and SSO standard deviation; without tiles, it is assumed that non-forest
+            ! vegetation is fully covered by snow if the snow depth exceeds three times the roughness length.
+            ! The snow depth is taken to be at least 5 cm here because the effect of partial snow
+            ! cover is considered below.
+            !
+            zmaxsnow_alb = MIN(zmaxsnow_alb, zlimsnow_alb *                                         &
+              MIN(1._wp,SQRT(0.25_wp+0.25_wp*MAX(0.05_wp,lnd_diag%h_snow_t(jc,jb,jt))/              &
+              MAX(MIN(0.5_wp,ext_data%atm%z0_lcc(ilu)),1.e-3_wp*ext_data%atm%sso_stdh_raw(jc,jb)) )))
 
             ! Consider effects of aging on solar snow albedo
             !
@@ -684,20 +696,6 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
 
-            ! Limit snow albedo in case of thin snow cover depending on landuse roughness length and
-            ! SSO standard deviation; it is assumed that vegetation is fully covered by snow if the snow depth
-            ! exceeds three times the roughness length
-            ! Note that for ntiles_lnd > 1 (tile approach), this limitation has comparatively little impact
-            ! because the landuse-class specific limits applied above are more restrictive in most situations
-            !
-            IF (ntiles_lnd > 1) zmaxsnow_alb = MIN(csalb_snow_max,SQRT(zsnowalb_lu))
-            !
-            zlimsnow_alb = zmaxsnow_alb*MIN(1._wp,SQRT(0.25_wp+0.25_wp*lnd_diag%h_snow_t(jc,jb,jt)/&
-              MAX(ext_data%atm%z0_lcc(ilu),1.e-3_wp*ext_data%atm%sso_stdh_raw(jc,jb)) ))
-
-            prm_diag%albdif_t(jc,jb,jt)    = MIN(zlimsnow_alb,prm_diag%albdif_t(jc,jb,jt))
-            prm_diag%albvisdif_t(jc,jb,jt) = MIN(zlimsnow_alb,prm_diag%albvisdif_t(jc,jb,jt))
-            prm_diag%albnirdif_t(jc,jb,jt) = MIN(zlimsnow_alb,prm_diag%albnirdif_t(jc,jb,jt))
 
           ENDDO  ! ic
 

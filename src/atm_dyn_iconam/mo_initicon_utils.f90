@@ -1634,7 +1634,7 @@ MODULE mo_initicon_utils
                     t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
                     zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data(jg)%atm%alb_dif(jc,jb)
                   ELSE
-                    zminsnow_alb = MAX(0.5_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
+                    zminsnow_alb = MAX(0.4_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
                   ENDIF
                 ELSE
                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,jt) == ext_data(jg)%atm%i_lc_snow_ice) THEN
