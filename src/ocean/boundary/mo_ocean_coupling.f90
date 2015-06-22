@@ -626,7 +626,7 @@ CONTAINS
 #ifdef YAC_coupling
        CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is put for restart')
 #else
-       WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layers says it is put for restart"
+       WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is put for restart"
 #endif
     ENDIF
     !

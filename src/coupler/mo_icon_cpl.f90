@@ -111,7 +111,6 @@ MODULE mo_icon_cpl
   INTEGER, PARAMETER        :: cpl_field_avg  = 2
 
   INTEGER, PARAMETER        :: NOTHING = 0
-  INTEGER, PARAMETER        :: INITIAL = 1
   INTEGER, PARAMETER        :: RESTART = 2
   INTEGER, PARAMETER        :: XCHANGE = 4
 
@@ -358,7 +357,7 @@ MODULE mo_icon_cpl
    &        PRISM_DOUBLE_PRECISION,             &
    &        PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX
 
-  PUBLIC :: NOTHING, INITIAL, RESTART, XCHANGE
+  PUBLIC :: NOTHING, RESTART, XCHANGE
 
   PUBLIC :: initial_date
   PUBLIC :: grids, t_grid

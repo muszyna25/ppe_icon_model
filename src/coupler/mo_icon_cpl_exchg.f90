@@ -48,7 +48,6 @@ MODULE mo_icon_cpl_exchg
    &                      cpl_field_avg,    &
    &                      NOTHING,          &
    &                      RESTART,          &
-   &                      INITIAL,          &
    &                      XCHANGE
 
   USE mo_master_control,  ONLY  : is_restart_run
@@ -170,6 +169,9 @@ CONTAINS
 
     l_action = event_check ( fptr%event_id )
 
+    l_restart = events(fptr%event_id)%elapsed_time >=  &
+                events(fptr%event_id)%restart_time
+
     IF ( debug_coupler_level > 1 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : get action for event ', &
                             fptr%event_id,                                &
@@ -179,11 +181,8 @@ CONTAINS
                             events(fptr%event_id)%elapsed_time, &
                             events(fptr%event_id)%event_time,   &
                             events(fptr%event_id)%restart_time, &
-                            events(fptr%event_id)%lag
+                            events(fptr%event_id)%lag, l_restart
     ENDIF
-
-    l_restart = events(fptr%event_id)%elapsed_time >=  &
-                events(fptr%event_id)%restart_time
 
     CALL event_update ( fptr%event_id )
 
@@ -366,7 +365,7 @@ CONTAINS
 
     ENDIF
 
-    info = MAX(INITIAL,info)
+    IF ( info /= RESTART ) info = XCHANGE
 
     DEALLOCATE ( lrequests )
     DEALLOCATE ( msg_fm_src )
@@ -435,7 +434,7 @@ CONTAINS
 
     IF ( fptr%accumulation_count == 0 ) RETURN
 
-    info = INITIAL
+    info = RESTART
 
     ! -------------------------------------------------------------------
     ! Get averaged and/or accumulated data
@@ -563,7 +562,7 @@ CONTAINS
                               events(fptr%event_id)%delta_time,           &
                               events(fptr%event_id)%elapsed_time,         &
                               events(fptr%event_id)%event_time,           &
-                              events(fptr%event_id)%restart_time
+                              events(fptr%event_id)%restart_time, l_restart
     ENDIF
 
     ! -------------------------------------------------------------------
@@ -694,7 +693,7 @@ CONTAINS
           CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
                datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-          info = XCHANGE
+          IF ( info /= RESTART ) info = XCHANGE
 
           IF ( fptr%coupling%l_diagnostic ) THEN
 
