@@ -533,6 +533,14 @@ MODULE mo_initicon
     ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
 
+    ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
+    ! from neighboring grid points where possible;
+    ! Calling it a second time at the very end ensures i.e. that fr_seaice for sub-grid scale 
+    ! land and water points is also filled if it is read from analysis.
+    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data)
+    END IF
+
   END SUBROUTINE process_dwdanainc_sfc
 
 

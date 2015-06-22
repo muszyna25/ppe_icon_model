@@ -48,6 +48,7 @@ MODULE mo_ext_data_init
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
                                    ci_td_filename, itype_lndtbl
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              i_lctype, nclass_lu, nmonths_ext
@@ -964,13 +965,11 @@ CONTAINS
         !
         ! other external parameters on triangular grid
         !
-
         CALL read_cdi_2d(parameters, 'FR_LAND', ext_data(jg)%atm%fr_land)
 
 
         SELECT CASE ( iforcing )
         CASE ( inwp )
-          CALL read_cdi_2d(parameters, 'Z0', ext_data(jg)%atm%z0)
           CALL read_cdi_2d(parameters, 'NDVI_MAX', ext_data(jg)%atm%ndvi_max)
           CALL read_cdi_2d(parameters, 'SOILTYP', ext_data(jg)%atm%soiltyp)
           CALL read_cdi_3d(parameters, 'LU_CLASS_FRACTION', nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction, opt_lev_dim=3 )
@@ -990,6 +989,11 @@ CONTAINS
             CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
             CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
             CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
+          ENDIF
+
+          IF (atm_phy_nwp_config(jg)%itype_z0 == 1) THEN
+            ! only read, if contribution from sub-scale orography should be included in z0
+            CALL read_cdi_2d(parameters, 'Z0', ext_data(jg)%atm%z0)
           ENDIF
 
           IF (is_frglac_in(jg)) THEN
