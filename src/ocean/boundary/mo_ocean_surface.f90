@@ -71,7 +71,7 @@ MODULE mo_ocean_surface
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-  USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
+  USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, clw, albedoW_sim, rhos, stbo, zemiss_def
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
   USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -285,18 +285,15 @@ CONTAINS
 
     ENDIF
 
+    ! Calculate the sea surface freezing temperature
+    !  2015-06: Tfw should be included in ice-variables and initialized in ice_init
+    !           then updated after changing SSS by sea-ice, only!
+    !  here: set to Tf for consistency with results of old mo_ocean_bulk
+    Tfw(:,:) = Tf
+
     !-----------------------------------------------------------------------
     !  (1) get surface fluxes from outside: analytical, OMIP, coupling
     !-----------------------------------------------------------------------
-
-    ! Calculate the sea surface freezing temperature
-    !  #slo# 2014-11: this should be done in init and before and after changing SSS by sea-ice, only!
-
-    IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
-      Tfw(:,:) = Tf
-    ELSE
-      Tfw(:,:) = -mu*s_top(:,:)
-    ENDIF
 
     ! first CASE: read in fluxes (analytic, input file, coupling) ! {{{
     SELECT CASE (iforc_oce)
