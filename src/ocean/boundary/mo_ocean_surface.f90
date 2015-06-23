@@ -1740,7 +1740,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
+  !> Forcing_from_bulk equals sbr "Budget" in MPIOM.
   !! Sets the atmospheric fluxes over *SEA ICE ONLY* for the update of the ice
   !! temperature and ice growth rates for OMIP forcing
   !! @par Revision History
@@ -1748,22 +1748,35 @@ CONTAINS
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !! Einar Olason, split calc_atm_fluxes_from_bulk into calc_bulk_flux_ice and calc_bulk_flux_oce
   !! so that the ocean model can be run without the ice model, but with OMIP fluxes.
-  !
-  !  INPUT variables:
-  !   p_as%pao
-  !   p_as%ftdew
-  !   tracer(:,1,:,1)  :  SST
-  !
-  !  OUTPUT variables:
-  !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
-  !
+  !! Rewritten by Stephan Lorenz, MPI-M (2015-06).
+
   SUBROUTINE calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
 
-    !Local variables
+ !  INPUT variables:
+ !  p_as%tafo(:,:),      : 2 m air temperature                              [C]
+ !  p_as%ftdew(:,:),     : 2 m dew-point temperature                        [K]
+ !  p_as%fu10(:,:) ,     : 10 m wind speed                                  [m/s]
+ !  p_as%fclou(:,:),     : Fractional cloud cover
+ !  p_as%pao(:,:),       : Surface atmospheric pressure                     [hPa]
+ !  p_as%fswr(:,:),      : Incoming surface solar radiation                 [W/m]
+ !  p_os%tracer(:,1,:,1) : SST
+ !  p_ice%hi(:,:)        : ice thickness                                    [m]
+ !
+ !  OUTPUT variables:  atmos_fluxes - heat fluxes and derivatives over ice-covered part, wind stress
+ !  atmos_fluxes%LWnet   : long wave
+ !  atmos_fluxes%sens    
+ !  atmos_fluxes%lat     
+ !  atmos_fluxes%dsensdT 
+ !  atmos_fluxes%dlatdT  
+ !  atmos_fluxes%dLWdt   
+ !  atmos_fluxes%stress_x
+ !  atmos_fluxes%stress_y
+
+ !  Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
       & Tsurf,          &  ! Surface temperature                             [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
@@ -1967,16 +1980,16 @@ CONTAINS
     CALL dbg_print('omipBudIce:destidT'         ,destidT              ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudIce:dfdT'            ,dfdT                 ,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('omipBudIce:Tsurf ice'       , Tsurf               ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%LWnet ice', atmos_fluxes%LWnet  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%sens ice' , atmos_fluxes%sens   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%lat ice'  , atmos_fluxes%lat    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:Tsurf ice'       ,Tsurf                ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%LWnet ice',atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%sens ice' ,atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudIce:atmflx%dLWdt'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_omip_budgets_ice
@@ -1989,13 +2002,6 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-08). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
-  !
-  !  INPUT variables:
-  !   p_as%pao
-  !   p_as%ftdew
-  !   tracer(:,1,:,1)  :  SST
-  !  OUTPUT variables:
-  !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
    
   SUBROUTINE calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
@@ -2003,7 +2009,25 @@ CONTAINS
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
 
-    !Local variables
+ !  INPUT variables:
+ !  p_as%tafo(:,:),      : 2 m air temperature                              [C]
+ !  p_as%ftdew(:,:),     : 2 m dew-point temperature                        [K]
+ !  p_as%fu10(:,:) ,     : 10 m wind speed                                  [m/s]
+ !  p_as%fclou(:,:),     : Fractional cloud cover
+ !  p_as%pao(:,:),       : Surface atmospheric pressure                     [hPa]
+ !  p_as%fswr(:,:),      : Incoming surface solar radiation                 [W/m]
+ !  p_os%tracer(:,1,:,1) : SST
+ !  atmos_fluxes%albvisdirw, albvisdifw, albnirdirw, albnirdifw
+ !
+ !  OUTPUT variables:  atmos_fluxes - heat fluxes and wind stress over open ocean
+ !  atmos_fluxes%LWnetw  : long wave
+ !  atmos_fluxes%SWnetw  : long wave
+ !  atmos_fluxes%sensw   : sensible
+ !  atmos_fluxes%latw    : latent
+ !  atmos_fluxes%stress_xw
+ !  atmos_fluxes%stress_yw
+
+ !  Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
       & Tsurf,          &  ! Surface temperature                             [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
