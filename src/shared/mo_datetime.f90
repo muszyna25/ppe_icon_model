@@ -94,8 +94,9 @@ MODULE mo_datetime
     &   print_calendar      ,& ! print calendar info
     &   print_datetime      ,& ! print date and time
     &   print_auxinfos      ,& ! print auxiliary date and time info
-    &   iso8601                ! convert (yr,mo,dy,hr,mn,s) to a string of iso8601 format
-  
+    &   iso8601             ,& ! convert (yr,mo,dy,hr,mn,s) to a string of iso8601 format
+    &   iso8601extended
+
   PUBLIC::  month2hour
 
   PUBLIC :: string_to_datetime, datetime_to_string,  date_len
@@ -1027,6 +1028,17 @@ CONTAINS
          & datetime%hour, datetime%minute, NINT(datetime%second), 'Z'
 
   END FUNCTION iso8601
+
+  FUNCTION iso8601extended( datetime )
+
+    TYPE(t_datetime),INTENT(IN) :: datetime
+    CHARACTER(len=23) :: iso8601extended 
+
+    WRITE(iso8601extended,'(i4.4,a,2(i2.2,a),3(i2.2,a))')             &
+         & datetime%year, '-', datetime%month,'-', datetime%day, 'T', &
+         & datetime%hour, ':', datetime%minute, ':', NINT(datetime%second), '.000'
+
+  END FUNCTION iso8601extended
 
 
   !>

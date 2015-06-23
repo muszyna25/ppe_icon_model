@@ -26,7 +26,7 @@ MODULE mo_echam_phy_bcs
   USE mo_datetime                   ,ONLY: t_datetime, add_time
   USE mo_model_domain               ,ONLY: t_patch
 
-  USE mo_master_nml                 ,ONLY: lrestart
+  USE mo_master_config              ,ONLY: isRestart
   USE mo_echam_phy_config           ,ONLY: echam_phy_config
   USE mo_radiation_config           ,ONLY: ighg, isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero
 
@@ -109,7 +109,7 @@ CONTAINS
 !!$      is_initial_datetime = (datetime == time_config%ini_datetime) ! here the overloaded == from mo_datetime is used
 !!$      is_radtran_datetime = (MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0)
 !!$      ltrig_rad = ( is_initial_datetime .OR. is_radtran_datetime )
-      ltrig_rad   = ( is_1st_call .AND. (.NOT.lrestart)                             ) .OR. &
+      ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart())                          ) .OR. &
         &           ( MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0 )
 
     ELSE

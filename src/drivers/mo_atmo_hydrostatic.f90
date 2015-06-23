@@ -16,7 +16,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_exception,         ONLY: message
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
 
-  USE mo_master_control,    ONLY: is_restart_run
+  USE mo_master_config,     ONLY: isRestart
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqv, iqc, iqt
@@ -168,7 +168,7 @@ CONTAINS
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF
@@ -176,7 +176,7 @@ CONTAINS
       CALL init_name_list_output(sim_step_info)
     ENDIF
 
-    IF (.NOT.is_restart_run()) THEN
+    IF (.NOT.isRestart()) THEN
     ! Initialize the first output file which will contain also the
     ! initial conditions.
 
@@ -190,10 +190,10 @@ CONTAINS
         CALL write_name_list_output(jstep=0)
       ENDIF
 
-    END IF ! (not) is_restart_run()
+    END IF ! (not) isRestart()
 
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
     ! This is an resumed integration. Read model state from restart file(s).
 
       jg = 1
@@ -216,7 +216,7 @@ CONTAINS
       !  CALL additional_restart_init( p_patch(1:), ctest_name )
       ! END IF
 
-    END IF ! is_restart_run()
+    END IF ! isRestart()
   END SUBROUTINE construct_atmo_hydrostatic
   !-------------------------------------------------------------------------------
 
