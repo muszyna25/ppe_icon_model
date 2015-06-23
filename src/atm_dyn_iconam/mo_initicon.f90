@@ -517,7 +517,7 @@ MODULE mo_initicon
     ! from neighboring grid points where possible;
     ! In case of snowtile warmstart, the index lists for snow-covered / snow-free points need to be initialized
     IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data)
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, water_only=.FALSE.)
     ELSE IF (ntiles_total > 1 .AND. lsnowtile) THEN
       CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
     ENDIF
@@ -533,12 +533,10 @@ MODULE mo_initicon
     ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
 
-    ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
-    ! from neighboring grid points where possible;
-    ! Calling it a second time at the very end ensures i.e. that fr_seaice for sub-grid scale 
-    ! land and water points is also filled if it is read from analysis.
+    ! Call neighbor-filling routine for a second time in order to ensure that fr_seaice is filled
+    ! with meaningful data near coastlines if this field is read from the analysis
     IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data)
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, water_only=.TRUE.)
     END IF
 
   END SUBROUTINE process_dwdanainc_sfc

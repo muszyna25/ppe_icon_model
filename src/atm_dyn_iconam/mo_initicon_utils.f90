@@ -1000,11 +1000,13 @@ MODULE mo_initicon_utils
   !! Initial version by Guenther Zaengl, DWD (2015-01-16)
   !!
   !!
-  SUBROUTINE fill_tile_points(p_patch, p_lnd_state, ext_data)
+  SUBROUTINE fill_tile_points(p_patch, p_lnd_state, ext_data, water_only)
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    LOGICAL, INTENT(IN) :: water_only
 
     TYPE(t_lnd_prog),  POINTER :: lnd_prog
     TYPE(t_lnd_diag),  POINTER :: lnd_diag
@@ -1133,7 +1135,7 @@ MODULE mo_initicon_utils
 
           ! single-layer fields
           DO jc = i_startidx, i_endidx
-            IF (lpmask(jc,1) == 1._wp) THEN
+            IF (lpmask(jc,1) == 1._wp .AND. .NOT. water_only) THEN
               CALL ngb_search(lnd_diag%freshsnow_t(:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
               CALL ngb_search(lnd_prog%w_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
               CALL ngb_search(lnd_prog%w_i_t      (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
@@ -1148,7 +1150,7 @@ MODULE mo_initicon_utils
           ! soil fields
           DO jk = 1, nlev_soil
             DO jc = i_startidx, i_endidx
-              IF (lpmask(jc,1) == 1._wp) THEN
+              IF (lpmask(jc,1) == 1._wp .AND. .NOT. water_only) THEN
                 CALL ngb_search(lnd_prog%t_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
                 CALL ngb_search(lnd_prog%w_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
                 CALL ngb_search(lnd_prog%w_so_ice_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
@@ -1159,7 +1161,7 @@ MODULE mo_initicon_utils
           IF (lmulti_snow) THEN ! multi-layer snow fields
             DO jk = 1, nlev_snow
               DO jc = i_startidx, i_endidx
-                IF (lpmask(jc,1) == 1._wp) THEN
+                IF (lpmask(jc,1) == 1._wp .AND. .NOT. water_only) THEN
                   CALL ngb_search(lnd_prog%t_snow_mult_t(:,jk,:,jt),   iidx, iblk, lpmask, lpcount, jc, jb)
                   CALL ngb_search(lnd_prog%rho_snow_mult_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
                   CALL ngb_search(lnd_prog%wtot_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
