@@ -28,31 +28,23 @@ MODULE mo_ocean_surface
 !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime, ltimer
-  USE mo_sync,                ONLY: sync_c, sync_patch_array, global_sum_array
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
+  USE mo_run_config,          ONLY: dtime
+  USE mo_sync,                ONLY: global_sum_array
   USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
-    &                               onCells, read_2D_time, read_3D
-  USE mo_cdi_constants,       ONLY: DATATYPE_FLT32, DATATYPE_PACK16,        &
-    &                               GRID_UNSTRUCTURED_CELL, GRID_REFERENCE, &
-    &                               GRID_CELL, ZA_GENERIC_ICE, ZA_SURFACE,  &
-    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
-    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
+    &                               onCells, read_2D_time  !, read_3D
   USE mo_var_list,            ONLY: add_var
-  USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
+  USE mo_ocean_state,         ONLY: ocean_default_list
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_time_config,         ONLY: time_config
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
-  USE mo_grid_config,         ONLY: nroot
   USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
-    &                               no_tracer, n_zlev, basin_center_lat,                  &
+    &                               no_tracer, basin_center_lat,                          &
     &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
     &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
     &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
@@ -71,10 +63,10 @@ MODULE mo_ocean_surface
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-  USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
+  USE mo_physical_constants,  ONLY: rho_ref, alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
   USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, cd_ia, alf  ! used for omip bulk formula
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
-  USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
+  USE mo_math_utilities,      ONLY: gvec2cvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
@@ -128,7 +120,7 @@ CONTAINS
     !Local variables
     !INTEGER i
 
-    INTEGER :: alloc_cell_blocks, nblks_v, nblks_e, ist
+    INTEGER :: alloc_cell_blocks
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface:construct_ocean_surface'
 
     TYPE(t_patch),POINTER    :: p_patch
@@ -137,7 +129,7 @@ CONTAINS
 
     p_patch           => p_patch_3D%p_patch_2D(1)
     alloc_cell_blocks =  p_patch%alloc_cell_blocks
-    nblks_e           =  p_patch%nblks_e
+  ! nblks_e           =  p_patch%nblks_e
 
     CALL add_var(ocean_default_list, 'TopBC_WindStress_u', p_oce_sfc%TopBC_WindStress_u, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -233,7 +225,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface:update_ocean_surface'
     INTEGER               :: jc, jb, trac_no
     INTEGER               :: i_startidx_c, i_endidx_c
-    REAL(wp)              :: dsec, z_smax
+    REAL(wp)              :: dsec
     REAL(wp)              :: Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: s_top_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceOld(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -243,7 +235,7 @@ CONTAINS
     REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
     TYPE(t_patch), POINTER:: p_patch 
-    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
+    TYPE(t_subset_range), POINTER :: all_cells
 
     IF (no_tracer>=1) p_oce_sfc%sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
     IF (no_tracer>=2) p_oce_sfc%sss(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -252,7 +244,6 @@ CONTAINS
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
-    cells_in_domain => p_patch%cells%in_domain
     !-----------------------------------------------------------------------
     s_top => NULL()
     IF (no_tracer>=1) t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
@@ -441,7 +432,17 @@ CONTAINS
       CALL calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
-      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
+     !IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
+      ! pass parameters read from OMIP into budget calculation directly
+      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice,       &
+        &                        p_as%tafo(:,:), p_as%ftdew(:,:)-tmelt,          &
+        &                        p_as%fu10(:,:), p_as%fclou(:,:), p_as%pao(:,:), &
+        &                        p_as%fswr(:,:), p_ice%Tsurf(:,:,:),             &
+        &                        atmos_fluxes%albvisdir(:,:,:),                  &
+        &                        atmos_fluxes%albvisdif(:,:,:),                  &
+        &                        atmos_fluxes%albnirdir(:,:,:),                  &
+        &                        atmos_fluxes%albnirdif(:,:,:),                  &
+        &                        atmos_fluxes)
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
       IF (forcing_enable_freshwater) THEN
@@ -1010,27 +1011,24 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_fromFile'
     INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
-    INTEGER  :: iniyear, curyear, offset
-    INTEGER  :: no_set
-    REAL(wp) :: rday1, rday2, dtm1, dsec
+    REAL(wp) :: rday1, rday2
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     TYPE(t_patch), POINTER:: p_patch 
-    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
+    !TYPE(t_subset_range), POINTER :: all_cells
 
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
 
-    all_cells       => p_patch%cells%all
-    cells_in_domain => p_patch%cells%in_domain
+    !all_cells       => p_patch%cells%all
 
     !  calculate day and month
     jmon  = datetime%month         ! integer current month
     jdmon = datetime%day           ! integer day in month
     yday  = datetime%yeaday        ! integer current day in year
     ylen  = datetime%yealen        ! integer days in year (365 or 366)
-    dsec  = datetime%daysec        ! real seconds since begin of day
+   !dsec  = datetime%daysec        ! real seconds since begin of day
    !ytim  = datetime%yeatim        ! real time since begin of year
 
     !
@@ -1383,7 +1381,6 @@ CONTAINS
     !Local variables 
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp) :: relax_strength, thick
     REAL(wp) :: t_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: s_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_patch), POINTER :: p_patch
@@ -1470,8 +1467,8 @@ CONTAINS
 
     INTEGER :: jc, jb, i
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    !REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    !REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_from_atm_flx'
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1499,8 +1496,8 @@ CONTAINS
                                                            ! liquid/solid  precipitation rate
             !                                                are zero
 
-            !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-            z_evap(jc,jb) = atmos_fluxes%lat(jc,jb,i)/(als*z_rho_w)
+            ! This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
+           !z_evap(jc,jb) = atmos_fluxes%lat(jc,jb,i)/(als*z_rho_w)
 
           ELSE
 
@@ -1510,8 +1507,8 @@ CONTAINS
             & +  atmos_fluxes%SWnetw(jc,jb)                      ! net SW radiation flux ove water
                                                          ! liquid/solid  precipitation rate are zero
 
-           !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-            z_evap(jc,jb) = atmos_fluxes%latw(jc,jb)/(alv*z_rho_w)
+            ! This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
+           !z_evap(jc,jb) = atmos_fluxes%latw(jc,jb)/(alv*z_rho_w)
           ENDIF
         END DO
 
@@ -1521,7 +1518,7 @@ CONTAINS
         !calculate evaporation from latent heat flux and latent heat of vaporisation
         !This is (63) in Marsland et al.
         !+River runoff +glacial meltwater
-        z_Q_freshwater(jc,jb) = (atmos_fluxes%rpreci(jc,jb) + atmos_fluxes%rprecw(jc,jb)) -  z_evap(jc,jb)  
+        !z_Q_freshwater(jc,jb) = (atmos_fluxes%rpreci(jc,jb) + atmos_fluxes%rprecw(jc,jb)) -  z_evap(jc,jb)  
 
         !Now the freshwater flux calculation is finished; this is (65) in Marsland et al.
         !Relaxation of top layer salinity to observed salinity
@@ -1592,11 +1589,10 @@ CONTAINS
     !INTEGER :: rl_start_c, rl_end_c
 
     REAL(wp) :: z_lat, z_lon, z_lat_deg
-    REAL(wp) :: y_length               !basin extension in y direction in degrees
     REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
     INTEGER  :: z_dolic
-    REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
+    REAL(wp) :: z_temp_max  !, z_temp_min, z_temp_incr
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_analytical'
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1636,7 +1632,6 @@ CONTAINS
 
      IF(no_tracer>=1.AND.type_surfRelax_Temp/=0)THEN
 
-       y_length = basin_height_deg * deg2rad
        DO jb = all_cells%start_block, all_cells%end_block
          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
          DO jc = i_startidx_c, i_endidx_c
@@ -1705,8 +1700,8 @@ CONTAINS
         z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
         z_temp_max  = 30.5_wp
-        z_temp_min  = 0.5_wp
-        z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+      ! z_temp_min  = 0.5_wp
+      ! z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
 
       !Add horizontal variation
       DO jb = all_cells%start_block, all_cells%end_block
@@ -1748,23 +1743,35 @@ CONTAINS
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !! Einar Olason, split calc_atm_fluxes_from_bulk into calc_bulk_flux_ice and calc_bulk_flux_oce
   !! so that the ocean model can be run without the ice model, but with OMIP fluxes.
+  !!
   !! Rewritten by Stephan Lorenz, MPI-M (2015-06).
+  !!  Using interface with parameters in order to call budget routine independent of ocean model
 
-  SUBROUTINE calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
-    TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
-    TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
-    TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
-    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
+  SUBROUTINE calc_omip_budgets_ice(p_patch, p_as, p_ice, tafoC, ftdewC, fu10, fclou, pao, fswr, tice, &
+    &                              albvisdir, albvisdif, albnirdir, albnirdif, atmos_fluxes)
+    TYPE(t_patch),            INTENT(IN), TARGET :: p_patch
+    TYPE(t_atmos_for_ocean),  INTENT(IN)         :: p_as
+    TYPE(t_sea_ice),          INTENT(IN)         :: p_ice
+    TYPE(t_atmos_fluxes),     INTENT(INOUT)      :: atmos_fluxes
+
+    REAL(wp), INTENT(in)  :: tafoC(:,:)     ! 2 m air temperature in Celsius       [C]
+    REAL(wp), INTENT(in)  :: ftdewC(:,:)    ! 2 m dew point temperature in Celsius [C]
+    REAL(wp), INTENT(in)  :: fu10(:,:)      ! 10 m wind speed                      [m/s]
+    REAL(wp), INTENT(in)  :: fclou(:,:)     ! Fractional cloud cover               [frac]
+    REAL(wp), INTENT(in)  :: pao(:,:)       ! Surface atmospheric pressure         [hPa]
+    REAL(wp), INTENT(in)  :: fswr(:,:)      ! Incoming surface solar radiation     [W/m]
+    REAL(wp), INTENT(in)  :: tice(:,:,:)    ! surface ice temperature per class in Celsius   [C]
+    REAL(wp), INTENT(in)  :: albvisdir(:,:,:) ! direct ice albedo per class
+    REAL(wp), INTENT(in)  :: albvisdif(:,:,:) ! diffuse ice albedo per class
+    REAL(wp), INTENT(in)  :: albnirdir(:,:,:) ! direct near infrared ice albedo per class
+    REAL(wp), INTENT(in)  :: albnirdif(:,:,:) ! diffuse near infrared ice albedo per class
 
  !  INPUT variables:
- !  p_as%tafo(:,:),      : 2 m air temperature                              [C]
- !  p_as%ftdew(:,:),     : 2 m dew-point temperature                        [K]
- !  p_as%fu10(:,:) ,     : 10 m wind speed                                  [m/s]
- !  p_as%fclou(:,:),     : Fractional cloud cover
- !  p_as%pao(:,:),       : Surface atmospheric pressure                     [hPa]
- !  p_as%fswr(:,:),      : Incoming surface solar radiation                 [W/m]
- !  p_os%tracer(:,1,:,1) : SST
  !  p_ice%hi(:,:)        : ice thickness                                    [m]
+ !  p_ice%kice           : ice classes
+ !  p_patch%cells%center(:,:)%lat : latitude                                [rad]
+ !  atmos_fluxes%albvisdir, albvisdif, albnirdir, albnirdif
+ !   - all 4 albedos are the same (i_ice_albedo = 1), they are calculated in ice_fast and should be stored in p_ice or p_as
  !
  !  OUTPUT variables:  atmos_fluxes - heat fluxes and derivatives over ice-covered part, wind stress
  !  atmos_fluxes%LWnet   : long wave
@@ -1777,15 +1784,14 @@ CONTAINS
  !  atmos_fluxes%stress_y
 
  !  Local variables
-    REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
-      & Tsurf,          &  ! Surface temperature                             [C]
+    REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) :: &
+      & Tsurf,          &  ! Surface temperature in Celsius                  [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
       & esti,           &  ! water vapor pressure at ice surface             [Pa]
       & sphumida,       &  ! Specific humididty at 2 m height
       & sphumidi,       &  ! Specific humididty at ice surface
-      & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
       & dragl0,         &  ! part of dragl
       & dragl1,         &  ! part of dragl
@@ -1805,8 +1811,12 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    tafoK(:,:)  = p_as%tafo(:,:)  + tmelt  ! Change units of tafo  to Kelvin
-    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt  ! Change units of ftdew to C
+  ! both variables tafoC and tafoK are needed
+  ! tafoK(:,:)  = p_as%tafo(:,:)  + tmelt  ! Change units of tafo  to Kelvin
+    tafoK(:,:)  =      tafoC(:,:) + tmelt  ! Change units of tafo  to Kelvin
+
+  ! now done outside routine, needs no local variable
+  ! ftdewC(:,:) = p_as%ftdew(:,:) - tmelt  ! Change units of ftdew to C
 
     ! set to zero for NAG, for debug necessary only
     IF (idbg_mxmn > 3 .OR. idbg_val>3) THEN
@@ -1846,10 +1856,10 @@ CONTAINS
     alpha=0.62197_wp; beta=0.37803_wp
 
     ! #slo# correction: pressure in enhancement formula is in mb (hPa) according to Buck 1981 and 1996
-    fa(:,:)        = 1.0_wp+AAw+p_as%pao*0.01_wp*(BBw+CCw*ftdewC**2)
+    fa(:,:)        = 1.0_wp+AAw+pao*0.01_wp*(BBw+CCw*ftdewC**2)
     esta(:,:)      = fa * aw*EXP((bw-ftdewC/dw)*ftdewC/(ftdewC+cw))
 
-    sphumida(:,:)  = alpha * esta/(p_as%pao-beta*esta)
+    sphumida(:,:)  = alpha * esta/(pao-beta*esta)
     !-----------------------------------------------------------------------
     !  Compute longwave radiation according to
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
@@ -1866,7 +1876,7 @@ CONTAINS
     ! Berliand & Berliand ('52) calculate only LWnet
     humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
     fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
-      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
+      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * fclou(:,:)**2
 
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
@@ -1880,13 +1890,13 @@ CONTAINS
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
 
-        rhoair(jc,jb) = p_as%pao(jc,jb)                &
+        rhoair(jc,jb) = pao(jc,jb)                &
           &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
 
       END DO
     END DO
 
-    fu10lim(:,:)    = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(:,:)) )
+    fu10lim(:,:)    = MAX (2.5_wp, MIN(32.5_wp,fu10(:,:)) )
     dragl1(:,:)     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim(:,:) &
       &               - 0.6743_wp/(fu10lim(:,:) * fu10lim(:,:)))
     dragl0(:,:)     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim(:,:) &
@@ -1900,18 +1910,19 @@ CONTAINS
     !  TODO: in case of no ice model, ice variables cannot be used here
     DO i = 1, p_ice%kice
       WHERE (p_ice%hi(:,i,:)>0._wp)
-        atmos_fluxes%SWnet(:,i,:) = ( 1._wp-atmos_fluxes%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
-          &                 ( 1._wp-atmos_fluxes%albvisdif(:,i,:) )*fvisdif*p_as%fswr(:,:) +   &
-          &                 ( 1._wp-atmos_fluxes%albnirdir(:,i,:) )*fnirdir*p_as%fswr(:,:) +   &
-          &                 ( 1._wp-atmos_fluxes%albnirdif(:,i,:) )*fnirdif*p_as%fswr(:,:)
-        Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
+        atmos_fluxes%SWnet(:,i,:) = ( 1._wp-albvisdir(:,i,:) )*fvisdir*fswr(:,:) +   &
+          &                 ( 1._wp-atmos_fluxes%albvisdif(:,i,:) )*fvisdif*fswr(:,:) +   &
+          &                 ( 1._wp-atmos_fluxes%albnirdir(:,i,:) )*fnirdir*fswr(:,:) +   &
+          &                 ( 1._wp-atmos_fluxes%albnirdif(:,i,:) )*fnirdif*fswr(:,:)
+      ! Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
+        Tsurf(:,:)    = tice(:,i,:)
         ! #slo# correction: pressure in enhancement formula is in mb (hPa) according to Buck 1981 and 1996
         !fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
-        fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*0.01_wp*(BBi+CCi*Tsurf(:,:) **2)
+        fi(:,:)       = 1.0_wp+AAi+pao(:,:)*0.01_wp*(BBi+CCi*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
-        sphumidi(:,:) = alpha*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:))
+        sphumidi(:,:) = alpha*esti(:,:)/(pao(:,:)-beta*esti(:,:))
         ! This may not be the best drag parametrisation to use over ice
-        dragl(:,:)    = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-p_as%tafo(:,:))
+        dragl(:,:)    = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-tafoC(:,:))
         ! A reasonable maximum and minimum is needed for dragl in case there's a large difference
         ! between the 2-m and surface temperatures.
         dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
@@ -1920,7 +1931,7 @@ CONTAINS
         ! #eoo# 2012-12-14: another bugfix
         ! #slo# 2012-12-13: bugfix, corrected form
         atmos_fluxes%LWnet (:,i,:)  = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
-           &                  - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
+           &                  - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - tafoC(:,:))
         ! same form as MPIOM:
         !atmos_fluxes%LWnet (:,i,:)  = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &         + 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:)))
@@ -1928,19 +1939,19 @@ CONTAINS
         !atmos_fluxes%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
         atmos_fluxes%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
-        atmos_fluxes%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
-          &                    * (p_as%tafo(:,:) -Tsurf(:,:))
-        atmos_fluxes%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) * fr_fac &
+        atmos_fluxes%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*fu10(:,:) * fr_fac &
+          &                    * (tafoC(:,:) -Tsurf(:,:))
+        atmos_fluxes%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *fu10(:,:) * fr_fac &
           &                   * (sphumida(:,:)-sphumidi(:,:))
 
-        atmos_fluxes%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*p_as%fu10(:,:)&
+        atmos_fluxes%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*fu10(:,:)&
           &                  *(dragl0(:,:) - 2.0_wp*dragl(:,:))
-        dsphumididesti(:,:) = alpha/(p_as%pao(:,:)-beta*esti(:,:)) &
-          &                   * (1.0_wp + beta*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:)))
+        dsphumididesti(:,:) = alpha/(pao(:,:)-beta*esti(:,:)) &
+          &                   * (1.0_wp + beta*esti(:,:)/(pao(:,:)-beta*esti(:,:)))
         destidT(:,:)        = (bi*ci*di-Tsurf(:,:)*(2.0_wp*ci+Tsurf(:,:)))&
           &                   /(di*(ci+Tsurf(:,:))**2) * esti(:,:)
         dfdT(:,:)               = 2.0_wp*CCi*BBi*Tsurf(:,:)
-        atmos_fluxes%dlatdT(:,i,:)  = alf*rhoair(:,:)*p_as%fu10(:,:)* &
+        atmos_fluxes%dlatdT(:,i,:)  = alf*rhoair(:,:)*fu10(:,:)* &
           &                  ( (sphumida(:,:)-sphumidi(:,:))*dragl1(:,:) &
           &                    - dragl(:,:)*dsphumididesti(:,:)*(fi(:,:)*destidT(:,:) &
           &                    + esti(:,:)*dfdT(:,:)) )
@@ -2280,7 +2291,7 @@ CONTAINS
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, no_cells, no_tst, jtime, jt !, jc, jb
+    INTEGER :: jg, no_cells, no_tst, jtime, jt !, jc, jb
     INTEGER :: ncid, dimid,mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: i_start(2),i_count(2), jcells
@@ -2302,8 +2313,7 @@ CONTAINS
     !DO jg = 1,n_dom
       jg = 1
 
-      i_lev       = p_patch%level
-
+      ! i_lev       = p_patch%level
       ! WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
       ncep_file='ocean-flux.nc'
 
