@@ -438,10 +438,10 @@ CONTAINS
 
       ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
       !CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
-      CALL calc_omip_budgets_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
+      CALL calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
-      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
+      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
       IF (forcing_enable_freshwater) THEN
@@ -1757,14 +1757,11 @@ CONTAINS
   !  OUTPUT variables:
   !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
   !
-  SUBROUTINE calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
+  SUBROUTINE calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
-
-    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
-
 
     !Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
@@ -1792,8 +1789,6 @@ CONTAINS
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
-    ! For wind-stress ramping
-    REAL(wp) :: ramp = 1.0_wp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -1822,11 +1817,14 @@ CONTAINS
     ! updated from Buck, A. L., New equations for computing vapor pressure and
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
-    ! #slo# 2015-03: above comment now valid - the values for open water below are from Buck (1981)
-    !                the values for ice are not changed in Buck (1996) in comparison to Buck (1981)
-  ! aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
-    ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
+    ! #slo# 2015-03: the comment above is now valid 
+    ! the values for ice are not changed in Buck (1996) in comparison to Buck (1981)
+
+    ! the following commented values are from Buck (1981)
+    ! aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
+
     ! here are the updated values for open water according to Buck (1996)
+    ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
     aw=611.21_wp; bw=18.678_wp; cw=257.14_wp; dw=234.5_wp
 
     AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
@@ -1852,13 +1850,11 @@ CONTAINS
     !  the default usage).
     !-----------------------------------------------------------------------
 
-    ! NB: Lwinw and LWoutw is a misleading nomenclature in this case, since
     ! Berliand & Berliand ('52) calculate only LWnet
     humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
     fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
-    atmos_fluxes%LWin(:,:) = 0._wp
-    atmos_fluxes%LWout(:,:,:) = 0._wp
+
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
     !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
@@ -1888,6 +1884,7 @@ CONTAINS
     Tsurf(:,:) = 0._wp ! For debug output
 
     ! Over sea ice area only
+    !  TODO: in case of no ice model, ice variables cannot be used here
     DO i = 1, p_ice%kice
       WHERE (p_ice%hi(:,i,:)>0._wp)
         atmos_fluxes%SWnet(:,i,:) = ( 1._wp-atmos_fluxes%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
@@ -1938,8 +1935,8 @@ CONTAINS
     ENDDO
 
     !Dirk: why zero ?
-    atmos_fluxes%rpreci(:,:) = 0.0_wp
-    atmos_fluxes%rprecw(:,:) = 0.0_wp
+ !  atmos_fluxes%rpreci(:,:) = 0.0_wp
+ !  atmos_fluxes%rprecw(:,:) = 0.0_wp
 
     IF (use_calculated_ocean_stress) THEN
       !-----------------------------------------------------------------------
@@ -1954,40 +1951,32 @@ CONTAINS
       atmos_fluxes%stress_y(:,:) = p_as%topBoundCond_windStress_v(:,:)
     ENDIF
 
-    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
-  ! IF ( PRESENT(datetime) ) THEN
-  !   ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
-  !     - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-  !   IF (idbg_mxmn > 3 .OR. idbg_val>3) WRITE(0,*) ' RAMP = ',ramp
-  !   atmos_fluxes%stress_x(:,:)  = ramp*atmos_fluxes%stress_x(:,:)
-  !   atmos_fluxes%stress_y(:,:)  = ramp*atmos_fluxes%stress_y(:,:)
-  ! ENDIF
-
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulkI:tafoK'           ,tafoK    ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:rhoair'          ,rhoair   ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:fa'              ,fa       ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:fi'              ,fi       ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:esta'            ,esta     ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:esti'            ,esti     ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:sphumida'        ,sphumida ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:sphumidi'        ,sphumidi ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:dragl'           ,dragl    ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:drags'           ,drags    ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:dsphumididesti'  ,dsphumididesti       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:destidT'         ,destidT              ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:dfdT'            ,dfdT                 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:tafoK'           ,tafoK    ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:rhoair'          ,rhoair   ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:fa'              ,fa       ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:fi'              ,fi       ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:esta'            ,esta     ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:esti'            ,esti     ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:sphumida'        ,sphumida ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:sphumidi'        ,sphumidi ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:dragl'           ,dragl    ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:drags'           ,drags    ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:dsphumididesti'  ,dsphumididesti       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:destidT'         ,destidT              ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:dfdT'            ,dfdT                 ,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulkI:Tsurf ice'       , Tsurf               ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:atmflx%LWnet ice', atmos_fluxes%LWnet  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:atmflx%sens ice' , atmos_fluxes%sens   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:atmflx%lat ice'  , atmos_fluxes%lat    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:Tsurf ice'       , Tsurf               ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%LWnet ice', atmos_fluxes%LWnet  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%sens ice' , atmos_fluxes%sens   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%lat ice'  , atmos_fluxes%lat    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:atmflx%dLWdt'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_omip_budgets_ice
@@ -2008,14 +1997,11 @@ CONTAINS
   !  OUTPUT variables:
   !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
    
-  SUBROUTINE calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes, datetime)
+  SUBROUTINE calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
-
-    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
-
 
     !Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
@@ -2041,8 +2027,6 @@ CONTAINS
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
-    ! For wind-stress ramping
-    REAL(wp) :: ramp = 1.0_wp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -2060,11 +2044,11 @@ CONTAINS
     ! updated from Buck, A. L., New equations for computing vapor pressure and
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
-    ! #slo# 2015-03: above comment now valid - the values below are from Buck (1981)
-  ! aw    = 611.21_wp; bw    = 18.729_wp;  cw  = 257.87_wp; dw = 227.3_wp
-    AAw   = 7.2e-4_wp; BBw   = 3.20e-6_wp; CCw = 5.9e-10_wp
+    AAw   = 7.2e-4_wp;  BBw  = 3.20e-6_wp; CCw = 5.9e-10_wp
     alpha = 0.62197_wp; beta = 0.37803_wp
-    ! here are the updated values according to Buck (1996)
+    ! #slo# 2015-03: the comment above is now valid - the following commented values are from Buck (1981)
+    ! aw    = 611.21_wp; bw    = 18.729_wp;  cw  = 257.87_wp; dw = 227.3_wp
+    ! these are the updated values according to Buck (1996)
     aw    = 611.21_wp; bw    = 18.678_wp;  cw  = 257.14_wp; dw = 234.5_wp
 
     ! #slo# correction: pressure in enhancement formula is in mb (hPa) according to Buck 1981 and 1996
@@ -2099,10 +2083,7 @@ CONTAINS
     humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
     fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
-    ! NB: Lwin and LWoutw is a misleading nomenclature in this case, since
     ! Berliand & Berliand ('52) calculate only LWnetw
-    atmos_fluxes%LWin(:,:) = 0._wp
-    atmos_fluxes%LWoutw(:,:) = 0._wp
 
     ! #eoo# 2012-12-14: another bugfix
     ! #slo# #hha# 2012-12-13: bugfix, corrected form
@@ -2172,41 +2153,32 @@ CONTAINS
       atmos_fluxes%stress_yw(:,:) = p_as%topBoundCond_windStress_v(:,:)
     ENDIF
 
-    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
-  ! IF ( PRESENT(datetime) ) THEN
-  !   ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
-  !     - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-  !   IF (idbg_mxmn > 3 .OR. idbg_val>3) WRITE(0,*) ' RAMP = ',ramp
-  !   atmos_fluxes%stress_xw(:,:) = ramp*atmos_fluxes%stress_xw(:,:)
-  !   atmos_fluxes%stress_yw(:,:) = ramp*atmos_fluxes%stress_yw(:,:)
-  ! ENDIF
-
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5          , fix)
-    CALL dbg_print('CalcBulkO:tafoK'              , tafoK                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:tafo'               , p_as%tafo             , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:ftdew'              , p_as%ftdew            , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:ftdewC'             , ftdewC                , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:pao'                , p_as%pao              , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:fa'                 , fa                    , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:fw'                 , fw                    , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:esta'               , esta                  , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:estw'               , estw                  , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:sphumida'           , sphumida              , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:sphumidw'           , sphumidw              , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:rhoair'             , rhoair                , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:dragl'              , dragl                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:drags'              , drags                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:fu10'               , p_as%fu10             , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:fu10lim'            , fu10lim               , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:tafoK'              , tafoK                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:tafo'               , p_as%tafo             , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:ftdew'              , p_as%ftdew            , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:ftdewC'             , ftdewC                , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:pao'                , p_as%pao              , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:fa'                 , fa                    , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:fw'                 , fw                    , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:esta'               , esta                  , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:estw'               , estw                  , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:sphumida'           , sphumida              , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:sphumidw'           , sphumidw              , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:rhoair'             , rhoair                , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:dragl'              , dragl                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:drags'              , drags                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:fu10'               , p_as%fu10             , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:fu10lim'            , fu10lim               , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5          , fix)
-    CALL dbg_print('CalcBulkO:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:atmflx%sensw'       , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:atmflx%latw'        , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%sensw'       , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%latw'        , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_omip_budgets_oce
