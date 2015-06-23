@@ -1748,6 +1748,7 @@ src/shared/mo_action.f90 -text
 src/shared/mo_action_types.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
+src/shared/mo_derived_variable_handling.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_expression.f90 -text

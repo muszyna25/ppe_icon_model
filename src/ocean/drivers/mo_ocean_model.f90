@@ -21,7 +21,8 @@ MODULE mo_ocean_model
     & set_mpi_work_communicators, p_pe_work, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime, datetime_to_string
-  USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, collect_meanStream_variables
+  USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
+  USE mo_derived_variable_handling: ONLY: collect_meanStream_variables
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_dynamics_config,     ONLY: configure_dynamics
