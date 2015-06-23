@@ -107,7 +107,7 @@ CONTAINS
     INTEGER :: je, jb
     INTEGER :: start_index, end_index
     REAL(wp):: z_scale(nproma,patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: smooth_coeff, u_diff, v_diff, stress_coeff
+    REAL(wp) :: smooth_coeff, u_diff, v_diff
     TYPE(t_subset_range), POINTER :: all_edges   
     TYPE(t_patch), POINTER        :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -128,13 +128,13 @@ CONTAINS
     IF(iswm_oce == 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
-        z_scale(:,jb) = rho_ref*ocean_state%p_diag%thick_e(:,jb)
+        z_scale(:,jb) = 1.0_wp / (rho_ref*ocean_state%p_diag%thick_e(:,jb))
       ENDDO
 !ICON_OMP_END_DO 
     ELSEIF(iswm_oce /= 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
-        z_scale(:,jb) = rho_ref
+        z_scale(:,jb) = 1.0_wp / rho_ref
       ENDDO
 !ICON_OMP_END_DO
     ENDIF
@@ -154,13 +154,13 @@ CONTAINS
 
 
     CASE (1,4)
-!ICON_OMP_DO PRIVATE(start_index, end_index, je, stress_coeff) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         DO je = start_index, end_index
-          stress_coeff = smooth_coeff / z_scale(je,jb)
+!           stress_coeff = smooth_coeff * z_scale(je,jb)
           ocean_state%p_aux%bc_top_vn(je,jb) = &
-            & ocean_state%p_aux%bc_top_WindStress(je,jb) * stress_coeff
+            & ocean_state%p_aux%bc_top_WindStress(je,jb) * smooth_coeff * z_scale(je,jb) 
         END DO
       END DO
 !ICON_OMP_END_DO
@@ -225,13 +225,13 @@ CONTAINS
       !z_scale(:,:) = rho_ref*patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        z_scale(:,jb) = rho_ref*ocean_state%p_diag%thick_c(:,jb)
+        z_scale(:,jb) = 1.0_wp / (rho_ref*ocean_state%p_diag%thick_c(:,jb))
       ENDDO
 !ICON_OMP_END_DO
     ELSEIF(iswm_oce /= 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        z_scale(:,jb) = rho_ref
+        z_scale(:,jb) = 1.0_wp / rho_ref
       ENDDO
 !ICON_OMP_END_DO
     ENDIF
@@ -269,7 +269,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           IF (patch_3d%p_patch_1d(1)%dolic_c(jc, jb) > 0) THEN
-            stress_coeff = 1.0_wp / z_scale(jc,jb)
+            stress_coeff = z_scale(jc,jb)
             ocean_state%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)    * stress_coeff
             ocean_state%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)    * stress_coeff
             ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x * stress_coeff
@@ -338,7 +338,7 @@ CONTAINS
         DO jc = start_index, end_index
           IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
 
-            stress_coeff = smooth_coeff / z_scale(jc,jb)
+            stress_coeff = smooth_coeff * z_scale(jc,jb)
 
             ocean_state%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)*stress_coeff
             ocean_state%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)*stress_coeff

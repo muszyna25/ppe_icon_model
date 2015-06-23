@@ -799,7 +799,6 @@ CONTAINS
      CASE (207)
       CALL height_GalewskyTest(patch_3d, ocean_height)
 
-
     CASE default
       CALL finish(method_name, "unknown sea_surface_height_type")
 
