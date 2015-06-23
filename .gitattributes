@@ -86,6 +86,7 @@ data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
 data/rrtmg_lw.nc -text
+data/rrtmg_sw.nc -text
 data/sound_landseabr -text
 data/sound_rce -text
 doc/Namelist_overview.pdf -text
