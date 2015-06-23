@@ -6,162 +6,168 @@
 # This file contains a dictionary for the mapping between "add_var"
 # names and names used at MPI-M for postprocessing.
 #
-# ===========================================================
+# ======================================================================
 #
-# atmosphere
-# ==========
+# Available translations for instantaneous output
+# -----------------------------------------------
+# Not needed. Without translation the output is for instantaneous fields.
 #
-# variables from the ECHAM6 physics with prefix 'prm'
-# ---------------------------------------------------
 #
-# dict names         "add_var" name
-# ---------------------------------
+# Available translations for time averaged output
+# -----------------------------------------------
 #
-  hur                prm_hur
-  rsdt               prm_rsdt
+# use name          "add_var" name
+# --------------------------------
 #
-  tro3               prm_tro3
+  cosmu0             cosmu0_m
+  rsdt               rsdt_m
+  rsns               rsns_m
+  rlns               rlns_m
+  rsnt               rsnt_m
+  rlnt               rlnt_m
 #
-  ts                 prm_ts
-  ts_rad             prm_ts_rad
+  pr                 pr_m
+  prlr               prlr_m
+  prcr               prcr_m
+  prls               prls_m
+  prcs               prcs_m
 #
-  sic                prm_sic
-  sit                prm_sit
+  prw                prw_m
+  cllvi              cllvi_m
+  clivi              clivi_m
+  clt                clt_m
 #
-  cl                 prm_cl
-  clt                prm_clt
+  ts                 ts_m
+  hfls               hfls_m
+  hfss               hfss_m
+  evspsbl            evspsbl_m
 #
-  pr                 prm_pr
-  prw                prm_prw
-  cllvi              prm_cllvi
-  clivi              prm_clivi
+  tauu               tauu_m
+  tauv               tauv_m
+
+# --------------------------------
 #
-  hfls               prm_hfls
-  hfss               prm_hfss
-  evspsbl            prm_evspsbl
+# to be implemented
 #
-  tauu               prm_tauu
-  tauv               prm_tauv
-#
-  hfss_wtr           prm_hfss_wtr
-  hfss_ice           prm_hfss_ice
-  hfss_lnd           prm_hfss_lnd
-#
-  hfls_wtr           prm_hfls_wtr
-  hfls_ice           prm_hfls_ice
-  hfls_lnd           prm_hfls_lnd
-#
-  rsns_wtr           prm_rsns_wtr
-  rsns_ice           prm_rsns_ice
-  rsns_lnd           prm_rsns_lnd
-#
-  rlns_wtr           prm_rlns_wtr
-  rlns_ice           prm_rlns_ice
-  rlns_lnd           prm_rlns_lnd
-#
-  tauu_wtr           prm_tauu_wtr
-  tauu_ice           prm_tauu_ice
-  tauu_lnd           prm_tauu_lnd
-#
-  tauv_wtr           prm_tauv_wtr
-  tauv_ice           prm_tauv_ice
-  tauv_lnd           prm_tauv_lnd
-#
-  cosmu0             prm_cosmu0
-#
-  rsns               prm_rsns
-  rlns               prm_rlns
-  rsnt               prm_rsnt
-  rlnt               prm_rlnt
-#
-  ts_wtr             prm_ts_wtr
-  ts_ice             prm_ts_ice
-  ts_lnd             prm_ts_lnd
-#
-  visdffsfc          prm_visdffsfc
-  nirdffsfc          prm_nirdffsfc
-  vissfc             prm_vissfc
-  nirsfc             prm_nirsfc
-  swtrmall           prm_swtrmall
-  albvisdir          prm_albvisdir
-  albvisdif          prm_albvisdif
-  albnirdir          prm_albnirdir
-  albnirdif          prm_albnirdif
-  albvisdir_wtr      prm_albvisdir_wtr
-  albvisdir_ice      prm_albvisdir_ice
-  albvisdir_lnd      prm_albvisdir_lnd
-  albvisdif_wtr      prm_albvisdif_wtr
-  albvisdif_ice      prm_albvisdif_ice
-  albvisdif_lnd      prm_albvisdif_lnd
-  albnirdir_wtr      prm_albnirdir_wtr
-  albnirdir_ice      prm_albnirdir_ice
-  albnirdir_lnd      prm_albnirdir_lnd
-  albnirdif_wtr      prm_albnirdif_wtr
-  albnirdif_ice      prm_albnirdif_ice
-  albnirdif_lnd      prm_albnirdif_lnd
-  albedo             prm_albedo
-  albedo_wtr         prm_albedo_wtr
-  albedo_ice         prm_albedo_ice
-  albedo_lnd         prm_albedo_lnd
-#
-  prlr               prm_prlr
-  prcr               prm_prcr
-  prls               prm_prls
-  prcs               prm_prcs
-#
-  tauu_sso           prm_tauu_sso
-  tauv_sso           prm_tauv_sso
-  diss_sso           prm_diss_sso
-#
-  sh_vdiff           prm_sh_vdiff
-  qv_vdiff           prm_qv_vdiff
-  ch_concloud        prm_ch_concloud
-  con_dtrl           prm_con_dtrl
-  con_dtri           prm_con_dtri
-  con_iteqv          prm_con_iteqv
-#
-# tendencies from the ECHAM6 physics with prefix 'prm_tend'
-# ---------------------------------------------------
-#
-# temperature:
-  tend_ta            prm_tend_ta
-  tend_ta_dyn        prm_tend_ta_dyn
-  tend_ta_phy        prm_tend_ta_phy
-  tend_ta_rlw        prm_tend_ta_rlw
-  tend_ta_rlw_impl   prm_tend_ta_rlw_impl
-  tend_ta_rsw        prm_tend_ta_rsw
-  tend_ta_cld        prm_tend_ta_cld
-  tend_ta_cnv        prm_tend_ta_cnv
-  tend_ta_vdf        prm_tend_ta_vdf
-  tend_ta_gwh        prm_tend_ta_gwh
-  tend_ta_sso        prm_tend_ta_sso
-#
-# u-wind:
-  tend_ua            prm_tend_ua
-  tend_ua_dyn        prm_tend_ua_dyn
-  tend_ua_phy        prm_tend_ua_phy
-  tend_ua_cnv        prm_tend_ua_cnv
-  tend_ua_vdf        prm_tend_ua_vdf
-  tend_ua_gwh        prm_tend_ua_gwh
-  tend_ua_sso        prm_tend_ua_sso
-#
-# v-wind:
-  tend_va            prm_tend_va
-  tend_va_dyn        prm_tend_va_dyn
-  tend_va_phy        prm_tend_va_phy
-  tend_va_cnv        prm_tend_va_cnv
-  tend_va_vdf        prm_tend_va_vdf
-  tend_va_gwh        prm_tend_va_gwh
-  tend_va_sso        prm_tend_va_sso
-#
-# specific humidity
-  tend_hus           prm_tend_hus
-  tend_hus_dyn       prm_tend_hus_dyn
-  tend_hus_phy       prm_tend_hus_phy
-  tend_hus_cld       prm_tend_hus_cld
-  tend_hus_cnv       prm_tend_hus_cnv
-  tend_hus_vdf       prm_tend_hus_vdf
-#
-# xl and xi
-  tend_clw_dtr       prm_tend_clw_dtr
-  tend_cli_dtr       prm_tend_cli_dtr
+
+#off#  hur                hur_m
+#off#  cl                 cl_m
+#off##
+#off#  ts_rad             ts_rad_m
+#off##
+#off#  tro3               tro3_m
+#off#  sic                sic_m
+#off#  sit                sit_m
+#off##
+#off#  hfss_wtr           hfss_wtr_m
+#off#  hfss_ice           hfss_ice_m
+#off#  hfss_lnd           hfss_lnd_m
+#off##
+#off#  hfls_wtr           hfls_wtr_m
+#off#  hfls_ice           hfls_ice_m
+#off#  hfls_lnd           hfls_lnd_m
+#off##
+#off#  rsns_wtr           rsns_wtr_m
+#off#  rsns_ice           rsns_ice_m
+#off#  rsns_lnd           rsns_lnd_m
+#off##
+#off#  rlns_wtr           rlns_wtr_m
+#off#  rlns_ice           rlns_ice_m
+#off#  rlns_lnd           rlns_lnd_m
+#off##
+#off#  tauu_wtr           tauu_wtr_m
+#off#  tauu_ice           tauu_ice_m
+#off#  tauu_lnd           tauu_lnd_m
+#off##
+#off#  tauv_wtr           tauv_wtr_m
+#off#  tauv_ice           tauv_ice_m
+#off#  tauv_lnd           tauv_lnd_m
+#off##
+#off##
+#off##
+#off#  ts_wtr             ts_wtr_m
+#off#  ts_ice             ts_ice_m
+#off#  ts_lnd             ts_lnd_m
+#off##
+#off#  visdffsfc          visdffsfc_m
+#off#  nirdffsfc          nirdffsfc_m
+#off#  vissfc             vissfc_m
+#off#  nirsfc             nirsfc_m
+#off#  swtrmall           swtrmall_m
+#off#  albvisdir          albvisdir_m
+#off#  albvisdif          albvisdif_m
+#off#  albnirdir          albnirdir_m
+#off#  albnirdif          albnirdif_m
+#off#  albvisdir_wtr      albvisdir_wtr_m
+#off#  albvisdir_ice      albvisdir_ice_m
+#off#  albvisdir_lnd      albvisdir_lnd_m
+#off#  albvisdif_wtr      albvisdif_wtr_m
+#off#  albvisdif_ice      albvisdif_ice_m
+#off#  albvisdif_lnd      albvisdif_lnd_m
+#off#  albnirdir_wtr      albnirdir_wtr_m
+#off#  albnirdir_ice      albnirdir_ice_m
+#off#  albnirdir_lnd      albnirdir_lnd_m
+#off#  albnirdif_wtr      albnirdif_wtr_m
+#off#  albnirdif_ice      albnirdif_ice_m
+#off#  albnirdif_lnd      albnirdif_lnd_m
+#off#  albedo             albedo_m
+#off#  albedo_wtr         albedo_wtr_m
+#off#  albedo_ice         albedo_ice_m
+#off#  albedo_lnd         albedo_lnd_m
+#off##
+#off#  tauu_sso           tauu_sso_m
+#off#  tauv_sso           tauv_sso_m
+#off#  diss_sso           diss_sso_m
+#off##
+#off#  sh_vdiff           sh_vdiff_m
+#off#  qv_vdiff           qv_vdiff_m
+#off#  ch_concloud        ch_concloud_m
+#off#  con_dtrl           con_dtrl_m
+#off#  con_dtri           con_dtri_m
+#off#  con_iteqv          con_iteqv_m
+#off##
+#off## tendencies from the ECHAM6 physics with prefix 'tend'
+#off## ---------------------------------------------------
+#off##
+#off## temperature:
+#off#  tend_ta            tend_ta_m
+#off#  tend_ta_dyn        tend_ta_dyn_m
+#off#  tend_ta_phy        tend_ta_phy_m
+#off#  tend_ta_rlw        tend_ta_rlw_m
+#off#  tend_ta_rlw_impl   tend_ta_rlw_impl_m
+#off#  tend_ta_rsw        tend_ta_rsw_m
+#off#  tend_ta_cld        tend_ta_cld_m
+#off#  tend_ta_cnv        tend_ta_cnv_m
+#off#  tend_ta_vdf        tend_ta_vdf_m
+#off#  tend_ta_gwh        tend_ta_gwh_m
+#off#  tend_ta_sso        tend_ta_sso_m
+#off##
+#off## u-wind:
+#off#  tend_ua            tend_ua_m
+#off#  tend_ua_dyn        tend_ua_dyn_m
+#off#  tend_ua_phy        tend_ua_phy_m
+#off#  tend_ua_cnv        tend_ua_cnv_m
+#off#  tend_ua_vdf        tend_ua_vdf_m
+#off#  tend_ua_gwh        tend_ua_gwh_m
+#off#  tend_ua_sso        tend_ua_sso_m
+#off##
+#off## v-wind:
+#off#  tend_va            tend_va_m
+#off#  tend_va_dyn        tend_va_dyn_m
+#off#  tend_va_phy        tend_va_phy_m
+#off#  tend_va_cnv        tend_va_cnv_m
+#off#  tend_va_vdf        tend_va_vdf_m
+#off#  tend_va_gwh        tend_va_gwh_m
+#off#  tend_va_sso        tend_va_sso_m
+#off##
+#off## specific humidity
+#off#  tend_hus           tend_hus_m
+#off#  tend_hus_dyn       tend_hus_dyn_m
+#off#  tend_hus_phy       tend_hus_phy_m
+#off#  tend_hus_cld       tend_hus_cld_m
+#off#  tend_hus_cnv       tend_hus_cnv_m
+#off#  tend_hus_vdf       tend_hus_vdf_m
+#off##
+#off## xl and xi
+#off#  tend_clw_dtr       tend_clw_dtr_m
+#off#  tend_cli_dtr       tend_cli_dtr_m

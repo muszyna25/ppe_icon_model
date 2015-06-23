@@ -6,36 +6,45 @@
 # This file contains a dictionary for the mapping between "add_var"
 # names and names used at MPI-M for postprocessing.
 #
-# ===========================================================
+# ======================================================================
 #
-# atmosphere
-# ==========
+# Available translations for instantaneous output
+# -----------------------------------------------
 #
-# variables from the dynamical core (no prefix)
-# ---------------------------------------------
-#
-# dict names         "add_var" name
-# ---------------------------------
-#
-  ps                 pres_sfc
-  psl                pres_msl
-  ta                 temp
-  hus                qv
-  clw                qc
-  cli                qi
+# use name          "add_var" name
+# --------------------------------
 #
   ua                 u
   va                 v
   wa                 w
   wap                omega
-#
+  ta                 temp
+  ps                 pres_sfc
+  psl                pres_msl
+  hus                qv
+  clw                qc
+  cli                qi
   zg                 z_mc
   zghalf             z_ifc
   pfull              pres
   phalf              pres_ifc
   gpfull             geopot
-
-# variables from the external data (no prefix)
-# --------------------------------------------
   orog               topography_c
+#
+#
+# Available translations for time averaged output
+# -----------------------------------------------
+#
+# use name          "add_var" name
+# --------------------------------
+#
+##  ua                 ua_m
+##  va                 va_m
+##  ta                 ta_m
+##  rho                rho_m
+##  ps                 ps_m
+##  psl                psl_m
+##  hus                hus_m
+##  clw                clw_m
+##  cli                cli_m
 #

@@ -43,7 +43,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 (( dt_checkpoint = 300 * day))
 (( dt_restart    = 900 * day))
 #
-output_interval="P1D"
+output_interval="PT6H"
 file_interval="P300D"
 
 # namelist files
