@@ -173,7 +173,6 @@ MODULE mo_name_list_output_init
   ! subroutines
   PUBLIC :: read_name_list_output_namelists
   PUBLIC :: parse_variable_groups
-  PUBLIC :: collect_meanStream_variables
   PUBLIC :: init_name_list_output
   PUBLIC :: setup_output_vlist
   PUBLIC :: collect_requested_ipz_levels
