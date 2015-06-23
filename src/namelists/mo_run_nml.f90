@@ -36,11 +36,10 @@ MODULE mo_run_nml
                          & config_restart_filename  => restart_filename, &
                          & config_profiling_output => profiling_output, &
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
-                         & config_irad_type         => irad_type
-  
-
+                         & config_irad_type         => irad_type, &
+                         & setModelTimeStep, tc_dt_model
   USE mo_kind,           ONLY: wp
-  USE mo_exception,      ONLY: finish, &
+  USE mo_exception,      ONLY: finish, message, message_text, &
     &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &
@@ -48,13 +47,14 @@ MODULE mo_run_nml
   USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
-  USE mo_master_control, ONLY: is_restart_run
+  USE mo_master_config,  ONLY: isRestart
   USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
-  USE mo_io_restart_namelist,  ONLY: open_tmpfile, store_and_close_namelist,   &
-                                    & open_and_restore_namelist, close_tmpfile
-
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
+       &                            open_and_restore_namelist, close_tmpfile
+  USE mtime,                  ONLY: max_timedelta_str_len, timedeltaToString
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_run_namelist
@@ -97,6 +97,9 @@ MODULE mo_run_nml
                         ! otherwise special setup for (performance) tests, see Namelist_overview
   INTEGER :: debug_check_level
 
+  CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
+  CHARACTER(len=max_timedelta_str_len) :: dstring
+  
   !> output mode (logicals)
   !  one or multiple of "none", "nml", "totint"
   CHARACTER(len=32) :: output(max_output_modes)
@@ -128,7 +131,8 @@ MODULE mo_run_nml
                      restart_filename,              &
                      profiling_output,              &
                      check_uuid_gracefully,         &
-                     irad_type
+                     irad_type,                     &
+                     modelTimeStep
 
 CONTAINS
   !>
@@ -161,7 +165,8 @@ CONTAINS
 
     nsteps = -999
     dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
-
+    modelTimeStep = 'PT10M'
+    
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
@@ -183,7 +188,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('run_nml')
       READ(funit,NML=run_nml)
       CALL close_tmpfile(funit)
@@ -233,8 +238,17 @@ CONTAINS
 
     IF (nsteps < 0 .AND. nsteps /= -999) CALL finish(TRIM(routine),'"nsteps" must not be negative')
     IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
-
     IF (irad_type > 2 .OR. irad_type < 1 ) CALL finish(TRIM(routine),'"irad_type" must be 1 or 2')
+
+    CALL setModelTimeStep(modelTimeStep)
+
+    IF (ASSOCIATED(tc_dt_model)) THEN
+      CALL timedeltaToString(tc_dt_model, dstring)
+      WRITE(message_text,'(a,a)') 'Model time step          : ', dstring
+      CALL message('',message_text)
+      CALL message('','')
+    ENDIF
+    
 
     IF (.NOT. ltimer) timers_level = 0
 

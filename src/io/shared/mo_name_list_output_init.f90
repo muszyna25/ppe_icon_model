@@ -38,8 +38,8 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_nml,                        ONLY: model_base_dir
-  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
+  USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
@@ -445,7 +445,7 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
@@ -1485,7 +1485,7 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
@@ -1507,7 +1507,7 @@ CONTAINS
       ! special treatment of ocean model: model_date/run_start is the time at
       ! the beginning of the timestep. Output is written at the end of the
       ! timestep
-      IF (is_restart_run() .AND. my_process_is_ocean()) THEN
+      IF (isRestart() .AND. my_process_is_ocean()) THEN
         IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model with restart!")
         CALL get_datetime_string(p_onl%output_start(1), &
@@ -1576,7 +1576,7 @@ CONTAINS
       ! ------------------------------------------------------------------------------------------
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
-        &                            is_restart_run(), lrecover_open_file=.TRUE.)
+        &                            isRestart(), lrecover_open_file=.TRUE.)
     END DO
 
     ! tell the root I/O process that all output event data structures
@@ -1592,7 +1592,7 @@ CONTAINS
 
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
-      &                            is_restart_run(), lrecover_open_file=.TRUE.)
+      &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. my_process_is_mpi_test()) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &

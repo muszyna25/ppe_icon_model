@@ -26,7 +26,7 @@
 MODULE mo_icon_cpl_exchg
 
   USE mo_kind, ONLY          : wp
-  USE mo_event_manager, ONLY : event_check, events
+  USE mo_icon_cpl_event_manager, ONLY : event_check, events
   USE mo_run_config, ONLY    : dtime, nsteps
 
 #ifndef NOMPI
@@ -52,7 +52,7 @@ MODULE mo_icon_cpl_exchg
    &                      XCHANGE
 
   USE mo_icon_cpl_restart, ONLY : cpl_read_restart ! , cpl_write_restart
-  USE mo_master_control,  ONLY  : is_restart_run
+  USE mo_master_config,  ONLY   : isRestart
   USE mo_io_config, ONLY        : dt_checkpoint
   USE mo_time_config, ONLY      : time_config
   USE mo_datetime, ONLY         : iso8601
@@ -458,7 +458,7 @@ CONTAINS
 
     ENDIF
 
-    IF ( .NOT. is_restart_run() ) events(fptr%event_id)%event_time = 0
+    IF ( .NOT. isRestart() ) events(fptr%event_id)%event_time = 0
 
     ! ----------------------------------------------------------------------
     ! First check whether this process has to receive data from someone else

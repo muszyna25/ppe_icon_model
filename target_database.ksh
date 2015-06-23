@@ -74,6 +74,9 @@ case ${target} in
     thunder_sun)
        configureoption="--with-fortran=sun"
         ;;
+    thunder_nag_mtime)
+        configureoption="--with-fortran=nag --enable-mtime-loop"
+        ;;
 
     # MPIMAC
     # ------

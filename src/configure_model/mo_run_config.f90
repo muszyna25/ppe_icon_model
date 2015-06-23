@@ -24,13 +24,15 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
                                TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
-
+  USE mtime,             ONLY: timedelta, newTimedelta
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
+  PUBLIC :: tc_dt_model, setModelTimeStep
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
@@ -76,7 +78,8 @@ MODULE mo_run_config
 
     INTEGER :: nsteps          !< number of time steps to integrate
     REAL(wp):: dtime           !< [s] length of a time step
-
+    TYPE(timedelta), POINTER, PROTECTED :: tc_dt_model => NULL()
+    
     LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    !< what level of timers to run
     LOGICAL :: activate_sync_timers
@@ -244,6 +247,11 @@ CONTAINS
   END SUBROUTINE configure_run
   !-------------------------------------------------------------
 
+  SUBROUTINE setModelTimeStep(modelTimeStep)
+    CHARACTER(len=*), INTENT(in) :: modelTimeStep
+    tc_dt_model => newTimedelta(modelTimeStep)
+  END SUBROUTINE setModelTimeStep
+  
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltestcase()

@@ -166,6 +166,7 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_restart, my_process_is_mpi_restartroot,my_process_is_work
 
   ! get parameters
+  PUBLIC :: get_my_global_mpi_communicator   ! essentially a copy of MPI_COMM_WORLD 
   PUBLIC :: get_my_mpi_all_communicator   ! the communicator for the specific component, ie the process_mpi_all_comm
   PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
   PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
@@ -682,6 +683,12 @@ CONTAINS
   INTEGER FUNCTION get_my_global_mpi_id()
     get_my_global_mpi_id = my_global_mpi_id
   END FUNCTION get_my_global_mpi_id
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_global_mpi_communicator()
+    get_my_global_mpi_communicator = global_mpi_communicator
+  END FUNCTION get_my_global_mpi_communicator
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -1546,7 +1553,7 @@ CONTAINS
 
     IF ( .NOT. l_mpi_is_initialised ) THEN
        WRITE (nerr,'(a,a)') method_name, &
-         & ' MPI_Init or p_start needs to be called first.'
+         & ' MPI_Init or start_mpi needs to be called first.'
        STOP
     ENDIF
 
@@ -1555,7 +1562,7 @@ CONTAINS
       CALL MPI_COMM_FREE(process_mpi_all_comm, p_error)
       IF (p_error /= MPI_SUCCESS) THEN
         WRITE (nerr,'(a,a)') method_name, &
-          & ' MPI_COMM_FREE failed. p_start needs to be called before.'
+          & ' MPI_COMM_FREE failed. start_mpi needs to be called before.'
         WRITE (nerr,'(a,i4)') ' Error =  ', p_error
         CALL abort_mpi
       END IF

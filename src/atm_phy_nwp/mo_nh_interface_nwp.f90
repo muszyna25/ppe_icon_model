@@ -1114,15 +1114,12 @@ CONTAINS
         &                     pt_prog,           &  !>in
         &                     pt_diag,           &  !>in
         &                     pt_prog_rcf%tracer(:,:,:,iqv),  & !>in
-        &                     pt_prog_rcf%tracer(:,:,:,iqc),  & !>in
         &                     rl_start,                       & !>in
         &                     rl_end,                         & !>in
         &                     prm_nwp_tend%ddt_u_ls,          & !>out
         &                     prm_nwp_tend%ddt_v_ls,          & !>out
         &                     prm_nwp_tend%ddt_temp_ls,       & !>out
-        &                     prm_nwp_tend%ddt_tracer_ls(:,iqv), & !>out
-        &                     prm_nwp_tend%ddt_tracer_ls(:,iqc), & !>out
-        &                     prm_nwp_tend%ddt_tracer_ls(:,iqi) )  !>out (ZERO for now)
+        &                     prm_nwp_tend%ddt_tracer_ls(:,iqv) ) !>out
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 

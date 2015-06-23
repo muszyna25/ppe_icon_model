@@ -256,7 +256,7 @@ doc/userguide/content/output.tex -text
 doc/userguide/content/preface.tex -text
 doc/userguide/content/title.tex -text
 doc/userguide/content/visualization.tex -text
-doc/userguide/icon_user_guide.pdf -text
+doc/userguide/icon_user_guide.pdf -text svneol=unset#unset
 doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
 doc/userguide/pictures/contour_plot.png -text
@@ -711,6 +711,11 @@ run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_2dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime_sp -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_01 -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.ocean_internal/buildbot/exp.ocean_omip_ptest -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
@@ -804,6 +809,8 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_amip_withTimeMeanOutput -text
+run/exp.atm_amip_withTimeMeanOutput_only -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
@@ -998,6 +1005,7 @@ scripts/SuperMUC_scripts/set_target_compiler -text
 scripts/SuperMUC_scripts/set_target_supermuc -text
 scripts/SuperMUC_scripts/setup_utils.sh -text
 scripts/buildbot_scripts/ICON.cfg -text
+scripts/buildbot_scripts/ICON_test.cfg.patch -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/archive_exp.ksh -text
 scripts/buildbot_scripts/bb_make -text
@@ -1235,6 +1243,7 @@ scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/luis.iconrun -text
 scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
@@ -1522,6 +1531,7 @@ src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_les_config.f90 -text
 src/configure_model/mo_limarea_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
+src/configure_model/mo_master_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
 src/configure_model/mo_name_list_output_config.f90 -text
 src/configure_model/mo_nh_pzlev_config.f90 -text
@@ -1535,10 +1545,10 @@ src/configure_model/mo_sleve_config.f90 -text
 src/configure_model/mo_time_config.f90 -text
 src/configure_model/mo_turbdiff_config.f90 -text
 src/configure_model/mo_vdiff_config.f90 -text
-src/coupler/mo_event_manager.f90 -text
 src/coupler/mo_icon_cpl.f90 -text
 src/coupler/mo_icon_cpl_def_field.f90 -text
 src/coupler/mo_icon_cpl_def_grid.f90 -text
+src/coupler/mo_icon_cpl_event_manager.f90 -text
 src/coupler/mo_icon_cpl_exchg.f90 -text
 src/coupler/mo_icon_cpl_finalize.f90 -text
 src/coupler/mo_icon_cpl_init.f90 -text
@@ -1756,6 +1766,7 @@ src/shared/mo_action_types.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text
+src/shared/mo_event_manager.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
 src/shared/mo_fortran_tools.f90 -text
