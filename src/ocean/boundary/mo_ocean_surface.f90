@@ -237,14 +237,16 @@ CONTAINS
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells
 
-    IF (no_tracer>=1) p_oce_sfc%sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    IF (no_tracer>=2) p_oce_sfc%sss(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-
-    IF (iforc_oce == No_Forcing) RETURN
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
     !-----------------------------------------------------------------------
+
+    IF (no_tracer>=1) p_oce_sfc%sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    IF (no_tracer>=2) p_oce_sfc%sss(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+
+    IF (iforc_oce == No_Forcing) RETURN
+
     s_top => NULL()
     IF (no_tracer>=1) t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
     IF (no_tracer>=2) THEN 
@@ -287,24 +289,22 @@ CONTAINS
     Tfw(:,:) = Tf
 
     !-----------------------------------------------------------------------
-    !  (1) get surface fluxes from outside: analytical, OMIP, coupling
+    !  (1) get surface fluxes from outside: analytical, OMIP, coupling  {{{
     !-----------------------------------------------------------------------
 
-    ! first CASE: read in fluxes (analytic, input file, coupling) ! {{{
+    ! first CASE: read in fluxes (analytical, OMIP, coupling)
     SELECT CASE (iforc_oce)
 
     CASE (No_Forcing)                !  10
-
-      CONTINUE
+      CONTINUE  !  
 
     CASE (Analytical_Forcing)        !  11
-
       !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, atmos_fluxes)
 
     CASE (OMIP_FluxFromFile)         !  12
 
-      !  Driving the ocean with OMIP (no NCEP activated anymore):
+      !  Driving the ocean with OMIP fluxes
       !   1) read OMIP data (read relaxation data, type_surfRelax_Temp=2)
       CALL update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
 
@@ -321,8 +321,7 @@ CONTAINS
 
       !  Driving the ocean in a coupled mode:
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
-      !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
-      !  and do a direct assignment of atmospheric state to surface fluxes.
+      !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP are applied
       !
       CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, atmos_fluxes, jstep, datetime)
 
@@ -547,6 +546,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     !  (3) call surface model: sea ice
+    !   TODO: independent of forcing type (analytical, omip, coupled)
     !-----------------------------------------------------------------------
 
     ! assign freeboard before sea ice model
