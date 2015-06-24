@@ -436,7 +436,7 @@ CONTAINS
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
      !IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
       ! pass parameters read from OMIP into budget calculation directly
-      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(                            &
+      CALL calc_omip_budgets_ice(                            &
         &                        p_patch%cells%center(:,:)%lat,                  &
         &                        p_as%tafo(:,:), p_as%ftdew(:,:)-tmelt,          &
         &                        p_as%fu10(:,:), p_as%fclou(:,:), p_as%pao(:,:), &
@@ -462,15 +462,15 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('omipBudIce:atmflx%LWnet ice',atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:atmflx%sens ice' ,atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:atmflx%dLWdt'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('omipBudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%LWnet ice',atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%sens ice' ,atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:atmflx%dLWdt'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('aft.BudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
@@ -1797,7 +1797,7 @@ CONTAINS
     REAL(wp), INTENT(in)    :: albnirdir(:,:,:) ! direct near infrared ice albedo per class
     REAL(wp), INTENT(in)    :: albnirdif(:,:,:) ! diffuse near infrared ice albedo per class
 
- !  OUTPUT variables for sea ice model via parameter:
+ !  OUTPUT variables for sea ice model via parameter (inout since icefree part is not touched)
     REAL(wp), INTENT(inout) :: LWnetIce (:,:,:) ! net longwave heat flux over ice      [W/m2]
     REAL(wp), INTENT(inout) :: SWnetIce (:,:,:) ! net shortwave heat flux over ice     [W/m2]
     REAL(wp), INTENT(inout) :: sensIce  (:,:,:) ! sensible heat flux over ice          [W/m2]
@@ -1805,9 +1805,6 @@ CONTAINS
     REAL(wp), INTENT(inout) :: dLWdTIce (:,:,:) ! derivitave of LWnetIce w.r.t temperature
     REAL(wp), INTENT(inout) :: dsensdTIce(:,:,:)! derivitave of sensIce w.r.t temperature
     REAL(wp), INTENT(inout) :: dlatdTIce(:,:,:) ! derivitave of latentIce w.r.t temperature
-
- !  INPUT variables via types:
- !  p_patch%cells%center(:,:)%lat : latitude                                [rad]
 
  !  Local variables
  !  REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) :: &
@@ -1836,25 +1833,9 @@ CONTAINS
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif, local_rad2deg
 
-  ! both variables tafoC and tafoK are needed
-  ! tafoK(:,:)  = p_as%tafo(:,:)  + tmelt  ! Change units of tafo  to Kelvin
-    tafoK(:,:)  =      tafoC(:,:) + tmelt  ! Change units of tafo  to Kelvin
+    tafoK(:,:)  = tafoC(:,:) + tmelt  ! Change units of tafo  to Kelvin
 
-  ! now done outside routine, needs no local variable
-  ! ftdewC(:,:) = p_as%ftdew(:,:) - tmelt  ! Change units of ftdew to C
-
-    ! set to zero for NAG, for debug necessary only
-    IF (idbg_mxmn > 3 .OR. idbg_val>3) THEN
-      fi      (:,:) = 0.0_wp
-      esti    (:,:) = 0.0_wp
-      sphumidi(:,:) = 0.0_wp
-      dragl   (:,:) = 0.0_wp
-      drags   (:,:) = 0.0_wp
-      dfdT    (:,:) = 0.0_wp
-      destidT (:,:) = 0.0_wp
-      dsphumididesti(:,:) = 0.0_wp
-    ENDIF
-
+    ! set to zero for NAG
     sphumida(:,:)  = 0.0_wp
     fa      (:,:)  = 0.0_wp
     esta    (:,:)  = 0.0_wp
@@ -1982,35 +1963,18 @@ CONTAINS
   ! IF (use_calculated_ocean_stress) THEN
   !   !-----------------------------------------------------------------------
   !   !  Calculate wind stress over ice covered part
+  !   !  TODO: should be moved to ice_ocean_stress
   !   !-----------------------------------------------------------------------
-  !   ! #slo# 2015-06: this is incorrect and not used in standard OMIP
-  !   wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
-  !   atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
-  !   atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
+  !   WHERE (hice(:,i,:)>0._wp)
+  !     wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
+  !     atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
+  !     atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
+  !   ENDWHERE
   ! ELSE
   !   ! use wind stress provided by OMIP data
   !   atmos_fluxes%stress_x(:,:) = p_as%topBoundCond_windStress_u(:,:)
   !   atmos_fluxes%stress_y(:,:) = p_as%topBoundCond_windStress_v(:,:)
   ! ENDIF
-
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    !  now without subset of patch
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('omipBudIce:Tsurf ice'       ,Tsurf    ,str_module, 3      )
-    CALL dbg_print('omipBudIce:tafoK'           ,tafoK    ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:rhoair'          ,rhoair   ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:fa'              ,fa       ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:fi'              ,fi       ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:esta'            ,esta     ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:esti'            ,esti     ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:sphumida'        ,sphumida ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:sphumidi'        ,sphumidi ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:dragl'           ,dragl    ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:drags'           ,drags    ,str_module, idt_src)
-    CALL dbg_print('omipBudIce:dsphumididesti'  ,dsphumididesti,str_module,idt_src)
-    CALL dbg_print('omipBudIce:destidT'         ,destidT  ,str_module,idt_src)
-    CALL dbg_print('omipBudIce:dfdT'            ,dfdT     ,str_module,idt_src)
-    !---------------------------------------------------------------------
 
   END SUBROUTINE calc_omip_budgets_ice
 
