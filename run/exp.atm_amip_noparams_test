@@ -36,15 +36,14 @@ grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
-start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T00:16:00Z"        # ISO-format date+time
+start_date="1979-01-01T00:00:00Z"
+  end_date="1979-01-01T00:16:00Z"
 
-# restart interval
-(( dt_checkpoint =  8 * minute))
-(( dt_restart    = 16 * minute))
-#
-checkpoint_interval="PT8M" 
+# restart intervals
+checkpoint_interval="PT8M"
 restart_interval="PT16M"
+
+# output intervals
 output_interval="PT4M"
 file_interval="PT4M"
 
@@ -68,13 +67,13 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 240         ! [s] time step
+ dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
  modelTimeStep    = "PT4M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
  ntracer          = 3           ! number of tracers
- iforcing         = 2           ! 0: none, 1: HS, 2: 2: ECHAM, 3: NWP
+ iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
@@ -307,10 +306,10 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
                     'zg','pfull'
@@ -329,10 +328,10 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
                     'cosmu0'  , 'rsdt'    ,
@@ -374,10 +373,10 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
@@ -407,10 +406,10 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
                     'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
@@ -431,10 +430,10 @@ if [[ "$output_lnd" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
