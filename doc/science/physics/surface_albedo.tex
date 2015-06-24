@@ -125,16 +125,15 @@ Up to ICON-NWP version $2.0.05$ the formula for taking into account the zenith a
 It is applied, irrespective of the underlying type of surface.
 \begin{align}
   \alpha_{\mathrm{dir}}^{vis} = \frac{1.0 + 0.5\, \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{vis}}-1\right)}
-                              {\left[1.0 + \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{vis}}-1\right)\right]^{2}}
+                              {\left[1.0 + \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{vis}}-1\right)\right]^{2}} \label{eq_albvisdir}
 \end{align}
 \begin{align}
   \alpha_{\mathrm{dir}}^{nir} = \frac{1.0 + 0.5\, \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{nir}}-1\right)}
-                              {\left[1.0 + \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{nir}}-1\right)\right]^{2}}
+                              {\left[1.0 + \cos(\mu)  \left(\frac{1}{\alpha_{\mathrm{diff}}^{nir}}-1\right)\right]^{2}} \label{eq_albnirdir}
 \end{align}
 Note that the surface albedo for the direct flux is derived from the surface albedo for the diffuse flux, which is clearly an approximation. 
 The parameterization is applied separately for the UV-visible and near-infrared spectral bands. An example for 1st June 2012 04UTC, 
-based on the diffuse albedos shown in Figure \ref{fig_albvisdif} and \ref{fig_albnirdif} is given in Figure \ref{fig_albdir} 
-
+based on the diffuse albedos shown in Figure \ref{fig_albvisdif} and \ref{fig_albnirdif} is given in Figure \ref{fig_albdir}. 
 \begin{figure}[hbt]
 \begin{minipage}[t]{\textwidth}
   \begin{minipage}[t]{0.498\textwidth}
@@ -148,15 +147,15 @@ based on the diffuse albedos shown in Figure \ref{fig_albvisdif} and \ref{fig_al
 \end{minipage}
 \caption{Black sky (direct) albedo for UV-visible (left) and near-infrared (right) spectral bands for the 4th Jan 2012 04UTC.}\label{fig_albdir}
 \end{figure}
-
-The direct albedo seems to be overestimated significantly at small solar zenith angles.
+The direct albedo seems to be overestimated significantly for large solar zenith angles.
 
 From ICON-NWP version $2.0.06$ on, the black sky albedo is estimated as follows:
 \begin{align}
  \alpha_{\mathrm{dir}} = \min\left[\alpha_{\mathrm{dir}},\alpha_{\mathrm{dir}}^{LIM}\right]
 \end{align}
-I.e.\ the black sky albedo computed according to \dots is not allowed to exceed the limit $\alpha_{\mathrm{dir}}^{LIM}$. 
-The latter is computed as a weighted average of the unlimited black sky albedo $\alpha_{\mathrm{dir}}$ and the white sky albedo $\alpha_{\mathrm{diff}}$.
+I.e.\ the black sky albedo computed according to equations \eqref{eq_albvisdir} and \eqref{eq_albnirdir} is not allowed to exceed the 
+limit $\alpha_{\mathrm{dir}}^{LIM}$. The latter is defined as a weighted average of the unlimited black sky albedo $\alpha_{\mathrm{dir}}$ 
+and the white sky albedo $\alpha_{\mathrm{diff}}$.
 \begin{align}
  \alpha_{\mathrm{dir}}^{LIM} = \gamma \cdot \alpha_{\mathrm{diff}} + (1-\gamma)\cdot \alpha_{\mathrm{dir}}
 \end{align}
