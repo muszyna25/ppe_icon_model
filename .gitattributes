@@ -797,8 +797,6 @@ run/dict.echam.mpim -text
 run/dict.extpar -text
 run/dict.icoham.mpim -text
 run/dict.iconam.mpim -text
-run/dict.iconam.mpim_ps_inst -text
-run/dict.iconam.mpim_ps_mean -text
 run/dict.latbc -text
 run/dict.output.dwd -text
 run/exec.iconrun -text
@@ -809,9 +807,6 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
-run/exp.atm_amip_testtimemean_1 -text
-run/exp.atm_amip_testtimemean_2 -text
-run/exp.atm_amip_testtimemean_3 -text
 run/exp.atm_amip_withTimeMeanOutput -text
 run/exp.atm_amip_withTimeMeanOutput_only -text
 run/exp.atm_icoles_nested -text
