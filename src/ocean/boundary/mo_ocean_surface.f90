@@ -64,7 +64,7 @@ MODULE mo_ocean_surface
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
   USE mo_physical_constants,  ONLY: rho_ref, alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
-  USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, cd_ia, alf  ! used for omip bulk formula
+  USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, alf  ! cd_ia, used for omip bulk formula
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
   USE mo_math_utilities,      ONLY: gvec2cvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -403,7 +403,7 @@ CONTAINS
 
     CASE (OMIP_FluxFromFile)         !  12
 
-      ! put wind-stress into atmos_fluxes for later inport to p_sfc_flx, which where done in update_flux_fromFile
+      ! put wind-stress, read from OMIP in update_flux_fromFile into atmos_fluxes for later inport to p_sfc_flx
       atmos_fluxes%topBoundCond_windStress_u(:,:) = p_as%topBoundCond_windStress_u(:,:)
       atmos_fluxes%topBoundCond_windStress_v(:,:) = p_as%topBoundCond_windStress_v(:,:)
 
@@ -427,22 +427,51 @@ CONTAINS
       CALL dbg_print('UpdSfcBeg:sfcflx%windStr-u',p_sfc_flx%topBoundCond_windStress_u, &
         &  str_module, 4, in_subset=p_patch%cells%owned)
 
-      ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
-      !CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
+      ! bulk formula for heat flux are calculated globally using specific OMIP fluxes
+      ! TODO: change interface as in calc_omip_budgets_ice, or
+      ! TODO: include claculation of icefree part of cells in calc_omip_budgets_ice
+
       CALL calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
      !IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
       ! pass parameters read from OMIP into budget calculation directly
-      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice,       &
+      IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(                            &
+        &                        p_patch%cells%center(:,:)%lat,                  &
         &                        p_as%tafo(:,:), p_as%ftdew(:,:)-tmelt,          &
         &                        p_as%fu10(:,:), p_as%fclou(:,:), p_as%pao(:,:), &
-        &                        p_as%fswr(:,:), p_ice%Tsurf(:,:,:),             &
+        &                        p_as%fswr(:,:), p_ice%kice, p_ice%Tsurf(:,:,:), &
+        &                        p_ice%hi(:,:,:),                                &
         &                        atmos_fluxes%albvisdir(:,:,:),                  &
         &                        atmos_fluxes%albvisdif(:,:,:),                  &
         &                        atmos_fluxes%albnirdir(:,:,:),                  &
         &                        atmos_fluxes%albnirdif(:,:,:),                  &
-        &                        atmos_fluxes)
+        &                        atmos_fluxes%LWnet    (:,:,:),                  &
+        &                        atmos_fluxes%SWnet    (:,:,:),                  &
+        &                        atmos_fluxes%sens     (:,:,:),                  &  
+        &                        atmos_fluxes%lat      (:,:,:),                  &   
+        &                        atmos_fluxes%dLWdt    (:,:,:),                  &
+        &                        atmos_fluxes%dsensdT  (:,:,:),                  &
+        &                        atmos_fluxes%dlatdT   (:,:,:) )
+
+      ! wind stress over ice is provided by OMIP data
+      atmos_fluxes%stress_x(:,:) = p_as%topBoundCond_windStress_u(:,:)
+      atmos_fluxes%stress_y(:,:) = p_as%topBoundCond_windStress_v(:,:)
+
+      ! wind stress over water (stress_xw, stress_yw) is the same and read from OMIP, see calc_omip_budgets_oce
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('omipBudIce:atmflx%LWnet ice',atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:atmflx%sens ice' ,atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:atmflx%dLWdt'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('omipBudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
+      !---------------------------------------------------------------------
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
       IF (forcing_enable_freshwater) THEN
@@ -1747,44 +1776,42 @@ CONTAINS
   !! Rewritten by Stephan Lorenz, MPI-M (2015-06).
   !!  Using interface with parameters in order to call budget routine independent of ocean model
 
-  SUBROUTINE calc_omip_budgets_ice(p_patch, p_as, p_ice, tafoC, ftdewC, fu10, fclou, pao, fswr, tice, &
-    &                              albvisdir, albvisdif, albnirdir, albnirdif, atmos_fluxes)
-    TYPE(t_patch),            INTENT(IN), TARGET :: p_patch
-    TYPE(t_atmos_for_ocean),  INTENT(IN)         :: p_as
-    TYPE(t_sea_ice),          INTENT(IN)         :: p_ice
-    TYPE(t_atmos_fluxes),     INTENT(INOUT)      :: atmos_fluxes
+  SUBROUTINE calc_omip_budgets_ice(geolat, tafoC, ftdewC, fu10, fclou, pao, fswr,                &
+    &                              kice, tice, hice, albvisdir, albvisdif, albnirdir, albnirdif, &
+    &                              LWnetIce, SWnetIce, sensIce, latentIce,                       &
+    &                              dLWdTIce, dsensdTIce, dlatdTIce)                              
 
-    REAL(wp), INTENT(in)  :: tafoC(:,:)     ! 2 m air temperature in Celsius       [C]
-    REAL(wp), INTENT(in)  :: ftdewC(:,:)    ! 2 m dew point temperature in Celsius [C]
-    REAL(wp), INTENT(in)  :: fu10(:,:)      ! 10 m wind speed                      [m/s]
-    REAL(wp), INTENT(in)  :: fclou(:,:)     ! Fractional cloud cover               [frac]
-    REAL(wp), INTENT(in)  :: pao(:,:)       ! Surface atmospheric pressure         [hPa]
-    REAL(wp), INTENT(in)  :: fswr(:,:)      ! Incoming surface solar radiation     [W/m]
-    REAL(wp), INTENT(in)  :: tice(:,:,:)    ! surface ice temperature per class in Celsius   [C]
-    REAL(wp), INTENT(in)  :: albvisdir(:,:,:) ! direct ice albedo per class
-    REAL(wp), INTENT(in)  :: albvisdif(:,:,:) ! diffuse ice albedo per class
-    REAL(wp), INTENT(in)  :: albnirdir(:,:,:) ! direct near infrared ice albedo per class
-    REAL(wp), INTENT(in)  :: albnirdif(:,:,:) ! diffuse near infrared ice albedo per class
+ !  INPUT variables for OMIP via parameter:
+    REAL(wp), INTENT(in)    :: geolat(:,:)      ! latitude                             [rad]
+    REAL(wp), INTENT(in)    :: tafoC(:,:)       ! 2 m air temperature in Celsius       [C]
+    REAL(wp), INTENT(in)    :: ftdewC(:,:)      ! 2 m dew point temperature in Celsius [C]
+    REAL(wp), INTENT(in)    :: fu10(:,:)        ! 10 m wind speed                      [m/s]
+    REAL(wp), INTENT(in)    :: fclou(:,:)       ! Fractional cloud cover               [frac]
+    REAL(wp), INTENT(in)    :: pao(:,:)         ! Surface atmospheric pressure         [hPa]
+    REAL(wp), INTENT(in)    :: fswr(:,:)        ! Incoming surface solar radiation     [W/m2]
+    INTEGER,  INTENT(in)    :: kice             ! number of ice classes (currently 1)
+    REAL(wp), INTENT(in)    :: tice(:,:,:)      ! surface ice temperature per class    [C]
+    REAL(wp), INTENT(in)    :: hice(:,:,:)      ! ice thickness per class              [m]
+    REAL(wp), INTENT(in)    :: albvisdir(:,:,:) ! direct ice albedo per class
+    REAL(wp), INTENT(in)    :: albvisdif(:,:,:) ! diffuse ice albedo per class
+    REAL(wp), INTENT(in)    :: albnirdir(:,:,:) ! direct near infrared ice albedo per class
+    REAL(wp), INTENT(in)    :: albnirdif(:,:,:) ! diffuse near infrared ice albedo per class
 
- !  INPUT variables:
- !  p_ice%hi(:,:)        : ice thickness                                    [m]
- !  p_ice%kice           : ice classes
+ !  OUTPUT variables for sea ice model via parameter:
+    REAL(wp), INTENT(inout) :: LWnetIce (:,:,:) ! net longwave heat flux over ice      [W/m2]
+    REAL(wp), INTENT(inout) :: SWnetIce (:,:,:) ! net shortwave heat flux over ice     [W/m2]
+    REAL(wp), INTENT(inout) :: sensIce  (:,:,:) ! sensible heat flux over ice          [W/m2]
+    REAL(wp), INTENT(inout) :: latentIce(:,:,:) ! latent heat flux over ice            [W/m2]
+    REAL(wp), INTENT(inout) :: dLWdTIce (:,:,:) ! derivitave of LWnetIce w.r.t temperature
+    REAL(wp), INTENT(inout) :: dsensdTIce(:,:,:)! derivitave of sensIce w.r.t temperature
+    REAL(wp), INTENT(inout) :: dlatdTIce(:,:,:) ! derivitave of latentIce w.r.t temperature
+
+ !  INPUT variables via types:
  !  p_patch%cells%center(:,:)%lat : latitude                                [rad]
- !  atmos_fluxes%albvisdir, albvisdif, albnirdir, albnirdif
- !   - all 4 albedos are the same (i_ice_albedo = 1), they are calculated in ice_fast and should be stored in p_ice or p_as
- !
- !  OUTPUT variables:  atmos_fluxes - heat fluxes and derivatives over ice-covered part, wind stress
- !  atmos_fluxes%LWnet   : long wave
- !  atmos_fluxes%sens    
- !  atmos_fluxes%lat     
- !  atmos_fluxes%dsensdT 
- !  atmos_fluxes%dlatdT  
- !  atmos_fluxes%dLWdt   
- !  atmos_fluxes%stress_x
- !  atmos_fluxes%stress_y
 
  !  Local variables
-    REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) :: &
+ !  REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) :: &
+    REAL(wp), DIMENSION (SIZE(tafoC,1), SIZE(tafoC,2)) ::  &
       & Tsurf,          &  ! Surface temperature in Celsius                  [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
@@ -1802,14 +1829,12 @@ CONTAINS
       & fa, fi,         &  ! Enhancment factor for vapor pressure
       & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
       & destidT,        &  ! Derivative of esti w.r.t. T
-      & dfdT,           &  ! Derivative of f w.r.t. T
-      & wspeed             ! Wind speed                                      [m/s]
+      & dfdT               ! Derivative of f w.r.t. T
+ !    & wspeed             ! Wind speed                                      [m/s]
 
-    INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
+    INTEGER :: i
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
-    REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
-
-    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif, local_rad2deg
 
   ! both variables tafoC and tafoK are needed
   ! tafoK(:,:)  = p_as%tafo(:,:)  + tmelt  ! Change units of tafo  to Kelvin
@@ -1830,8 +1855,10 @@ CONTAINS
       dsphumididesti(:,:) = 0.0_wp
     ENDIF
 
-    ! subset range pointer
-    all_cells => p_patch%cells%all
+    sphumida(:,:)  = 0.0_wp
+    fa      (:,:)  = 0.0_wp
+    esta    (:,:)  = 0.0_wp
+    rhoair  (:,:)  = 0.0_wp
 
     !-----------------------------------------------------------------------
     ! Compute water vapor pressure and specific humididty in 2m height (esta)
@@ -1858,8 +1885,8 @@ CONTAINS
     ! #slo# correction: pressure in enhancement formula is in mb (hPa) according to Buck 1981 and 1996
     fa(:,:)        = 1.0_wp+AAw+pao*0.01_wp*(BBw+CCw*ftdewC**2)
     esta(:,:)      = fa * aw*EXP((bw-ftdewC/dw)*ftdewC/(ftdewC+cw))
-
     sphumida(:,:)  = alpha * esta/(pao-beta*esta)
+
     !-----------------------------------------------------------------------
     !  Compute longwave radiation according to
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
@@ -1875,8 +1902,12 @@ CONTAINS
 
     ! Berliand & Berliand ('52) calculate only LWnet
     humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
+
+    ! icon-identical calculation of rad2deg
+    local_rad2deg = 180.0_wp / 3.14159265358979323846264338327950288_wp
     fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
-      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * fclou(:,:)**2
+      &         *MIN(ABS(local_rad2deg*geolat(:,:)),60._wp) ) * fclou(:,:)**2
+  !   &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * fclou(:,:)**2
 
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
@@ -1885,16 +1916,9 @@ CONTAINS
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
     !-----------------------------------------------------------------------
 
-    rhoair(:,:) = 0._wp
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c,i_endidx_c
-
-        rhoair(jc,jb) = pao(jc,jb)                &
-          &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
-
-      END DO
-    END DO
+    ! with nag there is floating invalid operation on rest of last nproma-block only due to pao=nan
+    ! rhoair(:,:) = pao(:,:) / (rd*tafoK(:,:)*(1.0_wp+0.61_wp*sphumida(:,:)) ) !  error with nag
+    WHERE (pao(:,:)>0.0_wp) rhoair(:,:) = pao(:,:) / (rd*tafoK(:,:)*(1.0_wp+0.61_wp*sphumida(:,:)) )
 
     fu10lim(:,:)    = MAX (2.5_wp, MIN(32.5_wp,fu10(:,:)) )
     dragl1(:,:)     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim(:,:) &
@@ -1904,103 +1928,88 @@ CONTAINS
 
     ! Fractions of SWin in each band (from cice)
     fvisdir=0.28_wp; fvisdif=0.24_wp; fnirdir=0.31_wp; fnirdif=0.17_wp
-    Tsurf(:,:) = 0._wp ! For debug output
+    Tsurf(:,:) = 0.0_wp ! For debug output
 
     ! Over sea ice area only
     !  TODO: in case of no ice model, ice variables cannot be used here
-    DO i = 1, p_ice%kice
-      WHERE (p_ice%hi(:,i,:)>0._wp)
-        atmos_fluxes%SWnet(:,i,:) = ( 1._wp-albvisdir(:,i,:) )*fvisdir*fswr(:,:) +   &
-          &                 ( 1._wp-atmos_fluxes%albvisdif(:,i,:) )*fvisdif*fswr(:,:) +   &
-          &                 ( 1._wp-atmos_fluxes%albnirdir(:,i,:) )*fnirdir*fswr(:,:) +   &
-          &                 ( 1._wp-atmos_fluxes%albnirdif(:,i,:) )*fnirdif*fswr(:,:)
-      ! Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
-        Tsurf(:,:)    = tice(:,i,:)
-        ! #slo# correction: pressure in enhancement formula is in mb (hPa) according to Buck 1981 and 1996
-        !fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
-        fi(:,:)       = 1.0_wp+AAi+pao(:,:)*0.01_wp*(BBi+CCi*Tsurf(:,:) **2)
-        esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
-        sphumidi(:,:) = alpha*esti(:,:)/(pao(:,:)-beta*esti(:,:))
+    !  ice classes: currently one class (kice=1) is used, therefore formulation can be simplified to 2-dim variables as in mpiom
+    DO i = 1, kice
+      WHERE (hice(:,i,:)>0._wp)
+        
+        !  albedo model: atmos_fluxes%albvisdir, albvisdif, albnirdir, albnirdif
+        !   - all 4 albedos are the same (i_ice_albedo = 1), they are calculated in ice_fast and should be stored in p_ice
+        SWnetIce(:,i,:)  = ( 1._wp-albvisdir(:,i,:) )*fvisdir*fswr(:,:) +   &
+          &                ( 1._wp-albvisdif(:,i,:) )*fvisdif*fswr(:,:) +   &
+          &                ( 1._wp-albnirdir(:,i,:) )*fnirdir*fswr(:,:) +   &
+          &                ( 1._wp-albnirdif(:,i,:) )*fnirdif*fswr(:,:)
+      ! Tsurf(:,:)       = p_ice%Tsurf(:,i,:)
+        Tsurf(:,:)       = tice(:,i,:)
+        ! pressure in enhancement formula is in mb (hPa) according to Buck 1981 and 1996
+        fi(:,:)          = 1.0_wp+AAi+pao(:,:)*0.01_wp*(BBi+CCi*Tsurf(:,:) **2)
+        esti(:,:)        = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
+        sphumidi(:,:)    = alpha*esti(:,:)/(pao(:,:)-beta*esti(:,:))
         ! This may not be the best drag parametrisation to use over ice
-        dragl(:,:)    = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-tafoC(:,:))
-        ! A reasonable maximum and minimum is needed for dragl in case there's a large difference
+        dragl(:,:)       = dragl0(:,:) + dragl1(:,:) * (Tsurf(:,:)-tafoC(:,:))
+        ! A reasonableee maximum and minimum is needed for dragl in case there's a large difference
         ! between the 2-m and surface temperatures.
-        dragl(:,:)    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
-        drags(:,:)    = 0.95_wp * dragl(:,:)
+        dragl(:,:)       = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
+        drags(:,:)       = 0.95_wp * dragl(:,:)
 
-        ! #eoo# 2012-12-14: another bugfix
-        ! #slo# 2012-12-13: bugfix, corrected form
-        atmos_fluxes%LWnet (:,i,:)  = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
-           &                  - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - tafoC(:,:))
+        LWnetIce(:,i,:)  = -fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+           &               -4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - tafoC(:,:))
         ! same form as MPIOM:
         !atmos_fluxes%LWnet (:,i,:)  = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &         + 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:)))
-        ! bug
-        !atmos_fluxes%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
-        !  &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
-        atmos_fluxes%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
-        atmos_fluxes%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*fu10(:,:) * fr_fac &
-          &                    * (tafoC(:,:) -Tsurf(:,:))
-        atmos_fluxes%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *fu10(:,:) * fr_fac &
+        dLWdTIce(:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
+        sensIce(:,i,:)   = drags(:,:) * rhoair(:,:)*cpd*fu10(:,:) * fr_fac * (tafoC(:,:) -Tsurf(:,:))
+        latentIce(:,i,:) = dragl(:,:) * rhoair(:,:)* alf *fu10(:,:) * fr_fac &
           &                   * (sphumida(:,:)-sphumidi(:,:))
 
-        atmos_fluxes%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*fu10(:,:)&
-          &                  *(dragl0(:,:) - 2.0_wp*dragl(:,:))
+        dsensdTIce(:,i,:)   = 0.95_wp*cpd*rhoair(:,:)*fu10(:,:)&
+          &                   *(dragl0(:,:) - 2.0_wp*dragl(:,:))
         dsphumididesti(:,:) = alpha/(pao(:,:)-beta*esti(:,:)) &
           &                   * (1.0_wp + beta*esti(:,:)/(pao(:,:)-beta*esti(:,:)))
         destidT(:,:)        = (bi*ci*di-Tsurf(:,:)*(2.0_wp*ci+Tsurf(:,:)))&
           &                   /(di*(ci+Tsurf(:,:))**2) * esti(:,:)
-        dfdT(:,:)               = 2.0_wp*CCi*BBi*Tsurf(:,:)
-        atmos_fluxes%dlatdT(:,i,:)  = alf*rhoair(:,:)*fu10(:,:)* &
+        dfdT(:,:)           = 2.0_wp*CCi*BBi*Tsurf(:,:)
+        dlatdTIce(:,i,:)    = alf*rhoair(:,:)*fu10(:,:)* &
           &                  ( (sphumida(:,:)-sphumidi(:,:))*dragl1(:,:) &
           &                    - dragl(:,:)*dsphumididesti(:,:)*(fi(:,:)*destidT(:,:) &
           &                    + esti(:,:)*dfdT(:,:)) )
       ENDWHERE
     ENDDO
 
-    !Dirk: why zero ?
- !  atmos_fluxes%rpreci(:,:) = 0.0_wp
- !  atmos_fluxes%rprecw(:,:) = 0.0_wp
-
-    IF (use_calculated_ocean_stress) THEN
-      !-----------------------------------------------------------------------
-      !  Calculate ice wind stress
-      !-----------------------------------------------------------------------
-      wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
-      atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
-      atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
-    ELSE
-      ! use wind stress provided by OMIP data
-      atmos_fluxes%stress_x(:,:) = p_as%topBoundCond_windStress_u(:,:)
-      atmos_fluxes%stress_y(:,:) = p_as%topBoundCond_windStress_v(:,:)
-    ENDIF
+  ! IF (use_calculated_ocean_stress) THEN
+  !   !-----------------------------------------------------------------------
+  !   !  Calculate wind stress over ice covered part
+  !   !-----------------------------------------------------------------------
+  !   ! #slo# 2015-06: this is incorrect and not used in standard OMIP
+  !   wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
+  !   atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
+  !   atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
+  ! ELSE
+  !   ! use wind stress provided by OMIP data
+  !   atmos_fluxes%stress_x(:,:) = p_as%topBoundCond_windStress_u(:,:)
+  !   atmos_fluxes%stress_y(:,:) = p_as%topBoundCond_windStress_v(:,:)
+  ! ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
+    !  now without subset of patch
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('omipBudIce:tafoK'           ,tafoK    ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:rhoair'          ,rhoair   ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:fa'              ,fa       ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:fi'              ,fi       ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:esta'            ,esta     ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:esti'            ,esti     ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:sphumida'        ,sphumida ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:sphumidi'        ,sphumidi ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:dragl'           ,dragl    ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:drags'           ,drags    ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:dsphumididesti'  ,dsphumididesti       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:destidT'         ,destidT              ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:dfdT'            ,dfdT                 ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('omipBudIce:Tsurf ice'       ,Tsurf                ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%LWnet ice',atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%sens ice' ,atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:atmflx%dLWdt'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudIce:Tsurf ice'       ,Tsurf    ,str_module, 3      )
+    CALL dbg_print('omipBudIce:tafoK'           ,tafoK    ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:rhoair'          ,rhoair   ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:fa'              ,fa       ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:fi'              ,fi       ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:esta'            ,esta     ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:esti'            ,esti     ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:sphumida'        ,sphumida ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:sphumidi'        ,sphumidi ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:dragl'           ,dragl    ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:drags'           ,drags    ,str_module, idt_src)
+    CALL dbg_print('omipBudIce:dsphumididesti'  ,dsphumididesti,str_module,idt_src)
+    CALL dbg_print('omipBudIce:destidT'         ,destidT  ,str_module,idt_src)
+    CALL dbg_print('omipBudIce:dfdT'            ,dfdT     ,str_module,idt_src)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_omip_budgets_ice
