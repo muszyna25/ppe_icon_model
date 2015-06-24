@@ -1262,10 +1262,9 @@ CONTAINS
     CALL message (TRIM(routine), 'end')
     
   END SUBROUTINE init_ho_basins
+  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Modifies the already calculated Coriolis force, if beta-, f-plane or the nonrotating case
   !! is selected in the namelist. The tangent plane is associated to the center of the basin that is
@@ -1279,15 +1278,14 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Peter Korn, 2011
-  !!  mpi parallelized LL (no sync required)
   !!
 !<Optimize:inUse>
-  SUBROUTINE init_coriolis_oce( ptr_patch )
+  SUBROUTINE init_coriolis_oce( patch_2D )
     !
     IMPLICIT NONE
     !
     !
-    TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
     !
     INTEGER :: jb, je, jv
     INTEGER :: i_startidx_e, i_endidx_e
@@ -1299,8 +1297,8 @@ CONTAINS
       & routine = ('mo_ocean_initialization:init_coriolis_oce')
     TYPE(t_subset_range), POINTER :: all_verts, all_edges
     !-----------------------------------------------------------------------
-    all_verts => ptr_patch%verts%ALL
-    all_edges => ptr_patch%edges%ALL
+    all_verts => patch_2D%verts%ALL
+    all_edges => patch_2D%edges%ALL
     
     CALL message (TRIM(routine), 'start')
     
@@ -1318,12 +1316,12 @@ CONTAINS
       DO jb = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
-          !z_y = grid_sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - coriolis_lat)
-          gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
+          !z_y = grid_sphere_radius*(patch_2D%verts%vertex(jv,jb)%lat - coriolis_lat)
+          gc2%lat = patch_2D%verts%vertex(jv,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
           xx2=gc2cc(gc2)
           z_y = grid_sphere_radius * arc_length(xx2,xx1)
-          ptr_patch%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
+          patch_2D%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
             & ( SIN(coriolis_lat) + (COS(coriolis_lat)/grid_sphere_radius)*z_y)
           !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*grid_angular_velocity*sin(coriolis_lat),&
           !  &2.0_wp*grid_angular_velocity*((cos(coriolis_lat)/grid_sphere_radius)*z_y)
@@ -1334,13 +1332,13 @@ CONTAINS
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
           ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
-          gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad
+          gc2%lat = patch_2D%edges%center(je,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
           xx2=gc2cc(gc2)
           z_y = grid_sphere_radius*arc_length(xx2,xx1)
           
-          !z_y = ptr_patch%edges%center(je,jb)%lat - coriolis_lat
-          ptr_patch%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * &
+          !z_y = patch_2D%edges%center(je,jb)%lat - coriolis_lat
+          patch_2D%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * &
             & ( SIN(coriolis_lat) + &
             & (COS(coriolis_lat)/grid_sphere_radius)*z_y)
         END DO
@@ -1351,19 +1349,24 @@ CONTAINS
       
       coriolis_lat =  coriolis_fplane_latitude* deg2rad
       
-      ptr_patch%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
-      ptr_patch%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
+      patch_2D%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
+      patch_2D%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       
     CASE(zero_coriolis)
       
       CALL message (TRIM(routine), 'ZERO_CORIOLIS: set to zero')
-      ptr_patch%verts%f_v = 0.0_wp
-      ptr_patch%edges%f_e = 0.0_wp
+      patch_2D%verts%f_v = 0.0_wp
+      patch_2D%edges%f_e = 0.0_wp
       
     CASE(full_coriolis)
       
-      CALL message (TRIM(routine), 'FULL_CORIOLIS: Nothing to do, coriolis not modified')
-      
+      DO jb = all_verts%start_block, all_verts%end_block
+        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+        DO jv = i_startidx_v, i_endidx_v
+          patch_2D%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%verts%vertex(jv,jb)%lat)
+        END DO
+      END DO
+           
     END SELECT
     
     CALL message (TRIM(routine), 'end')
