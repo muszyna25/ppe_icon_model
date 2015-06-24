@@ -977,7 +977,7 @@ CONTAINS
   !!
   SUBROUTINE prepare_lin_intp(z3d_in, z3d_out,                    &
                               nblks, npromz, nlevs_in, nlevs_out, &
-                              wfac, idx0, bot_idx                 )
+                              wfac, idx0, bot_idx, lextrap        )
 
     ! Input fields
     REAL(wp), INTENT(IN) :: z3d_in(:,:,:) ! height coordinate field of input data (m)
@@ -989,6 +989,9 @@ CONTAINS
     INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
     INTEGER , INTENT(IN) :: nlevs_out  ! Number of output levels
 
+    ! Switch for extrapolation beyond top of input data
+    LOGICAL, INTENT(IN), OPTIONAL :: lextrap ! if true, apply linear extrapolation
+
     ! Output fields
     REAL(wp), INTENT(OUT) :: wfac(:,:,:)       ! weighting factor of upper level
     INTEGER , INTENT(OUT) :: idx0(:,:,:)       ! index of upper level
@@ -998,9 +1001,15 @@ CONTAINS
 
     INTEGER :: jb, jk, jc, jk1, jk_start
     INTEGER :: nlen, ierror(nblks), nerror
-    LOGICAL :: l_found(nproma),lfound_all
+    LOGICAL :: l_found(nproma), lfound_all, l_extrap
 
 !-------------------------------------------------------------------------
+
+    IF (PRESENT(lextrap)) THEN
+      l_extrap = lextrap
+    ELSE
+      l_extrap = .TRUE.
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
@@ -1034,8 +1043,12 @@ CONTAINS
               idx0(jc,jk,jb) = nlevs_in
             ELSE IF (z3d_out(jc,jk,jb) > z3d_in(jc,1,jb)) THEN ! linear extrapolation
               idx0(jc,jk,jb) = 1
-              wfac(jc,jk,jb) = (z3d_out(jc,jk,jb)-z3d_in(jc,2,jb))/&
-                               (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+              IF (l_extrap) THEN
+                wfac(jc,jk,jb) = (z3d_out(jc,jk,jb)-z3d_in(jc,2,jb))/&
+                                 (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+              ELSE
+                wfac(jc,jk,jb) = 1._wp ! use constant values above top of input data
+              ENDIF
               bot_idx(jc,jb) = jk
               l_found(jc) = .TRUE.
             ENDIF
