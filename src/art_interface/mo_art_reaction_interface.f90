@@ -36,6 +36,7 @@ MODULE mo_art_reaction_interface
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_datetime,                      ONLY: t_datetime
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
 #ifdef __ICON_ART
   USE mo_art_radioactive,               ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
@@ -44,7 +45,6 @@ MODULE mo_art_reaction_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
   USE mo_art_config,                    ONLY: art_config
-  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
 #endif
 
   IMPLICIT NONE
