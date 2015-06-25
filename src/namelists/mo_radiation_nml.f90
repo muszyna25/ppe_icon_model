@@ -101,7 +101,8 @@ MODULE mo_radiation_nml
                              ! 3: Parameterization after Yang (2008) for snow-free land points
                              !    limitation after Zaengl for snow-coverer points
                              !    Ritter-Geleyn implementation for remaining points (water,ice)
-                             ! 4: Parameterization after Briegleb (1992) 
+                             ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                             !    limitation after Zaengl for snow-coverer points
 
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0

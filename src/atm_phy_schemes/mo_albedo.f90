@@ -869,10 +869,10 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,jb,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                                 prm_diag%albvisdif_t(jc,jb,isub_seaice))
-            zalbnirdir_t(jc,jb,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                                 prm_diag%albnirdif_t(jc,jb,isub_seaice))
+            zalbvisdir_t(jc,jb,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                                 prm_diag%albvisdif_t(jc,jb,isub_water))
+            zalbnirdir_t(jc,jb,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                                 prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 
         ENDIF
