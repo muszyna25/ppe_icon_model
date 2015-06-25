@@ -115,7 +115,8 @@ MODULE mo_seaice_nwp
                        &  frsi_min     = 0.03_wp    , &  !< minimum sea-ice fraction [-]
                        &  hice_min     = 0.05_wp    , &  !< minimum sea-ice thickness [m]
                        &  hice_max     = 3.0_wp     , &  !< maximum sea-ice thickness [m]
-                       &  hice_ini     = 0.5_wp     , &  !< thickness of the newly formed sea ice [m]
+                       &  hice_ini_min = 0.1_wp     , &  !< minimum thickness of the newly formed sea ice [m]
+                       &  hice_ini_max = 0.5_wp     , &  !< maximum thickness of the newly formed sea ice [m]
                        &  csi_lin      = 0.5_wp     , &  !< shape factor for linear temperature profile [-]
                        &  phiipr0_lin  = 1.0_wp     , &  !< derivative (at zeta=0) of the linear 
                                                          !< temperature profile shape function [-]
@@ -163,7 +164,8 @@ MODULE mo_seaice_nwp
   PUBLIC ::                       &
          &  frsi_min            , & ! parameter
          &  hice_min            , & ! parameter 
-         &  hice_ini            , & ! parameter
+         &  hice_ini_min        , & ! parameter
+         &  hice_ini_max        , & ! parameter
          &  seaice_init_nwp     , & ! procedure     
          &  seaice_coldinit_nwp , & ! procedure   
          &  seaice_timestep_nwp     ! procedure  
@@ -274,7 +276,7 @@ CONTAINS
 
       ! Create new ice as needed (otherwise do nothing)
       IF( hice_p(isi) < (hice_min-csmall) ) THEN 
-        hice_p(isi) = hice_ini
+        hice_p(isi) = hice_ini_min + frsi(isi) * (hice_ini_max-hice_ini_min)
         tice_p(isi) = tf_salt
       END IF
 

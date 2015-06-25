@@ -102,7 +102,6 @@ CONTAINS
     TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op        ! post operation (e.g. scale with const. factor or rho)
     REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer! lifetime of a chemical tracer
 
-#ifdef __ICON_ART
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
@@ -184,6 +183,8 @@ CONTAINS
        &          isteptype=isteptype, tlev_source=tlev_source,                  &
        &          vert_interp=vert_interp, hor_interp=hor_interp,                &
        &          tracer_info=tracer_info, in_group=in_group, post_op=post_op)
+
+#ifdef __ICON_ART
 
     ! Get the number of convection tracers
     IF(PRESENT(lconv_tracer)) THEN
