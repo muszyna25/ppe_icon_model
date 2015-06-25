@@ -42,6 +42,11 @@ start_date="1979-01-01T00:00:00Z"
 # restart intervals
 checkpoint_interval="PT8M"
 restart_interval="PT16M"
+#
+# NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
+# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
+(( dt_checkpoint =  8 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
+(( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
 output_interval="PT4M"
@@ -283,6 +288,7 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
+ dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
