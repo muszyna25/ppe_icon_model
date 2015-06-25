@@ -53,7 +53,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
   CHARACTER(LEN=120) :: cart_emiss_table_path 
-  CHARACTER(LEN=120), DIMENSION(max_dom) :: cart_emiss_table_file
+  CHARACTER(LEN=120) :: cart_emiss_table_file(0:max_dom)
     
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
