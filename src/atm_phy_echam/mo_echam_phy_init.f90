@@ -474,7 +474,7 @@ CONTAINS
           END DO
 !$OMP END PARALLEL DO
 
-          IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc for a coupled run')
+          IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
 
         CASE('RCE','RCE_glb','RCE_CBL') !Note that there is only one surface type in this case
 
@@ -531,7 +531,7 @@ CONTAINS
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
 
-        CASE('APEc')
+        CASE('APEc','APEc_nh')
           ! The same as APEi, except we initialize with no ice and don't modify the surface
           ! temperature. This is meant for a coupled run.
 

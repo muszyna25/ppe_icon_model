@@ -32,7 +32,8 @@ MODULE mo_echam_sfc_indices
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: nsfc_type, iwtr, iice, ilnd, igbm   !< variables
+  PUBLIC :: nsfc_type, iwtr, iice, ilnd, igbm   !< index variables
+  PUBLIC :: csfc                                !< sfc names
   PUBLIC :: init_sfc_indices                    !< subroutine
 
   INTEGER :: nsfc_type   !< total number of surface types
@@ -40,6 +41,8 @@ MODULE mo_echam_sfc_indices
   INTEGER :: iice = 2    !< index for ice-covered   surface
   INTEGER :: ilnd = 3    !< index for land          surface
   INTEGER :: igbm        !< index for grid-box mean
+
+  CHARACTER(LEN=3) :: csfc(3) = (/'wtr','ice','lnd'/)
 
 CONTAINS
   !>
@@ -52,7 +55,7 @@ CONTAINS
     CHARACTER(len=*),INTENT(IN) :: ctest_name
 
     SELECT CASE(TRIM(ctest_name))
-    CASE('APE','APE_nwp','APE_echam','RCE','RCE_glb','RCEhydro','RCE_CBL')
+    CASE('APE','APE_echam','RCE','RCE_glb','RCEhydro','RCE_CBL')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean
       ! and the value on different types of surface
