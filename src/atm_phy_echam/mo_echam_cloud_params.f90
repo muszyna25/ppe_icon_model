@@ -225,6 +225,7 @@ CONTAINS
       cvtfall = 2.5_wp
       csecfrl = 5.E-6_wp
       clwprat = 4.0_wp
+      csatsc  = 0.7_wp
       nex     = 2
       nadd    = 0
     ELSE
