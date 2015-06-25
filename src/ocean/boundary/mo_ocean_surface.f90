@@ -92,7 +92,6 @@ MODULE mo_ocean_surface
   ! private routines
   PRIVATE :: update_flux_analytical
   PRIVATE :: update_flux_fromFile
-  PRIVATE :: update_flux_from_atm_flx
   PRIVATE :: update_surface_relaxation
   PRIVATE :: apply_surface_relaxation
   PRIVATE :: calc_omip_budgets_ice
@@ -1471,130 +1470,6 @@ CONTAINS
 
   END SUBROUTINE apply_surface_relaxation
 
-  !-------------------------------------------------------------------------
-  !
-  !> Takes thermal calc_atm_fluxes_from_bulk to calculate surface fluxes for ocean forcing:
-  !!  heat, freshwater and momentum.
-  !!  not active or tested yet (2012/08)
-  !!
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
-  !
-  SUBROUTINE update_flux_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, atmos_fluxes, p_sfc_flx)
-
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
-    TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
-    TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
-    TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
-    TYPE (t_atmos_fluxes),        INTENT (INOUT):: atmos_fluxes
-    TYPE(t_sfc_flx)                             :: p_sfc_flx
-
-    !Local variables 
-    REAL(wp) :: z_rho_w = 1.22_wp  !near surface air density [kg/m^3] cf. Large/Yeager, sect 4.1, p.17
-    REAL(wp) :: z_C_d0, z_C_d1, z_C_d
-    REAL(wp) :: z_norm, z_v, z_relax
-
-    INTEGER :: jc, jb, i
-    INTEGER :: i_startidx_c, i_endidx_c
-    !REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    !REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_from_atm_flx'
-    TYPE(t_patch), POINTER :: p_patch
-    TYPE(t_subset_range), POINTER :: all_cells
-    !-----------------------------------------------------------------------  
-    p_patch         => p_patch_3D%p_patch_2D(1)
-    !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
-
-    all_cells => p_patch%cells%all
-
-    !Relaxation parameter from namelist for salinity.
-    z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
-
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        DO i = 1, p_ice%kice
-          !surface heat forcing as sum of sensible, latent, longwave and shortwave heat fluxes
-          IF (p_ice% hi(jc,jb,i) > 0._wp)THEN
-
-            p_sfc_flx%HeatFlux_Total(jc,jb)              &
-              & =  atmos_fluxes%sens(jc,jb,i) + atmos_fluxes%lat(jc,jb,i)& ! Sensible + latent heat flux at ice surface
-              & +  atmos_fluxes%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
-              & +  atmos_fluxes%bot(jc,jb,i)                       ! Ocean heat flux at ice bottom 
-                                                           ! liquid/solid  precipitation rate
-            !                                                are zero
-
-            ! This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-           !z_evap(jc,jb) = atmos_fluxes%lat(jc,jb,i)/(als*z_rho_w)
-
-          ELSE
-
-            p_sfc_flx%HeatFlux_Total(jc,jb)            &
-            & =  atmos_fluxes%sensw(jc,jb) + atmos_fluxes%latw(jc,jb)  & ! Sensible + latent heat flux over water
-            & +  atmos_fluxes%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-            & +  atmos_fluxes%SWnetw(jc,jb)                      ! net SW radiation flux ove water
-                                                         ! liquid/solid  precipitation rate are zero
-
-            ! This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-           !z_evap(jc,jb) = atmos_fluxes%latw(jc,jb)/(alv*z_rho_w)
-          ENDIF
-        END DO
-
-        !calculate surface freshwater flux       
-        !following MPI-OM as described in Marsland et al, formula (63)-(65)
-
-        !calculate evaporation from latent heat flux and latent heat of vaporisation
-        !This is (63) in Marsland et al.
-        !+River runoff +glacial meltwater
-        !z_Q_freshwater(jc,jb) = (atmos_fluxes%rpreci(jc,jb) + atmos_fluxes%rprecw(jc,jb)) -  z_evap(jc,jb)  
-
-        !Now the freshwater flux calculation is finished; this is (65) in Marsland et al.
-        !Relaxation of top layer salinity to observed salinity
-        !
-        !  Attention, check consistency in the model:
-        !   - salinity relaxation is here in addition to the formulation at the end of update_surface_flux
-        !   - also, according to (65) of Marsland, there is a bug below:
-        !     multiplication with S1 (tracer(2)) is missing
-        !   - has to be checked and merged with salinity boundary condition in update_surface_flux
-        !
-!         p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) =                         &
-!           & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
-!           & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
-!           & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
-
-
-        !calculate wind stress    
-        z_norm = sqrt(p_as%u(jc,jb)*p_as%u(jc,jb)+p_as%v(jc,jb)*p_as%v(jc,jb))
-
-        !calculate drag coefficient for wind following 
-        ! Kara, Rochford, Hurlburt, Air-Sea Flux Estimates And the 1997-1998 Enso Event
-        ! Boundary-Layer Meteorology, 103, 439-458 (2002)
-        !
-        z_v = MAX(2.5_wp, MIN(p_as%fu10(jc,jb),32.5_wp))
-
-        z_C_d0 = 1.0E-3_wp*(0.692_wp+0.071_wp*z_v-0.00070_wp*z_norm)
-        z_C_d1 = 1.0E-3_wp*(0.083_wp-0.0054_wp*z_v-0.000093_wp*z_norm)
-        z_C_d  = z_C_d0 + z_C_d1*(p_as%tafo(jc,jb)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1))
-
-        !write(*,*)'final wind stress coeff',z_C_d
-        p_sfc_flx%topBoundCond_windStress_u(jc,jb) = z_rho_w*z_C_d*z_norm &
-          &  *(p_as%u(jc,jb)- p_os%p_diag%u(jc,1,jb))
-
-        p_sfc_flx%topBoundCond_windStress_v(jc,jb) = z_rho_w*z_C_d*z_norm &
-          &  *(p_as%v(jc,jb) - p_os%p_diag%v(jc,1,jb))
-   
-      END DO
-    END DO
-
-    IF (type_surfRelax_Temp==1) THEN
-
-       p_sfc_flx%topBoundCond_Temp_vdiff(:,:)=  z_relax * &
-         &                                      (p_sfc_flx%data_surfRelax_Temp(:,:)-p_os%p_prog(nold(1))%tracer(:,1,:,1))
-
-    ENDIF
-
-  END SUBROUTINE update_flux_from_atm_flx
   !-------------------------------------------------------------------------
   !
   !>
