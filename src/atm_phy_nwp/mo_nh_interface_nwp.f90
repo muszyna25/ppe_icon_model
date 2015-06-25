@@ -92,6 +92,7 @@ MODULE mo_nh_interface_nwp
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
   USE mo_util_phys,               ONLY: nh_update_prog_phy
+  USE mo_o3_util,                 ONLY: calc_o3_gems
 
   IMPLICIT NONE
 
@@ -560,25 +561,25 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-!< JS: added ext_data again, datetime, p_metrics, pt_diag_pt_prog%rho
-        CALL art_reaction_interface(ext_data,                    & !> in
-                  &          pt_patch,                           & !> in
-                  &          datetime,                           & !> in
-                  &          dt_phy_jg(itfastphy),               & !> in
-                  &          p_prog_list,                        & !> in
-                  &          pt_prog,                            & !> in
-                  &          p_metrics,                          & !> in
-                  &          pt_diag,                            & !> inout
-                  &          pt_prog_rcf%tracer)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
 
-        CALL art_washout_interface(pt_prog,pt_diag,              & !>in
-                  &          dt_phy_jg(itfastphy),               & !>in
-                  &          pt_patch,                           & !>in
-                  &          prm_diag,                           & !>in
-                  &          pt_prog_rcf%tracer)                   !>inout
+      CALL art_reaction_interface(ext_data,                    & !> in
+                &          pt_patch,                           & !> in
+                &          datetime,                           & !> in
+                &          dt_phy_jg(itfastphy),               & !> in
+                &          p_prog_list,                        & !> in
+                &          pt_prog,                            & !> in
+                &          p_metrics,                          & !> in
+                &          prm_diag,                           & !> in
+                &          pt_diag,                            & !> inout
+                &          pt_prog_rcf%tracer)
 
+      CALL art_washout_interface(pt_prog,pt_diag,              & !>in
+                &          dt_phy_jg(itfastphy),               & !>in
+                &          pt_patch,                           & !>in
+                &          prm_diag,                           & !>in
+                &          pt_prog_rcf%tracer)                   !>inout
     ENDIF !lart
-
 
 
     IF (timers_level > 1) CALL timer_start(timer_fast_phys)

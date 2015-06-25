@@ -52,6 +52,8 @@ MODULE mo_art_nml
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
+  CHARACTER(LEN=120) :: cart_emiss_table_path 
+  CHARACTER(LEN=120), DIMENSION(max_dom) :: cart_emiss_table_file
     
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
@@ -80,7 +82,7 @@ MODULE mo_art_nml
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out
+   &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file 
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -121,9 +123,10 @@ CONTAINS
     lart_diag_out       = .FALSE.
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
-    lart_chem           = .FALSE.
-    iart_chem_mechanism = 0
-      
+    lart_chem             = .FALSE.
+    iart_chem_mechanism   = 0
+    cart_emiss_table_path = TRIM(cart_folder)//'docs/'   
+    cart_emiss_table_file = 'art_emission_metadata_tables_DOM01.tex' 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
     iart_seasalt        = 0
@@ -188,6 +191,8 @@ CONTAINS
       CALL finish('mo_art_nml:read_art_namelist',  &
         &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
     ENDIF
+
+
     
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -202,9 +207,11 @@ CONTAINS
       art_config(jg)%lart_diag_out       = lart_diag_out
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
-      art_config(jg)%lart_chem           = lart_chem
-      art_config(jg)%iart_chem_mechanism = iart_chem_mechanism
-      
+      art_config(jg)%lart_chem             = lart_chem
+      art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
+      art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)   
+      art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg)) 
+
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
       art_config(jg)%lart_aerosol        = lart_aerosol
       art_config(jg)%iart_seasalt        = iart_seasalt
