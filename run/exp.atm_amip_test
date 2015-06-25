@@ -283,7 +283,6 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  ! [s] restart file interval
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
