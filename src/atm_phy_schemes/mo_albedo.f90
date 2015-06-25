@@ -36,7 +36,7 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_radiation_config,     ONLY: rad_csalbw
+  USE mo_radiation_config,     ONLY: rad_csalbw, albedo_blacksky
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,  &
     &                                lseaice, llake, isub_water, isub_lake,   &
     &                                isub_seaice
@@ -709,15 +709,64 @@ CONTAINS
 
             ! direct albedo (vis and nir)
             !
-            zalbvisdir_t(jc,jb,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
-              &                                             prm_diag%albvisdif_t(jc,jb,jt), &
-              &                                             ext_data%atm%z0_lcc(ilu),       &
-              &                                             ext_data%atm%sso_stdh_raw(jc,jb))
+            IF ( albedo_blacksky == 1 ) THEN ! Ritter-Geleyn
+              zalbvisdir_t(jc,jb,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                &                                        prm_diag%albvisdif_t(jc,jb,jt))
+              zalbnirdir_t(jc,jb,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                &                                        prm_diag%albnirdif_t(jc,jb,jt)) 
 
-            zalbnirdir_t(jc,jb,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
-              &                                             prm_diag%albnirdif_t(jc,jb,jt), &
-              &                                             ext_data%atm%z0_lcc(ilu),       &
-              &                                             ext_data%atm%sso_stdh_raw(jc,jb))
+            ELSE IF ( albedo_blacksky == 2 ) THEN  ! Zaengl
+              zalbvisdir_t(jc,jb,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
+                &                                             prm_diag%albvisdif_t(jc,jb,jt), &
+                &                                             ext_data%atm%z0_lcc(ilu),       &
+                &                                             ext_data%atm%sso_stdh_raw(jc,jb))
+
+              zalbnirdir_t(jc,jb,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
+                &                                             prm_diag%albnirdif_t(jc,jb,jt), &
+                &                                             ext_data%atm%z0_lcc(ilu),       &
+                &                                             ext_data%atm%sso_stdh_raw(jc,jb))
+
+            ELSE IF ( albedo_blacksky == 3 ) THEN  ! Yang (2008)
+              zalbvisdir_t(jc,jb,jt) = snow_frac                                                  &
+                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                             prm_diag%albvisdif_t(jc,jb,jt),     &
+                &                                             ext_data%atm%z0_lcc(ilu),           &
+                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                    + (1._wp-snow_frac)                                          &
+                &                    * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
+                &                                          prm_diag%albvisdif_t(jc,jb,jt))
+
+              zalbnirdir_t(jc,jb,jt) = snow_frac                                                  &
+                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                             prm_diag%albnirdif_t(jc,jb,jt),     &
+                &                                             ext_data%atm%z0_lcc(ilu),           &
+                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                    + (1._wp-snow_frac)                                          &
+                &                    * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
+                &                                          prm_diag%albnirdif_t(jc,jb,jt))
+
+            ELSE IF ( albedo_blacksky == 4 ) THEN  ! Briegleb (1992)
+              zalbvisdir_t(jc,jb,jt) = snow_frac                                                  &
+                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                             prm_diag%albvisdif_t(jc,jb,jt),     &
+                &                                             ext_data%atm%z0_lcc(ilu),           &
+                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                    + (1._wp-snow_frac)                                          &
+                &                    * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
+                &                                          prm_diag%albvisdif_t(jc,jb,jt),        &
+                &                                          ext_data%atm%z0_lcc(ilu))
+
+              zalbnirdir_t(jc,jb,jt) = snow_frac                                                  &
+                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                             prm_diag%albnirdif_t(jc,jb,jt),     &
+                &                                             ext_data%atm%z0_lcc(ilu),           &
+                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                    + (1._wp-snow_frac)                                          &
+                &                    * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
+                &                                          prm_diag%albnirdif_t(jc,jb,jt),        &
+                &                                          ext_data%atm%z0_lcc(ilu))
+            ENDIF
+
 
           ENDDO  ! ic
 
@@ -1085,32 +1134,73 @@ CONTAINS
 
 
 
-!!$  !>
-!!$  !! Surface albedo for direct beam
-!!$  !!
-!!$  !! Surface albedo for direct beam, according to Yang (2008).
-!!$  !!
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
-!!$  !!
-!!$  !! @par Literature
-!!$  !! - Yang, F. et al. (2008), Dependence of Land Surface Albedo on Solar Zenith Angle:
-!!$  !!   Observations and Model Parameterization. J. App. Meteorology and Climatology, 47, 
-!!$  !!   2963-2982
-!!$  !!
-!!$  FUNCTION sfc_albedo_dir_yang (cosmu0, alb_dif)  RESULT (alb_dir)
-!!$    !
-!!$    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
-!!$
-!!$    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
-!!$
-!!$    REAL(wp) :: alb_dir
-!!$  !------------------------------------------------------------------------------
-!!$
-!!$     alb_dir = MIN(0.999_wp, alb_dif*( 1.0_wp + 1.14_wp)/(1._wp + 1.48*cosmu0) )
-!!$
-!!$  END FUNCTION sfc_albedo_dir_yang
+  !>
+  !! Surface albedo for direct beam
+  !!
+  !! Surface albedo for direct beam, according to Yang (2008).
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  !! @par Literature
+  !! - Yang, F. et al. (2008), Dependence of Land Surface Albedo on Solar Zenith Angle:
+  !!   Observations and Model Parameterization. J. App. Meteorology and Climatology, 47, 
+  !!   2963-2982
+  !!
+  FUNCTION sfc_albedo_dir_yang (cosmu0, alb_dif)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+     alb_dir = MIN(0.999_wp, alb_dif*( 1.0_wp + 1.14_wp)/(1._wp + 1.48*cosmu0) )
+
+  END FUNCTION sfc_albedo_dir_yang
+
+
+  !>
+  !! Surface albedo for direct beam
+  !!
+  !! Surface albedo for direct beam, according to Briegleb (1992).
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  !! @par Literature
+  !! - Yang, F. et al. (2008), Dependence of Land Surface Albedo on Solar Zenith Angle:
+  !!   Observations and Model Parameterization. J. App. Meteorology and Climatology, 47, 
+  !!   2963-2982
+  !! - Briegleb, B. and V. Ramanathan (1982), Spectral and Diurnal Variations in Clear Sky 
+  !!   Planetary Albedo, J. App. Met., 21, 1160-1171
+  !! - Briegleb, B. (1992), Delta-Eddington approximation for solar radiation 
+  !!   in the NCAR Community Climate Model. J. Geophys. Res., 97, 7603-7612
+  !!
+  FUNCTION sfc_albedo_dir_briegleb (cosmu0, alb_dif, z0)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp), INTENT(IN) :: z0               !< roughness length
+
+    REAL(wp) :: d                !< tuning constant
+                                 ! 0.4 (0.1) for vegetation classes where the albedo 
+                                 ! has a strong (weak) dependence on solar zenith angle.
+                                 ! weak dependence is assumed for 'rough' surfaces
+                                 ! Therefore we use 0.4, if z0<=0.15 and 0.1 otherwise
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+     d       = MERGE(0.4_wp,0.1_wp,z0<=0.15_wp)
+     alb_dir = MIN(0.999_wp, alb_dif*( 1.0_wp + d)/(1._wp + 2._wp*d*cosmu0) )
+
+  END FUNCTION sfc_albedo_dir_briegleb
 
 
 END MODULE mo_albedo
