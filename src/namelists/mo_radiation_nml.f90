@@ -29,6 +29,7 @@ MODULE mo_radiation_nml
                                  & config_yr_perp    => yr_perp,     &
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
+                                 & config_direct_albedo => direct_albedo, &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -93,6 +94,16 @@ MODULE mo_radiation_nml
                          !    (see )
                          ! 2: Modis albedo
 
+  INTEGER :: direct_albedo  ! 1: SZA dependence according to Ritter-Geleyn implementation
+                             ! 2: limitation to diffuse albedo according to Zaengl 
+                             !    applied to all land points
+                             !    Ritter-Geleyn implementation for remaining points (water,ice) 
+                             ! 3: Parameterization after Yang (2008) for snow-free land points
+                             !    limitation after Zaengl for snow-coverer points
+                             !    Ritter-Geleyn implementation for remaining points (water,ice)
+                             ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                             !    limitation after Zaengl for snow-coverer points
+
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
   !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -147,6 +158,7 @@ MODULE mo_radiation_nml
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
     &                      albedo_type,           &
+    &                      direct_albedo,         &
     &                      irad_h2o,              &
     &                      irad_co2,   vmr_co2,   &
     &                      irad_ch4,   vmr_ch4,   &
@@ -194,8 +206,9 @@ CONTAINS
     lyr_perp       = .FALSE.
     yr_perp        = -99999
 
-    isolrad     = 0
-    albedo_type = 1
+    isolrad        = 0
+    albedo_type    = 1
+    direct_albedo  = 2   ! modification according to Zaengl
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -261,6 +274,7 @@ CONTAINS
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
+    config_direct_albedo = direct_albedo
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4
