@@ -710,7 +710,7 @@ CONTAINS
               &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
 
 
-            ! direct albedo (vis and nir)
+            ! direct albedo (black sky) (vis and nir)
             !
             IF ( albedo_blacksky == 1 ) THEN ! Ritter-Geleyn
               zalbvisdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
@@ -732,41 +732,41 @@ CONTAINS
             ELSE IF ( albedo_blacksky == 3 ) THEN  ! Yang (2008)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          prm_diag%albvisdif_t(jc,jb,jt),     &
+                &                                          zsnow_alb,                          &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
                 &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
-                &                                       prm_diag%albvisdif_t(jc,jb,jt))
+                &                                       ext_data%atm%albuv_dif(jc,jb))
 
               zalbnirdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          prm_diag%albnirdif_t(jc,jb,jt),     &
+                &                                          zsnow_alb,                          &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
                 &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
-                &                                       prm_diag%albnirdif_t(jc,jb,jt))
+                &                                       ext_data%atm%albni_dif(jc,jb))
 
             ELSE IF ( albedo_blacksky == 4 ) THEN  ! Briegleb (1992)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          prm_diag%albvisdif_t(jc,jb,jt),     &
+                &                                          zsnow_alb,                          &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
                 &                 * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
-                &                                       prm_diag%albvisdif_t(jc,jb,jt),        &
+                &                                       ext_data%atm%albuv_dif(jc,jb),         &
                 &                                       ext_data%atm%z0_lcc(ilu))
 
               zalbnirdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          prm_diag%albnirdif_t(jc,jb,jt),     &
+                &                                          zsnow_alb,                          &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
                 &                 * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
-                &                                       prm_diag%albnirdif_t(jc,jb,jt),        &
+                &                                       ext_data%atm%albni_dif(jc,jb),         &
                 &                                       ext_data%atm%z0_lcc(ilu))
             ENDIF
 
