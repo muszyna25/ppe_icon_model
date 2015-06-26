@@ -26,7 +26,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    &                                  atmos_flux_analytical_type, no_tracer, surface_module
+    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
@@ -49,7 +49,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref, clw, alf, Tf
+  USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func,&
@@ -685,7 +685,7 @@ ENDIF
     !  Overwrite init:
     ! p_ice%hs(:,1,:) = 0.0_wp
 
-  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / OceanReferenceDensity
   ! p_ice%zUnderIce(:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:) +  p_os(n_dom)%p_prog(nold(1))%h(:,:) &
   !   &                  - draft(:,:) * p_ice%conc(:,1,:)
 
@@ -893,22 +893,22 @@ ENDIF
 
     ! constant thickness for check: initial h; hi, hs in water equivalent to be added to dz+h
   ! hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) &
-  !   &              + (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos) *p_ice%conc(:,1,:)/rho_ref
+  !   &              + (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos) *p_ice%conc(:,1,:)/OceanReferenceDensity
 
     ! constant thickness for check: initial h, hi, hs in water equivalent are part of initial water height
   ! hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:)
 
     ! initialized thickness for check: zUnderIce; hi, hs in water equivalent to be subtracted from dz+h
     hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) &
-      &              - (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)/rho_ref
+      &              - (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)/OceanReferenceDensity
 
     ! initial energyCh2 - same as energyCheck 
     ! meltdraft: energy content of ice and snow: ((Tf-t_base)*clw-alf) * draftave
   ! energyCh2 = energy_content_in_surface(patch_2d, flat(:,:), p_os(n_dom)%p_prog(nold(1))%h(:,:), &
   !   &         p_ice, sstCheck(:,:), computation_type=computation_type, info='INITIAL')
-  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / OceanReferenceDensity
     meltdraft(:,:) = ((Tf-t_base)*clw - alf) * (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)
-    energyCh2(:,:) = (sstCheck(:,:) - t_base) * hCheck(:,:)*rho_ref*clw + meltdraft(:,:)
+    energyCh2(:,:) = (sstCheck(:,:) - t_base) * hCheck(:,:)*OceanReferenceDensity*clw + meltdraft(:,:)
 
     CALL dbg_print('TB.SfcFlux: heightCH2 INI' ,hCheck         (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
     CALL dbg_print('TB.SfcFlux: energyCh2 INI' ,energyCh2      (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
@@ -1044,10 +1044,11 @@ ENDIF
   !         END SELECT
 
             ! precipitation: add heat content minus latent heat of frozen rpreci to meltdraft 
-            meltdraft(jc,jb) = meltdraft(jc,jb) + ((Tf-t_base)*clw - alf)*atmos_fluxes%rpreci(jc,jb)*dtime*conc_old(jc,jb)*rho_ref
+            meltdraft(jc,jb) = meltdraft(jc,jb) + ((Tf-t_base)*clw - alf)*atmos_fluxes%rpreci(jc,jb)*dtime* &
+              & conc_old(jc,jb)*OceanReferenceDensity
 
             ! heat: add energy due to fluxes, using old height
-            sstCheck(jc,jb)  = sstCheck(jc,jb) + sst_flux*dtime/(clw*rho_ref*hCheck(jc,jb))
+            sstCheck(jc,jb)  = sstCheck(jc,jb) + sst_flux*dtime/(clw*OceanReferenceDensity*hCheck(jc,jb))
             ! add energy due to additional water column: precip over open water + precip through ice (rprecw) with sst_old
             fwfcheck(jc,jb)  = p_as%FrshFlux_Precipitation(jc,jb)*(1.0_wp-conc_old(jc,jb))*dtime &
               &                + atmos_fluxes%rprecw(jc,jb)*dtime*conc_old(jc,jb)
@@ -1058,11 +1059,11 @@ ENDIF
             !  - additonal freshwater flux yields new original SST
             !  - when SST and zunderice are changed in one step, a tiny correction term due to meltwater entering
             !    at new SST and not at Tf should be considered here using delhice aus upper_ocean_TS:
-            !    T_meltcorr = Delhice*rhoi/rho_ref*conc*(sst-tf)*rho_ref*clw
-            energyCh2(jc,jb) = (sstCheck(jc,jb) - t_base) * hCheck(jc,jb)*rho_ref*clw   &  ! new SST with old height
-          !   &              + (sst_old (jc,jb) - t_base) * fwfcheck(jc,jb)*rho_ref*clw &  ! old SST with added height
-              &              + (sst     (jc,jb) - t_base) * fwfcheck(jc,jb)*rho_ref*clw &  ! added height receives real SST
-          !   &              + (sst     (jc,jb) - t_base) * Delhice*rhoi/rho_ref*clw &  ! added height receives real SST
+            !    T_meltcorr = Delhice*rhoi/OceanReferenceDensity*conc*(sst-tf)*OceanReferenceDensity*clw
+            energyCh2(jc,jb) = (sstCheck(jc,jb) - t_base) * hCheck(jc,jb)*OceanReferenceDensity*clw   &  ! new SST with old height
+          !   &              + (sst_old (jc,jb) - t_base) * fwfcheck(jc,jb)*OceanReferenceDensity*clw &  ! old SST with added height
+              &              + (sst     (jc,jb) - t_base) * fwfcheck(jc,jb)*OceanReferenceDensity*clw &  ! added height receives real SST
+          !   &              + (sst     (jc,jb) - t_base) * Delhice*rhoi/OceanReferenceDensity*clw &  ! added height receives real SST
               &              + meltdraft(jc,jb)
 
             ! needs update of theoretical height and sst for next timestep:

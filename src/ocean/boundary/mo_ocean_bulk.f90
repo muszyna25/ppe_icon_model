@@ -62,7 +62,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical
   &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
   &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
   &                               limit_elevation, l_relaxsal_ice, initial_temperature_type, &
-  & relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base
+  & relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, OceanReferenceDensity
 
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -71,7 +71,7 @@ USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_ocean_types,         ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
+USE mo_physical_constants,  ONLY: als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -315,7 +315,7 @@ CONTAINS
 
         ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
         ! TODO: evaporation of ice and snow must be implemented
-        atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*rho_ref)
+        atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*OceanReferenceDensity)
         atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
         atmos_fluxes%FrshFlux_TotalOcean(:,:)  = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
           &                                  ( p_as%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:) )
@@ -380,7 +380,7 @@ CONTAINS
 
         ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
         ! TODO: evaporation of ice and snow must be implemented
-        atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*rho_ref)
+        atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*OceanReferenceDensity)
         atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
         atmos_fluxes%FrshFlux_TotalOcean(:,:)  = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
           &                                  ( p_as%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:) )
@@ -861,10 +861,10 @@ CONTAINS
         !   Q_surf = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
         !   K_v*dT/dz(surf) = Q_T = Q_surf/Rho/Cp  [K*m/s]
         ! discretized:
-        !   top_bc_tracer = topBoundCond_Temp_vdiff = HeatFlux_Total / (rho_ref*clw)
+        !   top_bc_tracer = topBoundCond_Temp_vdiff = HeatFlux_Total / (OceanReferenceDensity*clw)
 
         ! #slo# 2015-01-22 - not used for forcing anymore
-        !p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = p_sfc_flx%HeatFlux_Total(:,:) / (rho_ref*clw)
+        !p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = p_sfc_flx%HeatFlux_Total(:,:) / (OceanReferenceDensity*clw)
         p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = 0.0_wp
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -878,10 +878,10 @@ CONTAINS
           DO jc = start_cell_index, end_cell_index
             IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
       !       sst(jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
-      !       sst(jc,jb) = sst(jc,jb) + p_sfc_flx%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
+      !       sst(jc,jb) = sst(jc,jb) + p_sfc_flx%HeatFlux_Total(jc,jb)*dtime/(clw*OceanReferenceDensity*zUnderIceIni(jc,jb))
               ! set new sst; HeatFlux_Total to zero
       !       p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = sst(jc,jb)
-              t_top(jc,jb) = t_top(jc,jb) + p_sfc_flx%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
+              t_top(jc,jb) = t_top(jc,jb) + p_sfc_flx%HeatFlux_Total(jc,jb)*dtime/(clw*OceanReferenceDensity*zUnderIceIni(jc,jb))
               atmos_fluxes%HeatFlux_Total(jc,jb)     = 0.0_wp
             ENDIF
           ENDDO
@@ -1192,13 +1192,13 @@ CONTAINS
      !   derived from wind-stress boundary condition Tau (in Pascal Pa=N/m2) read from OMIP data (or elsewhere)
      !   K_v*du/dz(surf) = F_D = Tau/Rho [ m2/s2 ]
      ! discretized:
-     !   top_bc_u_c = topBoundCond_windStress_u / rho_ref
+     !   top_bc_u_c = topBoundCond_windStress_u / OceanReferenceDensity
      !
      ! This is equivalent to an additonal forcing term F_u in the velocity equation, i.e. outside
      ! the vertical diffusion, following MITGCM:
      !   F_u = F_D/dz = Tau / (Rho*dz)  [ m/s2 ]
 
-     ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
+     ! The devision by OceanReferenceDensity is done in top_bound_cond_horz_veloc (z_scale)
 
     END IF
 
@@ -1450,7 +1450,7 @@ CONTAINS
       ! where
       !   Q_T = K_v*dT/dz(surf) = Q_surf/Rho/Cp  [K*m/s]
 
-      atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%topBoundCond_Temp_vdiff(:,:) * rho_ref * clw
+      atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%topBoundCond_Temp_vdiff(:,:) * OceanReferenceDensity * clw
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
@@ -1582,12 +1582,12 @@ CONTAINS
 
             ! Diagnosed heat flux Q_surf due to relaxation
             !  Q_surf = F_T*dz * (rho*Cp) = -dz/tau*(T-T*) * (rho*Cp)  [W/m2]
-            !  HeatFlux_Relax = thick * TempFlux_Relax * (rho_ref*clw)
+            !  HeatFlux_Relax = thick * TempFlux_Relax * (OceanReferenceDensity*clw)
             ! this heat flux is negative if relaxation flux is negative, i.e. heat is released if temperature decreases
             ! this flux is for diagnosis only and not added to tracer forcing
 
             thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-            atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
+            atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * OceanReferenceDensity*clw
 
           ENDIF
     
@@ -1615,7 +1615,7 @@ CONTAINS
                atmos_fluxes%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-atmos_fluxes%data_surfRelax_Temp(jc,jb))
 
               thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-              atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
+              atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * OceanReferenceDensity*clw
               !lower channel boudary
               ELSEIF(  lat_deg>= basin_center_lat- 0.5_wp*basin_height_deg&
                  &.AND.lat_deg<= basin_center_lat- 0.5_wp*basin_height_deg+width)THEN 
@@ -1623,7 +1623,7 @@ CONTAINS
                 atmos_fluxes%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-atmos_fluxes%data_surfRelax_Temp(jc,jb))
 
                 thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-               atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
+               atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * OceanReferenceDensity*clw
 
               ELSE!channel interior
                 atmos_fluxes%HeatFlux_Relax(jc,jb)=0.0_wp		
@@ -1653,7 +1653,7 @@ CONTAINS
                 atmos_fluxes%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-atmos_fluxes%data_surfRelax_Temp(jc,jb))
 
                 thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-                atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
+                atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * OceanReferenceDensity*clw
               ELSE!channel interior		  
                 atmos_fluxes%HeatFlux_Relax(jc,jb)=0.0_wp
                 

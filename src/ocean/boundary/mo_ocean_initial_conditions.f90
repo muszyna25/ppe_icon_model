@@ -29,7 +29,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_io_units,           ONLY: filename_max
   USE mo_mpi,                ONLY: my_process_is_stdio, work_mpi_barrier
   USE mo_grid_config,        ONLY: nroot,  grid_sphere_radius, grid_angular_velocity
-  USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf, earth_angular_velocity,inverse_earth_radius! , SItodBar, rho_ref
+  USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf, earth_angular_velocity,inverse_earth_radius! , SItodBar
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,            &
@@ -2509,7 +2509,7 @@ stop
                 !             &= 30.0_wp!convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
                 !                     &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                 !                     &sfc_press_bar)
-                !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
+                !SItodBar*OceanReferenceDensity*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
 
               ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
 

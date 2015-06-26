@@ -26,11 +26,10 @@ MODULE mo_ocean_boundcond
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_physical_constants, ONLY: rho_ref
   USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea, min_rlcell, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot, forcing_smooth_steps, &
-    & forcing_windstress_u_type
+    & forcing_windstress_u_type, OceanReferenceDensity
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message, finish
@@ -128,13 +127,13 @@ CONTAINS
     IF(iswm_oce == 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
-        z_scale(:,jb) = 1.0_wp / (rho_ref*ocean_state%p_diag%thick_e(:,jb))
+        z_scale(:,jb) = 1.0_wp / (OceanReferenceDensity*ocean_state%p_diag%thick_e(:,jb))
       ENDDO
 !ICON_OMP_END_DO 
     ELSEIF(iswm_oce /= 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
-        z_scale(:,jb) = 1.0_wp / rho_ref
+        z_scale(:,jb) = 1.0_wp / OceanReferenceDensity
       ENDDO
 !ICON_OMP_END_DO
     ENDIF
@@ -221,17 +220,17 @@ CONTAINS
     ! Modification of surface wind forcing according to surface boundary condition
 !ICON_OMP_PARALLEL
     IF(iswm_oce == 1)THEN
-      !z_scale(:,:) = v_base%del_zlev_m(1)*rho_ref
-      !z_scale(:,:) = rho_ref*patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)
+      !z_scale(:,:) = v_base%del_zlev_m(1)*OceanReferenceDensity
+      !z_scale(:,:) = OceanReferenceDensity*patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        z_scale(:,jb) = 1.0_wp / (rho_ref*ocean_state%p_diag%thick_c(:,jb))
+        z_scale(:,jb) = 1.0_wp / (OceanReferenceDensity*ocean_state%p_diag%thick_c(:,jb))
       ENDDO
 !ICON_OMP_END_DO
     ELSEIF(iswm_oce /= 1)THEN
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        z_scale(:,jb) = 1.0_wp / rho_ref
+        z_scale(:,jb) = 1.0_wp / OceanReferenceDensity
       ENDDO
 !ICON_OMP_END_DO
     ENDIF

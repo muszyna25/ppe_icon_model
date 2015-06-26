@@ -47,11 +47,11 @@ MODULE mo_ocean_diagnostics
     & agulhas_longer, &
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
-    & diagnose_for_horizontalVelocity
+    & diagnose_for_horizontalVelocity, OceanReferenceDensity
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
-  USE mo_physical_constants, ONLY: grav, rho_ref, rhos, rhoi,sice
+  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_ocean_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
     &                                t_ocean_regions, t_ocean_region_volumes, &
@@ -947,29 +947,29 @@ CONTAINS
       
       SELECT CASE (i)
       CASE (1)
-        monitor%gibraltar              = sflux*rho_ref
+        monitor%gibraltar              = sflux*OceanReferenceDensity
       CASE (2)
-        monitor%denmark_strait         = sflux*rho_ref
+        monitor%denmark_strait         = sflux*OceanReferenceDensity
       CASE (3)
-        monitor%drake_passage          = sflux*rho_ref
+        monitor%drake_passage          = sflux*OceanReferenceDensity
       CASE (4)
-        monitor%indonesian_throughflow = sflux*rho_ref
+        monitor%indonesian_throughflow = sflux*OceanReferenceDensity
       CASE (5)
-        monitor%scotland_iceland       = sflux*rho_ref
+        monitor%scotland_iceland       = sflux*OceanReferenceDensity
       CASE (6)
-        monitor%mozambique             = sflux*rho_ref
+        monitor%mozambique             = sflux*OceanReferenceDensity
       CASE (7)
-        monitor%framStrait             = sflux*rho_ref
+        monitor%framStrait             = sflux*OceanReferenceDensity
       CASE (8)
-        monitor%beringStrait           = sflux*rho_ref
+        monitor%beringStrait           = sflux*OceanReferenceDensity
       CASE (9)
-        monitor%barentsOpening         = sflux*rho_ref
+        monitor%barentsOpening         = sflux*OceanReferenceDensity
       CASE (10)
-        monitor%agulhas                = sflux*rho_ref
+        monitor%agulhas                = sflux*OceanReferenceDensity
       CASE (11)
-        monitor%agulhas_long           = sflux*rho_ref
+        monitor%agulhas_long           = sflux*OceanReferenceDensity
       CASE (12)
-        monitor%agulhas_longer         = sflux*rho_ref
+        monitor%agulhas_longer         = sflux*OceanReferenceDensity
       END SELECT
     ENDDO
     IF (my_process_is_stdio() .AND. idbg_val > 0) &
@@ -1244,19 +1244,19 @@ CONTAINS
               
               global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               !  multiply with wet (or loop to bottom)
-                & patch_2d%cells%area(jc,blockNo) * rho_ref * w(jc,jk,blockNo) * &
+                & patch_2d%cells%area(jc,blockNo) * OceanReferenceDensity * w(jc,jk,blockNo) * &
                 & patch_3D%wet_c(jc,jk,blockNo) / &
                 & REAL(2*jbrei + 1, wp)
               
               IF (patch_3D%basin_c(jc,blockNo) == 1) THEN         !  1: Atlantic; 0: Land
                 
                 atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
-                  & patch_2d%cells%area(jc,blockNo) * rho_ref * w(jc,jk,blockNo) * &
+                  & patch_2d%cells%area(jc,blockNo) * OceanReferenceDensity * w(jc,jk,blockNo) * &
                   & patch_3D%wet_c(jc,jk,blockNo) / &
                   & REAL(2*jbrei + 1, wp)
               ELSE IF (patch_3D%basin_c(jc,blockNo) >= 2) THEN   !  2: Indian; 4: Pacific
                 pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
-                  & patch_2d%cells%area(jc,blockNo) * rho_ref * w(jc,jk,blockNo) * &
+                  & patch_2d%cells%area(jc,blockNo) * OceanReferenceDensity * w(jc,jk,blockNo) * &
                   & patch_3D%wet_c(jc,jk,blockNo) / &
                   & REAL(2*jbrei + 1, wp)
               END IF
@@ -1476,11 +1476,11 @@ CONTAINS
     ! ATTENTION - fixed 1 deg resolution should be related to icon-resolution
     z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
     
-    psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref
+    psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * OceanReferenceDensity
     
     ! stream function on icon grid without calculation of meridional integral
     !  - tbd after interpolation to regular grid externally
-    !  psi    (:,:) = u_vint    (:,:)              * rho_ref
+    !  psi    (:,:) = u_vint    (:,:)              * OceanReferenceDensity
     
     
     ! write out in extra format - integer*8
@@ -1743,7 +1743,7 @@ CONTAINS
         !!DN   &                                              * ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)) &
         !!DN   &                                           /ice%zUnderIce(cell,block)
           saltInLiquidWater(cell,block) = ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) &
-            &                    * zUnderIce(cell,block)*rho_ref &
+            &                    * zUnderIce(cell,block)*OceanReferenceDensity &
             &                    * patch_2d%cells%area(cell,block)
         CASE (1) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
         ! surface:
@@ -1757,14 +1757,14 @@ CONTAINS
             &      * ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)) &
             &  /zUnderIce(cell,block)
           saltInLiquidWater(cell,block) = ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) &
-            &                    * zUnderIce(cell,block)*rho_ref &
+            &                    * zUnderIce(cell,block)*OceanReferenceDensity &
             &                    * patch_2d%cells%area(cell,block)
         END SELECT
 
         salt(cell,1,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
         DO level=2,subset%vertical_levels(cell,block)
           salt(cell,level,block) = ocean_state%p_prog(nold(1))%tracer(cell,level,block,2) &
-            &                    * thickness(cell,level,block)*rho_ref &
+            &                    * thickness(cell,level,block)*OceanReferenceDensity &
             &                    * patch_2d%cells%area(cell,block)
         END DO
 
