@@ -34,12 +34,12 @@ MODULE mo_initicon_utils
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
   USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
-    &                               timeshift, initicon_config,                         &
+    &                               timeshift, initicon_config, ltile_coldstart,        &
     &                               ana_varnames_map_file, lread_ana,                   &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_DWDANA_INC,      &
-    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,                &
-    &                               MODE_COMBINED, MODE_COSMODE, MODE_ICONVREMAP, MODIS,&
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
+                                    MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
+    &                               MODE_COSMODE, MODE_ICONVREMAP, MODIS,               &
     &                               min_rlcell_int, grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
@@ -50,7 +50,8 @@ MODULE mo_initicon_utils
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow
+    &                               nlev_snow, ntiles_lnd, lsnowtile
+  USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -97,6 +98,7 @@ MODULE mo_initicon_utils
   PUBLIC :: average_first_guess
   PUBLIC :: reinit_average_first_guess
   PUBLIC :: fill_tile_points
+  PUBLIC :: init_snowtiles
 
   CONTAINS
 
@@ -205,8 +207,7 @@ MODULE mo_initicon_utils
   !!   match the uuidOfHgrid of the horizontal grid file.
   !! - Check validity of analysis validity time:  The analysis field's validity 
   !!   time must match the model's initialization time (ini_datetime)
-  !! - MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC:  check for matching 
-  !!   typeOfGeneratingProcess.
+  !! - MODE_IAU, MODE_IAU_OLD:  check for matching typeOfGeneratingProcess.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
@@ -235,13 +236,11 @@ MODULE mo_initicon_utils
     INTEGER :: index_inc, index_ful
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_inc(20)
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_inc(20)
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_inc(20)
     !
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_ful(SIZE(grp_vars_ana))
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_ful(SIZE(grp_vars_ana))
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_dwdana_inc_grp_ful(SIZE(grp_vars_ana))
     !
-    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful, nvars_mode_dwdana_inc_grp_ful
+    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful
     CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_inc(:)  ! pointer to mode-specific 'inc' group
     CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_ful(:)  ! pointer to mode-specific 'full' group
     !
@@ -262,23 +261,18 @@ MODULE mo_initicon_utils
     ! MODE_IAU_OLD: mandatory increments
     mode_iau_old_grp_inc(1:6)    = (/'u        ','v        ','pres     ','temp     ', &
       &                              'qv       ','w_so     '/)
-    ! MODE_DWDANA_INC: mandatory increments
-    mode_dwdana_inc_grp_inc(1:5) = (/'u        ','v        ','pres     ','temp     ', &
-      &                              'qv       '/)
+
     !
     ! groups containing mandatory full fields (= grp_vars_ana - inc fields)
-    mode_iau_grp_ful        = grp_vars_ana
-    mode_iau_old_grp_ful    = grp_vars_ana
-    mode_dwdana_inc_grp_ful = grp_vars_ana
+    mode_iau_grp_ful      = grp_vars_ana
+    mode_iau_old_grp_ful  = grp_vars_ana
     !
-    nvars_mode_iau_grp_ful        = ngrp_vars_ana
-    nvars_mode_iau_old_grp_ful    = ngrp_vars_ana
-    nvars_mode_dwdana_inc_grp_ful = ngrp_vars_ana
+    nvars_mode_iau_grp_ful      = ngrp_vars_ana
+    nvars_mode_iau_old_grp_ful  = ngrp_vars_ana
 
     ! Remove mandatory 'inc' fields to arrrive at list of mandatory 'full' fields
     CALL difference(mode_iau_grp_ful, nvars_mode_iau_grp_ful, mode_iau_grp_inc, 8)
     CALL difference(mode_iau_old_grp_ful, nvars_mode_iau_old_grp_ful, mode_iau_old_grp_inc, 6)
-    CALL difference(mode_dwdana_inc_grp_ful, nvars_mode_dwdana_inc_grp_ful, mode_dwdana_inc_grp_inc, 5)
 
 
 
@@ -401,10 +395,6 @@ MODULE mo_initicon_utils
         !
         grp_inc => mode_iau_old_grp_inc
         grp_ful => mode_iau_old_grp_ful
-      CASE(MODE_DWDANA_INC)
-        !
-        grp_inc => mode_dwdana_inc_grp_inc
-        grp_ful => mode_dwdana_inc_grp_ful
       CASE default
         !
         grp_inc => NULL()
@@ -547,20 +537,13 @@ MODULE mo_initicon_utils
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_DWDANA_INC,MODE_ICONVREMAP)
+        CASE(MODE_DWDANA, MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-
-          ! When starting from analysis increments, we need both 
-          ! the full FG field and the analysis increment
-          ! maybe we should create separate groups for MODE_DWDANA_INC
-          IF (init_mode == MODE_DWDANA_INC) THEN
-             CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default, (/'qv'/) , 1)
-          ENDIF
 
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
@@ -602,6 +585,12 @@ MODULE mo_initicon_utils
           grp_name ='mode_iau_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! in case of tile coldstart, we can omit snowfrac
+          ! Remove field 'snowfrac' from FG list
+          IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+          ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
@@ -668,6 +657,12 @@ MODULE mo_initicon_utils
           grp_name ='mode_iau_old_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! in case of tile coldstart, we can omit snowfrac
+          ! Remove field 'snowfrac' from FG list
+          IF (ltile_coldstart) THEN
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+          ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
           !
@@ -939,7 +934,7 @@ MODULE mo_initicon_utils
       WRITE(message_text,'(a,i2,a)') 'DOM ', jg, ': Juxtaposition of expected and actual input fields'
       CALL message(" ", message_text)
       CALL init_bool_table(bool_table)
-      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+      IF ((init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ana_default_txt = "ANA_inc (expected)"
         ana_this_txt    = "ANA_inc (this run)"
       ELSE
@@ -1005,11 +1000,13 @@ MODULE mo_initicon_utils
   !! Initial version by Guenther Zaengl, DWD (2015-01-16)
   !!
   !!
-  SUBROUTINE fill_tile_points(p_patch, p_lnd_state, ext_data)
+  SUBROUTINE fill_tile_points(p_patch, p_lnd_state, ext_data, water_only)
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    LOGICAL, INTENT(IN) :: water_only
 
     TYPE(t_lnd_prog),  POINTER :: lnd_prog
     TYPE(t_lnd_diag),  POINTER :: lnd_diag
@@ -1138,7 +1135,7 @@ MODULE mo_initicon_utils
 
           ! single-layer fields
           DO jc = i_startidx, i_endidx
-            IF (lpmask(jc,1) == 1._wp) THEN
+            IF (lpmask(jc,1) == 1._wp .AND. .NOT. water_only) THEN
               CALL ngb_search(lnd_diag%freshsnow_t(:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
               CALL ngb_search(lnd_prog%w_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
               CALL ngb_search(lnd_prog%w_i_t      (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
@@ -1153,7 +1150,7 @@ MODULE mo_initicon_utils
           ! soil fields
           DO jk = 1, nlev_soil
             DO jc = i_startidx, i_endidx
-              IF (lpmask(jc,1) == 1._wp) THEN
+              IF (lpmask(jc,1) == 1._wp .AND. .NOT. water_only) THEN
                 CALL ngb_search(lnd_prog%t_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
                 CALL ngb_search(lnd_prog%w_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
                 CALL ngb_search(lnd_prog%w_so_ice_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
@@ -1164,7 +1161,7 @@ MODULE mo_initicon_utils
           IF (lmulti_snow) THEN ! multi-layer snow fields
             DO jk = 1, nlev_snow
               DO jc = i_startidx, i_endidx
-                IF (lpmask(jc,1) == 1._wp) THEN
+                IF (lpmask(jc,1) == 1._wp .AND. .NOT. water_only) THEN
                   CALL ngb_search(lnd_prog%t_snow_mult_t(:,jk,:,jt),   iidx, iblk, lpmask, lpcount, jc, jb)
                   CALL ngb_search(lnd_prog%rho_snow_mult_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
                   CALL ngb_search(lnd_prog%wtot_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
@@ -1205,6 +1202,47 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE fill_tile_points
 
+  !>
+  !! SUBROUTINE init_snowtiles
+  !! Active in the case of a tile warmstart in combination with snowtiles.
+  !! In this case, the tile-based index lists and the tile fractions (frac_t) need to be restored
+  !! from the landuse-class fractions and the snow-cover fractions
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2015-06-08)
+  !!
+  !!
+  SUBROUTINE init_snowtiles(p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+
+    TYPE(t_lnd_diag),  POINTER :: lnd_diag
+
+    INTEGER :: jg, jt
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      lnd_diag => p_lnd_state(jg)%diag_lnd
+
+      ! initialize snowfrac_t with appropriate values
+      DO jt = ntiles_lnd+1, ntiles_total
+        WHERE (lnd_diag%snowfrac_lc_t(:,:,jt) > 0._wp) 
+          lnd_diag%snowfrac_t(:,:,jt) = 1._wp
+        ELSEWHERE
+          lnd_diag%snowfrac_t(:,:,jt) = 0._wp
+        END WHERE
+      ENDDO
+
+      CALL init_snowtile_lists(p_patch(jg), ext_data(jg), lnd_diag)
+
+    ENDDO
+
+  END SUBROUTINE init_snowtiles
 
   !>
   !! SUBROUTINE copy_initicon2prog_atm
@@ -1510,9 +1548,9 @@ MODULE mo_initicon_utils
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
-    INTEGER  :: jg, jb, jc, jt, js, jp, ic
+    INTEGER  :: jg, jb, jc, jt, js, jp, ic, ilu
     INTEGER  :: nblks_c, npromz_c, nlen
-    REAL(wp) :: zfrice_thrhld, zminsnow_alb, t_fac
+    REAL(wp) :: zfrice_thrhld, zminsnow_alb, zmaxsnow_alb, zsnowalb_lu, t_fac
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c)
     DO jg = 1, n_dom
@@ -1523,7 +1561,7 @@ MODULE mo_initicon_utils
       npromz_c  = p_patch(jg)%npromz_c
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -1578,8 +1616,16 @@ MODULE mo_initicon_utils
         IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
             DO jc = 1, nlen
-              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)           = &
-                &                                                initicon(jg)%sfc%tsnow   (jc,jb)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt) = initicon(jg)%sfc%tsnow(jc,jb)
+
+              ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
+              zsnowalb_lu = ABS(ext_data(jg)%atm%snowalb_lcc(ilu))
+
+              IF (ntiles_total > 1 .AND. albedo_type == MODIS) THEN
+                zmaxsnow_alb = MIN(csalb_snow_max,zsnowalb_lu)
+              ELSE
+                zmaxsnow_alb = csalb_snow_max
+              ENDIF
 
                ! Initialize freshsnow
                ! for seapoints, freshsnow is set to 0
@@ -1590,7 +1636,7 @@ MODULE mo_initicon_utils
                     t_fac = MIN(1._wp,0.1_wp*(tmelt-p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(jc,jb,jt)))
                     zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data(jg)%atm%alb_dif(jc,jb)
                   ELSE
-                    zminsnow_alb = csalb_snow_min
+                    zminsnow_alb = MAX(0.4_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
                   ENDIF
                 ELSE
                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,jt) == ext_data(jg)%atm%i_lc_snow_ice) THEN
@@ -1603,7 +1649,7 @@ MODULE mo_initicon_utils
 
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
             &                           (initicon(jg)%sfc%snowalb (jc,jb)-zminsnow_alb)   &
-            &                          /(csalb_snow_max-zminsnow_alb)))                   &
+            &                          /(zmaxsnow_alb-zminsnow_alb)))                     &
             &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
@@ -1817,7 +1863,7 @@ MODULE mo_initicon_utils
 
 
       ! atmospheric assimilation increments
-      IF ( ANY((/MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &

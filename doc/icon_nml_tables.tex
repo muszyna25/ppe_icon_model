@@ -1464,7 +1464,9 @@ n\_dom$>$1\tabularnewline
 %\hline
 rbf\_scale\_grf\_e&
 R(n\_dom)& 0.5& &
-RBF scale factor for grid refinement (edges)&
+RBF scale factor for grid refinement (lateral boundary interpolation to edges). Refers to the
+respective parent domain and thus does not need to be specified for the innermost nest. Lower values
+than the default of 0.5 are needed for child mesh sizes less than about 500 m.&
 n\_dom$>$1\tabularnewline
 
 %\hline
@@ -1720,21 +1722,20 @@ I & 2& &
 6: MODE\_IAU\_OLD\\ \quad start from DWD analysis with incremental analysis update. NOTE: Extension of mode MODE\_DWDANA\_INC 
    including W\_SO increments. \\
 7: MODE\_ICONVREMAP\\ \quad start from DWD first guess with subsequent vertical remapping (work in progress; so far, changing
-the number of model levels does not yet work)\\
-8: MODE\_DWDANA\_INC\\ \quad start from DWD analysis with incremental analysis update (atmospheric increments only)&
+the number of model levels does not yet work) &
 \tabularnewline
 
 dt\_iau&
 R & 10800 & s &
 Time interval during which an incremental analysis update (IAU) is performed &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 dt\_shift&
 R & 0 & s &
 Time by which the actual model start time is shifted ahead of the nominal date.
 Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 start\_time\_avg\_fg&
@@ -1756,7 +1757,7 @@ Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_
 rho\_incr\_filter\_wgt &
 R & 0 &  &
 Vertical filtering weight on density increments &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1765,7 +1766,7 @@ I & 1 &  &
 Weighting function for performing IAU\\
 1: Top-Hat\\
 2: SIN2 &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1808,7 +1809,7 @@ lconsistency\_checks&
 L & .TRUE.& &
 If .FALSE., consistency checks for Analysis and First Guess fields are skipped. On default, checks are performed for 
 \emph{uuidOfHGrid} and \emph{validity time}. &
-init\_mode=1,3,4,5,6,8
+init\_mode=1,3,4,5,6
 \tabularnewline
 
 %\hline
@@ -1822,7 +1823,7 @@ lp2cintp\_incr&
 L(n\_dom) & .FALSE.& &
 If true, interpolate atmospheric data assimilation increments from parent domain. \\
 Can be specified separately for each nested domain; setting the first (global) entry to true activates
-the interpolation for all nested domains. & init\_mode=5,6,8
+the interpolation for all nested domains. & init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1830,7 +1831,7 @@ lp2cintp\_sfcana&
 L(n\_dom) & .FALSE.& &
 If true, interpolate atmospheric surface analysis data from parent domain. \\
 Can be specified separately for each nested domain; setting the first (global) entry to true activates
-the interpolation for all nested domains. & init\_mode=5,6,8
+the interpolation for all nested domains. & init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1862,7 +1863,7 @@ Filename of DWD first-guess input file, default
 ''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6,8
+and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
 %\hline
@@ -1875,7 +1876,7 @@ Filename of DWD analysis input file, default
 <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6,8
+and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
 %\hline
@@ -1893,7 +1894,7 @@ ana\_varlist &
 C(:)& & &
 List of mandatory analysis fields for the \textbf{global domain} that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
-& init\_mode=1,5,6,8
+& init\_mode=1,5,6
 \tabularnewline
 
 %\hline
@@ -2540,7 +2541,7 @@ I & 2 &  & type of bare soil evaporation parameterization \\
 
 %\hline
 itype\_heatcond &
-I & 1 &  & type of soil heat conductivity \\
+I & 2 &  & type of soil heat conductivity \\
 1 = constant soil heat conductivity\\
 2 = moisture dependent soil heat conductivity &
 \tabularnewline
@@ -3137,6 +3138,14 @@ I&
  &
 0: off \\
 1: simple coupling between autoconversion and Tegen aerosol climatology; requires irad\_aero=6 &
+\tabularnewline
+
+icpl\_o3\_tp&
+I&
+0&
+ &
+0: off \\
+1: simple coupling between the ozone mixing ratio and the thermal tropopause, restricted to the extratropics & irad\_o3 = 7 or 9
 \tabularnewline
 
 %\hline

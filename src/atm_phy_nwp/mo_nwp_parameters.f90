@@ -34,6 +34,8 @@ MODULE mo_nwp_parameters
     REAL(wp) :: mean_charlen
     ! relative humidity below which sub-cloud evaporation of rain starts over land and water, respectively
     REAL(wp) :: rhebc_land, rhebc_ocean
+    ! 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
+    REAL(wp) :: texc, qexc
     ! fractional area covered by convective precipitation
     REAL(wp) :: rcucov
     ! tuning coefficient for organized entrainment of deep convection

@@ -148,10 +148,12 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120104_00UTC.png -text
-doc/science/physics/albnirdir_20120104_00UTC.png -text
-doc/science/physics/albvisdif_20120104_00UTC.png -text
-doc/science/physics/albvisdir_20120104_00UTC.png -text
+doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
 doc/science/physics/cloud_cover_docu.tex -text
 doc/science/physics/detrainment_anvil.pdf -text
 doc/science/physics/detrainment_anvil.ppt -text
@@ -1795,6 +1797,7 @@ src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
 src/shr_horizontal/mo_delaunay.f90 -text
 src/shr_horizontal/mo_delaunay_types.f90 -text
+src/shr_horizontal/mo_ext_data_init.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text

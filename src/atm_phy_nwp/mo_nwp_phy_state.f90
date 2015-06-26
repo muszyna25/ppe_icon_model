@@ -55,8 +55,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF,              &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
-  &                               RTTOV_BT_CS, RTTOV_RAD_CL,          &
-  &                               RTTOV_RAD_CS
+  &                               RTTOV_RAD_CL, RTTOV_RAD_CS
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -69,8 +68,7 @@ USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_SYNSAT,       &
-  &                               VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_SYNSAT,  VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -92,12 +90,10 @@ USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 USE mo_advection_config,     ONLY: advection_config
-USE mo_synsat_config,        ONLY: nlev_rttov, lsynsat, num_images,              &
-  &                                get_synsat_name, sat_compute, num_sensors,    &
-  &                                numchans, get_synsat_grib_triple
+USE mo_synsat_config,        ONLY: lsynsat, num_images, get_synsat_name, num_sensors, &
+  &                                total_numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
-USE mo_action_types,         ONLY: t_var_action
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 
@@ -283,7 +279,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
-      &        wave_no, iimage, isens, k
+      &        wave_no, wave_no_scalfac, iimage, isens, k
     CHARACTER(LEN=VARNAME_LEN) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
 
@@ -2523,9 +2519,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       iimage = 0
       sensor_loop: DO isens = 1, num_sensors
 
-        DO ichan = 1,numchans(isens)
+        DO ichan = 1,total_numchans(isens)
 
           DO k=1,4
+            ! the following translation can be derived by gazing at the corresponding RTTOV loop
             lradiance = ((MOD(iimage,4)+1) == RTTOV_RAD_CL) .OR. ((MOD(iimage,4)+1) == RTTOV_RAD_CS)
             lcloudy   = ((MOD(iimage,4)+1) == RTTOV_BT_CL)  .OR. ((MOD(iimage,4)+1) == RTTOV_RAD_CL)
             iimage = iimage + 1
@@ -2538,11 +2535,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
             CALL get_synsat_name(lradiance, lcloudy, ichan, shortname, longname)
             CALL get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
-              &                         idiscipline, icategory, inumber, wave_no)
+              &                         idiscipline, icategory, inumber, &
+              &                         wave_no, wave_no_scalfac)
             
             cf_desc    = t_cf_var(TRIM(shortname), TRIM(unit), TRIM(longname), DATATYPE_FLT32)
             grib2_desc = grib2_var(idiscipline, icategory, inumber, ibits, GRID_REFERENCE, GRID_CELL)   &
               &           + t_grib2_int_key("scaledValueOfCentralWaveNumber", wave_no)                  &
+              &           + t_grib2_int_key("scaleFactorOfCentralWaveNumber", wave_no_scalfac)          &
               &           + t_grib2_int_key("satelliteSeries", 333)                                     &
               &           + t_grib2_int_key("satelliteNumber",  72)                                     &
               &           + t_grib2_int_key("instrumentType",  207)

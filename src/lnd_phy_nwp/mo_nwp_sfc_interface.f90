@@ -141,6 +141,7 @@ CONTAINS
     REAL(wp) :: rho_snow_new_t (nproma)
 
     REAL(wp) :: h_snow_t (nproma)
+    REAL(wp) :: h_snow_gp_t (nproma)
     REAL(wp) :: meltrate (nproma)
 
     REAL(wp) :: w_i_now_t (nproma)
@@ -280,7 +281,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -410,6 +411,16 @@ CONTAINS
           rho_snow_now_t(ic)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
           w_i_now_t(ic)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
           h_snow_t(ic)              =  lnd_diag%h_snow_t(jc,jb,isubs)
+          freshsnow_t(ic)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
+          snowfrac_t(ic)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
+
+          IF (isubs > ntiles_lnd) THEN ! snowtiles
+            ! grid-point averaged snow depth needed for snow aging parameterization
+            h_snow_gp_t(ic)         =  MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp)*h_snow_t(ic)
+          ELSE
+            h_snow_gp_t(ic)         =  h_snow_t(ic)
+          ENDIF
+
           IF (itype_interception == 2) THEN
             w_p_now_t(ic)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
             w_s_now_t(ic)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
@@ -417,8 +428,7 @@ CONTAINS
             w_p_now_t(ic)             =  0._wp
             w_s_now_t(ic)             =  0._wp
           END IF
-          freshsnow_t(ic)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
-          snowfrac_t(ic)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
+
           runoff_s_t(ic)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
@@ -531,6 +541,7 @@ CONTAINS
         &  rho_snow_mult_new = rho_snow_mult_new_t, & !OUT snow density                 (kg/m**3) 
 !
         &  h_snow        = h_snow_t              , & !INOUT snow height
+        &  h_snow_gp     = h_snow_gp_t           , & !IN grid-point averaged snow height
         &  meltrate      = meltrate              , & !OUT snow melting rate
 !
         &  w_i_now       = w_i_now_t             , & !INOUT water content of interception water(m H2O)
@@ -865,11 +876,22 @@ CONTAINS
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
-             ! Rescale SWE and snow depth according to changes in the snow cover fraction
-             lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
-               frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
-             lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
-               frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+             IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2 .AND. .NOT. lmulti_snow) THEN ! new snow point
+               ! in this case, the h_snow and w_snow are not yet rescaled according to the snow-cover fraction
+               ! ** In principle, this rescaling also needs to be made for the multi-layer scheme, but this leads         **
+               ! ** to a crash because of a division by zero. Adding the rescaling for wliq_snow, wtot_snow and dzh_snow  **
+               ! ** (which is still missing here) does NOT cure this problem                                              **
+               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) / &
+                 MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
+               lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) / &
+                  MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
+             ELSE
+               ! Rescale SWE and snow depth according to changes in the snow cover fraction
+               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
+                 frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+               lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
+                 frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+             ENDIF
 
              ! reset field for actual snow-cover for grid points / land-cover classes for which there
              ! are seperate snow-free and snow-covered tiles 
@@ -879,14 +901,15 @@ CONTAINS
              lnd_prog_new%t_snow_t(jc,jb,isubs)    = lnd_prog_new%t_s_t(jc,jb,isubs)
              lnd_prog_new%t_g_t(jc,jb,isubs)       = lnd_prog_new%t_s_t(jc,jb,isubs)
 
-             ! copy rho_snow in order to get the right tile average of snow density
+             ! copy rho_snow and freshsnow in order to get the right tile-averaged values
              lnd_prog_new%rho_snow_t(jc,jb,isubs)  = lnd_prog_new%rho_snow_t(jc,jb,isubs_snow)
+             lnd_diag%freshsnow_t(jc,jb,isubs)     = lnd_diag%freshsnow_t(jc,jb,isubs_snow)
 
              ! to prevent numerical stability problems, we require at least 1 cm of snow in order to
              ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
              ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
              ! time steps when associating traces of snow with a snow-cover fraction of 1)
-             lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)/0.01_wp)
+             lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
 
              ! Rediagnose t_g according to the modified snow-cover fraction
              lnd_prog_new%t_g_t(jc,jb,isubs_snow) =  &
@@ -916,6 +939,9 @@ CONTAINS
                    frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
                  lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs_snow) = lnd_prog_new%dzh_snow_t (jc,jk,jb,isubs_snow) * &
                    frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+
+                 ! copy rho_snow_mult in order to get the right tile-averaged values
+                 lnd_prog_new%rho_snow_mult_t(jc,jk,jb,isubs)   = lnd_prog_new%rho_snow_mult_t(jc,jk,jb,isubs_snow)
 
                ENDDO
              ENDDO

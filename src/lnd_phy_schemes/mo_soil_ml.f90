@@ -505,7 +505,8 @@ END SUBROUTINE message
                   rho_snow_mult_now, & ! snow density                                  (kg/m**3)
                   rho_snow_mult_new, & ! snow density                                  (kg/m**3)
 !
-                  h_snow           , & ! snow height                                   (  m  )
+                  h_snow           , & ! snow depth                                   (  m  )
+                  h_snow_gp        , & ! grid-point averaged snow depth               (  m  )
                   meltrate         , & ! snow melting rate                             (kg/(m**2*s))
 !
                   w_i_now          , & ! water content of interception water           (m H2O)
@@ -640,7 +641,9 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(OUT) :: &
                   rho_snow_mult_new    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  h_snow               ! snow height  
+                  h_snow               ! snow depth
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
+                  h_snow_gp            ! grid-point averaged snow depth  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   meltrate             ! snow melting rate  
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -1225,7 +1228,8 @@ END SUBROUTINE message
 ! HEATCOND (soil moisture dependent heat conductivity of the soil)
     zalamtmp (ie,ke_soil),& ! heat conductivity
     zalam    (ie,ke_soil),&! heat conductivity
-    zrocg    (ie,ke_soil+1),& ! volumetric heat capacity of bare soil
+    zrocg    (ie,ke_soil+1),& ! total volumetric heat capacity of soil
+    zrocg_soil(ie,ke_soil+1),& ! volumetric heat capacity of bare soil
     zrocs    (ie)      , & ! heat capacity of snow
     ztsn     (ie)      , & ! new value of zts
     ztsnown  (ie)      , & ! new value of ztsnow
@@ -1259,10 +1263,10 @@ END SUBROUTINE message
   REAL    (KIND=ireals) ::          &
     hzalam   (ie,ke_soil+1),     & ! heat conductivity
     zthetas, zlamli, zlamsat, zlams, rsandf, zlamq, zlam0, zrhod, zlamdry,  &
-    zsri, zKe, zthliq, zlamic
+    zlamdry_soil, zsri, zKe, zthliq, zlamic
 
   ! For performance improvement
-  REAL    (KIND=ireals) :: ln_2, ln_3, ln_10
+  REAL    (KIND=ireals) :: ln_2, ln_3, ln_10, ln_006
 
 !  INTEGER (KIND=iintegers) :: i_loc, isub
 
@@ -1403,6 +1407,7 @@ END SUBROUTINE message
     zfcap(i,:)  = cfcap(mstyp)              ! field capacity
     zrock(i)  = crock(mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
     zrocg(i,:)  = crhoc(mstyp)              ! heat capacity
+    zrocg_soil(i,:)  = crhoc(mstyp)              ! heat capacity
     zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
     zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
                                                 ! for root depth
@@ -1428,11 +1433,14 @@ END SUBROUTINE message
         zpsis(i,kso)    = -zpsi0 * EXP(ln_10*(1.88_ireals-0.013_ireals*zsandf(i,kso)))
         zb_por(i,kso)   = 2.91_ireals + .159_ireals*zclayf(i,kso)
         zedb(i,kso)     = 1._ireals/zb_por(i,kso)
-!<JH
+
         !fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
         zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
-!>JH
 
+        ! Scale soil heat capacity with organic fraction -> Chadburn et al., 2015
+        IF(zmls(kso) < rootdp(i)) THEN
+          zrocg(i,kso)=(1._ireals-plcov(i))*zrocg_soil(i,kso)+plcov(i)*0.58E+06_ireals
+        END IF
       ENDDO
   END DO
 
@@ -1546,6 +1554,7 @@ END SUBROUTINE message
     zlamq   = LOG(7.7_ireals)        ! LOG(thermal conductivity of quartz)
     ln_2    = LOG(2._ireals)
     ln_3    = LOG(3._ireals)
+    ln_006  = LOG(0.06_ireals)
 
     DO kso = 1, ke_soil+1
       DO i = istarts, iends
@@ -1566,9 +1575,15 @@ END SUBROUTINE message
   ! dry thermal conductivity
 
         zrhod   = 2700.0_ireals*(1.0_ireals-zthetas)       ! dry density
-        zlamdry = ( 0.135_ireals*zrhod + 64.7_ireals )                     &
+        zlamdry_soil = ( 0.135_ireals*zrhod + 64.7_ireals )                     &
                 / ( 2700.0_ireals - 0.947_ireals*zrhod )
         ! missing: crushed rock formulation for dry thermal conductivity (see PL98)
+  ! Scale zlamdry with organic fraction
+        IF(zmls(kso) < rootdp(i)) THEN
+           zlamdry = EXP(LOG(zlamdry_soil)*(1._ireals-plcov(i))+ln_006*plcov(i)) ! Chadburn et al.,2015, Dankers et al., 2011
+        ELSE
+           zlamdry=zlamdry_soil
+        END IF
   
   ! Kersten number
 
@@ -1789,13 +1804,13 @@ END SUBROUTINE message
 
         zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
 
-        ! temperature-dependent aging timescale: 3 days at freezing point, 28 days below -10 deg C
-        ztau_snow = 86400._ireals*MIN(28.0_ireals,3._ireals+2.5_ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
+        ! temperature-dependent aging timescale: 2 days at freezing point, 28 days below -15 deg C
+        ztau_snow = 86400._ireals*MIN(28.0_ireals,2._ireals+1.733_ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
         ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
         ! an offset is added in order to ensure moderate aging for low snow depths
         zuv = MIN(300._ireals, u_10m(i)**2 + v_10m(i)**2 + 12._ireals )
-        ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow(i))/zuv))
+        ztau_snow = MIN(ztau_snow,MAX(86400._ireals,2.e8_ireals*MAX(0.05_ireals,h_snow_gp(i))/zuv))
 
         ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
         zdsn_old   = zdt/ztau_snow + zdt*zrain_rate*0.1_ireals

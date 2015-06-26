@@ -109,7 +109,8 @@ MODULE mo_atmo_model
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
-  USE mo_ext_data_state,          ONLY: ext_data, init_ext_data, destruct_ext_data
+  USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
+  USE mo_ext_data_init,           ONLY: init_ext_data 
   USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
   USE mo_nwp_ww,                  ONLY: configure_ww
 
@@ -282,7 +283,7 @@ CONTAINS
 
 
     ! complete initicon config-state
-    CALL configure_initicon
+    CALL configure_initicon(dtime)
 
 
     !-------------------------------------------------------------------
