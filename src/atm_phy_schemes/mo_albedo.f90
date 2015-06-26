@@ -577,8 +577,8 @@ CONTAINS
     REAL(wp):: zsnow_alb               !< snow albedo
 
     ! Auxiliaries for tile-specific calculation of direct beam albedo
-    REAL(wp):: zalbvisdir_t(nproma,pt_patch%nblks_c,ntiles_total+ntiles_water)
-    REAL(wp):: zalbnirdir_t(nproma,pt_patch%nblks_c,ntiles_total+ntiles_water)
+    REAL(wp):: zalbvisdir_t(nproma,ntiles_total+ntiles_water)
+    REAL(wp):: zalbnirdir_t(nproma,ntiles_total+ntiles_water)
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -608,14 +608,17 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,               &
 !$OMP            zsnow_alb,ilu,i_count_lnd,i_count_sea,i_count_flk,                 &
-!$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu  &
-!$OMP            ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu, &
+!$OMP            zalbvisdir_t,zalbnirdir_t) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                 i_startidx, i_endidx, rl_start, rl_end)
 
+
+      zalbvisdir_t(:,:) = 0._wp
+      zalbnirdir_t(:,:) = 0._wp
 
       !------------------------------------------------------------------------------
       ! Calculation of land surface albedo based on MODIS input data
@@ -710,61 +713,61 @@ CONTAINS
             ! direct albedo (vis and nir)
             !
             IF ( albedo_blacksky == 1 ) THEN ! Ritter-Geleyn
-              zalbvisdir_t(jc,jb,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+              zalbvisdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
                 &                                        prm_diag%albvisdif_t(jc,jb,jt))
-              zalbnirdir_t(jc,jb,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+              zalbnirdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
                 &                                        prm_diag%albnirdif_t(jc,jb,jt)) 
 
             ELSE IF ( albedo_blacksky == 2 ) THEN  ! Zaengl
-              zalbvisdir_t(jc,jb,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
-                &                                             prm_diag%albvisdif_t(jc,jb,jt), &
-                &                                             ext_data%atm%z0_lcc(ilu),       &
-                &                                             ext_data%atm%sso_stdh_raw(jc,jb))
+              zalbvisdir_t(jc,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
+                &                                          prm_diag%albvisdif_t(jc,jb,jt), &
+                &                                          ext_data%atm%z0_lcc(ilu),       &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))
 
-              zalbnirdir_t(jc,jb,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
-                &                                             prm_diag%albnirdif_t(jc,jb,jt), &
-                &                                             ext_data%atm%z0_lcc(ilu),       &
-                &                                             ext_data%atm%sso_stdh_raw(jc,jb))
+              zalbnirdir_t(jc,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
+                &                                          prm_diag%albnirdif_t(jc,jb,jt), &
+                &                                          ext_data%atm%z0_lcc(ilu),       &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))
 
             ELSE IF ( albedo_blacksky == 3 ) THEN  ! Yang (2008)
-              zalbvisdir_t(jc,jb,jt) = snow_frac                                                  &
-                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                             prm_diag%albvisdif_t(jc,jb,jt),     &
-                &                                             ext_data%atm%z0_lcc(ilu),           &
-                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
-                &                    + (1._wp-snow_frac)                                          &
-                &                    * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
-                &                                          prm_diag%albvisdif_t(jc,jb,jt))
+              zalbvisdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          prm_diag%albvisdif_t(jc,jb,jt),     &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
+                &                                       prm_diag%albvisdif_t(jc,jb,jt))
 
-              zalbnirdir_t(jc,jb,jt) = snow_frac                                                  &
-                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                             prm_diag%albnirdif_t(jc,jb,jt),     &
-                &                                             ext_data%atm%z0_lcc(ilu),           &
-                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
-                &                    + (1._wp-snow_frac)                                          &
-                &                    * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
-                &                                          prm_diag%albnirdif_t(jc,jb,jt))
+              zalbnirdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          prm_diag%albnirdif_t(jc,jb,jt),     &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
+                &                                       prm_diag%albnirdif_t(jc,jb,jt))
 
             ELSE IF ( albedo_blacksky == 4 ) THEN  ! Briegleb (1992)
-              zalbvisdir_t(jc,jb,jt) = snow_frac                                                  &
-                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                             prm_diag%albvisdif_t(jc,jb,jt),     &
-                &                                             ext_data%atm%z0_lcc(ilu),           &
-                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
-                &                    + (1._wp-snow_frac)                                          &
-                &                    * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
-                &                                          prm_diag%albvisdif_t(jc,jb,jt),        &
-                &                                          ext_data%atm%z0_lcc(ilu))
+              zalbvisdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          prm_diag%albvisdif_t(jc,jb,jt),     &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
+                &                                       prm_diag%albvisdif_t(jc,jb,jt),        &
+                &                                       ext_data%atm%z0_lcc(ilu))
 
-              zalbnirdir_t(jc,jb,jt) = snow_frac                                                  &
-                &                    * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                             prm_diag%albnirdif_t(jc,jb,jt),     &
-                &                                             ext_data%atm%z0_lcc(ilu),           &
-                &                                             ext_data%atm%sso_stdh_raw(jc,jb))   &
-                &                    + (1._wp-snow_frac)                                          &
-                &                    * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
-                &                                          prm_diag%albnirdif_t(jc,jb,jt),        &
-                &                                          ext_data%atm%z0_lcc(ilu))
+              zalbnirdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          prm_diag%albnirdif_t(jc,jb,jt),     &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
+                &                                       prm_diag%albnirdif_t(jc,jb,jt),        &
+                &                                       ext_data%atm%z0_lcc(ilu))
             ENDIF
 
 
@@ -798,10 +801,10 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,jb,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
-              &                                                prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,jb,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
-              &                                                prm_diag%albnirdif_t(jc,jb,isub_water))
+            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
+            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 
 
@@ -837,10 +840,10 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
 
             ! direct albedo
-            zalbvisdir_t(jc,jb,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                                 prm_diag%albvisdif_t(jc,jb,isub_seaice))
-            zalbnirdir_t(jc,jb,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                                 prm_diag%albnirdif_t(jc,jb,isub_seaice))
+            zalbvisdir_t(jc,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                              prm_diag%albvisdif_t(jc,jb,isub_seaice))
+            zalbnirdir_t(jc,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                              prm_diag%albnirdif_t(jc,jb,isub_seaice))
           ENDDO
 
 
@@ -869,10 +872,10 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,jb,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                                 prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,jb,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                                 prm_diag%albnirdif_t(jc,jb,isub_water))
+            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
+            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 
         ENDIF
@@ -919,10 +922,10 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
 
             ! direct albedo
-            zalbvisdir_t(jc,jb,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                               prm_diag%albvisdif_t(jc,jb,isub_lake))
-            zalbnirdir_t(jc,jb,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                               prm_diag%albnirdif_t(jc,jb,isub_lake))
+            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
           ENDDO
 
 
@@ -951,10 +954,10 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_lake) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,jb,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                               prm_diag%albvisdif_t(jc,jb,isub_lake))
-            zalbnirdir_t(jc,jb,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                               prm_diag%albnirdif_t(jc,jb,isub_lake))
+            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
           ENDDO
 
 
@@ -985,8 +988,8 @@ CONTAINS
             prm_diag%albnirdif(jc,jb) = prm_diag%albnirdif_t(jc,jb,1)
 
             ! albvisdir, albnirdir only needed for RRTM
-            prm_diag%albvisdir(jc,jb) = zalbvisdir_t(jc,jb,1)
-            prm_diag%albnirdir(jc,jb) = zalbnirdir_t(jc,jb,1)
+            prm_diag%albvisdir(jc,jb) = zalbvisdir_t(jc,1)
+            prm_diag%albnirdir(jc,jb) = zalbnirdir_t(jc,1)
           ENDDO
 
         ELSE ! aggregate fields over tiles
@@ -1015,10 +1018,10 @@ CONTAINS
 
               ! albvisdir, albnirdir only needed for RRTM 
               prm_diag%albvisdir(jc,jb) = prm_diag%albvisdir(jc,jb)   &
-                &                       + zalbvisdir_t(jc,jb,jt) * ext_data%atm%frac_t(jc,jb,jt)
+                &                       + zalbvisdir_t(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
 
               prm_diag%albnirdir(jc,jb) = prm_diag%albnirdir(jc,jb)   &
-                &                       + zalbnirdir_t(jc,jb,jt) * ext_data%atm%frac_t(jc,jb,jt)
+                &                       + zalbnirdir_t(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
 
             ENDDO
           ENDDO
