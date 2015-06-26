@@ -886,11 +886,11 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
                     nblks_c, npromz_c, nlev_rg, nlev_rttov,             &
                     kpbl1, wfacpbl1, kpbl2, wfacpbl2                    )
 
-  CALL prepare_lin_intp(rg_z_mc, z3d_rttov, nblks_c, npromz_c, nlev_rg, &
-                        nlev_rttov, wfac_lin, idx0_lin, bot_idx_lin)                       
+  CALL prepare_lin_intp(rg_z_mc, z3d_rttov, nblks_c, npromz_c, nlev_rg,             &
+                        nlev_rttov, wfac_lin, idx0_lin, bot_idx_lin, lextrap=.FALSE.)                       
 
-  CALL prepare_lin_intp(rg_z_ifc, z3d_rttov, nblks_c, npromz_c, nlevp1_rg, &
-                        nlev_rttov, wfac_lin_i, idx0_lin_i, bot_idx_lin_i)                       
+  CALL prepare_lin_intp(rg_z_ifc, z3d_rttov, nblks_c, npromz_c, nlevp1_rg,                &
+                        nlev_rttov, wfac_lin_i, idx0_lin_i, bot_idx_lin_i, lextrap=.FALSE.)                       
 
   ! Execute interpolation
 
