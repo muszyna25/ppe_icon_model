@@ -2019,7 +2019,7 @@ CONTAINS
 
         IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
 
-          no_flux_length = 2.0_wp * relax_width * deg2rad
+          no_flux_length = 3.0_wp * relax_width * deg2rad
           south_bound = (basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad
           length      = basin_height_deg * deg2rad
           max_flux_y  = length - no_flux_length
