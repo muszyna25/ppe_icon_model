@@ -76,6 +76,19 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'u','v'
 /
 &output_nml
+  output_filename  = "${EXPNAME}_mean_1h"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${output_interval}"
+  steps_per_file   = ${steps_per_file}                ! error with ""
+  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  operation        = "mean"
+  include_last     = .true.
+  output_grid      = .TRUE.
+  ml_varlist       =  'u','v'
+/
+&output_nml
   output_filename  = "${EXPNAME}_mean_2h"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
@@ -102,7 +115,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'u','v'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output

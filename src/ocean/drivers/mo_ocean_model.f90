@@ -18,11 +18,11 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size
   USE mo_mpi,                 ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-    & set_mpi_work_communicators, p_pe_work, process_mpi_io_size
+    & set_mpi_work_communicators, p_pe_work, process_mpi_io_size, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
-  USE mo_derived_variable_handling, ONLY: collect_meanstream_variables, init_mean_stream
+  USE mo_derived_variable_handling, ONLY: collect_meanstream_variables, init_mean_stream, finish_mean_stream
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_dynamics_config,     ONLY: configure_dynamics
@@ -180,8 +180,8 @@ CONTAINS
 !       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
 !       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
-      CALL init_mean_stream()
-      CALL collect_meanstream_variables()
+      CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
+      CALL collect_meanstream_variables(ocean_default_list, ocean_restart_list)
       CALL setcalendar(proleptic_gregorian)
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
@@ -325,6 +325,7 @@ CONTAINS
 
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
+      IF (my_process_is_stdio()) CALL finish_mean_stream()
     ENDIF
 
     CALL destruct_icon_communication()
