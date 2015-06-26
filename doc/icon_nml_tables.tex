@@ -4257,6 +4257,22 @@ iforcing=inwp
 \tabularnewline
 
 %\hline
+\textbf{direct\_albedo}&
+I&
+2&
+&
+Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency\\
+1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
+2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
+   is not allowed to exceed the corresponding broadband diffuse albedo.\\
+3: SZA dependency following Yang (2008) for snow-free land points. Same as 1 for water/ice and 2 for snow.\\
+4: SZA dependency following Briegleb (1992) for snow-free land points. Same as 1 for water/ice and 2 for snow.
+&
+iforcing=inwp\\
+albedo\_type=2
+\tabularnewline
+
+%\hline
 irad\_h2o\par
 irad\_co2\par
 irad\_ch4\par
