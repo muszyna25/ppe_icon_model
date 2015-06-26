@@ -36,7 +36,7 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_radiation_config,     ONLY: rad_csalbw, albedo_blacksky
+  USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,  &
     &                                lseaice, llake, isub_water, isub_lake,   &
     &                                isub_seaice
@@ -712,13 +712,13 @@ CONTAINS
 
             ! direct albedo (black sky) (vis and nir)
             !
-            IF ( albedo_blacksky == 1 ) THEN ! Ritter-Geleyn
+            IF ( direct_albedo == 1 ) THEN ! Ritter-Geleyn
               zalbvisdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
                 &                                        prm_diag%albvisdif_t(jc,jb,jt))
               zalbnirdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
                 &                                        prm_diag%albnirdif_t(jc,jb,jt)) 
 
-            ELSE IF ( albedo_blacksky == 2 ) THEN  ! Zaengl
+            ELSE IF ( direct_albedo == 2 ) THEN  ! Zaengl
               zalbvisdir_t(jc,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
                 &                                          prm_diag%albvisdif_t(jc,jb,jt), &
                 &                                          ext_data%atm%z0_lcc(ilu),       &
@@ -729,7 +729,7 @@ CONTAINS
                 &                                          ext_data%atm%z0_lcc(ilu),       &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))
 
-            ELSE IF ( albedo_blacksky == 3 ) THEN  ! Yang (2008)
+            ELSE IF ( direct_albedo == 3 ) THEN  ! Yang (2008)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
                 &                                          zsnow_alb,                          &
@@ -748,7 +748,7 @@ CONTAINS
                 &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
                 &                                       ext_data%atm%albni_dif(jc,jb))
 
-            ELSE IF ( albedo_blacksky == 4 ) THEN  ! Briegleb (1992)
+            ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb (1992)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
                 &                                          zsnow_alb,                          &

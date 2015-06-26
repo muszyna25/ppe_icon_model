@@ -62,7 +62,7 @@ MODULE mo_radiation_config
                            !    (see )
                            ! 2: Modis albedo
 
-    INTEGER :: albedo_blacksky ! 1: SZA dependence according to Ritter-Geleyn implementation
+    INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter-Geleyn implementation
                                ! 2: limitation to diffuse albedo according to Zaengl 
                                !    applied to all land points
                                !    Ritter-Geleyn implementation for remaining points (water,ice) 

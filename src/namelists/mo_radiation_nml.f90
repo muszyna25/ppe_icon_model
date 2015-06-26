@@ -29,7 +29,7 @@ MODULE mo_radiation_nml
                                  & config_yr_perp    => yr_perp,     &
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
-                                 & config_albedo_blacksky => albedo_blacksky, &
+                                 & config_direct_albedo => direct_albedo, &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -94,7 +94,7 @@ MODULE mo_radiation_nml
                          !    (see )
                          ! 2: Modis albedo
 
-  INTEGER :: albedo_blacksky ! 1: SZA dependence according to Ritter-Geleyn implementation
+  INTEGER :: direct_albedo  ! 1: SZA dependence according to Ritter-Geleyn implementation
                              ! 2: limitation to diffuse albedo according to Zaengl 
                              !    applied to all land points
                              !    Ritter-Geleyn implementation for remaining points (water,ice) 
@@ -158,7 +158,7 @@ MODULE mo_radiation_nml
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
     &                      albedo_type,           &
-    &                      albedo_blacksky,       &
+    &                      direct_albedo,         &
     &                      irad_h2o,              &
     &                      irad_co2,   vmr_co2,   &
     &                      irad_ch4,   vmr_ch4,   &
@@ -206,9 +206,9 @@ CONTAINS
     lyr_perp       = .FALSE.
     yr_perp        = -99999
 
-    isolrad     = 0
-    albedo_type = 1
-    albedo_blacksky = 2   ! modification according to Zaengl
+    isolrad        = 0
+    albedo_type    = 1
+    direct_albedo  = 2   ! modification according to Zaengl
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -274,7 +274,7 @@ CONTAINS
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
-    config_albedo_blacksky = albedo_blacksky
+    config_direct_albedo = direct_albedo
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4
