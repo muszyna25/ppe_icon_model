@@ -521,7 +521,7 @@ CONTAINS
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               rho(jc,jk,jb) = OceanReferenceDensity          &
-                & + LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1)   &
+                & - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1)   &
                 & + b_s * tracer(jc,jk,jb,2)
               !write(123,*)'density',jk,jc,jb,OceanReferenceDensity, tracer(jc,jk,jb,1),&
               ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
@@ -545,7 +545,7 @@ CONTAINS
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = OceanReferenceDensity + LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) + b_s * sal_ref
+              rho(jc,jk,jb) = OceanReferenceDensity - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) + b_s * sal_ref
               !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
 !            ELSE
 !              rho(jc,jk,jb) = OceanReferenceDensity   !  plotting purpose
@@ -724,7 +724,7 @@ CONTAINS
     REAL(wp),INTENT(in) :: p     !  pressure is unused
     REAL(wp)            :: rho   !< density
 
-    rho = OceanReferenceDensity + LinearThermoExpansionCoefficient * t  + b_s * s
+    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  + b_s * s
 
   END FUNCTION density_linear_function
   !---------------------------------------------------------------------------
@@ -744,7 +744,7 @@ CONTAINS
     REAL(wp),INTENT(in) :: p(1:levels)     !  pressure is unused
     REAL(wp)            :: rho(1:levels)   !< density
 
-    rho(1:levels) = OceanReferenceDensity + LinearThermoExpansionCoefficient * t(1:levels)  + b_s * s(1:levels)
+    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels)  + b_s * s(1:levels)
 
   END FUNCTION calculate_density_linear_onColumn
   !---------------------------------------------------------------------------
