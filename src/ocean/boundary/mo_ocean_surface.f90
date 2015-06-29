@@ -264,6 +264,15 @@ CONTAINS
     zUnderIceArt(:,:) = 0.0_wp
     zUnderIcetsx(:,:) = 0.0_wp
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('OceSfc: on entry: hi     ',p_ice%hi       ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('OceSfc: on entry: hs     ',p_ice%hs       ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('OceSfc: on entry: concSum',p_ice%concSum  ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('OceSfc: on entry: SST    ',p_oce_sfc%sst  ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('OceSfc: ocesfc%windStr-u ',p_oce_sfc%topBC_windStress_u,       str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('OceSfc: sfcflx%windStr-u ',p_sfc_flx%topBoundCond_windStress_u,str_module,3,in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
     !-----------------------------------------------------------------------
     ! Apply relaxation to surface temperature and salinity
     !-----------------------------------------------------------------------
@@ -324,12 +333,6 @@ CONTAINS
       CALL update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
 
       !   2) calculate OMIP flux data
-
-      idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfcBeg: SST',p_oce_sfc%sst                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcBeg:sfcflx%windStr-u',p_sfc_flx%topBoundCond_windStress_u, &
-        &  str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcBeg:ocesfc%windStr-u',p_oce_sfc%topBC_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
 
       ! bulk formula for heat flux are calculated globally using specific OMIP fluxes
       ! TODO: change interface as in calc_omip_budgets_ice, or
@@ -419,6 +422,7 @@ CONTAINS
       IF (i_sea_ice >0 ) THEN
         
         ! to reproduce bit-identical results, preci and precw are set by old tsurf (29.06.15)
+        ! TODO: delete as soon as surface module is ready
         WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
           atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
           atmos_fluxes%rprecw(:,:) = 0._wp
@@ -428,10 +432,7 @@ CONTAINS
         ENDWHERE
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('OceSfc: bef.fast: hi     ',p_ice%hi       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('OceSfc: bef.fast: hs     ',p_ice%hs       ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('OceSfc: bef.fast: conc   ',p_ice%conc     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('OceSfc: bef.fast: concSum',p_ice%concSum  ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('OceSfc: bef.fast: T1     ',p_ice%t1       ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('OceSfc: bef.fast: T2     ',p_ice%t2       ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('OceSfc: bef.fast: Tsurf  ',p_ice%tsurf    ,str_module,3, in_subset=p_patch%cells%owned)
@@ -472,7 +473,7 @@ CONTAINS
 
       ENDIF  !  sea ice
 
-    ENDIF
+    ENDIF  !  analytical & OMIP
 
     !-----------------------------------------------------------------------
     !  (3) provide atmospheric fluxes for sea ice thermodynamics
