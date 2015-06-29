@@ -301,7 +301,7 @@ MODULE mo_nh_stepping
   ENDDO
 
 
-  IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
+  IF (sstice_mode > 1 .AND. iforcing == inwp .AND. .NOT. is_restart_run()) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
     !  the values from the analysis have to be overwritten
     CALL set_actual_td_ext_data (.TRUE.,datetime_current,datetime_current,sstice_mode,  &
