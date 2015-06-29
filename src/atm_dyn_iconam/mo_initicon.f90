@@ -1582,9 +1582,11 @@ MODULE mo_initicon
           ! add h_snow and freshsnow increments onto respective first guess fields
           DO jt = 1, ntiles_total
 
-            IF (.NOT. lsnowtile) THEN ! copy snowfrac_lc_t to snowfrac_t (with snow tiles, snowfrac_t was
-                                      ! already initialized in SR init_snowtiles)
-              lnd_diag%snowfrac_t(:,jb,jt) = lnd_diag%snowfrac_lc_t(:,jb,jt)
+            IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN 
+              ! Initialize snowfrac with 1 for the time being (the proper initialization follows in nwp_surface_init)
+              ! This is actually needed for lsnowtile=.TRUE. because the snow cover fraction is used below in this case
+              lnd_diag%snowfrac_lc_t(:,jb,jt) = 1._wp
+              lnd_diag%snowfrac_t(:,jb,jt)    = 1._wp
             ENDIF
 
             DO ic = 1, ext_data(jg)%atm%gp_count_t(jb,jt)
@@ -1595,8 +1597,9 @@ MODULE mo_initicon
                 ! minimum height: 0m; maximum height: 40m
                 lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt)))
               ELSE 
-                IF (lsnowtile .AND. jt > ntiles_lnd) THEN
-                  ! add increment to snow-covered tiles only, rescaled with the snow-cover fraction
+                IF (lsnowtile .AND. (jt > ntiles_lnd .OR. ltile_coldstart) ) THEN
+                  ! in case of tile warmstart, add increment to snow-covered tiles only, rescaled with the snow-cover fraction
+                  ! for tile coldstart, the snow increment is added in the same way as without snow tiles
                   snowfrac_lim = MAX(0.01_wp, lnd_diag%snowfrac_lc_t(jc,jb,jt))
                   lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
                     &                            + initicon(jg)%sfc_inc%h_snow(jc,jb)/snowfrac_lim ))
