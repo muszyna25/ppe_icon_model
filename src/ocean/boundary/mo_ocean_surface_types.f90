@@ -48,8 +48,9 @@ MODULE mo_ocean_surface_types
     REAL(wp), POINTER ::   &
       &  TopBC_WindStress_u        (:,:), & ! forcing of zonal component of velocity equation           [Pa]
       &  TopBC_WindStress_v        (:,:), & ! forcing of meridional component of velocity equation      [Pa]
+      &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
       &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
-      &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux under sea ice             [m/s]
+      &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux due to sea ice change     [m/s]
       &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
       &  SST                       (:,:), & ! sea surface temperature                                   [C]
       &  SSS                       (:,:), & ! sea surface salinity                                      [psu]
