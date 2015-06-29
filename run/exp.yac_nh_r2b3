@@ -126,13 +126,12 @@ cat > coupling.xml << EOF
             <transient_grid_ref collection_size="2" grid_ref="1" id="1" transient_ref="1"/>
             <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
             <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="4" transient_ref="4"/>
+            <transient_grid_ref collection_size="4" grid_ref="1" id="4" transient_ref="4"/>
             <transient_grid_ref collection_size="4" grid_ref="1" id="5" transient_ref="5"/>
-            <transient_grid_ref collection_size="4" grid_ref="1" id="6" transient_ref="6"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="6" transient_ref="6"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="9" transient_ref="9"/>
-            <transient_grid_ref collection_size="5" grid_ref="1" id="10" transient_ref="10"/>
+            <transient_grid_ref collection_size="5" grid_ref="1" id="9" transient_ref="9"/>
          </transient_grid_refs>
       </component>
       <component id="2">
@@ -143,13 +142,12 @@ cat > coupling.xml << EOF
             <transient_grid_ref collection_size="2" grid_ref="1" id="1" transient_ref="1"/>
             <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
             <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="4" transient_ref="4"/>
+            <transient_grid_ref collection_size="4" grid_ref="1" id="4" transient_ref="4"/>
             <transient_grid_ref collection_size="4" grid_ref="1" id="5" transient_ref="5"/>
-            <transient_grid_ref collection_size="4" grid_ref="1" id="6" transient_ref="6"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="6" transient_ref="6"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="9" transient_ref="9"/>
-            <transient_grid_ref collection_size="5" grid_ref="1" id="10" transient_ref="10"/>
+            <transient_grid_ref collection_size="5" grid_ref="1" id="9" transient_ref="9"/>
          </transient_grid_refs>
       </component>
    </components>
@@ -157,19 +155,18 @@ cat > coupling.xml << EOF
       <transient id="1" transient_standard_name="surface_downward_eastward_stress"/>
       <transient id="2" transient_standard_name="surface_downward_northward_stress"/>
       <transient id="3" transient_standard_name="surface_fresh_water_flux"/>
-      <transient id="4" transient_standard_name="surface_temperature"/>
-      <transient id="5" transient_standard_name="total_heat_flux"/>
-      <transient id="6" transient_standard_name="atmosphere_sea_ice_bundle"/>
-      <transient id="7" transient_standard_name="sea_surface_temperature"/>
-      <transient id="8" transient_standard_name="eastward_sea_water_velocity"/>
-      <transient id="9" transient_standard_name="northward_sea_water_velocity"/>
-      <transient id="10" transient_standard_name="ocean_sea_ice_bundle"/>
+      <transient id="4" transient_standard_name="total_heat_flux"/>
+      <transient id="5" transient_standard_name="atmosphere_sea_ice_bundle"/>
+      <transient id="6" transient_standard_name="sea_surface_temperature"/>
+      <transient id="7" transient_standard_name="eastward_sea_water_velocity"/>
+      <transient id="8" transient_standard_name="northward_sea_water_velocity"/>
+      <transient id="9" transient_standard_name="ocean_sea_ice_bundle"/>
    </transients>
    <grids>
       <grid alias_name="grid1" id="1"/>
    </grids>
    <dates>
-      <start_date>+2000-01-01T00:00:00.000</start_date>
+      <start_date>+1800-01-01T00:00:00.000</start_date>
       <end_date>+2100-01-01T00:00:00.000</end_date>
       <calendar>proleptic-gregorian</calendar>
    </dates>
@@ -178,74 +175,6 @@ cat > coupling.xml << EOF
       <couple>
          <component1 component_id="1"/>
          <component2 component_id="2"/>
-         <transient_couple transient_id="10">
-            <source component_ref="2" transient_grid_ref="10"/>
-            <target transient_grid_ref="10"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="average">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="9">
-            <source component_ref="2" transient_grid_ref="9"/>
-            <target transient_grid_ref="9"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="average">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="8">
-            <source component_ref="2" transient_grid_ref="8"/>
-            <target transient_grid_ref="8"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="average">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
-         <transient_couple transient_id="7">
-            <source component_ref="2" transient_grid_ref="7"/>
-            <target transient_grid_ref="7"/>
-            <timestep>
-               <source>${dtime_ocean}</source>
-               <target>${dtime_atmo}</target>
-               <coupling_period operation="average">${dtime_coupling}</coupling_period>
-               <source_timelag>1</source_timelag>
-               <target_timelag>${atm_lag}</target_timelag>
-            </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
-            </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
-         </transient_couple>
          <transient_couple transient_id="1">
             <source component_ref="1" transient_grid_ref="1"/>
             <target transient_grid_ref="1"/>
@@ -262,6 +191,7 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="2">
             <source component_ref="1" transient_grid_ref="2"/>
@@ -279,6 +209,7 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="3">
             <source component_ref="1" transient_grid_ref="3"/>
@@ -296,6 +227,7 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="4">
             <source component_ref="1" transient_grid_ref="4"/>
@@ -313,6 +245,7 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="5">
             <source component_ref="1" transient_grid_ref="5"/>
@@ -330,16 +263,17 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="6">
-            <source component_ref="1" transient_grid_ref="6"/>
+            <source component_ref="2" transient_grid_ref="6"/>
             <target transient_grid_ref="6"/>
             <timestep>
-               <source>${dtime_atmo}</source>
-               <target>${dtime_ocean}</target>
-               <coupling_period operation="average">${dtime_coupling}</coupling_period>
-               <source_timelag>${atm_lag}</source_timelag>
-               <target_timelag>1</target_timelag>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
@@ -347,6 +281,61 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="7">
+            <source component_ref="2" transient_grid_ref="7"/>
+            <target transient_grid_ref="7"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="8">
+            <source component_ref="2" transient_grid_ref="8"/>
+            <target transient_grid_ref="8"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="9">
+            <source component_ref="2" transient_grid_ref="9"/>
+            <target transient_grid_ref="9"/>
+            <timestep>
+               <source>${dtime_ocean}</source>
+               <target>${dtime_atmo}</target>
+               <coupling_period operation="none">${dtime_coupling}</coupling_period>
+               <source_timelag>1</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
       </couple>
    </couples>

@@ -71,7 +71,7 @@ MODULE mo_ocean_coupling
 
 ! CHARACTER(LEN=12)  :: module_name    = 'ocean_coupli'
 
-  INTEGER, PARAMETER    :: no_of_fields = 10
+  INTEGER, PARAMETER    :: no_of_fields = 9
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -345,13 +345,12 @@ CONTAINS
     field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
     field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
     field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
-    field_name(4) = "surface_temperature"
-    field_name(5) = "total_heat_flux"                    ! bundled field containing four components
-    field_name(6) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
-    field_name(7) = "sea_surface_temperature"
-    field_name(8) = "eastward_sea_water_velocity"
-    field_name(9) = "northward_sea_water_velocity"
-    field_name(10) = "ocean_sea_ice_bundle"              ! bundled field containing five components
+    field_name(4) = "total_heat_flux"                    ! bundled field containing four components
+    field_name(5) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
+    field_name(6) = "sea_surface_temperature"
+    field_name(7) = "eastward_sea_water_velocity"
+    field_name(8) = "northward_sea_water_velocity"
+    field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
 
     DO i = 1, no_of_fields
       CALL yac_fdef_field (    &
@@ -403,13 +402,12 @@ CONTAINS
     field_name(1) =  "TAUX"   ! bundled field containing two components
     field_name(2) =  "TAUY"   ! bundled field containing two components
     field_name(3) =  "SFWFLX" ! bundled field containing three components
-    field_name(4) =  "SFTEMP"
-    field_name(5) =  "THFLX"  ! bundled field containing four components
-    field_name(6) =  "ICEATM" ! bundled field containing four components
-    field_name(7) =  "SST"
-    field_name(8) =  "OCEANU"
-    field_name(9) =  "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing five components
+    field_name(4) =  "THFLX"  ! bundled field containing four components
+    field_name(5) =  "ICEATM" ! bundled field containing four components
+    field_name(6) =  "SST"
+    field_name(7) =  "OCEANU"
+    field_name(8) =  "OCEANV"
+    field_name(9) =  "ICEOCE" ! bundled field containing five components
 
     field_shape(1:2) = grid_shape(1:2)
 
@@ -429,9 +427,9 @@ CONTAINS
         field_shape(3) = 2
       ELSE IF ( i == 3 ) THEN
         field_shape(3) = 3
-      ELSE IF ( i == 5 .OR. i == 6 ) THEN
+      ELSE IF ( i == 4 .OR. i == 5 ) THEN
         field_shape(3) = 4
-      ELSE IF ( i == 10 ) THEN
+      ELSE IF ( i == 9 ) THEN
         field_shape(3) = 5
       ELSE
         field_shape(3) = 1
@@ -511,14 +509,13 @@ CONTAINS
     !   field_id(1) represents "TAUX"   wind stress component
     !   field_id(2) represents "TAUY"   wind stress component
     !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !   field_id(4) represents "SFTEMP" surface temperature
-    !   field_id(5) represents "THFLX"  total heat flux
-    !   field_id(6) represents "ICEATM" ice temperatures and melt potential
+    !   field_id(4) represents "THFLX"  total heat flux
+    !   field_id(5) represents "ICEATM" ice temperatures and melt potential
     !
-    !   field_id(7) represents "SST"    sea surface temperature
-    !   field_id(8) represents "OCEANU" u component of ocean surface current
-    !   field_id(9) represents "OCEANV" v component of ocean surface current
-    !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
+    !   field_id(6) represents "SST"    sea surface temperature
+    !   field_id(7) represents "OCEANU" u component of ocean surface current
+    !   field_id(8) represents "OCEANV" v component of ocean surface current
+    !   field_id(9) represents "ICEOCE" ice thickness, concentration and temperatures
     !
 #ifndef YAC_coupling
     field_shape(1) = 1
@@ -543,10 +540,10 @@ CONTAINS
     !    
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL yac_fput ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
-    CALL icon_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL icon_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
@@ -563,10 +560,10 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL yac_fput ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
-    CALL icon_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL icon_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
@@ -583,10 +580,10 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(9), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL yac_fput ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
-    CALL icon_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    CALL icon_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info == 2 ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
@@ -613,11 +610,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 #ifdef YAC_coupling
-    CALL yac_fput ( field_id(10), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    CALL yac_fput ( field_id(9), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
     IF ( info > 2 ) write_coupler_restart = .TRUE.
 #else
     field_shape(3) = 5
-    CALL icon_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    CALL icon_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
     IF ( info == RESTART ) write_coupler_restart = .TRUE.
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_put)
@@ -743,42 +740,6 @@ CONTAINS
     END IF
     ! ENDIF ! forcing_enable_freshwater
     !
-    ! Apply surface air temperature
-    !  - it can be used for relaxing SST to T_a with type_surfRelax_Temp=1
-    !  - set to 0 to omit relaxation to T_a=data_surfRelax_Temp(:,:)
-    ! IF (type_surfRelax_Temp >=1) THEN
-    !
-    IF (ltimer) CALL timer_start(timer_coupling_get)
-#ifdef YAC_coupling
-    CALL yac_fget ( field_id(4), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    field_shape(3) = 1
-    CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
-    IF (ltimer) CALL timer_stop(timer_coupling_get)
-    !
-    IF (info > 0 .AND. info < 7 ) THEN
-      !
-      ! atmos_fluxes%data_surfRelax_Temp(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_horz%nblks_c /) )
-      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      ! atmos_fluxes%data_surfRelax_Temp(:,:) = atmos_fluxes%data_surfRelax_Temp(:,:) - tmelt
-      !
-      buffer(nbr_inner_cells+1:nbr_cells,1) = 0.0_wp
-      !
-      DO i_blk = 1, patch_horz%nblks_c
-        nn = (i_blk-1)*nproma
-        DO n = 1, nproma
-          ! ... and change units to deg C by subtracting tmelt (0 deg C, 273.15 K)
-          atmos_fluxes%data_surfRelax_Temp(n,i_blk) = buffer(nn+n,1) - tmelt
-        ENDDO
-      ENDDO
-      !
-    END IF
-    ! ENDIF  ! type_surfRelax_Temp >=1
-    !
     ! Apply total heat flux - 4 parts - record 5
     ! atmos_fluxes%swflx(:,:)  ocean short wave heat flux                              [W/m2]
     ! atmos_fluxes%lwflx(:,:)  ocean long  wave heat fluxe                             [W/m2]
@@ -787,12 +748,12 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    CALL yac_fget ( field_id(4), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 4
-    CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
     IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
@@ -835,12 +796,12 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(6), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 #else
     field_shape(3) = 4
-    CALL icon_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
     IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
