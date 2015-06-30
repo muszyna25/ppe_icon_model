@@ -322,6 +322,13 @@ CONTAINS
       ! adjusting Tsurf for ice_fast before timestep 1:
       IF (atmos_flux_analytical_type == 102) p_ice%Tsurf(:,:,:) = 0.0_wp
 
+      ! provide constant water fluxes for special analytical cases
+      IF (atmos_flux_analytical_type >= 101) THEN
+        p_as%FrshFlux_Precipitation        (:,:) = atmos_precip_const
+        atmos_fluxes%FrshFlux_Precipitation(:,:) = p_as%FrshFlux_Precipitation(:,:)
+        atmos_fluxes%latw                  (:,:) = atmos_latw_const
+      ENDIF
+
     CASE (OMIP_FluxFromFile)         !  12
 
       !  Driving the ocean with OMIP fluxes
@@ -456,13 +463,6 @@ CONTAINS
     IF (atmos_flux_analytical_type == 103) THEN
       p_ice%Qtop(:,1,:) = 0.0_wp
       p_ice%Qbot(:,1,:) = atmos_sens_const
-    ENDIF
-
-    ! provide constant water fluxes for special analytical cases
-    IF (atmos_flux_analytical_type >= 101) THEN
-      p_as%FrshFlux_Precipitation        (:,:) = atmos_precip_const
-      atmos_fluxes%FrshFlux_Precipitation(:,:) = p_as%FrshFlux_Precipitation(:,:)
-      atmos_fluxes%latw                  (:,:) = atmos_latw_const
     ENDIF
 
     IF (iforc_oce == OMIP_FluxFromFile) THEN
