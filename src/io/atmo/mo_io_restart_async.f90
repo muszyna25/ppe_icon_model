@@ -3096,10 +3096,10 @@ CONTAINS
       ! set optional parameters
       CALL vlistDefVarName(vlistID, varID, TRIM(p_info%name))
       IF (LEN_TRIM(p_info%cf%long_name) > 0) THEN
-        CALL vlistDefVarLongname(vlistID, varID, p_info%cf%long_name)
+        CALL vlistDefVarLongname(vlistID, varID, TRIM(p_info%cf%long_name))
       ENDIF
       IF (LEN_TRIM(p_info%cf%units) > 0) THEN
-        CALL vlistDefVarUnits(vlistID, varID, p_info%cf%units)
+        CALL vlistDefVarUnits(vlistID, varID, TRIM(p_info%cf%units))
       ENDIF
 
       ! currently only real valued variables are allowed, so we can always use info%missval%rval
@@ -3392,7 +3392,7 @@ CONTAINS
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
+    p_rf%cdiFileID = streamOpenWrite(TRIM(p_rf%filename), restart_type)
 
     IF (p_rf%cdiFileID < 0) THEN
       CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)

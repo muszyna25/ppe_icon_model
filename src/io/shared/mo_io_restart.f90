@@ -218,7 +218,7 @@ CONTAINS
     !       are identical for all domains.
     !
     IF (my_process_is_mpi_workroot()) THEN
-      fileID  = streamOpenRead(rst_filename)
+      fileID  = streamOpenRead(TRIM(rst_filename))
       ! check if the file could be opened
       IF (fileID < 0) THEN
         CALL cdiGetStringError(fileID, cdiErrorText)
@@ -246,7 +246,7 @@ CONTAINS
         ! note: we have opened the file for domain 1 already
         IF (idom > 1) THEN
           IF (lexists) THEN
-            fileID  = streamOpenRead(rst_filename)
+            fileID  = streamOpenRead(TRIM(rst_filename))
             vlistID = streamInqVlist(fileID)
           ENDIF
         END IF
@@ -553,7 +553,7 @@ CONTAINS
       var_lists(i)%p%first = .TRUE.
       !
       IF (my_process_is_mpi_workroot()) THEN
-        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, var_lists(i)%p%restart_type)
+        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(TRIM(restart_filename), var_lists(i)%p%restart_type)
         var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
@@ -1088,10 +1088,10 @@ CONTAINS
       varID = info%cdiVarID
       !
       CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT64)
-      CALL vlistDefVarName(vlistID, varID, info%name)
+      CALL vlistDefVarName(vlistID, varID, TRIM(info%name))
       !
-      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
-      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
+      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, TRIM(info%cf%long_name))
+      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, TRIM(info%cf%units))
 
       IF (info%lmiss) THEN
         IF (ASSOCIATED(element%field%r_ptr)) THEN
@@ -1875,7 +1875,7 @@ CONTAINS
       IF (my_process_is_mpi_workroot()) THEN
         WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
 
-        fileID  = streamOpenRead(name)
+        fileID  = streamOpenRead(TRIM(name))
         vlistID = streamInqVlist(fileID)
         taxisID = vlistInqTaxis(vlistID)
         !

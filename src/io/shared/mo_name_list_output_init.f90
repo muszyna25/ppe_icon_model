@@ -2666,9 +2666,9 @@ CONTAINS
         this_cf => info%cf
       END IF
 
-      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
-      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, this_cf%standard_name)
-      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, this_cf%units)
+      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
