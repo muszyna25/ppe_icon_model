@@ -5,5 +5,6 @@ add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
 add_required_file ${DATADIR}/dmin_wetgrowth_lookup.dat ./   #for inwp_gscp==4
 add_required_file ${DATADIR}/sound_rce              ./
 add_required_file ${DATADIR}/pmod.txt              ./
+add_required_file ${DATADIR}/ini_profils.dat              ./ #required sounding, added by guido
 
 #-----------------------------------------------------------------------------

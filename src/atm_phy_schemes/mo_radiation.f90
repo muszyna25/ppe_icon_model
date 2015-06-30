@@ -44,7 +44,7 @@ MODULE mo_radiation
 
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish
+  USE mo_exception,            ONLY: finish, message, message_text
 
   USE mo_model_domain,         ONLY: t_patch
 
@@ -64,7 +64,7 @@ MODULE mo_radiation
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
     &                                lrad_aero_diag,          &
-    &                                izenith
+    &                                izenith, diur_lat, diur_lon
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -122,6 +122,9 @@ CONTAINS
       & zdek,                      & 
       & zsocof, zeit0,             &
       & zsct_h
+
+    REAL(wp) :: latitude, longitude
+    CHARACTER (LEN=25) :: routine='mo_radiation'
 
     REAL(wp), SAVE ::              &
       & zsct_save, zdtzgl,         &
@@ -342,6 +345,108 @@ CONTAINS
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
+    ELSEIF (izenith == 6) THEN  
+    ! case with dependance only on time of the day (fixed latitude and longitude)
+    ! perpetual equinox,
+    ! with diurnal cycle,
+    ! added by Guido Cioni (guido.cioni@mpimet.mpg.de)
+
+      WRITE(message_text, '(a,e16.8,a,e16.8)') 'Fixed coordinates for izenith 6 case (Guido). lat: ', diur_lat,' , lon:', diur_lon
+      CALL message(TRIM(routine),message_text)
+   
+      zsct_h = 0.0_wp
+      zsmu0(:,:)=0.0_wp
+      n_cosmu0pos(:,:) = 0
+      n_zsct = 0
+
+      nsteps = NINT(p_inc_rad/p_inc_radheat)
+
+      DO jmu0=1,nsteps
+
+        p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
+
+        CALL get_utc_date_tr (                 &
+          &   p_sim_time     = p_sim_time_rad, &
+          &   itype_calendar = 0,              &
+          &   iyear          = jj,             &
+          &   nactday        = itaja,          &
+          &   acthour        = zstunde )
+
+        IF ( itaja /= itaja_zsct_previous ) THEN
+          itaja_zsct_previous = itaja
+
+          ztwo    = 0.681_wp + 0.2422_wp*REAL(jj-1949,wp)-REAL((jj-1949)/4,wp)
+          ztho    = 2._wp*pi*( REAL(itaja, wp) -1.0_wp + ztwo )/365.2422_wp
+          zdtzgl  = 0.000075_wp + 0.001868_wp*COS(      ztho) - 0.032077_wp*SIN(      ztho) &
+            - 0.014615_wp*COS(2._wp*ztho) - 0.040849_wp*SIN(2._wp*ztho)
+          zdek    = 0.006918_wp - 0.399912_wp*COS(      ztho) + 0.070257_wp*SIN(      ztho) &
+            - 0.006758_wp*COS(2._wp*ztho) + 0.000907_wp*SIN(2._wp*ztho) &
+            - 0.002697_wp*COS(3._wp*ztho) + 0.001480_wp*SIN(3._wp*ztho)
+
+          zdeksin = SIN (zdek)
+          zdekcos = COS (zdek)
+
+          IF ( PRESENT(zsct) ) THEN
+
+            zsocof  = 1.000110_wp + 0.034221_wp*COS(   ztho) + 0.001280_wp*SIN(   ztho) &
+              + 0.000719_wp*COS(2._wp*ztho) + 0.000077_wp*SIN(2._wp*ztho)
+            zsct_save = zsocof*tsi_radt
+            zsct_h = zsct_h + zsct_save
+            n_zsct = n_zsct + 1
+
+          ENDIF
+
+        ENDIF
+
+        zeit0   = pi*(zstunde-12._wp)/12._wp + zdtzgl
+
+        ie = kbdim
+        DO jb = 1, pt_patch%nblks_c
+          IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+
+          zsinphi(1:ie,jb)      = SIN (diur_lat)
+          zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
+          zeitrad(1:ie,jb)      = zeit0 + diur_lon
+          z_cosmu0(1:ie,jb)     = zdeksin * zsinphi(1:ie,jb) + zdekcos * zcosphi(1:ie,jb) * &
+            COS(zeitrad(1:ie,jb))
+
+          DO jc = 1,ie
+            IF ( z_cosmu0(jc,jb) > -1.e-5_wp ) THEN
+              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))**2
+              n_cosmu0pos(jc,jb) = n_cosmu0pos(jc,jb) + 1
+            ENDIF
+          ENDDO
+
+        ENDDO
+
+      ENDDO !jmu0
+
+      ie = kbdim
+      DO jb = 1, pt_patch%nblks_c
+
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+
+        DO jc = 1,ie
+          IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
+            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid 
+            ! numerical trouble along the day-night boundary near the model top
+            zsmu0(jc,jb) = MAX(0.05_wp,SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)))
+          ELSE
+            zsmu0(jc,jb) = cosmu0_dark
+          ENDIF
+        ENDDO
+
+      ENDDO !jb
+
+      IF ( PRESENT(zsct) ) THEN
+        IF ( n_zsct > 0 ) THEN
+          zsct = zsct_h/REAL(n_zsct,wp)
+        ELSE
+          zsct = zsct_save
+        ENDIF
+      ENDIF 
+
+
     ENDIF
 
   END SUBROUTINE pre_radiation_nwp_steps
@@ -372,6 +477,8 @@ CONTAINS
       & zsinphi(kbdim,pt_patch%nblks_c) ,&
       & zcosphi(kbdim,pt_patch%nblks_c) ,&
       & zeitrad(kbdim,pt_patch%nblks_c)! ,&
+    
+    REAL(wp) :: latitude, longitude
 
     INTEGER :: &
       & jj, itaja, jb, ie !& ! output from routine get_utc_date_tr
@@ -479,6 +586,46 @@ CONTAINS
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
+
+    ELSEIF (izenith == 6) THEN  
+    ! case with dependance only on time of the day (fixed latitude and longitude)
+    ! circular non-seasonal orbit,
+    ! perpetual equinox,
+    ! with diurnal cycle,
+    ! added by Guido Cioni (guido.cioni@mpimet.mpg.de)
+
+    
+      ztwo    = 0.681_wp + 0.2422_wp*REAL(jj-1949,wp)-REAL((jj-1949)/4,wp)
+      ztho    = 2._wp*pi*( REAL(itaja, wp) -1.0_wp + ztwo )/365.2422_wp
+      zdtzgl  = 0.000075_wp + 0.001868_wp*COS(      ztho) - 0.032077_wp*SIN(      ztho) &
+        - 0.014615_wp*COS(2._wp*ztho) - 0.040849_wp*SIN(2._wp*ztho)
+      zdek    = 0.006918_wp - 0.399912_wp*COS(      ztho) + 0.070257_wp*SIN(      ztho) &
+        - 0.006758_wp*COS(2._wp*ztho) + 0.000907_wp*SIN(2._wp*ztho) &
+        - 0.002697_wp*COS(3._wp*ztho) + 0.001480_wp*SIN(3._wp*ztho)
+      zeit0   = pi*(zstunde-12._wp)/12._wp + zdtzgl
+      zdeksin = SIN (zdek)
+      zdekcos = COS (zdek)
+
+      IF ( PRESENT(zsct) ) THEN
+        !decide whether new zsct calculation is necessary
+        IF ( itaja /= itaja_zsct_previous ) THEN
+          itaja_zsct_previous = itaja
+          zsocof  = 1.000110_wp + 0.034221_wp*COS(   ztho) + 0.001280_wp*SIN(   ztho) &
+            + 0.000719_wp*COS(2._wp*ztho) + 0.000077_wp*SIN(2._wp*ztho)
+          zsct_save = zsocof*tsi_radt
+        ENDIF
+        zsct = zsct_save
+      ENDIF
+
+      DO jb = 1, pt_patch%nblks_c
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        zsinphi(1:ie,jb)      = SIN (diur_lat)
+        zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
+        zeitrad(1:ie,jb)      = zeit0 + diur_lon
+        zsmu0(1:ie,jb)        = zdeksin * zsinphi(1:ie,jb) + zdekcos * zcosphi(1:ie,jb) * &
+          COS(zeitrad(1:ie,jb))
+
+      ENDDO
 
     ENDIF
 

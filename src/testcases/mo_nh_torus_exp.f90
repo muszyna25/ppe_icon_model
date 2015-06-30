@@ -304,7 +304,7 @@ MODULE mo_nh_torus_exp
           form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
 
     IF(ist/=success)THEN
-      CALL finish (TRIM(routine), 'open init_profils.dat failed')
+      CALL finish (TRIM(routine), 'open ini_profils.dat failed')
     ENDIF  
 
     !Read the input file till end. The order of file assumed is:

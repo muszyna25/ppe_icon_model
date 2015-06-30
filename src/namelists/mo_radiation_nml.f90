@@ -47,6 +47,8 @@ MODULE mo_radiation_nml
                                  & config_vmr_cfc11  => vmr_cfc11,   &
                                  & config_vmr_cfc12  => vmr_cfc12,   &
                                  & config_izenith    => izenith,     &
+                                 & config_diur_lon   => diur_lon,    &
+                                 & config_diur_lat   => diur_lat,    &
                                  & config_mmr_co2    => mmr_co2,     &
                                  & config_mmr_ch4    => mmr_ch4,     &
                                  & config_mmr_n2o    => mmr_n2o,     &
@@ -142,6 +144,7 @@ MODULE mo_radiation_nml
   !
   ! --- Different specifications of the zenith angle
   INTEGER  :: izenith
+  REAL(wp) :: diur_lon, diur_lat
   !
   NAMELIST /radiation_nml/ ldiur, nmonth,         &
     &                      lyr_perp, yr_perp,     &
@@ -158,7 +161,7 @@ MODULE mo_radiation_nml
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
     &                      ighg,                  &
-    &                      izenith
+    &                      izenith, diur_lon, diur_lat
 
 CONTAINS
 
@@ -219,6 +222,8 @@ CONTAINS
 
 
     izenith     = 4  ! Default: seasonal orbit and diurnal cycle
+    diur_lon    = 0
+    diur_lat    = 0    
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -283,6 +288,9 @@ CONTAINS
     config_mmr_n2o    = vmr_n2o * amn2o/amd
     config_mmr_o2     = vmr_o2  * amo2 /amd
     config_izenith    = izenith
+    config_diur_lon   = diur_lon
+    config_diur_lat   = diur_lat
+
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
