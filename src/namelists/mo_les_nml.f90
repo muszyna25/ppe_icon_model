@@ -57,7 +57,7 @@ MODULE mo_les_nml
   !Parameters for additional diagnostic output
   LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
   REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
-  CHARACTER(LEN=7) :: turb_tseries_list(20), turb_profile_list(44) !list of variables  
+  CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(44) !list of variables  
   CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
   LOGICAL  :: les_metric
 
@@ -132,8 +132,8 @@ CONTAINS
     turb_tseries_list = (/                                          &
       'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6
       'qsfc   ','hbl    ','psfc   ','swf_tom','lwf_tom','swf_sfc',  & !7-12
-      'lwf_sfc','sod_t  ','precp_t','precp_r','precp_s','precp_g',  & !13-18
-      'precp_h','precp_i' /)                                          !19-20
+      'lwf_sfc','precp_t','precp_r','precp_s','precp_g','precp_h',  & !13-18
+      'precp_i' /)                                                    !19
 
     ! grid metric terms in the les diffusion
     les_metric = .FALSE.

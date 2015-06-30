@@ -109,8 +109,7 @@ MODULE mo_radiation_config
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
-    REAL(wp) :: diur_lon, diur_lat ! parameters to specify the fixed lon-lat for a small domain diurnal cycle
- 
+  
     ! 2.0 Non NAMELIST global variables and parameters
     ! --------------------------------
 

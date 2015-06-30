@@ -788,8 +788,6 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%swflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('lwf_sfc')
        CALL levels_horizontal_mean(prm_diag%lwflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
-     CASE('sod_t')
-       CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('precp_t')
        CALL levels_horizontal_mean(prm_diag%tot_prec_rate_avg, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
@@ -1199,9 +1197,6 @@ CONTAINS
        unit     = 'W/m2'
      CASE('lwf_sfc')
        longname = 'net longwave flux at sfc'
-       unit     = 'W/m2'
-     CASE('sod_t')
-       longname = 'net shortwave flux at TOA'
        unit     = 'W/m2'
      CASE('precp_t')
        longname = 'time avg total gridscale precipitation'
