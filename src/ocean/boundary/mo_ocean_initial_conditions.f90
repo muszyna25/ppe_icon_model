@@ -36,7 +36,7 @@ MODULE mo_ocean_initial_conditions
     & basin_center_lat, basin_center_lon, basin_height_deg,  basin_width_deg,         &
     & initial_temperature_bottom, initial_temperature_top, initial_temperature_shift, &
     & initial_temperature_north, initial_temperature_south,                           &
-    & initial_temperature_scale_depth,  initial_temperature_VerticalGradient,         &
+    & initial_temperature_scale_depth, initial_temperature_VerticalGradient,         &
     & use_file_initialConditions,                                                     &
     & initial_salinity_top, initial_salinity_bottom, &
     & topography_type, topography_height_reference,  &
@@ -80,6 +80,7 @@ MODULE mo_ocean_initial_conditions
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry !,&
+  PUBLIC :: tracer_ConstantSurface, varyTracerVerticallyExponentially
 !   & SST_LinearMeridional, increaseTracerLevelsLinearly
   
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
@@ -352,8 +353,10 @@ CONTAINS
     CASE (200)
       ! uniform salinity or vertically linarly increasing
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
-      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
-        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+      CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+        & top_value=initial_salinity_top)
+      CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity,&
+        & bottom_value=initial_salinity_bottom)
 
     !------------------------------
     CASE (201)
@@ -417,7 +420,7 @@ CONTAINS
 !      !   as it should give the same results as
 !      !   for initial_salinity_type = 200
 !      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
-!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+!      CALL tracer_ConstantSurface_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
 !        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
 
     !------------------------------
@@ -479,8 +482,11 @@ CONTAINS
       ! uniform or linearly decreasing temperature
       ! Temperature is homogeneous in each layer.
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
-      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+      CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top)
+        
+      CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature,&
+        & bottom_value=initial_temperature_bottom)
 
     !------------------------------
     CASE (201)
@@ -515,9 +521,12 @@ CONTAINS
       CALL message(TRIM(method_name), ': horizontally non-homogenous, local pertubation')
 
       ! first create linearly vertically decreasing temperature, uniform horizontally
-      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+      CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top)
 
+      CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature,&
+        & bottom_value=initial_temperature_bottom)
+        
       !Add horizontal variation
       CALL temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
 
@@ -662,7 +671,7 @@ CONTAINS
 !      !   as it should give the same results as
 !      !   for initial_salinity_type = 200
 !      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
-!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!      CALL tracer_ConstantSurface_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
 !        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
      !------------------------------
@@ -2095,7 +2104,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
 
   !-------------------------------------------------------------------------------
-!  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
+!  SUBROUTINE tracer_ConstantSurface_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
 !    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
 !    REAL(wp), TARGET :: ocean_tracer(:,:,:)
 !    REAL(wp), INTENT(in) :: top_value, bottom_value
@@ -2107,7 +2116,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !    INTEGER :: start_cell_index, end_cell_index
 !    REAL(wp) :: linear_increase
 !
-!    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
+!    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_ConstantSurface'
 !    !-------------------------------------------------------------------------
 !
 !    patch_2d => patch_3d%p_patch_2d(1)
@@ -2139,14 +2148,14 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !
 !    ! ocean_tracer(:,:,:) = top_value
 !
-!  END SUBROUTINE tracer_VerticallyLinearly_IncludeLand
+!  END SUBROUTINE tracer_ConstantSurface_IncludeLand
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_VerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
+  SUBROUTINE tracer_ConstantSurface(patch_3d, ocean_tracer, top_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
-    REAL(wp), INTENT(in) :: top_value, bottom_value
+    REAL(wp), INTENT(in) :: top_value
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
@@ -2154,7 +2163,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_ConstantSurface'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -2169,9 +2178,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       END DO
     END DO
 
-    CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_tracer, bottom_value=bottom_value)
-
-  END SUBROUTINE tracer_VerticallyLinearly
+  END SUBROUTINE tracer_ConstantSurface
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------

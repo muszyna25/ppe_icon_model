@@ -57,7 +57,6 @@ MODULE mo_ocean_forcing
   USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
-!   USE mo_ocean_initial_conditions, ONLY: SST_LinearMeridional, increaseTracerLevelsLinearly
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref
@@ -70,6 +69,8 @@ MODULE mo_ocean_forcing
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_read_interface,     ONLY: openInputFile, closeFile, t_stream_id, &
     &                              onCells, read_2D_1lev_1time
+  USE mo_ocean_initial_conditions,     ONLY: tracer_ConstantSurface, &
+    & varyTracerVerticallyExponentially
 
   IMPLICIT NONE
   PRIVATE
@@ -488,7 +489,7 @@ CONTAINS
 
     ! Local Variables
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ho_relaxation'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_forcing:init_ho_relaxation'
     CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
 
     LOGICAL :: l_exist
@@ -673,7 +674,6 @@ CONTAINS
   
             atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1), &
             &initial_temperature_north, patch_2d%cells%center(jc,jb)%lat>basin_SouthBoundary)
-            
 			
             atmos_fluxes%data_surfRelax_Temp(jc,jb) = MERGE(&
             &initial_temperature_north-1.0_wp, &			
@@ -732,12 +732,30 @@ CONTAINS
           & relaxWidth=relax_width * deg2rad)
           
       CASE (5)
-        ! 3D-relax the north boundary
+        ! 3D-relax the north boundary (Abernathey)
         CALL init_3Drelax_coefficient_NS_boundaries( &
           & patch_3D = patch_3d, &
           & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
           & NorthBoundary=basin_NorthBoundary, &
           & relaxWidth=relax_width * deg2rad)
+          
+      CASE (6)
+        ! as above 3D-relax the north boundary
+        ! but with explicit relaxation temperature (Abernathey)
+        CALL init_3Drelax_coefficient_NS_boundaries( &
+          & patch_3D = patch_3d, &
+          & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
+          & NorthBoundary=basin_NorthBoundary, &
+          & relaxWidth=relax_width * deg2rad)
+
+        CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_state%p_aux%data_3dimRelax_Temp, &
+          & top_value=initial_temperature_north)
+
+        CALL varyTracerVerticallyExponentially(patch_3d=patch_3d, &
+          & ocean_tracer=ocean_state%p_aux%data_3dimRelax_Temp,   &
+          & bottom_value=initial_temperature_bottom,              &
+          & scale_depth=1000.0_wp)
+          
       END SELECT
       
     END IF
