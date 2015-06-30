@@ -50,6 +50,7 @@ MODULE mo_ocean_surface_types
       &  TopBC_WindStress_v        (:,:), & ! forcing of meridional component of velocity equation      [Pa]
       &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
       &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
+      &  HeatFlux_Shortwave        (:,:), & ! shortwave heat flux for penetration into deeper layers    [W/m2]
       &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux due to sea ice change     [m/s]
       &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
       &  SST                       (:,:), & ! sea surface temperature                                   [C]
@@ -58,18 +59,21 @@ MODULE mo_ocean_surface_types
       &  data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
       &  HeatFlux_Relax            (:,:), & ! surface heat flux due to relaxation                       [W/m2]
       &  FrshFlux_Relax            (:,:), & ! surface freshwater flux due to relaxation                 [m/s]
+      &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]
       !
       !  accumulation variables - comments see above
       &  TopBC_WindStress_u_acc         (:,:),  &
       &  TopBC_WindStress_v_acc         (:,:),  &
+      &  Wind_Speed_10m_acc             (:,:),  &
       &  HeatFlux_Total_acc             (:,:),  &
+      &  HeatFlux_Shortwave_acc         (:,:),  &
       &  FrshFlux_TotalIce_acc          (:,:),  &
+      &  FrshFlux_VolumeTotal_acc       (:,:),  &
       &  SST_acc                        (:,:),  &
       &  SSS_acc                        (:,:),  &
       &  HeatFlux_Relax_acc             (:,:),  &
       &  FrshFlux_Relax_acc             (:,:),  &
-      !
-      &  cellThicknessUnderIce          (:,:)
+      &  cellThicknessUnderIce_acc      (:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: TopBC_WindStress_cc(:,:)

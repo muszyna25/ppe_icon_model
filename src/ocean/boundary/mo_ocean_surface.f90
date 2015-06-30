@@ -74,7 +74,7 @@ MODULE mo_ocean_surface
   !USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
   USE mo_sea_ice,             ONLY: ice_slow, ice_fast
   USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
-  USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_therm_slo
+  USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress
   
   USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
@@ -149,6 +149,11 @@ CONTAINS
     CALL add_var(ocean_default_list, 'HeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Total', 'W/m2', 'Total Heat Flux', DATATYPE_FLT32),&
+      &        t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &        ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(ocean_default_list, 'HeatFlux_Shortwave', p_oce_sfc%HeatFlux_Shortwave, &
+      &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &        t_cf_var('HeatFlux_Shortwave', 'W/m2', 'Shortwave Heat Flux', DATATYPE_FLT32),&
       &        t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
@@ -231,12 +236,10 @@ CONTAINS
     INTEGER               :: i_startidx_c, i_endidx_c
     REAL(wp)              :: dsec
     REAL(wp)              :: Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)              :: s_top_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: sss_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceOld(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceArt(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)              :: zUnderIcetsx(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells
@@ -246,23 +249,15 @@ CONTAINS
     all_cells       => p_patch%cells%all
     !-----------------------------------------------------------------------
 
-    IF (no_tracer>=1) p_oce_sfc%sst(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    IF (no_tracer>=2) p_oce_sfc%sss(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+    IF (no_tracer>=1) p_oce_sfc%sst => p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    IF (no_tracer>=2) p_oce_sfc%sss => p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
     IF (iforc_oce == No_Forcing) RETURN  !  forcing for ocean not defined
 
-    s_top => NULL()
-    IF (no_tracer>=1) t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    IF (no_tracer>=2) THEN 
-      s_top => p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      s_top_inter(:,:)  = s_top(:,:)
-    ELSE
-      s_top_inter(:,:)  = 0.0_wp
-    ENDIF
+    sss_inter(:,:)  = p_oce_sfc%sss(:,:)
     zUnderIceOld(:,:) = 0.0_wp
     zUnderIceIni(:,:) = 0.0_wp
     zUnderIceArt(:,:) = 0.0_wp
-    zUnderIcetsx(:,:) = 0.0_wp
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('on entry: hi     ',p_ice%hi       ,str_module,3, in_subset=p_patch%cells%owned)
@@ -311,37 +306,35 @@ CONTAINS
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  (1) get surface fluxes from outside
-    !   first CASE: read in fluxes (analytical, OMIP and bulk formula, coupling)
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
+    !   read in fluxes (analytical, OMIP and bulk formula, coupling)
     SELECT CASE (iforc_oce)
 
     CASE (Analytical_Forcing)        !  11
+
       !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, atmos_fluxes)
 
       ! provide dLWdt for ice_fast
       atmos_fluxes%dLWdT (:,:,:)  = -4._wp*zemiss_def*stbo*(p_ice%tsurf(:,:,:)-tmelt)**3
 
-      ! hack for adjusting Tsurf for ice_fast before timestep 1:
+      ! adjusting Tsurf for ice_fast before timestep 1:
       IF (atmos_flux_analytical_type == 102) p_ice%Tsurf(:,:,:) = 0.0_wp
 
     CASE (OMIP_FluxFromFile)         !  12
 
       !  Driving the ocean with OMIP fluxes
-      !   1) read OMIP data (read relaxation data)
+      !   a) read OMIP data (read relaxation data)
       CALL update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
 
-      !   2) calculate OMIP flux data
+      !   b) calculate OMIP flux data
 
       ! bulk formula for heat flux are calculated globally using specific OMIP fluxes
-      ! TODO: change interface as in calc_omip_budgets_ice, or
-      ! TODO: include claculation of icefree part of cells in calc_omip_budgets_ice
+      ! TODO: include calculation of icefree part of cells in calc_omip_budgets_ice
 
       CALL calc_omip_budgets_oce(p_patch, p_as, p_os, atmos_fluxes)
 
-      ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
-     !IF (i_sea_ice >= 1) CALL calc_omip_budgets_ice(p_patch, p_as, p_ice, atmos_fluxes)
       ! pass parameters read from OMIP into budget calculation directly
       CALL calc_omip_budgets_ice(                            &
         &                        p_patch%cells%center(:,:)%lat,                  &  !  input parameter
@@ -367,43 +360,12 @@ CONTAINS
 
       ! wind stress over water (stress_xw, stress_yw) is the same and read from OMIP, see calc_omip_budgets_oce
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('aft.BudIce:atmflx%LWnet ice',atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:atmflx%sens ice' ,atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:atmflx%lat ice'  ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:atmflx%lat'      ,atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.BudIce:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=4  ! output print level (1-5, fix)
-      CALL dbg_print('aft.BudIce:stress_y'        ,atmos_fluxes%stress_y,str_module,idt_src, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
-    CASE (Atmo_FluxFromFile)                                          !  13
-
-      ! 1) Read field data from file
-      ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, atmos_fluxes)
-      ! 3) CALL update_flux_from_atm_flx(p_patch, p_as, p_os, p_ice, atmos_fluxes, p_sfc_flx)
-
-      CALL message(TRIM(routine), 'STOP: Ocean Forcing option 13 not implemented yet' )
-      CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
-
     CASE (Coupled_FluxFromAtmo)                                       !  14
 
       !  Driving the ocean in a coupled mode:
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP are applied
-      !
       CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, atmos_fluxes, jstep, datetime)
-
-    CASE (Coupled_FluxFromFile)                                       !  15
-      !1) bulk formula to atmospheric state and proceed as above, the only distinction
-      !   to OMIP is that atmospheric info is coming from model rather than file
-
-      CALL message(TRIM(routine), 'STOP: Ocean Forcing option 15 not implemented yet' )
-      CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
 
     CASE DEFAULT
 
@@ -412,11 +374,23 @@ CONTAINS
 
     END SELECT
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('bef.fast: Tsurf  ',        p_ice%tsurf          ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:atmflx%LWnetIce', atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:atmflx%SensIce',  atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:atmflx%LatentIce',atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  (2) call ice_fast for analytical and OMIP/bulk calculated fluxes only
-    !      in couled case ice_fast is called within atmosphere
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
+    !  in coupled case ice_fast is called within atmosphere
     IF (iforc_oce == Analytical_Forcing .OR. iforc_oce == OMIP_FluxFromFile)  THEN  !  11 or 12
 
       IF (i_sea_ice >0 ) THEN
@@ -430,18 +404,6 @@ CONTAINS
           atmos_fluxes%rpreci(:,:) = 0._wp
           atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
         ENDWHERE
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('bef.fast: conc   ',p_ice%conc     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: T1     ',p_ice%t1       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: T2     ',p_ice%t2       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: Tsurf  ',p_ice%tsurf    ,str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: Qtop   ',p_ice%Qtop     ,str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: Qbot   ',p_ice%Qbot     ,str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: dLWdT  ',atmos_fluxes%dLWdT,     str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: albvdir',atmos_fluxes%albvisdir ,str_module,3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.fast: SST    ',p_os%p_prog(nold(1))%tracer(:,1,:,1), str_module, 4, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -474,12 +436,19 @@ CONTAINS
 
     ENDIF  !  analytical & OMIP
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('aft.fast: Tsurf  ',p_ice%tsurf    ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.fast: Qtop   ',p_ice%Qtop     ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.fast: Qbot   ',p_ice%Qbot     ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.fast: dLWdT  ',atmos_fluxes%dLWdT,     str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.fast: albvdir',atmos_fluxes%albvisdir ,str_module,3, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (3) provide atmospheric fluxes for sea ice thermodynamics
-    !      analytical/OMIP/coupled fluxes for call to ice_slow
+    !  (3) provide atmospheric fluxes for sea ice thermodynamics ice_slow
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
-    ! provide constant heat fluxes for special analytical case
+    ! provide constant heat fluxes for special analytical cases
     IF (atmos_flux_analytical_type == 102) THEN
       p_ice%Qtop(:,1,:) = atmos_SWnet_const
       p_ice%Qbot(:,1,:) = 0.0_wp
@@ -489,12 +458,10 @@ CONTAINS
       p_ice%Qbot(:,1,:) = atmos_sens_const
     ENDIF
 
-    ! provide constant water fluxes for special analytical case
+    ! provide constant water fluxes for special analytical cases
     IF (atmos_flux_analytical_type >= 101) THEN
       p_as%FrshFlux_Precipitation        (:,:) = atmos_precip_const
       atmos_fluxes%FrshFlux_Precipitation(:,:) = p_as%FrshFlux_Precipitation(:,:)
-  !   p_as%FrshFlux_Evaporation          (:,:) = atmos_evap_const
-  !   atmos_fluxes%FrshFlux_Evaporation  (:,:) = p_as%FrshFlux_Evaporation  (:,:)
       atmos_fluxes%latw                  (:,:) = atmos_latw_const
     ENDIF
 
@@ -566,107 +533,60 @@ CONTAINS
     !  (3b) call sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('bef.slow: hi     ',p_ice%hi       ,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.slow: Tsurf  ',p_ice%tsurf    ,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.slow: SST    ',p_os%p_prog(nold(1))%tracer(:,1,:,1), str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
     IF (i_sea_ice >= 1) THEN
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('bef.slow: hi     ',p_ice%hi       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: hs     ',p_ice%hs       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: conc   ',p_ice%conc     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: concSum',p_ice%concSum  ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: T1     ',p_ice%t1       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: T2     ',p_ice%t2       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: Tsurf  ',p_ice%tsurf    ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: Qtop   ',p_ice%Qtop     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: Qbot   ',p_ice%Qbot     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('bef.slow: SST    ',p_os%p_prog(nold(1))%tracer(:,1,:,1), &
-        &                                         str_module, 4, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
+      CALL ice_slow_slo(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
 
-        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
-        ! diagnosis of 4 parts is stored in p_sfc_flx%HeatFlux_ShortWave/LongWave/Sensible/Latent
-        ! this diagnosis is done in mo_sea_ice:upper_ocean_TS
-        ! 
-        ! under ice the conductive heat flux is not yet stored specifically
-        ! sum HeatFlux_Total is aggregated over ice/water and stored accordingly in upper_ocean_TS which cannot be done here
-
-      IF (i_therm_slo==0) CALL ice_slow    (p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
-      IF (i_therm_slo==1) CALL ice_slow_slo(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
-
-      ! provide total salinity forcing flux
-      atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:)     &
-        &                                  + atmos_fluxes%FrshFlux_TotalIce(:,:)   &
-        &                                  + atmos_fluxes%FrshFlux_TotalOcean(:,:)
-
-      !  ATTENTION - should it be this way? - with and without sea ice:
-      ! Sum of freshwater flux (for salt) over open ocean F = P - E (no snow, no runoff, see below)
-  !   atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-  !     &                                     (atmos_fluxes%FrshFlux_Precipitation(:,:) +             &
-  !     &                                      atmos_fluxes%FrshFlux_Evaporation(:,:) )
-      ! provide total salinity forcing flux
-  !   atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:) &
-  !     &                                     + atmos_fluxes%FrshFlux_TotalIce(:,:) &
-  !     &                                     + atmos_fluxes%FrshFlux_TotalOcean(:,:)
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('aft.slow: hi     ',p_ice%hi       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: conc   ',p_ice%conc     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: concSum',p_ice%concSum  ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: T1     ',p_ice%t1       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: T2     ',p_ice%t2       ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: Tsurf  ',p_ice%tsurf    ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: Qtop   ',p_ice%Qtop     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: Qbot   ',p_ice%Qbot     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: dLWdT  ',atmos_fluxes%dLWdT,     str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: sens   ',atmos_fluxes%sens      ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('aft.slow: albvdir',atmos_fluxes%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
-       
     ELSE   !  no sea ice
      
-      !  - apply wind stress to forcing variable since no ice_ocean_stress routine is called
+      ! apply wind stress to forcing variable since no ice_ocean_stress routine is called
       atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
       atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
-     
-      !  - no temperature relaxation
-      type_surfRelax_Temp = 0   !  hack - for OMIP-type only
 
-      !  - apply net surface heat flux in W/m2
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+      ! apply net surface heat flux in W/m2 for OMIP case, since these fluxes are calculated in calc_omip_budgets_oce
+      IF (iforc_oce == OMIP_FluxFromFile) THEN
+        WHERE (p_patch_3D%lsm_c(:,1,:) <= sea_boundary)
+          atmos_fluxes%HeatFlux_ShortWave(:,:) = atmos_fluxes%SWnetw(:,:) ! net SW radiation flux over water
+          atmos_fluxes%HeatFlux_LongWave (:,:) = atmos_fluxes%LWnetw(:,:) ! net LW radiation flux over water
+          atmos_fluxes%HeatFlux_Sensible (:,:) = atmos_fluxes%sensw (:,:) ! Sensible heat flux over water
+          atmos_fluxes%HeatFlux_Latent   (:,:) = atmos_fluxes%latw  (:,:) ! Latent heat flux over water
+        ELSEWHERE
+          atmos_fluxes%HeatFlux_ShortWave(:,:) = 0.0_wp
+          atmos_fluxes%HeatFlux_LongWave (:,:) = 0.0_wp
+          atmos_fluxes%HeatFlux_Sensible (:,:) = 0.0_wp
+          atmos_fluxes%HeatFlux_Latent   (:,:) = 0.0_wp
+        ENDWHERE
+      ENDIF  ! OMIP case
      
-          IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-            atmos_fluxes%HeatFlux_ShortWave(jc,jb) = atmos_fluxes%SWnetw(jc,jb) ! net SW radiation flux over water
-            atmos_fluxes%HeatFlux_LongWave (jc,jb) = atmos_fluxes%LWnetw(jc,jb) ! net LW radiation flux over water
-            atmos_fluxes%HeatFlux_Sensible (jc,jb) = atmos_fluxes%sensw (jc,jb) ! Sensible heat flux over water
-            atmos_fluxes%HeatFlux_Latent   (jc,jb) = atmos_fluxes%latw  (jc,jb) ! Latent heat flux over water
-          ELSE
-            atmos_fluxes%HeatFlux_ShortWave(jc,jb) = 0.0_wp
-            atmos_fluxes%HeatFlux_LongWave (jc,jb) = 0.0_wp
-            atmos_fluxes%HeatFlux_Sensible (jc,jb) = 0.0_wp
-            atmos_fluxes%HeatFlux_Latent   (jc,jb) = 0.0_wp
-          END IF
-     
-        ENDDO
-      ENDDO
-     
-      ! for the setup with bulk and without sea ice the threshold for temperature is set to constant Tf
-      ! #slo# 2014-11: TODO: solve energy conservation here!
-      WHERE (t_top(:,:) .LT. Tf)
-        t_top(:,:) = Tf
-      ENDWHERE
-     
-      ! sum of fluxes for ocean boundary condition
+      ! sum of ocean heat fluxes for ocean boundary condition without ice, generally aggregated in ice thermodynamics
       atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:) + atmos_fluxes%HeatFlux_LongWave(:,:) &
         &                              + atmos_fluxes%HeatFlux_Sensible(:,:)  + atmos_fluxes%HeatFlux_Latent(:,:)
+     
+      ! for the setup without sea ice the SST is set to freezing temperature Tf
+      WHERE (p_oce_sfc%SST(:,:) .LT. Tf)
+        p_oce_sfc%SST(:,:) = Tf
+      ENDWHERE
 
     ENDIF  !  sea ice
 
+    ! provide total salinity forcing flux for diagnostics only - salt_content_in_surface
+    atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:)     &
+      &                                  + atmos_fluxes%FrshFlux_TotalIce(:,:)   &
+      &                                  + atmos_fluxes%FrshFlux_TotalOcean(:,:)
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('aft.slow: tracer1',p_os%p_prog(nold(1))%tracer(:,1,:,1), str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aft.slow: TotalSalt', atmos_fluxes%FrshFlux_TotalSalt,   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.slow: hi     ',   p_ice%hi       ,str_module,                    4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.slow: concSum',   p_ice%concSum  ,str_module,                    4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.slow: TotalSalt', atmos_fluxes%FrshFlux_TotalSalt,   str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.slow: TotalOcean',atmos_fluxes%FrshFlux_TotalOcean,  str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('aft.slow: TotalHeat', atmos_fluxes%HeatFlux_Total,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('aft.slow: tracer1',p_os%p_prog(nold(1))%tracer(:,1,:,1), str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('aft.slow: sfc%SST',   p_oce_sfc%SST,                     str_module, 3, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
@@ -705,13 +625,13 @@ CONTAINS
     CALL dbg_print('UpdSfc: aft.Bulk/Ice: hi' , p_ice%hi                 , str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: aft.Bulk/Ice: hs' , p_ice%hs                 , str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: aft.Bulk/Ice:conc', p_ice%conc               , str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: windStr-u', p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: windStr-v', p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: widStrcc1', p_sfc_flx%topBoundCond_windStress_cc%x(1),str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: wndStrcc2', p_sfc_flx%topBoundCond_windStress_cc%x(2),str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: windStress_u',p_sfc_flx%topBoundCond_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: windStress_v',p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: windStress_cc1',p_sfc_flx%topBoundCond_windStress_cc%x(1), &
+      &             str_module,3, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
- !  ! windstress boundary condition
+ !  ! Prepare windstress boundary condition
  !  !  - on new surface type - not yet, since p_oce_sfc argument must be passed through some routines
  !  !  - needs allocation of cartesian coordinate variable
  !  p_oce_sfc%TopBC_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
@@ -736,23 +656,25 @@ CONTAINS
  !    END DO
  !  END DO
 
- !  !---------DEBUG DIAGNOSTICS-------------------------------------------
- !  CALL dbg_print('UpdSfc: aft.Bulk/Ice: hi' , p_ice%hi             , str_module, 2, in_subset=p_patch%cells%owned)
- !  CALL dbg_print('UpdSfc: aft.Bulk/Ice: hs' , p_ice%hs             , str_module, 2, in_subset=p_patch%cells%owned)
- !  CALL dbg_print('UpdSfc: aft.Bulk/Ice:conc', p_ice%conc           , str_module, 2, in_subset=p_patch%cells%owned)
- !  CALL dbg_print('oce_sfc: windStr-u', p_oce_sfc%TopBC_windStress_u, str_module, 2, in_subset=p_patch%cells%owned)
- !  CALL dbg_print('oce_sfc: windStr-v', p_oce_sfc%TopBC_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
- !  CALL dbg_print('oce_sfc: windStr-cc1', p_oce_sfc%TopBC_windStress_cc%x(1), str_module, 3, in_subset=p_patch%cells%owned)
- !  CALL dbg_print('oce_sfc: windStr-cc2', p_oce_sfc%TopBC_windStress_cc%x(2), str_module, 4, in_subset=p_patch%cells%owned)
- !  !---------------------------------------------------------------------
-
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  (4) Apply Thermodynamic Equations for Thermal and Haline Boundary Conditions
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
+    !!  Provide total ocean forcing:
+    !    - total heat fluxes are aggregated for ice/ocean in ice thermodynamics
+    p_oce_sfc%HeatFlux_Total(:,:)       = atmos_fluxes%HeatFlux_Total(:,:)
+    !    - shortwave heat flux for calculation of penetration depth
+    p_oce_sfc%HeatFlux_Shortwave(:,:)   = atmos_fluxes%HeatFlux_Shortwave(:,:)
+    !    - total internal salt flux atmos_fluxes%FrshFlux_TotalIce is calculated in sea ice model
+    p_oce_sfc%FrshFlux_TotalIce(:,:)    = atmos_fluxes%FrshFlux_TotalIce(:,:)
+    !    - total freshwater volume forcing
+    p_oce_sfc%FrshFlux_VolumeTotal(:,:) = atmos_fluxes%FrshFlux_Runoff    (:,:) &
+      &                                 + atmos_fluxes%FrshFlux_VolumeIce (:,:) &
+      &                                 + atmos_fluxes%FrshFlux_TotalOcean(:,:) &
+      &                                 + atmos_fluxes%FrshFlux_Relax     (:,:)
+
     !  ******  (Thermodynamic Eq. 1)  ******
-    !-------------------------------------------------------------------------
     ! Apply net surface heat flux to ocean surface (new p_oce_flx%SST)
     IF (no_tracer > 0) THEN
 
@@ -766,8 +688,6 @@ CONTAINS
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
               &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
-            t_top(jc,jb)         = p_oce_sfc%sst(jc,jb)                        !  activate forcing
-          ! p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = p_oce_sfc%sst(jc,jb)      !  activate forcing if t_top deleted
           ENDIF
         ENDDO
       ENDDO
@@ -784,63 +704,60 @@ CONTAINS
       DO jc = i_startidx_c, i_endidx_c
         IF (p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0) THEN
 
+          !******  (Thermodynamic Eq. 2)  ******
+          !! Calculate the new freeboard caused by changes in ice thermodynamics
+          !!  zUnderIce = z_surf + h_old - (z_draft - z_snowfall)
+          !!  - new zUnderIce is calculated in thermodynamics in routine ice_clean_up
+
           !******  (Thermodynamic Eq. 3)  ******
           !! First, calculate internal salinity change caused by melting of snow and melt or growth of ice:
-          !!   S_new * zUnderIce = S_old * zUnderIceArt
+          !!   SSS_new * zUnderIce = SSS_old * zUnderIceArt
           !!   artificial freeboard zUnderIceArt is used for internal Salinity change only:
           !!   - melt/growth of ice and snow to ice conversion imply a reduced water flux compared to saltfree water
           !!   - reduced water flux is calculated in FrshFlux_TotalIce by the term  (1-Sice/SSS)
           !!   - respective zUnderIceArt for calculating salt change is derived from these fluxes
           !!     which are calculated in sea ice thermodynamics (upper_ocean_TS)
           !    - for i_sea_ice=0 it is FrshFlux_TotalIce=0 and no change here
-          zUnderIceArt(jc,jb)= p_ice%zUnderIce(jc,jb) - atmos_fluxes%FrshFlux_TotalIce(jc,jb)*dtime
-          s_top_inter(jc,jb) = s_top(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
+          zUnderIceArt(jc,jb)= p_ice%zUnderIce(jc,jb) - p_oce_sfc%FrshFlux_TotalIce(jc,jb)*dtime
+          sss_inter(jc,jb)   = p_oce_sfc%sss(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
 
           !******  (Thermodynamic Eq. 4)  ******
           !! Next, calculate salinity change caused by rain and runoff without snowfall by adding their freshwater to zUnderIce
-
-          p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) = atmos_fluxes%FrshFlux_Runoff(jc,jb) &
-            &                                      + atmos_fluxes%FrshFlux_VolumeIce(jc,jb) &
-            &                                      + atmos_fluxes%FrshFlux_TotalOcean(jc,jb) &
-            &                                      + atmos_fluxes%FrshFlux_Relax(jc,jb)
           zUnderIceOld(jc,jb)    = p_ice%zUnderIce(jc,jb)
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
-          p_oce_sfc%SSS(jc,jb)   = s_top_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
-          s_top(jc,jb)           = p_oce_sfc%SSS(jc,jb)                         !  activate forcing    
+          p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
           !******  (Thermodynamic Eq. 5)  ******
           !! Finally, let sea-level rise from rain plus snow fall on ice
-          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)               + &
-            &                             p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime + &
-            &                             p_ice%totalsnowfall(jc,jb)
+          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)               &
+            &                           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
+            &                           + p_ice%totalsnowfall(jc,jb)
          
           !! #slo# 2015-01: test update zunderice
-          zUnderIcetsx(jc,jb)    = p_ice%zUnderIce(jc,jb)
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
-            &                      - p_ice%draftave(jc,jb)
-         
-          !! #slo# 2015-06: set correct cell thickness under ice
-          p_oce_sfc%cellThicknessUnderIce(jc,jb)    = p_ice%zUnderIce(jc,jb)
+            &                    - p_ice%draftave(jc,jb)
 
         ENDIF  !  dolic>0
       END DO
     END DO
+         
+    !! #slo# 2015-06: set correct cell thickness under ice
+    p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
+    atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)  ! for diagnosis only
       
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: oce_sfc%HFTot ', p_oce_sfc%HeatFlux_Total,       str_module, 2, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: oce_sfc%TotIce', p_oce_sfc%FrshFlux_TotalIce,    str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: oce_sfc%SST '   ,p_oce_sfc%SST                  ,str_module, 4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: zUnderIcetsx',   zUnderIcetsx,                   str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: zUnderIce   ',   p_ice%zUnderIce,                str_module, 2, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: s_top_inter ',   s_top_inter,                    str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcEnd: SSS s_top'   ,s_top,                          str_module, 2, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcEnd: SST t_top'   ,t_top,                          str_module, 2, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('UpdSfc: oce_sfc%HFTot ', p_oce_sfc%HeatFlux_Total,       str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: oce_sfc%TotIce', p_oce_sfc%FrshFlux_TotalIce,    str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: zUnderIce   ',   p_ice%zUnderIce,                str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: sss_inter   ',   sss_inter,                      str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST,                  str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS,                  str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
     
     ! apply volume flux correction: 

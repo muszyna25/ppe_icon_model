@@ -60,7 +60,7 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
-  INTEGER :: surface_module = 1  !  surface module - 1: mo_ocean_bulk, 2: mo_ocean_surface
+  INTEGER :: surface_module = 1  !  surface module - 1: mo_ocean_bulk, 2: mo_ocean_surface - implies i_therm_slo in sea ice
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
   INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
