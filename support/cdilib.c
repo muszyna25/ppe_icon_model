@@ -49612,7 +49612,10 @@ int my_grib_set_double(grib_handle* h, const char* key, double val)
   if ( cdiGribApiDebug )
     fprintf(stderr, "grib_set_double(\tgrib_handle* h, \"%s\", %f)\n", key, val);
 
-  return grib_set_double(h, key, val);
+  int ret_val = grib_set_double(h, key, val);
+  if (ret_val != 0)
+    fprintf(stderr, "!!! failed call to grib_set_double(\tgrib_handle* h, \"%s\", %f) !!!\n", key, val);
+  return ret_val;
 }
 
 static
@@ -49621,7 +49624,10 @@ int my_grib_set_long(grib_handle* h, const char* key, long val)
   if ( cdiGribApiDebug )
     fprintf(stderr, "grib_set_long(  \tgrib_handle* h, \"%s\", %ld)\n", key, val);
 
-  return grib_set_long(h, key, val);
+  int ret_val = grib_set_long(h, key, val);
+  if (ret_val != 0)
+    fprintf(stderr, "!!! failed call to grib_set_long(  \tgrib_handle* h, \"%s\", %ld) !!!\n", key, val);
+  return ret_val;
 }
 
 static
@@ -49630,7 +49636,10 @@ int my_grib_set_string(grib_handle* h, const char* key, const char* val, size_t*
   if ( cdiGribApiDebug )
     fprintf(stderr, "grib_set_string(\tgrib_handle* h, \"%s\", \"%s\")\n", key, val);
 
-  return grib_set_string(h, key, val, length);
+  int ret_val = grib_set_string(h, key, val, length);
+  if (ret_val != 0)
+    fprintf(stderr, "!!! grib_set_string(\tgrib_handle* h, \"%s\", \"%s\") !!!\n", key, val);
+  return ret_val;
 }
 
 static
@@ -51862,7 +51871,8 @@ void grib2DefLevel(grib_handle *gh, int gcinit, long leveltype1, long leveltype2
 }
 
 static
-void gribapiDefLevel(int editionNumber, grib_handle *gh, int param, int zaxisID, int levelID, int gcinit)
+void gribapiDefLevel(int editionNumber, grib_handle *gh, int param,
+		     int zaxisID, int levelID, int gcinit, int proddef_template_num)
 {
   int lbounds = 0;
   static int warning = 1;
@@ -51912,7 +51922,8 @@ void gribapiDefLevel(int editionNumber, grib_handle *gh, int param, int zaxisID,
           }
         else
           {
-            grib2DefLevel(gh, gcinit, grib2ltype, grib2ltype, lbounds, level, dlevel1, dlevel2);
+	    if (proddef_template_num != 32)
+	      grib2DefLevel(gh, gcinit, grib2ltype, grib2ltype, lbounds, level, dlevel1, dlevel2);
           }
 
 	break;
@@ -52210,7 +52221,7 @@ size_t gribapiEncode(int varID, int levelID, int vlistID, int gridID, int zaxisI
 
   gribapiDefGrid((int)editionNumber, gh, gridID, comptype, lieee, datatype, nmiss, gc->init);
 
-  gribapiDefLevel((int)editionNumber, gh, param, zaxisID, levelID, gc->init);
+  gribapiDefLevel((int)editionNumber, gh, param, zaxisID, levelID, gc->init, productDefinitionTemplate);
 
   vlist_t *vlistptr = vlist_to_pointer(vlistID);
   //if (!gc->init)
