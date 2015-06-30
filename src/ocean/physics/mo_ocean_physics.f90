@@ -1145,8 +1145,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1))! *  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk, jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1325,8 +1325,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) ! *  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1578,8 +1578,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1))! *  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1775,8 +1775,8 @@ CONTAINS
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
           ! d_rho/dz
-          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) !*  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
           richardson_no(jc,jk,jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
