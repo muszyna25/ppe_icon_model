@@ -20,7 +20,8 @@ MODULE mo_grib2_util
   USE mo_exception,          ONLY: finish
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess, vlistInqVarTsteptype, vlistInqTaxis, &
                                  & taxisInqTunit, TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX, TSTEP_MIN, TUNIT_SECOND, &
-                                 & TUNIT_MINUTE, TUNIT_HOUR 
+                                 & TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, vlistDefVarProductDefinitionTemplate, &
+                                 & vlistDefVarTypeOfGeneratingProcess
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
     &                              CLASS_TILE_LAND

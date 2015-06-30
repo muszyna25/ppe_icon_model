@@ -55,7 +55,7 @@ MODULE mo_echam_phy_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,                    &
-    &                               TSTEP_INSTANT, TSTEP_AVG
+    &                               TSTEP_INSTANT, TSTEP_AVG, cdiDefMissval
   USE mo_cdi_constants,       ONLY: GRID_REFERENCE,                    &
     &                               GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &

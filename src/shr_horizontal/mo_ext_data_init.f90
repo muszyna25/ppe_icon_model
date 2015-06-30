@@ -90,7 +90,7 @@ MODULE mo_ext_data_init
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,    &
-    &                              vlistInqVarIntKey, CDI_GLOBAL
+    &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, streamClose
   USE mo_math_gradients,     ONLY: grad_fe_cell
 
   IMPLICIT NONE
