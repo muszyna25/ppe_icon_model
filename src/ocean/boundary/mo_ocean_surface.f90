@@ -311,6 +311,9 @@ CONTAINS
       !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, atmos_fluxes)
 
+      !  needed for old heat flux BC
+      atmos_fluxes%HeatFlux_Total=atmos_fluxes%topBoundCond_Temp_vdiff
+
       ! provide dLWdt for ice_fast as for OMIP
       atmos_fluxes%dLWdT (:,:,:)  = -4._wp*zemiss_def*stbo*(p_ice%tsurf(:,:,:)-tmelt)**3
 
@@ -403,25 +406,26 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, dtime, &
-            &   p_ice% Tsurf(:,:,jb),   &
-            &   p_ice% T1   (:,:,jb),   &
-            &   p_ice% T2   (:,:,jb),   &
-            &   p_ice% hi   (:,:,jb),   &
-            &   p_ice% hs   (:,:,jb),   &
-            &   p_ice% Qtop (:,:,jb),   &
-            &   p_ice% Qbot (:,:,jb),   & 
-            &   atmos_fluxes%SWnet  (:,:,jb),   &
+            &   p_ice% Tsurf(:,:,jb),   &          !  intent(inout)
+            &   p_ice% T1   (:,:,jb),   &          !  intent(out)   dummy for zerolayer model
+            &   p_ice% T2   (:,:,jb),   &          !  intent(out)   dummy for zerolayer model
+            &   p_ice% hi   (:,:,jb),   &          !  intent(in)
+            &   p_ice% hs   (:,:,jb),   &          !  intent(in)
+            &   p_ice% Qtop (:,:,jb),   &          !  intent(out)
+            &   p_ice% Qbot (:,:,jb),   &          !  intent(out)
+            &   atmos_fluxes%SWnet  (:,:,jb),   &  !  following: intent(in)
             &   atmos_fluxes%lat(:,:,jb) + atmos_fluxes%sens(:,:,jb) + atmos_fluxes%LWnet(:,:,jb),   & 
             &   atmos_fluxes%dlatdT(:,:,jb) + atmos_fluxes%dsensdT(:,:,jb) + atmos_fluxes%dLWdT(:,:,jb),   & 
             &   Tfw         (:,  jb),   &
-            &   atmos_fluxes%albvisdir(:,:,jb), &
+            &   atmos_fluxes%albvisdir(:,:,jb), &  !  albedos: intent(out)
             &   atmos_fluxes%albvisdif(:,:,jb), &
             &   atmos_fluxes%albnirdir(:,:,jb), &
             &   atmos_fluxes%albnirdif(:,:,jb), &
             &   doy=datetime%yeaday)
         ENDDO
        
-        ! Ocean albedo model
+        ! Unique albedo for analytical and OMIP cases (i_ice_albedo=1)
+        !  the near infrared and diffuse albedos may be used for calculation of tsurf
         atmos_fluxes%albvisdirw = albedoW_sim
         atmos_fluxes%albvisdifw = albedoW_sim
         atmos_fluxes%albnirdirw = albedoW_sim
