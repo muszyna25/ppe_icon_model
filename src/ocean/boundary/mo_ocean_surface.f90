@@ -268,9 +268,9 @@ CONTAINS
     CALL dbg_print('sfcflx%windStr-u ',p_sfc_flx%topBoundCond_windStress_u,str_module,3,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
-    !-----------------------------------------------------------------------
-    ! Apply relaxation to surface temperature and salinity
-    !-----------------------------------------------------------------------
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  (1) Apply relaxation to surface temperature and salinity
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
     IF (type_surfRelax_Temp >= 1) THEN
       trac_no = 1   !  tracer no 1: temperature
@@ -290,25 +290,20 @@ CONTAINS
 
     ENDIF
 
-    ! Calculate the sea surface freezing temperature
-    !  2015-06: Tfw should be included in ice-variables and initialized in ice_init
-    !           then updated after changing SSS by sea-ice, only!
-    !  here: set to Tf for consistency with results of old mo_ocean_bulk
-    Tfw(:,:) = Tf
-
     ! assign freeboard before sea ice model
     IF (i_sea_ice==0) THEN
       p_ice%zUnderIce(:,:) = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)+p_os%p_prog(nold(1))%h(:,:))
       p_oce_sfc%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
     ENDIF
+
     ! freeboard used for thermal boundary condition (Eq.1)
     zUnderIceIni(:,:) = p_ice%zUnderIce(:,:)
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (1) get surface fluxes from outside
+    !  (2) Receive surface fluxes for ocean forcing
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
-    !   read in fluxes (analytical, OMIP and bulk formula, coupling)
+    !   fluxes from analytical / OMIP and bulk / coupling
     SELECT CASE (iforc_oce)
 
     CASE (Analytical_Forcing)        !  11
@@ -316,10 +311,7 @@ CONTAINS
       !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, atmos_fluxes)
 
-      ! adjusting Tsurf for ice_fast before timestep 1:
-      IF (atmos_flux_analytical_type == 102) p_ice%Tsurf(:,:,:) = 0.0_wp
-
-      ! provide dLWdt for ice_fast
+      ! provide dLWdt for ice_fast as for OMIP
       atmos_fluxes%dLWdT (:,:,:)  = -4._wp*zemiss_def*stbo*(p_ice%tsurf(:,:,:)-tmelt)**3
 
       ! provide constant water fluxes for special analytical cases
@@ -394,23 +386,19 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (2) call ice_fast for analytical and OMIP/bulk calculated fluxes only
+    !  (3) Calculate fast sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
-    !  in coupled case ice_fast is called within atmosphere
+    !  for analytical and OMIP/bulk calculated fluxes only
+    !  in coupled case ice_fast is called within atmosphere model
     IF (iforc_oce == Analytical_Forcing .OR. iforc_oce == OMIP_FluxFromFile)  THEN  !  11 or 12
 
       IF (i_sea_ice >0 ) THEN
-        
-        ! to reproduce bit-identical results, preci and precw are set using old tsurf (29.06.15)
-        ! TODO: delete as soon as surface module is ready
-        WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-          atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
-          atmos_fluxes%rprecw(:,:) = 0._wp
-        ELSEWHERE
-          atmos_fluxes%rpreci(:,:) = 0._wp
-          atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
-        ENDWHERE
+
+      ! Calculate the sea surface freezing temperature
+      !  2015-06: array used in ice_fast, set to constant Tf
+      !  if Tfw is variable it should be included in ice-variables and initialized in ice_init
+      Tfw(:,:) = Tf
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -462,7 +450,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (3) provide atmospheric fluxes for sea ice thermodynamics ice_slow
+    !  (4a) Provide fluxes for slow sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
     IF (iforc_oce == OMIP_FluxFromFile) THEN
@@ -474,16 +462,16 @@ CONTAINS
       !  copy variables into atmos_fluxes
       atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
     
-      ! Precipitation on ice is snow when we're below the freezing point, no snowfall from OMIP data
-      ! rprecw, rpreci are water equivalent over whole grid-area
-      ! to reproduce bit-identical results, preci and precw are set above using old tsurf (29.06.15)
-  !   WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-  !     atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
-  !     atmos_fluxes%rprecw(:,:) = 0._wp
-  !   ELSEWHERE
-  !     atmos_fluxes%rpreci(:,:) = 0._wp
-  !     atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
-  !   ENDWHERE
+      ! Precipitation on ice is snow when tsurf is below the freezing point
+      !  - no snowfall from OMIP data
+      !  - rprecw, rpreci are water equivalent over whole grid-area
+      WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+        atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
+        atmos_fluxes%rprecw(:,:) = 0._wp
+      ELSEWHERE
+        atmos_fluxes%rpreci(:,:) = 0._wp
+        atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
+      ENDWHERE
 
     ELSEIF (iforc_oce == Coupled_FluxFromAtmo)  THEN
 
@@ -530,7 +518,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (3b) call sea ice thermodynamics
+    !  (4b) Call slow sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -591,17 +579,15 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (3c) set wind stress boundary condition
+    !  (5) Set wind stress boundary condition
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
     ! windstress
     p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
     p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
 
-    !
     ! After final updating of zonal and merdional components (from file, bulk formula, or coupling)
     ! cartesian coordinates are calculated
-    !
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -658,7 +644,7 @@ CONTAINS
 
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (4) Apply Thermodynamic Equations for Thermal and Haline Boundary Conditions
+    !  (6) Apply Thermodynamic Equations for Thermal and Haline Boundary Conditions
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
     !!  Provide total ocean forcing:
