@@ -316,11 +316,11 @@ CONTAINS
       !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, atmos_fluxes)
 
-      ! provide dLWdt for ice_fast
-      atmos_fluxes%dLWdT (:,:,:)  = -4._wp*zemiss_def*stbo*(p_ice%tsurf(:,:,:)-tmelt)**3
-
       ! adjusting Tsurf for ice_fast before timestep 1:
       IF (atmos_flux_analytical_type == 102) p_ice%Tsurf(:,:,:) = 0.0_wp
+
+      ! provide dLWdt for ice_fast
+      atmos_fluxes%dLWdT (:,:,:)  = -4._wp*zemiss_def*stbo*(p_ice%tsurf(:,:,:)-tmelt)**3
 
       ! provide constant water fluxes for special analytical cases
       IF (atmos_flux_analytical_type >= 101) THEN
@@ -412,32 +412,42 @@ CONTAINS
           atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
         ENDWHERE
 
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, dtime, &
-          &   p_ice% Tsurf(:,:,jb),   &
-          &   p_ice% T1   (:,:,jb),   &
-          &   p_ice% T2   (:,:,jb),   &
-          &   p_ice% hi   (:,:,jb),   &
-          &   p_ice% hs   (:,:,jb),   &
-          &   p_ice% Qtop (:,:,jb),   &
-          &   p_ice% Qbot (:,:,jb),   & 
-          &   atmos_fluxes%SWnet  (:,:,jb),   &
-          &   atmos_fluxes%lat(:,:,jb) + atmos_fluxes%sens(:,:,jb) + atmos_fluxes%LWnet(:,:,jb),   & 
-          &   atmos_fluxes%dlatdT(:,:,jb) + atmos_fluxes%dsensdT(:,:,jb) + atmos_fluxes%dLWdT(:,:,jb),   & 
-          &   Tfw         (:,  jb),   &
-          &   atmos_fluxes%albvisdir(:,:,jb), &
-          &   atmos_fluxes%albvisdif(:,:,jb), &
-          &   atmos_fluxes%albnirdir(:,:,jb), &
-          &   atmos_fluxes%albnirdif(:,:,jb), &
-          &   doy=datetime%yeaday)
-      ENDDO
-
-      ! Ocean albedo model
-      atmos_fluxes%albvisdirw = albedoW_sim
-      atmos_fluxes%albvisdifw = albedoW_sim
-      atmos_fluxes%albnirdirw = albedoW_sim
-      atmos_fluxes%albnirdifw = albedoW_sim
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+          CALL ice_fast(i_startidx_c, i_endidx_c, nproma, p_ice%kice, dtime, &
+            &   p_ice% Tsurf(:,:,jb),   &
+            &   p_ice% T1   (:,:,jb),   &
+            &   p_ice% T2   (:,:,jb),   &
+            &   p_ice% hi   (:,:,jb),   &
+            &   p_ice% hs   (:,:,jb),   &
+            &   p_ice% Qtop (:,:,jb),   &
+            &   p_ice% Qbot (:,:,jb),   & 
+            &   atmos_fluxes%SWnet  (:,:,jb),   &
+            &   atmos_fluxes%lat(:,:,jb) + atmos_fluxes%sens(:,:,jb) + atmos_fluxes%LWnet(:,:,jb),   & 
+            &   atmos_fluxes%dlatdT(:,:,jb) + atmos_fluxes%dsensdT(:,:,jb) + atmos_fluxes%dLWdT(:,:,jb),   & 
+            &   Tfw         (:,  jb),   &
+            &   atmos_fluxes%albvisdir(:,:,jb), &
+            &   atmos_fluxes%albvisdif(:,:,jb), &
+            &   atmos_fluxes%albnirdir(:,:,jb), &
+            &   atmos_fluxes%albnirdif(:,:,jb), &
+            &   doy=datetime%yeaday)
+        ENDDO
+       
+        ! Ocean albedo model
+        atmos_fluxes%albvisdirw = albedoW_sim
+        atmos_fluxes%albvisdifw = albedoW_sim
+        atmos_fluxes%albnirdirw = albedoW_sim
+        atmos_fluxes%albnirdifw = albedoW_sim
+       
+        ! provide constant heat fluxes for special analytical cases
+        IF (atmos_flux_analytical_type == 102) THEN
+          p_ice%Qtop(:,1,:) = atmos_SWnet_const
+          p_ice%Qbot(:,1,:) = 0.0_wp
+        ENDIF
+        IF (atmos_flux_analytical_type == 103) THEN
+          p_ice%Qtop(:,1,:) = 0.0_wp
+          p_ice%Qbot(:,1,:) = atmos_sens_const
+        ENDIF
 
       ENDIF  !  sea ice
 
@@ -454,16 +464,6 @@ CONTAINS
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  (3) provide atmospheric fluxes for sea ice thermodynamics ice_slow
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-
-    ! provide constant heat fluxes for special analytical cases
-    IF (atmos_flux_analytical_type == 102) THEN
-      p_ice%Qtop(:,1,:) = atmos_SWnet_const
-      p_ice%Qbot(:,1,:) = 0.0_wp
-    ENDIF
-    IF (atmos_flux_analytical_type == 103) THEN
-      p_ice%Qtop(:,1,:) = 0.0_wp
-      p_ice%Qbot(:,1,:) = atmos_sens_const
-    ENDIF
 
     IF (iforc_oce == OMIP_FluxFromFile) THEN
 
