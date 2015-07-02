@@ -30,13 +30,19 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur"
 # I. General setup
 #--------------------------------------------------------------------------------------------------
 #
-# I.1 Variables provided by the scripting mechanism
-# -------------------------------------------------
+# I.1 Variables provided or required by the scripting mechanism
+# -------------------------------------------------------------
 #
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 # second, minute, hour, day     = length of these intervals in [s]
+#
+# modelname_list[0]="atmo"  : needs to correspond with yac_fdef_comp and xml cmomponent name
+# modelname_list[1]="ocean" : needs to correspond with yac_fdef_comp and xml cmomponent name
+#
+# Variables atmo_dyn_grids and ocean_grids are used elsewhere in the scripting mechanim. Thus
+# the names of theses variables must not be changed. 
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -66,8 +72,10 @@ fi
 # ------------------
 
 grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
-atm_dyn_grids='r2b4_amip.nc'
-oce_dyn_grids='r2b4_amip.nc'
+atmo_dyn_grids='r2b4_amip.nc'
+ocean_grids='r2b4_amip.nc'
+
+add_required_file ${grids_folder}/${ocean_grids} ./
 
 # time stepping
 # -------------
@@ -107,13 +115,13 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
 #--------------------------------------------------------------------------------------------------
-# II. atmosphere & land section
+# II. Atmosphere & land section
 #--------------------------------------------------------------------------------------------------
 
 # II.1 Define the atmosphere and land model configuration
 # -------------------------------------------------------
 
-# II.1.1 atmospheric dynamics and physics
+# II.1.1 Atmospheric dynamics and physics
 # ---------------------------------------
 
 cat > ${atm_namelist} << EOF
@@ -124,7 +132,7 @@ cat > ${atm_namelist} << EOF
  nproma           = ${nproma}
 /
 &grid_nml
- dynamics_grid_filename = "${atm_dyn_grids}",
+ dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &run_nml
  num_lev          = 47          ! number of full levels
@@ -220,7 +228,7 @@ cat > ${atm_namelist} << EOF
 /
 EOF
 
-# II.1.2 land surface and soil
+# II.1.2 Land surface and soil
 # ----------------------------
 
 cat > ${lnd_namelist} <<EOF
@@ -251,19 +259,19 @@ EOF
 # II.2 Define the input
 # ---------------------
 
-# II.2.1 model files
+# II.2.1 Model files
 # ------------------
 
 add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
-# II.2.2 namelist files
+# II.2.2 Namelist files
 # ---------------------
 
 add_required_file ${basedir}/run/${atm_namelist}                        ./
 add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
-# II.2.3 dictionary file for output variable names
+# II.2.3 Dictionary file for output variable names
 # ------------------------------------------------
 
 dict_file="dict.${EXPNAME}"
@@ -271,7 +279,7 @@ cat dict.iconam.mpim  > ${dict_file}
 cat dict.echam.mpim  >> ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
-# II.2.4 initial conditions
+# II.2.4 Initial conditions
 # -------------------------
 
 INDATA=${icon_data_poolFolder}/input/r0003
@@ -284,7 +292,7 @@ add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2
 datadir=$INDATA/r2b4_amip/lnd
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
-# II.2.5 boundary conditions
+# II.2.5 Boundary conditions
 # --------------------------
 
 # range of years for yearly files
@@ -364,6 +372,7 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 
 # II.3.1 Parameters for all output files
 # --------------------------------------
+
 cat >> ${atm_namelist} << EOF
 &io_nml
  dt_checkpoint    = ${dt_checkpoint}  ! [s] restart file interval
@@ -408,7 +417,12 @@ reg_lon_def_tri=0.,1.125,358.875
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
 output_atm_3d=yes
-#
+output_atm_2d=yes
+output_phy_3d=yes
+output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
+output_lnd=yes
+
+
 if [[ "$output_atm_3d" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
@@ -427,8 +441,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 EOF
 fi
 
-output_atm_2d=yes
-#
+
 if [[ "$output_atm_2d" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
@@ -471,8 +484,6 @@ EOF
 fi
 
 
-output_phy_3d=yes
-#
 if [[ "$output_phy_3d" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
@@ -502,7 +513,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
-output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 
 if [[ "$output_aer_3d" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
@@ -524,7 +534,6 @@ if [[ "$output_aer_3d" == "yes" ]]; then
 EOF
 fi
 
-output_lnd=yes
 
 if [[ "$output_lnd" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
@@ -571,7 +580,7 @@ cat > ${oce_namelist} << EOF
  l_fast_sum    = .TRUE.
 /
 &grid_nml
- dynamics_grid_filename      = "${oce_grids}",
+ dynamics_grid_filename      = "${ocean_grids}",
  use_dummy_cell_closure      = .true.
  use_duplicated_connectivity = .false.
 /
@@ -691,19 +700,10 @@ cat > ${oce_namelist} << EOF
                                               ! this value is divided by number of seconds per month (=30*24*3600)
   forcing_enable_freshwater = TRUE            ! enable freshwater flux
 /
-&ocean_initialConditions_nml                  ! TODO: check
-  initial_salinity_type      = 402            ! TODO: check
-  initial_temperature_type   = 207            ! TODO: check
-  initial_sst_type           = 'sst1'         ! TODO: check
-  initial_temperature_top    = 27.0           ! TODO: check
-  initial_temperature_bottom = 0.0            ! TODO: check
-/
-!
-! &ocean_initialConditions_nml
-!   initial_salinity_type           = 1       ! read from file
-!   initial_temperature_type        = 1       ! read from file
-! /                                    
-!
+&ocean_initialConditions_nml
+  initial_salinity_type           = 1         ! read S from initial_state.nc
+  initial_temperature_type        = 1         ! read T from initial_state.nc
+/                                    
 &ocean_diagnostics_nml
    diagnostics_level            = 1
    gibraltar(1:10)              = 1367,1369
@@ -725,10 +725,10 @@ cat > ${oce_namelist} << EOF
 /
 EOF
 
-# III.2 add standard atmo_non-hydrostatic_files
-# ---------------------------------------------
+# III.2 Add standard ocean input files 
+# ------------------------------------
 
-. ${thisdir}/add_required_ocean_files
+add_required_file ${basedir}/data/ts_phc3.0_annual_icon_r2b4_amip_L40.nc initial_state.nc
 
 #--------------------------------------------------------------------------------------------------
 # IV. coupling section
@@ -738,7 +738,7 @@ if [ $mpi_total_procs -lt 2 ] ; then
   check_error 0 "This setup requires at least 2 mpi processes. Exit"
 fi
 
-# IV.1 split the number of procs in two for each of the dummy component
+# IV.1 Split the number of procs in two for each of the dummy component
 # ---------------------------------------------------------------------
 oce_min_rank=`expr ${mpi_total_procs} - ${mpi_oce_procs}`
 oce_max_rank=`expr ${oce_min_rank} + ${mpi_oce_procs} - 1`
@@ -747,7 +747,7 @@ atm_min_rank=0
 atm_max_rank=`expr ${oce_min_rank} - 1`
 atm_inc_rank=1
 #
-# IV.2 fill model list
+# IV.2 Fill model list
 # --------------------
 #
 namelist_list[0]="$atm_namelist"
@@ -758,13 +758,13 @@ maxrank_list[0]=$atm_max_rank
 incrank_list[0]=$atm_inc_rank
 #
 namelist_list[1]="$oce_namelist"
-modelname_list[1]="oce"
+modelname_list[1]="oceean"
 modeltype_list[1]=2
 minrank_list[1]=$oce_min_rank
 maxrank_list[1]=$oce_max_rank
 incrank_list[1]=$oce_inc_rank
 
-# IV.3 write YAC coupling xml file
+# IV.3 Write YAC coupling xml file
 # --------------------------------
 #
 atm_lag=2 # 2 for cold start of atmosphere, 1 for normal atmosphere restart
