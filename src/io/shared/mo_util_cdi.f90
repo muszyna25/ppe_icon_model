@@ -306,6 +306,18 @@ CONTAINS
 
     ! insanity check
     IF(varID < 0) THEN
+      IF(my_process_is_stdio()) THEN
+        print*, routine//": mapped_name = '"//TRIM(mapped_name)//"'"
+        print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
+        print*, routine//": list of variables:"
+        DO i = 1, SIZE(me%variableNames)
+          print*, routine//":     '"//TRIM(tolower(TRIM(me%variableNames(i))))//"'"
+          DO j = 1, SIZE(me%variableTileinfo(i)%tile)
+            print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
+            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
+          END DO
+        END DO
+      END IF
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END SUBROUTINE inputParametersFindVarId
