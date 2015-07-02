@@ -71,7 +71,6 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  !USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
   USE mo_sea_ice,             ONLY: ice_slow, ice_fast
   USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress
@@ -533,6 +532,7 @@ CONTAINS
 
     IF (i_sea_ice >= 1) THEN
 
+      ! call to refactored ice thermodynamics
       CALL ice_slow_slo(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
 
     ELSE   !  no sea ice
