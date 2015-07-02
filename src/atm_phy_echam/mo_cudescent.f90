@@ -36,13 +36,24 @@
 MODULE mo_cudescent
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : grav, rd, vtmpc1
+#ifndef __ICON__
   USE mo_echam_conv_constants, ONLY : lmfdudv, lmfdd, cmfdeps, cmfcmin, entrdd
+#else
+  USE mo_echam_conv_config,    ONLY : echam_conv_config
+#endif
   USE mo_cuadjust,             ONLY : cuadjtq
   !
  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cudlfs, cuddraf
+
+#ifdef __ICON__
+  ! to simplify access to components of echam_conv_config
+  LOGICAL , POINTER :: lmfdd, lmfdudv
+  REAL(wp), POINTER :: cmfdeps, cmfcmin, entrdd
+#endif
+
 
 CONTAINS
   !>
@@ -87,6 +98,14 @@ CONTAINS
     LOGICAL  :: llo3(kbdim)
     INTEGER  :: jl, jk, ke, is, ik, icall, jt
     REAL(wp) :: zttest, zqtest, zbuo, zmftop
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    lmfdudv  => echam_conv_config% lmfdudv
+    lmfdd    => echam_conv_config% lmfdd
+    cmfdeps  => echam_conv_config% cmfdeps
+#endif
+
     !
     !---------------------------------------------------------------------------------
     !
@@ -227,6 +246,14 @@ CONTAINS
     INTEGER  :: jk, is, jl, itopde, jt, ik, icall
     REAL(wp) :: zentr, zseen, zqeen, zsdde, zqdde, zmfdsk, zmfdqk, zxteen            &
       &       , zxtdde, zmfdxtk, zbuo, zdmfdp, zmfduk, zmfdvk
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    lmfdudv  => echam_conv_config% lmfdudv
+    cmfcmin  => echam_conv_config% cmfcmin
+    entrdd   => echam_conv_config% entrdd
+#endif
+
     !
     !----------------------------------------------------------------------
     !     1.  Calculate moist descent for cumulus downdraft by

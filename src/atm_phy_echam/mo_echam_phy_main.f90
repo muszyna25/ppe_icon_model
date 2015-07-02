@@ -134,7 +134,7 @@ CONTAINS
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by long wave radiation due to impl. coupling in surface energy balance [W/m2]
+    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
     REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
@@ -142,7 +142,6 @@ CONTAINS
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 
     REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
-    REAL(wp) :: zheight(nbdim,nlev)       !< temp for height input
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
@@ -151,7 +150,6 @@ CONTAINS
     INTEGER  :: jks   !< start index for vertical loops
     INTEGER  :: nc    !< number of cells/columns from (jce-jcs+1)
     INTEGER  :: jc
-    INTEGER  :: jsfc
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
@@ -522,7 +520,6 @@ CONTAINS
             END SELECT
 
         zaedummy(:,:) = 0.0_wp
-        zheight (:,:) = field%geom(:,:,jb)/grav
 
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -1158,7 +1155,6 @@ CONTAINS
         &          ictop,                     &! inout
         &          ilab,                      &! out
         &          field% topmax(:,jb),       &! inout
-        &          echam_conv_config%nmctop,  &! in
         &          echam_conv_config%cevapcu, &! in
         &          zcd, zcv,                  &! in
         &          tend% q_dyn(:,:,jb,iqv),   &! in     qte by transport
