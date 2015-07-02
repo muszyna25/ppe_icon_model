@@ -185,7 +185,8 @@ CONTAINS
 
             subtypeID = vlistInqVarSubtype(vlistID,i-1)
             subtypeSize(i) = subtypeInqSize(subtypeID)
-            !
+            IF(subtypeSize(i) < 1) subtypeSize(i) = 1   !We need this to ensure that the trivial_tileinfo is actually stored somewhere IN the CASE of non-tile variables. Otherwise, non-tile variables can never be found.
+
             ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), &
               &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
