@@ -205,14 +205,18 @@ MODULE mo_psrad_radiation
 
   CONTAINS
 
-  SUBROUTINE pre_psrad_radiation(p_patch,datetime_radiation,ltrig_rad,amu0_x,rdayl_x,amu0m_x,rdaylm_x)
+  SUBROUTINE pre_psrad_radiation( p_patch,         datetime_radiation,        &
+                                & datetime,        ltrig_rad,                 &
+                                & amu0_x,          rdayl_x,                   &
+                                & amu0m_x,         rdaylm_x                   )
   !-----------------------------------------------------------------------------
   !>
   !! @brief Prepares information for radiation call
   !
 
     TYPE(t_patch), INTENT(IN)        :: p_patch
-    TYPE(t_datetime), INTENT(IN)     :: datetime_radiation !< date and time of radiative transfer calculation
+    TYPE(t_datetime), INTENT(IN)     :: datetime_radiation, & !< date and time of radiative transfer calculation
+                                      & datetime !< current time step
     LOGICAL         , INTENT(IN)     :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
     REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:), &
                                         amu0m_x(:,:), rdaylm_x(:,:)
@@ -227,7 +231,7 @@ MODULE mo_psrad_radiation
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
 !!$    l_rad_call = .FALSE.
-    CALL get_orbit_times(datetime_radiation, time_of_day, &
+    CALL get_orbit_times(datetime, time_of_day, &
          &               orbit_date)
 
     IF (l_orbvsop87) THEN 
@@ -372,6 +376,8 @@ MODULE mo_psrad_radiation
 !!$        END DO
 !!$      END IF
       !--jsr&hs
+    ELSE
+      amu0m_x(:,:)=0._wp
 
     END IF ! lrad .AND. l_trigrad
 

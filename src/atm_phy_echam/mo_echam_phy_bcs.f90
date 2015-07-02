@@ -201,10 +201,10 @@ CONTAINS
     END IF ! ltrig_rad
 
     CALL pre_psrad_radiation( &
-            & patch,                           datetime_radtran,        &
-            & ltrig_rad,                       prm_field(jg)%cosmu0,    &
-            & prm_field(jg)%daylght_frc,       prm_field(jg)%cosmu0_rad,&
-            & prm_field(jg)%daylght_frc_rad                             )
+            & patch,                           datetime_radtran,             &
+            & datetime,                        ltrig_rad,                    &
+            & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
+            & prm_field(jg)%cosmu0_rad,        prm_field(jg)%daylght_frc_rad )
 
     is_1st_call = .FALSE.
 

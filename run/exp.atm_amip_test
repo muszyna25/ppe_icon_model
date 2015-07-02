@@ -119,6 +119,7 @@ cat > ${atmo_namelist} << EOF
 /
 &echam_phy_nml
  dt_rad           =  480.       ! [s] radiation time step
+! dt_rad           =  7200.       ! [s] radiation time step
  lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
@@ -453,7 +454,7 @@ if [[ "$output_rad_2d_3d_rmb" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'cosmu0', 'prm_daylght_frc',
+ ml_varlist       = 'cosmu0','prm_cosmu0_rad', 'prm_daylght_frc',
 		    'prm_visfrcsfc', 'prm_parsfcdn', 
                     'prm_nirdffsfc', 'prm_visdffsfc',
                     'prm_pardffsfc', 'prm_lwflxupsfc', 
@@ -466,7 +467,7 @@ if [[ "$output_rad_2d_3d_rmb" == "yes" ]]; then
 /
 EOF
 fi
-
+!, 'prm_cosmu0_rad'
 output_phy_2d_rmb=yes
 #
 if [[ "$output_phy_2d_rmb" == "yes" ]]; then
