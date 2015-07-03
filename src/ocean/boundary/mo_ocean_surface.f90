@@ -71,10 +71,10 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_sea_ice,             ONLY: ice_slow, ice_fast
+  USE mo_sea_ice,             ONLY: ice_fast
   USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
-  USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress
-  
+  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
+  USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
   USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
   IMPLICIT NONE
@@ -521,7 +521,27 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
-    !  (4b) Call slow sea ice thermodynamics
+    !  (4b) Call sea ice dynamics
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+
+    ! ocean stress calculated independent of ice dynamics
+    CALL ice_ocean_stress( p_patch, atmos_fluxes, p_ice, p_os )
+
+    CALL dbg_print('bef.icedyn: hi   ',p_ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.icedyn: hs   ',p_ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.icedyn: Conc.',p_ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
+
+    IF ( i_ice_dyn >= 1 ) THEN
+      ! AWI FEM model wrapper
+      CALL fem_ice_wrap ( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
+      CALL ice_advection( p_patch_3D, p_op_coeff, p_ice )
+    ELSE
+      p_ice%u = 0._wp
+      p_ice%v = 0._wp
+    ENDIF
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  (4c) Call slow sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------

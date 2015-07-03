@@ -45,7 +45,7 @@ MODULE mo_sea_ice_refactor
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 ! USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
+! USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
   USE mo_grid_config,         ONLY: n_dom
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_slow2
@@ -257,26 +257,11 @@ CONTAINS
       &             ice, sst(:,:), 0, info='AFT CONCCH-corr0')
     CALL dbg_print('IceSlow: energy typ0 draft',energyCheck  ,str_module, 4, in_subset=p_patch%cells%owned)
 
-    ! ocean stress calculated independent of ice dynamics
-    CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
-
-    CALL dbg_print('IceSlow: hi    bef.icedyn',ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: hs    bef.icedyn',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc. bef.icedyn',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
-
-    IF ( i_ice_dyn >= 1 ) THEN
-      ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
-      CALL ice_advection( p_patch_3D, p_op_coeff, ice )
-    ELSE
-      ice%u = 0._wp
-      ice%v = 0._wp
-    ENDIF
-
+    ! old call to ice dynamics was here
     ! check after ice dynamics, method 1 since draftave is not yet updated
-    energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
-      &             ice, sst(:,:), 1, info='AFT ICEDYN')
-    CALL dbg_print('IceSlow: energy aftIceAdv',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
+  ! energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &
+  !   &             ice, sst(:,:), 1, info='AFT ICEDYN')
+  ! CALL dbg_print('IceSlow: energy aftIceAdv',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
 
     CALL dbg_print('IceSlow: hi    bef.cleanup',ice%hi,       str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: hs    bef.cleanup',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)

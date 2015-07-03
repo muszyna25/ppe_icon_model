@@ -1218,7 +1218,7 @@ CONTAINS
       ! #slo# - to avoid stress proportional to concSum**2 it is omitted here
       tau = density_0*C_d_io*SQRT( delu**2 + delv**2 )
       ! set ocean stress below sea ice to zero wrt concentration for forced runs without ice dynamics;
-      ! then ocean gets no stress (no decelleration) below sea ice
+      ! then ocean gets no stress (no deceleration) below sea ice
       IF (stress_ice_zero) tau = 0.0_wp
       atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
