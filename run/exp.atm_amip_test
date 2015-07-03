@@ -123,7 +123,6 @@ cat > ${atmo_namelist} << EOF
 /
 &echam_phy_nml
  dt_rad           =  480.       ! [s] radiation time step
-! dt_rad           =  7200.       ! [s] radiation time step
  lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
@@ -138,13 +137,13 @@ cat > ${atmo_namelist} << EOF
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 4           ! 2: horizontally and vertically constant
- irad_ch4         = 4           ! 3: horizontally constant vertical profile
- irad_n2o         = 4           ! 3: horizontally constant vertical profile
+ irad_co2         = 4           ! 4: from greenhouse gas scenario
+ irad_ch4         = 4           ! 4: from greenhouse gas scenario
+ irad_n2o         = 4           ! 4: from greenhouse gas scenario
  irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 4           ! 2: horizontally and vertically constant
- irad_cfc12       = 4           ! 2: horizontally and vertically constant
+ irad_cfc11       = 4           ! 4: from greenhouse gas scenario
+ irad_cfc12       = 4           ! 4: from greenhouse gas scenario
  irad_aero        = 15          ! 0: no aerosol
                                 !13: only Kinne's tropospheric aerosols 
                                 !14: only Stenchikov's volcanic aerosols
@@ -156,7 +155,7 @@ cat > ${atmo_namelist} << EOF
  isolrad          = 0           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-rad_perm=1
+rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
 /
@@ -304,6 +303,34 @@ cat >> ${atmo_namelist} << EOF
 /
 EOF
 
+# Define grids for horizontal remapping
+# -------------------------------------
+#
+# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
+# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
+# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
+# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
+# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
+# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
+#
+# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
+# The tropical rows have 320 triangles or 160 rhombi.
+#
+# Therefore the following regular lon-lat grids are of interest for remapping:
+#
+# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
+reg_lat_def_reg=-89.0625,1.875,89.0625
+reg_lon_def_reg=0.,1.875,358.125
+#
+# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
+reg_lat_def_rmb=$reg_lat_def_reg
+reg_lon_def_rmb=0.,2.25,357.75
+#
+# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
+reg_lat_def_tri=$reg_lat_def_reg
+reg_lon_def_tri=0.,1.125,358.875
+
+
 # Define output files
 # -------------------
 #
@@ -347,7 +374,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'prm_daylght_frc', 'rsdt'    ,
+                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
@@ -408,6 +435,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
+
 output_rad_2d_3d_rmb=yes
 #
 if [[ "$output_rad_2d_3d_rmb" == "yes" ]]; then
@@ -426,20 +454,21 @@ if [[ "$output_rad_2d_3d_rmb" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'cosmu0','prm_cosmu0_rad', 'prm_daylght_frc',
-		    'prm_visfrcsfc', 'prm_parsfcdn', 
-                    'prm_nirdffsfc', 'prm_visdffsfc',
-                    'prm_pardffsfc', 'prm_lwflxupsfc', 
-                    'prm_lwflxclr', 'prm_swtrmclr',
-                    'prm_lwflxall', 'prm_swtrmall',
-		    'prm_o3', 
-                    'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533',
-		    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325',
-		    'prm_aer_aod_9731'
+ ml_varlist       = 'cosmu0','cosmu0_rad', 'daylght_frc',
+		    'visfrcsfc', 'parsfcdn', 
+                    'nirdffsfc', 'visdffsfc',
+                    'pardffsfc', 'rlus_radt', 
+                    'lwflxclr', 'swtrmclr',
+                    'lwflxall', 'swtrmall',
+		    'o3', 
+                    'aer_aod_533',  'aer_ssa_533',  'aer_asy_533',
+		    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325',
+		    'aer_aod_9731'
 /
 EOF
 fi
-!, 'prm_cosmu0_rad'
+
+
 output_phy_2d_rmb=yes
 #
 if [[ "$output_phy_2d_rmb" == "yes" ]]; then
@@ -458,7 +487,7 @@ if [[ "$output_phy_2d_rmb" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'cosmu0'  , 'prm_daylght_frc',      'rsdt'    ,
+ ml_varlist       = 'cosmu0'  , 'daylght_frc',      'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd',
@@ -478,7 +507,7 @@ if [[ "$output_phy_2d_rmb" == "yes" ]]; then
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',
                     'cld_dtrl', 'cld_dtri', 'cld_iteq',
-                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+                    'rintop', 'rtype', 'topmax'
 /
 EOF
 fi
@@ -499,13 +528,15 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
-                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
-                    'prm_aer_aod_9731',
+ ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
+                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
+                    'aer_aod_9731',
                     'pfull'
 /
 EOF
 fi
+
+
 output_lnd=yes
 #
 if [[ "$output_lnd" == "yes" ]]; then
