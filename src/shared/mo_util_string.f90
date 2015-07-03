@@ -46,6 +46,7 @@ MODULE mo_util_string
   PUBLIC :: insert_group
   PUBLIC :: delete_keyword_list
   PUBLIC :: sort_and_compress_list
+  PUBLIC :: tohex   ! For debugging: Produce a hex dump of the given string, revealing any unprintable characters.
 
   !
   PUBLIC :: normal, bold
@@ -702,5 +703,26 @@ CONTAINS
     END DO
   END SUBROUTINE sort_and_compress_list
 
-  
+  FUNCTION tohex(string) RESULT(RESULT)
+    CHARACTER(LEN = *), INTENT(IN) :: string
+    CHARACTER(LEN = 3*LEN(string) - 1) :: RESULT
+
+    CHARACTER(LEN = 16), PARAMETER :: nibbles = "0123456789abcdef"
+    INTEGER :: inputIndex, outputIndex, curChar, nibble1, nibble2
+
+    outputIndex = 1
+    DO inputIndex = 1, LEN(string)
+        IF(inputIndex /= 1) THEN
+            RESULT(outputIndex:outputIndex) = " "
+            outputIndex = outputIndex + 1
+        END IF
+        curChar = IACHAR(string(inputIndex:inputIndex))
+        nibble1 = ISHFT(curChar, -4) + 1
+        nibble2 = IAND(curChar, 15) + 1
+        RESULT(outputIndex:outputIndex) = nibbles(nibble1:nibble1)
+        RESULT(outputIndex+1:outputIndex+1) = nibbles(nibble2:nibble2)
+        outputIndex = outputIndex + 2
+    END DO
+  END FUNCTION tohex
+
 END MODULE mo_util_string
