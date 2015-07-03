@@ -191,10 +191,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy"
@@ -211,7 +207,7 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
                     'sic'     , 'sit'     ,
-                    'swvis', 'swnir',
+                    'vissfc'  , 'nirsfc'  ,
                     'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
@@ -259,10 +255,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_ta"
@@ -280,10 +272,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_wind"
@@ -301,10 +289,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_trac"

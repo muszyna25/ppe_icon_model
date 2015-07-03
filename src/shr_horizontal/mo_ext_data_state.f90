@@ -1992,7 +1992,7 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+    IF ( itopo == 1 .AND. ( iforcing == iecham .OR. iforcing == ildf_echam ) ) THEN
 
       ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
       ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 

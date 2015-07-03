@@ -236,7 +236,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
+    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, jstep0, error_status
     TYPE(t_sim_step_info)   :: sim_step_info  
 
