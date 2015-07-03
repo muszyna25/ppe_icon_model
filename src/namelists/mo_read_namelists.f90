@@ -67,6 +67,8 @@ MODULE mo_read_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
   USE mo_limarea_nml         ,ONLY: read_limarea_namelist
+  USE mo_run_config          ,ONLY: iforcing
+  USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM
   IMPLICIT NONE
 
   PRIVATE
@@ -138,7 +140,9 @@ CONTAINS
     CALL read_nwp_phy_namelist        (TRIM(atm_namelist_filename))
     CALL read_nwp_tuning_namelist     (TRIM(atm_namelist_filename))
     CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
-    CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
+    IF (iforcing == IECHAM .OR. iforcing == ILDF_ECHAM) THEN
+      CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
+    ENDIF
     CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
     CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
