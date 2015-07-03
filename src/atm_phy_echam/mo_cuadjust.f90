@@ -32,8 +32,7 @@
 MODULE mo_cuadjust
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: vtmpc1
-  USE mo_echam_convect_tables,     ONLY: prepare_ua_index_spline, lookup_ua_spline,  &
-                                   lookup_ua_list_spline, lookup_ubc, lookup_ubc_list
+  USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline, lookup_ubc_list
 #ifdef _PROFILE
   USE mo_profile,        ONLY: trace_start, trace_stop
 #endif
@@ -64,7 +63,7 @@ CONTAINS
     INTEGER :: jl, nl, nsum
 
     !  Local arrays:
-    REAL(wp) :: zcond(kbdim),zppi(kbdim),za(kbdim)
+    REAL(wp) :: zcond(kbdim),zppi(kbdim)
     REAL(wp) :: ua(kbdim),dua(kbdim),ub(kbdim),uc(kbdim)
     INTEGER  :: idx(kbdim),ncond(kbdim)
 
@@ -82,7 +81,7 @@ CONTAINS
 
     IF (kcall >= 0.AND. kcall <= 2 ) THEN
 
-      CALL lookup_ubc_list('cuadjtq (1)',kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
+      CALL lookup_ubc_list(kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
       CALL lookup_ua_list_spline('cuadjtq (1)',kproma,ldcnt,ldidx(1),pt(1,kk),ua(1), &
         &                                                                     dua(1))
 
@@ -186,7 +185,7 @@ CONTAINS
 
       IF (nsum > 0) THEN
 
-        CALL lookup_ubc_list('cuadjtq (2)',kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
+        CALL lookup_ubc_list(kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
         CALL lookup_ua_list_spline('cuadjtq (2)',kproma,nsum,idx(1),pt(1,kk),ua(1),  &
           &                                                                   dua(1))
 

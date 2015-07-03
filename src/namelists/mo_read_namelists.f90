@@ -48,6 +48,7 @@ MODULE mo_read_namelists
   USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
   USe mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
+  USE mo_echam_cloud_nml     ,ONLY: read_echam_cloud_namelist
   USE mo_gw_hines_nml        ,ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
@@ -140,6 +141,7 @@ CONTAINS
     CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
     CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
+    CALL read_echam_cloud_namelist    (TRIM(atm_namelist_filename))
     CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
     CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
     CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
@@ -243,6 +245,7 @@ CONTAINS
     CALL read_radiation_namelist      (TRIM(cpl_dummy_namelist))
     CALL read_vdiff_namelist          (TRIM(cpl_dummy_namelist))
     CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))
+    CALL read_echam_cloud_namelist    (TRIM(cpl_dummy_namelist))
     CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
     CALL read_sea_ice_namelist        (TRIM(cpl_dummy_namelist))

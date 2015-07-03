@@ -65,9 +65,6 @@ MODULE mo_echam_phy_init
   USE mo_convect_tables,       ONLY: init_convect_tables
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables 
 
-  ! stratiform clouds and cloud cover
-  USE mo_echam_cloud_params,   ONLY: sucloud
-
   ! air-sea-land interface
   USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
 
@@ -221,12 +218,6 @@ CONTAINS
     IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) THEN
        CALL init_convect_tables
        CALL init_echam_convect_tables 
-    END IF
-
-    ! For large scale condensation:
-
-    IF (phy_config%lcond) THEN
-      CALL sucloud( nlev, vct )
     END IF
 
     ! For subgrid scale orography scheme

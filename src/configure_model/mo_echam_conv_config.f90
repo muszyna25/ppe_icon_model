@@ -101,7 +101,7 @@ CONTAINS
     INTEGER  :: jk, istat
 
     CHARACTER(LEN=*),PARAMETER :: &
-             routine = 'mo_echam_conv_config:config_echam_convection'
+             routine = 'mo_echam_conv_config:configure_echam_convection'
 
     !------------------------------------------------------------------------
     ! Set lower and upper fractional limits of the convective mass flux

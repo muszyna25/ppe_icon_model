@@ -555,7 +555,7 @@ CONTAINS
         ! mpuetz: too few instructions (FP dependencies)
         CALL prepare_ua_index_spline('cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
         CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-        CALL lookup_ubc('cumastr',kproma,ztenh(1,jk),ub(1))
+        CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,wp)
 !IBM* NOVECTOR
         DO jl=1,kproma

@@ -63,10 +63,15 @@ MODULE mo_cloud
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline      &
                                     , lookup_uaw_spline, lookup_ubc                  &
                                     , lookup_ua_eor_uaw_spline
+#ifndef __ICON__
   USE mo_echam_cloud_params,   ONLY : cqtmin, cvtfall, crhosno, cn0s, cthomi         &
                                     , csecfrl, cauloc, clmax, clmin, jbmin, jbmax    &
                                     , lonacc, ccraut, ceffmin, ceffmax, crhoi        &
                                     , ccsaut, ccsacl, ccracl, ccwmin, clwprat
+#else
+  USE mo_echam_cloud_config,   ONLY : echam_cloud_config
+#endif
+
 #ifndef __ICON__
   USE mo_submodel_interface,   ONLY : cloud_subm
   USE mo_submodel,             ONLY : lanysubmodel
@@ -84,13 +89,26 @@ MODULE mo_cloud
   PRIVATE
   PUBLIC :: cloud
 
+#ifdef __ICON__
+  ! to simplify access to components of echam_cloud_config
+  LOGICAL , POINTER :: lonacc
+  INTEGER , POINTER :: jbmin, jbmax
+  REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
+       &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
+       &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
+#endif
+
+
 CONTAINS
   !>
   !!
   !!
   SUBROUTINE cloud (         kproma,       kbdim,          ktdia                     &
                            , klev,         klevp1                                    &
-                           , pdelta_time,  ptime_step_len                            &
+#ifndef __ICON__
+                           , pdelta_time                                             &
+#endif
+                           , ptime_step_len                                          &
 #ifndef __ICON__
                            , ktrac,        krow                                      &
 #endif
@@ -152,7 +170,10 @@ CONTAINS
 #endif
     INTEGER,  INTENT(IN)    :: knvb(kbdim), kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
-    REAL(wp), INTENT(IN)    :: pdelta_time, ptime_step_len
+#ifndef __ICON__
+    REAL(wp), INTENT(IN)    :: pdelta_time
+#endif
+    REAL(wp), INTENT(IN)    :: ptime_step_len
     REAL(wp), INTENT(IN)    ::     &
       & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                   (n-1)
       & pvervel  (kbdim,klev)     ,&!< vertical velocity in pressure coordinate  (n)
@@ -256,7 +277,10 @@ CONTAINS
     !!$ used in Revised Bergeron-Findeisen process only  
     !!$  LOGICAL   locc
 
-    REAL(wp):: zdqsat, zqcdif, zfrho, zifrac, zdtime, zepsec, zxsec                  &
+#ifndef __ICON__
+    REAL(wp):: zdtime
+#endif
+    REAL(wp):: zdqsat, zqcdif, zfrho, zifrac, zepsec, zxsec                          &
       &      , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar             &
       &      , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat            &
       &      , zqsw, zsusatw, zdv, zast, zbst, zzepr, zxip1, zxifall, zal1, zal2     &
@@ -284,7 +308,34 @@ CONTAINS
       &        zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio before snow formation [kg/kg]
       &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets 
                                        ! in cloudy part of the grid box  [kg/kg]
+#ifndef __ICON__
     REAL(wp):: pclcpre(kbdim,klev)
+#endif
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_cloud_config
+    lonacc   => echam_cloud_config% lonacc
+    jbmin    => echam_cloud_config% jbmin
+    jbmax    => echam_cloud_config% jbmax
+    cqtmin   => echam_cloud_config% cqtmin
+    cvtfall  => echam_cloud_config% cvtfall
+    crhosno  => echam_cloud_config% crhosno
+    cn0s     => echam_cloud_config% cn0s
+    cthomi   => echam_cloud_config% cthomi
+    csecfrl  => echam_cloud_config% csecfrl
+    cauloc   => echam_cloud_config% cauloc
+    clmax    => echam_cloud_config% clmax
+    clmin    => echam_cloud_config% clmin
+    ccraut   => echam_cloud_config% ccraut
+    ceffmin  => echam_cloud_config% ceffmin
+    ceffmax  => echam_cloud_config% ceffmax
+    crhoi    => echam_cloud_config% crhoi
+    ccsaut   => echam_cloud_config% ccsaut
+    ccsacl   => echam_cloud_config% ccsacl
+    ccracl   => echam_cloud_config% ccracl
+    ccwmin   => echam_cloud_config% ccwmin
+    clwprat  => echam_cloud_config% clwprat
+#endif
 
     zmratepr(:,:) = 0._wp
     zmrateps(:,:) = 0._wp
@@ -334,7 +385,9 @@ CONTAINS
     !
     !   Computational constants
     !
+#ifndef __ICON__
     zdtime = REAL(pdelta_time,wp)
+#endif
     ztmst  = REAL(ptime_step_len,wp)
     zcons2 = 1._wp/(ztmst*grav)
     !
@@ -753,7 +806,7 @@ CONTAINS
         ztmp1(jl)   = zxip1
       END DO
      
-      CALL lookup_ubc('cloud (2)',kproma,ztp1tmp(1),ub(1))
+      CALL lookup_ubc(kproma,ztp1tmp(1),ub(1))
       CALL prepare_ua_index_spline('cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
                                                ,ztmp1(1),nphase,zlo2(1),cond1(1))
       CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
@@ -1275,12 +1328,12 @@ CONTAINS
 
 #ifndef __ICON__
        paclcac(jl,jk) = paclcac(jl,jk) + paclc(jl,jk)*zdtime
+       pclcpre(jl,jk) = zclcpre(jl)
 #endif
        pxlte(jl,jk)   = pxlte(jl,jk) + zdxlcor
        pxite(jl,jk)   = pxite(jl,jk) + zdxicor
        pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
        ptte(jl,jk)    = ptte(jl,jk) + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
-       pclcpre(jl,jk) = zclcpre(jl)
        ! Here mulitply with the same specific heat as used in the definition
        ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
        ! to obtain the specific heating by cloud processes in [W/kg].
@@ -1413,9 +1466,9 @@ CONTAINS
 #else
 !
     DO 934 jl   = 1,kproma
-       pqvi(jl)  = zqvi(jl)!+zdtime*zqvi(jl)
-       pxlvi(jl) = zxlvi(jl)!+zdtime*zxlvi(jl)
-       pxivi(jl) = zxivi(jl)!+zdtime*zxivi(jl)
+       pqvi(jl)  = zqvi(jl)
+       pxlvi(jl) = zxlvi(jl)
+       pxivi(jl) = zxivi(jl)
        pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl)) ! [W/m2]
        pcw_concloud(jl) = pcw_concloud(jl)+zqviten(jl)+prsfl(jl)+pssfl(jl)          ! [kg/m2s]
 934 END DO

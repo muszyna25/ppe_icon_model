@@ -1490,6 +1490,7 @@ src/configure_model/mo_atm_phy_nwp_config.f90 -text
 src/configure_model/mo_coupling_config.f90 -text
 src/configure_model/mo_diffusion_config.f90 -text
 src/configure_model/mo_dynamics_config.f90 -text
+src/configure_model/mo_echam_cloud_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
 src/configure_model/mo_extpar_config.f90 -text
@@ -1618,6 +1619,7 @@ src/namelists/mo_coupling_nml.f90 -text
 src/namelists/mo_dbg_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
+src/namelists/mo_echam_cloud_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_extpar_nml.f90 -text
