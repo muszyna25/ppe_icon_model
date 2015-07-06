@@ -774,11 +774,11 @@ CONTAINS
           
           ! northern hemisphere
           IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
-            monitor%ice_volume_nh  = monitor%ice_volume_nh + prism_area*SUM(ice%vol(jc,:,blockNo))!*ice%conc(jc,:,blockNo))
+            monitor%ice_volume_nh  = monitor%ice_volume_nh + SUM(ice%vol(jc,:,blockNo))!prism_area*SUM(ice%vol(jc,:,blockNo))*ice%conc(jc,:,blockNo))
             monitor%ice_extent_nh  = monitor%ice_extent_nh + ice%concsum(jc,blockNo)*prism_area
           ELSE
             ! southern hemisphere
-            monitor%ice_volume_sh  = monitor%ice_volume_sh + prism_area*SUM(ice%vol(jc,:,blockNo))!*ice%conc(jc,:,blockNo))
+            monitor%ice_volume_sh  = monitor%ice_volume_sh + SUM(ice%vol(jc,:,blockNo))!prism_area*SUM(ice%vol(jc,:,blockNo))*ice%conc(jc,:,blockNo))
             monitor%ice_extent_sh  = monitor%ice_extent_sh + ice%concsum(jc,blockNo)*prism_area
           END IF
 
