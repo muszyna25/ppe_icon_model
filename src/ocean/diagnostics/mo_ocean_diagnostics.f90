@@ -26,6 +26,7 @@ MODULE mo_ocean_diagnostics
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks, &
     &                              sync_c, sync_e, sync_patch_array
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, cvec2gvec
+  USE mo_advection_utils,    ONLY: laxfr_upflux
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_dbg_nml,            ONLY: idbg_val
   USE mo_math_constants,     ONLY: rad2deg, dbl_eps
@@ -48,6 +49,7 @@ MODULE mo_ocean_diagnostics
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity
+  USE mo_sea_ice_nml,        ONLY: kice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
@@ -78,6 +80,7 @@ MODULE mo_ocean_diagnostics
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
+  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   
   IMPLICIT NONE
   
@@ -136,6 +139,9 @@ MODULE mo_ocean_diagnostics
     REAL(wp) :: ice_volume_sh !                                                           [km3]
     REAL(wp) :: ice_extent_nh !                                                           [km2]
     REAL(wp) :: ice_extent_sh !                                                           [km2]
+    ! ice transport through {{{
+    REAL(wp) :: ice_framStrait !                                                          [Sv]
+    ! }}}
     ! through flows {{{
     REAL(wp) :: gibraltar     ! though flow                                               [Sv]
     REAL(wp) :: denmark_strait! though flow                                               [Sv]
@@ -162,7 +168,7 @@ MODULE mo_ocean_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(50)  :: names = (/ &
+    CHARACTER(LEN=40), DIMENSION(51)  :: names = (/ &
       & "total_volume                            ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -194,6 +200,7 @@ MODULE mo_ocean_diagnostics
       & "ice_volume_sh                           ", &
       & "ice_extent_nh                           ", &
       & "ice_extent_sh                           ", &
+      & "ice_framStrait                          ", &
       & "gibraltar                               ", &
       & "denmark_strait                          ", &
       & "drake_passage                           ", &
@@ -350,6 +357,9 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
+    ! ice transport through
+    oce_ts%oce_diagnostics(0:nsteps)%ice_framStrait             = 0.0_wp
+
 
     ! through flows
     oce_ts%oce_diagnostics(0:nsteps)%gibraltar                  = 0.0_wp
@@ -764,11 +774,11 @@ CONTAINS
           
           ! northern hemisphere
           IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
-            monitor%ice_volume_nh  = monitor%ice_volume_nh + prism_area*SUM(ice%vol(jc,:,blockNo)*ice%conc(jc,:,blockNo))
+            monitor%ice_volume_nh  = monitor%ice_volume_nh + prism_area*SUM(ice%vol(jc,:,blockNo))!*ice%conc(jc,:,blockNo))
             monitor%ice_extent_nh  = monitor%ice_extent_nh + ice%concsum(jc,blockNo)*prism_area
           ELSE
             ! southern hemisphere
-            monitor%ice_volume_sh  = monitor%ice_volume_sh + prism_area*SUM(ice%vol(jc,:,blockNo)*ice%conc(jc,:,blockNo))
+            monitor%ice_volume_sh  = monitor%ice_volume_sh + prism_area*SUM(ice%vol(jc,:,blockNo))!*ice%conc(jc,:,blockNo))
             monitor%ice_extent_sh  = monitor%ice_extent_sh + ice%concsum(jc,blockNo)*prism_area
           END IF
 
@@ -855,8 +865,8 @@ CONTAINS
       monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
       monitor%ice_extent_sh              = global_sum_array(monitor%ice_extent_sh)/1.0e6_wp
     ENDIF
-
     CALL enable_sync_checks()
+
     ! fluxes through given paths
     IF (my_process_is_stdio() .AND. idbg_val > 0) &
       & WRITE(0,*) "---------------  fluxes --------------------------------"
@@ -899,6 +909,19 @@ CONTAINS
         monitor%agulhas_longer         = sflux*rho_ref
       END SELECT
     ENDDO
+
+    IF (i_sea_ice >= 1) THEN
+      IF (my_process_is_stdio() .AND. idbg_val > 0) &
+        & WRITE(0,*) "--------------- ice fluxes -----------------------------"
+          ! ice transport through given paths
+      sflux = section_ice_flux(oce_sections(7), ice%hi*ice%conc, ice%vn_e) ! TODO: Replace hi/conc to himean
+
+      IF (my_process_is_stdio() .AND. idbg_val > 0) &
+        & WRITE(0,*) oce_sections(7)%subset%name, ":", sflux
+
+      monitor%ice_framStrait             = sflux
+    ENDIF
+
     IF (my_process_is_stdio() .AND. idbg_val > 0) &
       & WRITE(0,*) "---------------  end fluxes ----------------------------"
     
@@ -945,6 +968,7 @@ CONTAINS
         & monitor%ice_volume_sh, &
         & monitor%ice_extent_nh, &
         & monitor%ice_extent_sh, &
+        & monitor%ice_framStrait, &
         & monitor%gibraltar, &
         & monitor%denmark_strait, &
         & monitor%drake_passage,  &
@@ -1073,6 +1097,76 @@ CONTAINS
   END FUNCTION section_flux
   !-------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------
+  REAL(wp) FUNCTION section_ice_flux(in_oce_section, ice_hmean, ice_vel)
+    TYPE(t_oce_section)  :: in_oce_section
+    REAL(wp), INTENT(IN) :: ice_hmean(:,:,:)
+    REAL(wp), POINTER    :: ice_vel(:,:)
+
+    TYPE(t_grid_edges), POINTER ::  edges
+    INTEGER :: i, k, edge_idx, edge_block, cell_idx(2), cell_block(2)
+    REAL(wp) :: vel_vals, sum_value, oriented_length
+    REAL(wp), ALLOCATABLE :: fluxes(:,:)
+    INTEGER :: communicator
+
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_ocean_diagnostics:section_ice_flux'
+
+    edges          => in_oce_section%subset%patch%edges
+
+    ! calculate weights
+    ! fluxes can also be preallocated
+    ALLOCATE(fluxes(kice, MAX(in_oce_section%subset%SIZE, 1)))
+    fluxes(:,:) = 0.0_wp
+    sum_value  = 0.0_wp
+
+    DO i=1, in_oce_section%subset%SIZE
+
+      edge_idx   = in_oce_section%subset%idx(i)
+      edge_block = in_oce_section%subset%BLOCK(i)
+
+      cell_idx   = edges%cell_idx(edge_idx, edge_block,:)
+      cell_block = edges%cell_blk(edge_idx, edge_block,:)
+
+      oriented_length = edges%primal_edge_length(edge_idx, edge_block) * &
+        & in_oce_section%orientation(i) ! this can also be pre-calculated and stored in in_oce_section%orientation
+
+      vel_vals = ice_vel(edge_idx, edge_block)
+
+      ! compute the first order upwind flux using cell-centered ice_hmean vals and edge-centered vel_vals
+      ! Same as in upwind_hflux_ice which is used to calculate ice advection
+      DO k=1,kice
+          fluxes(k, i) = laxfr_upflux( vel_vals, ice_hmean(cell_idx(1),k,cell_block(1)), &
+          &                    ice_hmean(cell_idx(2),k,cell_block(2)) ) * oriented_length
+          !write(0,*) i, k, in_oce_section%subset%name, " fluxes:",  fluxes(k, i), &
+          !  & patch_vertical%prism_thick_e(edge_idx, k, edge_block)
+          !write(0,*) i, k, in_oce_section%subset%name, " velocity_value:", velocity_values(edge_idx, k, edge_block)
+      ENDDO
+
+    ENDDO
+
+    sum_value = sum(fluxes(:,:))
+
+    DEALLOCATE(fluxes)
+
+    ! the global min, max is avaliable only to stdio process
+    IF (my_process_is_mpi_parallel()) THEN
+
+      communicator = in_oce_section%subset%patch%work_communicator
+      ! these are avaliable to all processes
+      section_ice_flux = p_sum( sum_value,  comm=communicator)
+
+    ELSE
+
+      section_ice_flux = sum_value
+
+    ENDIF
+
+!    write(0,*) get_my_mpi_work_id(), ": section_ice_flux on subset ", in_oce_section%subset%name, ":", &
+!      & section_ice_flux, in_oce_section%subset%size
+
+  END FUNCTION section_ice_flux
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !
   !
@@ -1733,6 +1827,7 @@ CONTAINS
     monitor%ice_volume_sh(:)              = 0.0_wp
     monitor%ice_extent_nh(:)              = 0.0_wp
     monitor%ice_extent_sh(:)              = 0.0_wp
+    monitor%ice_framStrait(:)             = 0.0_wp
     monitor%gibraltar(:)                  = 0.0_wp
     monitor%denmark_strait(:)             = 0.0_wp
     monitor%drake_passage(:)              = 0.0_wp

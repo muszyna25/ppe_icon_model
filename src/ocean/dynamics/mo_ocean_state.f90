@@ -680,6 +680,12 @@ CONTAINS
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
+    CALL add_var(ocean_default_list, 'ice_framStrait', ocean_state_diag%monitor%ice_framStrait , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('ice_framStrait', 'm^3/s', 'ice_framStrait', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'gibraltar', ocean_state_diag%monitor%gibraltar , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('gibraltar', 'Sv', 'gibraltar', DATATYPE_FLT32),&

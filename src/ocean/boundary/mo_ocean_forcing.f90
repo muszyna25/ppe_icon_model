@@ -763,6 +763,7 @@ CONTAINS
     CASE (0) ! NO FORCING, SET TO ZERO ========================================
       windstress = 0.0_wp
     CASE (1:100)      ! FILE INPUT, DONE ELSEWHERE ============================
+      windstress = 0.0_wp
       CALL message('windstress forcing','file input')
     CASE (101:200)    ! ANALYTIC SETUP ========================================
       SELECT CASE (control)
