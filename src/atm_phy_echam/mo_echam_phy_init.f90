@@ -47,7 +47,7 @@ MODULE mo_echam_phy_init
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
-  USE mo_nh_testcases_nml,     ONLY: nh_test_name, th_cbl
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name, th_cbl, tpe_temp
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
@@ -341,59 +341,82 @@ CONTAINS
       CALL time_weights_limm(current_date, wi_limm)
 
       ! sea surface temperature, sea ice concentration and depth
-      DO jg= 1,ndomain
-        !
-        CALL read_bc_sst_sic(current_date%year, p_patch(1))
-        !
-        CALL bc_sst_sic_time_interpolation(wi_limm                           ,&
-          &                                prm_field(jg)%lsmask(:,:)         ,&
-          &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
-          &                                prm_field(jg)%seaice(:,:)         ,&
-          &                                prm_field(jg)%siced(:,:)          )
+      IF (.NOT. ctest_name(1:3) == 'TPE') THEN
+        DO jg= 1,ndomain
+          !
+          CALL read_bc_sst_sic(current_date%year, p_patch(1))
+          !
+          CALL bc_sst_sic_time_interpolation(wi_limm                           ,&
+            &                                prm_field(jg)%lsmask(:,:)         ,&
+            &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
+            &                                prm_field(jg)%seaice(:,:)         ,&
+            &                                prm_field(jg)%siced(:,:)          )
         !
 ! TODO: ME preliminary setting for ice and land and total surface
-        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        !
-        prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+          prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+          prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+          prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+          !
+          prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+          prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
 
-        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+          prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+          prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
+          prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+          prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+          prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
+          prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
+          prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
+          prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
+          prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
+          prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
+          prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
+          prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
 
-        prm_field(jg)%albvisdir(:,:) = albedoW
-        prm_field(jg)%albvisdif(:,:) = albedoW
-        prm_field(jg)%albnirdir(:,:) = albedoW
-        prm_field(jg)%albnirdif(:,:) = albedoW
-        prm_field(jg)%albedo(:,:)    = albedoW
+          prm_field(jg)%albvisdir(:,:) = albedoW
+          prm_field(jg)%albvisdif(:,:) = albedoW
+          prm_field(jg)%albnirdir(:,:) = albedoW
+          prm_field(jg)%albnirdif(:,:) = albedoW
+          prm_field(jg)%albedo(:,:)    = albedoW
 
-        !
+          !
 ! TODO: ME preliminary setting for ice
-      ! The ice model should be able to handle different thickness classes, 
-      ! but for AMIP we ONLY USE one ice class.
-        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% Tsurf(:,:,:) = Tf
-        prm_field(jg)% T1   (:,:,:) = Tf
-        prm_field(jg)% T2   (:,:,:) = Tf
-        prm_field(jg)% hs   (:,:,:) = 0._wp
-        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
-        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
+          ! The ice model should be able to handle different thickness classes, 
+          ! but for AMIP we ONLY USE one ice class.
+          prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+          prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+          prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+          prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+          prm_field(jg)% Tsurf(:,:,:) = Tf
+          prm_field(jg)% T1   (:,:,:) = Tf
+          prm_field(jg)% T2   (:,:,:) = Tf
+          prm_field(jg)% hs   (:,:,:) = 0._wp
+          prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
+          prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
 
-      END DO ! jg
+        END DO ! jg
+
+      ELSE
+
+        DO jg=1,ndomain
+          prm_field(jg)%tsfc_tile(:,:,ilnd) = tpe_temp
+          prm_field(jg)%tsfc     (:,:)      = tpe_temp
+          !
+          prm_field(jg)%tsfc_rad (:,:)      = tpe_temp
+          prm_field(jg)%tsfc_radt(:,:)      = tpe_temp
+
+          prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+          prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
+          prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+          prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+          prm_field(jg)%albvisdir(:,:) = prm_field(jg)%alb(:,:)
+          prm_field(jg)%albvisdif(:,:) = prm_field(jg)%alb(:,:)
+          prm_field(jg)%albnirdir(:,:) = prm_field(jg)%alb(:,:)
+          prm_field(jg)%albnirdif(:,:) = prm_field(jg)%alb(:,:)
+          prm_field(jg)%albedo(:,:)    = prm_field(jg)%alb(:,:)
+        END DO
+
+      END IF
 
 #ifndef __NO_JSBACH__
       IF (phy_config%ljsbach) THEN
@@ -801,6 +824,16 @@ CONTAINS
 
           ENDIF
 
+        CASE('TPEc', 'TPEo') !Note that there is only one surface type (ilnd) in this case
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+            field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          END DO
+!$OMP END PARALLEL DO
 
         CASE('JWw-Moist','LDF-Moist','jabw_m')
 
