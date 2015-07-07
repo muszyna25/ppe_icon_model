@@ -58,6 +58,7 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
+  PUBLIC :: irad_type
 
     ! Namelist variables
     !
@@ -104,7 +105,7 @@ MODULE mo_run_config
     INTEGER :: grid_generatingCenter   (0:MAX_DOM)   !< patch generating center
     INTEGER :: grid_generatingSubcenter(0:MAX_DOM)   !< patch generating subcenter
     INTEGER :: number_of_grid_used(0:MAX_DOM)  !< Number of grid used (GRIB2 key)
-
+    
 
     ! Derived variables
     !
@@ -201,6 +202,10 @@ MODULE mo_run_config
     !> file name for restart/checkpoint files (containg keyword
     !> substition patterns)
     CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
+
+    !> variable irad_type determines choice of radiation flux scheme
+    !> irad_type=1: rrtm, irad_type=2: psrad
+    INTEGER :: irad_type
 
 CONTAINS
   !>

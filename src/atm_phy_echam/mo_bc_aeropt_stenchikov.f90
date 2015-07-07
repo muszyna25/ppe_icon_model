@@ -183,7 +183,8 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
 ! !LOCAL VARIABLES
   
   INTEGER, PARAMETER                    :: norder=-1 ! latitudes in climatology order from N->S
-  INTEGER, PARAMETER                    :: nm1=1, nm2=2 ! there are only two months stored
+  INTEGER, PARAMETER                    :: nm1=1, nm2=2 ! there are only two months of a year
+                                                        ! stored in the field (saves memory)
   INTEGER                               :: jl,jk,jki,jwl
   INTEGER                               :: idx_lat_1, idx_lat_2, idx_lev
   REAL(wp)                              :: w1_lat, w2_lat
