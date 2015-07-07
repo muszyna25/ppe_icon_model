@@ -164,7 +164,7 @@ CONTAINS
     CALL define_single_level_axis(of, ZA_height_10m, ZAXIS_HEIGHT, opt_level_value=10._dp)
 
     ! Top of atmosphere
-    CALL define_single_level_axis(of, ZA_toa, ZAXIS_TOA, opt_level_value=1._dp)
+    CALL define_single_level_axis(of, ZA_toa, ZAXIS_TOA)
 
     ! Bottom of sediment layer penetrated by thermal wave (interface, i.e. only typeOfFirstFixedSurface)
     CALL define_single_level_axis(of, ZA_sediment_bottom_tw_half, ZAXIS_SEDIMENT_BOTTOM_TW, opt_unit="m")
