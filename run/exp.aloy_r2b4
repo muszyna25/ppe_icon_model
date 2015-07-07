@@ -80,7 +80,7 @@ add_required_file ${grids_folder}/${ocean_grids} ./
 # time stepping
 # -------------
 
-dtime_atm=${dtime_atm:=1200}
+dtime_atm=${dtime_atm:=600}
 dtime_oce=$hour
 dtime_cpl=$dtime_oce
 
@@ -94,14 +94,13 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 # ----------------
 
 (( dt_checkpoint = 300 * day))
-(( dt_restart    = 900 * day))
+(( dt_restart    = 300 * day))
 
 atm_output_interval_2d="PT2H"
 atm_output_interval_3d="PT6H"
 lnd_output_interval_2d="PT2H"
 lnd_output_interval_3d="PT6H"
-oce_output_interval_2d="PT2H"
-oce_output_interval_3d="PT6H"
+oce_output_interval="P1D"
 
 atm_file_interval="P300D"
 lnd_file_interval="P300D"
@@ -135,24 +134,19 @@ cat > ${atm_namelist} << EOF
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &run_nml
- num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step
- ltestcase        = .FALSE.     ! run testcase
- ldynamics        = .TRUE.      ! dynamics
- ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers
- iforcing         = 2           ! 0: none, 1: HS, 2: 2: ECHAM, 3: NWP
+ num_lev          = 47           ! number of full levels
+ dtime            = ${dtime_atm} ! [s] time step
+ ltestcase        = .FALSE.      ! run testcase
+ ldynamics        = .TRUE.       ! dynamics
+ ltransport       = .TRUE.       ! transport
+ ntracer          = 3            ! number of tracers
+ iforcing         = 2            ! 0: none, 1: HS, 2: 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 15          ! level of details report during integration 
+ msg_level        = 15           ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
 /
 &time_nml
  dt_restart   = ${dt_restart}
-/
-&nh_testcase_nml
- nh_test_name    = 'APEc_nh'    ! test case identifier
- ape_sst_case    = 'sst1'
- rh_at_1000hpa   = 0.30         ! initial rel. humidity at 1000 hPa
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
@@ -758,7 +752,7 @@ maxrank_list[0]=$atm_max_rank
 incrank_list[0]=$atm_inc_rank
 #
 namelist_list[1]="$oce_namelist"
-modelname_list[1]="oceean"
+modelname_list[1]="ocean"
 modeltype_list[1]=2
 minrank_list[1]=$oce_min_rank
 maxrank_list[1]=$oce_max_rank
