@@ -71,9 +71,9 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_sea_ice,             ONLY: ice_fast
+  USE mo_sea_ice,             ONLY: ice_fast, ice_clean_up_dyn
   USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
-  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
+  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection_vla, ice_ocean_stress !ice_advection
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
   USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
@@ -534,7 +534,13 @@ CONTAINS
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
-      CALL ice_advection( p_patch_3D, p_op_coeff, p_ice )
+!      CALL ice_advection( p_patch_3D, p_op_coeff, p_ice ) ! messy advection routine, bugs fixed; renamed as ice_advection_vla
+      CALL ice_advection_vla( p_patch_3D, p_op_coeff, p_ice )
+
+      ! the original clean up routine has been split into two: ice_clean_up_dyn, ice_clean_up_thd
+      ! here we fix possible overshoots in conc afther the advection step
+      CALL ice_clean_up_dyn( p_patch_3D, p_ice )
+
     ELSE
       p_ice%u = 0._wp
       p_ice%v = 0._wp
@@ -554,6 +560,10 @@ CONTAINS
 
       ! call to refactored ice thermodynamics
       CALL ice_slow_slo(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
+      ! ice_clean_up_thd routine is called inside ice_slow_slo
+      ! it fixes undershoots in concentation;
+      ! limits sea ice thickness to seaice_limit of surface layer depth after changes due to the thermodynamic growth/melt;
+      ! calculates the new freeboard (used below at step (6))
 
     ELSE   !  no sea ice
      
