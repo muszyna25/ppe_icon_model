@@ -77,6 +77,7 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ irad_type        = 2
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
@@ -131,20 +132,25 @@ cat > ${atmo_namelist} << EOF
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 2           ! 2: horizontally and vertically constant
- irad_ch4         = 3           ! 3: horizontally constant vertical profile
- irad_n2o         = 3           ! 3: horizontally constant vertical profile
+ irad_co2         = 4           ! 4: from greenhouse gas scenario
+ irad_ch4         = 4           ! 4: from greenhouse gas scenario
+ irad_n2o         = 4           ! 4: from greenhouse gas scenario
  irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 2           ! 2: horizontally and vertically constant
- irad_cfc12       = 2           ! 2: horizontally and vertically constant
+ irad_cfc11       = 4           ! 4: from greenhouse gas scenario
+ irad_cfc12       = 4           ! 4: from greenhouse gas scenario
  irad_aero        = 15          ! 0: no aerosol
+                                !13: only Kinne's tropospheric aerosols 
+                                !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  izenith          = 4           ! 4: seasonal and diurnal cycle
- isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+ isolrad          = 0           ! 1: transient solar irradiance (at 1 AE)
+/
+&psrad_nml
+rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
 /
@@ -184,6 +190,7 @@ EOF
 # model files
 #
 add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
@@ -333,7 +340,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
+                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
@@ -410,9 +417,9 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
-                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
-                    'prm_aer_aod_9731',
+ ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
+                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
+                    'aer_aod_9731',
                     'pfull'
 /
 EOF

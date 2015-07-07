@@ -41,7 +41,7 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_sst_sic                 ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, &
     &                                      bc_sst_sic_time_interpolation
   USE mo_bc_solar_irradiance        ,ONLY: read_bc_solar_irradiance, ssi_time_interpolation
-
+  USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
@@ -73,7 +73,8 @@ CONTAINS
     &                              patch        ,&! in
     &                              dtadv_loc    ,&! in
     &                              ltrig_rad    ,&! out
-    &                              time_radtran ) ! out
+    &                              time_radtran ,&! out
+    &                              datetime_radtran) ! out
 
     ! Arguments
 
@@ -83,10 +84,11 @@ CONTAINS
     REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
     LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
     REAL(wp)                 ,INTENT(out)   :: time_radtran  !< time of day (in radian) at which radiative transfer is computed
+    TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
 
     ! Local variables
 
-    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
+!!$    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
     REAL(wp)         :: dsec              !< [s] time increment of datetime_radtran wrt. datetime
 
 !!$    LOGICAL          :: is_initial_datetime
@@ -197,6 +199,12 @@ CONTAINS
       END IF
       !
     END IF ! ltrig_rad
+
+    CALL pre_psrad_radiation( &
+            & patch,                           datetime_radtran,             &
+            & datetime,                        ltrig_rad,                    &
+            & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
+            & prm_field(jg)%cosmu0_rad,        prm_field(jg)%daylght_frc_rad )
 
     is_1st_call = .FALSE.
 
