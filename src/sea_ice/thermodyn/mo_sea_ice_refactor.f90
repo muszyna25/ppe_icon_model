@@ -219,7 +219,9 @@ CONTAINS
     CALL dbg_print('IceSlow: energy aft. upUPTS',energyCheck  ,str_module, 2, in_subset=p_patch%cells%owned)
 
     ! Ice Concentration Change
-    CALL ice_conc_change(p_patch,ice,p_os)
+    IF ( i_ice_therm >= 1 ) THEN
+        CALL ice_conc_change(p_patch,ice,p_os)
+    ENDIF
 
     ! #slo# 2015-01 - Test: update draft, zunderice now includes totalsnowfall as in ocets, inconsistent with h
     !               - update of draft/zunderice should be done whenever draft is changed
