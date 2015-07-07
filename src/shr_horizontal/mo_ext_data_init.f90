@@ -1705,12 +1705,17 @@ CONTAINS
          ENDDO  ! jc
 
 
-         IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
+         IF (lsnowtile) THEN ! copy external data fields to snow tile grid points
            DO jt = ntiles_lnd+1, ntiles_total
 
              jt_in = jt - ntiles_lnd
              ext_data(jg)%atm%lp_count_t(jb,jt)     = ext_data(jg)%atm%lp_count_t(jb,jt_in)
              ext_data(jg)%atm%idx_lst_lp_t(:,jb,jt) = ext_data(jg)%atm%idx_lst_lp_t(:,jb,jt_in)
+             !
+             ! the following two fields are reset in init_snowtile_lists, but presetting them here
+             ! avoids complications in initicon
+             ext_data(jg)%atm%gp_count_t(jb,jt)     = ext_data(jg)%atm%gp_count_t(jb,jt_in)
+             ext_data(jg)%atm%idx_lst_t(:,jb,jt)    = ext_data(jg)%atm%idx_lst_t(:,jb,jt_in)
 
 !CDIR NODEP
              DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
