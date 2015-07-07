@@ -61,7 +61,7 @@ MODULE mo_ocean_state
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups 
   USE mo_cf_convention
-  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi_constants
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   
@@ -677,6 +677,12 @@ CONTAINS
     CALL add_var(ocean_default_list, 'ice_extent_sh', ocean_state_diag%monitor%ice_extent_sh , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('ice_extent_sh', 'km^2', 'ice_extent_sh', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'ice_framStrait', ocean_state_diag%monitor%ice_framStrait , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('ice_framStrait', 'm^3/s', 'ice_framStrait', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 

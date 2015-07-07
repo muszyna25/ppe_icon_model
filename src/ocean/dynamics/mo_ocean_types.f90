@@ -212,6 +212,9 @@ MODULE mo_ocean_types
     REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]
     REAL(wp), POINTER :: ice_extent_nh(:)!                                                           [km2]
     REAL(wp), POINTER :: ice_extent_sh(:)!                                                           [km2]
+    ! ice transport through {{{
+    REAL(wp), POINTER :: ice_framStrait(:) !                                                          [Sv]
+    ! }}}
     ! throug, POINTER  flows {{{
     REAL(wp), POINTER :: gibraltar(:)     ! though flow                                               [Sv]
     REAL(wp), POINTER :: denmark_strait(:)! though flow                                               [Sv]
