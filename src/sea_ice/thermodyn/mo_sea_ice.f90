@@ -102,7 +102,7 @@ MODULE mo_sea_ice
   PUBLIC :: ice_slow
   PUBLIC :: upper_ocean_TS
   PUBLIC :: ice_conc_change
-  PUBLIC :: ice_clean_up_thd, ice_clean_up_dyn ! ice_clean_up
+  PUBLIC :: ice_clean_up_thd, ice_clean_up_dyn
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
@@ -1474,14 +1474,15 @@ CONTAINS
     CALL dbg_print('IceSlow: hs    bef.cleanup',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: Conc. bef.cleanup',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
 
-    ! the original clean up routine has been split into two:
-    ! 1) fix possible overshoots in conc afther the advection step
-    ! 2) fix undershoots in conc and limit sea ice thickness to seaice_limit of surface layer depth after changes due to the thermodynamic growth/melt;
-    !    Calculates the new freeboard.
-!    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+    ! the original routine ice_clean_up has been split into two:
+    ! 1) ice_clean_up_dyn fixes possible overshoots in conc afther the advection step
     IF ( i_ice_dyn >= 1 ) THEN
         CALL ice_clean_up_dyn( p_patch_3D, ice )
     ENDIF
+    ! ice_clean_up_thd
+    ! 2) fixes undershoots in conc and limit sea ice thickness to seaice_limit of surface layer depth after changes
+    !    due to the thermodynamic growth/melt;
+    ! 3) Calculates the new freeboard.
     CALL ice_clean_up_thd( p_patch_3D, ice, atmos_fluxes, p_os )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1507,117 +1508,6 @@ CONTAINS
   !
   !
   !>
-  !! !  ice_clean_up: Fix over and under shoots and beutify output
-  !! @par Revision History
-  !! Initial release by Einar Olason, MPI-M (2013-10).
-  !!
-  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, atmos_fluxes, p_os )
-    TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
-    TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
-    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
-    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
-
-    ! Local variables
-    ! ranges
-    TYPE(t_subset_range), POINTER                                            :: all_cells
-    ! pathc
-    TYPE(t_patch),POINTER                                                    :: p_patch
-    TYPE(t_patch_vert),POINTER                                               :: p_patch_vert
-    ! counters
-    INTEGER                                                                  :: k, jb, jc, i_startidx_c, i_endidx_c
-    ! Sea surface salinity
-    REAL(wp), DIMENSION (nproma, p_patch_3d%p_patch_2D(1)%alloc_cell_blocks) :: sss
-    REAL(wp)                                                                 :: z_smax
-
-    ! subset range pointer
-    p_patch      => p_patch_3D%p_patch_2D(1)
-    p_patch_vert => p_patch_3D%p_patch_1D(1)
-    all_cells    => p_patch%cells%all
-    ! Sea surface salinity
-    sss(:,:)  =  p_os%p_prog(nold(1))%tracer(:,1,:,2)
-
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-
-        ! For prettier output we set speed to zero where there's no ice
-        ! This does not affect the dynamics, since the EVP routine doesn't modify ice velocities where
-        ! concentration is less than 0.01
-        IF ( p_ice%hi(jc,1,jb) <= 0._wp ) THEN
-          p_ice%u(jc,jb) = 0._wp
-          p_ice%v(jc,jb) = 0._wp
-        ENDIF
-
-        ! Fix over shoots - ONLY for the one-ice-class case
-        !IF ( p_ice%conc(jc,1,jb) > 1._wp ) p_ice%conc(jc,1,jb) = 1._wp
-
-        ! Fix under shoots and remove ice where there's almost none left
-        DO k = 1, p_ice%kice
-        ! IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
-        !   &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
-        !   ! Tracer flux due to removal
-        !   atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
-        !     & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  & ! Ice
-        !     & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
-        !   ! Heat flux due to removal
-        !   atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
-        !     & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
-        !     & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
-        !   p_ice%conc(jc,k,jb) = 0._wp
-        !   p_ice%hi  (jc,k,jb) = 0._wp
-        !   p_ice%vol (jc,k,jb) = 0._wp
-        !   p_ice%hs  (jc,k,jb) = 0._wp
-        !   p_ice%vols(jc,k,jb) = 0._wp
-        ! ENDIF
-    ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
-          IF (limit_seaice) THEN
-            z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
-                  IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
-                    ! Tracer flux due to removal
-                    atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
-                      & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
-                    ! Heat flux due to removal
-                    !  #slo# 2015-02: - this heat did not come from the ocean, but from atmosphere, heating ocean is wrong
-                    !                 - check if conc must enter here as well, check energy for coupling
-                    atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
-                      & + (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime           ! Ice
-                    p_ice%hi  (jc,k,jb) = z_smax
-                    p_ice%vol (jc,k,jb) = p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*p_patch%cells%area(jc,jb)
-                  ENDIF
-          END IF
-          p_ice%draft(jc,k,jb)   = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb)) / rho_ref
-        ENDDO
-        p_ice%draftave (jc,jb) = sum(p_ice%draft(jc,:,jb) * p_ice%conc(jc,:,jb))
-        p_ice%zUnderIce(jc,jb) = p_patch_vert%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
-          &                      - p_ice%draftave(jc,jb)  + p_ice%totalsnowfall(jc,jb)
-        !  #slo# 2015-01: totalsnowfall is needed for correct salt update (in surface module)
-        !                 since draft was increased by snowfall but water below ice is not effected by snowfall
-        !                 snow to ice conversion does not effect draft
-      ENDDO
-    ENDDO
-
-    p_ice%concSum                           = SUM(p_ice%conc, 2)
-    atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
-  
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('iceClUp: hi aft. limiter'     ,p_ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('iceClUp: hs aft. limiter'     ,p_ice%hs       ,str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('iceClUp: Conc. aft. limiter'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('iceClUp: ConcSum aft. limit ' ,p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceClUp: HeatTotal a. limit',  atmos_fluxes%HeatFlux_Total   ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceClUp: TotalIce  a. limit',  atmos_fluxes%FrshFlux_TotalIce,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceClUp: draft    '           ,p_ice%draft    ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceClUp: draftave '           ,p_ice%draftave ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceClUp: zUnderIce'           ,p_ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('iceClUp: h-old'               ,p_os%p_prog(nold(1))%h,str_module,4, in_subset=p_patch%cells%owned)
-    !---------------------------------------------------------------------
-
-  END SUBROUTINE ice_clean_up
-
-  !-------------------------------------------------------------------------
-  !
-  !
-  !>
   !! !  ice_clean_up_dyn: Basic fix for overshoots in concentration that can appear due to ice convergence in areas with conc ~ 1
   !!
   SUBROUTINE ice_clean_up_dyn( p_patch_3D, p_ice)
@@ -1631,7 +1521,7 @@ CONTAINS
     ! subset range pointer
     p_patch      => p_patch_3D%p_patch_2D(1)
 
-    ! Fix over shoots
+    ! Fix over shoots - ONLY for the one-ice-class case
     WHERE ( p_ice%conc(:,1,:) > 1._wp )
       p_ice%conc(:,1,:) = 1._wp
 
@@ -1648,7 +1538,11 @@ CONTAINS
   !
   !
   !>
-  !! !  ice_clean_up_thd: Fix undershoots and beutify output after the thermodynamic growth/melt changes. Calculates the new freeboard
+  !! !  ice_clean_up_thd: Fix undershoots and beutify output after the thermodynamic growth/melt changes.
+  !! !  Calculates the final freeboard
+  !! @par Revision History
+  !! Initial release by Einar Olason, MPI-M (2013-10).
+  !! Modified by Vladimir Lapin,      MPI-M (2015-07).
   !!
   SUBROUTINE ice_clean_up_thd( p_patch_3D, p_ice, atmos_fluxes, p_os )
     TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
@@ -1688,25 +1582,27 @@ CONTAINS
         ENDIF
 
         ! Fix under shoots and remove ice where there's almost none left
-        ! There should be no undershoots if the advectoin schene is monotonic and sign preserving
+        ! There should be no undershoots if the advection schene is monotonic and sign preserving
+        ! Therefore we do not need to correct undershoots so far (slo 2015-06)
         DO k = 1, p_ice%kice
-          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
-            &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
-            ! Tracer flux due to removal
-            atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
-              & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  & ! Ice
-              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
-            ! Heat flux due to removal
-            atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
-              & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
-              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
-            p_ice%conc(jc,k,jb) = 0._wp
-            p_ice%hi  (jc,k,jb) = 0._wp
-            p_ice%vol (jc,k,jb) = 0._wp
-            p_ice%hs  (jc,k,jb) = 0._wp
-            p_ice%vols(jc,k,jb) = 0._wp
-          ENDIF
-    ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
+        ! IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
+        !   &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
+        !   ! Tracer flux due to removal
+        !   atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
+        !     & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  & ! Ice
+        !     & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
+        !   ! Heat flux due to removal
+        !   atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
+        !     & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
+        !     & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
+        !   p_ice%conc(jc,k,jb) = 0._wp
+        !   p_ice%hi  (jc,k,jb) = 0._wp
+        !   p_ice%vol (jc,k,jb) = 0._wp
+        !   p_ice%hs  (jc,k,jb) = 0._wp
+        !   p_ice%vols(jc,k,jb) = 0._wp
+        ! ENDIF
+
+        ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
           IF (limit_seaice) THEN
             z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
                   IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN

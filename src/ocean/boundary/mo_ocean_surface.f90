@@ -560,6 +560,7 @@ CONTAINS
 
       ! call to refactored ice thermodynamics
       CALL ice_slow_slo(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
+
       ! ice_clean_up_thd routine is called inside ice_slow_slo
       ! it fixes undershoots in concentation;
       ! limits sea ice thickness to seaice_limit of surface layer depth after changes due to the thermodynamic growth/melt;
@@ -727,7 +728,7 @@ CONTAINS
           !******  (Thermodynamic Eq. 2)  ******
           !! Calculate the new freeboard caused by changes in ice thermodynamics
           !!  zUnderIce = z_surf + h_old - (z_draft - z_snowfall)
-          !!  - new zUnderIce is calculated in thermodynamics in routine ice_clean_up
+          !!  - new zUnderIce is calculated in thermodynamics in routine ice_clean_up_thd
 
           !******  (Thermodynamic Eq. 3)  ******
           !! First, calculate internal salinity change caused by melting of snow and melt or growth of ice:
