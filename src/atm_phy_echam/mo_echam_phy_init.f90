@@ -38,6 +38,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
+  USE mo_echam_cloud_config,   ONLY: configure_echam_cloud
 
 #ifndef __NO_JSBACH__
   USE mo_master_control,       ONLY: master_namelist_filename
@@ -186,6 +187,10 @@ CONTAINS
     IF (phy_config%lconv) THEN
       CALL configure_echam_convection(nlev, vct_a, vct_b)
     END IF ! lconv
+
+    IF (phy_config%lcond) THEN
+      CALL configure_echam_cloud
+    END IF ! lcond
 
     ! For surface processes:
     ! nsfc_type, iwtr, etc. are set in this subroutine.
