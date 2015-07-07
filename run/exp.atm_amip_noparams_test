@@ -299,7 +299,6 @@ cat >> ${atmo_namelist} << EOF
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
- lzaxis_reference = .FALSE. 
 /
 EOF
 
@@ -403,83 +402,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
                     'pfull'
-/
-EOF
-fi
-
-
-output_rad_2d_3d_rmb=yes
-#
-if [[ "$output_rad_2d_3d_rmb" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_rad_2d_3d_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'cosmu0','cosmu0_rad', 'daylght_frc',
-		    'visfrcsfc', 'parsfcdn', 
-                    'nirdffsfc', 'visdffsfc',
-                    'pardffsfc', 'rlus_radt', 
-                    'lwflxclr', 'swtrmclr',
-                    'lwflxall', 'swtrmall',
-		    'o3', 
-                    'aer_aod_533',  'aer_ssa_533',  'aer_asy_533',
-		    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325',
-		    'aer_aod_9731'
-/
-EOF
-fi
-
-
-output_phy_2d_rmb=yes
-#
-if [[ "$output_phy_2d_rmb" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_phy_2d_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"             ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- ml_varlist       = 'cosmu0'  , 'daylght_frc',      'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
-                    'sic'     , 'sit'     ,
-                    'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-                    'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
-                    'rintop', 'rtype', 'topmax'
 /
 EOF
 fi
