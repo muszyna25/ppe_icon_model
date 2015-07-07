@@ -41,7 +41,7 @@ MODULE mo_sea_ice_refactor
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, i_Qio_type, use_constant_tfreez
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
-  USE mo_sea_ice,             ONLY: upper_ocean_ts, ice_conc_change, ice_clean_up, ice_zero, energy_content_in_surface
+  USE mo_sea_ice,             ONLY: upper_ocean_ts, ice_conc_change, ice_clean_up_thd, ice_zero, energy_content_in_surface ! ice_clean_up
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 ! USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
@@ -267,7 +267,10 @@ CONTAINS
     CALL dbg_print('IceSlow: hs    bef.cleanup',ice%hs,       str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: Conc. bef.cleanup',ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
 
-    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+    ! the original clean up routine has been split into two: ice_clean_up_dyn, ice_clean_up_thd
+    ! ice_clean_up_thd: fix undershoots in conc and limit sea ice thickness to seaice_limit of surface layer depth after changes due to the thermodynamic growth/melt
+!    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
+    CALL ice_clean_up_thd( p_patch_3D, ice, atmos_fluxes, p_os )
 
     !  last check after cleanup with draftave update:
     energyCheck = energy_content_in_surface(p_patch, flat(:,:), p_os%p_prog(nold(1))%h(:,:), &

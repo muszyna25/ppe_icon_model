@@ -102,7 +102,7 @@ MODULE mo_sea_ice
   PUBLIC :: ice_slow
   PUBLIC :: upper_ocean_TS
   PUBLIC :: ice_conc_change
-  PUBLIC :: ice_clean_up
+  PUBLIC :: ice_clean_up_thd, ice_clean_up_dyn ! ice_clean_up
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
@@ -1476,9 +1476,12 @@ CONTAINS
 
     ! the original clean up routine has been split into two:
     ! 1) fix possible overshoots in conc afther the advection step
-    ! 2) fix undershoots in conc and limit sea ice thickness to seaice_limit of surface layer depth after changes due to the thermodynamic growth/melt
+    ! 2) fix undershoots in conc and limit sea ice thickness to seaice_limit of surface layer depth after changes due to the thermodynamic growth/melt;
+    !    Calculates the new freeboard.
 !    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
-    CALL ice_clean_up_dyn( p_patch_3D, ice )
+    IF ( i_ice_dyn >= 1 ) THEN
+        CALL ice_clean_up_dyn( p_patch_3D, ice )
+    ENDIF
     CALL ice_clean_up_thd( p_patch_3D, ice, atmos_fluxes, p_os )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1645,7 +1648,7 @@ CONTAINS
   !
   !
   !>
-  !! !  ice_clean_up_thd: Fix undershoots and beutify output after the thermodynamic growth/melt changes
+  !! !  ice_clean_up_thd: Fix undershoots and beutify output after the thermodynamic growth/melt changes. Calculates the new freeboard
   !!
   SUBROUTINE ice_clean_up_thd( p_patch_3D, p_ice, atmos_fluxes, p_os )
     TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
