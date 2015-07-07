@@ -44,8 +44,7 @@ MODULE mo_echam_phy_main
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
-!!    &                               timer_cover, timer_radiation, timer_radheat,    &
-    &                               timer_cover, timer_radheat,                     &
+    &                               timer_cover, timer_radiation, timer_radheat,    &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
@@ -530,6 +529,8 @@ CONTAINS
 
         zaedummy(:,:) = 0.0_wp
 
+        IF (ltimer) CALL timer_start(timer_radiation)
+
         CALL psrad_radiation(      &
         & jg                      ,&!< in  domain index
         & jb                      ,&!< in  block index
@@ -577,8 +578,7 @@ CONTAINS
         field%swtrmclr(jcs:jce,1,jb)=zsw_net_clr_bnd(jcs:jce,1)
         field%swtrmclr(jcs:jce,nlevp1,jb)=zsw_net_clr_bnd(jcs:jce,2)
 
-
-!!        IF (ltimer) CALL timer_stop(timer_radiation)
+        IF (ltimer) CALL timer_stop(timer_radiation)
 
       END IF ! ltrig_rad
 
