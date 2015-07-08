@@ -100,6 +100,7 @@ MODULE mo_cumaster
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
   USE mo_nwp_parameters,  ONLY: t_phy_params
+  USE mo_nwp_tuning_config, ONLY: tune_capdcfac_et
   USE mo_fortran_tools,   ONLY: t_ptr_tracer
 
   IMPLICIT NONE
@@ -549,8 +550,6 @@ llo2(:)= .FALSE.
 !*    2.           INITIALIZE VALUES AT VERTICAL GRID POINTS IN 'CUINI'
 !                  ---------------------------------------------------
 
-! Note by GZ: For unclear reasons, cuinin and cubasen have to be called
-! for all model levels to obtain correct results
 CALL cuinin &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%kcon2, &
   & pten,     pqen,     pqsen,    puen,     pven,&
@@ -571,7 +570,7 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev,&
-  & phy_params%kcon1, phy_params%kcon2,          &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -729,7 +728,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & ptsphy,&
+  & phy_params%entrorg, ptsphy,&
   & paer_ss, &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -866,7 +865,7 @@ DO jl = kidia, kfdia
     ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
     llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
     IF (llo1 .AND. ldland(jl)) THEN
-      zcapdcycl(jl) = capdcfac(jl)*zcappbl(jl)*ztau(jl)*phy_params%tau0
+      zcapdcycl(jl) = MAX(tune_capdcfac_et,capdcfac(jl))*zcappbl(jl)*ztau(jl)*phy_params%tau0
     ENDIF
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
@@ -997,7 +996,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & ptsphy,&
+    & phy_params%entrorg, ptsphy,&
     & paer_ss,&
     & ztenh,    zqenh,    &
     & ptenq,            &

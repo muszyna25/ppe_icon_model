@@ -75,11 +75,11 @@
       &                               setup_comm_gather_pattern
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
-    USE mo_grib2,               ONLY: t_grib2_var
+    USE mo_grib2,               ONLY: t_grib2_var, grib2_var
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE,                  &
       &                               GRID_CELL, ZA_SURFACE,                                &
       &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
-    USE mo_nonhydro_state,      ONLY: p_nh_state
+    USE mo_nonhydro_state,      ONLY: p_nh_state_lists
     USE mo_var_list,            ONLY: add_var
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
@@ -217,10 +217,11 @@
       TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = &
-        &  modname//"::compute_lonlat_intp_coeffs"
-      INTEGER              :: i, jg, n_points, my_id, nthis_local_pts
-      TYPE(t_gnat_tree)    :: gnat
+      CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_intp_coeffs"
+      INTEGER                :: i, jg, n_points, my_id, nthis_local_pts
+      TYPE(t_gnat_tree)      :: gnat
+      TYPE (t_triangulation) :: tri
+      TYPE (t_point_list)    :: points
 
       ! -----------------------------------------------------------
 
@@ -259,16 +260,17 @@
             ! --------------------------------------------------------------------------
             !
             ! IMPORTANT: Currently, barycentric interpolation supported only
-            !            - for patch #1 and
             !            - if the namelist parameter "interpol_nml/support_baryctr_intp"
             !              has been set to .TRUE.
             !
             ! --------------------------------------------------------------------------
 
-            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
-              CALL setup_barycentric_intp_lonlat(       &
-                &         p_patch(jg),                  &
-                &         lonlat_grid_list(i)%intp(jg))
+!            IF ((jg <= 1) .AND. support_baryctr_intp) THEN
+            IF (support_baryctr_intp) THEN
+              CALL compute_auxiliary_triangulation(p_patch(jg), tri, points)
+              CALL setup_barycentric_intp_lonlat(tri, points, lonlat_grid_list(i)%intp(jg))
+              CALL tri%destructor()
+              CALL points%destructor()
             END IF
 
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
@@ -291,16 +293,17 @@
             my_id = get_my_mpi_work_id()
             nthis_local_pts = lonlat_grid_list(i)%intp(jg)%nthis_local_pts
 
-            CALL setup_comm_gather_pattern(n_points, &
-              (/(my_id, i = 1, nthis_local_pts)/), &
-              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
-              lonlat_grid_list(i)%p_pat(jg))
-
             ! resize global data structures, after the setup only
             ! local information is needed:
             CALL resize_lonlat_state(lonlat_grid_list(i)%intp(jg),     &
               &                      (nthis_local_pts - 1)/nproma + 1, &
               &                      nthis_local_pts)
+
+            CALL setup_comm_gather_pattern(n_points,                      &
+              (/(my_id, i = 1, nthis_local_pts)/),                        &
+              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
+              lonlat_grid_list(i)%p_pat(jg),.true.)
+
           END IF
         END DO ! jg
 
@@ -344,12 +347,12 @@
             nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
             var_shape = (/ nproma, 1, nblks_lonlat /)
             cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', DATATYPE_FLT32)
-            grib2_desc = t_grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
+            grib2_desc = grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-            CALL add_var( p_nh_state(jg)%diag_list,                             &
+            CALL add_var( p_nh_state_lists(jg)%diag_list,                             &
               &           "aw", p_dummy,                                        &
               &           GRID_REGULAR_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
@@ -1830,81 +1833,60 @@
       REAL(wp),       INTENT(IN)     :: v(3)          !< query point
       TYPE(t_point),  INTENT(IN)     :: v1,v2,v3      !< vertex longitudes/latitudes
       ! local variables
-      REAL(wp)      :: c1,c2,c3
+      LOGICAL       :: c1,c2,c3
       TYPE(t_point) :: p
-      
+
       p%x = v(1)
       p%y = v(2)
       p%z = v(3)
-      
-      c1      = ccw_spherical(v1,v2,p)
-      c2      = ccw_spherical(v2,v3,p)
-      c3      = ccw_spherical(v3,v1,p)
-      inside_triangle = ((c1>=0._wp) .AND. (c2>=0._wp) .AND. (c3>=0._wp)) .OR. &
-        &               ((c1<=0._wp) .AND. (c2<=0._wp) .AND. (c3<=0._wp))
+
+      c1  = ccw_spherical(v1,v2,p)
+      c2  = ccw_spherical(v2,v3,p)
+      c3  = ccw_spherical(v3,v1,p)
+      inside_triangle = ((      c1) .AND. (      c2) .AND. (      c3)) .OR. &
+        &               ((.NOT. c1) .AND. (.NOT. c2) .AND. (.NOT. c3))
     END FUNCTION inside_triangle
 
 
     !-------------------------------------------------------------------------
-    !> Setup routine for barycentric interpolation at lon-lat grid
-    !  points for an arbitrary grid.
+    !> Compute Delaunay triangulation of mass points.
     !
     ! @par Revision History
-    !      Initial implementation  by  F. Prill, DWD (2015-01)
+    !      Initial implementation  by  F. Prill, DWD (2015-04)
     !
-    SUBROUTINE setup_barycentric_intp_lonlat(ptr_patch, ptr_int_lonlat)
-
+    SUBROUTINE compute_auxiliary_triangulation (ptr_patch, tri, p_global)
       ! data structure containing grid info:
-      TYPE(t_patch), TARGET, INTENT(IN)            :: ptr_patch
-      ! Indices of source points and interpolation coefficients
-      TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+      TYPE(t_patch), TARGET,  INTENT(IN)           :: ptr_patch
+      TYPE (t_triangulation), INTENT(INOUT)        :: tri
+      TYPE (t_point_list),    INTENT(INOUT)        :: p_global
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = modname//"::setup_barycentric_intp_lonlat"
-      ! max. no. of triangle (bounding boxes) containing a single lat-lon point.
-      INTEGER,      PARAMETER :: NMAX_HITS = 99
-      ! enlarge the triangle bounding boxes to prevent empty queries
-      REAL(wp),     PARAMETER :: BBOX_MARGIN = 1.e-3_wp
+      CHARACTER(*), PARAMETER :: routine = modname//"::compute_auxiliary_triangulation"
       ! enlarge the local triangulation area by this factor
       REAL(wp),     PARAMETER :: RADIUS_FACTOR = 1.1_wp
-      ! we use the barycentric coords for the "point in triangle
-      ! test"; this is the threshold for this test
-      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
 
-      INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,                 &
-        &                                i_startidx, i_endidx, i_startblk, i_endblk,          &
-        &                                rl_start, rl_end, i_nchdom, i, j, k, errstat,        &
-        &                                nobjects, idx0, idx, nthreads, dim
-      TYPE (t_point_list)             :: p_local, p_global
-      TYPE(t_cartesian_coordinates)   :: p_x
-      INTEGER, ALLOCATABLE            :: permutation(:), g2l_index(:)
+      INTEGER                         :: jb, jc, i_nchdom,                            &
+        &                                i_startidx, i_endidx, i_startblk, i_endblk,  &
+        &                                rl_start, rl_end, i, errstat,                &
+        &                                idx, nthreads, dim, ierrstat
+      TYPE (t_point_list)             :: p_local
       TYPE (t_spherical_cap)          :: subset
-      TYPE (t_triangulation)          :: tri
 !$    DOUBLE PRECISION                :: time_s, toc
-      REAL(wp)                        :: pp(3),v1(3),v2(3),v3(3)
-      TYPE (t_range_octree)           :: octree               !< octree data structure
-      REAL(wp)                        :: brange(2,3)          !< box range (min/max, dim=1,2,3)
-      REAL(wp), ALLOCATABLE           :: pmin(:,:), pmax(:,:)
-      INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
-      TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
-      TYPE(t_point)                   :: p, centroid
-      LOGICAL                         :: inside_test1, inside_test2
+      TYPE(t_point)                   :: centroid
+      TYPE(t_cartesian_coordinates)   :: p_x
+      INTEGER, ALLOCATABLE            :: g2l_index(:)
+      TYPE (t_triangulation)          :: tri_global
+      INTEGER, ALLOCATABLE            :: permutation(:) ! point index permutation: sorted -> ICON ordering
 
       !-----------------------------------------------------------------------
 
       CALL message(routine, '')
-
-      ! make sure that the interpolation data structure for the
-      ! barycentric interpolation has been allocated:
-      IF (.NOT. ALLOCATED(ptr_int_lonlat%baryctr_coeff)) THEN
-        CALL finish(routine, "Data structure for the barycentric interpolation not allocated!")
-      END IF
 
       ! --- create an array-like data structure containing the local
       ! --- mass points
 
       CALL p_local%initialize()
       CALL p_local%reserve(ptr_patch%n_patch_cells)
-      rl_start   = 2
+      rl_start   = 1
       rl_end     = min_rlcell_int
       i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
@@ -2004,15 +1986,22 @@
       IF (dbg_level > 1) THEN
         WRITE (0,*) "spherical cap around ", p_local%a(0)%x, p_local%a(0)%y, p_local%a(0)%z, "; radius ", subset%radius
       END IF
+      CALL p_local%destructor()
 
       CALL tri%initialize()
 !$    time_s = omp_get_wtime()
       nthreads = 1
 !$    nthreads = omp_get_max_threads()
+
+      ! for local domains we do not force complete Delaunay
+      ! triangulations, since these domains contain pathological
+      ! triangles near the boundary which would lead to a
+      ! time-consuming triangulation process.
       IF (nthreads > 1) THEN
-        CALL triangulate_mthreaded(p_global, tri, subset, nthreads)
+        CALL triangulate_mthreaded(p_global, tri, subset, nthreads, &
+          &                        ignore_completeness = (ptr_patch%id > 1))
       ELSE
-        CALL triangulate(p_global, tri, subset)
+        CALL triangulate(p_global, tri, subset, ignore_completeness = (ptr_patch%id > 1))
       END IF
 !$    toc = omp_get_wtime() - time_s
       IF (dbg_level > 1) THEN
@@ -2020,27 +2009,78 @@
         WRITE (0,*) "no. of cells in auxiliary triangulation: ", tri%nentries
       END IF
 
+      DO i=0,(p_global%nentries-1)
+        p_global%a(i)%gindex = permutation(i)
+      END DO
+      DEALLOCATE(permutation, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+
       ! --- plotting for debugging purposes:
       !
       ! --- write a plot of the local triangulation
-
-      !  IF (dbg_level > 2) THEN
-      !    WRITE (0,'(a,i0,a)') "# formed ", tri%nentries, " triangles."
-      !    IF (dbg_level > 10) THEN
-      !      CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
-      !    END IF
-      !  END IF
-      !  CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
+      IF (dbg_level > 2) THEN
+        WRITE (0,'(a,i0,a)') "# formed ", tri%nentries, " triangles."
+        IF (dbg_level > 10) THEN
+          CALL write_triangulation_vtk("test"//TRIM(int2string(get_my_mpi_work_id()))//".vtk", p_global, tri)
+        END IF
+      END IF
 
       ! --- write a plot of the global triangulation
+      CALL tri%quicksort() 
+      tri_global=triangulation(tri)
+      CALL tri_global%sync()
+      IF (my_process_is_stdio() .AND. (dbg_level > 10)) THEN
+        CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
+      END IF
 
-      !  CALL tri%quicksort() 
-      !  !     TYPE (t_triangulation)  :: tri_global
-      !  tri_global=triangulation(tri)
-      !  CALL tri_global%sync()
-      !  IF (my_process_is_stdio()) THEN
-      !    CALL write_triangulation_vtk("tri_global.vtk", p_global, tri_global)
-      !  END IF
+    END SUBROUTINE compute_auxiliary_triangulation
+    
+
+    !-------------------------------------------------------------------------
+    !> Setup routine for barycentric interpolation at lon-lat grid
+    !  points for an arbitrary grid.
+    !
+    ! @par Revision History
+    !      Initial implementation  by  F. Prill, DWD (2015-01)
+    !
+    SUBROUTINE setup_barycentric_intp_lonlat(tri, p_global, ptr_int_lonlat)
+
+      ! triangulation of mass points.
+      TYPE (t_triangulation),        INTENT(IN)    :: tri
+      TYPE (t_point_list),           INTENT(IN)    :: p_global
+      ! Indices of source points and interpolation coefficients
+      TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+      ! Local Parameters:
+      CHARACTER(*), PARAMETER :: routine = modname//"::setup_barycentric_intp_lonlat"
+      ! max. no. of triangle (bounding boxes) containing a single lat-lon point.
+      INTEGER,      PARAMETER :: NMAX_HITS = 99
+      ! enlarge the triangle bounding boxes to prevent empty queries
+      REAL(wp),     PARAMETER :: BBOX_MARGIN = 1.e-3_wp
+      ! we use the barycentric coords for the "point in triangle
+      ! test"; this is the threshold for this test
+      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
+
+      INTEGER                         :: nblks_lonlat, npromz_lonlat, jb, jc,    &
+        &                                i_startidx, i_endidx, i, j, k, errstat, &
+        &                                nobjects, idx0
+      REAL(wp)                        :: pp(3),v1(3),v2(3),v3(3)
+      TYPE (t_range_octree)           :: octree               !< octree data structure
+      REAL(wp)                        :: brange(2,3)          !< box range (min/max, dim=1,2,3)
+      REAL(wp), ALLOCATABLE           :: pmin(:,:), pmax(:,:)
+      INTEGER                         :: obj_list(NMAX_HITS)  !< query result (triangle search)
+      TYPE(t_cartesian_coordinates)   :: ll_point_c           !< cartes. coordinates of lon-lat points
+      LOGICAL                         :: inside_test1, inside_test2
+
+      !-----------------------------------------------------------------------
+
+      CALL message(routine, '')
+
+      ! make sure that the interpolation data structure for the
+      ! barycentric interpolation has been allocated:
+      IF (.NOT. ALLOCATED(ptr_int_lonlat%baryctr_coeff)) THEN
+        CALL finish(routine, "Data structure for the barycentric interpolation not allocated!")
+      END IF
 
       ALLOCATE(pmin(tri%nentries,3), pmax(tri%nentries,3), STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
@@ -2079,13 +2119,17 @@
       npromz_lonlat = ptr_int_lonlat%nthis_local_pts - (nblks_lonlat-1)*nproma
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_startidx,i_endidx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, v1,v2,v3,i,j )
+!$OMP                     idx0, v1,v2,v3,i,j,inside_test1,inside_test2 )
       DO jb=1,nblks_lonlat
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 
         DO jc=i_startidx,i_endidx
+
+          ptr_int_lonlat%baryctr_idx(1:3,jc,jb)   = 1
+          ptr_int_lonlat%baryctr_blk(1:3,jc,jb)   = 1
+          ptr_int_lonlat%baryctr_coeff(1:3,jc,jb) = (/ 1._wp,  0._wp, 0._wp /)
 
           ! --- determine the triangle in our auxiliary triangulation
           ! --- which contains the lon-lat grid point:
@@ -2127,58 +2171,23 @@
             IF (inside_test1 .OR. inside_test2) THEN
               idx0 = j
 
-              IF (ALL(permutation(tri%a(idx0)%p(0:2)) /= -1)) THEN
+              IF (ALL(p_global%a(tri%a(idx0)%p(0:2))%gindex /= -1)) THEN
                 ! get indices of the containing triangle
-                ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(permutation(tri%a(idx0)%p(0:2)))
-                ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(permutation(tri%a(idx0)%p(0:2)))
+                ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(p_global%a(tri%a(idx0)%p(0:2))%gindex)
+                ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(p_global%a(tri%a(idx0)%p(0:2))%gindex)
 
                 IF (ANY(ptr_int_lonlat%baryctr_idx(1:3,jc,jb) <= 0)) THEN
-                  WRITE (0,*) "permutation(tri%a(idx0)%p(0:2)) = ", permutation(tri%a(idx0)%p(0:2))
+                  WRITE (0,*) "permutation(tri%a(idx0)%p(0:2)) = ", p_global%a(tri%a(idx0)%p(0:2))%gindex
                   CALL finish(routine, "Internal error!")
                 END IF
               ELSE
-                ! the containing triangle is not local for this PE?
-                CALL finish(routine, "Internal error!")
+                ! the containing triangle is not local for this PE;
+                ! this may happen for nested regions; we therefore do not stop.
               END IF
 
               EXIT LOOP
             END IF
           END DO LOOP
-
-          ! consistency check:
-          IF (idx0 == -1) THEN
-            WRITE (0,*) "obj_list = ", obj_list(1:nobjects)
-            WRITE (0,*) "ll_point_c = ", ll_point_c
-            DO i=1,nobjects
-              j = obj_list(i) - 1
-            
-              v1(:) = (/ p_global%a(tri%a(j)%p(0))%x, p_global%a(tri%a(j)%p(0))%y, p_global%a(tri%a(j)%p(0))%z /)
-              v2(:) = (/ p_global%a(tri%a(j)%p(1))%x, p_global%a(tri%a(j)%p(1))%y, p_global%a(tri%a(j)%p(1))%z /)
-              v3(:) = (/ p_global%a(tri%a(j)%p(2))%x, p_global%a(tri%a(j)%p(2))%y, p_global%a(tri%a(j)%p(2))%z /)
-              WRITE (0,*) "v1 = ", v1
-              WRITE (0,*) "v2 = ", v2
-              WRITE (0,*) "v3 = ", v3
-
-              p%x = ll_point_c%x(1)
-              p%y = ll_point_c%x(2)
-              p%z = ll_point_c%x(3)
-              WRITE (0,*) "c1 = ",  ccw_spherical(p_global%a(tri%a(j)%p(0)),p_global%a(tri%a(j)%p(1)),p)
-              WRITE (0,*) "c2 = ",  ccw_spherical(p_global%a(tri%a(j)%p(1)),p_global%a(tri%a(j)%p(2)),p)
-              WRITE (0,*) "c3 = ",  ccw_spherical(p_global%a(tri%a(j)%p(2)),p_global%a(tri%a(j)%p(0)),p)
-
-              CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),       &
-                &                             v1,v2,v3,                             &
-                &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
-              WRITE (0,*) "barycentric coords: ", ptr_int_lonlat%baryctr_coeff(1:3,jc,jb)
-            END DO
-            CALL finish(routine, "Internal error!")
-          END IF
-
-          IF (nobjects == 0) THEN
-            WRITE (0,*) "nobjects == 0"
-            WRITE (0,*) "ll_point_c = ", ll_point_c
-            CALL finish(routine, "Internal error!")
-          END IF
 
         END DO
       END DO
@@ -2186,7 +2195,7 @@
 
       ! clean up
       CALL octree_finalize(octree)
-      DEALLOCATE(pmin, pmax, permutation, STAT=errstat)
+      DEALLOCATE(pmin, pmax, STAT=errstat)
       IF (errstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
 
     END SUBROUTINE setup_barycentric_intp_lonlat

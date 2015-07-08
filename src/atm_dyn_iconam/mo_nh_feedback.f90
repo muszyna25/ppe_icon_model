@@ -41,10 +41,10 @@ MODULE mo_nh_feedback
   USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
     grf_bdywidth_c
   USE mo_communication,       ONLY: exchange_data_mult
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_wtr_prog
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 

@@ -44,7 +44,9 @@ MODULE mo_read_namelists
   USE mo_echam_phy_nml       ,ONLY: read_echam_phy_namelist
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
+  USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
+  USE mo_synsat_nml          ,ONLY: read_synsat_namelist
   USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
   USe mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
@@ -112,6 +114,7 @@ CONTAINS
     CALL read_meteogram_namelist      (TRIM(atm_namelist_filename))
     CALL read_name_list_output_namelists (TRIM(atm_namelist_filename))
     CALL read_dbg_namelist            (TRIM(atm_namelist_filename))
+    CALL read_synsat_namelist         (TRIM(atm_namelist_filename))
 
     ! Grid
     !
@@ -136,6 +139,7 @@ CONTAINS
     CALL read_echam_phy_namelist      (TRIM(atm_namelist_filename))
     CALL read_nwp_phy_namelist        (TRIM(atm_namelist_filename))
     CALL read_nwp_tuning_namelist     (TRIM(atm_namelist_filename))
+    CALL read_ensemble_pert_namelist  (TRIM(atm_namelist_filename))
     CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
     CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
     CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
@@ -240,6 +244,7 @@ CONTAINS
     CALL read_echam_phy_namelist      (TRIM(cpl_dummy_namelist))
     CALL read_nwp_phy_namelist        (TRIM(cpl_dummy_namelist))
     CALL read_nwp_tuning_namelist     (TRIM(cpl_dummy_namelist))
+    CALL read_ensemble_pert_namelist  (TRIM(cpl_dummy_namelist))
     CALL read_radiation_namelist      (TRIM(cpl_dummy_namelist))
     CALL read_vdiff_namelist          (TRIM(cpl_dummy_namelist))
     CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))

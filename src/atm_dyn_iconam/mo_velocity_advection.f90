@@ -32,13 +32,12 @@ MODULE mo_velocity_advection
   USE mo_model_domain,      ONLY: t_patch
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar_ri
-  USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
+  USE mo_nonhydro_types,    ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_math_divrot,       ONLY: rot_vertex_ri
   USE mo_vertical_grid,     ONLY: nrdmax
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
-  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, &
-    &                             min_rlcell
+  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_timer,             ONLY: timer_solve_nh_veltend, timer_start, timer_stop
 
@@ -141,7 +140,7 @@ MODULE mo_velocity_advection
 
     !Get patch id
     jg = p_patch%id
-    nrdmax_jg     = nrdmax(jg)     ! This shorthand creates large diffs
+    nrdmax_jg     = nrdmax(jg)
     nflatlev_jg   = nflatlev(jg)
 
     ! number of vertical levels
@@ -335,7 +334,7 @@ MODULE mo_velocity_advection
     i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, ic, difcoef, vcfl) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, ic, difcoef, vcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -476,10 +475,10 @@ MODULE mo_velocity_advection
 
       IF (lextra_diffu) THEN
         ! Apply extra diffusion at grid points where w_con is close to or above the CFL stability limit
-        DO jc = i_startidx_2, i_endidx_2
-          IF (p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
-            DO jk = MAX(3,nrdmax_jg-2), nlev-3
-              IF ( cfl_clipping(jc,jk) ) THEN
+        DO jk = MAX(3,nrdmax_jg-2), nlev-3
+          IF (levmask(jb,jk)) THEN
+            DO jc = i_startidx_2, i_endidx_2
+              IF (cfl_clipping(jc,jk) .AND. p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
                 difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
                   ABS(z_w_con_c(jc,jk))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
 

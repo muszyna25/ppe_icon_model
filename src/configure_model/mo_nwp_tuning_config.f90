@@ -31,11 +31,17 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zceff_min
   PUBLIC :: tune_v0snow
   PUBLIC :: tune_zvz0i
+  PUBLIC :: tune_entrorg
+  PUBLIC :: tune_capdcfac_et
+  PUBLIC :: tune_box_liq
   PUBLIC :: itune_albedo
+  PUBLIC :: max_freshsnow_inc
+
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for physics tuning
   !!--------------------------------------------------------------------------
+
 !  TYPE :: t_nwp_tuning_config
 
     ! namelist variables
@@ -57,9 +63,22 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
+  REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
+    &  tune_entrorg
+
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
+    &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
+    &  tune_box_liq                ! (in case of inwp_cldcover = 1)
+
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
+
+
+  REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
+    &  max_freshsnow_inc
 
 !  END TYPE t_nwp_tuning_config
 

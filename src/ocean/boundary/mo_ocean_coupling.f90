@@ -127,7 +127,7 @@ CONTAINS
 
     INTEGER :: patch_no
 
-# ifdef YAC_coupling
+#ifdef YAC_coupling
 
     INTEGER, PARAMETER :: nbr_subdomain_ids = 1
     INTEGER, PARAMETER :: CELL = 0 ! one point per cell
@@ -175,23 +175,22 @@ CONTAINS
     ! Initialise the coupler
     xml_filename = "coupling.xml"
     xsd_filename = "coupling.xsd"
-    CALL yac_finit ( xml_filename, xsd_filename )
+    CALL yac_finit ( TRIM(xml_filename), TRIM(xsd_filename) )
 
     ! Inform the coupler about what we are
-    CALL yac_fdef_comp ( comp_name, comp_id )
+    CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
-      &                      INT(time_config%dt_restart))
-    CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+    CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
+    CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
 
-    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start, &
-      &                      end_datetime   = sim_step_info%sim_end   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%sim_start), &
+      &                      end_datetime   = TRIM(sim_step_info%sim_end)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
-    CALL yac_fdef_subdomain ( comp_id, grid_name, subdomain_id )
+    CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
 
     subdomain_ids(1) = subdomain_id
 
@@ -350,7 +349,31 @@ CONTAINS
 
     DEALLOCATE (ibuffer)
 
-# else
+    field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
+    field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
+    field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
+    field_name(4) = "surface_temperature"
+    field_name(5) = "total_heat_flux"                    ! bundled field containing four components
+    field_name(6) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
+    field_name(7) = "sea_surface_temperature"
+    field_name(8) = "eastward_sea_water_velocity"
+    field_name(9) = "northward_sea_water_velocity"
+    field_name(10) = "ocean_sea_ice_bundle"              ! bundled field containing five components
+
+    DO i = 1, no_of_fields
+      CALL yac_fdef_field (    &
+        & TRIM(field_name(i)), &
+        & comp_id,             &
+        & domain_id,           &
+        & cell_point_ids,      &
+        & cell_mask_ids,       &
+        & 1,                   &
+        & field_id(i) )
+    ENDDO
+
+    CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
+
+#else
 
     INTEGER :: grid_id
     INTEGER :: grid_shape(2)
@@ -380,8 +403,6 @@ CONTAINS
       & p_pe_work,  & ! this owner id
       & error_status )                                            ! output
 
-# endif
-
     field_name(1) =  "TAUX"   ! bundled field containing two components
     field_name(2) =  "TAUY"   ! bundled field containing two components
     field_name(3) =  "SFWFLX" ! bundled field containing three components
@@ -391,41 +412,30 @@ CONTAINS
     field_name(7) =  "SST"
     field_name(8) =  "OCEANU"
     field_name(9) =  "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
-
-# ifdef YAC_coupling
-
-    DO i = 1, no_of_fields
-      CALL yac_fdef_field (    &
-        & field_name(i),       &
-        & comp_id,             &
-        & domain_id,           &
-        & cell_point_ids,      &
-        & cell_mask_ids,       &
-        & 1,                   &
-        & field_id(i) )
-    ENDDO
-
-    CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
-
-# else
+    field_name(10) = "ICEOCE" ! bundled field containing five components
 
     field_shape(1:2) = grid_shape(1:2)
 
+    ! see equivalent ocean counterpart in drivers/mo_atmo_model.f90
+    ! routine construct_atmo_coupler 
+
     DO i = 1, no_of_fields
+
       IF ( i == 1 .OR. i == 2 ) THEN
         field_shape(3) = 2
       ELSE IF ( i == 3 ) THEN
         field_shape(3) = 3
-      ELSE IF ( i == 6 .OR. i == 5 ) THEN
+      ELSE IF ( i == 5 .OR. i == 6 ) THEN
         field_shape(3) = 4
       ELSE IF ( i == 10 ) THEN
         field_shape(3) = 5
       ELSE
         field_shape(3) = 1
       ENDIF
+
       CALL icon_cpl_def_field ( field_name(i), grid_id, field_id(i), &
         & field_shape, error_status )
+
     ENDDO
 
     CALL icon_cpl_search
@@ -439,11 +449,11 @@ CONTAINS
   !--------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE destruct_ocean_coupling()
-# ifdef YAC_coupling
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) CALL yac_ffinalize
-# else
+#else
     IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
-# endif
+#endif
   END SUBROUTINE destruct_ocean_coupling
   !--------------------------------------------------------------------------
 

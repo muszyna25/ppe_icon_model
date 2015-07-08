@@ -17,10 +17,13 @@ MODULE mo_test_communication
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: work_mpi_barrier
+  USE mo_mpi,                 ONLY: work_mpi_barrier, p_n_work, p_pe_work
   USE mo_timer,               ONLY: ltimer, new_timer, timer_start, timer_stop, &
     & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
+  USE mo_communication,       ONLY: t_comm_gather_pattern, &
+    &                               setup_comm_gather_pattern, &
+    &                               delete_comm_gather_pattern, exchange_data
 
   USE mo_master_control,      ONLY: get_my_process_name
 
@@ -41,7 +44,8 @@ MODULE mo_test_communication
     & init_rrtm_model_repart
 
   USE mo_icon_testbed_config, ONLY: testbed_model, test_halo_communication, &
-    & test_radiation_communication, testbed_iterations, calculate_iterations
+    & test_radiation_communication, testbed_iterations, calculate_iterations, &
+    & test_gather_communication
 
 
 !-------------------------------------------------------------------------
@@ -88,6 +92,9 @@ CONTAINS
 
     CASE(test_radiation_communication)
       CALL radiation_communication_testbed()
+
+    CASE(test_gather_communication)
+      CALL gather_communication_testbed()
 
     CASE default
       CALL finish(method_name, "Unrecognized testbed_model")
@@ -1024,6 +1031,482 @@ CONTAINS
 !     CALL delete_icon_comm_variable(comm_2)
 !     CALL delete_icon_comm_variable(comm_1)
     !---------------------------------------------------------------------
+
+
+  SUBROUTINE gather_communication_testbed()
+
+    INTEGER :: i, j
+
+    INTEGER :: local_size, global_size
+    INTEGER, ALLOCATABLE :: owner_local(:), glb_index(:)
+    TYPE(t_comm_gather_pattern) :: gather_pattern
+    LOGICAL :: disable_consistency_check
+
+    INTEGER :: nlev
+    REAL(wp), ALLOCATABLE :: in_array_r_1d(:,:), in_array_r_2d(:,:,:)
+    INTEGER, ALLOCATABLE :: in_array_i_1d(:,:), in_array_i_2d(:,:,:)
+    REAL(wp), ALLOCATABLE :: out_array_r_1d(:), out_array_r_2d(:,:)
+    REAL(wp), ALLOCATABLE :: ref_out_array_r_1d(:), ref_out_array_r_2d(:,:)
+    INTEGER, ALLOCATABLE :: out_array_i_1d(:), out_array_i_2d(:,:)
+    INTEGER, ALLOCATABLE :: ref_out_array_i_1d(:), ref_out_array_i_2d(:,:)
+    REAL(wp) :: fill_value
+
+    CHARACTER(*), PARAMETER :: method_name = &
+      "mo_test_communication:gather_communication_testbed"
+
+    !---------------------------------------------------------------------------
+    ! simple test in which each process has its own local contiguous part of the
+    ! global array
+    !---------------------------------------------------------------------------
+    ! generate gather pattern
+    local_size = 10 * nproma
+    global_size = p_n_work * local_size
+    ALLOCATE(owner_local(local_size), glb_index(local_size))
+    DO i = 1, local_size
+      owner_local(i) = p_pe_work
+      glb_index(i) = local_size * p_pe_work + i
+    END DO
+    disable_consistency_check = .FALSE.
+    CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+      &                            gather_pattern)
+
+    ! initialise in- and reference out data
+    nlev = 5
+    fill_value = -1
+    ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+      &      in_array_r_2d(nproma, nlev, local_size / nproma), &
+      &      in_array_i_1d(nproma, local_size / nproma), &
+      &      in_array_i_2d(nproma, nlev, local_size / nproma))
+    DO i = 0, local_size-1
+      in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      DO j = 1, nlev
+        in_array_r_2d(MOD(i,nproma)+1, j, i/nproma+1) = (j - 1) * global_size + &
+          &                                             p_pe_work * local_size + i
+        in_array_i_2d(MOD(i,nproma)+1, j, i/nproma+1) = (j - 1) * global_size + &
+          &                                             p_pe_work * local_size + i
+      END DO
+    END DO
+    IF (p_pe_work == 0) THEN
+      ALLOCATE(out_array_r_1d(global_size), &
+        &      out_array_r_2d(global_size, nlev), &
+        &      out_array_i_1d(global_size), &
+        &      out_array_i_2d(global_size, nlev), &
+        &      ref_out_array_r_1d(global_size), &
+        &      ref_out_array_r_2d(global_size, nlev), &
+        &      ref_out_array_i_1d(global_size), &
+        &      ref_out_array_i_2d(global_size, nlev))
+      DO i = 0, global_size - 1
+        ref_out_array_r_1d(i+1) = i
+        ref_out_array_i_1d(i+1) = i
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = (j - 1) * global_size + i
+          ref_out_array_i_2d(i+1, j) = (j - 1) * global_size + i
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(out_array_r_1d(0), &
+        &      out_array_r_2d(0, 0), &
+        &      out_array_i_1d(0), &
+        &      out_array_i_2d(0, 0), &
+        &      ref_out_array_r_1d(0), &
+        &      ref_out_array_r_2d(0, 0), &
+        &      ref_out_array_i_1d(0), &
+        &      ref_out_array_i_2d(0, 0))
+    END IF
+
+    ! check gather pattern
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern)
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern, fill_value)
+
+    ! delete gather pattern and other arrays
+    DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
+    DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
+      &        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &        ref_out_array_i_1d, ref_out_array_i_2d)
+    CALL delete_comm_gather_pattern(gather_pattern)
+    DEALLOCATE(owner_local, glb_index)
+
+    !---------------------------------------------------------------------------
+    ! simple test in which each process has its own local contiguous part of the
+    ! global array plus some overlap with neighbouring processes
+    !---------------------------------------------------------------------------
+    ! generate gather pattern
+    local_size = 12 * nproma
+    global_size = p_n_work * 10 * nproma
+    ALLOCATE(owner_local(local_size), glb_index(local_size))
+    DO i = 1, local_size
+      owner_local(i) = p_pe_work
+      glb_index(i) =  & 
+        MOD(global_size + (p_pe_work * 10 - 1) * nproma + i - 1, global_size) + 1
+    END DO
+    DO i = 1, nproma
+      owner_local(i) = MOD(p_n_work + p_pe_work - 1, p_n_work)
+      owner_local(11 * nproma + i) = MOD(p_pe_work + 1, p_n_work)
+    END DO
+    disable_consistency_check = .FALSE.
+    CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+      &                            gather_pattern)
+    ! initialise in- and reference out data
+    nlev = 5
+    fill_value = -1
+    ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+      &      in_array_r_2d(nproma, nlev, local_size / nproma), &
+      &      in_array_i_1d(nproma, local_size / nproma), &
+      &      in_array_i_2d(nproma, nlev, local_size / nproma))
+
+    DO i = 0, local_size-1
+      in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = &
+        MOD(global_size + (p_pe_work * 10 - 1) * nproma + i, global_size)
+      in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = &
+        MOD(global_size + (p_pe_work * 10 - 1) * nproma + i, global_size)
+      DO j = 1, nlev
+        in_array_r_2d(MOD(i,nproma)+1, j, i/nproma+1) = &
+          in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) + (j - 1) * global_size
+        in_array_i_2d(MOD(i,nproma)+1, j, i/nproma+1) = &
+          in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) + (j - 1) * global_size
+      END DO
+    END DO
+    IF (p_pe_work == 0) THEN
+      ALLOCATE(out_array_r_1d(global_size), &
+        &      out_array_r_2d(global_size, nlev), &
+        &      out_array_i_1d(global_size), &
+        &      out_array_i_2d(global_size, nlev), &
+        &      ref_out_array_r_1d(global_size), &
+        &      ref_out_array_r_2d(global_size, nlev), &
+        &      ref_out_array_i_1d(global_size), &
+        &      ref_out_array_i_2d(global_size, nlev))
+      DO i = 0, global_size - 1
+        ref_out_array_r_1d(i+1) = i
+        ref_out_array_i_1d(i+1) = i
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = (j - 1) * global_size + i
+          ref_out_array_i_2d(i+1, j) = (j - 1) * global_size + i
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(out_array_r_1d(0), &
+        &      out_array_r_2d(0, 0), &
+        &      out_array_i_1d(0), &
+        &      out_array_i_2d(0, 0), &
+        &      ref_out_array_r_1d(0), &
+        &      ref_out_array_r_2d(0, 0), &
+        &      ref_out_array_i_1d(0), &
+        &      ref_out_array_i_2d(0, 0))
+    END IF
+
+    ! check gather pattern
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern)
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern, fill_value)
+
+    ! delete gather pattern and other arrays
+    DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
+    DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
+      &        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &        ref_out_array_i_1d, ref_out_array_i_2d)
+    CALL delete_comm_gather_pattern(gather_pattern)
+    DEALLOCATE(owner_local, glb_index)
+
+    !---------------------------------------------------------------------------
+    ! test in which only odd numbered global indices are owned by processes
+    !---------------------------------------------------------------------------
+    ! generate gather pattern
+    local_size = 10 * nproma
+    global_size = p_n_work * local_size
+    ALLOCATE(owner_local(local_size), glb_index(local_size))
+    DO i = 1, local_size, 2
+      owner_local(i) = p_pe_work
+    END DO
+    DO i = 2, local_size, 2
+      owner_local(i) = -1
+    END DO
+    DO i = 1, local_size
+      glb_index(i) = local_size * p_pe_work + i
+    END DO
+    disable_consistency_check = .TRUE.
+    CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+      &                            gather_pattern)
+
+    ! initialise in- and reference out data
+    nlev = 5
+    fill_value = -1
+    ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+      &      in_array_r_2d(nproma, nlev, local_size / nproma), &
+      &      in_array_i_1d(nproma, local_size / nproma), &
+      &      in_array_i_2d(nproma, nlev, local_size / nproma))
+    DO i = 0, local_size-1
+      in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      DO j = 1, nlev
+        in_array_r_2d(MOD(i,nproma)+1, j, i/nproma+1) = (j - 1) * global_size + &
+          &                                             p_pe_work * local_size + i
+        in_array_i_2d(MOD(i,nproma)+1, j, i/nproma+1) = (j - 1) * global_size + &
+          &                                             p_pe_work * local_size + i
+      END DO
+    END DO
+    IF (p_pe_work == 0) THEN
+      ALLOCATE(out_array_r_1d(global_size), &
+        &      out_array_r_2d(global_size, nlev), &
+        &      out_array_i_1d(global_size), &
+        &      out_array_i_2d(global_size, nlev), &
+        &      ref_out_array_r_1d(global_size), &
+        &      ref_out_array_r_2d(global_size, nlev), &
+        &      ref_out_array_i_1d(global_size), &
+        &      ref_out_array_i_2d(global_size, nlev))
+      DO i = 0, global_size - 1, 2
+        ref_out_array_r_1d(i+1) = i
+        ref_out_array_i_1d(i+1) = i
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = (j - 1) * global_size + i
+          ref_out_array_i_2d(i+1, j) = (j - 1) * global_size + i
+        END DO
+      END DO
+      DO i = 1, global_size - 1, 2
+        ref_out_array_r_1d(i+1) = fill_value
+        ref_out_array_i_1d(i+1) = fill_value
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = fill_value
+          ref_out_array_i_2d(i+1, j) = fill_value
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(out_array_r_1d(0), &
+        &      out_array_r_2d(0, 0), &
+        &      out_array_i_1d(0), &
+        &      out_array_i_2d(0, 0), &
+        &      ref_out_array_r_1d(0), &
+        &      ref_out_array_r_2d(0, 0), &
+        &      ref_out_array_i_1d(0), &
+        &      ref_out_array_i_2d(0, 0))
+    END IF
+
+    ! check gather pattern
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern, fill_value)
+
+    ! delete gather pattern and other arrays
+    DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
+    DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
+      &        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &        ref_out_array_i_1d, ref_out_array_i_2d)
+    CALL delete_comm_gather_pattern(gather_pattern)
+    DEALLOCATE(owner_local, glb_index)
+
+    !---------------------------------------------------------------------------
+    ! simple test in which each process has its own local contiguous part of the
+    ! global array plus some overlap with neighbouring processes
+    ! only odd numbered global indices are owned by processes
+    !---------------------------------------------------------------------------
+    ! generate gather pattern
+    local_size = 12 * nproma
+    global_size = p_n_work * 10 * nproma
+    ALLOCATE(owner_local(local_size), glb_index(local_size))
+    DO i = 1, local_size
+      owner_local(i) = p_pe_work
+      glb_index(i) =  & 
+        MOD(global_size + (p_pe_work * 10 - 1) * nproma + i - 1, global_size) + 1
+    END DO
+    DO i = 1, nproma
+      owner_local(i) = MOD(p_n_work + p_pe_work - 1, p_n_work)
+      owner_local(11 * nproma + i) = MOD(p_pe_work + 1, p_n_work)
+    END DO
+    DO i = 2, local_size, 2
+      owner_local(i) = -1
+    END DO
+    disable_consistency_check = .TRUE.
+    CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+      &                            gather_pattern)
+
+    ! initialise in- and reference out data
+    nlev = 5
+    fill_value = -1
+    ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+      &      in_array_r_2d(nproma, nlev, local_size / nproma), &
+      &      in_array_i_1d(nproma, local_size / nproma), &
+      &      in_array_i_2d(nproma, nlev, local_size / nproma))
+
+    DO i = 0, local_size-1
+      in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = &
+        MOD(global_size + (p_pe_work * 10 - 1) * nproma + i, global_size)
+      in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = &
+        MOD(global_size + (p_pe_work * 10 - 1) * nproma + i, global_size)
+      DO j = 1, nlev
+        in_array_r_2d(MOD(i,nproma)+1, j, i/nproma+1) = &
+          in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) + (j - 1) * global_size
+        in_array_i_2d(MOD(i,nproma)+1, j, i/nproma+1) = &
+          in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) + (j - 1) * global_size
+      END DO
+    END DO
+    IF (p_pe_work == 0) THEN
+      ALLOCATE(out_array_r_1d(global_size), &
+        &      out_array_r_2d(global_size, nlev), &
+        &      out_array_i_1d(global_size), &
+        &      out_array_i_2d(global_size, nlev), &
+        &      ref_out_array_r_1d(global_size), &
+        &      ref_out_array_r_2d(global_size, nlev), &
+        &      ref_out_array_i_1d(global_size), &
+        &      ref_out_array_i_2d(global_size, nlev))
+      DO i = 0, global_size - 1, 2
+        ref_out_array_r_1d(i+1) = i
+        ref_out_array_i_1d(i+1) = i
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = (j - 1) * global_size + i
+          ref_out_array_i_2d(i+1, j) = (j - 1) * global_size + i
+        END DO
+      END DO
+      DO i = 1, global_size - 1, 2
+        ref_out_array_r_1d(i+1) = fill_value
+        ref_out_array_i_1d(i+1) = fill_value
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = fill_value
+          ref_out_array_i_2d(i+1, j) = fill_value
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(out_array_r_1d(0), &
+        &      out_array_r_2d(0, 0), &
+        &      out_array_i_1d(0), &
+        &      out_array_i_2d(0, 0), &
+        &      ref_out_array_r_1d(0), &
+        &      ref_out_array_r_2d(0, 0), &
+        &      ref_out_array_i_1d(0), &
+        &      ref_out_array_i_2d(0, 0))
+    END IF
+
+    ! check gather pattern
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern, fill_value)
+
+    ! initialise reference out data (for no fill_value case)
+    DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
+      &        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &        ref_out_array_i_1d, ref_out_array_i_2d)
+    IF (p_pe_work == 0) THEN
+      ALLOCATE(out_array_r_1d(global_size/2), &
+        &      out_array_r_2d(global_size/2, nlev), &
+        &      out_array_i_1d(global_size/2), &
+        &      out_array_i_2d(global_size/2, nlev), &
+        &      ref_out_array_r_1d(global_size/2), &
+        &      ref_out_array_r_2d(global_size/2, nlev), &
+        &      ref_out_array_i_1d(global_size/2), &
+        &      ref_out_array_i_2d(global_size/2, nlev))
+      DO i = 1, global_size/2
+        ref_out_array_r_1d(i) = 2 * (i - 1)
+        ref_out_array_i_1d(i) = 2 * (i - 1)
+        DO j = 1, nlev
+          ref_out_array_r_2d(i, j) = (j - 1) * global_size + 2 * (i - 1)
+          ref_out_array_i_2d(i, j) = (j - 1) * global_size + 2 * (i - 1)
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(out_array_r_1d(0), &
+        &      out_array_r_2d(0, 0), &
+        &      out_array_i_1d(0), &
+        &      out_array_i_2d(0, 0), &
+        &      ref_out_array_r_1d(0), &
+        &      ref_out_array_r_2d(0, 0), &
+        &      ref_out_array_i_1d(0), &
+        &      ref_out_array_i_2d(0, 0))
+    END IF
+
+    ! check gather pattern
+    CALL check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                 in_array_i_1d, in_array_i_2d, &
+      &                 out_array_r_1d, out_array_r_2d, &
+      &                 ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                 out_array_i_1d, out_array_i_2d, &
+      &                 ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                 gather_pattern)
+
+    ! delete gather pattern and other arrays
+    DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
+    DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
+      &        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &        ref_out_array_i_1d, ref_out_array_i_2d)
+    CALL delete_comm_gather_pattern(gather_pattern)
+    DEALLOCATE(owner_local, glb_index)
+
+  CONTAINS
+
+    SUBROUTINE check_exchange(in_array_r_1d, in_array_r_2d, &
+      &                       in_array_i_1d, in_array_i_2d, &
+      &                       out_array_r_1d, out_array_r_2d, &
+      &                       ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                       out_array_i_1d, out_array_i_2d, &
+      &                       ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                       gather_pattern, fill_value)
+
+      REAL(wp), INTENT(IN) :: in_array_r_1d(:,:), in_array_r_2d(:,:,:)
+      INTEGER, INTENT(IN) :: in_array_i_1d(:,:), in_array_i_2d(:,:,:)
+      REAL(wp), INTENT(OUT) :: out_array_r_1d(:), out_array_r_2d(:,:)
+      REAL(wp), INTENT(IN) :: ref_out_array_r_1d(:), ref_out_array_r_2d(:,:)
+      INTEGER, INTENT(OUT) :: out_array_i_1d(:), out_array_i_2d(:,:)
+      INTEGER, INTENT(IN) :: ref_out_array_i_1d(:), ref_out_array_i_2d(:,:)
+      TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+      REAL(wp), OPTIONAL, INTENT(IN) :: fill_value
+      INTEGER :: i
+
+      CALL exchange_data(in_array=in_array_r_1d, out_array=out_array_r_1d, &
+        &                gather_pattern=gather_pattern, fill_value=fill_value)
+      IF (p_pe_work == 0) THEN
+        IF (ANY(out_array_r_1d /= ref_out_array_r_1d)) &
+          CALL finish(method_name, "Wrong gather result r_1d")
+      END IF
+      CALL exchange_data(in_array=in_array_r_2d, out_array=out_array_r_2d, &
+        &                gather_pattern=gather_pattern, fill_value=fill_value)
+      IF (p_pe_work == 0) THEN
+        IF (ANY(out_array_r_2d /= ref_out_array_r_2d)) &
+          CALL finish(method_name, "Wrong gather result r_2d")
+      END IF
+      CALL exchange_data(in_array=in_array_i_1d, out_array=out_array_i_1d, &
+        &                gather_pattern=gather_pattern, fill_value=fill_value)
+      IF (p_pe_work == 0) THEN
+        IF (ANY(out_array_i_1d /= ref_out_array_i_1d)) &
+          CALL finish(method_name, "Wrong gather result i_1d")
+      END IF
+      CALL exchange_data(in_array=in_array_i_2d, out_array=out_array_i_2d, &
+        &                gather_pattern=gather_pattern, fill_value=fill_value)
+      IF (p_pe_work == 0) THEN
+        IF (ANY(out_array_i_2d /= ref_out_array_i_2d)) &
+          CALL finish(method_name, "Wrong gather result i_2d")
+      END IF
+    END SUBROUTINE
+
+  END SUBROUTINE
 
 END MODULE mo_test_communication
 
