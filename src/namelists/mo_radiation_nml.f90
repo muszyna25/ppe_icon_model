@@ -208,7 +208,7 @@ CONTAINS
 
     isolrad        = 0
     albedo_type    = 1
-    direct_albedo  = 2   ! modification according to Zaengl
+    direct_albedo  = 4   ! Parameterization after Briegleb (1992)
 
     irad_h2o    = 1
     irad_co2    = 2
