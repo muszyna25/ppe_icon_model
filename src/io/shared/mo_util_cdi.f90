@@ -292,14 +292,34 @@ CONTAINS
 
     varID      = -1
     tile_index = -1
+
+    IF(my_process_is_stdio()) THEN
+      print*, routine//": mapped_name = '"//TRIM(mapped_name)//"', "// &
+      &       tohex(TRIM(mapped_name))
+      print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
+      print*, routine//": list of variables:"
+      DO i = 1, SIZE(me%variableNames)
+        print*, routine//":     '"//TRIM(tolower(me%variableNames(i)))//"', "// &
+        &       tohex(TRIM(tolower(me%variableNames(i))))
+        DO j = 1, SIZE(me%variableTileinfo(i)%tile)
+          print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
+          &                             ", att = ", me%variableTileinfo(i)%tile(j)%att, &
+          &                       "comparisons = ", &
+          & (TRIM(tolower(me%variableNames(i))) == TRIM(mapped_name)), &
+          & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx), &
+          & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)
+        END DO
+      END DO
+    END IF
+
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
-        IF ((TRIM(tolower(TRIM(me%variableNames(i)))) == TRIM(mapped_name)) .AND.  & 
+        IF ((TRIM(tolower(me%variableNames(i))) == TRIM(mapped_name)) .AND.  & 
           & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx)            .AND.  &
           & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)) THEN
           varID      = i-1
           tile_index = me%variableTileinfo(i)%tile_index(j)
-          EXIT
+          RETURN
         END IF
       END DO
     END DO
@@ -313,11 +333,15 @@ CONTAINS
         print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
         print*, routine//": list of variables:"
         DO i = 1, SIZE(me%variableNames)
-          print*, routine//":     '"//TRIM(tolower(TRIM(me%variableNames(i))))//"', "// &
-          &       tohex(TRIM(tolower(TRIM(me%variableNames(i)))))
+          print*, routine//":     '"//TRIM(tolower(me%variableNames(i)))//"', "// &
+          &       tohex(TRIM(tolower(me%variableNames(i))))
           DO j = 1, SIZE(me%variableTileinfo(i)%tile)
             print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
-            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
+            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att, &
+            &                       "comparisons = ", &
+            & (TRIM(tolower(me%variableNames(i))) == TRIM(mapped_name)), &
+            & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx), &
+            & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)
           END DO
         END DO
       END IF
