@@ -44,18 +44,19 @@ MODULE mo_ocean_surface
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
   USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
-    &                               no_tracer, basin_center_lat,                          &
+    &                               no_tracer, n_zlev, basin_center_lat,                  &
     &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
     &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
     &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
     &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
-    &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
+    &                               Coupled_FluxFromAtmo,                                 &
     &                               i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
     &                               forcing_set_runoff_to_zero,           &
     &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
     &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
     &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
-    &                               limit_elevation, l_relaxsal_ice, OceanReferenceDensity
+    &                               limit_elevation, l_relaxsal_ice, &
+    &                               relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, OceanReferenceDensity
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -212,8 +213,8 @@ CONTAINS
   !!
   !!
   !! @par Revision History
-  !! Initial release (mo_oce_bulk)  by Stephan Lorenz, MPI-M (2010-07)
-  !! restructured code              by Stephan Lorenz, MPI-M (2015-04)
+  !! Initial release (mo_oce_bulk)        by Stephan Lorenz, MPI-M (2010-07)
+  !! restructured code (mo_ocean_surface) by Stephan Lorenz, MPI-M (2015-04)
   !
 !<Optimize_Used>
   SUBROUTINE update_ocean_surface(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, p_oce_sfc, jstep, datetime, p_op_coeff)
@@ -815,7 +816,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_fromFile'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface:update_flux_fromFile'
     INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
     REAL(wp) :: rday1, rday2
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -1263,16 +1264,20 @@ CONTAINS
     !
     ! local variables
     INTEGER :: jc, jb
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: i_startblk_c, i_endblk_c, start_cell_index, end_cell_index
     !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
     !INTEGER :: rl_start_c, rl_end_c
 
     REAL(wp) :: z_lat, z_lon, z_lat_deg
+    !REAL(wp) :: y_length               !basin extension in y direction in degrees
     REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
     INTEGER  :: z_dolic
-    REAL(wp) :: z_temp_max  !, z_temp_min, z_temp_incr
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_analytical'
+    REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
+    REAL(wp) :: center, length, zonal_waveno,amplitude
+    REAL(wp) :: no_flux_length, south_bound, max_flux_y
+
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface:update_flux_analytical'
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: p_patch
@@ -1298,22 +1303,85 @@ CONTAINS
       atmos_fluxes%LWnetw(:,:)  = atmos_LWnetw_const
       atmos_fluxes%sensw(:,:)   = atmos_sensw_const
       atmos_fluxes%latw(:,:)    = atmos_lat_const
+  
+      CASE(200) 
 
-    CASE default
+        IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
 
-      CALL finish(routine, "unknown atmos_flux_analytical_type")
+          center = basin_center_lat * deg2rad
+          length = basin_height_deg * deg2rad
+          zonal_waveno = 2.0_wp
+          amplitude    =10.0_wp
+
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+            DO jc = start_cell_index, end_cell_index
+
+              IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
+
+                z_lat    = p_patch%cells%center(jc,jb)%lat
+                z_lon    = p_patch%cells%center(jc,jb)%lon
+  
+                atmos_fluxes%data_surfRelax_Temp(jc,jb) =0.0_wp
+
+                atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) &
+                &= amplitude * COS(zonal_waveno*pi*(z_lat-center)/length)
+                
+                !IF(z_lat<= center-0.5_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=0.0_wp
+                !IF(z_lat>= center+0.0_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=10.0_wp
+                !IF(z_lat>= center+0.75_wp*length)atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=&
+                !& -10.0_wp!amplitude * (COS(zonal_waveno*pi*(z_lat-center)/length))  
+              ENDIF 
+            END DO
+          END DO
+        ENDIF
+
+      CASE(201) ! Abernathey 2011
+
+        IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
+
+          no_flux_length = 3.0_wp * relax_width * deg2rad
+          south_bound = (basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad
+          length      = basin_height_deg * deg2rad
+          max_flux_y  = length - no_flux_length
+          zonal_waveno =  2.5_wp
+          amplitude    = forcing_HeatFlux_amplitude
+
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+            DO jc = start_cell_index, end_cell_index
+              atmos_fluxes%data_surfRelax_Temp(jc,jb)     = 0.0_wp
+              atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
+              
+              z_lat = p_patch%cells%center(jc,jb)%lat - south_bound
+              
+              IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary .AND. z_lat < max_flux_y) THEN
+
+                atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) = &
+                  & - amplitude * COS(zonal_waveno * pi * z_lat/max_flux_y) &
+                  & + forcing_HeatFlux_base
+
+              ENDIF
+            END DO
+          END DO
+        ENDIF
+        
+      CASE default
+
+        CALL finish(routine, "unknown atmos_flux_analytical_type")
 
     END SELECT
 
     SELECT CASE (relax_analytical_type)
 
-    CASE(30,32,27)
+    CASE(27,30,32)
 
      IF(no_tracer>=1.AND.type_surfRelax_Temp/=0)THEN
 
+       !y_length = basin_height_deg * deg2rad
        DO jb = all_cells%start_block, all_cells%end_block
-         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-         DO jc = i_startidx_c, i_endidx_c
+         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+         DO jc = start_cell_index, end_cell_index
 
            IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
@@ -1371,7 +1439,7 @@ CONTAINS
           &                                               -p_os%p_prog(nold(1))%tracer(:,1,:,1) )
 
       END IF
-
+  
     CASE(51)
 
       IF(type_surfRelax_Temp>=1)THEN
@@ -1379,13 +1447,13 @@ CONTAINS
         z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
         z_temp_max  = 30.5_wp
-      ! z_temp_min  = 0.5_wp
-      ! z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+        z_temp_min  = 0.5_wp
+        z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
 
       !Add horizontal variation
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
           z_lat = p_patch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
 
@@ -1414,7 +1482,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !> Forcing_from_bulk equals sbr "Budget" in MPIOM.
+  !> Calc_omip_budgets_ice equals sbr "Budget" in MPIOM.
   !! Sets the atmospheric fluxes over *SEA ICE ONLY* for the update of the ice
   !! temperature and ice growth rates for OMIP forcing
   !! @par Revision History
@@ -1909,7 +1977,7 @@ CONTAINS
     INTEGER,       INTENT(IN)            :: no_set          !  no of set in file to be read
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ocean_bulk:read_forc_data_oce'
+      routine = 'mo_ocean_surface:read_forc_data_oce'
 
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
@@ -2191,7 +2259,7 @@ CONTAINS
     INTEGER, INTENT(in) :: status
 
     IF (status /= nf_noerr) THEN
-      CALL finish('mo_ocean_bulk netCDF error', nf_strerror(status))
+      CALL finish('mo_ocean_surface netCDF error', nf_strerror(status))
     ENDIF
 
   END SUBROUTINE nf
