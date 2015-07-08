@@ -20,6 +20,7 @@ MODULE mo_util_string
   !
   ! String conversion utilities
   !
+  USE ISO_C_BINDING,         ONLY: C_INT8_T
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_util_sort,          ONLY: quicksort
   IMPLICIT NONE
@@ -94,6 +95,8 @@ MODULE mo_util_string
     CHARACTER(len=MAX_CHAR_LENGTH) :: subst      !< ... will be substituted by "subst"
     TYPE(t_keyword_list), POINTER  :: next
   END TYPE t_keyword_list
+
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_string"
 
 CONTAINS
   !
@@ -703,26 +706,44 @@ CONTAINS
     END DO
   END SUBROUTINE sort_and_compress_list
 
-  FUNCTION tohex(string) RESULT(RESULT)
-    CHARACTER(LEN = *), INTENT(IN) :: string
-    CHARACTER(LEN = 3*LEN(string) - 1) :: RESULT
+  FUNCTION tohex_internal(inData) RESULT(RESULT)
+    INTEGER(KIND = C_INT8_T), INTENT(IN) :: inData(:)
+    CHARACTER(LEN = 3*SIZE(inData, 1) - 1) :: RESULT
 
     CHARACTER(LEN = 16), PARAMETER :: nibbles = "0123456789abcdef"
     INTEGER :: inputIndex, outputIndex, curChar, nibble1, nibble2
 
     outputIndex = 1
-    DO inputIndex = 1, LEN(string)
+    DO inputIndex = 1, SIZE(inData, 1)
         IF(inputIndex /= 1) THEN
             RESULT(outputIndex:outputIndex) = " "
             outputIndex = outputIndex + 1
         END IF
-        curChar = IACHAR(string(inputIndex:inputIndex))
+        curChar = inData(inputIndex)
+        IF(curChar < 0) curChar = curChar + 256
         nibble1 = ISHFT(curChar, -4) + 1
         nibble2 = IAND(curChar, 15) + 1
         RESULT(outputIndex:outputIndex) = nibbles(nibble1:nibble1)
         RESULT(outputIndex+1:outputIndex+1) = nibbles(nibble2:nibble2)
         outputIndex = outputIndex + 2
     END DO
+  END FUNCTION tohex_internal
+
+  FUNCTION tohex(string) RESULT(RESULT)
+    CHARACTER(LEN = *), INTENT(IN) :: string
+    CHARACTER(LEN = 3*LEN(string) - 1) :: RESULT
+
+    INTEGER(KIND = C_INT8_T) :: mold(1)
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":tohex"
+
+    IF(LEN(RESULT) /= LEN(tohex_internal(TRANSFER(string, mold)))) THEN
+        ! throw error if the returned SIZE is wrong
+        ! note: we don't call "finish" to avoid circular dep
+        WRITE(0,*) "fatal error: "//modname//":tohex_internal() returned string of unexpected length"
+        RESULT = "fatal error: "//modname//":tohex_internal() returned string of unexpected length"
+    ELSE
+        RESULT = tohex_internal(TRANSFER(string, mold))
+    END IF
   END FUNCTION tohex
 
 END MODULE mo_util_string
