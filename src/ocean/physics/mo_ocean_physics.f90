@@ -53,7 +53,7 @@ MODULE mo_ocean_physics
     &leith_closure, leith_closure_gamma,                      & 
     &veloc_diffusion_form, biharmonic_const,                  &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & VerticalViscosity_TimeWeight
+    & VerticalViscosity_TimeWeight, OceanReferenceDensity
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -62,7 +62,7 @@ MODULE mo_ocean_physics
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_pointer_3d_wp, t_operator_coeff
   USE mo_ocean_state,           ONLY: oce_config
-  USE mo_physical_constants,  ONLY: grav, rho_ref, sitodbar,sal_ref
+  USE mo_physical_constants,  ONLY: grav, sitodbar,sal_ref
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_sea_ice_types,       ONLY: t_sfc_flx
@@ -1097,7 +1097,7 @@ CONTAINS
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     REAL(wp) :: diffusion_weight
-    REAL(wp) :: z_grav_rho, z_inv_rho_ref
+    REAL(wp) :: z_grav_rho, z_inv_OceanReferenceDensity
     REAL(wp) :: density_differ_edge, mean_z_r
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
@@ -1113,8 +1113,8 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     z_av0 = richardson_veloc
-    z_grav_rho                   = grav/rho_ref
-    z_inv_rho_ref                = 1.0_wp/rho_ref
+    z_grav_rho                   = grav/OceanReferenceDensity
+    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
@@ -1136,7 +1136,7 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * rho_ref * sitodbar
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * OceanReferenceDensity * sitodbar
         z_rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
@@ -1145,8 +1145,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1))! *  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk, jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1278,7 +1278,7 @@ CONTAINS
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     REAL(wp) :: diffusion_weight
-    REAL(wp) :: z_grav_rho, z_inv_rho_ref
+    REAL(wp) :: z_grav_rho, z_inv_OceanReferenceDensity
     REAL(wp) :: density_differ_edge, dz, richardson_edge, z_shear_edge
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
@@ -1293,8 +1293,8 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
-    z_grav_rho                   = grav/rho_ref
-    z_inv_rho_ref                = 1.0_wp/rho_ref
+    z_grav_rho                   = grav/OceanReferenceDensity
+    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
@@ -1316,7 +1316,7 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * rho_ref * sitodbar
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * OceanReferenceDensity * sitodbar
         z_rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
@@ -1325,8 +1325,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) ! *  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1440,7 +1440,7 @@ CONTAINS
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
     REAL(wp) :: diffusion_weight
-    REAL(wp) :: z_grav_rho, z_inv_rho_ref
+    REAL(wp) :: z_grav_rho, z_inv_OceanReferenceDensity
     REAL(wp) :: density_differ_edge, dz, richardson_edge, z_shear_edge, vn_diff, new_velocity_friction
     !-------------------------------------------------------------------------
     REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
@@ -1454,8 +1454,8 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
-    z_grav_rho                   = grav/rho_ref
-    z_inv_rho_ref                = 1.0_wp/rho_ref
+    z_grav_rho                   = grav/OceanReferenceDensity
+    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
     !-------------------------------------------------------------------------
 
     DO je = start_index, end_index
@@ -1529,7 +1529,7 @@ CONTAINS
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     REAL(wp) :: diffusion_weight
-    REAL(wp) :: z_grav_rho, z_inv_rho_ref
+    REAL(wp) :: z_grav_rho, z_inv_OceanReferenceDensity
     REAL(wp) :: density_differ_edge, dz, richardson_edge, z_shear_edge
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
@@ -1546,8 +1546,8 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
-    z_grav_rho                   = grav/rho_ref
-    z_inv_rho_ref                = 1.0_wp/rho_ref
+    z_grav_rho                   = grav/OceanReferenceDensity
+    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
@@ -1569,7 +1569,7 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * rho_ref * sitodbar
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, jb) * OceanReferenceDensity * sitodbar
         z_rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
@@ -1578,8 +1578,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1))! *  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1711,7 +1711,7 @@ CONTAINS
     ! max_vert_diff_veloc / max_vert_diff_trac
     ! control of convective and constant mixing should be independent
 
-    grav_rho          = grav/rho_ref
+    grav_rho          = grav/OceanReferenceDensity
 
     lambda_d_m1       = 1.0_wp-lambda_diff
     lambda_v_m1       = 1.0_wp-lambda_visc
@@ -1748,9 +1748,9 @@ CONTAINS
         ! calculate here the density to be used in the dynamics
         !
           !  - midth of layer without using elevation h - gradient of height is added separately
-          pressure(1:levels) = patch_3d%p_patch_1d(1)%zlev_m(1:levels) * rho_ref * sitodbar
+          pressure(1:levels) = patch_3d%p_patch_1d(1)%zlev_m(1:levels) * OceanReferenceDensity * sitodbar
           !  - #slo# to include partial cells we need another 3-dim variable here: depth_CellMiddle_flat[_sfc]:
-          !pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle_flat(jc,1:levels,jb) * rho_ref * sitodbar
+          !pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle_flat(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
 
         ocean_state%p_diag%rho(jc,1:levels,jb) = &
             & calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels,jb,1), &
@@ -1763,7 +1763,7 @@ CONTAINS
         !  - S and T taken from upper and lower level, i.e. 2 times calculation of density per layer
         !
           !  - old formulation without including z in reference interface level
-          pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * rho_ref * sitodbar
+          pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
 
         rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
@@ -1775,9 +1775,9 @@ CONTAINS
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
           ! d_rho/dz
-          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) *  &
-            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
-          ! Ri = g/rho_ref * dz * d_rho/(d_vn)**2
+          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) !*  &
+            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
           richardson_no(jc,jk,jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
         END DO ! levels

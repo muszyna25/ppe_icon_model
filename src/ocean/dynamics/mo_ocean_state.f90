@@ -35,7 +35,7 @@ MODULE mo_ocean_state
     &                               k_tracer_dianeutral_parameter,                          &
     &                               k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     &                               GMRedi_configuration,GMRedi_combined,                   &
-    &                               GM_only,Redi_only
+    &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp
   USE mo_ocean_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer ,    &
     &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
@@ -61,7 +61,7 @@ MODULE mo_ocean_state
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups 
   USE mo_cf_convention
-  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi_constants
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   
@@ -680,6 +680,12 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
+    CALL add_var(ocean_default_list, 'ice_framStrait', ocean_state_diag%monitor%ice_framStrait , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('ice_framStrait', 'm^3/s', 'ice_framStrait', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'gibraltar', ocean_state_diag%monitor%gibraltar , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('gibraltar', 'Sv', 'gibraltar', DATATYPE_FLT32),&
@@ -939,6 +945,12 @@ CONTAINS
      & t_cf_var('vort_e','1/s','potential vorticity at edges', DATATYPE_FLT32),&
      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_essentials"),lrestart_cont=.TRUE.)
+
+   CALL add_var(ocean_restart_list, 'potential vort_c', ocean_state_diag%potential_vort_c, &
+     & grid_unstructured_cell, za_depth_below_sea, &
+     & t_cf_var('vort_e','1/s','potential vorticity at cells', DATATYPE_FLT32),&
+     & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+     & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_essentials"),lrestart_cont=.TRUE.)
     
     ! kinetic energy component
     CALL add_var(ocean_default_list, 'kin', ocean_state_diag%kin, grid_unstructured_cell, &
@@ -1294,7 +1306,7 @@ CONTAINS
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
     
     ! allocation of 3-dim tracer relaxation:
-    IF (no_tracer >= 1) THEN
+    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
       CALL add_var(ocean_default_list,'data_3dimRelax_Temp',ocean_state_aux%data_3dimRelax_Temp,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', DATATYPE_FLT32),&
@@ -1304,9 +1316,15 @@ CONTAINS
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', DATATYPE_FLT32),&
         & grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
+      CALL add_var(ocean_default_list,'relax_3dim_coefficient',ocean_state_aux%relax_3dim_coefficient,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', DATATYPE_FLT32),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
+!       ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp 
     END IF
-    IF (no_tracer == 2) THEN
+    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
       CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_state_aux%data_3dimRelax_Salt,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', DATATYPE_FLT32),&

@@ -8,9 +8,7 @@
   #  in other cases where 
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
-  ocean_location= ${ocean_location:="fluent"}
-  #ocean_location= ${ocean_location:="buildbot"}
-
+  ocean_location=${ocean_location-"fluent"}
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
   # if there are local settings from the user... use them
@@ -29,6 +27,7 @@
   fi
   #if ocean_data_MainFolder not defined, use the buildbot root folder
   ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_buildbotFolder_oes}}
+   
   grid_name=${ocean_grids%.nc}
   ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}/${grid_name}}
   grids_folder=${grids_folder:=${ocean_data_InputFolder}}

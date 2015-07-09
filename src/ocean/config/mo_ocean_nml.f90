@@ -28,6 +28,7 @@ MODULE mo_ocean_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
+  USE mo_physical_constants, ONLY: a_T, rho_ref
 
 #ifndef __NO_ICON_ATMO__
   USE mo_coupling_config,    ONLY: is_coupled_run
@@ -60,7 +61,8 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
-  INTEGER :: surface_module = 1  !  surface module - 1: mo_ocean_bulk, 2: mo_ocean_surface
+  INTEGER :: surface_module = 2  !  surface module - 1: old mo_ocean_bulk, 2: new mo_ocean_surface - implies i_therm_slo in sea ice
+
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
   INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
@@ -448,6 +450,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
   LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
+  REAL(wp) :: LinearThermoExpansionCoefficient = a_T
+  REAL(wp) :: OceanReferenceDensity = rho_ref
                                  
   
   NAMELIST/ocean_physics_nml/&
@@ -468,7 +472,9 @@ MODULE mo_ocean_nml
     &  use_wind_mixing,             &
     &  GMRedi_configuration        ,&
     &  tapering_scheme             ,&
-    &  S_max, S_d, c_speed
+    &  S_max, S_d, c_speed,         &
+    &  LinearThermoExpansionCoefficient, &
+    &  OceanReferenceDensity
 
   ! ------------------------------------------------------------------------
   ! FORCING {
@@ -515,6 +521,9 @@ MODULE mo_ocean_nml
   REAL(WP) :: forcing_windspeed_amplitude          = 1.0_wp
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
+  REAL(wp) :: relax_width           = 1.5_wp     ! the spacial width in degrees where relaxation is applied
+  REAL(wp) :: forcing_HeatFlux_amplitude = 10._wp
+  REAL(wp) :: forcing_HeatFlux_base      = 0.0_wp
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
                                                               ! for temperature forcing (degrees)
   INTEGER  :: atmos_flux_analytical_type           = 0        ! type of atmospheric fluxes for analytical forcing
@@ -551,6 +560,8 @@ MODULE mo_ocean_nml
 #endif
     &                 forcing_windspeed_type              , &
     &                 forcing_windspeed_amplitude         , &
+    &                 forcing_HeatFlux_amplitude   , &
+    &                 forcing_HeatFlux_base        , &
     &                 iforc_oce                           , &
     &                 init_oce_relax                      , &
     &                 type_surfRelax_Salt                 , &
@@ -568,6 +579,7 @@ MODULE mo_ocean_nml
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
+    &                 relax_width,                          &
     &                 atmos_flux_analytical_type          , &
     &                 atmos_SWnet_const                   , &
     &                 atmos_LWnet_const                   , &
@@ -593,6 +605,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: initial_temperature_north   =  5.0_wp    ! reference temperature used for initialization Atlantic channel
   REAL(wp) :: initial_temperature_south   =  0.0_wp    ! reference temperature used for initialization Atlantic channel
   REAL(wp) :: initial_temperature_scale_depth = 1000.0_wp ! reference scale depth used for initialization Atlantic channel
+  REAL(wp) :: initial_temperature_VerticalGradient = -8.2E-3_wp ! as in Danilov 2012, Ocean Modelling 47
   REAL(wp) :: initial_salinity_top        = 35.0_wp    ! reference salinity used for initialization in testcase 46
   REAL(wp) :: initial_salinity_bottom     = 35.0_wp    ! reference salinity used for initialization in testcase 46
   !  INTEGER  :: scatter_levels(10)       = 0          ! levels for possible scattering of the constant tracer fields
@@ -610,6 +623,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: smooth_initial_height_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
   REAL(wp) :: smooth_initial_salinity_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
   REAL(wp) :: smooth_initial_temperature_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
+  REAL(wp) :: initial_perturbation_waveNumber = 2.0_wp 
+  REAL(wp) :: initial_perturbation_max_ratio  = 0.05_wp 
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -620,6 +635,7 @@ MODULE mo_ocean_nml
     & initial_temperature_shift  , &
     & initial_temperature_north  , &
     & initial_temperature_south  , &
+    & initial_temperature_VerticalGradient, &
     & initial_salinity_top       , &
     & initial_salinity_bottom    , &
     & initial_salinity_type      , &
@@ -634,7 +650,9 @@ MODULE mo_ocean_nml
     & smooth_initial_height_weights, &
     & smooth_initial_salinity_weights, &
     & smooth_initial_temperature_weights, &
-    & initial_temperature_scale_depth
+    & initial_temperature_scale_depth, &
+    & initial_perturbation_waveNumber, & 
+    & initial_perturbation_max_ratio
   !----------------------------------------------------------------------------
   LOGICAL :: diagnose_for_horizontalVelocity = .false.
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &

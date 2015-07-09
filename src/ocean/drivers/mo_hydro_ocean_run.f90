@@ -51,6 +51,7 @@ MODULE mo_hydro_ocean_run
   USE mo_io_restart,             ONLY: create_restart_file
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
+  USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
@@ -130,7 +131,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
-    & p_sfc_flx, p_phys_param,             &
+    & p_sfc_flx, p_sfc, p_phys_param,             &
     & p_as, p_atm_f, p_ice,operators_coefficients, &
     & solvercoeff_sp)
 
@@ -140,6 +141,7 @@ CONTAINS
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     LOGICAL, INTENT(in)                              :: lwrite_restart
     TYPE(t_sfc_flx)                                  :: p_sfc_flx
+    TYPE(t_ocean_surface)                            :: p_sfc
     TYPE (t_ho_params)                               :: p_phys_param
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
@@ -218,7 +220,7 @@ CONTAINS
         CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
           & jstep, datetime, operators_coefficients)
       ELSEIF (surface_module == 2) THEN
-        CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+        CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, p_sfc, &
           & jstep, datetime, operators_coefficients)
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)
@@ -421,13 +423,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice,p_phys_param)
+  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice, operators_coefficients, p_phys_param)
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_sfc_flx) , INTENT(INOUT)             :: p_sfc_flx
     TYPE(t_sea_ice),          INTENT(INOUT)     :: p_ice
+    TYPE(t_operator_coeff),   INTENT(inout)     :: operators_coefficients    
     TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
-
+    
     TYPE(t_patch), POINTER :: patch_2d
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -437,7 +440,10 @@ CONTAINS
     ! to the nold state. That's why the following manual copying is nec.
     ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
     
-    ! ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
+    ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
+    
+    CALL calc_scalar_product_veloc_3d( patch_3d,  ocean_state%p_prog(nnew(1))%vn,&
+    & ocean_state%p_diag, operators_coefficients)
     ! CALL calculate_thickness( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
     ! copy old tracer values to spot value fields for propper initial timestep

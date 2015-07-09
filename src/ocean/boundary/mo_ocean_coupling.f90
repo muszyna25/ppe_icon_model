@@ -15,7 +15,8 @@ MODULE mo_ocean_coupling
   USE mo_parallel_config,     ONLY: nproma
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_char_length
-  USE mo_physical_constants,  ONLY: tmelt, rho_ref
+  USE mo_ocean_nml,           ONLY: OceanReferenceDensity
+  USE mo_physical_constants,  ONLY: tmelt
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
@@ -650,9 +651,9 @@ CONTAINS
       atmos_fluxes%FrshFlux_SnowFall  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
       atmos_fluxes%FrshFlux_Evaporation  (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
 
-      atmos_fluxes%FrshFlux_Precipitation(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)/rho_ref
-      atmos_fluxes%FrshFlux_SnowFall  (:,:) = atmos_fluxes%FrshFlux_SnowFall(:,:)/rho_ref
-      atmos_fluxes%FrshFlux_Evaporation  (:,:) = atmos_fluxes%FrshFlux_Evaporation(:,:)/rho_ref
+      atmos_fluxes%FrshFlux_Precipitation(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)/OceanReferenceDensity
+      atmos_fluxes%FrshFlux_SnowFall  (:,:) = atmos_fluxes%FrshFlux_SnowFall(:,:)/OceanReferenceDensity
+      atmos_fluxes%FrshFlux_Evaporation  (:,:) = atmos_fluxes%FrshFlux_Evaporation(:,:)/OceanReferenceDensity
 
       CALL sync_patch_array(sync_c, patch_2d, atmos_fluxes%FrshFlux_Precipitation(:,:))
       CALL sync_patch_array(sync_c, patch_2d, atmos_fluxes%FrshFlux_SnowFall(:,:))

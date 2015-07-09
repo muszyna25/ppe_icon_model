@@ -212,6 +212,9 @@ MODULE mo_ocean_types
     REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]
     REAL(wp), POINTER :: ice_extent_nh(:)!                                                           [km2]
     REAL(wp), POINTER :: ice_extent_sh(:)!                                                           [km2]
+    ! ice transport through {{{
+    REAL(wp), POINTER :: ice_framStrait(:) !                                                          [Sv]
+    ! }}}
     ! throug, POINTER  flows {{{
     REAL(wp), POINTER :: gibraltar(:)     ! though flow                                               [Sv]
     REAL(wp), POINTER :: denmark_strait(:)! though flow                                               [Sv]
@@ -287,8 +290,10 @@ MODULE mo_ocean_types
     ! dimension: (nproma, n_zlev, nblks_v)
       & vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
     ! dimension: (nproma, n_zlev, nblks_e)
-      & potential_vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
-    ! dimension: (nproma, n_zlev, nblks_e)	
+      & potential_vort_e(:,:,:)         ,& ! potential vorticity at triangle edges. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_e)
+      & potential_vort_c(:,:,:)         ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_c)
       & kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
     ! (nproma, n_zlev, alloc_cell_blocks)
       & mld(:,:)              ,& ! mixed layer depth [m].
@@ -388,6 +393,8 @@ MODULE mo_ocean_types
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
       & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
+    REAL(wp), POINTER ::         &
+      & relax_3dim_coefficient(:,:,:) ! 3-dim relaxation coefficient when the relaxation varies
 
     TYPE(t_cartesian_coordinates), POINTER :: &
       & slopes(:,:,:)              ! neutral slopes at cell center in cartesian coordinates

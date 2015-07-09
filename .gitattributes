@@ -715,6 +715,8 @@ run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
+run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text
+run/checksuite.ocean_internal/eddies/exp.ShearFlow_20km -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
@@ -1560,6 +1562,7 @@ src/io/atmo/mo_async_latbc_utils.f90 -text
 src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_latbc_read_recv.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
+src/io/atmo/mo_post_op.f90 -text
 src/io/atmo/mo_sync_latbc.f90 -text
 src/io/atmo/mo_util_vgrid.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
@@ -1583,7 +1586,6 @@ src/io/shared/mo_nml_annotate.f90 -text
 src/io/shared/mo_output_event_control.f90 -text
 src/io/shared/mo_output_event_handler.f90 -text
 src/io/shared/mo_output_event_types.f90 -text
-src/io/shared/mo_post_op.f90 -text
 src/io/shared/mo_read_interface.f90 -text
 src/io/shared/mo_read_netcdf_broadcast.f90 -text
 src/io/shared/mo_read_netcdf_broadcast_2.f90 -text
