@@ -1832,7 +1832,9 @@ MODULE mo_initicon
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
              IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
-               &  .AND. (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) )  THEN
+               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.                     &
+               &          (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) ) &
+               & )  THEN
 
                ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
