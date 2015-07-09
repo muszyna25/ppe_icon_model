@@ -53,6 +53,16 @@ MODULE mo_echam_cloud_config
      REAL(wp) :: cauloc
      REAL(wp) :: cqtmin     ! total water minimum
 
+     REAL(wp) :: cn1lnd
+     REAL(wp) :: cn2lnd
+     REAL(wp) :: cn1sea
+     REAL(wp) :: cn2sea
+
+     REAL(wp) :: cinhomi
+     REAL(wp) :: cinhoml1
+     REAL(wp) :: cinhoml2
+     REAL(wp) :: cinhoml3
+
      REAL(wp) :: csecfrl
      REAL(wp) :: crs     ! Critical relative humidity at surface
      REAL(wp) :: crt     ! Critical relative humidity aloft
@@ -119,6 +129,16 @@ CONTAINS
     CALL print_value(' cinv    ', echam_cloud_config% cinv    )
     CALL print_value(' cauloc  ', echam_cloud_config% cauloc  )
     CALL print_value(' cqtmin  ', echam_cloud_config% cqtmin  )
+    CALL message('','')
+    CALL print_value(' cn1lnd  ', echam_cloud_config% cn1lnd  )
+    CALL print_value(' cn2lnd  ', echam_cloud_config% cn2lnd  )
+    CALL print_value(' cn1sea  ', echam_cloud_config% cn1sea  )
+    CALL print_value(' cn2sea  ', echam_cloud_config% cn2sea  )
+    CALL message('','')
+    CALL print_value(' cinhomi ', echam_cloud_config% cinhomi )
+    CALL print_value(' cinhoml1', echam_cloud_config% cinhoml1)
+    CALL print_value(' cinhoml2', echam_cloud_config% cinhoml2)
+    CALL print_value(' cinhoml3', echam_cloud_config% cinhoml3)
     CALL message('','')
     CALL print_value(' csecfrl ', echam_cloud_config% csecfrl )
     CALL print_value(' crs     ', echam_cloud_config% crs     )

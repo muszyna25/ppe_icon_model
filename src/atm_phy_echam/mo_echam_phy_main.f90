@@ -40,6 +40,7 @@ MODULE mo_echam_phy_main
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
+  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_cumastr,             ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
@@ -320,11 +321,11 @@ CONTAINS
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
 
         IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
-          zn1= 20._wp
-          zn2=180._wp
+          zn1= echam_cloud_config% cn1lnd
+          zn2= echam_cloud_config% cn2lnd
         ELSE
-          zn1= 20._wp
-          zn2= 80._wp
+          zn1= echam_cloud_config% cn1sea
+          zn2= echam_cloud_config% cn2sea
         ENDIF
         IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))

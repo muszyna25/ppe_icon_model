@@ -51,6 +51,16 @@ MODULE mo_echam_cloud_nml
   REAL(wp) :: cauloc
   REAL(wp) :: cqtmin     ! total water minimum
 
+  REAL(wp) :: cn1lnd
+  REAL(wp) :: cn2lnd
+  REAL(wp) :: cn1sea
+  REAL(wp) :: cn2sea
+
+  REAL(wp) :: cinhomi
+  REAL(wp) :: cinhoml1
+  REAL(wp) :: cinhoml2
+  REAL(wp) :: cinhoml3
+
   REAL(wp) :: csecfrl
   REAL(wp) :: crs     ! Critical relative humidity at surface
   REAL(wp) :: crt     ! Critical relative humidity aloft
@@ -73,6 +83,8 @@ MODULE mo_echam_cloud_nml
        & clmax   , clmin   , ceffmax , lonacc  ,            &
        & ccsacl  , ccracl  , ccraut  , ceffmin , ccwmin   , &
        & cinv    , cauloc  , cqtmin  ,                      &
+       & cn1lnd  , cn2lnd  , cn1sea  , cn2sea  ,            &
+       & cinhomi , cinhoml1, cinhoml2, cinhoml3,            &
        & csecfrl , crs     , crt     , cvtfall , clwprat  , &
        & csatsc  , nex     , nadd    , cptop   , cpbot    , &
        & ncctop  , nccbot  , jbmin   , jbmax
@@ -110,6 +122,16 @@ CONTAINS
     cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate
     cauloc  = 0.0_wp
     cqtmin  = 1.e-12_wp  ! total water minimum
+
+    cn1lnd  =  20._wp
+    cn2lnd  = 180._wp
+    cn1sea  =  20._wp
+    cn2sea  =  80._wp
+
+    cinhomi = 0.80_wp
+    cinhoml1= 0.80_wp
+    cinhoml2= 0.40_wp
+    cinhoml3= 0.80_wp
 
     csecfrl = 5.e-6_wp
     crs     = 0.975_wp   ! Critical relative humidity at surface
@@ -191,6 +213,16 @@ CONTAINS
     echam_cloud_config% cinv    = cinv
     echam_cloud_config% cauloc  = cauloc
     echam_cloud_config% cqtmin  = cqtmin
+    !
+    echam_cloud_config% cn1lnd  = cn1lnd
+    echam_cloud_config% cn2lnd  = cn2lnd
+    echam_cloud_config% cn1sea  = cn1sea
+    echam_cloud_config% cn2sea  = cn2sea
+    !
+    echam_cloud_config% cinhomi = cinhomi
+    echam_cloud_config% cinhoml1= cinhoml1
+    echam_cloud_config% cinhoml2= cinhoml2
+    echam_cloud_config% cinhoml3= cinhoml3
     !
     echam_cloud_config% csecfrl = csecfrl
     echam_cloud_config% crs     = crs

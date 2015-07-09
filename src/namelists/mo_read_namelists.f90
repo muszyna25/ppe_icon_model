@@ -141,9 +141,6 @@ CONTAINS
     CALL read_nwp_phy_namelist        (TRIM(atm_namelist_filename))
     CALL read_nwp_tuning_namelist     (TRIM(atm_namelist_filename))
     CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
-    IF (iforcing == IECHAM .OR. iforcing == ILDF_ECHAM) THEN
-      CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
-    ENDIF
     CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
     CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
@@ -154,6 +151,9 @@ CONTAINS
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
     CALL read_les_namelist            (TRIM(atm_namelist_filename))
     CALL read_ls_forcing_namelist     (TRIM(atm_namelist_filename))
+    IF (iforcing == IECHAM .OR. iforcing == ILDF_ECHAM) THEN
+      CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
+    ENDIF
 
     ! Initial conditions
     !
