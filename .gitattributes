@@ -809,6 +809,7 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_amip_tune -text
 run/exp.atm_amip_withTimeMeanOutput -text
 run/exp.atm_amip_withTimeMeanOutput_only -text
 run/exp.atm_icoles_nested -text
@@ -881,6 +882,7 @@ run/exp.test_ocean_omip_technical -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
+run/post.atm_amip_tune -text
 run/post.hat_jww -text
 run/post.nh35_tri_jws -text
 run/post.nh3_tri_tracer_solid_body -text
