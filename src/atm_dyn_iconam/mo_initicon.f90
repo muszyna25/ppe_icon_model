@@ -1902,8 +1902,8 @@ MODULE mo_initicon
 !$OMP END PARALLEL
 
 
-    ! Initialization of t_g_t(:,:,isub_water) with t_seasfc is performed in 
-    ! mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
+    ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake) 
+    ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop
 
