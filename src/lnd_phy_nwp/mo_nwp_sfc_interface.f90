@@ -1228,7 +1228,8 @@ CONTAINS
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
         &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
         &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
-        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water)       )!inout
+        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water),      &!inout
+        &              t_seasfc      = p_lnd_diag%t_seasfc(:,jb)                )!inout
 
 
     ENDDO  ! jb
@@ -1440,6 +1441,7 @@ CONTAINS
         ! t_so(0) = t_g            if the lake is not frozen
         ! t_so(0) = 273.15         if the lake is frozen
         lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>h_Ice_min_flk)
+        p_lnd_diag%t_seasfc(jc,jb)           = lnd_prog_new%t_s_t (jc,jb,isub_lake)
 
         ! surface saturation specific humidity over water/ice 
         !

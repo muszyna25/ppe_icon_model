@@ -1887,7 +1887,8 @@ CONTAINS
   SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
     &                              idx_lst_spi, spi_count, frac_t_ice,          &
     &                              frac_t_water, fr_seaice, hice_old, tice_old, &
-    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t )
+    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t,     &
+    &                              t_seasfc )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea-ice depth at new time level  [m]
@@ -1926,6 +1927,9 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< surface specific humidity        [kg/kg]
       &  qv_s_t(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< sea surface temperature          [kg/kg]
+      &  t_seasfc(:)
 
     ! Local variables
     INTEGER, DIMENSION(SIZE(idx_lst_spi,1)) :: &
@@ -1974,7 +1978,8 @@ CONTAINS
           t_g_t_new(jc) = tf_salt ! if the SST analysis contains a meaningful water
                                   ! temperature for this point, one may also take
                                   ! the latter
- 
+          t_seasfc(jc)  = tf_salt
+
           ! Initialize surface saturation specific humidity for new water tile
           qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
 
@@ -2021,6 +2026,9 @@ CONTAINS
             t_s_t_new(jc) = tf_salt ! otherwise aggregated t_so and t_s will be 
                                     ! 0 at these points
             t_s_t_now(jc) = tf_salt
+
+            t_seasfc(jc)  = tf_salt
+
             !
             ! Initialize surface saturation specific humidity
             qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
@@ -2173,8 +2181,7 @@ CONTAINS
 
              ! set sai_t
              ext_data(jg)%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
-             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 1._wp
-             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
+
           ELSE
             !
             ! water point: all sea points with fr_seaice < 0.5
@@ -2194,9 +2201,6 @@ CONTAINS
 
             ! set sai_t
             ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
-            ext_data(jg)%atm%frac_t(jc,jb,isub_water) = 1._wp
-            ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 0._wp
-
 
           ENDIF
 
