@@ -93,6 +93,7 @@ MODULE mo_interface_iconam_echam
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
+  USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
 
   USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
@@ -408,6 +409,10 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_phy)
 
+#ifndef __NO_JSBACH__
+    CALL jsbach_start_timestep(jg)
+#endif
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
 
@@ -445,6 +450,9 @@ CONTAINS
     !
     !=====================================================================================
 
+#ifndef __NO_JSBACH__
+    CALL jsbach_finish_timestep(jg)
+#endif
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
