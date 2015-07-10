@@ -620,11 +620,11 @@ CONTAINS
 
           p_prog_lnd_now%t_g_t(jc,jb,isub_lake) = t_scf_lk_now(ic)
 
-          ! for consistency, set
-          ! t_so(0) = t_g            if the lake is frozen
-          ! t_so(0) = 273.15         if the lake is not frozen
-          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_now(ic), h_ice_now(ic)>0._wp)
+          ! for consistency, set 
+          ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
+          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_prog_wtr_now%t_wml_lk (jc,jb)
           p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_prog_lnd_now%t_s_t(jc,jb,isub_lake)
+
 
           ! In addition, initialize prognostic Flake fields at time step 'new'
           p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
