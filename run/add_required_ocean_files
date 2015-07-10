@@ -8,7 +8,7 @@
   #  in other cases where 
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
-  ocean_location=${ocean_location:="buildbot"}
+  ocean_location=${ocean_location-"buildbot"}
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
   # if there are local settings from the user... use them

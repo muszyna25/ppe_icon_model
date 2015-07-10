@@ -63,8 +63,8 @@ CONTAINS
     & trac_old,             &
     & ocean_state,          &
     & operators_coeff,      &
-    & bc_top_tracer,        &
-    & bc_bot_tracer,        &
+!     & bc_top_tracer,        &
+!     & bc_bot_tracer,        &
     & flux_div_vert,        &
     & tracer_id)
     
@@ -72,8 +72,8 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: trac_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff), TARGET    :: operators_coeff
-    REAL(wp)                          :: bc_top_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp)                          :: bc_bot_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!     REAL(wp)                          :: bc_top_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!     REAL(wp)                          :: bc_bot_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: tracer_id
     
