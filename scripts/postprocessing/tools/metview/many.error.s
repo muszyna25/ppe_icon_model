@@ -46,7 +46,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
 
   # -------------------------------------------------------
 
-  set -A vars TQV             TQC            TQI                                 \
+  set -A vars TQV             TQC            TQI              CAPE               \
               TCC             HCC            MCC              LCC                \
               TQ1             TQ2            TQ3              TQ4       TQ5      \
               PS              PMSL                                               \
@@ -65,13 +65,13 @@ while [[ $nt < ${#inidate[*]} ]]; do
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
-  set -A vars TQV             TQC            TQI                                 \
+  set -A vars TQV             TQC            TQI              CAPE               \
               TCC             HCC            MCC              LCC                \
               TQ1             TQ2            TQ3                                 \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S      TOT_PREC         PS                 \
               T_G             T_2M           U_10M            V_10M              \
-              SP_10M
+              SP_10M 
 #             H_SNOW_tile_1   RHO_SNOW_tile_1 
   for var in ${vars[*]}
   do

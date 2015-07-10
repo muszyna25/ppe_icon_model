@@ -60,7 +60,7 @@ MODULE mo_ocean_ext_data
     &                              delete_var_list
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
-  USE mo_grib2,              ONLY: t_grib2_var
+  USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_read_interface,     ONLY: openInputFile, closeFile, onCells, &
     &                              t_stream_id, nf, read_2D, read_2D_int, &
     &                              read_3D, onEdges
@@ -251,7 +251,7 @@ CONTAINS
     ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
     cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
       &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
@@ -261,7 +261,7 @@ CONTAINS
     ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
     cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
       &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
@@ -270,7 +270,7 @@ CONTAINS
     ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
     cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
       &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
     !#slo-2011-08-08# does not compile yet?
     CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
@@ -279,7 +279,7 @@ CONTAINS
     !
     cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
       &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
@@ -288,7 +288,7 @@ CONTAINS
     IF (iforc_oce == OMIP_FluxFromFile) THEN
       cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
         &                   'OMIP forcing data', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
     END IF

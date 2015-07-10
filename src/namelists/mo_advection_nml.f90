@@ -116,11 +116,18 @@ MODULE mo_advection_nml
                                    !< ppm-scheme (approximate allowable maximum 
                                    !< CFL-number)
 
+  INTEGER :: npassive_tracer       !< number of additional passive tracers, in addition to
+                                   !< microphysical- and ART tracers. 
+
+  CHARACTER(len=MAX_CHAR_LENGTH) :: &!< Comma separated list of initialization formulae 
+    &  init_formula                  !< for passive tracers.
+
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
     &                     iadv_tke, niter_fct, beta_fct, iord_backtraj,   &
     &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
-    &                     lstrang, llsq_svd
+    &                     lstrang, llsq_svd, npassive_tracer,             &
+    &                     init_formula
 
 
 CONTAINS
@@ -174,7 +181,8 @@ CONTAINS
     igrad_c_miura   = 1         ! MIURA linear least squares reconstruction
 
     llsq_svd        = .TRUE.    ! apply singular-value-decomposition (FALSE: use QR-decomposition)
-
+    npassive_tracer = 0         ! no additional passive tracers
+    init_formula    = ''        ! no explizit initialization of passive tracers
 
 
     !------------------------------------------------------------------
@@ -284,6 +292,8 @@ CONTAINS
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
       advection_config(jg)%iadv_tke       = iadv_tke
       advection_config(jg)%ivcfl_max      = ivcfl_max
+      advection_config(jg)%npassive_tracer= npassive_tracer 
+      advection_config(jg)%init_formula   = init_formula 
     ENDDO
 
 

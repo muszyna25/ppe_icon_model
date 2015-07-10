@@ -29,14 +29,14 @@ MODULE mo_ocean_initial_conditions
   USE mo_io_units,           ONLY: filename_max
   USE mo_mpi,                ONLY: my_process_is_stdio, work_mpi_barrier
   USE mo_grid_config,        ONLY: nroot,  grid_sphere_radius, grid_angular_velocity
-  USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf, earth_angular_velocity,inverse_earth_radius! , SItodBar, rho_ref
+  USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf, earth_angular_velocity,inverse_earth_radius! , SItodBar
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,            &
     & basin_center_lat, basin_center_lon, basin_height_deg,  basin_width_deg,         &
     & initial_temperature_bottom, initial_temperature_top, initial_temperature_shift, &
     & initial_temperature_north, initial_temperature_south,                           &
-    & initial_temperature_scale_depth,  initial_temperature_VerticalGradient,         &
+    & initial_temperature_scale_depth, initial_temperature_VerticalGradient,         &
     & use_file_initialConditions,                                                     &
     & initial_salinity_top, initial_salinity_bottom, &
     & topography_type, topography_height_reference,  &
@@ -45,7 +45,8 @@ MODULE mo_ocean_initial_conditions
     & forcing_temperature_poleLat, InitialState_InputFileName,                  &
     & smooth_initial_height_weights, smooth_initial_salinity_weights,           &
     & smooth_initial_temperature_weights, &
-    & initial_perturbation_waveNumber, initial_perturbation_max_ratio
+    & initial_perturbation_waveNumber, initial_perturbation_max_ratio,         &
+    & relax_width 
 
   USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
 
@@ -79,6 +80,7 @@ MODULE mo_ocean_initial_conditions
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry !,&
+  PUBLIC :: tracer_ConstantSurface, varyTracerVerticallyExponentially
 !   & SST_LinearMeridional, increaseTracerLevelsLinearly
   
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
@@ -351,8 +353,10 @@ CONTAINS
     CASE (200)
       ! uniform salinity or vertically linarly increasing
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
-      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
-        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+      CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+        & top_value=initial_salinity_top)
+      CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity,&
+        & bottom_value=initial_salinity_bottom)
 
     !------------------------------
     CASE (201)
@@ -416,7 +420,7 @@ CONTAINS
 !      !   as it should give the same results as
 !      !   for initial_salinity_type = 200
 !      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
-!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+!      CALL tracer_ConstantSurface_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
 !        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
 
     !------------------------------
@@ -449,6 +453,7 @@ CONTAINS
 
     REAL(wp) :: temperature_profile(n_zlev)
     REAL(wp), ALLOCATABLE :: old_temperature(:,:,:)
+    REAL(wp) :: lower_lat
     INTEGER ::jk
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
     !-------------------------------------------------------------------------
@@ -477,8 +482,11 @@ CONTAINS
       ! uniform or linearly decreasing temperature
       ! Temperature is homogeneous in each layer.
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
-      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+      CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top)
+        
+      CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature,&
+        & bottom_value=initial_temperature_bottom)
 
     !------------------------------
     CASE (201)
@@ -513,9 +521,12 @@ CONTAINS
       CALL message(TRIM(method_name), ': horizontally non-homogenous, local pertubation')
 
       ! first create linearly vertically decreasing temperature, uniform horizontally
-      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+      CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top)
 
+      CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature,&
+        & bottom_value=initial_temperature_bottom)
+        
       !Add horizontal variation
       CALL temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
 
@@ -545,19 +556,20 @@ CONTAINS
 
     !------------------------------
     CASE (214)
-      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
-      !  exponential temperature profile following Abernathey et al., 2011
-      ! CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
-      !   &                                    initial_temperature_scale_depth)
-      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & bottom_value=initial_temperature_bottom)
+      ! not used
+      CALL finish(method_name, "214 is not used any more")
+!       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+!       !  exponential temperature profile following Abernathey et al., 2011
+!       ! CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+!       !   &                                    initial_temperature_scale_depth)
     CASE (215)
-      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
-      !  exponential temperature profile following Abernathey et al., 2011
-      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & bottom_value=initial_temperature_bottom)
-
-      !CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+      ! not used
+      CALL finish(method_name, "215 is not used any more")
+!      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+!      !  exponential temperature profile following Abernathey et al., 2011
+!      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!        & bottom_value=initial_temperature_bottom)
+!      !CALL temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
 
      CASE (216)
 
@@ -573,12 +585,43 @@ CONTAINS
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
         &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
 
+    CASE (218)
+      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+      CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & bottom_value=initial_temperature_bottom)
+      CALL perturbeTracer_LonCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
+      CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
+        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+
     CASE (220)
      
       CALL tracer_GM_test(patch_3d, ocean_temperature,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
       !CALL de_increaseTracerVertically(patch_3d, ocean_salinity,2,12, 20,32)
       !& decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
 
+    CASE (221)
+      ! Abernathey setup 01; initial SST reflects the heat fluxes
+      CALL SST_Abernathey_01(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
+        & BaseTemperature=initial_temperature_top * 0.5_wp, &
+        & VariationAmplitude=initial_temperature_south, &
+        & VariationLength = basin_height_deg * deg2rad, &
+        & VariationWaveNo=2.5_wp, &
+        & NorthTemperature=initial_temperature_north, &
+        & NorthLat=(basin_center_lat + 0.5_wp * basin_height_deg - relax_width) * deg2rad, &
+        & SouthLat=(basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad)
+            
+      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+        &                                    initial_temperature_scale_depth)
+
+    CASE (222)
+      ! Abernathey setup 02; initial SST ls linear
+      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+
+      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+        &                                    initial_temperature_scale_depth)
+      
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
      CALL temperature_KelvinHelmholtzTest(patch_3d, ocean_temperature,&
@@ -628,7 +671,7 @@ CONTAINS
 !      !   as it should give the same results as
 !      !   for initial_salinity_type = 200
 !      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
-!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!      CALL tracer_ConstantSurface_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
 !        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
      !------------------------------
@@ -764,7 +807,6 @@ CONTAINS
 
      CASE (207)
       CALL height_GalewskyTest(patch_3d, ocean_height)
-
 
     CASE default
       CALL finish(method_name, "unknown sea_surface_height_type")
@@ -1304,7 +1346,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     alpha = 1.0_wp/3.0_wp
     
     
-    shear_depth  = 4.0_wp
+    shear_depth  = 0.05_wp
     shear_center = INT(0.5_wp*n_zlev)
     shear_top    = shear_center-INT(0.5_wp*shear_depth)
     shear_bottom = shear_center+INT(0.5_wp*shear_depth)
@@ -1315,42 +1357,30 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
       
-         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
-         uu = Galewsky_u(point_lon,point_lat,velocity_amplitude)
-         vv = Galewsky_v(point_lon,point_lat,velocity_amplitude)
-         edge_vn = 0.01_wp*(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2)
-              
-        !Above shear layer
-        DO level = 1, INT(shear_top)
-          vn(edge_index, level, edge_block) = edge_vn
-        ENDDO
-        
-        !Shear layer
-        DO level = INT(shear_top+1),INT(shear_bottom-1)
-          vn(edge_index, level, edge_block) = edge_vn* ((shear_center-level)/shear_depth)
-        ENDDO
-        
-        !Below shear layer
-        DO level = INT(shear_bottom),n_zlev
-          vn(edge_index, level, edge_block) = -edge_vn
-        ENDDO
-!         IF(level==INT(0.5*n_zlev)+1)THEN
-!           IF(point_lon<= pi .and. point_lon> -pi)THEN
-!           vn_perturb=120.0_wp*cos(point_lat)&
-!           &*exp(-(point_lon/alpha)**2)*exp(-((phi_2-point_lat)/beta)**2)
-!         
-!           vn(edge_index, level, edge_block) = vn(edge_index, level, edge_block)+vn_perturb
-! 
-!           ENDIF
-!         ENDIF
+         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon* rad2deg
+         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat* rad2deg
+!          IF(point_lat>=basin_center_lat)THEN	 
+!            !uu=tanh((point_lat-0.025)*300.0_wp) 
+!            uu=tanh((point_lat-shear_depth)*300.0_wp) 
+!          ELSEIF(point_lat<basin_center_lat)THEN
+!            !uu=tanh((0.75_wp-point_lat)*300.0_wp) 
+!            uu=tanh((shear_depth-point_lat)*300.0_wp) 
+!          ENDIF
+          IF(point_lat>=basin_center_lat)THEN	 
+            !uu=tanh((point_lat-0.025)*300.0_wp) 
+            uu=tanh((point_lat+shear_depth)*300.0_wp) 
+          ELSEIF(point_lat<basin_center_lat)THEN
+            !uu=tanh((0.75_wp-point_lat)*300.0_wp) 
+            uu=tanh((shear_depth-point_lat)*300.0_wp) 
+          ENDIF
+        vv=0.1_wp*sin(2.0_wp*pi*point_lon)
+   
+        edge_vn =(uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+           & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2) 
+           vn(edge_index, 1:n_zlev, edge_block) = velocity_amplitude*edge_vn
+
       ENDDO
     ENDDO
-!     DO level = 1, n_zlev
-!      write(*,*)'velocity', level, maxval(vn(:, level,:))   
-!     ENDDO
-
 
   END SUBROUTINE  velocity_KelvinHelmholtzTest
   !-----------------------------------------------------------------------------------
@@ -1384,7 +1414,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-        lat_deg = patch_2d%cells%center(jc,jb)%lat * rad2deg
+        lat_deg = patch_2d%cells%center(jc,jb)%lat 
         lon_deg = patch_2d%cells%center(jc,jb)%lon * rad2deg
 
         IF((lon_deg-basin_center_lon) >= wallLonDeg) THEN
@@ -1538,6 +1568,52 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
 
   !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_AddSinusoidalPerturbation(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_AddLocalPerturbation'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
+
+!        IF(ABS(lon_deg) < 2.5_wp .AND. &
+!          ABS(lat_deg-basin_center_lat) < 0.25_wp*basin_height_deg) THEN
+!        write(123,*)'t-perturb',ocean_temperature(jc,1,jb),ocean_temperature(jc,2,jb)*&
+!            &0.01_wp*sin(50.0_wp*patch_2d%cells%center(jc,jb)%lon)
+          IF(  lat_deg<= basin_center_lat+ 0.5_wp*basin_height_deg)THEN    
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) +ocean_temperature(jc,jk,jb)*&
+            &0.01_wp*sin(50.0_wp*patch_2d%cells%center(jc,jb)%lon)
+          END DO
+
+        ENDIF
+
+      END DO
+    END DO
+	
+  END SUBROUTINE temperature_AddSinusoidalPerturbation
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
   SUBROUTINE temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -1660,27 +1736,26 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
     cell_center => patch_2d%cells%center
-	width=0.0
-	
+
+    width = 0.0_wp
+    ocean_temperature(:,:,:)=0.0_wp
+
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-		  
-	    lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
-	    lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
-		
+  
+        lat_deg = patch_2d%cells%center(jc,jb)%lat*rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
+
          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-           IF(      lat_deg>= basin_center_lat+ width)THEN    				  		
+           IF( lat_deg>= basin_center_lat+ width)THEN    
 
-             ocean_temperature(jc,jk,jb) =  initial_temperature_north
+            ocean_temperature(jc,jk,jb) =  initial_temperature_north
           !lower channel boudary
-          ELSEIF(    lat_deg<= basin_center_lat- width )THEN 
-             ocean_temperature(jc,jk,jb) =  initial_temperature_south	  
-          ELSE!channel interior		  
-	       !write(123,*)'details3',lat_deg
-		   				  				  
-          ENDIF	
-
+          ELSEIF( lat_deg<= basin_center_lat- width )THEN 
+            ocean_temperature(jc,jk,jb) =  initial_temperature_south  
+          ELSE!channel interior  
+          ENDIF
         END DO
       END DO
     END DO
@@ -1929,11 +2004,11 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
     basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
     lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
-
+    
+    jk=1
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-        jk=1
         ocean_temperature(jc,jk,jb) = initial_temperature_north - temperature_difference*((basin_northBoundary-lat(jc,jb))/lat_diff)
         ocean_temperature(jc,jk,jb) = MERGE(ocean_temperature(jc,jk,jb), initial_temperature_north, lat(jc,jb)<basin_northBoundary)
         ocean_temperature(jc,jk,jb) = MERGE(ocean_temperature(jc,jk,jb), initial_temperature_south, lat(jc,jb)>basin_southBoundary)
@@ -1941,9 +2016,95 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     END DO
 
   END SUBROUTINE SST_LinearMeridional
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
+  SUBROUTINE SST_Abernathey_01(patch_3d, ocean_temperature, BaseTemperature, VariationAmplitude, VariationLength, VariationWaveNo, &
+    & NorthTemperature, NorthLat, SouthLat)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), INTENT(in) :: BaseTemperature, VariationAmplitude, VariationLength, VariationWaveNo
+    REAL(wp), INTENT(in) :: NorthTemperature, NorthLat, SouthLat
+    
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: y_lat
+              
+    CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+
+    ! add a perturbation analogous to the forcing
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%all
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        IF (patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+
+          y_lat = patch_2d%cells%center(jc,jb)%lat - SouthLat
+
+          ocean_temperature(jc,1,jb) = &
+            & ocean_temperature(jc,1,jb) - VariationAmplitude * COS(VariationWaveNo * pi * y_lat/VariationLength)
+
+        ENDIF
+      END DO
+    END DO
+    
+!     CALL SST_constant(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
+!       & constant_temperature=NorthTemperature, &
+!       & LowerLat=NorthLat)
+    
+          
+  END SUBROUTINE SST_Abernathey_01
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE SST_constant(patch_3d, ocean_temperature, constant_temperature, LowerLat)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), INTENT(in) :: constant_temperature
+    REAL(wp), OPTIONAL :: LowerLat
+    
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: lower_lat
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':SST_constant'
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(method_name), ' using meridional gradient over basin height')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    IF (PRESENT(LowerLat)) THEN
+      lower_lat = LowerLat
+    ELSE
+      lower_lat = -100.0
+    ENDIF
+    
+    jk=1
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        IF (patch_2d%cells%center(jc,jb)%lat >= lower_lat) THEN
+          ocean_temperature(jc,jk,jb) = constant_temperature
+        ENDIF
+      END DO
+    END DO
+
+  END SUBROUTINE SST_constant
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+!  SUBROUTINE tracer_ConstantSurface_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
 !    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
 !    REAL(wp), TARGET :: ocean_tracer(:,:,:)
 !    REAL(wp), INTENT(in) :: top_value, bottom_value
@@ -1955,7 +2116,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !    INTEGER :: start_cell_index, end_cell_index
 !    REAL(wp) :: linear_increase
 !
-!    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
+!    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_ConstantSurface'
 !    !-------------------------------------------------------------------------
 !
 !    patch_2d => patch_3d%p_patch_2d(1)
@@ -1987,14 +2148,14 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !
 !    ! ocean_tracer(:,:,:) = top_value
 !
-!  END SUBROUTINE tracer_VerticallyLinearly_IncludeLand
+!  END SUBROUTINE tracer_ConstantSurface_IncludeLand
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_VerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
+  SUBROUTINE tracer_ConstantSurface(patch_3d, ocean_tracer, top_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
-    REAL(wp), INTENT(in) :: top_value, bottom_value
+    REAL(wp), INTENT(in) :: top_value
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
@@ -2002,7 +2163,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_ConstantSurface'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -2017,9 +2178,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       END DO
     END DO
 
-    CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_tracer, bottom_value=bottom_value)
-
-  END SUBROUTINE tracer_VerticallyLinearly
+  END SUBROUTINE tracer_ConstantSurface
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -2357,7 +2516,7 @@ stop
                 !             &= 30.0_wp!convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
                 !                     &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                 !                     &sfc_press_bar)
-                !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
+                !SItodBar*OceanReferenceDensity*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
 
               ELSEIF (ABS(lat_deg)<=z_ltrop) THEN
 
@@ -4358,7 +4517,7 @@ stop
     radius_bubble = 2.5_wp  !5.0_wp
     layers_above_bubble = 78 !31
     layers_bubble = 2 !46 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer=layers_bubble/2.0_wp !radius in z direction
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
     CALL assign_if_present(radius_bubble,radius_bubble_opt)
@@ -4446,7 +4605,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble = 35 !15 !35
     layers_bubble = 40 !20 !40 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
     layers_perturbation = 1
     amplitude_perturbation = 0.10_wp
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
@@ -4559,7 +4718,7 @@ stop
     layers_bubble = 35 
     lat_small_bubble= 20.0_wp
 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
     small_bubble_inside = 2.0_wp * ( bubble_outside - bubble_inside ) + bubble_inside
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
@@ -4757,7 +4916,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble = 35
     layers_bubble = 40 
-    dist_layer = layers_bubble/2.0_wp	!"radius" in z direction
+    dist_layer = layers_bubble/2.0_wp !radius in z direction
     bubble_inside2 = bubble_outside + bubble_inside
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)
@@ -4865,7 +5024,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble =47  !45
     layers_bubble = 20 
-    dist_layer=layers_bubble/2.0_wp	!"radius" in z directions
+    dist_layer=layers_bubble/2.0_wp !radius in z directions
     a = 250000.0_wp  ! inner radius in meter
     s = 250000.0_wp  ! outer radius in meter
   

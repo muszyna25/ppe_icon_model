@@ -11,7 +11,7 @@
 !! inwp_gscp == 3 : two-moment cloud ice scheme of Koehler (2013)
 !!
 !! inwp_gscp == 4 : two-moment bulk microphysics by Seifert and Beheng (2006)
-!!                  with prescribed cloud droplet number
+!!                  with prognostic cloud droplet number
 !!
 !! inwp_gscp == 5 : two-moment bulk microphysics by Seifert and Beheng (2006)
 !!                  with prognostic cloud droplet number and some aerosol,
@@ -336,6 +336,7 @@ CONTAINS
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
                        qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
                        qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout:cloud water
+                       qnc    = p_prog_rcf%tracer (:,:,jb,iqnc),&!inout: cloud droplet number 
                        qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout:rain
                        qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout:rain droplet number 
                        qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
@@ -346,6 +347,7 @@ CONTAINS
                        qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
                        qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
                        qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
+                       ninact = p_prog_rcf%tracer (:,:,jb,ininact), &!inout: IN number
                        tk     = p_diag%temp(:,:,jb),            &!inout: temp 
                        w      = p_prog%w(:,:,jb),               &!inout: w
                        prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain

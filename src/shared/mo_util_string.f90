@@ -28,7 +28,6 @@ MODULE mo_util_string
   !
   PUBLIC :: tolower        ! Conversion   : 'ABCXYZ' -> 'abcxyz'   
   PUBLIC :: toupper        ! Conversion   : 'abcxyz' -> 'ABCXYZ'
-  PUBLIC :: char2          ! Conversion   : INTEGER  -> CHAR (LEN=2)
   PUBLIC :: separator      ! Format string: (/"-----...-----"/)
   PUBLIC :: int2string     ! returns integer n as a string
   PUBLIC :: real2string    ! returns real n as a string
@@ -180,31 +179,7 @@ CONTAINS
     string = string(1:(i-1))
   END SUBROUTINE tocompact
 
-  !
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Conversion: INTEGER -> CHARACTER(LEN=2)
-  !
-  FUNCTION char2 (i, zero)
-    CHARACTER(len=2) :: char2 ! result
-    INTEGER,   INTENT(in)           :: i     ! argument
-    CHARACTER, INTENT(in), OPTIONAL :: zero  ! padding instead of '0'
-    !
-    INTEGER, PARAMETER :: i0 = ICHAR ('0')
-    !
-    IF (i > 99 .OR. i < 0) THEN
-      char2 = '**'
-    ELSE
-      char2(1:1) = CHAR(    i/10  + i0)
-      char2(2:2) = CHAR(MOD(i,10) + i0)
-    ENDIF
-    !
-    IF (PRESENT(zero)) THEN
-      IF(char2(1:1) == '0') char2(1:1) = zero
-      IF(char2(2:2) == '0') char2(2:2) = zero
-    ENDIF
-    !
-  END FUNCTION char2
+
   !------------------------------------------------------------------------------------------------
   !
   ! returns integer n as a string (often needed in printing messages)

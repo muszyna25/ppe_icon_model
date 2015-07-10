@@ -250,8 +250,10 @@ do shortstep=1, steps
    umod=sqrt((u_ice(i)-u_w(i))**2+(v_ice(i)-v_w(i))**2)
    drag=C_d_io*umod*density_0*inv_mass
    
-   rhsu=u_ice(i)+rdt*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
-   rhsv=v_ice(i)+rdt*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))
+!   rhsu=u_ice(i)+rdt*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
+!   rhsv=v_ice(i)+rdt*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))
+   rhsu=u_ice(i)+rdt*(drag*(ax*(u_w(i)-u_ice(i))-ay*(v_w(i)-v_ice(i)))+inv_mass*stress_atmice_x(i)+rhs_u(i))
+   rhsv=v_ice(i)+rdt*(drag*(ax*(v_w(i)-v_ice(i))+ay*(u_w(i)-u_ice(i)))+inv_mass*stress_atmice_y(i)+rhs_v(i))
 
    det=(1._wp+ax*drag*rdt)**2+(rdt*coriolis_nod2D(i)+rdt*ay*drag)**2
    det=1.0_wp/det

@@ -28,12 +28,13 @@
 MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
-  USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells
+  USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
+    & LinearThermoExpansionCoefficient, OceanReferenceDensity
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish
   USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
-  USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_t, b_s, &
+  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
@@ -321,7 +322,7 @@ CONTAINS
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
-  !!  - division by rho_ref included
+  !!  - division by OceanReferenceDensity included
   !!
 !<Optimize:inUse>
   SUBROUTINE calc_internal_press(patch_3d, rho, prism_thick_c, h, press_hyd)
@@ -374,7 +375,7 @@ CONTAINS
 !        IF(end_lev>=min_dolic)THEN
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
-          z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
+          z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-OceanReferenceDensity!&!     pressure in single box at layer jk
 
           press_hyd(jc,jk,jb) = ( z_full + 0.5_wp * z_box ) * z_grav_rho_inv
           ! rho_inv*grav  !hydrostatic press at level jk
@@ -515,18 +516,18 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         !  tracer 1: potential temperature
         !  tracer 2: salinity
-        rho(:,:,jb) = rho_ref   !  plotting purpose
+        rho(:,:,jb) = OceanReferenceDensity   !  plotting purpose
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = rho_ref          &
-                & - a_t * tracer(jc,jk,jb,1)   &
+              rho(jc,jk,jb) = OceanReferenceDensity          &
+                & - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1)   &
                 & + b_s * tracer(jc,jk,jb,2)
-              !write(123,*)'density',jk,jc,jb,rho_ref, tracer(jc,jk,jb,1),&
+              !write(123,*)'density',jk,jc,jb,OceanReferenceDensity, tracer(jc,jk,jb,1),&
               ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
 !            ELSE
 !              ! rho(jc,jk,jb) = 0.0_wp
-!              rho(jc,jk,jb) = rho_ref   !  plotting purpose
+!              rho(jc,jk,jb) = OceanReferenceDensity   !  plotting purpose
 !            ENDIF
           END DO
         END DO
@@ -540,14 +541,14 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
-        rho(:,:,jb) = rho_ref   !  plotting purpose
+        rho(:,:,jb) = OceanReferenceDensity   !  plotting purpose
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = rho_ref - a_t * tracer(jc,jk,jb,1) + b_s * sal_ref
+              rho(jc,jk,jb) = OceanReferenceDensity - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) + b_s * sal_ref
               !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
 !            ELSE
-!              rho(jc,jk,jb) = rho_ref   !  plotting purpose
+!              rho(jc,jk,jb) = OceanReferenceDensity   !  plotting purpose
 !            ENDIF
           END DO
         END DO
@@ -614,7 +615,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
            levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * rho_ref * sitodbar
+           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
            rho(jc,1:levels,jb) = calculate_density_jmdwfg06_onColumn( &
              & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
         END DO
@@ -629,7 +630,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * rho_ref * sitodbar
+          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_jmdwfg06_onColumn( &
              & tracer(jc,1:levels,jb,1),  salinityReference_column(1:levels), z_p(1:levels), levels)
         END DO
@@ -680,7 +681,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index) 
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * rho_ref * sitodbar
+          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
             & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
         END DO
@@ -694,7 +695,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * rho_ref * sitodbar
+          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
           rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
              & tracer(jc,1:levels,jb,1),  salinityReference_column(1:levels), z_p(1:levels), levels)
         END DO
@@ -723,7 +724,7 @@ CONTAINS
     REAL(wp),INTENT(in) :: p     !  pressure is unused
     REAL(wp)            :: rho   !< density
 
-    rho = rho_ref - a_t * t  + b_s * s
+    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  + b_s * s
 
   END FUNCTION density_linear_function
   !---------------------------------------------------------------------------
@@ -743,7 +744,7 @@ CONTAINS
     REAL(wp),INTENT(in) :: p(1:levels)     !  pressure is unused
     REAL(wp)            :: rho(1:levels)   !< density
 
-    rho(1:levels) = rho_ref - a_t * t(1:levels)  + b_s * s(1:levels)
+    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels)  + b_s * s(1:levels)
 
   END FUNCTION calculate_density_linear_onColumn
   !---------------------------------------------------------------------------
@@ -822,7 +823,7 @@ CONTAINS
 
     ! rhoden = 1.0_wp / (dbl_eps+den)
 
-    !rhoLoc  = rhoNum*rhoDen - rho_ref
+    !rhoLoc  = rhoNum*rhoDen - OceanReferenceDensity
     ! rho     = rhonum * rhoden
     rho(1:levels)     = rhonum(1:levels) / den(1:levels)
 
@@ -910,7 +911,7 @@ CONTAINS
 
     ! rhoden = 1.0_wp / (dbl_eps+den)
 
-    !rhoLoc  = rhoNum*rhoDen - rho_ref
+    !rhoLoc  = rhoNum*rhoDen - OceanReferenceDensity
     ! rho     = rhonum * rhoden
     rho     = rhonum / den
 
@@ -1155,9 +1156,9 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
-  SUBROUTINE convert_insitu2pot_temp(patch_3d, rho_ref, temp_insitu, sal, temp_pot)
+  SUBROUTINE convert_insitu2pot_temp(patch_3d, OceanReferenceDensity, temp_insitu, sal, temp_pot)
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp)                      :: rho_ref
+    REAL(wp)                      :: OceanReferenceDensity
     REAL(wp)                      :: temp_insitu(:,:,:)
     REAL(wp)                      :: sal(:,:,:)
     REAL(wp)                      :: temp_pot(:,:,:)
@@ -1172,7 +1173,7 @@ CONTAINS
     all_cells => patch_3d%p_patch_2d(1)%cells%ALL
 
     ! z_press is used uninitialized
-    ! z_press=rho_ref*patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
+    ! z_press=OceanReferenceDensity*patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
     
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1294,7 +1295,7 @@ CONTAINS
 !            & + 4.8314e-4_wp*z_s**2)
 !
 !          rho(jc,jk,jb) = z_rhopot/(1.0_wp + 0.1_wp*pz/z_bulk)&
-!            & - rho_ref
+!            & - OceanReferenceDensity
 !          ! write(*,*)'density ',jc,jk,jb,rho(jc,jk,jb)
 !
 !          ! ENDIF
@@ -1337,7 +1338,7 @@ CONTAINS
 !    DO jb = all_cells%start_block, all_cells%end_block
 !      CALL get_index_range(all_cells, jb, start_index, end_index)
 !      DO jk=1, n_zlev
-!        z_press=rho_ref*patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
+!        z_press=OceanReferenceDensity*patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
 !        DO jc = start_index, end_index
 !          ! operate on wet ocean points only
 !          IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
