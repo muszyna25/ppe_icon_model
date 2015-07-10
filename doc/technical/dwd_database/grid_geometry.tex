@@ -170,7 +170,7 @@ non-zero topography.}
 %
 %
 % ---------------------------------------------------------------------------------------
-\begin{figure}[hb]
+\begin{figure}[hbt]
 \begin{tabbing}
   \begin{minipage}[t]{0.65\linewidth} \vspace*{0pt}%
     \pgfplotstableread{level_tables/vertical_levels_i.txt}{\loadedtable}
@@ -257,20 +257,21 @@ Note that the grid nests are computed in a concurrent fashion:
 \end{itemize}
 
 
-\begin{figure}[h]
+\begin{figure}[hbt]
   \centering
   \includegraphics[width=0.90\textwidth]{pics/grid_refinement.png}
   \caption{ICON grid refinement (zoom view). Blue and red dots indicate the cell circumcenters for the global (``parent'') and the refined (``child'') domain, respectively.}
   \label{fig:icon_grid_refinement_zoom_view}
 \end{figure}
 
-Currently, a refined subregion over Europe is in preparation,
-which is comparable to the COSMO-EU region of DWD's COSMO model.
-The geographical location of the nest is shown in
+ICON's refined subregion over Europe is comparable to the COSMO-EU region 
+of DWD's COSMO model. Key figures like edge coordinates and mesh size of the COSMO-EU region and the ICON-EU nest 
+are given in Table ~\ref{tab:COSMO_ICON_nest_extent}. The geographical location of the nest is visualized in 
 Fig.~\ref{fig:EU_nest} and Fig.~\ref{fig:EU_nest_polar}.
 
 \begin{table}
 \centering
+\caption{Key figures of the ICON-EU nest and the COSMO EU region.}\label{tab:COSMO_ICON_nest_extent}
 \begin{tabular}{|p{5cm}|l|l|}\hline
 \rowcolor{Gray}
                            &    {\centering\textbf{ICON-EU nest}}                 &     {\centering\textbf{COSMO-EU}} \\ \hline\hline
@@ -304,7 +305,7 @@ Simulation on the global grid and the regional (Europe) domain are tightly coupl
 (\emph{two-way nesting}):
 Boundary data for the nest area is updated every time step (120~s).
 %
-Feedback of atmospheric prognostic variabes (except precipitation) is
+Feedback of atmospheric prognostic variables (except precipitation) is
 computed via relaxation on a 3~h time scale.
 
   
@@ -323,7 +324,7 @@ computed via relaxation on a 3~h time scale.
   \end{minipage}\hfill
   \caption{\ref{fig:EU_nest}: Horizontal extent of the ICON-EU nest
     (orange shaded area) in a cylindrical equidistant projection. For
-    comparison, the outline of the COSMO-EU nest is shown in red.
+    comparison, the outline of the COSMO-EU region is shown in red.
     \ref{fig:EU_nest_polar}:  Same as \ref{fig:EU_nest} but in a polar
     stereographic projection.}
 \end{figure}
