@@ -36,7 +36,7 @@ MODULE mo_initicon
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
-    &                               rho_incr_filter_wgt, lread_ana,               &
+    &                               rho_incr_filter_wgt, lread_ana, ltile_init,   &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
@@ -516,9 +516,9 @@ MODULE mo_initicon
     ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
     ! from neighboring grid points where possible;
     ! In case of snowtile warmstart, the index lists for snow-covered / snow-free points need to be initialized
-    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, water_only=.FALSE.)
-    ELSE IF (ntiles_total > 1 .AND. lsnowtile) THEN
+    IF (ntiles_total > 1 .AND. ltile_init) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
+    ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
       CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
     ENDIF
 
@@ -535,8 +535,8 @@ MODULE mo_initicon
 
     ! Call neighbor-filling routine for a second time in order to ensure that fr_seaice is filled
     ! with meaningful data near coastlines if this field is read from the analysis
-    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, water_only=.TRUE.)
+    IF (ntiles_total > 1) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
     END IF
 
   END SUBROUTINE process_dwdanainc_sfc

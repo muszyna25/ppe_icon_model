@@ -1835,11 +1835,18 @@ the interpolation for all nested domains. & init\_mode=5,6
 \tabularnewline
 
 %\hline
+ltile\_init&
+L & .FALSE.& &
+True: initialize tiled surface fields from a first guess coming from a run without tiles. \\
+Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
+land or water points with reasonable values. Should be combined with ltile\_coldstart = .TRUE. & init\_mode=1,5,6
+\tabularnewline
+
+%\hline
 ltile\_coldstart&
 L & .FALSE.& &
-If true, tiled surface fields are initialized with tile-averaged fields (or first-guess fields from a no-tile run). \\
-Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
-land or water points with reasonable values. & init\_mode=1,5,6
+If true, tiled surface fields are initialized with tile-averaged fields from a previous run with tiles. \\
+A neighbor search is applied to subgrid-scale ocean points for SST and sea-ice fraction. & init\_mode=1,5,6
 \tabularnewline
 
 %\hline
