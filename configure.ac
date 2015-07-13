@@ -112,7 +112,7 @@ AS_CASE([x"$ac_hostname"],
   [ac_sitename=dkrz.de],
   [xwizard*],
   [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*],
+  [xbtc*|mlogin*],
   [ac_sitename=dkrz.de; ac_hostname=btc],
   [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
@@ -404,7 +404,7 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $(hostname) in
-  btc*)  
+  btc*|mlogin*)  
     SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
     ;;
   *)
@@ -446,7 +446,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $(hostname) in
-  btc*)  
+  btc*|mlogin)  
     HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
     ;;
   *)
@@ -497,7 +497,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $(hostname) in
-  btc*)    
+  btc*|mlogin*)    
     NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
     ;;
   *)
@@ -517,7 +517,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
          case $(hostname) in
-         btc*)    
+         btc*|mlogin*)    
            NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
            NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
            NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
