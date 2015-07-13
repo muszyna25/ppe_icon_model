@@ -988,10 +988,18 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE create_input_groups
 
+
+
   !>
   !! SUBROUTINE fill_tile_points
-  !! Used in the case of a tile coldstart, i.e. initializing a run with tiles with first guess
-  !! data not containing tiles (or only tile-averaged variables)
+  !! Used in the case of a 'cold' tile initialization
+  !!  i.e. initializing a run with tiles with first guess data not containing tiles. The first guess data 
+  !!  orignate from a run without tiles.
+  !! or tile coldstart
+  !!  i.e. initializing a run with tiles with first guess data not containing tiles. The first guess data
+  !!  orignate from a run without tiles (but tile-averaged variables).
+  !!  In the latter case the filling routine is only applied to the ANA fields fr_seaice and t_seasfc.
+  !! 
   !! Specifically, this routine fills sub-grid scale (previously nonexistent) land and water points
   !! with appropriate data from neighboring grid points where possible
   !!
@@ -1006,7 +1014,8 @@ MODULE mo_initicon_utils
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
 
-    LOGICAL, INTENT(IN) :: process_ana_vars
+    LOGICAL,                   INTENT(IN)    :: process_ana_vars  ! neighbour filling only for analysed fields
+                                                                  ! fr_seaice and t_seasfc
 
     TYPE(t_lnd_prog),  POINTER :: lnd_prog
     TYPE(t_lnd_diag),  POINTER :: lnd_diag
@@ -1109,78 +1118,88 @@ MODULE mo_initicon_utils
         ENDDO
 
         ! Apply neighbor filling
-        DO jc = i_startidx, i_endidx
+        !
+        IF (process_ana_vars) THEN
 
-          ! a) ocean points
-          IF (spmask(jc,1) == 1._wp) THEN
-            IF (process_ana_vars) THEN
+          DO jc = i_startidx, i_endidx
+
+            ! a) ocean points
+            IF (spmask(jc,1) == 1._wp) THEN
               CALL ngb_search(lnd_diag%fr_seaice, iidx, iblk, spmask, spcount, jc, jb)
               CALL ngb_search(lnd_diag%t_seasfc, iidx, iblk, spmask, spcount, jc, jb)
-            ELSE
+            ENDIF
+          ENDDO  ! jc
+
+        ELSE   ! .NOT. process_ana_vars
+
+          DO jc = i_startidx, i_endidx
+            ! a) ocean points
+            IF (spmask(jc,1) == 1._wp) THEN
               CALL ngb_search(wtr_prog%t_ice, iidx, iblk, spmask, spcount, jc, jb)
               CALL ngb_search(wtr_prog%h_ice, iidx, iblk, spmask, spcount, jc, jb)
             ENDIF
-          ENDIF
 
-          ! b) lake points
-          IF (fpmask(jc,1) == 1._wp .AND. .NOT. process_ana_vars) THEN
-            CALL ngb_search(wtr_prog%t_mnw_lk, iidx, iblk, fpmask, fpcount, jc, jb)
-            CALL ngb_search(wtr_prog%t_wml_lk, iidx, iblk, fpmask, fpcount, jc, jb)
-            CALL ngb_search(wtr_prog%h_ml_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
-            CALL ngb_search(wtr_prog%t_bot_lk, iidx, iblk, fpmask, fpcount, jc, jb)
-            CALL ngb_search(wtr_prog%c_t_lk,   iidx, iblk, fpmask, fpcount, jc, jb)
-            CALL ngb_search(wtr_prog%t_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
-            CALL ngb_search(wtr_prog%h_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
-          ENDIF
-        ENDDO
-
-        ! c) land points
-        DO jt = 1, ntiles_total
-
-          ! single-layer fields
-          DO jc = i_startidx, i_endidx
-            IF (lpmask(jc,1) == 1._wp .AND. .NOT. process_ana_vars) THEN
-              CALL ngb_search(lnd_diag%freshsnow_t(:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-              CALL ngb_search(lnd_prog%w_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-              CALL ngb_search(lnd_prog%w_i_t      (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-              CALL ngb_search(lnd_diag%h_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-              CALL ngb_search(lnd_prog%t_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-              CALL ngb_search(lnd_prog%rho_snow_t (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-
-              CALL ngb_search(lnd_prog%t_so_t(:,nlev_soil+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+            ! b) lake points
+            IF (fpmask(jc,1) == 1._wp .AND. .NOT. process_ana_vars) THEN
+              CALL ngb_search(wtr_prog%t_mnw_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+              CALL ngb_search(wtr_prog%t_wml_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+              CALL ngb_search(wtr_prog%h_ml_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+              CALL ngb_search(wtr_prog%t_bot_lk, iidx, iblk, fpmask, fpcount, jc, jb)
+              CALL ngb_search(wtr_prog%c_t_lk,   iidx, iblk, fpmask, fpcount, jc, jb)
+              CALL ngb_search(wtr_prog%t_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
+              CALL ngb_search(wtr_prog%h_b1_lk,  iidx, iblk, fpmask, fpcount, jc, jb)
             ENDIF
-          ENDDO
+          ENDDO  ! jc
 
-          ! soil fields
-          DO jk = 1, nlev_soil
+          ! c) land points
+          DO jt = 1, ntiles_total
+
+            ! single-layer fields
             DO jc = i_startidx, i_endidx
-              IF (lpmask(jc,1) == 1._wp .AND. .NOT. process_ana_vars) THEN
-                CALL ngb_search(lnd_prog%t_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
-                CALL ngb_search(lnd_prog%w_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
-                CALL ngb_search(lnd_prog%w_so_ice_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+              IF (lpmask(jc,1) == 1._wp) THEN
+                CALL ngb_search(lnd_diag%freshsnow_t(:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%w_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%w_i_t      (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_diag%h_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%t_snow_t   (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                CALL ngb_search(lnd_prog%rho_snow_t (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+
+                CALL ngb_search(lnd_prog%t_so_t(:,nlev_soil+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
               ENDIF
             ENDDO
-          ENDDO
 
-          IF (lmulti_snow) THEN ! multi-layer snow fields
-            DO jk = 1, nlev_snow
+            ! soil fields
+            DO jk = 1, nlev_soil
               DO jc = i_startidx, i_endidx
-                IF (lpmask(jc,1) == 1._wp .AND. .NOT. process_ana_vars) THEN
-                  CALL ngb_search(lnd_prog%t_snow_mult_t(:,jk,:,jt),   iidx, iblk, lpmask, lpcount, jc, jb)
-                  CALL ngb_search(lnd_prog%rho_snow_mult_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
-                  CALL ngb_search(lnd_prog%wtot_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
-                  CALL ngb_search(lnd_prog%wliq_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
-                  CALL ngb_search(lnd_prog%dzh_snow_t(:,jk,:,jt),      iidx, iblk, lpmask, lpcount, jc, jb)
-
-                  IF (jk == 1) CALL ngb_search(lnd_prog%t_snow_mult_t(:,nlev_snow+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                IF (lpmask(jc,1) == 1._wp) THEN
+                  CALL ngb_search(lnd_prog%t_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%w_so_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                  CALL ngb_search(lnd_prog%w_so_ice_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
                 ENDIF
               ENDDO
             ENDDO
-          ENDIF
 
-        ENDDO
+            IF (lmulti_snow) THEN ! multi-layer snow fields
+              DO jk = 1, nlev_snow
+                DO jc = i_startidx, i_endidx
+                  IF (lpmask(jc,1) == 1._wp) THEN
+                    CALL ngb_search(lnd_prog%t_snow_mult_t(:,jk,:,jt),   iidx, iblk, lpmask, lpcount, jc, jb)
+                    CALL ngb_search(lnd_prog%rho_snow_mult_t(:,jk,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                    CALL ngb_search(lnd_prog%wtot_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                    CALL ngb_search(lnd_prog%wliq_snow_t(:,jk,:,jt),     iidx, iblk, lpmask, lpcount, jc, jb)
+                    CALL ngb_search(lnd_prog%dzh_snow_t(:,jk,:,jt),      iidx, iblk, lpmask, lpcount, jc, jb)
 
-      ENDDO
+                    IF (jk == 1) CALL ngb_search(lnd_prog%t_snow_mult_t(:,nlev_snow+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                  ENDIF
+                ENDDO  ! jc
+              ENDDO
+            ENDIF  ! lmulti_snow
+
+          ENDDO  ! jt
+
+        ENDIF  ! process_ana_vars
+
+      ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
