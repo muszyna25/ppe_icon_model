@@ -99,7 +99,7 @@ MODULE mo_model_domimp_setup
   USE mo_impl_constants
   USE mo_math_types
   USE mo_math_utilities
-  USE mo_grid_geometry_info, ONLY: planar_torus_geometry
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry, planar_channel_geometry
   USE mo_master_control,     ONLY: my_process_is_ocean
   
   IMPLICIT NONE
@@ -565,8 +565,9 @@ CONTAINS
     nblks_v  = patch%nblks_v
     npromz_v = patch%npromz_v
 
-    is_plane = lplane .OR. &
-      &        (patch%geometry_info%geometry_type == planar_torus_geometry)
+    is_plane = lplane  &
+      &    .OR.    (patch%geometry_info%geometry_type == planar_torus_geometry) &
+      &    .OR.    (patch%geometry_info%geometry_type == planar_channel_geometry )
     
     IF (lcorio .AND. .NOT. is_plane) THEN
       

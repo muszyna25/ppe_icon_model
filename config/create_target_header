@@ -481,9 +481,7 @@ set_run_target_thunder()
         use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
       ;;
   esac
-  # create header
-  start_header
-  
+
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="mpi-serial"}
     use_nodes=1
@@ -515,8 +513,7 @@ set_run_target_thunder()
     
   # ------------------------------------
  
-  cat > job_header << EOF
-#!$use_shell
+  cat >> $output_script << EOF
 #-----------------------------------------------------------------------------
 # thunder batch job parameters
 #-----------------------------------------------------------------------------
@@ -529,8 +526,10 @@ set_run_target_thunder()
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 EOF
-cat job_header $output_script > tmp_job_script && mv tmp_job_script $output_script
-rm job_header
+
+  # create header
+  start_header
+  
 }
 
 set_run_target_bullx()

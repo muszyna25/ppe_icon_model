@@ -157,7 +157,7 @@ MODULE mo_timer
   PUBLIC :: timer_scalar_prod_veloc
 
   ! Timer IDs for sea ice
-  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
+  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum
 !    &       timer_ice_advection, timer_ice_interp
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
@@ -303,7 +303,7 @@ MODULE mo_timer
   ! ocean
   INTEGER :: timer_scalar_prod_veloc
   ! Timer IDs for sea ice
-  INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
+  INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum
 !    &        timer_ice_advection, timer_ice_interp
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
@@ -510,6 +510,7 @@ CONTAINS
     ! Timer IDs for sea ice
     timer_ice_fast      = new_timer("ice_fast")
     timer_ice_slow      = new_timer("ice_slow")
+    timer_ice_slow2     = new_timer("ice_slow2")
     timer_ice_momentum  = new_timer("ice_momentum")
 !    timer_ice_advection = new_timer("ice_advection")
 !    timer_ice_interp    = new_timer("ice_interp")
