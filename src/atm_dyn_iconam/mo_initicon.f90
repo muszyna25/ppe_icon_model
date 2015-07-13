@@ -1901,6 +1901,8 @@ MODULE mo_initicon
 !$OMP END DO
 !$OMP END PARALLEL
 
+      ! This sync is needed because of the subsequent neighbor point filling
+      CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
 
     ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake) 
     ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
