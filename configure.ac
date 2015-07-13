@@ -405,7 +405,14 @@ if test -n "$SZIPROOT" ; then
   fi
   case $(hostname) in
   btc*|mlogin*)  
-    SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    case $FC in
+    nagfor)
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)  
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
     ;;
   *)
     ;;
@@ -446,8 +453,15 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $(hostname) in
-  btc*|mlogin)  
-    HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  btc*|mlogin*)  
+    case $FC in
+    nagfor)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+     ;;
+    esac    
     ;;
   *)
     ;;
@@ -498,7 +512,14 @@ if test -n "$NETCDFROOT" ; then
   fi
   case $(hostname) in
   btc*|mlogin*)    
-    NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    case $FC in
+    nagfor)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
     ;;
   *)
     ;;
@@ -518,8 +539,16 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
          case $(hostname) in
          btc*|mlogin*)    
-           NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-           NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+           case $FC in
+           nagfor)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             ;;
+           *)                      
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             ;;
+           esac         
            NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
            ;;
          *)
