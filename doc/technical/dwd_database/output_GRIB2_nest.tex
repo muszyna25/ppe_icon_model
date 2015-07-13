@@ -30,9 +30,9 @@ Output is available on two distinct horizontal grids:
 \end{itemize}
 %
 Note that output on the native (triangular) grid is limited to $48\,\mathrm{h}$, whereas output on the regular 
-grid is generally available til forecast end. See also Figure \ref{fig:forecast_length_nest}.
+grid is generally available until forecast end. See also Figure \ref{fig:forecast_length_nest}.
 
-Again, in the subsequent tables the availability of specific field on the native grid ($\,$\markRed$\,$), 
+Again, in the subsequent tables the availability of specific fields on the native grid ($\,$\markRed$\,$), 
 on the lat-lon grid($\,$\markBlue$\,$), or on both grids ($\,$\markRed\markBlue$\,$) is marked in the leftmost column.
 
 
@@ -159,7 +159,6 @@ On the native (triangular) grid no output is generated for pressure levels.
 
 \end{vartable}
 
-\footnotetext[5]{Planned, but operationally not yet available}
 
 
 % --------------------------------------------------------------------------------
@@ -216,18 +215,18 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 % --------------------------------------------------------------------------------
 
 
-\begin{vartable}{\caption[]{Initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}}
+%\begin{vartable}{\caption[]{Initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}}
 
-  \groups[tri][  ] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
-  \groups[tri][  ] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
-  \groups[tri][  ] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
-  \groups[tri][  ] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
-  \groups[tri][  ] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
+%  \groups[tri][  ] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
+%  \groups[tri][  ] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
+%  \groups[tri][  ] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
+%  \groups[tri][  ] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
+%  \groups[tri][  ] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
 
-\end{vartable}
+%\end{vartable}
 
 
-\begin{vartable}{\caption[]{Single-level forecast ($VV>0$) products of the lake model model on the ICON EU nest.}}
+\begin{vartable}{\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}}
 
   \groups[tri][] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
   \groups[tri][] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\

@@ -242,7 +242,11 @@ In the vertical the global grid extends into the mesosphere (which
 greatly facilitates the assimilation of satellite data) whereas the
 nested domains extend only into the lower stratosphere in order to
 save computing time. For the same orography the heights of levels $1$--$60$ of
-the Europe nest are the same as those of levels $31$--$90$ of the global grid.
+the Europe nest are the same as those of levels $31$--$90$ of the global grid. 
+In practice, however, near surface level heights of nests and the global 
+domain differ due to the fact that the underlying orography differs, 
+with deeper slopes and higher summits in the high resolution nests.
+
 For each nesting level, the time step is automatically divided by a
 factor of two.
 %
@@ -271,7 +275,7 @@ Fig.~\ref{fig:EU_nest} and Fig.~\ref{fig:EU_nest_polar}.
 
 \begin{table}
 \centering
-\caption{Key figures of the ICON-EU nest and the COSMO EU region.}\label{tab:COSMO_ICON_nest_extent}
+\caption{Key figures of the ICON-EU nest and the COSMO-EU region.}\label{tab:COSMO_ICON_nest_extent}
 \begin{tabular}{|p{5cm}|l|l|}\hline
 \rowcolor{Gray}
                            &    {\centering\textbf{ICON-EU nest}}                 &     {\centering\textbf{COSMO-EU}} \\ \hline\hline
