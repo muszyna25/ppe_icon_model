@@ -67,8 +67,6 @@ GRIDDIR=%SCPERM%/icon_input/grids
 IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # base directory for model output
 outbasedir=%SCTEMP%/%SUITE%/%EXPNUM%/output
-# base name for output and namelist files
-basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 
 mkdir -p ${IFSDATADIR}
 cd ${IFSDATADIR}
@@ -91,7 +89,6 @@ ln -sf ${GRIDDIR}/icon_grid_*_%RES%_G.nc ${ICON_GRIDFILE}
 
 # -------------------------------------------------
 
-
 export MP_WAIT_MODE=poll
 export MP_LABELIO=yes
 export MP_SHARED_MEMORY=yes
@@ -108,22 +105,9 @@ export NC_BLOCKSIZE=128mb
 
 export F_PROGINF=DETAIL
 
+
 # -------------------------------------------------
-
-
-# global timing
-start_date="2008-09-01T00:00:00Z"
-ndays_restart=60
-dt_restart=`expr ${ndays_restart} \* 86400`
-
-# the namelist filename
-atmo_namelist=NAMELIST_${basename}
-
-
-# ------------------------------
 # write ICON namelist parameters
-# ------------------------------
-
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
 cat > NAMELIST_PREPICON << EOF
