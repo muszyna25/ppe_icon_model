@@ -2065,12 +2065,12 @@ function precip(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,fi
       param = "tp"
     end if
     prec_mod_all = read(
-      #type	  :	"fc",
-      #expver :	expid,
+      #type    :	"fc",
+      #expver  :	expid,
       #levtype :	"sfc",
-      grid	  :	my_grid,
-      param	  :	param,
-      source  :     source_file_sfc
+      grid     :	my_grid,
+      param    :	param,
+      source   :        source_file_sfc
     )
 
     #prec_mod_all=1000*86400.*(prec_mod1+prec_mod2)
