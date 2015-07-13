@@ -51,6 +51,9 @@ MODULE mo_echam_conv_nml
   REAL(wp) :: cbfac     !< factor for std dev of virtual pot temp
   REAL(wp) :: centrmax  !< maximum entrainment/detrainment rate
   !
+  REAL(wp) :: dlev_land !< minimum cloud pressure depth for precipitation over land
+  REAL(wp) :: dlev_ocean!< minimum cloud pressure depth for precipitation over ocean
+  !
   REAL(wp) :: cmftau    !< characteristic adjustment time scale (s)
   !
   NAMELIST /echam_conv_nml/                     &
@@ -58,7 +61,7 @@ MODULE mo_echam_conv_nml
        & entrscv , entrmid , entrpen, entrdd  , &
        & cprcon  , cmfctop , cmfdeps,           &
        & cminbuoy, cmaxbuoy, cbfac  , centrmax, &
-       & cmftau
+       & dlev_land, dlev_ocean, cmftau
 
 CONTAINS
   !>
@@ -93,6 +96,9 @@ CONTAINS
     cmaxbuoy = 1.0_wp
     cbfac    = 1.0_wp
     centrmax = 3.0e-4_wp
+    !
+    dlev_land  = 3.0e4_wp
+    dlev_ocean = 1.5e4_wp
     !
     cmftau   = 7200.0_wp
 
@@ -159,6 +165,9 @@ CONTAINS
     echam_conv_config% cmaxbuoy = cmaxbuoy
     echam_conv_config% cbfac    = cbfac
     echam_conv_config% centrmax = centrmax
+    !
+    echam_conv_config% dlev_land  = dlev_land
+    echam_conv_config% dlev_ocean = dlev_ocean
     !
     echam_conv_config% cmftau   = cmftau
 

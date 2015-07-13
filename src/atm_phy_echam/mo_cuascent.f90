@@ -74,6 +74,7 @@ MODULE mo_cuascent
   LOGICAL , POINTER :: lmfmid, lmfdudv
   INTEGER , POINTER :: nmctop
   REAL(wp), POINTER :: entrmid, cprcon, cmfctop, cmfcmin, cmfcmax, cminbuoy, cmaxbuoy, cbfac, centrmax
+  REAL(wp), POINTER :: dlev_land, dlev_ocean
 #endif
 
 
@@ -174,6 +175,8 @@ CONTAINS
     cmaxbuoy => echam_conv_config% cmaxbuoy
     cbfac    => echam_conv_config% cbfac
     centrmax => echam_conv_config% centrmax
+    dlev_land => echam_conv_config% dlev_land
+    dlev_ocean=> echam_conv_config% dlev_ocean
 #endif
 
     !---------------------------------------------------------------------------------
@@ -469,7 +472,7 @@ CONTAINS
             &          jk.GE.kctop0(jl)) THEN
             kctop(jl)=jk
             ldcum(jl)=.TRUE.
-            zdnoprc=MERGE(zdlev,1.5e4_wp,ldland(jl))
+            zdnoprc=MERGE(dlev_land,dlev_ocean,ldland(jl))
             zprcon=MERGE(0._wp,cprcon,zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
             zlnew=plu(jl,jk)/(1._wp+zprcon*(pgeoh(jl,jk)-pgeoh(jl,jk+1)))
             pdmfup(jl,jk)=MAX(0._wp,(plu(jl,jk)-zlnew)*pmfu(jl,jk))

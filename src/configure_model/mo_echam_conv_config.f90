@@ -55,6 +55,9 @@ MODULE mo_echam_conv_config
     REAL(wp) :: cbfac     !< factor for std dev of virtual pot temp
     REAL(wp) :: centrmax  !< maximum entrainment/detrainment rate
 
+    REAL(wp) :: dlev_land
+    REAL(wp) :: dlev_ocean 
+
     REAL(wp) :: cmftau    !< characteristic adjustment time scale (s)
 
 
@@ -195,6 +198,9 @@ CONTAINS
     CALL print_value(' cmaxbuoy ', echam_conv_config% cmaxbuoy)
     CALL print_value(' cbfac    ', echam_conv_config% cbfac   )
     CALL print_value(' centrmax ', echam_conv_config% centrmax)
+    CALL message('','')
+    CALL print_value(' dlev_land ', echam_conv_config% dlev_land  )
+    CALL print_value(' dlev_ocean', echam_conv_config% dlev_ocean  )
     CALL message('','')
     CALL print_value(' cmftau   ', echam_conv_config% cmftau  )
     CALL message('','')

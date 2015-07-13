@@ -154,8 +154,8 @@ done
 set_run_target_blizzard()
 {
 
-  set_default use_nproma 32
-  set_default use_nodes 1
+  set_default use_nproma 40
+  set_default use_nodes 4
   use_OMP_SCHEDULE="dynamic,1"
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
