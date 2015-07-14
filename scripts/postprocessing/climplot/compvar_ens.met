@@ -70,7 +70,7 @@ if (model = "icon") then
   case varid of
      "2T"  : varidm = 500011  ;   end
      "2D"  : varidm = 500017  ;   end
-     "SD"  : varidm = 502329  ;   end
+     "SD"  : varidm = 500045  ;   end # single layer: 500045,  multi layer: 502329
      "SST" : varidm = 500475  ;   end # ICON: T_SEA
      "SKT" : varidm = 500010  ;   end # ICON: T_G
      "10SI": varidm = 500025  ;   end
@@ -89,7 +89,7 @@ if (model = "icon") then
      "TCWV": varidm = 500038  ;   end
      "TCLW": varidm = 500051  ;   end
      "TCIW": varidm = 500040  ;   end
-     "TP"  : varidm = 228228  ;   end #500041
+     "TP"  : varidm = 500041  ;   end
      "T"   : varidm = 500014  ;   end
      "Z"   : varidm = 500006  ;   end
      "CAPE": varidm = 500183  ;   end
