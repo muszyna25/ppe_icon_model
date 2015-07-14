@@ -93,8 +93,9 @@ MODULE mo_interface_iconam_echam
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
+#ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
-
+#endif
   USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
