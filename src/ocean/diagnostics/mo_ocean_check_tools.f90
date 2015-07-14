@@ -23,7 +23,6 @@ MODULE mo_ocean_check_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_physical_constants, ONLY: rho_ref
   USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, boundary, sea, land, land_boundary, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer
