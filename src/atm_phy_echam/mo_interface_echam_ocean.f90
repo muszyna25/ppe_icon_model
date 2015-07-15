@@ -718,6 +718,7 @@ CONTAINS
     field_shape(3) = 1
     CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
@@ -749,6 +750,7 @@ CONTAINS
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 #else
     CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
     if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
@@ -782,6 +784,7 @@ CONTAINS
 #else
     CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -814,6 +817,7 @@ CONTAINS
 #else
     field_shape(3) = 5
     CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
     if ( info == RESTART ) WRITE ( 6 , * ) "interface_echam_ocean: cpl layer says it is get for restart"
 #endif
     IF (ltimer) CALL timer_stop(timer_coupling_get)

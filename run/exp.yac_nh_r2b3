@@ -166,7 +166,7 @@ cat > coupling.xml << EOF
       <grid alias_name="grid1" id="1"/>
    </grids>
    <dates>
-      <start_date>+1800-01-01T00:00:00.000</start_date>
+      <start_date>+2000-01-01T00:00:00.000</start_date>
       <end_date>+2100-01-01T00:00:00.000</end_date>
       <calendar>proleptic-gregorian</calendar>
    </dates>
