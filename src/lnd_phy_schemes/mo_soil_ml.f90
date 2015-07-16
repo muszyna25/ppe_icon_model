@@ -2321,7 +2321,7 @@ END SUBROUTINE message
               zpar       = pabs(i)  !  PAR
               zf_rad(i)= MAX(0.0_ireals,MIN(1.0_ireals,zpar/cparcrit))
               ztlpmwp(i) = (zfcap(i,1) - zpwp(i,1))*(0.81_ireals +       &
-                      0.121_ireals*ATAN(-86400._ireals*zep_s(i) - 4.75_ireals))
+                 0.121_ireals*ATAN(-86400._ireals*zep_s(i) - 4.75_ireals))
 
               ! Soil water function
               IF (itype_root == 2) THEN
@@ -2397,8 +2397,9 @@ IF (itype_interception == 1) THEN
                   ztrang(i,kso) = ztrabpf*zrootfc/MAX(zepsi,zbwt(i))
                 ENDIF
 
-                  IF(zw_fr(i,kso)+ztrang(i,kso)*zdtdrhw/zdzhs(kso) &
-                                    .LT.zpwp(i,kso)) ztrang(i,kso) = 0._ireals
+                ! Limit evaporation such that the soil water content does not fall beyond the wilting point
+                IF(zw_fr(i,kso)+ztrang(i,kso)*zdtdrhw/zdzhs(kso) < zpwp(i,kso)) &
+                  ztrang(i,kso) = MIN(0._ireals,(zpwp(i,kso)-zw_fr(i,kso))*zdzhs(kso)/zdtdrhw)
 
                 lhfl_pl(i,kso)= lh_v * ztrang(i,kso)
                 ztrangs(i)    = ztrangs(i) + ztrang(i,kso)
