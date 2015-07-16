@@ -148,16 +148,6 @@ cat > $atmo_namelist << EOF
   l_activated         = .TRUE.
 /
 &coupling_nml
-  name                = 'SFTEMP'
-  dt_model            =  ${dtime_atmo}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  ${atm_lag}
-  l_time_average      = .TRUE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
   name                = 'THFLX'
   dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dtime_coupling}
@@ -471,16 +461,6 @@ cat > ${ocean_namelist} << EOF
   lag                 =  1
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'SFTEMP'
-  dt_model            =  ${dtime_ocean}
-  dt_coupling         =  ${dtime_coupling}
-  lag                 =  1
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
