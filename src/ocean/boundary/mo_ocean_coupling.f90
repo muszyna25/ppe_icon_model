@@ -392,6 +392,7 @@ CONTAINS
 
 #else
 
+    INTEGER :: idx
     INTEGER :: grid_id
     INTEGER :: grid_shape(2)
     INTEGER :: field_shape(3)
@@ -455,7 +456,7 @@ CONTAINS
         field_shape(3) = 2
       ELSE IF ( idx == 3 ) THEN
         field_shape(3) = 3
-      ELSE IF ( idx == 4 .OR. i == 5 ) THEN
+      ELSE IF ( idx == 4 .OR. idx == 5 ) THEN
         field_shape(3) = 4
       ELSE IF ( idx == 9 ) THEN
         field_shape(3) = 5
