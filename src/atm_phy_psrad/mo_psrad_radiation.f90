@@ -127,7 +127,10 @@ MODULE mo_psrad_radiation
                                            ldiur,              &
                                            lyr_perp,           &
                                            yr_perp,            &
-                                           lradforcing
+                                           lradforcing,        &
+                                           tsi,                &
+                                           tsi_radt,           &
+                                           ssi_radt
   USE mo_psrad_radiation_parameters, ONLY:                     &
 !!$                                     ldiur,                    &
 !!$                                     lradforcing,              &
@@ -222,7 +225,8 @@ MODULE mo_psrad_radiation
                                         amu0m_x(:,:), rdaylm_x(:,:)
 
     LOGICAL  :: l_rad_call, l_write_solar
-    INTEGER  :: icurrentyear, icurrentmonth, iprevmonth, i
+    INTEGER  :: icurrentyear, icurrentmonth, i
+    INTEGER, SAVE :: iprevmonth=-9999
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
     REAL(wp) :: solcm
@@ -250,9 +254,11 @@ MODULE mo_psrad_radiation
       SELECT CASE (isolrad)
       CASE (0)
         solc = SUM(ssi_default)
-!!$      CASE (1)
+      CASE (1)
 !!$        CALL get_solar_irradiance(current_date, next_date)
 !!$        CALL set_solar_irradiance(solc)
+        solc = tsi
+        continue ! solar irradiance was read in echam_phy_bcs_global
       CASE (2)
         solc = SUM(ssi_preind)
       CASE (3)
@@ -331,9 +337,12 @@ MODULE mo_psrad_radiation
       CASE (0)
         solcm = SUM(ssi_default)
         ssi_factor = ssi_default
-!!$      CASE (1)
+      CASE (1)
 !!$        CALL get_solar_irradiance_m(prev_radiation_date, radiation_date, nb_sw)
 !!$        CALL set_solar_irradiance_m(solcm, ssi_factor, nb_sw)
+        solcm=tsi_radt
+        ssi_factor=ssi_radt
+        continue ! solar irradiance was read in echam_phy_bcs_global
       CASE (2)
         solcm = SUM(ssi_preind)
         ssi_factor = ssi_preind
@@ -353,28 +362,31 @@ MODULE mo_psrad_radiation
       END SELECT
       psctm = flx_ratio_rad*solcm
       ssi_factor(:) = ssi_factor(:)/solcm
-!!$
-!!$      ! output of solar constant every month
-!!$
+
+      ! output of solar constant every month
+
 !!$      CALL get_date_components(current_date, month=icurrentmonth, &
 !!$           year=icurrentyear)
 !!$      CALL get_date_components(previous_date, month=iprevmonth)
-!!$      l_write_solar = icurrentmonth/=iprevmonth
-!!$      IF (l_write_solar .OR. lresume .OR. lstart) THEN
-!!$        CALL message('','')
-!!$        WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
-!!$             'Total solar constant [W/m^2] for ',      &
-!!$             icurrentyear, '-',                        &
-!!$             icurrentmonth, ' = ', solc
-!!$        CALL message('',message_text)
-!!$        CALL message('','')
-!!$        DO i = 1, nb_sw
-!!$          WRITE (message_text,'(a,i2,a,f7.5)') &
-!!$               '   solar constant fraction: band ', i, &
-!!$               ' = ', ssi_factor(i)
-!!$          CALL message('',message_text)
-!!$        END DO
-!!$      END IF
+      icurrentmonth=datetime_radiation%month
+      icurrentyear=datetime_radiation%year
+      l_write_solar = icurrentmonth/=iprevmonth
+      iprevmonth=icurrentmonth
+      IF (l_write_solar) THEN
+        CALL message('','')
+        WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
+             'Total solar constant [W/m^2] for ',      &
+             icurrentyear, '-',                        &
+             icurrentmonth, ' = ', solcm
+        CALL message('',message_text)
+        CALL message('','')
+        DO i = 1, nb_sw
+          WRITE (message_text,'(a,i2,a,f7.5)') &
+               '   solar constant fraction: band ', i, &
+               ' = ', ssi_factor(i)
+          CALL message('',message_text)
+        END DO
+      END IF
       !--jsr&hs
     ELSE
       amu0m_x(:,:)=0._wp
