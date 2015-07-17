@@ -25,7 +25,7 @@ MODULE mo_util_cdi
   USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
-  USE mo_util_string,        ONLY: tolower, tohex, int2string
+  USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
@@ -303,25 +303,6 @@ CONTAINS
     varID      = -1
     tile_index = -1
 
-    IF(my_process_is_stdio()) THEN
-      print*, routine//": mapped_name = '"//TRIM(mapped_name)//"', "// &
-      &       tohex(TRIM(mapped_name))
-      print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
-      print*, routine//": list of variables:"
-      DO i = 1, SIZE(me%variableNames)
-        print*, routine//":     '"//TRIM(tolower(me%variableNames(i)))//"', "// &
-        &       tohex(TRIM(tolower(me%variableNames(i))))
-        DO j = 1, SIZE(me%variableTileinfo(i)%tile)
-          print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
-          &                             ", att = ", me%variableTileinfo(i)%tile(j)%att, &
-          &                       "comparisons = ", &
-          & (TRIM(tolower(me%variableNames(i))) == TRIM(mapped_name)), &
-          & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx), &
-          & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)
-        END DO
-      END DO
-    END IF
-
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
         IF (compareTiledVars(me%variableNames(i), me%variableTileinfo(i)%tile(j)%idx, me%variableTileinfo(i)%tile(j)%att, &
@@ -337,20 +318,14 @@ CONTAINS
     ! insanity check
     IF(varID < 0) THEN
       IF(my_process_is_stdio()) THEN
-        print*, routine//": mapped_name = '"//TRIM(mapped_name)//"', "// &
-        &       tohex(TRIM(mapped_name))
+        print*, routine//": mapped_name = '"//TRIM(mapped_name)//"'"
         print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
         print*, routine//": list of variables:"
         DO i = 1, SIZE(me%variableNames)
-          print*, routine//":     '"//TRIM(tolower(me%variableNames(i)))//"', "// &
-          &       tohex(TRIM(tolower(me%variableNames(i))))
+          print*, routine//":     '"//TRIM(tolower(me%variableNames(i)))//"'"
           DO j = 1, SIZE(me%variableTileinfo(i)%tile)
             print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
-            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att, &
-            &                       "comparisons = ", &
-            & (TRIM(tolower(me%variableNames(i))) == TRIM(mapped_name)), &
-            & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx), &
-            & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)
+            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
           END DO
         END DO
       END IF
