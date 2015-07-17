@@ -363,6 +363,8 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 rather than $\mathrm{kg\,m^{-2}}$. Mathematically this is wrong, however, it is in accordance with the GRIB2 standard. To get the mathematically correct 
 unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit displayed by \emph{grib\_dump} must be multiplied by $\mathrm{s}$.}
 
+\footnotetext[5]{T\_S is identical to T\_SO at level 0. It will no longer be available in the future. Use T\_SO(0) instead of T\_S.} 
+
 
 % --------------------------------------------------------------------------------
 \subsection{Soil-specific multi-level fields}
