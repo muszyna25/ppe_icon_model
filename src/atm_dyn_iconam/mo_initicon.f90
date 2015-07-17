@@ -36,7 +36,7 @@ MODULE mo_initicon
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
-    &                               rho_incr_filter_wgt, lread_ana,               &
+    &                               rho_incr_filter_wgt, lread_ana, ltile_init,   &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
@@ -516,9 +516,9 @@ MODULE mo_initicon
     ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
     ! from neighboring grid points where possible;
     ! In case of snowtile warmstart, the index lists for snow-covered / snow-free points need to be initialized
-    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, water_only=.FALSE.)
-    ELSE IF (ntiles_total > 1 .AND. lsnowtile) THEN
+    IF (ntiles_total > 1 .AND. ltile_init) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
+    ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
       CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
     ENDIF
 
@@ -535,8 +535,8 @@ MODULE mo_initicon
 
     ! Call neighbor-filling routine for a second time in order to ensure that fr_seaice is filled
     ! with meaningful data near coastlines if this field is read from the analysis
-    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, water_only=.TRUE.)
+    IF (ntiles_total > 1) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
     END IF
 
   END SUBROUTINE process_dwdanainc_sfc
@@ -1582,9 +1582,11 @@ MODULE mo_initicon
           ! add h_snow and freshsnow increments onto respective first guess fields
           DO jt = 1, ntiles_total
 
-            IF (.NOT. lsnowtile) THEN ! copy snowfrac_lc_t to snowfrac_t (with snow tiles, snowfrac_t was
-                                      ! already initialized in SR init_snowtiles)
-              lnd_diag%snowfrac_t(:,jb,jt) = lnd_diag%snowfrac_lc_t(:,jb,jt)
+            IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN 
+              ! Initialize snowfrac with 1 for the time being (the proper initialization follows in nwp_surface_init)
+              ! This is actually needed for lsnowtile=.TRUE. because the snow cover fraction is used below in this case
+              lnd_diag%snowfrac_lc_t(:,jb,jt) = 1._wp
+              lnd_diag%snowfrac_t(:,jb,jt)    = 1._wp
             ENDIF
 
             DO ic = 1, ext_data(jg)%atm%gp_count_t(jb,jt)
@@ -1595,8 +1597,9 @@ MODULE mo_initicon
                 ! minimum height: 0m; maximum height: 40m
                 lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt)))
               ELSE 
-                IF (lsnowtile .AND. jt > ntiles_lnd) THEN
-                  ! add increment to snow-covered tiles only, rescaled with the snow-cover fraction
+                IF (lsnowtile .AND. (jt > ntiles_lnd .OR. ltile_coldstart) ) THEN
+                  ! in case of tile warmstart, add increment to snow-covered tiles only, rescaled with the snow-cover fraction
+                  ! for tile coldstart, the snow increment is added in the same way as without snow tiles
                   snowfrac_lim = MAX(0.01_wp, lnd_diag%snowfrac_lc_t(jc,jb,jt))
                   lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
                     &                            + initicon(jg)%sfc_inc%h_snow(jc,jb)/snowfrac_lim ))
@@ -1829,7 +1832,9 @@ MODULE mo_initicon
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
              IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
-               &  .AND. (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) )  THEN
+               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.                     &
+               &          (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) ) &
+               & )  THEN
 
                ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
@@ -1896,9 +1901,11 @@ MODULE mo_initicon
 !$OMP END DO
 !$OMP END PARALLEL
 
+      ! This sync is needed because of the subsequent neighbor point filling
+      CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
 
-    ! Initialization of t_g_t(:,:,isub_water) with t_seasfc is performed in 
-    ! mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
+    ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake) 
+    ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop
 

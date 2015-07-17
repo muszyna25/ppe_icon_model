@@ -25,7 +25,7 @@ Time invariant                         &  FR\_LAND, HHL, CLON, CLAT, ELON, ELAT,
 
 Atmospheric analysis fields are computed every 3 hours ($00$, $03$, $06$,$\dots$ $21$ UTC) by the 3DVar data assimilation system. Sea surface 
 temperature \texttt{T\_SO(0)} and sea ice cover \texttt{FR\_ICE} are provided once per day (00 UTC) by the SST-Analysis. A snow analysis is 
-conducted every 3 hours. It povides updated information on the snow height \texttt{H\_SNOW} and snow age \texttt{FRESHSNW}. In addition a soil 
+conducted every 3 hours, providing updated information on the snow height \texttt{H\_SNOW} and snow age \texttt{FRESHSNW}. In addition a soil 
 moisture analysis (SMA) is conducted once per day (00 UTC). It basically modifies the soil moisture content \texttt{W\_SO}, in order to improve 
 the $2\,\mathrm{m}$ temperature forecast. 
 
@@ -33,8 +33,8 @@ the $2\,\mathrm{m}$ temperature forecast.
 For the 3-hourly assimilation cycle and forecast runs, ICON must be provided with $2$ input files: One containing the First Guess~(FG) and the other 
 containing analysis~(AN) fields, only. Variables for which no analysis is available are always read from the first guess file (e.g.\ TKE). 
 Other variables may be read either from the first guess or the analysis file, depending on the starting time. E.g.\ for T\_SO(0) the first 
-guess is read at 03, 06, 09, 12, 15, 18, 21 UTC, however, the analyis is read at 00 UTC. In Table~\ref{tbl_analysis} the available and employed 
-first guess and analysis fields are listed as a function of starting time.
+guess is read at 03, 06, 09, 12, 15, 18, 21 UTC, however, the analyis is read at 00 UTC when a new SST analysis is available. 
+In Table~\ref{tbl_analysis} the available and employed first guess and analysis fields are listed as a function of starting time.
 
 \begin{longtable}{p{3.3cm}>{\centering\arraybackslash}p{2.5cm}p{0.7cm}p{0.7cm}p{0.7cm}p{0.7cm}p{0.7cm}p{0.7cm}p{0.7cm}p{0.7cm}}
 \caption[]{The leftmost column shows variables that are mandatory for the assimilation cycle and forecast runs.  Column 2 indicates, whether or not an analysis is performed 
@@ -133,7 +133,7 @@ $T$ is the window width and $\Delta t$ is the fast physics time step. The key po
 must be started $90$ minutes prior to the actual starting time of the assimilation run. The model is started from the 22:30 UTC first guess. 
 The analysis increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV}, whose validity time is 00:00 UTC are added over 
 $3$ hours until at 1:30 the free forecast starts. Then, two first guess data sets are written into the database. One at 1:30 UTC, which will 
-be used for starting the next 3h assimilation run, and a second one at 3:00 UTC, which is required as input for the assimilation system 
+be used for starting the next 3h assimilation run, and a second one at 3:00 UTC, which serves as input for the assimilation system 
 itself. Thus in general, using the IAU method requires some care in terms of reading and writing the right fields at the right times.
 \begin{figure}[hbt]
  \centering

@@ -1228,7 +1228,8 @@ CONTAINS
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
         &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
         &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
-        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water)       )!inout
+        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water),      &!inout
+        &              t_seasfc      = p_lnd_diag%t_seasfc(:,jb)                )!inout
 
 
     ENDDO  ! jb
@@ -1369,7 +1370,10 @@ CONTAINS
         h_ml_lk_now  (ic) = p_prog_wtr_now%h_ml_lk  (jc,jb)
         t_b1_lk_now  (ic) = p_prog_wtr_now%t_b1_lk  (jc,jb)
         h_b1_lk_now  (ic) = p_prog_wtr_now%h_b1_lk  (jc,jb)
-        t_scf_lk_now (ic) = lnd_prog_now%t_g_t      (jc,jb,isub_lake)
+        t_scf_lk_now (ic) = lnd_prog_now%t_g_t      (jc,jb,isub_lake) ! only required to compute the time
+                                                                      ! tendency of the lake surface temperature,
+                                                                      ! which is omitted so far 
+                                                                      ! (optional arg of flake_interface) 
       ENDDO
 
 !GZ: this directive is needed to suppress inlining for cce8.2.0 and higher, which induces an OpenMP error
@@ -1399,7 +1403,7 @@ CONTAINS
                      &  h_ml_lk_p   = h_ml_lk_now  (:),       & !in
                      &  t_b1_lk_p   = t_b1_lk_now  (:),       & !in
                      &  h_b1_lk_p   = h_b1_lk_now  (:),       & !in       
-                     &  t_scf_lk_p  = t_scf_lk_now (:),       & !in
+                     &  t_scf_lk_p  = t_scf_lk_now (:),       & !in 
                      &  t_snow_n    = t_snow_lk_new(:),       & !out
                      &  h_snow_n    = h_snow_lk_new(:),       & !out
                      &  t_ice_n     = t_ice_new    (:),       & !out
@@ -1437,9 +1441,9 @@ CONTAINS
         lnd_prog_new%t_g_t(jc,jb,isub_lake) = t_scf_lk_new (ic)
 
         ! for consistency, set 
-        ! t_so(0) = t_g            if the lake is not frozen
-        ! t_so(0) = 273.15         if the lake is frozen
-        lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>h_Ice_min_flk)
+        ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
+        lnd_prog_new%t_s_t (jc,jb,isub_lake) = p_prog_wtr_new%t_wml_lk (jc,jb)
+        p_lnd_diag%t_seasfc(jc,jb)           = lnd_prog_new%t_s_t (jc,jb,isub_lake)
 
         ! surface saturation specific humidity over water/ice 
         !

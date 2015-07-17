@@ -1147,6 +1147,8 @@ endif
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
 
     REAL(wp) :: t_s_dummy(nproma)   ! dummy for surface temperature
+    REAL(wp) :: t_seasfc_dummy(nproma) ! dummy for sea surface temperature
+
     ! Local scalars:
     !
     INTEGER :: jc, ic               !loop indices
@@ -1239,8 +1241,11 @@ endif
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
         &   t_s_t_now     = t_s_ex(:,isub_water),                    &!inout  !DR quick hack
         &   t_s_t_new     = t_s_ex(:,isub_water),                    &!inout
-        &   qv_s_t        = qv_s_ex(:,isub_water)                    )!inout
-
+        &   qv_s_t        = qv_s_ex(:,isub_water),                   &!inout
+        &   t_seasfc      = t_seasfc_dummy(:)                        )!inout  ! DUMMY: not used yet
+!!DR Currently, t_seasfc is not re-initialized for newly generated sea points when the EDMF scheme is used.
+!!DR This is simply because p_lnd_diag%t_seasfc is not readily vailable. This is not critical, however it 
+!!DR should however be fixed at some time.
 
   END SUBROUTINE nwp_seaice
 

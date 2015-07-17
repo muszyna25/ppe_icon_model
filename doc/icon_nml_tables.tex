@@ -1835,11 +1835,18 @@ the interpolation for all nested domains. & init\_mode=5,6
 \tabularnewline
 
 %\hline
+ltile\_init&
+L & .FALSE.& &
+True: initialize tiled surface fields from a first guess coming from a run without tiles. \\
+Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
+land or water points with reasonable values. Should be combined with ltile\_coldstart = .TRUE. & init\_mode=1,5,6
+\tabularnewline
+
+%\hline
 ltile\_coldstart&
 L & .FALSE.& &
-If true, tiled surface fields are initialized with tile-averaged fields (or first-guess fields from a no-tile run). \\
-Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
-land or water points with reasonable values. & init\_mode=5,6
+If true, tiled surface fields are initialized with tile-averaged fields from a previous run with tiles. \\
+A neighbor search is applied to subgrid-scale ocean points for SST and sea-ice fraction. & init\_mode=1,5,6
 \tabularnewline
 
 %\hline
@@ -2941,7 +2948,7 @@ I& 3 & &
 Type of divergence damping: \\
 2 = divergence damping acting on 2D divergence \\
 3 = divergence damping acting on 3D divergence \\
-32 = combination of 3D div. damping in the troposphere with transition to 2D div. damping in the stratosphere (recommended for data assimilation cycle only!) &
+32 = combination of 3D div. damping in the troposphere with transition to 2D div. damping in the stratosphere &
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 
@@ -3142,7 +3149,7 @@ I&
 
 icpl\_o3\_tp&
 I&
-0&
+1&
  &
 0: off \\
 1: simple coupling between the ozone mixing ratio and the thermal tropopause, restricted to the extratropics & irad\_o3 = 7 or 9
@@ -4254,6 +4261,22 @@ Type of surface albedo\\
 2: MODIS albedo
 &
 iforcing=inwp
+\tabularnewline
+
+%\hline
+\textbf{direct\_albedo}&
+I&
+4&
+&
+Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency\\
+1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
+2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
+   is not allowed to exceed the corresponding broadband diffuse albedo.\\
+3: SZA dependency following Yang (2008) for snow-free land points. Same as 1 for water/ice and 2 for snow.\\
+4: SZA dependency following Briegleb (1992) for snow-free land points. Same as 1 for water/ice and 2 for snow.
+&
+iforcing=inwp\\
+albedo\_type=2
 \tabularnewline
 
 %\hline

@@ -1050,7 +1050,7 @@ INTEGER(KIND=jpim) :: nulout=6
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
-REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov, zfac
+REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov, zfac, ztrans_end
 !-----------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
@@ -1136,18 +1136,19 @@ zrcucov      = 0.05_JPRB  ! original IFS value: 0.05
 !
 ! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
 zres_thresh = 20.0E3_JPRB   ! 20 km
+ztrans_end  = 1.0E3_JPRB    ! 1 km - end of transition range
 phy_params%rhebc_land  = zrhebc_land
 phy_params%rhebc_ocean = zrhebc_ocean
 phy_params%rcucov      = zrcucov
 
 !
 IF (rsltn < zres_thresh) THEN
-  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
-  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
+  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
+  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
   !
-  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh))**2
+  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end))**2
   !
-  ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
+  ! no one should use the convection scheme at resolutions finer than ztrans_end, but to be safe...
   phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
   phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
   phy_params%rcucov      = MIN(1._JPRB, phy_params%rcucov)
@@ -1159,8 +1160,8 @@ phy_params%entrorg = tune_entrorg + 1.8E-4_JPRB*LOG(zres_thresh/rsltn)
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
 
-! This factor is 1 for dx = 20 km or coarser and 0 for dx = 1 km or finer
-zfac = MIN(1._JPRB,LOG(MAX(1._JPRB,1.e-3_jprb*rsltn))/LOG(1.e-3_jprb*zres_thresh))
+! This factor is 1 for dx = 20 km or coarser and 0 for dx = ztrans_end or finer
+zfac = MIN(1._JPRB,LOG(MAX(1._JPRB,rsltn/ztrans_end))/LOG(zres_thresh/ztrans_end))
 
 phy_params%texc = zfac*0.125_JPRB   ! K
 phy_params%qexc = zfac*1.25e-2_JPRB ! relative perturbation of grid-scale QV
@@ -1273,10 +1274,9 @@ WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
 CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, KSMAX')
 WRITE(message_text,'(2i7,E12.5)') phy_params%kcon1, phy_params%kcon2, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV, ENTRORG')
-!WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-WRITE(message_text,'(4x,l6,l6,l6,4F8.4,E11.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
-  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov,phy_params%entrorg
+CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV, ENTRORG, TEXC')
+WRITE(message_text,'(4x,l6,l6,l6,4F8.4,E11.4,F8.5)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov,phy_params%entrorg,phy_params%texc
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
 

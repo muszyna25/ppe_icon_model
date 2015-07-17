@@ -197,6 +197,7 @@ doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
+doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
@@ -208,6 +209,7 @@ doc/technical/dwd_database/output_GRIB2_forecast.tex -text
 doc/technical/dwd_database/output_GRIB2_forecast_singlelvl.tex -text
 doc/technical/dwd_database/output_GRIB2_global.tex -text
 doc/technical/dwd_database/output_GRIB2_nest.tex -text
+doc/technical/dwd_database/output_GRIB2_sma.tex -text
 doc/technical/dwd_database/output_GRIB2_vv0.tex -text
 doc/technical/dwd_database/output_description.tex -text
 doc/technical/dwd_database/output_statproc.tex -text

@@ -302,8 +302,9 @@ MODULE mo_nh_stepping
 
 
   IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
-    ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
-    !  the values from the analysis have to be overwritten
+    ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
+    ! the values from the analysis have to be overwritten.
+    ! In the case of a restart, the call is required to open the file and read the data
     CALL set_actual_td_ext_data (.TRUE.,datetime_current,datetime_current,sstice_mode,  &
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF

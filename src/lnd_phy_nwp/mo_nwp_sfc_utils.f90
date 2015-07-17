@@ -46,7 +46,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_sync,                ONLY: global_sum_array
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_dynamics_config,     ONLY: nnow
+  USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf
   USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
 
   IMPLICIT NONE
@@ -620,11 +620,11 @@ CONTAINS
 
           p_prog_lnd_now%t_g_t(jc,jb,isub_lake) = t_scf_lk_now(ic)
 
-          ! for consistency, set
-          ! t_so(0) = t_g            if the lake is frozen
-          ! t_so(0) = 273.15         if the lake is not frozen
-          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_now(ic), h_ice_now(ic)>0._wp)
+          ! for consistency, set 
+          ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
+          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_prog_wtr_now%t_wml_lk (jc,jb)
           p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_prog_lnd_now%t_s_t(jc,jb,isub_lake)
+
 
           ! In addition, initialize prognostic Flake fields at time step 'new'
           p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
@@ -1887,7 +1887,8 @@ CONTAINS
   SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
     &                              idx_lst_spi, spi_count, frac_t_ice,          &
     &                              frac_t_water, fr_seaice, hice_old, tice_old, &
-    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t )
+    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t,     &
+    &                              t_seasfc )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea-ice depth at new time level  [m]
@@ -1926,6 +1927,9 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< surface specific humidity        [kg/kg]
       &  qv_s_t(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< sea surface temperature          [kg/kg]
+      &  t_seasfc(:)
 
     ! Local variables
     INTEGER, DIMENSION(SIZE(idx_lst_spi,1)) :: &
@@ -1974,7 +1978,8 @@ CONTAINS
           t_g_t_new(jc) = tf_salt ! if the SST analysis contains a meaningful water
                                   ! temperature for this point, one may also take
                                   ! the latter
- 
+          t_seasfc(jc)  = tf_salt
+
           ! Initialize surface saturation specific humidity for new water tile
           qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
 
@@ -2021,6 +2026,9 @@ CONTAINS
             t_s_t_new(jc) = tf_salt ! otherwise aggregated t_so and t_s will be 
                                     ! 0 at these points
             t_s_t_now(jc) = tf_salt
+
+            t_seasfc(jc)  = tf_salt
+
             !
             ! Initialize surface saturation specific humidity
             qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
@@ -2075,7 +2083,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: count_sea, count_ice, count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
-    INTEGER :: n_now
+    INTEGER :: n_now, n_new
     REAL(wp):: t_water
     REAL(wp):: fracwater_old, fracice_old
 
@@ -2090,7 +2098,8 @@ CONTAINS
 
     DO jg = 1, n_dom
 
-    n_now = nnow(jg)
+    n_now = nnow_rcf(jg)
+    n_new = nnew_rcf(jg)
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)
 
@@ -2172,8 +2181,7 @@ CONTAINS
 
              ! set sai_t
              ext_data(jg)%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
-             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 1._wp
-             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
+
           ELSE
             !
             ! water point: all sea points with fr_seaice < 0.5
@@ -2184,6 +2192,8 @@ CONTAINS
 
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                &
              &                             spec_humi( sat_pres_water(t_water ),   &
@@ -2191,9 +2201,6 @@ CONTAINS
 
             ! set sai_t
             ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
-            ext_data(jg)%atm%frac_t(jc,jb,isub_water) = 1._wp
-            ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 0._wp
-
 
           ENDIF
 
@@ -2275,6 +2282,8 @@ CONTAINS
 
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                 &
              &                             spec_humi( sat_pres_water(t_water ),    &
@@ -2380,6 +2389,10 @@ CONTAINS
            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)=   &
                                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)=   &
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+           p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)=   &
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+           p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)=   &
                                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &

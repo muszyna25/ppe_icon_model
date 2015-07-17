@@ -209,7 +209,7 @@ CONTAINS
                         ! 1 = specify thresholds (QC and cloud thickness) for precip initiation depending on aerosol climatology instead of land-sea mask
 
     ! coupling between ozone and the tropopause
-    icpl_o3_tp = 0      ! 0 = none
+    icpl_o3_tp = 1      ! 0 = none
                         ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
 
     !------------------------------------------------------------------
