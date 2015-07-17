@@ -25,7 +25,7 @@ MODULE mo_util_cdi
   USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
-  USE mo_util_string,        ONLY: tolower, tohex
+  USE mo_util_string,        ONLY: tolower, tohex, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
@@ -268,6 +268,16 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END FUNCTION makeInputParameters
 
+  ! This function is only a workaround for a compiler bug on the blizzard. May be reintegrated into inputParametersFindVarId() once we are not concerned about xlf anymore.
+  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(RESULT)
+    CHARACTER(LEN = *), INTENT(IN) :: name1, name2
+    INTEGER, VALUE :: idx1, att1, idx2, att2
+
+    RESULT = .TRUE.
+    IF(TRIM(tolower(name1)) /= TRIM(tolower(name2))) RESULT = .FALSE.
+    IF(idx1 /= idx2) RESULT = .FALSE.
+    IF(att1 /= att2) RESULT = .FALSE.
+  END FUNCTION compareTiledVars
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
@@ -314,9 +324,8 @@ CONTAINS
 
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
-        IF ((TRIM(tolower(me%variableNames(i))) == TRIM(mapped_name)) .AND.  & 
-          & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx)            .AND.  &
-          & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)) THEN
+        IF (compareTiledVars(me%variableNames(i), me%variableTileinfo(i)%tile(j)%idx, me%variableTileinfo(i)%tile(j)%att, &
+          &                  mapped_name, tileinfo%idx, tileinfo%att)) THEN
           varID      = i-1
           tile_index = me%variableTileinfo(i)%tile_index(j)
           RETURN
@@ -716,7 +725,10 @@ CONTAINS
       gridId = vlistInqVarGrid(vlistId, varId)
       IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
         & (zaxisInqSize(zaxisId) /= nlevs)) THEN
-        CALL finish(routine, "Incompatible dimensions!")
+        CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+        &                    " (expected "//trim(int2string(parameters%glb_arr_len))//"),"//&
+        &                    " level count = "//trim(int2string(zaxisInqSize(zaxisId)))//&
+        &                    " (expected "//trim(int2string(nlevs))//")")
       END IF
     END IF
 
@@ -844,7 +856,8 @@ CONTAINS
       IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
       !sanity check on the variable dimensions
       gridId    = vlistInqVarGrid(vlistId, varId)
-      IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!")
+      IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!"//&
+      & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
     SELECT CASE(parameters%lookupDatatype(varId))
         CASE(DATATYPE_FLT64, DATATYPE_INT32)
