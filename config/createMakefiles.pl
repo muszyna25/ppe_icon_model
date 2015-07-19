@@ -181,12 +181,6 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "\n";
     }
     
-    if ($dir =~ m/^externals/) {
-	print MAKEFILE "%.o: %.F90\n";
-	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
-	print MAKEFILE "\n\n";
-    }
-    
 #     print MAKEFILE "%.obj: %.f90\n";
 #     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 #     print MAKEFILE "\n";
