@@ -341,7 +341,8 @@ CONTAINS
           &                                prm_field(jg)%lsmask(:,:)         ,&
           &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
           &                                prm_field(jg)%seaice(:,:)         ,&
-          &                                prm_field(jg)%siced(:,:)          )
+          &                                prm_field(jg)%siced(:,:)          ,&
+          &                                p_patch(1)                         )
         !
 ! TODO: ME preliminary setting for ice and land and total surface
         prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
@@ -381,7 +382,11 @@ CONTAINS
         prm_field(jg)% Tsurf(:,:,:) = Tf
         prm_field(jg)% T1   (:,:,:) = Tf
         prm_field(jg)% T2   (:,:,:) = Tf
-        prm_field(jg)% hs   (:,:,:) = 0._wp
+        WHERE (prm_field(jg)%seaice(:,:) > 0.0_wp)
+           prm_field(jg)% hs   (:,1,:) = 0.1_wp       ! set initial snow depth on sea ice
+        ELSEWHERE
+           prm_field(jg)% hs   (:,1,:) = 0.0_wp
+        ENDWHERE
         prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
         prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
 
