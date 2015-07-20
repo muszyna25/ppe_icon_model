@@ -41,7 +41,7 @@ MODULE mo_alloc_patches
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
     & radiation_grid_filename, lplane
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_mpi,                ONLY: my_process_is_mpi_seq
   USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
 
@@ -75,7 +75,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     DO jg = n_dom_start, n_dom
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF (jg==0) THEN
         p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
       ELSE

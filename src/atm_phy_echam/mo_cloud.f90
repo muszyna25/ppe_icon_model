@@ -211,7 +211,7 @@ CONTAINS
       & pxlte_prc(kbdim,klev)     ,&!<
       & pxite_prc(kbdim,klev)       ! OUT
 #endif
-    REAL(wp), INTENT(OUT)   ::     &
+    REAL(wp), INTENT(INOUT)   ::   &! use INOUT to preserve the initialization
       & prsfl    (kbdim)          ,&!< surface rain flux
       & pssfl    (kbdim)            !< surface snow flux
     REAL(wp), INTENT(OUT)   ::     &
@@ -852,7 +852,11 @@ CONTAINS
         jl = loidx(nl)
         zfrho    = zrho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
         zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
+#if defined (__PGI)
+        zfrl(jl) = zxlb(jl)*(1._wp-1._wp/(1._wp+zfrl(jl)*ztmst*zxlb(jl)))
+#else
         zfrl(jl) = zxlb(jl)*(1._wp-SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
+#endif
         ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
 622   END DO
      

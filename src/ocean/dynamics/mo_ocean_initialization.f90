@@ -32,7 +32,7 @@ MODULE mo_ocean_initialization
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
@@ -1909,7 +1909,7 @@ CONTAINS
     INTEGER :: timestep
     LOGICAL is_initial_timestep
     
-    IF (timestep == 1 .AND. .NOT. is_restart_run()) THEN
+    IF (timestep == 1 .AND. .NOT. isRestart()) THEN
       is_initial_timestep = .TRUE.
     ELSE
       is_initial_timestep = .FALSE.

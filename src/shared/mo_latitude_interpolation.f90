@@ -60,7 +60,7 @@ MODULE mo_latitude_interpolation
                                                       ! ATTENTION: they must contain the poles 
                                                       ! r_lat_clim(0)=+-Pi/2, r_lat_clim(nlat_clim+1)=+-Pi/2
 
-!    INTEGER                           :: jl
+    INTEGER                           :: jl
     REAL(wp)                          :: zlat(kbdim)
     
     zlat(1:kproma)=p_patch(jg)%cells%center(1:kproma,krow)%lat
@@ -70,7 +70,10 @@ MODULE mo_latitude_interpolation
     wgt1_lat(1:kproma)=1.0_wp-wgt2_lat(1:kproma)
 !!$    write(0,*) '++++++++++++++++++++++++++++++'
 !!$    write(0,*) 'latitudes=',MAXVAL(zlat(1:kproma))
-!!$    write(0,*) (zlat(jl),inmw1_lat(jl),inmw2_lat(jl),wgt1_lat(jl),wgt2_lat(jl),jl=1,kproma)
+!!$    write(0,*) 'p_lat_shift=',p_lat_shift, 'p_rdeltalat=',p_rdeltalat,'r_lat_clim=',r_lat_clim
+!!$    DO jl=1,kproma
+!!$      write(0,*) zlat(jl),inmw1_lat(jl),inmw2_lat(jl),wgt1_lat(jl),wgt2_lat(jl)
+!!$    END DO
 !!$    write(0,*) '++++++++++++++++++++++++++++++'
   END SUBROUTINE latitude_weights_li
 

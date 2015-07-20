@@ -26,7 +26,7 @@ MODULE mo_dynamics_config
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_master_config,         ONLY: isRestart
   USE mo_util_string,           ONLY: int2string
 
   IMPLICIT NONE
@@ -84,7 +84,7 @@ CONTAINS
     !------------------------
     ! Set time level indices
 
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
@@ -97,7 +97,7 @@ CONTAINS
         CALL get_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")),nnew_rcf(jdom) )
       END DO
 
-    ELSE ! not is_restart_run
+    ELSE ! not isRestart
 
       nnow(:) = 1
       nnew(:) = 2

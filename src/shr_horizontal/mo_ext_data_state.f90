@@ -76,7 +76,7 @@ MODULE mo_ext_data_state
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE
   USE mo_var_metadata,       ONLY: create_hor_interp_metadata,  &
     &                              post_op, groups
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_io_config,          ONLY: default_read_method
@@ -99,7 +99,7 @@ MODULE mo_ext_data_state
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
   USE mo_real_timer,         ONLY: new_timer, timer_start, timer_stop
   USE mo_cdi_constants,      ONLY: FILETYPE_GRB2, DATATYPE_PACK16, DATATYPE_FLT32, &
     &                              GRID_REFERENCE, TSTEP_CONSTANT, TSTEP_MAX,      &
@@ -305,12 +305,12 @@ CONTAINS
         ! When restarting, the target interpolation time must be set to cur_datetime 
         ! midnight. 
         ! 
-        IF (.NOT. is_restart_run()) THEN
+        IF (.NOT. isRestart()) THEN
           datetime     = time_config%ini_datetime
           IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
         ELSE
           datetime     = time_config%cur_datetime
-        END IF  ! is_restart_run
+        END IF  ! isRestart
         !
         datetime%hour= 0   ! always assume midnight
 
@@ -1602,7 +1602,7 @@ CONTAINS
     IF (my_process_is_stdio()) THEN
       ! generate file name
       extpar_file = generate_filename(extpar_filename,                   &
-        &                             model_base_dir,                    &
+        &                             getModelBaseDir(),                 &
         &                             TRIM(p_patch(jg)%grid_filename))
       CALL message(routine, "extpar_file = "//TRIM(extpar_file))
 
@@ -1992,7 +1992,7 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+    IF ( itopo == 1 .AND. ( iforcing == iecham .OR. iforcing == ildf_echam ) ) THEN
 
       ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
       ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 
@@ -2456,7 +2456,7 @@ CONTAINS
         DO im=1,12
 
          sst_td_file= generate_td_filename(sst_td_filename,                &
-           &                             model_base_dir,                   &
+           &                             getModelBaseDir(),                &
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 
@@ -2478,7 +2478,7 @@ CONTAINS
          CALL closeFile(stream_id)
 
          ci_td_file= generate_td_filename(ci_td_filename,                  &
-           &                             model_base_dir,                   &
+           &                             getModelBaseDir(),                &
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 

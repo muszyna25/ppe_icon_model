@@ -1,0 +1,815 @@
+require 'rake/clean'
+require 'logger'
+require 'pp'
+require 'cdo'
+require 'colorize'
+begin
+  require 'facets'
+rescue
+  warn "Could not find 'facets'"
+end
+
+$DEBUG = ENV.has_key?('DEBUG')
+$QUIET = ENV.has_key?('QUIET')
+
+CLEAN.include('*.run')
+#==============================================================================
+# EXAMPLES:
+# 1. Create a runscrtipt from an existing template
+#   rake exp.tet_oce_default.run
+# 2. Create all runscripts from an existing test suite
+#   rake oceanLong
+# 3. Run an exiting runscript/test suite
+#   rake run[exp.test_oce_default]
+#   rake run[oceanLong]
+# 4. Run same stuff with special technical setup
+#   rake run[exp.test_oce_default] no_of_nodes=8
+#   rake run[oceanLong] nproma=128
+#==============================================================================
+# USER DEFINED TEST COLLECTIONS {{{ ===========================================
+@testSuites = {
+  :oceanAccumulation      => %w[exp.ocean_accumulation_hourly exp.ocean_accumulation_daily],
+  :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
+  :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
+  :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
+  :oceanTechnical         => %w[exp.ocean_omip_ptest exp.test_ocean_numeric_tracerconservation],
+  :oceanSurface           => %w[exp.oce_omip_testSurface],
+  :oceanMonitor           => %w[exp.ocean_monitoring post.ocean_monitoring],
+  :oceanRestart           => [
+    ['exp.check_restart_2x1days','queue=mpi-develop'],
+    ['exp.check_restart_1x2days','queue=mpi-develop']],
+  :oceanNpromaCheck       => [
+    ['exp.oce_omip_performance','nproma=1'],
+    ['exp.oce_omip_performance','nproma=2'],
+    ['exp.oce_omip_performance','nproma=4'],
+    ['exp.oce_omip_performance','nproma=8'],
+    ['exp.oce_omip_performance','nproma=16'],
+    ['exp.oce_omip_performance','nproma=24'],
+    ['exp.oce_omip_performance','nproma=32'],
+    ['exp.oce_omip_performance','nproma=64'],
+    ['exp.oce_omip_testSurface','nproma=16']],
+  :oceanMpiCheck          => [
+    ['exp.ocean_omip_short','no_of_nodes=1'],
+    ['exp.ocean_omip_short','no_of_nodes=2'],
+    ['exp.ocean_omip_short','no_of_nodes=1','mpi_procs_pernode=7'],
+  ],
+  :oceanPerformance       => [
+    ['exp.oce_omip_performance','mpi_procs_pernode=1'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=2'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=4'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=8'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=16'],
+    ['exp.oce_omip_performance','no_of_nodes=1'],
+    ['exp.oce_omip_performance','no_of_nodes=2'],
+    ['exp.oce_omip_performance','no_of_nodes=3'],
+    ['exp.oce_omip_performance','no_of_nodes=4'],
+#   ['exp.oce_omip_performance','no_of_nodes=8'],
+  ],
+  :oceanPerformanceBliz   => [
+    ['exp.oce_omip_performance','mpi_procs_pernode=1'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=2'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=4'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=8'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=16'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=32'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=64'],
+    ['exp.oce_omip_performance','mpi_procs_pernode=32','no_of_nodes=2'],
+  ],
+  :oceanBasicConservation => %w[exp.oce_omip_testSurface],
+  :oceanLong              => [['exp.ocean_omip_long','no_of_nodes=8']],
+  :oceanDev               => %w[oceanTechnical oceanBasicConservation],
+  :oceanStable            => %w[oceanLong],
+  :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
+# :oceanDycoreExp1        => %w[exp.ocean_exp1_GeostrophicBalance_0020km exp.ocean_exp1_GeostrophicBalance_0039km exp.ocean_exp1_GeostrophicBalance_0079km exp.ocean_exp1_GeostrophicBalance_0158km],
+  :oceanDycoreExp1        => [
+    %w[exp.ocean_exp1_GeostrophicBalance_0039km no_of_nodes=3],
+    %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
+    %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
+  ],
+  :oceanTracers           => %w[exp.test_ocean_numeric_tracerconservation],
+  :oceanBuildbot          => %w[exp.test_ocean_omip_parallel exp.test_ocean_omip_10days exp.test_ocean_omip_technical],
+  :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
+  :atmTimeMeanSmall       => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
+  :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
+  :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
+}
+# }}}
+#==============================================================================
+RUNSCRIPT_KEYS = %w[with_mpi with_openmp cpu_time mpi_procs_pernode nproma openmp_threads omp_stacksize resources memory_model memory node_usage no_of_nodes queue out_script in_script job_name in_folder out_folder]
+# HELPER METHODS {{{ ==========================================================
+def dbg(item)
+  pp item if $DEBUG
+end
+def checkFiles4Presence(*files)
+  files.each {|file|
+    unless File.exist?(file) then
+      warn "Could access given input file: #{file}!"
+      exit(1)
+    end
+  }
+end
+def checkFile4Variables(*args)
+  file = args.shift
+  varnamesInFile = Cdo.showname(:input => file)[0].split
+  retval = {true => [],false => []}
+  args.each {|varname| retval[varnamesInFile.include?(varname)] << varname }
+  return retval
+end
+def printHashManyKeys(hash,tag)
+  hash.each {|k,v| puts "#{k.to_s.ljust(15,' ')}:#{v ? '   ' : 'NOT'.colorize(:red)} #{tag.to_s}" }
+end
+def printHashManyValues(hash,tag)
+  hash.each {|k,v| puts "#{k ? '   ' : 'NOT'.colorize(:red)} #{tag.to_s}: #{v.join(' ')}" }
+end
+def checkFiles4Variables(*args)
+  varlist = args.shift
+  args.each {|file|
+    puts "# #{file} ".ljust(80,'-').colorize(:blue)
+    printHashManyValues(checkFile4Variables(file,*varlist),'found')
+  }
+end
+def getExperimentsFromTestSuite(suite)
+  dbg(suite)
+  items = @testSuites[suite]
+  experimentList = []
+  items.each {|item|
+    if item.kind_of?(Array) then
+      template, setup = item[0],item[1..-1]
+      experimentList << getTemplateNameWithSetup(template,setup)
+    else
+      if @testSuites.keys.include?(item.to_sym) then
+        experimentList << getExperimentsFromTestSuite(item.to_sym)
+      else
+        experimentList << item
+      end
+    end
+  }
+  experimentList
+end
+def getTemplateNameWithSetup(template,setup)
+  if setup.empty? then
+    return "#{template}"
+  else
+    return "#{template}_#{setup.sort.map {|s| s.tr(' ','').gsub(/=/,'')}.join('_')}"
+  end
+end
+def getScriptNameWithSetup(template,setup)
+  return getTemplateNameWithSetup(template,setup)+'.run'
+end
+# collect ALL test automatically from checksuites
+#
+# link the existing template to top level
+def makeLinkTarget(sourceTemplate, targetTemplate)
+  desc "link component test #{sourceTemplate} to toplevel #{targetTemplate}"
+  file targetTemplate => sourceTemplate do
+    FileUtils.ln_s(sourceTemplate, targetTemplate, :force => true, :verbose => true)
+  end
+  CLEAN.include(targetTemplate)
+end
+# create a runscript from an existing toplevel template
+# optional setup for technical variations
+def makeRunTarget(sourceTemplate,setup={})
+  # command line arguments may overwrite internal defaults
+  # but dont change the resulting runscript name
+  setupByEnv = {}
+  RUNSCRIPT_KEYS.each {|environmentKey| 
+    setupByEnv[environmentKey] = ENV[environmentKey] if ENV.has_key?(environmentKey)
+  }
+  if setup.empty? 
+    targetRunscript = "#{sourceTemplate}.run"
+    setup = setupByEnv
+  else
+    targetRunscript = getScriptNameWithSetup(sourceTemplate,setup)
+    setup = setup.map {|v| v.tr(' ','').split('=')}.to_h if setup.kind_of?(Array)
+    setup['out_script'] = targetRunscript
+    setup  = setup.merge(setupByEnv)
+  end
+  dbg(setup)
+  dbg(targetRunscript)
+
+  tag, expname  = targetRunscript.split('.')
+  dbg([tag,expname])
+
+  CLEAN.include(targetRunscript)
+
+  creationCommand  = case tag
+                     when "post"
+                       "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} EXPNAME=#{expname} with_mpi='no' with_openmp='no'"
+                     when "exp"
+                       "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun EXPNAME=#{expname} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
+                     else
+                       "echo 'Could not create targetRunscript: #{targetRunscript}"
+                     end
+  desc "run script: #{targetRunscript}"
+  file targetRunscript => sourceTemplate do |t|
+    sh creationCommand
+  end
+end
+def getAllGivenTests(args, environment)
+  testsGiven = args.name.nil? ? (environment.has_key?('TESTS') ? environment['TESTS'].split(',') : nil ) : [args.name]
+  testsGiven
+end
+# Create link target for templates from given subdirectories
+def processComponents
+  componentTemplates = {}
+  # collect templates from know component subdirs
+  {
+    :ocean          => {:subDirPattern => 'ocean_internal/**/*'},
+    :coupled        => {:subDirPattern => 'coupled/*'},
+    :iconStableMpim => {:subDirPattern => 'icon-stable.mpim/**/*'},
+    :iconDev        => {:subDirPattern => 'icon-dev/check.atm*'},
+    :atmDev         => {:subDirPattern => 'icon-dev/technical/exp.atm*'},
+  }.each {|component,componentExperiments|
+    componentTemplates[component] = {}
+    Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
+      template = File.basename(item)
+      if not File.directory?(item) and (['exp','post','check'].include?(template.split('.').first)) then
+        componentTemplates[component][template] = item
+        CLEAN.include(template)
+      end
+    }
+    unless componentTemplates[component].keys.empty? then
+      desc "all tests of '#{component}'"
+      task component.to_sym => componentTemplates[component].keys.map {|template| getScriptNameWithSetup(template,{})}
+    end
+  }
+  # create link target for found templates
+  componentTemplates.each {|component, componentsTests|
+    componentsTests.each {|template,source| makeLinkTarget(source, template) }
+  }
+  return componentTemplates
+end
+# Collect top level templates from the disk
+def getTopLevelTemplates
+  return Dir.glob("{post,exp}.*").delete_if {|f| File.extname(f) == '.run'}
+end
+# create targets for .run files from all available templates
+def processPlainTemplates(componentTemplates,toplevelTemplates)
+  allTemplates = toplevelTemplates
+  componentTemplates.each_value {|v| allTemplates << v.keys}
+  allTemplates.flatten!
+  allTemplates.each {|template| makeRunTarget(template) }
+  return allTemplates
+end
+def templateCheck(name,allTemplates,allSuites,suite=nil)
+  return true if allSuites.include?(name)
+  unless allTemplates.include?(name)
+    msg = "WARNING: Count not find template '#{name}' "
+    msg << "from suite '#{name}'" unless suite.nil?
+    msg << "!!!"
+    warn msg unless $QUIET
+    exit(1) if $DEBUG
+    return false
+  end
+  return true
+end
+# define targets for all testsuite targetes WITH special parameters
+def processTestsuitesTemplates(componentTemplates, testSuites,allTemplates)
+  templatesWithRealPath = componentTemplates.values.map(&:values).flatten.delete_if {|v| v.empty?}
+  testSuites.each {|name,experimentList|
+    testSuiteRunscripts = []
+    experimentList.each {|experimentDescription|
+      dbg(experimentDescription)
+      # handle ONLY tests WITH parameter settings - all other are alreade covered by (A) and (B)
+      if experimentDescription.kind_of?(Array) then
+        next if experimentDescription.empty?
+
+        template, setup = experimentDescription[0],experimentDescription[1..-1]
+
+        dbg( {
+          template: template,
+          setup: setup,
+        })
+        dbg( {
+          setupHash: setup.map {|v| v.split('=')}.to_h,
+        })
+        # get real path name for the template
+        templateRealPath  = templatesWithRealPath.grep(/#{template}$/).first
+        next if templateRealPath.nil? and not templateCheck(template,@allTemplates,@testSuites.keys.map(&:to_s),name)
+
+        templateWithSetup = getTemplateNameWithSetup(template,setup)
+        scriptWithSetup   = getScriptNameWithSetup(template,setup)
+
+        dbg( {
+          templatesWithRealPath: templateRealPath,
+          templateWithSetup: templateWithSetup,
+          scriptWithSetup: scriptWithSetup,
+        })
+
+        makeLinkTarget(templateRealPath,templateWithSetup)
+        makeRunTarget(template,setup)
+
+        testSuiteRunscripts << scriptWithSetup
+      else
+        next if templateCheck(experimentDescription,@allTemplates,@testSuites.keys.map(&:to_s))
+        testSuiteRunscripts << experimentDescription+".run"
+      end
+    }
+    file name => testSuiteRunscripts
+  }
+end
+# }}}
+# BASIC TEMPLATE PROCESSING {{{ ===============================================
+@componentTemplates = processComponents
+@allTemplates       = processPlainTemplates(@componentTemplates,getTopLevelTemplates)
+processTestsuitesTemplates(@componentTemplates, @testSuites,@allTemplates)
+# }}}
+# BASIC FOMATING SETUP {{{ ====================================================
+LINEWIDTH = 80
+# }}}
+# LIST TESTS {{{ ==============================================================
+desc "Show all known ocean tests"
+task :showOcean do
+  puts "ALL TESTSUITS ".ljust(LINEWIDTH,'=')
+  @testSuites.each {|name,experimentList|
+    if /^ocean/.match(name.to_s) then
+      puts name.to_s
+      experimentList.each {|experiment| 
+        puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
+      }
+    end
+  }
+  puts "ALL OCEAN TESTS".ljust(LINEWIDTH,'=')
+  @componentTemplates[:ocean].each {|k,v|
+    puts [k.ljust(50,' '),v].join(':')
+  }
+  puts '='*LINEWIDTH
+end
+
+desc "Show all available tests cases"
+task :showTests do
+  puts "ALL TESTS".ljust(LINEWIDTH,'=')
+  @allTemplates.each {|k,v|
+    puts [k.ljust(50,' '),v].join
+  }
+  puts '='*LINEWIDTH
+end
+desc "Show all available test suites"
+task :showSuites, :name do |t,args|
+  @testSuites.each {|name,experimentList|
+    next if args.name.to_s != name.to_s unless args.name.nil?
+    puts name.to_s
+    experimentList.each {|experiment|
+      puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
+      templateName = experiment.kind_of?(String) ? experiment : experiment[0]
+      unless @testSuites.keys.include?(templateName.to_sym) then
+        warn "WARNING: Could not find template #{templateName}" if not @allTemplates.include?(templateName)
+      end
+    }
+  }
+  puts '='*LINEWIDTH
+end
+# }}}
+# HOST CONFIG: start, stop, check jobs {{{ ====================================
+# may require local port forwarding 
+RemoteQStat = {
+  :blizzard => {host: 'passat.dkrz.de', user: 'm300064',             command: '/usr/bin/llq'},
+  :thunder  => {host: 'localhost',      user: 'm300064',port: 50022, command: '/usr/bin/squeue'},
+  :wizard   => {host: 'wizard.dkrz.de', user: 'm300064',             command: '/usr/bin/squeue'},
+}
+STATE_COLUMNS_WIDTH = 12
+NAME_COLUMN_WIDTH   = 65
+DATE_COLUMN_WIDTH   = 20
+#@log                = Logger.new("#{ENV['HOME']}/rllq.log")
+#==============================================================================
+def getAdditionalInfo(logfile,tag)# {{{
+  info =[]
+# info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").split(' ')[-4,-1]
+  info_  = IO.popen("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").read
+
+  if info.empty? then
+    return ''
+  end
+
+  info_  = info_.split(' ') unless info_.nil?
+  info_  = info_.values_at(-3,-2,-1).map(&:to_f).map {|v| "%E"%v}.join(' ') unless info_.nil?
+  
+  info << "#{tag}: #{info_}"
+  info.join(' - ')
+end
+def checkAll
+# RemoteQStat.each {|hpc,setup|
+      host, user, command, port = RemoteQStat[:thunder][:host], RemoteQStat[:thunder][:user], RemoteQStat[:thunder][:command], RemoteQStat[:thunder][:port]
+
+      log = ''
+#     log << "# #{hpc} ".ljust(80,'=') << "\n"
+
+      #Net::SSH.start(host,user,port: port) do |ssh|
+        case `hostname`.chomp
+        when /thunder|wizard/ then
+          sh('source /etc/profile; source /client/etc/profile.zmaw')
+          columns = [:state,:name,:id,:nodes,:time]
+          results = {}
+          status = IO.popen("#{command}  -u $USER -o \"%T %j %i %D %M\"").read
+          return if status.chomp.split.size == 1
+          status.chomp.split("\n").each_with_index {|line,lineIndex|
+            next if 0 == lineIndex
+            state,name,id,nodes,time = line.split
+            if 'RUNNING' == state then
+              scontrol = sh("/usr/bin/scontrol show job #{id}").split("\n")
+              workdir = scontrol.grep(/WorkDir/).first.split('=').last.chomp
+              script  = scontrol.grep(/Command/).first.split('=').last.chomp
+              logfile = workdir + '/' + sh("grep 'error=' #{script}").chomp.split('=').last.sub(/%j/,id)
+              lastDate = sh("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
+              info = @options.has_key?("tag") ? getAdditionalInfo(logfile,@options["tag"]) : ''
+              if 'default' == @info then
+                myLog = [
+                  state.ljust(STATE_COLUMNS_WIDTH,' '),
+                  name.ljust(NAME_COLUMN_WIDTH,' '),
+                  id,
+                  nodes,
+                  lastDate.nil? ? '' : lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                  info,
+                ].join(' | ') << "\n"
+              else
+                myLog = [
+                  state.ljust(STATE_COLUMNS_WIDTH,' '),
+                  name.ljust(NAME_COLUMN_WIDTH,' '),
+                  id,
+                  nodes,
+                  lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                  info,script,logfile,
+                ].join(' | ') << "\n"
+              end
+              log << myLog 
+              # [
+              #   state.ljust(STATE_COLUMNS_WIDTH,' '),
+              #   name.ljust(NAME_COLUMN_WIDTH,' '),
+              #   id,
+              #   nodes,
+              #   lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+              #   info,
+              # ].join(' | ') << "\n"
+            else
+              log << [state.ljust(STATE_COLUMNS_WIDTH,' '),name.ljust(NAME_COLUMN_WIDTH,' '),id,nodes].join(' | ') << "\n"
+            end
+          }
+        when /blizzard/ then
+          sh('source ~/.profile;')
+          myJobs = sh "#{command} -u $USER | grep $USER"
+          #next if myJobs.nil?
+          myJobs =  myJobs.split("\n").map {|l| l.split(' ').first }
+          myJobs.each {|job|
+            jobList = sh("#{command} #{job} -l").chomp.split("\n")
+            name    = jobList.grep(/Job Name/).first.split(':').last.strip
+            status  = jobList.grep(/Status/).first.split(':').last.strip.upcase
+            script  = (not jobList.grep(/Executable/).empty?) ? jobList.grep(/Executable/).first.split(':').last : jobList.grep(/Cmd/).first.split(':').last
+            id      = jobList.grep(/Job Step Id/).first.split(':').last.strip
+
+            logfile     = [
+              jobList.grep(/Initial Working Dir:/).first.split(':').last,
+              jobList.grep(/Err:/).first.split(':').last.strip.chomp
+            ].join('/')
+            if 'RUNNING' == status then
+              lastDate = sh("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last.to_s
+              #puts name
+              #pp ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
+              info = @options.has_key?("tag") ? getAdditionalInfo(logfile,@options["tag"]) : ''
+            else
+              lastDate = ''
+            end
+            if 'default' == @info then
+              log << [
+                status.ljust(STATE_COLUMNS_WIDTH,' '),
+                name.ljust(NAME_COLUMN_WIDTH,' '),
+                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                info,
+              ].join(' | ') << "\n"
+            else
+              log << [
+                status.ljust(STATE_COLUMNS_WIDTH,' '),
+                name.ljust(NAME_COLUMN_WIDTH,' '),
+                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
+                id,info,script,logfile,
+              ].join(' | ') << "\n"
+            end
+          }
+        end
+#     end
+      puts log
+      #lock.synchronize {
+      #  File.open(@logfile,"a") {|logfile| logfile << log }
+      #}
+      #@log.info(log)
+#   }
+end # }}}
+# }}}
+# RUNNING|CHECKING TESTS {{{ ===========================================================
+# config first
+@jobHost   = /[[:alpha:]]+/.match(`hostname`.chomp)[0] ; dbg(@jobHost)
+@jobSubmit = {thunder: 'sbatch' , blizzard: 'llsubmit', passat: 'llsubmit'}#[@jobHost.to_sym]
+@jobCancel = {thunder: 'scancel', blizzard: 'llcancel', passat: 'llcancel'}#[#@jobHost.to_sym]
+@jobStatus = {thunder: 'squeue' , blizzard: 'llq'     , passat: 'llq'     }#[@jobHost.to_sym]
+# default is direct execution
+@jobSubmit.default = ''
+
+desc "Run named test or testsuite or TESTS='a,b,..'"
+task :run, :name do |t,args|
+  testsGiven = getAllGivenTests(args,ENV)
+  
+  if testsGiven.nil? then
+    warn "Nothing to test!"
+    exit 0
+  end
+  puts "try to run #{testsGiven.join(' ')} ..."
+
+  # determine the submission command
+  submitCommand = ENV.has_key?('SUBMIT') ? ENV['SUBMIT'] : @jobSubmit[@jobHost.to_sym]
+  dbg("Submission Command is: '#{submitCommand}'")
+
+  # if testsuites are given, transform them into lists of experiments
+  experimentList =[]
+  testsGiven.each {|test|
+    # special handling for technical variations of existing experiments
+    unless test.kind_of?(Array) then
+      if @testSuites.keys.include?(test.to_sym) then
+        experimentList << getExperimentsFromTestSuite(test.to_sym)
+      else
+        experimentList << test if @allTemplates.include?(test)
+      end
+    else
+      template = test.pop
+      setup = test
+    end
+  }
+  experimentList.flatten!; dbg(experimentList)
+
+  if experimentList.empty? then
+    warn "Could not find any experiments to test!"
+    exit 1
+  end
+
+  experimentList.each {|experiment|
+    Rake::Task[experiment.to_sym].invoke
+    Rake::Task["#{experiment}.run".to_sym].invoke
+    sh "#{submitCommand} ./#{experiment}.run"
+  }
+end
+desc "Check all your running jobs: Finished? Running? Failed?"
+task :check,:name do |t,args|
+  testsGiven = getAllGivenTests(args,ENV)
+
+  # check experiment status
+  testsGiven.each {|test|
+    test
+  }
+end
+task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
+  sh "cat #{t.prerequisites.join(' ')}"
+end
+desc "Check performance of last run with given experiment name"
+task :checkPerformance, :expname do |t,args|
+  if args.expname.nil? then
+    warn "No expname given"
+    exit 1
+  end
+  # ---------------------------------------------------------------------------
+  require 'date'
+  simulationLengthInYears = lambda {|timeinfo| 
+    startinfo       = timeinfo.grep(/start_date/).map(&:chomp).map {|item| item.split('=').last.gsub(/\'|\"/,'')}.map {|t| Date.parse(t).to_time.to_i}
+    endinfo         = timeinfo.grep(/end_date/).map(&:chomp).map {|item| item.split('=').last.gsub(/\'|\"/,'')}.map {|t| Date.parse(t).to_time.to_i}
+    lengthInSeconds = endinfo[0]-startinfo[0]
+    lengthInSeconds/(DateTime.new(2002,1,1).to_time.to_i - DateTime.new(2001,1,1).to_time.to_i).to_f
+  }
+  runTimesInDays = lambda {|logfile|
+    nlines               = %x{wc -l #{logfile}}.to_i
+    dbg(['nlines',nlines])
+    cmd = "tail -n #{nlines < 4000 ? nlines.to_s : '4000'} #{logfile}"
+    dbg(cmd)
+
+    # grep total timer --------------------------------------------------------
+    runTimes             = IO.popen(cmd).readlines.grep(/L\s+total/).map {|item| item.chomp.split.last.to_f}
+    if runTimes.nil? or runTimes.empty? then
+      warn "Could not get timer info from logile: #{logfile}!"
+      exit(1)
+    end
+    dbg(['runTimes:',runTimes])
+    ntimers              = runTimes.size
+    meanRuntimeInSeconds = runTimes.inject {|sum,t| sum += t}/ntimers
+    meanRuntimeInDays    = meanRuntimeInSeconds/84600
+    dbg(['meanRuntimeInSeconds:',meanRuntimeInSeconds])
+    # grep communication timer -------------------------------------------------
+    communicationTimes             = IO.popen(cmd).readlines.grep(/\s+exch_data /).map {|item| item.chomp.split.last.to_f}
+    dbg(communicationTimes)
+    if communicationTimes.nil? or communicationTimes.empty? then
+      warn "Could not get communication info from logile: #{logfile}!"
+      meanComPart  = 0.0
+    else
+      meanComTimeInSeconds = communicationTimes.inject {|sum,t| sum += t}/ntimers
+      dbg(['meanComTimeInSeconds:',meanComTimeInSeconds])
+      meanComPart          = (meanComTimeInSeconds/meanRuntimeInSeconds).round(3) * 100
+    end
+
+    {:total => meanRuntimeInDays, :com => meanComPart}
+  }
+  # ---------------------------------------------------------------------------
+  # get the most recent LOG file
+  logfile = Dir.glob("LOG.exp.#{args.expname}.run.*.o").sort_by {|f| File.ctime(f)}.last
+  dbg(logfile)
+  # grep the simulated time from start_date and end_date
+  length = simulationLengthInYears[File.open("exp.#{args.expname}.run").readlines.grep(/(start|end)_date=/)]
+  dbg(['lengthInYears:',length])
+  # grep the total computing time from the timer output 'L total'
+  meanRuntime, meanCommunicationPart = runTimesInDays[logfile].values_at(:total,:com)
+  # compute the performance in years/day
+  runTimeInYearsPerDay = (length/meanRuntime).round(1)
+  dbg(['performanceInYearsPerDay:',runTimeInYearsPerDay])
+  dbg(['comTimeInYearsPerDay:',meanCommunicationPart])
+  puts [args.expname, runTimeInYearsPerDay,'years/day',"[com:#{meanCommunicationPart.round(2)}%]"].join(' ')
+end
+
+desc "check timeMeanOutput of given variables"
+task :checkTimeMeanIdentity, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do |t,args|
+  spotFile, meanFile, spotVar, meanVar, initTimestamp = args.values_at(:spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp )
+  dbg({:spotFile => spotFile, :meanFile => meanFile, :spotVar => spotVar,:meanVar => meanVar, :initTimestamp => initTimestamp })
+  # set default value
+  initTimestamp = "1979-01-01T00:00:00" if initTimestamp.nil? 
+  if [spotFile,meanFile, spotVar, meanVar].include?(nil) then
+    warn "Could not get value of one of following inputs: spotFile,meanFile, spotVar, meanVar"
+    verbose(false) do
+      print "USAGE: "
+      sh   "rake -T #{t.name}"
+    end
+    exit(1)
+  end
+
+  # check if files and variables are present
+  checkFiles4Presence(spotFile,meanFile)
+  checkFile4Variables(spotFile,spotVar)
+  checkFile4Variables(meanFile,meanVar)
+
+  # delte first timestep, if it is the initial one
+  Cdo.debug = true
+  tempFile = {}
+  [spotFile,meanFile].each_with_index {|f,i|
+    tag               = %w[spot mean][i]
+    ntimes            = Cdo.ntime(:input => f)[0].to_i
+    firstTimestamp    = Cdo.showtimestamp(:input => f)[0].split[0]
+    if firstTimestamp == initTimestamp then
+      tempFile[tag] = Cdo.delete('timestep=1',:input => f, :output => "noInitial_#{tag}_#{File.basename(f)}")
+    end
+  }
+
+  # compare the single timestep of the mean file with the timmean of the spotfile
+  pp Cdo.diff(:input => "-timmean -selname,#{spotVar} #{tempFile['spot']} -selname,#{meanVar} #{tempFile['mean']}")
+end
+
+desc "check timemean output for single and twp dtime output"
+task :checkTimeMean, :pattern, :referenceExp do |t,args|
+  varlist = {
+    :tracer => %w[qc qv qi],
+    :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
+    :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress],
+  }.each {|k,v| v.map {|item| item << '_m'}}
+
+  dbg(varlist)
+  dbg(args.pattern)
+
+  # check for accumulated variables
+  files    = Dir.glob('./'+args.pattern)
+  refFiles = Dir.glob("../#{args.referenceExp}/#{args.pattern}")
+  checkFiles4Variables(varlist.values.flatten,*([refFiles,files].flatten))
+
+  # check, if the accumulation is correct
+#Cdo.debug = true
+  [
+    { :refTimesteps => '2,3', :accTimesteps => 2},
+    { :refTimesteps => '4,5', :accTimesteps => 3},
+#   { :refTimesteps => '6,7', :accTimesteps => 4},
+  ].each {|accConfig|
+    puts accConfig.to_s.colorize(:yellow)
+    refFiles.each_with_index {|refile,i|
+      expfile = files[i]
+      varlist.each {|group, varnames|
+        puts 
+        puts group.to_s.upcase.colorize(:green)
+        varnames.each {|varname|
+          diff = Cdo.diffv(input: [
+                    "-timmean -seltimestep,#{accConfig[:refTimesteps]} -selname,#{varname} #{refile}",
+                    "         -seltimestep,#{accConfig[:accTimesteps]} -selname,#{varname} #{expfile}"
+          ].join(' '),:options => '-s')
+          unless diff.empty? then
+            puts varname.colorize(:red)
+            print "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow)
+            puts "\t"
+          else
+            print "#{varname} ".colorize(:green)
+          end
+
+        }
+        puts
+      }
+    }
+  }
+end
+
+desc "check single precission output of dtime output"
+task :checkTimeMeanSP, :pattern do |t,args|
+  #tightly connected to the current dictionary
+  varlist = {
+    :tracer => %w[qc qv qi],
+    :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
+    :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress]
+  }.each {|k,v| v.map {|item| item << '_m'}}
+  reflist = {
+    :tracer => %w[clw hus cli],
+    :prog   => %w[ua va ta ps psl zg rho], 
+    :echam  => %w[cosmu0 rsdt clt prlr prcr prls prcs pr prw cllvi clivi rsns rsnt rlns rlnt ts evspsbl hfls hfss tauu tauv]
+  }
+#Cdo.debug = true
+  ifiles = Dir.glob("./#{args.pattern}")
+  if ifiles.empty? then
+    warn "Could not find input file #{args.pattern}"
+    exit(1)
+  end
+  ifile = ifiles[0]
+  checkFiles4Variables([varlist.values,reflist.values].flatten,ifile)
+  
+#Cdo.debug = true
+  avoidFirst = lambda {|ifile| "-seltimestep,2/#{Cdo.ntime(input: ifile)[0]}" }
+  varlist.each {|area,vlist|
+    vlist.each_index {|i|
+      varname, refname = vlist[i], reflist[area][i]
+      sel = avoidFirst.call(ifile)
+      diff = Cdo.diffv(input: "-selname,#{varname} #{sel} #{ifile} -selname,#{refname} #{sel} #{ifile}")
+      if diff.empty? then
+        puts [varname,refname].join(' ').colorize(:green)
+      else
+        puts [varname,refname].join(' ').colorize(:red)
+#       pp diff
+      end
+    }
+  }
+end
+desc "Check status of given of all experiments"
+task :stat, :expname do |t,args|
+  expname = args.expname.nil? ? '' : args.expname
+
+  just = lambda {|width,l,r| [l.ljust(width,' '),r].join}
+  started   = Dir['../experiments/*/'].map {|item| item.split('/')[-1]}.sort
+  finished  = IO.popen("find ../experiments/#{expname} -name finish.status").readlines.map(&:chomp).map {|item| item.split('/')[-2]}.sort
+  started.each {|exp|  puts  just[12,"STARTED:",exp]}
+  finished.each {|exp| puts  just[12,"FINISHED:",exp]}
+end
+desc "Show runscript generator keys"
+task :showRunscriptKeys do
+  puts RUNSCRIPT_KEYS.join(' ')
+end
+# }}}
+# HELP {{{ ====================================================================
+desc "Show detailed help"
+task :help do
+  puts "F1!"
+  sh "rake -T"
+  pp @allTemplates
+  pp Rake::Task.tasks.map(&:name)
+end
+desc "Run almost all targets"
+task :selfCheck do
+  dbg(Rake::Task.tasks)
+  Rake::Task.tasks.each {|t| 
+    puts t.name
+    t.invoke unless %w[check clean clobber].include?(t.name)
+  }
+end
+desc "Check if all testsuite templates are really there"
+task :checkSuiteTemplates do
+  # collect template names
+# templateNames = []
+# @testSuites.keys.each {|suiteName|
+#       experimentList << getExperimentsFromTestSuite(suiteName.to_sym)
+#     else
+#       experimentList << test if @allTemplates.include?(test)
+#     end
+  # check of the files can be found
+end
+task :showSubmit do
+  require 'pp'
+
+  puts 'HOST is:'
+  pp @jobHost
+  puts 'SUBMITs is: '
+  pp @jobSubmit
+  pp @jobSubmit[@jobHost.to_sym]
+end
+task :checkEnv do
+  #pp ENV
+  pp ENV.has_key?('omp_stacksize')
+end
+desc "Test internal library"
+task :testLib, :name do |t,args|
+  require 'minitest/autorun'
+  tester = Minitest::Test.new(0)
+  case args.name
+  when 'getTemplateNameWithSetup'
+    tester.assert_equal(getTemplateNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma4')
+    tester.assert_equal(getTemplateNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes43_nproma4')
+  when 'getScriptNameWithSetup'
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4']),'exp.oce_nproma4.run')
+    tester.assert_equal(getScriptNameWithSetup('exp.oce',['nproma=4','no_of_nodes = 43']),'exp.oce_no_of_nodes43_nproma4.run')
+  else
+    warn "No Test for method: #{args.name}"
+  end
+end
+# }}}
+# vim:fdm=marker
