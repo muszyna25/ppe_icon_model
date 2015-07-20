@@ -301,7 +301,7 @@ CONTAINS
       !                       2 all halos go to the end, for ocean
       my_process_type = get_my_process_type()
       SELECT CASE (my_process_type)
-        CASE (ocean_process, testbed_process)
+        CASE (ocean_process)
            order_type_of_halos = 2
         CASE default
         order_type_of_halos = 1

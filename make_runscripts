@@ -341,7 +341,7 @@ do
   if [[ $accepted_script = "true" ]] ; then
     name=${filename#*.}
     $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" EXPNAME=$name
+    with_mpi="no" with_openmp="no" queue="express" EXPNAME=$name
   fi
 done
 

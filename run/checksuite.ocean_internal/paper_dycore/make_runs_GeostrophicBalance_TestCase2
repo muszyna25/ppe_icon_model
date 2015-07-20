@@ -32,13 +32,13 @@ $make_runscript                  \
   mpi_procs_pernode=$mpi_procs_pernode  \
   openmp_threads=$openmp_threads \
   cpu_time=$cpu_time \
-  queue=develop      \
   grids_folder="${grids_folder}"   \
   ocean_grids="${ocean_grids}" \
   dtime=$dtime
+  # queue=develop      
 
   cd run
-   $use_submit ./$out_script
+    $use_submit ./$out_script
   cd -
 }
 #==============================================================================
@@ -46,49 +46,47 @@ $make_runscript                  \
 
 #==============================================================================
 echo "-----------------------------------------------------------"
-no_of_nodes=2
-mpi_procs_pernode=8
-openmp_threads=2
-cpu_time="00:30:00"
+exp_name=ocean_GeostrophicBalance_TestCase2
+mpi_procs_pernode=4
+openmp_threads=4
 nproma=16
 
-exp_name="ocean_exp1_GeostrophicBalance"
-#grids_folder=/scratch/local1/icon/icon-grid_generator.svn/grids
-grids_folder=/pool/data/ICON/ocean_data/ocean_grid/AquaPlanets/
+grids_folder=/scratch/mpi/CC/mh0287/oes/grids/AquaPlanets
 
-#------------------------
-# ad hoc select grids
-gridList="AquaPlanet_Icos_0039km_rotatedXaxis90_stdOpt.nc AquaPlanet_Icos_0039km_Rrefined-90+45.nc AquaPlanet_Icos_0039km_smoothOpt.nc AquaPlanet_Icos_0039km_springOpt.nc AquaPlanet_Icos_0039km_stdOpt.nc"
-dtime=240
+cpu_time="00:10:00"
+no_of_nodes=2
+
+cd $grids_folder
+gridList=`ls -d AquaPlanet_Icos_0316km_*.nc`
+cd -
+dtime=1800
 for gridFile in $gridList ; do
   create_runscript ${gridFile%.nc}
 done
 
-exit
+cpu_time="00:30:00"
 
 cd $grids_folder
-gridList=`ls -d AquaPlanet_Icos_0316km_*.nc`
+gridList=`ls -d AquaPlanet_Icos_0158km_*.nc`
 cd -
 dtime=900
 for gridFile in $gridList ; do
   create_runscript ${gridFile%.nc}
 done
 
-cd $grids_folder
-gridList=`ls -d AquaPlanet_Icos_0158km_*.nc`
-cd -
-dtime=600
-for gridFile in $gridList ; do
-  create_runscript ${gridFile%.nc}
-done
+no_of_nodes=8
+
+cpu_time="00:40:00"
 
 cd $grids_folder
 gridList=`ls -d AquaPlanet_Icos_0079km_*.nc`
 cd -
-dtime=360
+dtime=480
 for gridFile in $gridList ; do
   create_runscript ${gridFile%.nc}
 done
+
+cpu_time="01:30:00"
 
 cd $grids_folder
 gridList=`ls -d AquaPlanet_Icos_0039km_*.nc`
@@ -98,6 +96,15 @@ for gridFile in $gridList ; do
   create_runscript ${gridFile%.nc}
 done
 
+cpu_time="03:00:00"
+
+cd $grids_folder
+gridList=`ls -d AquaPlanet_Icos_0020km_*.nc`
+cd -
+dtime=120
+for gridFile in $gridList ; do
+  create_runscript ${gridFile%.nc}
+done
 
 
 echo "-----------------------------------------------------------"
