@@ -22,8 +22,10 @@ module mo_derived_variable_handling
 
   private
 
-  type(map)   , save :: meanMap
-  type(vector), save :: meanVariables
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
+
+  type(map)       , save :: meanMap
+  type(vector)    , save :: meanVariables
   TYPE(t_var_list)   :: mean_stream_list
   integer, parameter :: ntotal = 1024
   CHARACTER(LEN=VARNAME_LEN) , SAVE, target :: varlist_buffer(ntotal)
@@ -34,11 +36,30 @@ module mo_derived_variable_handling
   public :: collect_meanstream_variables
   public :: mean_stream_list
 
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
-
 ! subroutine collect_target_variables()
 ! end subroutine collect_target_variables
 CONTAINS
+  subroutine var_print(this, label)
+    type(vector) , intent(in) :: this
+    character(*), intent(in), optional :: label
+
+    type(vector_iterator) :: my_iter
+    class(*), pointer     :: my_buffer
+    integer :: i
+
+
+    if (present(label)) print *, label
+
+    my_iter = this%each()
+    do while(my_iter%next(my_buffer))
+        select type(my_buffer)
+        type is (t_list_element)
+            print *,'varname:',my_buffer%field%info%name
+        class default
+          call class_print(my_buffer)
+        end select
+    end do
+  end subroutine
 
   SUBROUTINE init_mean_stream(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
@@ -80,6 +101,7 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: element
     REAL(wp),         POINTER                :: ptr(:,:,:)  !< reference to field
+    type(vector) :: keys
 
     nvars           = 1
     periods_counter = 1
@@ -121,7 +143,7 @@ CONTAINS
 
           periods_buffer(periods_counter) = trim(p_onl%output_interval(1))
 
-          IF ( meanMap%has_key(periods_buffer(periods_counter)) ) THEN
+          IF ( meanMap%has_key(trim(periods_buffer(periods_counter))) ) THEN
             call meanMap%get(trim(p_onl%output_interval(1)),meanVariables)
           ELSE
             meanVariables = vector()
@@ -144,16 +166,17 @@ CONTAINS
 !     &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
 !     &           var_class=element%field%info%var_class )
                 call print_green('var:'//trim(element%field%info%name)//'---')
-                call meanVariables%add(element%field%info%name)
+                call meanVariables%add(element)
+      !         call meanVariables%add(element%field%info%name)
               end if
             end do
             ! add stuff to map
-IF ( my_process_is_stdio() ) THEN
-  call print_aqua('collected variables:{{{{{{{{{{{{{{{{{{{{{{{{{{{')
-  call meanVariables%print()
-  call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
-END IF
-            call meanMap%add(trim(p_onl%output_interval(1)),meanVariables)
+!IF ( my_process_is_stdio() ) THEN
+!  call print_aqua('collected variables:{{{{{{{{{{{{{{{{{{{{{{{{{{{')
+!  call meanVariables%print()
+!  call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
+!END IF
+            call meanMap%add(trim(p_onl%output_interval(1)),meanVariables,copy=.true.)
           END IF
 periods_counter = periods_counter + 1
         END DO
@@ -162,7 +185,9 @@ periods_counter = periods_counter + 1
     END DO
 IF ( my_process_is_stdio() ) THEN
   call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
-  call meanMap%print()
+  keys = meanMap%get_keys()
+  call keys%print()
+  call var_print(meanMap%get_values())
   call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
 END IF
     !
