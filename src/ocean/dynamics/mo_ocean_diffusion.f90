@@ -20,7 +20,7 @@
 MODULE mo_ocean_diffusion
   
   USE mo_kind,                ONLY: wp
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec !, gc2cc
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form
@@ -115,7 +115,7 @@ CONTAINS
     ELSEIF(veloc_diffusion_order==2)THEN
       
       IF(veloc_diffusion_form==2)THEN
-        CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
+        !CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
         CALL veloc_diff_biharmonic_div_grad( patch_3D,   &
           & p_param,      &
           & p_diag,       &
@@ -423,7 +423,7 @@ CONTAINS
             il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
             ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
             
-            z_grad_u(edge_index,level,blockNo)%x = p_param%k_veloc_h(edge_index,level,blockNo) * &
+            z_grad_u(edge_index,level,blockNo)%x =  &
               & ( z_div_grad_u(il_c2,level,ib_c2)%x      &
               &   - z_div_grad_u(il_c1,level,ib_c1)%x)   &
               & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
@@ -446,7 +446,7 @@ CONTAINS
       DO cell_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)
           
-           z_div_grad_u(cell_index,level,blockNo)%x =  -( &        ! take the negative div in order to avoid the negation of the laplacian
+           z_div_grad_u(cell_index,level,blockNo)%x =  -p_param%k_veloc_h(edge_index,level,blockNo) *( &        ! take the negative div in order to avoid the negation of the laplacian
               & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
               & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+ &
               & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
@@ -735,8 +735,7 @@ CONTAINS
             !              write(0,*)  "9",  patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
             !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
 
-            nabla2_vec_e(edge_index,level,blockNo) = &
-              & patch_3D%wet_e(edge_index,level,blockNo)*                                     &
+            nabla2_vec_e(edge_index,level,blockNo) = &   ! patch_3D%wet_e(edge_index,level,blockNo)* &
               & k_h(edge_index,level,blockNo) * (                                             &
               & patch_2D%edges%tangent_orientation(edge_index,blockNo) *                      &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
@@ -760,7 +759,7 @@ CONTAINS
         DO edge_index = start_index, end_index
           DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
           
-            nabla2_vec_e(edge_index,level,blockNo) = patch_3D%wet_e(edge_index,level,blockNo)*&
+            nabla2_vec_e(edge_index,level,blockNo) = & !patch_3D%wet_e(edge_index,level,blockNo)*&
               & (   &
               & patch_2D%edges%tangent_orientation(edge_index,blockNo) *     &
               & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))     &
@@ -892,17 +891,16 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       DO edge_index = start_index, end_index
-        DO level = start_level, end_level
+        DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
           
-          nabla4_vec_e(edge_index,level,blockNo) =  &
-            & patch_3D%wet_e(edge_index,level,blockNo)&
-            &* k_h(edge_index,level,blockNo)  &
+          nabla4_vec_e(edge_index,level,blockNo) =  &    ! patch_3D%wet_e(edge_index,level,blockNo) *&
+            &  k_h(edge_index,level,blockNo)  &
             & *(patch_2D%edges%tangent_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
             & - z_rot_v(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )  &
             & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo))   &
-            & +patch_3D%wet_e(edge_index,level,blockNo)                      &
-            &* k_h(edge_index,level,blockNo) * &            
+            & + & !patch_3D%wet_e(edge_index,level,blockNo)  *                    &
+            &  k_h(edge_index,level,blockNo) * &            
             & (( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))    &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )  &
             & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
@@ -913,10 +911,10 @@ CONTAINS
       END DO
     END DO
 
-    !  DO level=1,n_zlev
-    !   write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
-    !   &minval(nabla4_vec_e(:,level,:))
-    !  END DO
+!       DO level=1,INT(0.5*n_zlev)
+!        write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
+!        &minval(nabla4_vec_e(:,level,:))
+!       END DO
 
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl
@@ -1184,7 +1182,7 @@ CONTAINS
 
       !------------------------------------
       ! Fill triangular matrix
-      ! b is diagonal, a is the lower diagonal, c is the upper
+      ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
       c(1) = -a_v(cell_index,2,blockNo) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
@@ -1214,7 +1212,7 @@ CONTAINS
       !------------------------------------
       ! solver from lapack
       !
-      ! eliminate upper diagonal
+      ! eliminate lower diagonal
       DO level=bottom_level-1, 1, -1
         fact(level+1)  = c( level ) / b( level+1 )
         b( level ) = b( level ) - fact(level+1) * a( level +1 )
@@ -1334,7 +1332,7 @@ CONTAINS
 
       !------------------------------------
       ! Fill triangular matrix
-      ! b is diagonal, a is the lower diagonal, c is the upper
+      ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
       c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
@@ -1364,7 +1362,7 @@ CONTAINS
       !------------------------------------
       ! solver from lapack
       !
-      ! eliminate upper diagonal
+      ! eliminate lower diagonal
       DO level = bottom_level-1, 1, -1
         fact(level+1)  = c( level ) / b( level+1 )
         b( level ) = b( level ) - fact(level+1) * a( level +1 )

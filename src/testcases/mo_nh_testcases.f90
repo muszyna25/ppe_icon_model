@@ -278,19 +278,22 @@ MODULE mo_nh_testcases
   CASE ('HS_nh')
     ! The topography has been initialized to 0 
     CALL message(TRIM(routine),'running the Held-Suarez test')
+    
   CASE ('APE_nwp')
-
-   ! The topography has been initialized to 0 at the begining of this SUB
-    CALL message(TRIM(routine),'running Aqua-Planet Experiment with NWP physics')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with non-hydrostatic atm. dynamics and NWP physics')
   
   CASE ('APE_echam')
-
-    CALL message(TRIM(routine),'running Aqua-Planet Experiment with ECHAM physics')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with non-hydrostatic atm. dynamics and ECHAM physics')
   
-  CASE ('APEc_nh')
+  CASE ('APE_nh')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with non-hydrostatic atm. dynamics')
 
-   ! The topography has been initialized to 0 at the begining of this SUB
-    CALL message(TRIM(routine),'running coupled Aqua-Planet Experiment')
+  CASE ('APEc_nh')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running coupled Aqua-Planet Experiment with non-hydrostatic atm. dynamics')
 
   CASE ('TPEo')
 
@@ -769,7 +772,7 @@ MODULE mo_nh_testcases
     ENDDO !jg
 
 
-  CASE ('APE_nwp')  ! Aqua-Planet Experiment, no mountain
+  CASE ('APE_nwp', 'APE_echam', 'APE_nh', 'APEc_nh')  ! Aqua-Planet Experiment, no mountain
 
     p_sfc_jabw   = zp_ape          ! Pa
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
@@ -782,7 +785,7 @@ MODULE mo_nh_testcases
                                      & p_int(jg),                                   &
                                      & p_sfc_jabw,jw_up )
     
-      IF ( ltransport .AND. iforcing == inwp ) THEN   !
+      IF ( ltransport ) THEN   !
     
         CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
@@ -795,57 +798,7 @@ MODULE mo_nh_testcases
     
     ENDDO !jg
 
-    CALL message(TRIM(routine),'End setup APE_nwp test')
-
-  CASE ('APE_echam')  ! Aqua-Planet Experiment, no mountain
-
-    p_sfc_jabw   = zp_ape          ! Pa
-    global_moist = ztmc_ape        ! kg/m**2 total moisture content
-    jw_up = 1._wp
-
-    DO jg = 1, n_dom
-    
-      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                     & p_int(jg),                                   &
-                                     & p_sfc_jabw,jw_up )
-      ! these are the tracers used by echam, init to zero temporarily...     
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv) = 0.0_wp
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc) = 0.0_wp
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi) = 0.0_wp
-      !IF ( ltransport .AND. iforcing == inwp ) THEN   !
-    
-      !  CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-      !                            & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-      !                            & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
-      !                            & opt_global_moist=global_moist)
-    
-      !END IF
-   
-      ! why do we call this?   
-      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-    
-    ENDDO !jg
-
-    CALL message(TRIM(routine),'End setup APE_echam test')
-
-  CASE ('APEc_nh')
-
-    DO jg = 1, n_dom
-      ! Initial conditions are the same as for the 'JWw-Moist' case
-      !
-      CALL init_nh_state_prog_isoRest( 300._wp, 100000._wp, &
-           & p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%diag )
-      !
-      CALL message(TRIM(routine),'Initial state used in &
-           & APEc_nh test: isothermal state at rest')
-      !
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
-
-      ! is this the same for the hydro and nh cores?
-      ext_data(jg)%atm%topography_c = 0._wp
-
-    ENDDO  ! jg
+    CALL message(TRIM(routine),'End setup non-hydrostatic APE test (APE_nwp, APE_echam, APE_nh, APEc_nh)')
 
   CASE ('TPEc', 'TPEo')  ! Terra-Planet Experiment
 
