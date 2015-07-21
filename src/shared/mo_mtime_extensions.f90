@@ -128,7 +128,7 @@ CONTAINS
     INTEGER, OPTIONAL,                   INTENT(IN)    :: opt_add_seconds !< additional offset
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), OPTIONAL     :: opt_td_string
     ! local variables
-    INTEGER                  :: add_seconds, additional_days, iadd_days
+    INTEGER                  :: additional_days, iadd_days
     TYPE(datetime),  POINTER :: mtime_datetime
     TYPE(timedelta), POINTER :: mtime_td, delta_1day
 
@@ -251,11 +251,11 @@ CONTAINS
   END SUBROUTINE get_datetime_string_str
 
  SUBROUTINE get_duration_string_real(iseconds, td_string) 
-    REAL, INTENT(IN)      :: iseconds
+    REAL(wp), INTENT(IN)      :: iseconds
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), INTENT(INOUT) :: td_string
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_duration_string_real"
-    REAL :: seconds
+    REAL(wp) :: seconds
 
     seconds = iseconds
     ! create a "timedelta" object

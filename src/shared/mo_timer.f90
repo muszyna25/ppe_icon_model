@@ -57,7 +57,7 @@ MODULE mo_timer
   PUBLIC :: timer_physics
                         !< IDs of timers
   PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton
+    & timer_preradiaton, timer_synsat
 
   PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
   PUBLIC :: timer_corio, timer_intp
@@ -69,10 +69,15 @@ MODULE mo_timer
   PUBLIC :: timer_diagnose_pres_temp
   PUBLIC :: timer_nh_diagnostics
 
+  ! atmosphere - ocean coupling
+  PUBLIC :: timer_coupling, timer_coupling_init
+  PUBLIC :: timer_coupling_1stget, timer_coupling_get
+  PUBLIC :: timer_coupling_put
+
   ! iconam - echam coupling
   PUBLIC :: timer_iconam_echam
   PUBLIC :: timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple
-  PUBLIC :: timer_echam_bcs, timer_echam_phy, timer_coupling
+  PUBLIC :: timer_echam_bcs, timer_echam_phy
   PUBLIC :: timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   !
   ! echam physics
@@ -86,7 +91,6 @@ MODULE mo_timer
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
   PUBLIC :: timer_lrtm, timer_srtm
-
 
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
@@ -152,7 +156,7 @@ MODULE mo_timer
   PUBLIC :: timer_scalar_prod_veloc
 
   ! Timer IDs for sea ice
-  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
+  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum
 !    &       timer_ice_advection, timer_ice_interp
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
@@ -202,6 +206,7 @@ MODULE mo_timer
   INTEGER :: timer_fast_phys
   INTEGER :: timer_nwp_convection
   INTEGER :: timer_nwp_radiation
+  INTEGER :: timer_synsat
   INTEGER :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
     & timer_preradiaton
   INTEGER :: timer_pre_radiation_nwp
@@ -233,12 +238,16 @@ MODULE mo_timer
   ! Timer ID's for forcings and testcases
   INTEGER :: timer_held_suarez_intr
 
+  ! Timer ID's for ocean-atmosphere coupling
+  INTEGER :: timer_coupling, timer_coupling_init
+  INTEGER :: timer_coupling_get, timer_coupling_1stget, timer_coupling_put
+
   ! Timer ID's for physics-dynamics coupling
 
   ! iconam - echam coupling
   INTEGER :: timer_iconam_echam
   INTEGER :: timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple
-  INTEGER :: timer_echam_bcs, timer_echam_phy, timer_coupling
+  INTEGER :: timer_echam_bcs, timer_echam_phy
   INTEGER :: timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   !
   ! echam physics
@@ -252,7 +261,6 @@ MODULE mo_timer
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
   INTEGER :: timer_lrtm, timer_srtm
-
 
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
@@ -293,7 +301,7 @@ MODULE mo_timer
   ! ocean
   INTEGER :: timer_scalar_prod_veloc
   ! Timer IDs for sea ice
-  INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
+  INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum
 !    &        timer_ice_advection, timer_ice_interp
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
@@ -379,6 +387,13 @@ CONTAINS
     timer_corio     = new_timer("corio")
     timer_intp      = new_timer("intp")
 
+    ! atmosphere-ocean coupling
+    timer_coupling        = new_timer("coupling")
+    timer_coupling_init   = new_timer("coupling_init")
+    timer_coupling_1stget = new_timer("coupling_1stget")
+    timer_coupling_get    = new_timer("coupling_get")
+    timer_coupling_put    = new_timer("coupling_put")
+
     ! iconam - echam coupling
     timer_iconam_echam= new_timer("iconam_echam")
     timer_dyn2phy     = new_timer("dyn2phy")
@@ -387,7 +402,6 @@ CONTAINS
     timer_d2p_couple  = new_timer("d2p_couple")
     timer_echam_bcs   = new_timer("echam_bcs")
     timer_echam_phy   = new_timer("echam_phy")
-    timer_coupling    = new_timer("coupling")
     timer_phy2dyn     = new_timer("phy2dyn")
     timer_p2d_prep    = new_timer("p2d_prep")
     timer_p2d_sync    = new_timer("p2d_sync")
@@ -446,7 +460,7 @@ CONTAINS
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
     timer_sso = new_timer("sso")
     timer_cover_koe = new_timer("cloud_cover")
-
+    timer_synsat    = new_timer("synsat")
 
     timer_model_init    = new_timer("model_init")
     timer_domain_decomp = new_timer("compute_domain_decomp")
@@ -494,6 +508,7 @@ CONTAINS
     ! Timer IDs for sea ice
     timer_ice_fast      = new_timer("ice_fast")
     timer_ice_slow      = new_timer("ice_slow")
+    timer_ice_slow2     = new_timer("ice_slow2")
     timer_ice_momentum  = new_timer("ice_momentum")
 !    timer_ice_advection = new_timer("ice_advection")
 !    timer_ice_interp    = new_timer("ice_interp")

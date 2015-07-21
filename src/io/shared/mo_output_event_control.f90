@@ -138,7 +138,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateTimedelta(delta)
-    CALL resetCalendar()
+    !rr CALL resetCalendar()
   END SUBROUTINE compute_matching_sim_steps
 
 

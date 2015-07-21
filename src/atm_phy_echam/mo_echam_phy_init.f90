@@ -84,12 +84,7 @@ MODULE mo_echam_phy_init
                                    & prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
-#ifdef YAC_coupling
-  USE mo_yac_finterface,       ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
-#else
-  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
-  USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-#endif
+
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
 
@@ -249,72 +244,76 @@ CONTAINS
     !! convection and turbulence
     !--------------------------------------------------------------
 
-    IF (phy_config%lamip) THEN
+    IF ( ndomain /= 1 ) THEN
+       CALL finish('','ndomain /=1 is not supported yet')
+    END IF
 
-      IF ( ndomain /= 1 ) THEN
-        CALL finish('','ndomain /=1 is not supported yet')
-      END IF
+    IF ( TRIM(nh_test_name) .NE. "APEc_nh" .AND. &
+      &  TRIM(nh_test_name) .NE. "APEc" ) THEN
 
       DO jg= 1,ndomain
 
-        ! read time-constant boundary conditions from files
+         ! read time-constant boundary conditions from files
+      
+         ! land, glacier and lake masks
+         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+         CALL read_2D(stream_id=stream_id, location=onCells, &
+              &          variable_name='land',               &
+              &          fill_array=prm_field(jg)%lsmask(:,:))
+         CALL read_2D(stream_id=stream_id, location=onCells, &
+              &          variable_name='glac',               &
+              &          fill_array=prm_field(jg)% glac(:,:))
+         CALL read_2D(stream_id=stream_id, location=onCells, &
+              &          variable_name='lake',               &
+              &          fill_array=prm_field(jg)% alake(:,:))
+         CALL closeFile(stream_id)
+         !
+         ! add lake mask to land sea mask to remove lakes again
+         prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
 
-        ! land, glacier and lake masks
-        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
-        CALL read_2D(stream_id=stream_id, location=onCells, &
-          &          variable_name='land',                  &
-          &          fill_array=prm_field(jg)%lsmask(:,:))
-        CALL read_2D(stream_id=stream_id, location=onCells, &
-          &          variable_name='glac',                  &
-          &          fill_array=prm_field(jg)% glac(:,:))
-        CALL read_2D(stream_id=stream_id, location=onCells, &
-          &          variable_name='lake',                  &
-          &          fill_array=prm_field(jg)% alake(:,:))
-        CALL closeFile(stream_id)
-        !
-        ! add lake mask to land sea mask to remove lakes again
-        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+         ! roughness length and background albedo
+         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
-        ! roughness length and background albedo
-        stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
-        IF (phy_config%lvdiff) THEN
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='z0',                    &
-            &          fill_array=prm_field(jg)% z0m(:,:))
-        END IF
-        IF (phy_config%lrad) THEN
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='albedo',                &
-            &          fill_array=prm_field(jg)% alb(:,:))
-        END IF
-        CALL closeFile(stream_id)
+         IF (phy_config%lvdiff) THEN
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+                 &       variable_name='z0',                    &
+                 &       fill_array=prm_field(jg)% z0m(:,:))
+         END IF
 
-        ! orography
-        IF (phy_config%lssodrag) THEN
-          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='oromea',                &
-            &          fill_array=prm_field(jg)% oromea(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='orostd',                &
-            &          fill_array=prm_field(jg)% orostd(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='orosig',                &
-            &          fill_array=prm_field(jg)% orosig(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='orogam',                &
-            &          fill_array=prm_field(jg)% orogam(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='orothe',                &
-            &          fill_array=prm_field(jg)% orothe(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='oropic',                &
-            &          fill_array=prm_field(jg)% oropic(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
-            &          variable_name='oroval',                &
-            &          fill_array=prm_field(jg)% oroval(:,:))
-          CALL closeFile(stream_id)
-        END IF
+         IF (phy_config%lrad) THEN
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+                 &       variable_name='albedo',                &
+                 &       fill_array=prm_field(jg)% alb(:,:))
+         END IF
+
+         CALL closeFile(stream_id)
+         
+         ! orography
+         IF (phy_config%lssodrag) THEN
+            stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+                 &       variable_name='oromea',                &
+                 &       fill_array=prm_field(jg)% oromea(:,:))
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+               &         variable_name='orostd',                &
+               &         fill_array=prm_field(jg)% orostd(:,:))
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+               &         variable_name='orosig',                &
+               &         fill_array=prm_field(jg)% orosig(:,:))
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+               &         variable_name='orogam',                &
+               &         fill_array=prm_field(jg)% orogam(:,:))
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+               &         variable_name='orothe',                &
+               &         fill_array=prm_field(jg)% orothe(:,:))
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+               &         variable_name='oropic',                &
+               &         fill_array=prm_field(jg)% oropic(:,:))
+            CALL read_2D(stream_id=stream_id, location=onCells, &
+               &         variable_name='oroval',                &
+               &         fill_array=prm_field(jg)% oroval(:,:))
+            CALL closeFile(stream_id)
+         END IF
 
       END DO ! jg
 
@@ -324,7 +323,7 @@ CONTAINS
       IF (ighg > 0) THEN
         ! read annual means
         IF (.NOT. bc_greenhouse_gases_file_read) THEN
-          CALL read_bc_greenhouse_gases(ighg)
+           CALL read_bc_greenhouse_gases(ighg)
         END IF
         ! interpolate to the current date and time, placing the annual means at
         ! the mid points of the current and preceding or following year, if the
@@ -341,12 +340,12 @@ CONTAINS
         !
         CALL read_bc_sst_sic(current_date%year, p_patch(1))
         !
-        CALL bc_sst_sic_time_interpolation(wi_limm                           ,&
-          &                                prm_field(jg)%lsmask(:,:)         ,&
-          &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
-          &                                prm_field(jg)%seaice(:,:)         ,&
-          &                                prm_field(jg)%siced(:,:)          )
-        !
+        CALL bc_sst_sic_time_interpolation(wi_limm                           , &
+             &                             prm_field(jg)%lsmask(:,:)         , &
+             &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
+             &                             prm_field(jg)%seaice(:,:)         , &
+             &                             prm_field(jg)%siced(:,:)          )
+!
 ! TODO: ME preliminary setting for ice and land and total surface
         prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
         prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
@@ -373,11 +372,10 @@ CONTAINS
         prm_field(jg)%albnirdir(:,:) = albedoW
         prm_field(jg)%albnirdif(:,:) = albedoW
         prm_field(jg)%albedo(:,:)    = albedoW
-
-        !
+!
 ! TODO: ME preliminary setting for ice
-      ! The ice model should be able to handle different thickness classes, 
-      ! but for AMIP we ONLY USE one ice class.
+! The ice model should be able to handle different thickness classes, 
+! but for AMIP we ONLY USE one ice class.
         prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
         prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
@@ -405,8 +403,8 @@ CONTAINS
       END IF ! phy_config%ljsbach
 #endif
 
-    END IF ! phy_config%lamip
-
+    END IF ! nh_test_name
+  
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy
@@ -437,17 +435,6 @@ CONTAINS
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
     !----
-
-    ! in case of coupling
-    INTEGER               :: nbr_fields
-    INTEGER               :: nbr_points
-    INTEGER               :: nbr_hor_points
-
-    INTEGER               :: field_shape(3)
-    INTEGER, ALLOCATABLE  :: field_id(:)
-    REAL(wp), ALLOCATABLE :: buffer(:,:)
-
-    INTEGER               :: info, ierror !< return values form cpl_put/get calls
 
       field => prm_field(jg)
       tend  => prm_tend (jg)
@@ -561,242 +548,6 @@ CONTAINS
           field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
           field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
           field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-
-! This shouldn't be necessary!
-          IF ( is_coupled_run() ) THEN
-
-             ALLOCATE(buffer(nproma*nblks_c,5))
-
-             nbr_hor_points = p_patch%n_patch_cells
-             nbr_points     = nproma * p_patch%nblks_c
-
-             !
-             !  see drivers/mo_atmo_model.f90:
-             !
-             !   field_id(1) represents "TAUX"   wind stress component
-             !   field_id(2) represents "TAUY"   wind stress component
-             !   field_id(3) represents "SFWFLX" surface fresh water flux
-             !   field_id(4) represents "SFTEMP" surface temperature
-             !   field_id(5) represents "THFLX"  total heat flux
-             !   field_id(6) represents "ICEATM" ice temperatures and melt potential
-             !
-             !   field_id(7) represents "SST"    sea surface temperature
-             !   field_id(9) represents "OCEANU" u component of ocean surface current
-             !   field_id(9) represents "OCEANV" v component of ocean surface current
-             !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
-             !
-             !
-#ifdef YAC_coupling
-             CALL yac_fget_nbr_fields ( nbr_fields )
-             ALLOCATE(field_id(nbr_fields))
-             CALL yac_fget_field_ids ( nbr_fields, field_id )
-#else
-             CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-             ALLOCATE(field_id(nbr_fields))
-             CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-#endif
-             !
-             field_shape(1) = 1
-             field_shape(2) = nbr_hor_points
-             field_shape(3) = 1
-             !
-             ! Send fields away
-             ! ----------------
-             !
-             ! Is there really anything to send or can the ocean live without?
-             !
-             ! Send fields away
-             ! ----------------
-             !
-             ! TAUX
-             !
-             buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-             buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
-#ifdef YAC_coupling
-             CALL yac_fput ( field_id(1), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
-             IF ( info > 0 ) THEN
-                WRITE ( 6 , * ) "TAUX 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-                WRITE ( 6 , * ) "TAUX 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
-             ENDIF
-#else
-             field_shape(3) = 2
-             CALL ICON_cpl_put_init ( field_id(1), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
-#endif
-             !
-             ! TAUY
-             !
-             buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-             buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
-#ifdef YAC_coupling
-             CALL yac_fput ( field_id(2), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
-             IF ( info > 0 ) THEN
-                WRITE ( 6 , * ) "TAUY 1", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-                WRITE ( 6 , * ) "TAUY 2", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
-             ENDIF
-#else
-
-             CALL ICON_cpl_put_init ( field_id(2), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
-#endif
-             !
-             ! SFWFLX Note: the evap_tile should be properly updated and added
-             !
-             buffer(:,1) = RESHAPE ( field%rsfl(:,:), (/ nbr_points /) ) + &
-                  &        RESHAPE ( field%rsfc(:,:), (/ nbr_points /) ) 
-             buffer(:,2) = RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
-                  &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
-             buffer(:,3) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
-#ifdef YAC_coupling
-             CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
-             IF ( info > 0 ) THEN
-                WRITE ( 6 , * ) "SFW 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-                WRITE ( 6 , * ) "SFW 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
-                WRITE ( 6 , * ) "SFW 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
-             ENDIF
-#else
-             field_shape(3) = 3
-             CALL ICON_cpl_put_init ( field_id(3), field_shape, &
-                                      buffer(1:nbr_hor_points,1:3), ierror )
-#endif
-             !
-             ! SFTEMP
-             !
-             buffer(:,1) =  RESHAPE ( field%temp(:,nlev,:), (/ nbr_points /) )
-#ifdef YAC_coupling
-             CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-             IF ( info > 0 ) THEN
-                WRITE ( 6 , * ) "SFT   ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-             ENDIF
-#else
-             field_shape(3) = 1
-             CALL ICON_cpl_put_init ( field_id(4), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), ierror )
-#endif
-             !
-             ! THFLX, total heat flux
-             !
-             buffer(:,1) =  RESHAPE ( field%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
-             buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) ! sensible heat flux
-             buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
-#ifdef YAC_coupling
-             CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
-             IF ( info > 0 ) THEN
-                WRITE ( 6 , * ) "THF 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-                WRITE ( 6 , * ) "THF 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
-                WRITE ( 6 , * ) "THF 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
-                WRITE ( 6 , * ) "THF 4 ", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
-             ENDIF
-#else
-             field_shape(3) = 4
-             CALL ICON_cpl_put_init ( field_id(5), field_shape, &
-                                      buffer(1:nbr_hor_points,1:4), ierror )
-#endif
-             !
-             ! ICEATM, Ice state determined by atmosphere
-             !
-             buffer(:,1) =  RESHAPE ( field%Qtop(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - top
-             buffer(:,2) =  RESHAPE ( field%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
-             buffer(:,3) =  RESHAPE ( field%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
-             buffer(:,4) =  RESHAPE ( field%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
-#ifdef YAC_coupling
-             CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
-             IF ( info > 0 ) THEN
-                WRITE ( 6 , * ) "ICE 1 ", minval(buffer(1:nbr_hor_points,1:1)), maxval(buffer(1:nbr_hor_points,1:1))
-                WRITE ( 6 , * ) "ICE 2 ", minval(buffer(1:nbr_hor_points,2:2)), maxval(buffer(1:nbr_hor_points,2:2))
-                WRITE ( 6 , * ) "ICE 3 ", minval(buffer(1:nbr_hor_points,3:3)), maxval(buffer(1:nbr_hor_points,3:3))
-                WRITE ( 6 , * ) "ICE 4 ", minval(buffer(1:nbr_hor_points,4:4)), maxval(buffer(1:nbr_hor_points,4:4))
-             ENDIF
-#else
-
-             field_shape(3) = 4
-             CALL ICON_cpl_put_init ( field_id(6), field_shape, &
-                                      buffer(1:nbr_hor_points,1:4), ierror )
-#endif
-             ! Receive fields, only assign values if something was received ( info > 0 )
-             ! -------------------------------------------------------------------------
-             !
-             ! I guess that only the SST is really needed.
-             !
-             !
-             ! SST
-             !
-#ifdef YAC_coupling
-             CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-             field_shape(3) = 1
-             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
-                CALL sync_patch_array(sync_c, p_patch, field%tsfc_tile(:,:,iwtr))
-                CALL sync_patch_array(sync_c, p_patch, field%tsfc     (:,:))
-             ENDIF
-             !
-             ! OCEANU
-             !
-#ifdef YAC_coupling
-             CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                CALL sync_patch_array(sync_c, p_patch, field%ocu(:,:))
-             ENDIF
-             !
-             ! OCEANV
-             !
-#ifdef YAC_coupling
-             CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-
-             CALL ICON_cpl_get_init ( field_id(9), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                CALL sync_patch_array(sync_c, p_patch, field%ocv(:,:))
-             ENDIF
-
-             !
-             ! ICEOCE
-             !
-#ifdef YAC_coupling
-             CALL yac_fget ( field_id(10), nbr_hor_points, 5, 1, 1, buffer, info, ierror )
-#else
-
-             field_shape(3) = 5
-             CALL ICON_cpl_get_init ( field_id(10), field_shape, &
-                                      buffer(1:nbr_hor_points,1:5), info, ierror )
-#endif
-             IF ( info > 0 ) THEN
-               buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-               field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-               field%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
-               field%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
-               field%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
-               field%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, nblks_c /) )
-               CALL sync_patch_array(sync_c, p_patch, field%hi  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch, field%hs  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch, field%seaice(:,:))
-               CALL sync_patch_array(sync_c, p_patch, field%T1  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch, field%T2  (:,1,:))
-               field%seaice(:,:) = field%conc(:,1,:)
-             ENDIF
-
-             DEALLOCATE(field_id)
-             DEALLOCATE(buffer)
-
-          ENDIF
-
 
         CASE('JWw-Moist','LDF-Moist','jabw_m')
 

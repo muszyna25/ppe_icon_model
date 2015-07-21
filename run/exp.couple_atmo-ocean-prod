@@ -147,7 +147,9 @@ ozon_file="ape_o3_${ocean_grids}"
 # write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
-#  
+#
+atm_lag=2 # 2 for cold start, 1 for normal restart
+#
 cat > $atmo_namelist << EOF
 &coupling_mode_nml
   debug_coupler_level = 1
@@ -158,7 +160,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -168,7 +170,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -178,6 +180,8 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  lag                 =  ${atm_lag}
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
@@ -186,7 +190,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -196,7 +200,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -206,7 +210,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -214,9 +218,9 @@ cat > $atmo_namelist << EOF
   name                = 'SST'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -226,7 +230,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -234,9 +238,9 @@ cat > $atmo_namelist << EOF
   name                = 'OCEANV'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -244,9 +248,9 @@ cat > $atmo_namelist << EOF
   name                = 'ICEOCE'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
-  lag                 = 1
+  lag                 =  ${atm_lag}
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
@@ -441,7 +445,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'TAUX'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -450,7 +455,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'TAUY'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -459,15 +465,18 @@ cat > ${ocean_namelist} << EOF
   name                = 'SFWFLX'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'SFTEMP'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -476,7 +485,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'THFLX'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -485,7 +495,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'ICEATM'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -494,6 +505,7 @@ cat > ${ocean_namelist} << EOF
   name                = 'SST'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
+  lag                 =  1
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
@@ -503,7 +515,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'OCEANU'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -512,7 +525,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'OCEANV'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -521,7 +535,8 @@ cat > ${ocean_namelist} << EOF
   name                = 'ICEOCE'
   dt_model            =  ${dtime}
   dt_coupling         =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  lag                 =  1
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .FALSE.
   l_activated         = .TRUE.
@@ -594,7 +609,7 @@ cat > ${ocean_namelist} << EOF
   k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_TRAC   = 0.1       ! max vertical tracer diffusion for convection used in case of instability
-  HORZ_VELOC_DIFF_TYPE = 1         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_type = 1         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   MAX_VERT_DIFF_VELOC  = 1.0E-5    ! max vertical viscosity coefficient
 /
 &ocean_physics_nml

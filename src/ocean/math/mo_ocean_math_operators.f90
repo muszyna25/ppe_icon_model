@@ -35,14 +35,14 @@ MODULE mo_ocean_math_operators
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, &
-    & select_solver, select_restart_mixedprecision_gmres
+    & select_solver, select_restart_mixedprecision_gmres, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip
   
   USE mo_dynamics_config,    ONLY: nold
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
     & t_verticaladvection_ppm_coefficients, t_operator_coeff
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product
 !   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array
@@ -867,48 +867,54 @@ CONTAINS
         ENDDO ! verts%num_edges
 
         !Finalize vorticity calculation by closing the dual loop along boundary edges
-        z_vort_boundary(start_level:end_level) = 0.0_wp
-        z_vt(:) = 0.0_wp
-        DO level = start_level, end_level
+        IF(i_bc_veloc_lateral/=i_bc_veloc_lateral_noslip)THEN
+          z_vort_boundary(start_level:end_level) = 0.0_wp
+          z_vt(:) = 0.0_wp
+          DO level = start_level, end_level
 !           IF ( .NOT. (p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo) == 0 .or. &
 !                       p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo) == 2 .or. &
 !                       p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo) == 4)) &
 !             CALL finish("rot_vertex_ocean_3D", "wrong bnd_edges_per_vertex")
-          DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
-            boundaryEdge_index = vertex_boundaryEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex)
-            boundaryEdge_block = vertex_boundaryEdgeBlock(vertexIndex,level,blockNo,boundaryEdge_inVertex)
-            !calculate tangential velocity
-            il_v1 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,1)
-            ib_v1 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,1)
-            il_v2 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,2)
-            ib_v2 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,2)
+            DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
+              boundaryEdge_index = vertex_boundaryEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex)
+              boundaryEdge_block = vertex_boundaryEdgeBlock(vertexIndex,level,blockNo,boundaryEdge_inVertex)
+              !calculate tangential velocity
+              il_v1 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,1)
+              ib_v1 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,1)
+              il_v2 = patch_2D%edges%vertex_idx(boundaryEdge_index,boundaryEdge_block,2)
+              ib_v2 = patch_2D%edges%vertex_blk(boundaryEdge_index,boundaryEdge_block,2)
 
-            z_vt(boundaryEdge_inVertex)=   &
-              & - DOT_PRODUCT(vn_dual(il_v1,level,ib_v1)%x,                                               &
-              &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,1)%x)     &
-              & + DOT_PRODUCT(vn_dual(il_v2,level,ib_v2)%x,                                               &
-              &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,2)%x)
+              z_vt(boundaryEdge_inVertex)=   &
+                & - DOT_PRODUCT(vn_dual(il_v1,level,ib_v1)%x,                                               &
+                &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,1)%x)     &
+                & + DOT_PRODUCT(vn_dual(il_v2,level,ib_v2)%x,                                               &
+                &     p_op_coeff%edge2vert_coeff_cc_t(boundaryEdge_index,level,boundaryEdge_block,2)%x)
 
-          ENDDO
-          DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
+            ENDDO
+            DO boundaryEdge_inVertex = 1, p_op_coeff%bnd_edges_per_vertex(vertexIndex,level,blockNo)
 
-            z_vort_boundary(level) = z_vort_boundary(level) + &
-              & z_vt(boundaryEdge_inVertex) * &
-              &    p_op_coeff%rot_coeff(vertexIndex,level,blockNo, &
-              &       coeffs_VertexEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex))
+              z_vort_boundary(level) = z_vort_boundary(level) + &
+                & z_vt(boundaryEdge_inVertex) * &
+                &    p_op_coeff%rot_coeff(vertexIndex,level,blockNo, &
+                &       coeffs_VertexEdgeIndex(vertexIndex,level,blockNo,boundaryEdge_inVertex))
 
-          ENDDO ! boundaryEdge_inVertex
-        ENDDO ! levels
+            ENDDO ! boundaryEdge_inVertex
+          ENDDO ! levels
 
-        DO level = start_level, end_level
+          DO level = start_level, end_level
           !Final vorticity calculation
-          !TODO ram
-          !       rot_vec_v(vertexIndex,level,blockNo) = (z_vort_internal + z_vort_boundary(vertexIndex,level,blockNo)) / &
-          !         & patch_2D%verts%dual_area(vertexIndex,blockNo)
           rot_vec_v(vertexIndex,level,blockNo) = z_vort_internal(level) + z_vort_boundary(level)
 
-        END DO ! levels
+          END DO ! levels
+        ELSEIF(i_bc_veloc_lateral==i_bc_veloc_lateral_noslip)THEN
+          !In the no-slip case the velocity in normal and tengential direction vanishes. 
+          !Therefore the calculations above with tangential velocity and vorticity at boundary are are not necessary. 
+          DO level = start_level, end_level
+          !Final vorticity calculation
+          rot_vec_v(vertexIndex,level,blockNo) = z_vort_internal(level)
 
+          END DO ! levels      
+        ENDIF
       END DO ! vertexIndex
     END DO ! vertexBlock
 !ICON_OMP_END_PARALLEL_DO
@@ -920,7 +926,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE calculates vertical derivative for a vector that is located at cell center and at midelevel, i.e. at the center of a 3D prism.
-  !!    start level has to be specifed, at end level value zero is assigned to vert. derivative   
+  !!    start level has to be specifed, at end level value zero is assigned to vert. derivative
+  !!    start_level should be > 1
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
@@ -932,26 +939,24 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_in(nproma, n_zlev)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)       :: vertDeriv_vec(nproma, n_zlev)    ! out
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vertDeriv_vec(nproma, n_zlev)    ! out
     
     !Local variables
     INTEGER :: jk, jc!,jb
-    ! REAL(wp), POINTER ::  prism_center_distance(:,:)
+    REAL(wp), POINTER ::  inv_prism_center_distance(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
-    ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
-!       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-!      IF ( end_level >=min_dolic ) THEN
+        
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_vec(jc,jk)%x &
           & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & !/ prism_center_distance(jc,jk)
-              & * patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+              & * inv_prism_center_distance(jc,jk-1)
               
         END DO    
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed 
-!      ENDIF
     END DO
     
   END SUBROUTINE verticalDeriv_vec_midlevel_on_block
@@ -977,18 +982,17 @@ CONTAINS
 
     !Local variables
     INTEGER :: jk, jc!,jb
-    ! REAL(wp), POINTER ::  prism_center_distance(:,:)
+    REAL(wp), POINTER ::  inv_prism_center_distance(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
-    ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+    !inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c  (:,:,blockNo)
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)	
 
     DO jc = start_index, end_index
-!       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-!      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_scalar(jc,jk) &
           & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & 
-              & * patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+              & * inv_prism_center_distance(jc,jk)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
@@ -1299,7 +1303,7 @@ CONTAINS
       DO jc = cell_StartIndex, cell_EndIndex
         IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
           
-          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
+          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,1,blockNo) = 0.5_wp * &
             & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
           
           patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
@@ -1307,8 +1311,8 @@ CONTAINS
           
           inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
           
-          inv_prisms_center_distance(jc,2,blockNo) = &
-            & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo)
+          inv_prisms_center_distance(jc,1,blockNo) = &
+            & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,1,blockNo)
           
           ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + patch_3D%column_thick_c(jc,blockNo)
           
