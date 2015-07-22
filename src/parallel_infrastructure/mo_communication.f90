@@ -2344,7 +2344,8 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
                auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
-              npats, isum, ioffset, isum1, n4d, pid
+              npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, j
+   INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
 
 !-----------------------------------------------------------------------
 
@@ -2358,6 +2359,72 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    npats = SIZE(p_pat)  ! Number of communication patterns provided on input
 
+!-----------------------------------------------------------------------
+
+   ! some adjustmens to the standart communication patterns in order to make
+   ! them work in this routine
+
+   num_send = 0
+   num_recv = 0
+
+   DO np = 0, p_n_work-1 ! loop over PEs
+
+     DO n = 1, npats  ! loop over communication patterns
+       iss = p_pat(n)%send_limits(np)+1
+       ise = p_pat(n)%send_limits(np+1)
+       IF(ise >= iss) THEN
+         num_send = num_send + 1
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+     DO n = 1, npats  ! loop over communication patterns
+       irs = p_pat(n)%recv_limits(np)+1
+       ire = p_pat(n)%recv_limits(np+1)
+       IF(ire >= irs) THEN
+         num_recv = num_recv + 1
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+   ENDDO
+
+   ALLOCATE(pelist_send(num_send), pelist_recv(num_recv))
+
+   num_send = 0
+   num_recv = 0
+
+   ! Now compute "envelope PE lists" for all communication patterns
+   DO np = 0, p_n_work-1 ! loop over PEs
+
+     DO n = 1, npats  ! loop over communication patterns
+       iss = p_pat(n)%send_limits(np)+1
+       ise = p_pat(n)%send_limits(np+1)
+       IF(ise >= iss) THEN
+         num_send = num_send + 1
+         DO j = 1, npats
+           pelist_send(num_send) = np
+         ENDDO
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+     DO n = 1, npats  ! loop over communication patterns
+       irs = p_pat(n)%recv_limits(np)+1
+       ire = p_pat(n)%recv_limits(np+1)
+       IF(ire >= irs) THEN
+         num_recv = num_recv + 1
+         DO j = 1, npats
+           pelist_recv(num_recv) = np
+         ENDDO
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+   ENDDO
+
+!-----------------------------------------------------------------------
+
    ! Set up irecv's for receive buffers
    ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
    ! because there may be PEs receiving but not sending data. Therefore, iorder_sendrecv=0
@@ -2365,9 +2432,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. my_process_is_mpi_seq()) THEN
 
      ioffset = 0
-     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+     DO np = 1, num_recv ! loop over PEs from where to receive the data
 
-       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+       pid = pelist_recv(np) ! ID of receiver PE
 
        ! Sum up receive points over all communication patterns to be processed
        isum = ioffset
@@ -2520,9 +2587,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF (iorder_sendrecv <= 1) THEN
      ! Send our data
      ioffset = 0
-     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+     DO np = 1, num_send ! loop over PEs where to send the data
 
-       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+       pid = pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
@@ -2545,9 +2612,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
      ioffset = 0
-     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+     DO np = 1, num_send ! loop over PEs where to send the data
 
-       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+       pid = pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
@@ -2570,9 +2637,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
 
      ioffset = 0
-     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+     DO np = 1, num_recv ! loop over PEs from where to receive the data
 
-       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+       pid = pelist_recv(np) ! ID of receiver PE
 
        ! Sum up receive points over all communication patterns to be processed
        isum = ioffset
@@ -2587,9 +2654,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
      ioffset = 0
-     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+     DO np = 1, num_send ! loop over PEs where to send the data
 
-       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+       pid = pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
@@ -2626,9 +2693,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    ! Copy exchanged data back to receive buffer
    ioffset = 0
-   DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+   DO np = 1, num_recv ! loop over PEs from where to receive the data
 
-     pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+     pid = pelist_recv(np) ! ID of receiver PE
 
      isum = ioffset
      DO n = 1, npats
