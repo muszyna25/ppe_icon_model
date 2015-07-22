@@ -2305,9 +2305,10 @@ END SUBROUTINE complete_async_comm
 !! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
 !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
 !!
-SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1,   &
-                             recv2, send2, recv3, send3, recv4, send4, recv5, send5,       &
-                             recv6, send6, recv4d1, send4d1, recv4d2, send4d2)
+SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
+                             recv2, send2, recv3, send3, recv4, send4, &
+                             recv5, send5, recv6, send6, recv4d1, send4d1, &
+                             recv4d2, send4d2)
 
   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat(:)
 
@@ -2323,8 +2324,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_grf"
    INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
    INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
-   INTEGER, INTENT(IN)           :: nsendtot ! total number of send points
-   INTEGER, INTENT(IN)           :: nrecvtot ! total number of receive points
+
+   INTEGER           :: nsendtot ! total number of send points
+   INTEGER           :: nrecvtot ! total number of receive points
 
    TYPE t_fieldptr_recv
      REAL(wp), POINTER :: fld(:,:,:)
@@ -2340,12 +2342,20 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    INTEGER        :: ndim2(nfields), noffset(nfields),            &
                      ioffset_s(SIZE(p_pat)), ioffset_r(SIZE(p_pat))
 
-   REAL(wp) :: send_buf(ndim2tot,nsendtot),recv_buf(ndim2tot,nrecvtot), &
-               auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot)
+   REAL(wp), ALLOCATABLE :: send_buf(:,:),recv_buf(:,:), &
+                            auxs_buf(:,:),auxr_buf(:,:)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
               npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, j
    INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
+
+!-----------------------------------------------------------------------
+
+  nsendtot = SUM(p_pat(:)%n_send)
+  nrecvtot = SUM(p_pat(:)%n_recv)
+
+  ALLOCATE(send_buf(ndim2tot,nsendtot),recv_buf(ndim2tot,nrecvtot), &
+           auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot))
 
 !-----------------------------------------------------------------------
 
