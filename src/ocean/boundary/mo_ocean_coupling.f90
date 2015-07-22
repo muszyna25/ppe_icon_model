@@ -278,9 +278,8 @@ CONTAINS
 
     ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
 
-!ICON_OMP_PARALLEL
     nbr_inner_cells = 0
-!ICON_OMP_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
          ibuffer(idx) = -1
@@ -289,8 +288,7 @@ CONTAINS
          ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
        ENDIF
     ENDDO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
     ! decomposition information
     CALL yac_fdef_index_location (              &
@@ -322,19 +320,18 @@ CONTAINS
     !           2: inner land
     !
 
-!ICON_OMP_PARALLEL
     mask_checksum = 0
-!ICON_OMP_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE
     DO BLOCK = 1, patch_horz%nblks_c
       DO idx = 1, nproma
         mask_checksum = mask_checksum + ABS(patch_3d%surface_cell_sea_land_mask(idx, BLOCK))
       ENDDO
     ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
     IF ( mask_checksum > 0 ) THEN
 
-!ICON_OMP_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
@@ -346,22 +343,21 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
     ELSE
 
-!ICON_OMP_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
       DO idx = 1, patch_horz%nblks_c * nproma
         ibuffer(idx) = 0
       ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
     ENDIF
-!ICON_OMP_END_PARALLEL
 
     CALL yac_fdef_mask (          &
       & patch_horz%n_patch_cells, &
-      & ibuffer,                &
+      & ibuffer,                  &
       & cell_point_ids(1),        &
       & cell_mask_ids(1) )
 
@@ -392,10 +388,10 @@ CONTAINS
 
 #else
 
-    INTEGER :: idx
     INTEGER :: grid_id
     INTEGER :: grid_shape(2)
     INTEGER :: field_shape(3)
+    INTEGER :: BLOCK, idx, INDEX
 
     IF (.NOT. is_coupled_run()) RETURN
 
@@ -437,15 +433,13 @@ CONTAINS
 
     field_shape(1:2) = grid_shape(1:2)
 
-!ICON_OMP_PARALLEL
     nbr_inner_cells = 0
-!ICON_OMP_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) &
     &    nbr_inner_cells = nbr_inner_cells + 1
     ENDDO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
     ! see equivalent ocean counterpart in drivers/mo_atmo_model.f90
     ! routine construct_atmo_coupler 
@@ -474,6 +468,19 @@ CONTAINS
 #endif
 
     ALLOCATE(buffer(nproma * patch_horz%nblks_c,5))
+
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, INDEX, idx) ICON_OMP_DEFAULT_SCHEDULE
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        INDEX = (BLOCK-1)*nproma+idx
+        buffer(INDEX,1) = 0.0_wp
+        buffer(INDEX,2) = 0.0_wp
+        buffer(INDEX,3) = 0.0_wp
+        buffer(INDEX,4) = 0.0_wp
+        buffer(INDEX,5) = 0.0_wp
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
     IF (ltimer) CALL timer_stop(timer_coupling_init)
 
@@ -512,7 +519,6 @@ CONTAINS
     ! Local declarations for coupling:
     LOGICAL :: write_coupler_restart
     INTEGER :: nbr_hor_cells  ! = inner and halo points
-    INTEGER :: nbr_cells      ! = nproma * nblks
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
@@ -533,7 +539,7 @@ CONTAINS
     time_config%cur_datetime = datetime
 
     nbr_hor_cells = patch_horz%n_patch_cells
-    nbr_cells     = nproma * patch_horz%nblks_c
+
     !
     !  see drivers/mo_ocean_model.f90:
     !
@@ -823,11 +829,18 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_LongWave (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Sensible (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Latent   (:,:))
+
       ! sum of fluxes for ocean boundary condition
-      atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:) &
-        &                              + atmos_fluxes%HeatFlux_LongWave (:,:) &
-        &                              + atmos_fluxes%HeatFlux_Sensible (:,:) &
-        &                              + atmos_fluxes%HeatFlux_Latent   (:,:)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        DO n = 1, nproma
+          atmos_fluxes%HeatFlux_Total(n,i_blk) = atmos_fluxes%HeatFlux_ShortWave(n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_LongWave (n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_Sensible (n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_Latent   (n,i_blk)
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
     ENDIF
     !
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
