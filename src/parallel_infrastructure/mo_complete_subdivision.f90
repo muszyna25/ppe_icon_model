@@ -689,7 +689,8 @@ CONTAINS
     DO j = 1, p_patch%n_patch_cells
       jc = idx_no(j)
       jb = blk_no(j)
-      jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+      jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
+        &         p_patch%cells%parent_glb_blk(jc,jb))
       IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
       glb_index(j) = jp
     ENDDO
@@ -742,7 +743,8 @@ CONTAINS
         jb = blk_no(j)
         IF (p_patch%cells%refin_ctrl(jc,jb) > 0 .AND. p_patch%cells%refin_ctrl(jc,jb) <= grf_bdywidth_c &
             .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
-          jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+          jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
+            &         p_patch%cells%parent_glb_blk(jc,jb))
           glb_index(j) = jp
         ENDIF
       ENDDO
@@ -780,7 +782,8 @@ CONTAINS
         jb = blk_no(j)
         IF (p_patch%edges%refin_ctrl(je,jb) > 0 .AND. p_patch%edges%refin_ctrl(je,jb) <= grf_bdywidth_e &
             .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
-          jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
+          jp = idx_1d(p_patch%edges%parent_glb_idx(je,jb), &
+            &         p_patch%edges%parent_glb_blk(je,jb))
           glb_index(j) = jp
         ENDIF
       ENDDO
@@ -834,7 +837,8 @@ CONTAINS
         jb = blk_no(j)
         IF ((p_patch%cells%refin_ctrl(jc,jb) >= grf_bdywidth_c+1 .OR. p_patch%cells%refin_ctrl(jc,jb) <= 0) &
             .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
-          jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+          jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
+            &         p_patch%cells%parent_glb_blk(jc,jb))
           glb_index(j) = jp
         ENDIF
       ENDDO
@@ -871,7 +875,8 @@ CONTAINS
         jb = blk_no(j)
         IF ((p_patch%edges%refin_ctrl(je,jb) >= grf_bdywidth_e+1 .OR. p_patch%edges%refin_ctrl(je,jb) <= 0) &
             .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
-          jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
+          jp = idx_1d(p_patch%edges%parent_glb_idx(je,jb), &
+            &         p_patch%edges%parent_glb_blk(je,jb))
           glb_index(j) = jp
         ENDIF
       ENDDO

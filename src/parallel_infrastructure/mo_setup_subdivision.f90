@@ -373,8 +373,8 @@ CONTAINS
 
       DO jl = 1, nlen
 
-        ip = idx_1d(patch%cells%parent_idx(jl,jb), &
-                    patch%cells%parent_blk(jl,jb))
+        ip = idx_1d(patch%cells%parent_glb_idx(jl,jb), &
+                    patch%cells%parent_glb_blk(jl,jb))
         jg = patch%cells%decomp_info%glb_index(idx_1d(jl, jb))
 
         IF(parent_patch_pre%cells%child(ip,1) == jg ) patch%cells%pc_idx(jl,jb) = 1
@@ -397,8 +397,8 @@ CONTAINS
 
       DO jl = 1, nlen
 
-        ip = idx_1d(patch%edges%parent_idx(jl,jb), &
-                    patch%edges%parent_blk(jl,jb))
+        ip = idx_1d(patch%edges%parent_glb_idx(jl,jb), &
+                    patch%edges%parent_glb_blk(jl,jb))
         jg = patch%edges%decomp_info%glb_index(idx_1d(jl, jb))
 
         IF(parent_patch_pre%edges%child(ip,1) == jg ) patch%edges%pc_idx(jl,jb) = 1
@@ -983,8 +983,8 @@ CONTAINS
 
       jc_p = wrk_p_patch_pre%cells%parent(jg)
 
-      wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(jc_p)
-      wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(jc_p)
+      wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(jc_p)
+      wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(jc_p)
       wrk_p_patch%cells%child_idx(jl,jb,1:4) = &
         idx_no(wrk_p_patch_pre%cells%child(jg,1:4))
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
@@ -1022,8 +1022,8 @@ CONTAINS
       jpg = wrk_p_patch_pre%edges%parent(jg)
       jcg = wrk_p_patch_pre%edges%child(jg,1:4)
 
-      wrk_p_patch%edges%parent_idx(jl,jb)    = idx_no(jpg)
-      wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(jpg)
+      wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(jpg)
+      wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(jpg)
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
 

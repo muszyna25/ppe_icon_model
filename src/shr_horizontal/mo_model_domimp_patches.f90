@@ -518,10 +518,6 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
-    ! setup communication patterns (also done in sequential runs)
-    ! (the communication patterns have to be generated before parent_idx/blk and
-    !  child_idx/blk are transformed from global to local indices (in
-    !  set_parent_child_relations))
     CALL complete_parallel_setup(patch, is_ocean_decomposition)
 
     ! set parent-child relationships
@@ -529,11 +525,15 @@ CONTAINS
 
       IF(jg == n_dom_start) THEN
 
-        ! parent_idx/blk is set to 0 since it just doesn't exist,
-        patch(jg)%cells%parent_idx = 0
-        patch(jg)%cells%parent_blk = 0
-        patch(jg)%edges%parent_idx = 0
-        patch(jg)%edges%parent_blk = 0
+        ! parent_loc/glb_idx/blk is set to 0 since it just doesn't exist,
+        patch(jg)%cells%parent_glb_idx = 0
+        patch(jg)%cells%parent_glb_blk = 0
+        patch(jg)%edges%parent_glb_idx = 0
+        patch(jg)%edges%parent_glb_blk = 0
+        patch(jg)%cells%parent_loc_idx = 0
+        patch(jg)%cells%parent_loc_blk = 0
+        patch(jg)%edges%parent_loc_idx = 0
+        patch(jg)%edges%parent_loc_blk = 0
 
         ! For parallel runs, child_idx/blk is set to 0 since it makes
         ! sense only on the local parent
@@ -638,7 +638,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !
-  !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
+  !> Sets parent_loc_idx/blk in child and child_idx/blk in parent patches.
 
   SUBROUTINE set_parent_child_relations(p_pp, p_pc)
 
@@ -647,7 +647,7 @@ CONTAINS
 
     INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
 
-    ! Before this call, parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+    ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
 
     ! Attention:
@@ -729,17 +729,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jp_g = idx_1d(p_pc%cells%parent_idx(jl,jb),p_pc%cells%parent_blk(jl,jb))
+      jp_g = idx_1d(p_pc%cells%parent_glb_idx(jl,jb), &
+        &           p_pc%cells%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
         & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
 
       jp = get_local_index(p_pp%cells%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
-        p_pc%cells%parent_blk(jl,jb) = 0
-        p_pc%cells%parent_idx(jl,jb) = 0
+        p_pc%cells%parent_loc_blk(jl,jb) = 0
+        p_pc%cells%parent_loc_idx(jl,jb) = 0
       ELSE
-        p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
+        p_pc%cells%parent_loc_blk(jl,jb) = blk_no(jp)
+        p_pc%cells%parent_loc_idx(jl,jb) = idx_no(jp)
       ENDIF
 
     ENDDO
@@ -751,17 +752,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jp_g = idx_1d(p_pc%edges%parent_idx(jl,jb),p_pc%edges%parent_blk(jl,jb))
+      jp_g = idx_1d(p_pc%edges%parent_glb_idx(jl,jb), &
+        &           p_pc%edges%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
         & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
 
       jp = get_local_index(p_pp%edges%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
-        p_pc%edges%parent_blk(jl,jb) = 0
-        p_pc%edges%parent_idx(jl,jb) = 0
+        p_pc%edges%parent_loc_blk(jl,jb) = 0
+        p_pc%edges%parent_loc_idx(jl,jb) = 0
       ELSE
-        p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
+        p_pc%edges%parent_loc_blk(jl,jb) = blk_no(jp)
+        p_pc%edges%parent_loc_idx(jl,jb) = idx_no(jp)
       ENDIF
 
     ENDDO
@@ -773,13 +775,17 @@ CONTAINS
     IF (my_process_is_mpi_parallel()) THEN
       p_pc%cells%child_idx  = 0
       p_pc%cells%child_blk  = 0
-      p_pp%cells%parent_idx = 0
-      p_pp%cells%parent_blk = 0
+      p_pp%cells%parent_glb_idx = 0
+      p_pp%cells%parent_glb_blk = 0
+      p_pp%cells%parent_loc_idx = 0
+      p_pp%cells%parent_loc_blk = 0
 
       p_pc%edges%child_idx  = 0
       p_pc%edges%child_blk  = 0
-      p_pp%edges%parent_idx = 0
-      p_pp%edges%parent_blk = 0
+      p_pp%edges%parent_glb_idx = 0
+      p_pp%edges%parent_glb_blk = 0
+      p_pp%edges%parent_loc_idx = 0
+      p_pp%edges%parent_loc_blk = 0
     END IF
 
   END SUBROUTINE set_parent_child_relations

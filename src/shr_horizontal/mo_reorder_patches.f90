@@ -81,6 +81,8 @@ CONTAINS
     ! ----------------------------------------
 
     CALL reorder_array_pos(pp%cells%num_edges,       idx_old2new,      pp%nblks_c, pp%npromz_c)
+    CALL reorder_array_pos(pp%cells%parent_glb_idx,  idx_old2new,      pp%nblks_c, pp%npromz_c)
+    CALL reorder_array_pos(pp%cells%parent_glb_blk,  idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%child_idx,       idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%child_blk,       idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%child_id,        idx_old2new,      pp%nblks_c, pp%npromz_c)
@@ -133,8 +135,10 @@ CONTAINS
     ! ----------------------------------
 
     IF (PRESENT(opt_child_pp)) THEN
-      CALL reorder_array_content(opt_child_pp%cells%parent_idx, opt_child_pp%cells%parent_blk, &
-        &                        idx_old2new, opt_child_pp%nblks_c, opt_child_pp%npromz_c)
+      CALL reorder_array_content(opt_child_pp%cells%parent_loc_idx, &
+        &                        opt_child_pp%cells%parent_loc_blk, &
+        &                        idx_old2new, opt_child_pp%nblks_c, &
+        &                        opt_child_pp%npromz_c)
     END IF
 
     ! -------------------------------------------------------------------------
@@ -170,6 +174,8 @@ CONTAINS
     ! in this patch: translate array positions
     ! ----------------------------------------
 
+    CALL reorder_array_pos(pp%edges%parent_glb_idx,         idx_old2new,      pp%nblks_e, pp%npromz_e)
+    CALL reorder_array_pos(pp%edges%parent_glb_blk,         idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%child_idx,              idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%child_blk,              idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%child_id,               idx_old2new,      pp%nblks_e, pp%npromz_e)
@@ -236,8 +242,10 @@ CONTAINS
     ! ----------------------------------
 
     IF (PRESENT(opt_child_pp)) THEN
-      CALL reorder_array_content(opt_child_pp%edges%parent_idx, opt_child_pp%edges%parent_blk, &
-        &                        idx_old2new, opt_child_pp%nblks_e, opt_child_pp%npromz_e)
+      CALL reorder_array_content(opt_child_pp%edges%parent_loc_idx, &
+        &                        opt_child_pp%edges%parent_loc_blk, &
+        &                        idx_old2new, opt_child_pp%nblks_e, &
+        &                        opt_child_pp%npromz_e)
     END IF
 
     ! -------------------------------------------------------------------------

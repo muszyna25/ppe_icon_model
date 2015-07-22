@@ -883,8 +883,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           iicc = ptr_ec%cell_idx(iice,ibce,2)
           ibcc = ptr_ec%cell_blk(iice,ibce,2)
         ENDIF
-        iipc = ptr_cc%parent_idx(iicc,ibcc)
-        ibpc = ptr_cc%parent_blk(iicc,ibcc)
+        iipc = ptr_cc%parent_loc_idx(iicc,ibcc)
+        ibpc = ptr_cc%parent_loc_blk(iicc,ibcc)
 
         ! Determine stencil points 2 and 3 (remaining edges of the parent cell)
         IF (ptr_cp%edge_idx(iipc,ibpc,1) == je .AND. ptr_cp%edge_blk(iipc,ibpc,1) == jb ) THEN
@@ -987,8 +987,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           iicc = ptr_ec%cell_idx(iice,ibce,2)
           ibcc = ptr_ec%cell_blk(iice,ibce,2)
         ENDIF
-        iipc = ptr_cc%parent_idx(iicc,ibcc)
-        ibpc = ptr_cc%parent_blk(iicc,ibcc)
+        iipc = ptr_cc%parent_loc_idx(iicc,ibcc)
+        ibpc = ptr_cc%parent_loc_blk(iicc,ibcc)
 
         ! Determine stencil points 2 and 3 (remaining edges of the parent cell)
         IF (ptr_cp%edge_idx(iipc,ibpc,1) == je .AND. ptr_cp%edge_blk(iipc,ibpc,1) == jb ) THEN
