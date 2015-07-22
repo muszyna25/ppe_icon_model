@@ -27,7 +27,7 @@ MODULE mo_io_config
   USE mo_kind,           ONLY: wp
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
-  USE mo_cdi_constants,  ONLY: FILETYPE_NC2
+  USE mo_cdi,            ONLY: FILETYPE_NC2
 
   IMPLICIT NONE
   PUBLIC

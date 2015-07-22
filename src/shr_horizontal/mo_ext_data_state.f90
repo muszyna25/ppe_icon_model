@@ -60,10 +60,10 @@ MODULE mo_ext_data_state
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
   USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext 
-  USE mo_cdi_constants,      ONLY: DATATYPE_PACK16, DATATYPE_FLT32, GRID_REFERENCE, &
-    &                              GRID_UNSTRUCTURED_CELL, GRID_CELL,               &
+  USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32,                 &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
-    &                              ZA_HYBRID, ZA_LAKE_BOTTOM, ZA_SURFACE,           &
+    &                              streamClose, gridInqUUID
+  USE mo_cdi_constants,      ONLY: GRID_REFERENCE, GRID_UNSTRUCTURED_CELL, GRID_CELL, ZA_HYBRID, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
 
   IMPLICIT NONE

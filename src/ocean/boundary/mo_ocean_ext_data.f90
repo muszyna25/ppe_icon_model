@@ -66,12 +66,11 @@ MODULE mo_ocean_ext_data
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_datetime,           ONLY: t_datetime, month2hour
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_PACK16, TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
-    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              DATATYPE_FLT32, DATATYPE_PACK16,                &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M
 
   USE mo_master_control,        ONLY: is_restart_run
 

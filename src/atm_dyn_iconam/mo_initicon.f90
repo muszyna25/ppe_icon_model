@@ -61,7 +61,7 @@ MODULE mo_initicon
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &

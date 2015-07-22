@@ -187,11 +187,11 @@ MODULE mo_pp_scheduler
   USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
+  USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                          &
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,                &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC,     &
-    &                                   is_2d_field
+    &                                   is_2d_field, ZA_ISENTROPIC
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &

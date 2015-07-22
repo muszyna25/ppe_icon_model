@@ -32,12 +32,11 @@ MODULE mo_icon_cpl_restart
        &                        comps, grids, cpl_fields,    &
        &                        cplout, debug_coupler_level
   USE mo_time_config, ONLY    : time_config
-  USE mo_cdi_constants, ONLY  : DATATYPE_FLT64, FILETYPE_NC2, GRID_GENERIC, &
-       &                        TIME_CONSTANT, ZAXIS_SURFACE, vlistCreate,  &
-       &                        zaxisCreate, gridCreate, &
-       &                        streamOpenRead, cdiStringError, streamInqVlist, &
-       &                        vlistNvars, streamDefTimestep, streamOpenWrite, &
-       &                        vlistDefVar
+  USE mo_cdi, ONLY            : DATATYPE_FLT64, FILETYPE_NC2, GRID_GENERIC, TIME_CONSTANT, ZAXIS_SURFACE, vlistCreate, &
+                              & zaxisCreate, gridCreate, streamOpenRead, cdiStringError, streamInqVlist, vlistNvars, &
+                              & streamDefTimestep, streamOpenWrite, vlistDefVar, zaxisdestroy, griddestroy, vlistdestroy, &
+                              & streamClose, streamWriteVar, streamDefVlist, vlistDefVarDatatype, vlistDefVarName, &
+                              & vlistInqVarName, gridDefXsize, gridDefXname, gridDefYsize, gridDefYname, streamReadVar
 
   PRIVATE
  
