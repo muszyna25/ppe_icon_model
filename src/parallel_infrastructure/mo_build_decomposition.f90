@@ -90,16 +90,9 @@ CONTAINS
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     !--------------------------------------------------------------------------------
-    
+
     CALL finalize_decomposition(p_patch, is_ocean_decomposition)
-    
-    IF(.NOT.p_test_run .AND. my_process_is_mpi_parallel()) THEN ! the call below hangs in test mode
-      ! Print diagnostic information about domain decomposition
-      DO jg = 1, n_dom
-        CALL decomposition_statistics(p_patch(jg))
-      ENDDO
-    ENDIF
-    
+
     ! reorder patch_local_parents according to their refin_ctrl flags
     DO jg = n_dom_start+1, n_dom
       CALL reorder_patch_refin_ctrl(p_patch_local_parent(jg), p_patch(jg))
@@ -107,6 +100,13 @@ CONTAINS
 
     ! computes communication patterns (done after reordering)
     CALL complete_parallel_setup(p_patch, is_ocean_decomposition)
+
+    IF(.NOT.p_test_run .AND. my_process_is_mpi_parallel()) THEN ! the call below hangs in test mode
+      ! Print diagnostic information about domain decomposition
+      DO jg = 1, n_dom
+        CALL decomposition_statistics(p_patch(jg))
+      ENDDO
+    ENDIF
 
     ! set the horizontal attribute pointer of the 3D p_patch
     IF (PRESENT(patch_3d)) THEN

@@ -113,8 +113,7 @@ MODULE mo_model_domimp_patches
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
-  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, t_scatterPattern, &
-    &                              makeScatterPattern
+  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
 
@@ -128,7 +127,7 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work
-  USE mo_complete_subdivision, ONLY: complete_parallel_setup
+  USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
     &                          closeFile, onCells, onEdges, onVertices, &
@@ -570,6 +569,11 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL set_verts_phys_id( patch(jg) )
     ENDDO
+
+    ! generates comm_pat_c/v/e/c1 required by the following initialization
+    ! routines (these patterns will be rebuild after the reordering by routine
+    ! complete_parallel_setup)
+    CALL generate_comm_pat_cvec1(patch, is_ocean_decomposition)
 
     IF (.not. my_process_is_ocean()) THEN
       DO jg = n_dom_start, n_dom

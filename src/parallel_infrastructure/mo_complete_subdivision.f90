@@ -36,7 +36,8 @@ MODULE mo_complete_subdivision
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
     &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
-    &                              ASSIGNMENT(=), delete_comm_gather_pattern
+    &                              ASSIGNMENT(=), delete_comm_gather_pattern, &
+    &                              delete_comm_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
@@ -52,6 +53,7 @@ MODULE mo_complete_subdivision
   PUBLIC :: finalize_decomposition
   PUBLIC :: setup_phys_patches
   PUBLIC :: complete_parallel_setup
+  PUBLIC :: generate_comm_pat_cvec1
 
 CONTAINS
 
@@ -174,6 +176,34 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! sets communication patterns and parent-child relationships.
   !
+  SUBROUTINE generate_comm_pat_cvec1(patch, is_ocean_decomposition)
+
+    TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
+    LOGICAL, INTENT(IN) :: is_ocean_decomposition
+
+    INTEGER :: jg
+
+    IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
+      CALL finish('generate_comm_pat_cvec1', &
+        &         'functionality with local parent patch not implemented')
+
+    DO jg = n_dom_start, n_dom
+
+      ! Set communication patterns for boundary exchange 
+      CALL set_comm_pat_bound_exch(patch(jg))
+
+      IF (jg > n_dom_start) THEN
+
+        CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE generate_comm_pat_cvec1
+
+  !-----------------------------------------------------------------------------
+  ! sets communication patterns and parent-child relationships.
+  !
   SUBROUTINE complete_parallel_setup(patch, is_ocean_decomposition)
 
     TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
@@ -189,7 +219,11 @@ CONTAINS
 
       jgp = patch(jg)%parent_id
 
-      ! Set communication patterns for boundary exchange
+      ! Rebuild communication patterns for boundary exchange
+      CALL delete_comm_pattern(patch(jg)%comm_pat_c)
+      CALL delete_comm_pattern(patch(jg)%comm_pat_v)
+      CALL delete_comm_pattern(patch(jg)%comm_pat_e)
+      CALL delete_comm_pattern(patch(jg)%comm_pat_c1)
       CALL set_comm_pat_bound_exch(patch(jg))
 
       ! Set communication patterns for gathering on proc 0
@@ -201,6 +235,10 @@ CONTAINS
         !
         ! CALL setup_comm_cpy_interpolation(patch(jg), patch(jgp))
 
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_v)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_e)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c1)
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &

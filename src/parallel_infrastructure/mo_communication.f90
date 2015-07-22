@@ -150,6 +150,9 @@ END TYPE t_comm_pattern
 !
 
 TYPE t_comm_gather_pattern
+
+  PRIVATE
+
   INTEGER, ALLOCATABLE :: collector_pes(:) ! ranks of collector processes
   INTEGER, ALLOCATABLE :: collector_size(:) ! total number of points per
                                             ! collector
