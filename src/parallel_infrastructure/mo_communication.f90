@@ -60,7 +60,8 @@ PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
           start_async_comm, complete_async_comm,                   &
-          exchange_data_4de1, delete_comm_gather_pattern
+          exchange_data_4de1, delete_comm_gather_pattern, &
+          get_np_recv, get_np_send, get_pelist_recv
 PUBLIC :: t_comm_pattern
 PUBLIC :: reorder_comm_pattern
 PUBLIC :: reorder_comm_pattern_snd
@@ -3059,6 +3060,27 @@ SUBROUTINE reorder_comm_pattern_rcv(comm_pat, idx_old2new)
   END DO
 
 END SUBROUTINE reorder_comm_pattern_rcv
+
+FUNCTION get_np_recv(comm_pat)
+  TYPE (t_comm_pattern), INTENT(IN) :: comm_pat
+  INTEGER :: get_np_recv
+
+  get_np_recv = comm_pat%np_recv
+END FUNCTION get_np_recv
+
+FUNCTION get_np_send(comm_pat)
+  TYPE (t_comm_pattern), INTENT(IN) :: comm_pat
+  INTEGER :: get_np_send
+
+  get_np_send = comm_pat%np_send
+END FUNCTION get_np_send
+
+SUBROUTINE get_pelist_recv(comm_pat, pelist_recv)
+  TYPE (t_comm_pattern), INTENT(IN) :: comm_pat
+  INTEGER, INTENT(OUT) :: pelist_recv(:)
+
+  pelist_recv = comm_pat%pelist_recv
+END SUBROUTINE get_pelist_recv
 
 SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   ! dimension (nproma, nblk)
