@@ -14,7 +14,8 @@
 MODULE mo_build_decomposition
 
   USE mo_complete_subdivision, ONLY: finalize_decomposition, &
-    &                                copy_processor_splitting
+    &                                copy_processor_splitting, &
+    &                                complete_parallel_setup
   USE mo_setup_subdivision,    ONLY: decompose_domain
   USE mo_sync,                 ONLY: disable_sync_checks, enable_sync_checks,                    &
     &                                decomposition_statistics
@@ -28,7 +29,7 @@ MODULE mo_build_decomposition
   USE mo_parallel_config,      ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,       ONLY: success, max_dom
   USE mo_exception,            ONLY: finish, message, message_text, get_filename_noext
-    
+
   IMPLICIT NONE
   
   PUBLIC :: build_decomposition
@@ -85,7 +86,7 @@ CONTAINS
 
     ! Complete information which is not yet read or calculated
     CALL complete_patches( p_patch, is_ocean_decomposition, lsep_grfinfo)
-          
+
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     !--------------------------------------------------------------------------------
@@ -103,7 +104,10 @@ CONTAINS
     DO jg = n_dom_start+1, n_dom
       CALL reorder_patch_refin_ctrl(p_patch_local_parent(jg), p_patch(jg))
     ENDDO
-    
+
+    ! computes communication patterns (done after reordering)
+    CALL complete_parallel_setup(p_patch, is_ocean_decomposition)
+
     ! set the horizontal attribute pointer of the 3D p_patch
     IF (PRESENT(patch_3d)) THEN
       ALLOCATE(patch_3d, stat=error_status)

@@ -18,9 +18,7 @@ MODULE mo_reorder_patches
   USE mo_kind,            ONLY: wp
   USE mo_exception,       ONLY: finish
   USE mo_parallel_config, ONLY: nproma
-  USE mo_communication,   ONLY: reorder_comm_pattern,                                &
-    &                           reorder_comm_pattern_snd, reorder_comm_pattern_rcv,  &
-    &                           idx_no, blk_no, idx_1d
+  USE mo_communication,   ONLY: idx_no, blk_no, idx_1d
   USE mo_model_domain,    ONLY: t_patch, t_tangent_vectors
   USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
@@ -141,16 +139,6 @@ CONTAINS
         &                        opt_child_pp%npromz_c)
     END IF
 
-    ! -------------------------------------------------------------------------
-    ! reorder communication patterns in this patch
-    ! -------------------------------------------------------------------------
-
-    CALL reorder_comm_pattern(pp%comm_pat_c                      , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_c1                     , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpolation_c        , idx_old2new)
-    CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_c       , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_c_fbk   , idx_old2new)
-
   END SUBROUTINE reorder_cells
 
 
@@ -244,14 +232,6 @@ CONTAINS
         &                        opt_child_pp%npromz_e)
     END IF
 
-    ! -------------------------------------------------------------------------
-    ! reorder communication patterns
-    ! -------------------------------------------------------------------------
-
-    CALL reorder_comm_pattern(pp%comm_pat_e                          , idx_old2new)
-    CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_e           , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_e_fbk       , idx_old2new)
-
   END SUBROUTINE reorder_edges
 
 
@@ -296,12 +276,6 @@ CONTAINS
     ! in this patch: translate contents of edges data structure
     CALL reorder_array_content(pp%edges%vertex_idx, pp%edges%vertex_blk, idx_old2new,     &
       &                        pp%nblks_e, pp%npromz_e, 1, 2, opt_lcatch_zeros=.TRUE.)
-
-    ! -------------------------------------------------------------------------
-    ! reorder communication patterns
-    ! -------------------------------------------------------------------------
-
-    CALL reorder_comm_pattern(pp%comm_pat_v                          , idx_old2new)
 
   END SUBROUTINE reorder_verts
 

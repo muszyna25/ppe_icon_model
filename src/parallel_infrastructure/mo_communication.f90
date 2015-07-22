@@ -63,9 +63,6 @@ PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_4de1, delete_comm_gather_pattern, &
           get_np_recv, get_np_send, get_pelist_recv
 PUBLIC :: t_comm_pattern
-PUBLIC :: reorder_comm_pattern
-PUBLIC :: reorder_comm_pattern_snd
-PUBLIC :: reorder_comm_pattern_rcv
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
@@ -3075,73 +3072,6 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_l2d
-
-
-!> In-situ reordering of communication pattern.
-!
-!  @author F. Prill, DWD (2013-07-30)
-!
-SUBROUTINE reorder_comm_pattern(comm_pat, idx_old2new)
-  TYPE (t_comm_pattern), INTENT(INOUT) :: comm_pat
-  INTEGER,               INTENT(IN)    :: idx_old2new(:) ! permutation array
-
-  CALL reorder_comm_pattern_rcv(comm_pat, idx_old2new)
-  CALL reorder_comm_pattern_snd(comm_pat, idx_old2new)
-
-END SUBROUTINE reorder_comm_pattern
-
-
-!> In-situ reordering of communication pattern.
-!
-!  @author F. Prill, DWD (2013-07-30)
-!
-SUBROUTINE reorder_comm_pattern_snd(comm_pat, idx_old2new)
-  TYPE (t_comm_pattern), INTENT(INOUT) :: comm_pat
-  INTEGER,               INTENT(IN)    :: idx_old2new(:) ! permutation array
-  ! local variables
-  INTEGER :: i, iidx
-
-  ! return, if communication pattern has not yet been initialized
-  IF (.NOT. ALLOCATED(comm_pat%recv_limits))  RETURN
-
-  ! "send_src_idx/blk(i)" : For all points i=1,n_send the data in the
-  ! send buffer is copied from the source array at position
-  ! send_src_idx/blk(i)
-
-  ! translate indices, overwriting old values
-  DO i=1,comm_pat%n_send
-    iidx            = idx_1d(comm_pat%send_src_idx(i), comm_pat%send_src_blk(i))
-    iidx            = idx_old2new(iidx)
-    comm_pat%send_src_idx(i) = idx_no(iidx)
-    comm_pat%send_src_blk(i) = blk_no(iidx)
-  END DO
-END SUBROUTINE reorder_comm_pattern_snd
-
-!> In-situ reordering of communication pattern.
-!
-!  @author F. Prill, DWD (2013-07-30)
-!
-SUBROUTINE reorder_comm_pattern_rcv(comm_pat, idx_old2new)
-  TYPE (t_comm_pattern), INTENT(INOUT) :: comm_pat
-  INTEGER,               INTENT(IN)    :: idx_old2new(:) ! permutation array
-  ! local variables
-  INTEGER :: i, iidx
-
-  ! return, if communication pattern has not yet been initialized
-  IF (.NOT. ALLOCATED(comm_pat%recv_limits))  RETURN
-
-  ! "recv_dst_idx/blk(i)": For all points i=1,n_pnts the data received
-  ! is copied to the destination array at position recv_dst_idx/blk(i)
-
-  ! translate indices, overwriting old values
-  DO i=1,comm_pat%n_pnts
-    iidx            = idx_1d(comm_pat%recv_dst_idx(i), comm_pat%recv_dst_blk(i))
-    iidx            = idx_old2new(iidx)
-    comm_pat%recv_dst_idx(i) = idx_no(iidx)
-    comm_pat%recv_dst_blk(i) = blk_no(iidx)
-  END DO
-
-END SUBROUTINE reorder_comm_pattern_rcv
 
 FUNCTION get_np_recv(comm_pat)
   TYPE (t_comm_pattern), INTENT(IN) :: comm_pat

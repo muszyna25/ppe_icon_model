@@ -518,8 +518,6 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
-    CALL complete_parallel_setup(patch, is_ocean_decomposition)
-
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
 
