@@ -84,7 +84,7 @@ CONTAINS
     DEALLOCATE(p_patch_pre)
 
     ! Complete information which is not yet read or calculated
-    CALL complete_patches( p_patch, is_ocean_decomposition,lsep_grfinfo)
+    CALL complete_patches( p_patch, is_ocean_decomposition, lsep_grfinfo)
           
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)

@@ -36,7 +36,7 @@ USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, p_pe, p_io, &
+     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
      & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
@@ -79,6 +79,8 @@ PUBLIC :: ASSIGNMENT(=)
 !--------------------------------------------------------------------------------------------------
 !
 TYPE t_comm_pattern
+
+  PRIVATE
 
    ! Number of points we receive in communication,
    ! this is the same as recv_limits
@@ -2543,7 +2545,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
          DO n = 1, nfields
            DO k = 1, ndim2(n) 
              recv(n)%fld( p_pat(np)%recv_dst_idx(i), k, p_pat(np)%recv_dst_blk(i) ) =  &
-               send(np+(n-1)*npats)%fld( k, p_pat(np)%send_src_idx(p_pat(np)%recv_src(i)) )
+               send(np+(n-1)*npats)%fld( k, &
+               idx_1d(p_pat(np)%send_src_idx(p_pat(np)%recv_src(i)), &
+                      p_pat(np)%send_src_blk(p_pat(np)%recv_src(i))))
            ENDDO
          ENDDO
        ENDDO
@@ -2563,7 +2567,8 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
        DO k = 1, ndim2(n)
          DO i = 1, p_pat(np)%n_send
            send_buf(k+noffset(n),i+ioffset_s(np)) =                &
-             & send(np+(n-1)*npats)%fld(k,p_pat(np)%send_src_idx(i))
+             & send(np+(n-1)*npats)%fld(k,idx_1d(p_pat(np)%send_src_idx(i), &
+             &                                   p_pat(np)%send_src_blk(i)))
          ENDDO
        ENDDO
      ENDDO
@@ -2577,7 +2582,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 !$OMP DO PRIVATE(jl)
 #endif
      DO i = 1, p_pat(np)%n_send
-       jl = p_pat(np)%send_src_idx(i)
+       jl = idx_1d(p_pat(np)%send_src_idx(i), p_pat(np)%send_src_blk(i))
        DO n = 1, nfields
          DO k = 1, ndim2(n)
            send_buf(k+noffset(n),i+ioffset_s(np)) = &

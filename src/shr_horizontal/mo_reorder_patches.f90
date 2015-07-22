@@ -148,10 +148,6 @@ CONTAINS
     CALL reorder_comm_pattern(pp%comm_pat_c                      , idx_old2new)
     CALL reorder_comm_pattern(pp%comm_pat_c1                     , idx_old2new)
     CALL reorder_comm_pattern(pp%comm_pat_interpolation_c        , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_vec_grf(4)    , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_scal_grf(4)   , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_vec_ubc(4)    , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_scal_ubc(4)   , idx_old2new)
     CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_c       , idx_old2new)
     CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_c_fbk   , idx_old2new)
 

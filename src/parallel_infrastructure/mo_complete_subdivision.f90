@@ -49,11 +49,9 @@ MODULE mo_complete_subdivision
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: copy_processor_splitting
-  PUBLIC :: set_patch_communicators
   PUBLIC :: finalize_decomposition
   PUBLIC :: setup_phys_patches
   PUBLIC :: complete_parallel_setup
-
 
 CONTAINS
 
@@ -184,7 +182,7 @@ CONTAINS
     INTEGER :: jg, jgp
 
     IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
-      CALL finish('finalize_decomposition_oce', &
+      CALL finish('complete_parallel_setup', &
         &         'functionality with local parent patch not implemented')
 
     DO jg = n_dom_start, n_dom
@@ -202,9 +200,6 @@ CONTAINS
         ! Note: The following call is deprecated and will be removed.
         !
         ! CALL setup_comm_cpy_interpolation(patch(jg), patch(jgp))
-
-        CALL setup_comm_grf_interpolation(patch(jg), patch(jgp))
-        CALL setup_comm_ubc_interpolation(patch(jg), patch(jgp))
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
 
@@ -708,194 +703,6 @@ CONTAINS
     DEALLOCATE(owner, glb_index)
 
   END SUBROUTINE setup_comm_cpy_interpolation
-
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine sets up a communication pattern for grf interpolation.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_grf_interpolation(p_patch, p_parent_patch)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
-
-    INTEGER :: j, n, jc, je, jb, jp
-    INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
-    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !--------------------------------------------------------------------
-    ! Cells
-
-    ! For our local child patch, gather which cells receive values from which parent cell
-    ! This is done once for every of the four child cells
-
-    ALLOCATE(glb_index(p_patch%n_patch_cells))
-    ALLOCATE(owner(p_patch%n_patch_cells))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
-      DO j = 1,p_patch%n_patch_cells
-        jc = idx_no(j)
-        jb = blk_no(j)
-        IF (p_patch%cells%refin_ctrl(jc,jb) > 0 .AND. p_patch%cells%refin_ctrl(jc,jb) <= grf_bdywidth_c &
-            .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
-          jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
-            &         p_patch%cells%parent_glb_blk(jc,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-        & p_parent_patch%cells%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_scal_grf(n))
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-    !--------------------------------------------------------------------
-    ! Edges
-
-    ! For our local child patch, gather which edges receive values from which parent edge
-    ! This is done once for every of the four child edges
-
-    ALLOCATE(glb_index(p_patch%n_patch_edges))
-    ALLOCATE(owner(p_patch%n_patch_edges))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
-      DO j = 1,p_patch%n_patch_edges
-        je = idx_no(j)
-        jb = blk_no(j)
-        IF (p_patch%edges%refin_ctrl(je,jb) > 0 .AND. p_patch%edges%refin_ctrl(je,jb) <= grf_bdywidth_e &
-            .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
-          jp = idx_1d(p_patch%edges%parent_glb_idx(je,jb), &
-            &         p_patch%edges%parent_glb_blk(je,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
-        & p_parent_patch%edges%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_vec_grf(n))
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-  END SUBROUTINE setup_comm_grf_interpolation
-
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine sets up a communication pattern for ubc interpolation.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_ubc_interpolation(p_patch, p_parent_patch)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
-
-    INTEGER :: j, n, jc, je, jb, jp
-    INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
-    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !--------------------------------------------------------------------
-    ! Cells
-
-    ! For our local child patch, gather which cells receive values from which parent cell
-    ! This is done once for every of the four child cells
-
-    ALLOCATE(glb_index(p_patch%n_patch_cells))
-    ALLOCATE(owner(p_patch%n_patch_cells))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      DO j = 1,p_patch%n_patch_cells
-        jc = idx_no(j)
-        jb = blk_no(j)
-        IF ((p_patch%cells%refin_ctrl(jc,jb) >= grf_bdywidth_c+1 .OR. p_patch%cells%refin_ctrl(jc,jb) <= 0) &
-            .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
-          jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
-            &         p_patch%cells%parent_glb_blk(jc,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-        & p_parent_patch%cells%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_scal_ubc(n))
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-    !--------------------------------------------------------------------
-    ! Edges
-
-    ! For our local child patch, gather which edges receive values from which parent edge
-    ! This is done once for every of the four child edges
-
-    ALLOCATE(glb_index(p_patch%n_patch_edges))
-    ALLOCATE(owner(p_patch%n_patch_edges))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      DO j = 1,p_patch%n_patch_edges
-        je = idx_no(j)
-        jb = blk_no(j)
-        IF ((p_patch%edges%refin_ctrl(je,jb) >= grf_bdywidth_e+1 .OR. p_patch%edges%refin_ctrl(je,jb) <= 0) &
-            .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
-          jp = idx_1d(p_patch%edges%parent_glb_idx(je,jb), &
-            &         p_patch%edges%parent_glb_blk(je,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
-        & p_parent_patch%edges%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_vec_ubc(n))
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-  END SUBROUTINE setup_comm_ubc_interpolation
 
   !-------------------------------------------------------------------------
   !>
