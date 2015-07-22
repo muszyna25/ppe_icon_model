@@ -28,8 +28,8 @@ MODULE mo_ocean_testbed
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
-  USE mo_ocean_physics,         ONLY: t_ho_params
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
+  USE mo_ocean_physics,       ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
 
@@ -40,7 +40,8 @@ MODULE mo_ocean_testbed
   USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
-  USE mo_ocean_math_operators,     ONLY: calculate_thickness
+  USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
+  USE mo_ocean_math_operators,      ONLY: calculate_thickness
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -101,7 +102,9 @@ CONTAINS
         CALL ocean_test_read( namelist_filename, shr_namelist_filename, &
           & patch_3d)
 
-
+      CASE (1102) ! 1101 -  other tests
+        CALL ocean_test_quads( namelist_filename, shr_namelist_filename, &
+          & patch_3d)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
