@@ -28,8 +28,6 @@ module mo_derived_variable_handling
   type(vector)    , save :: meanVariables
   TYPE(t_var_list)   :: mean_stream_list
   integer, parameter :: ntotal = 1024
-  CHARACTER(LEN=VARNAME_LEN) , SAVE, target :: varlist_buffer(ntotal)
-  CHARACTER(LEN=VARNAME_LEN) , SAVE, target :: periods_buffer(ntotal)
 
   public :: init_mean_stream
   public :: finish_mean_stream
@@ -54,7 +52,7 @@ CONTAINS
     do while(my_iter%next(my_buffer))
         select type(my_buffer)
         type is (t_list_element)
-            print *,'varname:',my_buffer%field%info%name
+            print *,'t_list_element:varname:',my_buffer%field%info%name
         class default
           call class_print(my_buffer)
         end select
@@ -69,9 +67,6 @@ CONTAINS
     meanMap = map()
     meanVariables = vector()
 
-    varlist_buffer = ''
-    periods_buffer = ''
-    
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( mean_stream_list,lrestart=.false.,loutput=.TRUE., model_type='oce' )
@@ -80,13 +75,13 @@ CONTAINS
     call print_green('===================================================================')
     call print_green('FINISH MAP:')
     call meanMap%print()
-    call print_green('FINISH VECTOR:')
-    call meanVariables%print()
+!   call print_green('FINISH VECTOR:')
+!   call meanVariables%print()
     call print_green('===================================================================')
-    call print_green('FINISH BUFFERS:')
-    print *,varlist_buffer
-    print *,periods_buffer
-    call print_green('===================================================================')
+!   call print_green('FINISH BUFFERS:')
+!   print *,varlist_buffer
+!   print *,periods_buffer
+!   call print_green('===================================================================')
   end subroutine finish_mean_stream
   SUBROUTINE collect_meanstream_variables(src_varlist1, src_varlist2)
   TYPE(t_var_list)   :: src_varlist1
@@ -95,7 +90,7 @@ CONTAINS
     !
     CHARACTER(LEN=VARNAME_LEN)              :: varname, mean_varname, message_text
     INTEGER                                 :: nvars, i_typ, ierrstat, i, ntotal_vars,j
-    INTEGER                                 :: varlist_length, periods_counter, v_counter
+    INTEGER                                 :: varlist_length
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
     TYPE (t_output_name_list), POINTER      :: p_onl
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
@@ -104,8 +99,6 @@ CONTAINS
     type(vector) :: keys
 
     nvars           = 1
-    periods_counter = 1
-    v_counter       = 1
     ntotal_vars     = total_number_of_variables()
     ! temporary variables needed for variable group parsing
     ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
@@ -141,19 +134,16 @@ CONTAINS
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
 
-          periods_buffer(periods_counter) = trim(p_onl%output_interval(1))
-
-          IF ( meanMap%has_key(trim(periods_buffer(periods_counter))) ) THEN
+          IF ( meanMap%has_key(trim(p_onl%output_interval(1))) ) THEN
             call meanMap%get(trim(p_onl%output_interval(1)),meanVariables)
           ELSE
             meanVariables = vector()
           END IF
           IF (i_typ == level_type_ml) THEN
             do i=1,nvars
-              ! collect data variables only
+              ! collect data variables only, there variables names like 'grid:clon' which should be excluded
               if ( index(varlist(i),':') < 1 ) then
-                j = (periods_counter-1)*nvars + i
-                varlist_buffer(j) = trim(varlist(i))
+                !j = (periods_counter-1)*nvars + i
      
     ! find existing variable
     element => find_list_element (src_varlist1, TRIM(varlist(i)))
@@ -178,7 +168,6 @@ CONTAINS
 !END IF
             call meanMap%add(trim(p_onl%output_interval(1)),meanVariables,copy=.true.)
           END IF
-periods_counter = periods_counter + 1
         END DO
       END IF
       p_onl => p_onl%next
