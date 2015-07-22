@@ -357,7 +357,7 @@ CONTAINS
 
     CALL yac_fdef_mask (          &
       & patch_horz%n_patch_cells, &
-      & ibuffer,                &
+      & ibuffer,                  &
       & cell_point_ids(1),        &
       & cell_mask_ids(1) )
 
@@ -388,10 +388,10 @@ CONTAINS
 
 #else
 
-    INTEGER :: idx
     INTEGER :: grid_id
     INTEGER :: grid_shape(2)
     INTEGER :: field_shape(3)
+    INTEGER :: BLOCK, idx, INDEX
 
     IF (.NOT. is_coupled_run()) RETURN
 
@@ -469,6 +469,19 @@ CONTAINS
 
     ALLOCATE(buffer(nproma * patch_horz%nblks_c,5))
 
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, INDEX, idx) ICON_OMP_DEFAULT_SCHEDULE
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        INDEX = (BLOCK-1)*nproma+idx
+        buffer(INDEX,1) = 0.0_wp
+        buffer(INDEX,2) = 0.0_wp
+        buffer(INDEX,3) = 0.0_wp
+        buffer(INDEX,4) = 0.0_wp
+        buffer(INDEX,5) = 0.0_wp
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
     IF (ltimer) CALL timer_stop(timer_coupling_init)
 
   END SUBROUTINE construct_ocean_coupling
@@ -506,7 +519,6 @@ CONTAINS
     ! Local declarations for coupling:
     LOGICAL :: write_coupler_restart
     INTEGER :: nbr_hor_cells  ! = inner and halo points
-    INTEGER :: nbr_cells      ! = nproma * nblks
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
@@ -527,7 +539,7 @@ CONTAINS
     time_config%cur_datetime = datetime
 
     nbr_hor_cells = patch_horz%n_patch_cells
-    nbr_cells     = nproma * patch_horz%nblks_c
+
     !
     !  see drivers/mo_ocean_model.f90:
     !
@@ -817,11 +829,18 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_LongWave (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Sensible (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Latent   (:,:))
+
       ! sum of fluxes for ocean boundary condition
-      atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:) &
-        &                              + atmos_fluxes%HeatFlux_LongWave (:,:) &
-        &                              + atmos_fluxes%HeatFlux_Sensible (:,:) &
-        &                              + atmos_fluxes%HeatFlux_Latent   (:,:)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        DO n = 1, nproma
+          atmos_fluxes%HeatFlux_Total(n,i_blk) = atmos_fluxes%HeatFlux_ShortWave(n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_LongWave (n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_Sensible (n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_Latent   (n,i_blk)
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
     ENDIF
     !
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]

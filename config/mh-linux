@@ -455,6 +455,66 @@ case "$ac_sitename" in
                 sync_submit   = sbatch
                 queue         = compute
                 case "$fortran_compiler" in
+                    intel*)
+                        load_modules    =  intel/14.0.3 ${load_modules}
+                        config_compiler = intel
+                        CC     = icc
+                        CFLAGS = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        F77    = ifort
+                        FC     = ifort
+                        # temporarily removed -check uninit since it fails
+                        # for lapack/dpftri.f with -march=core-avx2 and
+                        # intel 14.0.3
+                        CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
+                        DEBUG_FLAGS = -debug-parameters -debug -g -O0
+                        STD_FLAGS   = -ftz -O2 -march=native -fltconsistency
+                        HIOPT_FLAGS = -O3 -mkl=sequential  -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -xHost -vec-report1
+                        FFLAGS      = -fpp -D__LOOP_EXCHANGE
+                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
+
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
+                        ZLIBROOT    = /usr
+
+                        case "$with_mpi" in
+			    /opt/mpi/bullxmpi_mlx/1.2.8.3)
+				load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
+				FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+				MPIROOT      = $with-mpi
+				SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
+				MPI_LIB      = $WLFLAG,-rpath,/opt/mpi/bullxmpi_mlx/1.2.8.3/lib -lmpi_f90 -lmpi_f77 $SYS_LIB
+				;;
+                            "$software_tree/intel/impi/5.0.3.048"|"$software_tree/intel/impi/5.0.3.048/intel64"|*)
+                                load_modules = ${load_modules} intelmpi/5.0.3.048
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                MPIROOT      = $software_tree/intel/impi/5.0.3.048/intel64
+                                SYS_LIBS     = -ldl -lrt -lpthread
+                                MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+
+                                case "${with_openmp}" in
+                                    yes)
+                                        MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
+                                        ;;
+                                esac
+                                ;;
+			    "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64"|*)
+				load_modules = ${load_modules} intelmpi/4.1.3.049
+				FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      				MPIROOT      = $software_tree/intel/impi/4.1.3.049/intel64
+				SYS_LIBS     = -ldl -lrt -lpthread
+				MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+
+				case "${with_openmp}" in
+				    yes)
+					MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
+					;;
+				esac
+				;;
+			esac
+			mpi_startrun = srun               
+                        ;;
                     gcc*)
                         load_modules    = "gcc/4.8.2 openmpi/1.8.4-gcc48" "${load_modules}"
                         config_compiler = gcc
@@ -474,34 +534,6 @@ case "$ac_sitename" in
                         IB_LIBS     = -lrdmacm -libverbs 
                         SYS_LIBS    = -lnuma -lrt -lutil -lpthread -lm -ldl
                         MPI_LIB     = $WLFLAG,-rpath,$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lpmi -lpmi2 $IB_LIBS $SYS_LIBS
-                        mpi_startrun = srun               
-                        ;;
-                    intel*)
-                        load_modules    = "intel/14.0.3 bullxmpi/bullxmpi-1.2.8.4" "${load_modules}"
-                        config_compiler = intel
-                        CC     = icc
-                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
-                        F77    = ifort
-                        FC     = ifort
-                        # temporarily removed -check uninit since it fails
-                        # for lapack/dpftri.f with -march=core-avx2 and
-                        # intel 14.0.3
-                        CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
-                        DEBUG_FLAGS = -debug-parameters -debug -g -O0
-                        STD_FLAGS   = -O2 -march=native -fltconsistency
-                        HIOPT_FLAGS = -O3 -mkl -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -xHost -vec-report1
-                        FFLAGS      = -fpp -D__LOOP_EXCHANGE
-                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
-
-                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
-                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
-                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
-                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
-                        ZLIBROOT    = /usr
-
-      		        MPIROOT     = /opt/mpi/bullxmpi/1.2.8.4
-                        SYS_LIBS    = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
-                        MPI_LIB     = $WLFLAG,-rpath,$MPIROOT/lib -lmpi_f90 -lmpi_f77 -lmpi $SYS_LIBS
                         mpi_startrun = srun               
                         ;;
                     nag*)

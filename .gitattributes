@@ -55,8 +55,6 @@ blas/sswap.f -text
 blas/ssyrk.f -text
 blas/strsm.f -text
 blas/xerbla.f -text
-/build_ICON_ECMWF -text
-/build_command.ecmwf -text
 /cmake.configure -text
 cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text

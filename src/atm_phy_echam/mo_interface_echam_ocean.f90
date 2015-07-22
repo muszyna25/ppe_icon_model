@@ -26,7 +26,7 @@ MODULE mo_interface_echam_ocean
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
-  USE mo_run_config          ,ONLY: nlev, ltimer
+  USE mo_run_config          ,ONLY: ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
@@ -35,11 +35,11 @@ MODULE mo_interface_echam_ocean
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
 
-  USE mo_ext_data_state      ,ONLY: ext_data
-  USE mo_time_config         ,ONLY: time_config      ! variable
-
-
 #ifdef YAC_coupling
+  USE mo_time_config         ,ONLY: time_config
+
+  USE mo_ext_data_state      ,ONLY: ext_data
+
   USE mo_master_control      ,ONLY: get_my_process_name
 
   USE mo_mpi                 ,ONLY: p_pe_work
@@ -67,7 +67,6 @@ MODULE mo_interface_echam_ocean
   USE mo_mpi                 ,ONLY: p_pe_work
   USE mo_icon_cpl            ,ONLY: RESTART
   USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field  ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_icon_cpl_init       ,ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp  ,ONLY: icon_cpl_init_comp
   USE mo_icon_cpl_def_grid   ,ONLY: icon_cpl_def_grid, icon_cpl_def_location
@@ -372,10 +371,10 @@ CONTAINS
 
 # else
 
-    INTEGER :: idx
     INTEGER :: grid_id
     INTEGER :: grid_shape(2)
     INTEGER :: field_shape(3)
+    INTEGER :: BLOCK, idx, INDEX
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -455,7 +454,19 @@ CONTAINS
 #endif
 
     ALLOCATE(buffer(nproma*patch_horz%nblks_c,5))
-    buffer(:,:) = 0.0_wp
+
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, INDEX, idx) ICON_OMP_DEFAULT_SCHEDULE
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        INDEX = (BLOCK-1)*nproma+idx
+        buffer(INDEX,1) = 0.0_wp
+        buffer(INDEX,2) = 0.0_wp
+        buffer(INDEX,3) = 0.0_wp
+        buffer(INDEX,4) = 0.0_wp
+        buffer(INDEX,5) = 0.0_wp
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
     IF (ltimer) CALL timer_stop(timer_coupling_init)
 
@@ -493,7 +504,6 @@ CONTAINS
 
     LOGICAL               :: write_coupler_restart
     INTEGER               :: nbr_hor_cells  ! = inner and halo points
-    INTEGER               :: nbr_cells      ! = nproma * nblks
     INTEGER               :: n              ! nproma loop count
     INTEGER               :: nn             ! block offset
     INTEGER               :: i_blk          ! block loop count
@@ -534,7 +544,6 @@ CONTAINS
     ! 
 
     nbr_hor_cells = p_patch%n_patch_cells
-    nbr_cells     = nproma * p_patch%nblks_c
 
     !
     !  see drivers/mo_atmo_model.f90:
@@ -841,7 +850,13 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
-      prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_RUNTIME_SCHEDULE
+      DO i_blk = 1, p_patch%nblks_c
+        DO n = 1, nproma
+          prm_field(jg)%seaice(n,i_blk) = prm_field(jg)%conc(n,1,i_blk)
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
     END IF
 
