@@ -114,6 +114,12 @@ case ${target} in
         configureoption="--host=sx9 --with-setup=sx9ftromp --without-ocean"
         ;;
 
+    # CSCS daint
+    # ----------
+    daint_cpu_cce)
+        configureoption="--with-fortran=cray"
+        ;;
+
     # Default (for unspecified target)
     # -------
     default)
