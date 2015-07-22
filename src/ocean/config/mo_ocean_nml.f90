@@ -386,6 +386,7 @@ MODULE mo_ocean_nml
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   INTEGER  :: HorizontalViscosity_SmoothIterations = 1
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
+  REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
@@ -393,6 +394,7 @@ MODULE mo_ocean_nml
     &  HorizontalViscosity_SmoothIterations,       &
     &  HorizontalViscosity_SpatialSmoothFactor,    &
     &  HorizontalViscosityBackground_Biharmonic,   &
+    &  HorizontalViscosity_ScaleWeight,            &
     &  VerticalViscosity_TimeWeight,  &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
@@ -517,6 +519,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_windStress_v_amplitude       = 1.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
   INTEGER  :: forcing_smooth_steps                 = 1
+  REAL(wp) :: forcing_windStress_weight            = 1.0_wp
   INTEGER  :: forcing_windspeed_type               = 0
   REAL(WP) :: forcing_windspeed_amplitude          = 1.0_wp
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
@@ -593,6 +596,7 @@ MODULE mo_ocean_nml
     &                 atmos_evap_const                    , &
     &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
+    &                 forcing_windStress_weight           , &
     &                 use_new_forcing                    
   ! } END FORCING
 
@@ -620,9 +624,12 @@ MODULE mo_ocean_nml
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
   CHARACTER(filename_max) :: InitialState_InputFileName = "initial_state.nc"   !< file name for reading in
-  REAL(wp) :: smooth_initial_height_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
-  REAL(wp) :: smooth_initial_salinity_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
-  REAL(wp) :: smooth_initial_temperature_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
+  REAL(wp) :: smooth_initial_height_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=this, 2nd=neigbors
+  REAL(wp) :: smooth_initial_salinity_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=this, 2nd=neigbors
+  REAL(wp) :: smooth_initial_temperature_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=this, 2nd=neigbors
+  INTEGER  :: smooth_initial_salinity_iterations = 0
+  INTEGER  :: smooth_initial_temperature_iterations = 0
+  INTEGER  :: smooth_initial_height_iterations = 0
   REAL(wp) :: initial_perturbation_waveNumber = 2.0_wp 
   REAL(wp) :: initial_perturbation_max_ratio  = 0.05_wp 
 
@@ -648,8 +655,11 @@ MODULE mo_ocean_nml
     & sea_surface_height_type    , &
     & InitialState_InputFileName , &
     & smooth_initial_height_weights, &
+    & smooth_initial_height_iterations, &
     & smooth_initial_salinity_weights, &
+    & smooth_initial_salinity_iterations, &
     & smooth_initial_temperature_weights, &
+    & smooth_initial_temperature_iterations, &
     & initial_temperature_scale_depth, &
     & initial_perturbation_waveNumber, & 
     & initial_perturbation_max_ratio
@@ -755,22 +765,6 @@ MODULE mo_ocean_nml
      ! NOTE: DO NOT USE STATUS FLAG in READ(nnml) WITHOUT CHECKING IT  !
      ! This will result undetected unread namelists                    !
      !==================================================================
-     ! setup for the ocean_run_nml
-!     ignore_land_points = config_ignore_land_points
-!     CALL position_nml ('ocean_run_nml', status=i_status)
-!     IF (my_process_is_stdio()) THEN
-!       iunit = temp_defaults()
-!       WRITE(iunit, ocean_run_nml)   ! write defaults to temporary text file
-!     END IF
-!     SELECT CASE (i_status)
-!     CASE (positioned)
-!       READ (nnml, ocean_run_nml)                           ! overwrite default settings
-!       IF (my_process_is_stdio()) THEN
-!         iunit = temp_settings()
-!         WRITE(iunit, ocean_run_nml)   ! write settings to temporary text file
-!       END IF
-!     END SELECT
-!     config_ignore_land_points = ignore_land_points
 
      CALL position_nml ('ocean_dynamics_nml', status=i_status)
      IF (my_process_is_stdio()) THEN
@@ -813,8 +807,6 @@ MODULE mo_ocean_nml
          WRITE(iunit, ocean_diffusion_nml)    ! write settings to temporary text file
        END IF
      END SELECT
-
-
 
     CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
      IF (my_process_is_stdio()) THEN
@@ -1037,6 +1029,6 @@ MODULE mo_ocean_nml
     use_omip_fluxes     = ( forcing_fluxes_type == 1 )
     use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
 
-END SUBROUTINE read_ocean_namelist
+  END SUBROUTINE read_ocean_namelist
 
 END MODULE mo_ocean_nml

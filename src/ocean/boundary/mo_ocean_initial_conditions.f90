@@ -46,7 +46,8 @@ MODULE mo_ocean_initial_conditions
     & smooth_initial_height_weights, smooth_initial_salinity_weights,           &
     & smooth_initial_temperature_weights, &
     & initial_perturbation_waveNumber, initial_perturbation_max_ratio,         &
-    & relax_width 
+    & relax_width, smooth_initial_salinity_iterations, &
+    & smooth_initial_height_iterations, smooth_initial_temperature_iterations
 
   USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
 
@@ -331,6 +332,7 @@ CONTAINS
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
 
     REAL(wp), ALLOCATABLE :: old_salinity(:,:,:)
+    INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_salinity'
     !-------------------------------------------------------------------------
 
@@ -429,14 +431,16 @@ CONTAINS
 
     END SELECT
     
-    IF (smooth_initial_salinity_weights(1) > 0.0_wp) THEN
-      CALL message(method_name, "Use smoothing...")
+    IF (smooth_initial_salinity_iterations > 0) THEN
       ALLOCATE(old_salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
-      old_salinity = ocean_salinity
-      CALL smooth_onCells(patch_3D=patch_3d, &
-        & in_value=old_salinity, out_value=ocean_salinity, smooth_weights=smooth_initial_salinity_weights)
+      DO i=1,smooth_initial_salinity_iterations
+        CALL message(method_name, "Smoothing initial salinity...")
+        old_salinity = ocean_salinity
+        CALL smooth_onCells(patch_3D=patch_3d, &
+          & in_value=old_salinity, out_value=ocean_salinity, smooth_weights=smooth_initial_salinity_weights)
+        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
+      ENDDO
       DEALLOCATE(old_salinity)
-      CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
     ENDIF
 
 
@@ -454,7 +458,7 @@ CONTAINS
     REAL(wp) :: temperature_profile(n_zlev)
     REAL(wp), ALLOCATABLE :: old_temperature(:,:,:)
     REAL(wp) :: lower_lat
-    INTEGER ::jk
+    INTEGER ::i
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
     !-------------------------------------------------------------------------
 
@@ -680,14 +684,16 @@ CONTAINS
 
     END SELECT
     
-    IF (smooth_initial_temperature_weights(1) > 0.0_wp) THEN
-      CALL message(method_name, "Use smoothing...")
+    IF (smooth_initial_temperature_iterations > 0) THEN
       ALLOCATE(old_temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
-      old_temperature = ocean_temperature
-      CALL smooth_onCells(patch_3D=patch_3d, &
-        & in_value=old_temperature, out_value=ocean_temperature,smooth_weights=smooth_initial_temperature_weights)
+      DO i=1,smooth_initial_temperature_iterations
+        CALL message(method_name, "Smoothing temperature...")
+        old_temperature = ocean_temperature
+        CALL smooth_onCells(patch_3D=patch_3d, &
+          & in_value=old_temperature, out_value=ocean_temperature,smooth_weights=smooth_initial_temperature_weights)
+        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
+      ENDDO
       DEALLOCATE(old_temperature)
-      CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
     ENDIF
 
     CALL dbg_print('init_ocean_temperature', ocean_temperature(:,:,:), &
@@ -764,6 +770,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     REAL(wp), ALLOCATABLE :: old_height(:,:)
 
+    INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
     !-------------------------------------------------------------------------
 
@@ -813,14 +820,16 @@ CONTAINS
 
     END SELECT
 
-    IF (smooth_initial_height_weights(1) > 0.0_wp) THEN
-      CALL message(method_name, "Use smoothing...")
+    IF (smooth_initial_height_iterations > 0) THEN
       ALLOCATE(old_height(nproma,patch_2d%alloc_cell_blocks))
-      old_height = ocean_height
-      CALL smooth_onCells(patch_3D=patch_3d, &
-        & in_value=old_height, out_value=ocean_height, smooth_weights=smooth_initial_height_weights)
+      DO i=1,smooth_initial_height_iterations
+        CALL message(method_name, "Smoothing initial height...")
+        old_height = ocean_height
+        CALL smooth_onCells(patch_3D=patch_3d, &
+          & in_value=old_height, out_value=ocean_height, smooth_weights=smooth_initial_height_weights)
+        CALL sync_patch_array(sync_c, patch_2D, ocean_height)
+      ENDDO
       DEALLOCATE(old_height)
-      CALL sync_patch_array(sync_c, patch_2D, ocean_height)
     ENDIF
     
     CALL dbg_print('init_ocean_surface_height', ocean_height, module_name,  1, &
@@ -837,7 +846,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -877,7 +886,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -929,7 +938,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -963,7 +972,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -998,7 +1007,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -1031,7 +1040,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -1064,7 +1073,7 @@ write(0,*)'Williamson-Test6:h', maxval(ocean_height),minval(ocean_height)
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -4985,12 +4994,11 @@ stop
       END DO
     END DO
 
+  END SUBROUTINE tracer_bubbles_side_by_side
 
-   END SUBROUTINE tracer_bubbles_side_by_side
 
-
- SUBROUTINE Roberts_tracer_bubble(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt, lon_bubble_opt,&
-  & radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+  SUBROUTINE Roberts_tracer_bubble(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt, lon_bubble_opt,&
+    & radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
 ! The difference to the upper bubble cases is that the radius is given in meter and  the temperature decreases exponential
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d 
     REAL(wp), TARGET :: tracer(:,:,:)
@@ -5079,8 +5087,7 @@ stop
       END DO
     END DO
 
-
-   END SUBROUTINE Roberts_tracer_bubble
+  END SUBROUTINE Roberts_tracer_bubble
 
 
   SUBROUTINE inclined_layer(patch_3d, tracer,tracer_top_opt, tracer_bottom_opt)

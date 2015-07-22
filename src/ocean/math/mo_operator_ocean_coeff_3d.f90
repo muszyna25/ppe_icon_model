@@ -65,7 +65,7 @@ MODULE mo_operator_ocean_coeff_3d
   PUBLIC  :: t_operator_coeff
   PUBLIC  :: construct_operators_coefficients
   PUBLIC  :: destruct_operators_coefficients
-  PUBLIC  :: Get3DVectorToPlanarLocal
+  PUBLIC  :: Get3DVectorToPlanarLocal, Get3DVectorTo2DLocal_array3D
   ! PUBLIC  :: update_diffusion_matrices
 
 
@@ -81,6 +81,77 @@ MODULE mo_operator_ocean_coeff_3d
   CHARACTER(LEN=16)           :: str_module = 'opcoeff'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 CONTAINS
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE Get3DVectorTo2DLocal_array3D(vector, position_local, levels, subset, geometry_info, x, y)
+    TYPE(t_cartesian_coordinates), POINTER :: vector(:,:,:)
+    TYPE(t_geographical_coordinates) , TARGET :: position_local(:,:)
+    INTEGER, POINTER :: levels(:,:) 
+    TYPE(t_subset_range), POINTER :: subset 
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info    
+    REAL(wp), POINTER ::  x(:,:,:), y(:,:,:)
+    
+    INTEGER :: blockNo, start_index, end_index, this_index, level
+    REAL(wp) :: sinLon, cosLon, sinLat, cosLat
+    REAL(wp) :: cartesian_x, cartesian_y, cartesian_z, y_help
+    
+    CHARACTER(LEN=*), PARAMETER :: method_name='Get3DVectorTo2DLocal_array3D'
+    
+    SELECT CASE(geometry_info%geometry_type)
+
+    CASE (planar_torus_geometry)
+      CALL finish(method_name, "planar_torus_geometry is not implemented yet")
+      
+    CASE (sphere_geometry)
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, this_index, level, sinLon, cosLon, &
+!ICON_OMP sinLat, cosLat, cartesian_x, cartesian_y, cartesian_z, y_help) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = subset%start_block, subset%end_block
+        CALL get_index_range(subset, blockNo, start_index, end_index)
+        DO this_index =  start_index, end_index
+        
+          ! these should be calclulated once and stored in the coefficients structure
+          sinLon = SIN(position_local(this_index,blockNo)%lon)
+          cosLon = COS(position_local(this_index,blockNo)%lon)
+          sinLat = SIN(position_local(this_index,blockNo)%lat)
+          cosLat = COS(position_local(this_index,blockNo)%lat)
+
+          DO level = 1, levels(this_index,blockNo)
+            cartesian_x = vector(this_index,level,blockNo)%x(1)
+            cartesian_y = vector(this_index,level,blockNo)%x(2)
+            cartesian_z = vector(this_index,level,blockNo)%x(3)
+            
+            x(this_index,level,blockNo) = cosLon * cartesian_y - sinLon * cartesian_x
+            y_help = cosLon * cartesian_x + sinLon * cartesian_y
+            y_help = sinLat * y_help
+            y(this_index,level,blockNo) = cosLat * cartesian_z - y_help
+                        
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+            
+              
+    CASE ( planar_channel_geometry )
+    
+      ! just a projection
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, this_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = subset%start_block, subset%end_block
+        CALL get_index_range(subset, blockNo, start_index, end_index)
+        DO this_index =  start_index, end_index
+          DO level = 1, levels(this_index,blockNo)  
+            x(this_index,level,blockNo) = vector(this_index,level,blockNo)%x(1)
+            y(this_index,level,blockNo) = vector(this_index,level,blockNo)%x(2)
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+      
+    CASE DEFAULT
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+  END SUBROUTINE Get3DVectorTo2DLocal_array3D
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE Get3DVectorToPlanarLocal(vector, position_local, geometry_info, x, y)

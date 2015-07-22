@@ -53,7 +53,8 @@ MODULE mo_ocean_physics
     &leith_closure, leith_closure_gamma,                      & 
     &veloc_diffusion_form, biharmonic_const,                  &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & VerticalViscosity_TimeWeight, OceanReferenceDensity
+    & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
+    & HorizontalViscosity_ScaleWeight
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -164,7 +165,8 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    REAL(wp) :: minmaxmean_length(3), minDualEdgeLength, minEdgeLength, k_veloc_factor
+    REAL(wp) :: minmaxmean_length(3), k_veloc_factor
+    REAL(wp) :: minDualEdgeLength, minEdgeLength, meanDualEdgeLength, meanEdgeLength
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp):: length_scale, dual_length_scale
@@ -193,8 +195,11 @@ CONTAINS
     z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
     minmaxmean_length = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
     minDualEdgeLength = minmaxmean_length(1)
+    meanDualEdgeLength = minmaxmean_length(3)
     minmaxmean_length = global_minmaxmean(patch_2D%edges%primal_edge_length, owned_edges)
     minEdgeLength = minmaxmean_length(1)
+    meanEdgeLength = minmaxmean_length(3)
+
 
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
@@ -306,14 +311,17 @@ CONTAINS
           p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
           DO je = start_index, end_index
             
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / minDualEdgeLength 
-            length_scale = patch_2D%edges%primal_edge_length(je,jb) / minEdgeLength 
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / minDualEdgeLength
+            length_scale = patch_2D%edges%primal_edge_length(je,jb) / minEdgeLength
                         
 !             length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
-            length_scale = SQRT(length_scale * dual_length_scale) * dual_length_scale**2
+            length_scale = SQRT(length_scale * dual_length_scale) * dual_length_scale
             
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_veloc_h(je,jk,jb) = p_phys_param%k_veloc_h_back * length_scale
+              p_phys_param%k_veloc_h(je,jk,jb) = &
+                & p_phys_param%k_veloc_h_back * &
+                & (1.0_wp - HorizontalViscosity_ScaleWeight &
+                &  +  HorizontalViscosity_ScaleWeight * length_scale)
             END DO
               
           END DO

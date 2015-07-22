@@ -29,7 +29,7 @@ MODULE mo_ocean_boundcond
   USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea, min_rlcell, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot, forcing_smooth_steps, &
-    & forcing_windstress_u_type, OceanReferenceDensity
+    & forcing_windstress_u_type, OceanReferenceDensity, forcing_windStress_weight
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message, finish
@@ -159,7 +159,7 @@ CONTAINS
         DO je = start_index, end_index
 !           stress_coeff = smooth_coeff * z_scale(je,jb)
           ocean_state%p_aux%bc_top_vn(je,jb) = &
-            & ocean_state%p_aux%bc_top_WindStress(je,jb) * smooth_coeff * z_scale(je,jb) 
+            & ocean_state%p_aux%bc_top_WindStress(je,jb) * smooth_coeff * z_scale(je,jb)  * forcing_windStress_weight
         END DO
       END DO
 !ICON_OMP_END_DO
@@ -337,11 +337,11 @@ CONTAINS
         DO jc = start_index, end_index
           IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
 
-            stress_coeff = smooth_coeff * z_scale(jc,jb)
+            stress_coeff = smooth_coeff * z_scale(jc,jb) * forcing_windStress_weight
 
-            ocean_state%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)*stress_coeff
-            ocean_state%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)*stress_coeff
-            ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x*stress_coeff
+            ocean_state%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)    * stress_coeff
+            ocean_state%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)    * stress_coeff
+            ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x * stress_coeff
 
          ENDIF
        END DO

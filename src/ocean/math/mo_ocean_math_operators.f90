@@ -1091,14 +1091,14 @@ CONTAINS
 
 
     INTEGER :: max_connectivity, blockNo, start_index,end_index, jc, level, neigbor, neigbor_index,neigbor_block 
-    REAL(wp) :: numberOfNeigbors, neigbors_weight
+    REAL(wp) :: numberOfNeigbors, neigbors_weight, minValue, maxValue
     TYPE(t_subset_range), POINTER :: cells_inDomain
     !-----------------------------------------------------------------------
-    cells_inDomain => patch_3D%p_patch_2D(1)%cells%in_domain
+    cells_inDomain => patch_3D%p_patch_2D(1)%cells%owned
     max_connectivity = patch_3D%p_patch_2D(1)%cells%max_connectivity
     
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, level, neigbor, neigbor_index,neigbor_block, &
-!ICON_OMP numberOfNeigbors, neigbors_weight) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP numberOfNeigbors, neigbors_weight, minValue, maxValue) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_inDomain%start_block, cells_inDomain%end_block
       CALL get_index_range(cells_inDomain, blockNo, start_index, end_index)
       out_value(:,:,blockNo) = 0.0_wp
@@ -1107,7 +1107,9 @@ CONTAINS
         DO level = 1, patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo)
 
           ! calculate how many sea neigbors we have 
-          numberOfNeigbors = 0.0_wp            
+          numberOfNeigbors = 0.0_wp
+          minValue = in_value(jc,level,blockNo) 
+          maxValue = in_value(jc,level,blockNo)
           ! now compute out_value, out_value at this point is zeroe
           DO neigbor = 1, max_connectivity
             neigbor_index = patch_3D%p_patch_2D(1)%cells%neighbor_idx(jc,blockNo,neigbor)
@@ -1118,6 +1120,8 @@ CONTAINS
                 & in_value(neigbor_index,level,neigbor_block)
                 ! & * patch_3D%p_patch_2D(1)%cells%area(neigbor_index,neigbor_block) 
               numberOfNeigbors = numberOfNeigbors + 1.0_wp
+              minValue = MIN(minValue, in_value(neigbor_index,level,neigbor_block))
+              maxValue = MAX(maxValue, in_value(neigbor_index,level,neigbor_block))
             ENDIF
           ENDDO
           
@@ -1126,6 +1130,10 @@ CONTAINS
             &  out_value(jc,level,blockNo) * neigbors_weight + &
             &  in_value(jc,level,blockNo) * smooth_weights(1)
 
+          ! IF (out_value(jc,level,blockNo) > maxValue .or. out_value(jc,level,blockNo)  < minValue) THEN
+          !   write(0,*) in_value(jc,level,blockNo), minValue, maxValue, out_value(jc,level,blockNo)
+          !   CALL finish("smooth_onCells_3D","out_vlue not within the min-max")
+          ! ENDIF
         END DO ! level
       END DO 
     END DO
@@ -1148,7 +1156,7 @@ CONTAINS
     REAL(wp) :: numberOfNeigbors, neigbors_weight
     TYPE(t_subset_range), POINTER :: cells_inDomain
     !-----------------------------------------------------------------------
-    cells_inDomain => patch_3D%p_patch_2D(1)%cells%in_domain
+    cells_inDomain => patch_3D%p_patch_2D(1)%cells%owned
     max_connectivity = patch_3D%p_patch_2D(1)%cells%max_connectivity
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, level, neigbor, neigbor_index,neigbor_block, &
@@ -1162,7 +1170,7 @@ CONTAINS
 
           ! calculate how many sea negbors we have 
           numberOfNeigbors = 0.0_wp
-
+          out_value(jc,blockNo) = 0.0_wp
           ! now compute out_value, out_value at this point is zeroe
           DO neigbor = 1, max_connectivity
             neigbor_index = patch_3D%p_patch_2D(1)%cells%neighbor_idx(jc,blockNo,neigbor)

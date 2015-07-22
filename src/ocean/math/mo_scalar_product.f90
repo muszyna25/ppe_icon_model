@@ -37,11 +37,15 @@ MODULE mo_scalar_product
                                   & NONLINEAR_CORIOLIS, NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
-    & Get3DVectorToPlanarLocal
+    & Get3DVectorTo2DLocal_array3D
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
   USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra25, timer_extra26, timer_extra27, &
+    & timer_extra28, timer_extra29
+
+
   
   IMPLICIT NONE
   
@@ -83,8 +87,7 @@ MODULE mo_scalar_product
     !MODULE PROCEDURE map_edges2cell_with_height_3d
     MODULE PROCEDURE map_edges2cell_no_height_3d    
   END INTERFACE
-  CHARACTER(LEN=*),PARAMETER :: this_mod_name = 'mo_scalarprod'
-  CHARACTER(LEN=16)          :: str_module    = 'mo_scalarprod'  ! Output of module for 1 line debug
+  CHARACTER(LEN=16)          :: module_name    = 'mo_scalarprod'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug  
 CONTAINS
   
@@ -118,40 +121,57 @@ CONTAINS
     !-----------------------------------------------------------------------
     startLevel = 1
     endLevel = n_zlev
-    
+
+    IF (timers_level > 2)  CALL timer_start(timer_extra25)
     CALL map_edges2vert_3d(patch_3d%p_patch_2d(1), vn_e, operators_coefficients%edge2vert_coeff_cc, &
       & p_diag%p_vn_dual)
-    
+    IF (timers_level > 2)  CALL timer_stop(timer_extra25)
+
+    IF (timers_level > 2)  CALL timer_start(timer_extra26)
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
     CALL map_edges2cell_3d(patch_3d, vn_e, operators_coefficients, p_diag%p_vn) !, subset_range=cells_in_domain)
-     
+    IF (timers_level > 2)  CALL timer_stop(timer_extra26)
+
+    IF (timers_level > 2)  CALL timer_start(timer_extra27)
     CALL map_edges2edges_viacell_3d_const_z( patch_3D,       &
                                     & vn_e,                  &
                                     & operators_coefficients,&
                                     & p_diag%ptp_vn)    
+    IF (timers_level > 2)  CALL timer_stop(timer_extra27)
     ! CALL sync_patch_array(sync_e, patch_2d, p_diag%ptp_vn)
-    
+   
+    IF (timers_level > 2)  CALL timer_start(timer_extra28)
     !--------------------------------------------------------------
     !calculate kinetic energy
-!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+    ! First option is our default configuration
+    IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
 
-      p_diag%kin(:,:,blockNo)=0.0_wp
-      
-      DO cell_index =  start_cell_index, end_cell_index
-        DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+!         p_diag%kin(:,:,blockNo)=0.0_wp        
+        DO cell_index =  start_cell_index, end_cell_index
+          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+
+            p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
+              & DOT_PRODUCT(p_diag%p_vn(cell_index,level,blockNo)%x, p_diag%p_vn(cell_index,level,blockNo)%x)
+              
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+    ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+
+!         p_diag%kin(:,:,blockNo)=0.0_wp
         
-          ! First option is our default configuration
-          IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
-
-          p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
-            & DOT_PRODUCT(p_diag%p_vn(cell_index,level,blockNo)%x, p_diag%p_vn(cell_index,level,blockNo)%x)
-            !p_diag%kin(cell_index,level,blockNo) = 0.5_wp*DOT_PRODUCT(z_pv_cc(cell_index,level,blockNo)%x,z_pv_cc(cell_index,level,blockNo)%x)
-            !IF(p_diag%kin(cell_index,level,blockNo)/=0.0_wp)&
-            !&write(*,*)'Pv',cell_index,blockNo,p_diag%p_vn(cell_index,level,blockNo)%x, z_pv_cc(cell_index,level,blockNo)%x
-          
-          ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+        DO cell_index =  start_cell_index, end_cell_index
+          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+        
             p_diag%kin(cell_index,level,blockNo)=&!p_diag%kin(cell_index,level,blockNo)&
             & vn_e       (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
             & *vn_e      (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
@@ -179,32 +199,43 @@ CONTAINS
         
             p_diag%kin(cell_index,level,blockNo) = 0.5_wp * p_diag%kin(cell_index,level,blockNo) / &
             & patch_2d%cells%area(cell_index,blockNo)
-         ENDIF            
+          END DO
         END DO
-      END DO
+      END DO ! block
+!ICON_OMP_END_PARALLEL_DO
+      
+    ENDIF            
+    IF (timers_level > 2)  CALL timer_stop(timer_extra28)
 !       CALL sync_patch_array(sync_c, patch_2d,p_diag%kin)
       
       !convert cartesian velocity vector p_diag%p_vn(cell_index,level,blockNo)%x to geographical coordinate system
       !for output, sea-ice and coupling
-      DO cell_index =  start_cell_index, end_cell_index
-        DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-          CALL Get3DVectorToPlanarLocal(p_diag%p_vn(cell_index,level,blockNo), &
-            & patch_2d%cells%center(cell_index,blockNo), patch_2d%geometry_info, &
-            & p_diag%u(cell_index,level,blockNo), p_diag%v(cell_index,level,blockNo) )
-        END DO
-      END DO
+    IF (timers_level > 2)  CALL timer_start(timer_extra29)
+    CALL Get3DVectorTo2DLocal_array3D(vector=p_diag%p_vn, &
+      & position_local=patch_2d%cells%center, &
+      & levels=patch_3d%p_patch_1d(1)%dolic_c, &
+      & subset=all_cells,                      &
+      & geometry_info=patch_2d%geometry_info, &
+      & x=p_diag%u, y=p_diag%v)
+    IF (timers_level > 2)  CALL timer_stop(timer_extra29)
+ 
+!       DO cell_index =  start_cell_index, end_cell_index
+!         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+!           CALL Get3DVectorToPlanarLocal(p_diag%p_vn(cell_index,level,blockNo), &
+!             & patch_2d%cells%center(cell_index,blockNo), patch_2d%geometry_info, &
+!             & p_diag%u(cell_index,level,blockNo), p_diag%v(cell_index,level,blockNo) )
+!         END DO
+!       END DO
       
-    END DO ! block
-!ICON_OMP_END_DO_PARALLEL 
     !--------------------------------------------------------------    
     
-    CALL dbg_print('veloc_3d: vn_e',                   vn_e,      str_module,3, &
+    CALL dbg_print('veloc_3d: vn_e',                   vn_e,      module_name,3, &
           patch_2D%edges%owned )
-    CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,str_module,3, &
+    CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,module_name,3, &
           patch_2D%cells%owned )
-   CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  str_module,1, &
+   CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  module_name,1, &
          patch_2D%cells%owned )
-    CALL dbg_print('veloc_3d: North-South :v',p_diag%v, str_module,1, &
+    CALL dbg_print('veloc_3d: North-South :v',p_diag%v, module_name,1, &
          patch_2D%cells%owned )
 
           

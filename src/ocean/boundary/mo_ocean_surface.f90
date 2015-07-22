@@ -77,6 +77,7 @@ MODULE mo_ocean_surface
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection_vla, ice_ocean_stress !ice_advection
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
   USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
+  USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra40
 
   IMPLICIT NONE
   
@@ -534,6 +535,7 @@ CONTAINS
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
+      IF (timers_level > 1) CALL timer_start(timer_extra40)
       CALL fem_ice_wrap ( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
 !      CALL ice_advection( p_patch_3D, p_op_coeff, p_ice ) ! messy advection routine, bugs fixed; renamed as ice_advection_vla
       CALL ice_advection_vla( p_patch_3D, p_op_coeff, p_ice )
@@ -541,6 +543,7 @@ CONTAINS
       ! the original clean up routine has been split into two: ice_clean_up_dyn, ice_clean_up_thd
       ! here we fix possible overshoots in conc afther the advection step
       CALL ice_clean_up_dyn( p_patch_3D, p_ice )
+      IF (timers_level > 1) CALL timer_stop(timer_extra40)
 
     ELSE
       p_ice%u = 0._wp
