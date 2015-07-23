@@ -1020,7 +1020,7 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
  
@@ -1047,7 +1047,7 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rce_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
                       
@@ -1069,7 +1069,7 @@ MODULE mo_nh_testcases
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rce ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics, lprofile )
 
@@ -1094,7 +1094,7 @@ MODULE mo_nh_testcases
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
@@ -1115,7 +1115,7 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'RICO case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
@@ -1135,7 +1135,7 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'GATE case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_gate ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
                       
