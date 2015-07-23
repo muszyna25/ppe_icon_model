@@ -76,7 +76,7 @@ MODULE mo_ocean_coupling
 
 ! CHARACTER(LEN=12)     :: module_name    = 'ocean_coupli'
 
-  INTEGER, PARAMETER    :: no_of_fields = 9
+  INTEGER, PARAMETER    :: no_of_fields = 10
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -376,6 +376,7 @@ CONTAINS
     field_name(7) = "eastward_sea_water_velocity"
     field_name(8) = "northward_sea_water_velocity"
     field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
+    field_name(10) = "river_runoff"
 
     DO idx = 1, no_of_fields 
       CALL yac_fdef_field (      &

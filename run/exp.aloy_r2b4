@@ -246,6 +246,10 @@ cat > ${lnd_namelist} <<EOF
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
+&jsb_hd_nml
+  active          = .TRUE.
+  routing_scheme  = 'equally_to_coast'
+/
 EOF
 
 #--------------------------------------------------------------------------------------------------
