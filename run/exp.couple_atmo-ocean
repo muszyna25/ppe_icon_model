@@ -367,7 +367,7 @@ cat >> ${atmo_namelist} << EOF
                     'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'ts'      , 'ts_rad'  ,
-                    'swvis_dif_frac', 'swnir_dif_frac', 'swvis', 'swnir',
+                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
                     'albedo'  ,
                     'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
                     'clt'     ,
