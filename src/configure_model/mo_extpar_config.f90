@@ -40,6 +40,7 @@ MODULE mo_extpar_config
   PUBLIC :: itopo
   PUBLIC :: fac_smooth_topo
   PUBLIC :: n_iter_smooth_topo
+  PUBLIC :: hgtdiff_max_smooth_topo
   PUBLIC :: l_emiss
   PUBLIC :: heightdiff_threshold
   PUBLIC :: extpar_filename
@@ -67,6 +68,7 @@ MODULE mo_extpar_config
 
   REAL(wp) :: fac_smooth_topo
   INTEGER  :: n_iter_smooth_topo(max_dom)
+  REAL(wp) :: hgtdiff_max_smooth_topo(max_dom)
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
   REAL(wp) :: heightdiff_threshold(max_dom)
 
