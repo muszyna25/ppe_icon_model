@@ -39,10 +39,10 @@ MODULE mo_initicon
     &                               rho_incr_filter_wgt, lread_ana, ltile_init,   &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA, &
-    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,            &
-    &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,   &
-    &                               min_rlcell, INWP, min_rledge_int,               &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,   &
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
+    &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,     &
+    &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
     &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
@@ -51,7 +51,7 @@ MODULE mo_initicon
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi 
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
-    &                               isub_lake, isub_water, lsnowtile
+    &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
   USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
@@ -1729,7 +1729,7 @@ MODULE mo_initicon
     INTEGER :: nblks_c
     REAL(wp):: missval
     INTEGER :: rl_start, rl_end 
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
     LOGICAL :: lp_mask(nproma)
   !-------------------------------------------------------------------------
@@ -1900,6 +1900,35 @@ MODULE mo_initicon
       END DO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+
+      ! Fill t_seasfc on nest boundary points (needed because the turbtran initialization done in nwp_phy_init
+      ! includes nest boundary points)
+
+      IF (jg > 1) THEN
+
+        rl_start = 1
+        rl_end   = grf_bdywidth_c
+        i_endblk = p_patch(jg)%cells%end_block(rl_end)
+
+        DO jb = 1, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, 1, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jc = i_startidx, i_endidx
+            IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
+              IF (lanaread_tso) THEN
+                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
+              ELSE IF (ext_data(jg)%atm%fr_land(jc,jb) >= frlake_thrhld) THEN
+                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+              ELSE
+                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
+              ENDIF
+            ENDIF
+          ENDDO
+
+        ENDDO
+
+      ENDIF
 
       ! This sync is needed because of the subsequent neighbor point filling
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
