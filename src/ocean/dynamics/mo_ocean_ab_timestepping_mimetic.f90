@@ -606,7 +606,8 @@ CONTAINS
          &                          ocean_state%p_diag%press_grad)     
       
       
-       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
+      ! this is probably not needed
+      CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
 
       ! calculate vertical velocity advection
       CALL veloc_adv_vert_mimetic(          &
