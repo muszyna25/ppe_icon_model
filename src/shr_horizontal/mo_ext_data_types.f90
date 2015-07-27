@@ -52,6 +52,9 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< geopotential (S)                        [m**2/s**2]
       &  fis(:,:)              ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< gradient of topographic height at cell centers [ ]
+      &  grad_topo(:,:,:)      ! index1=1,2, index2=1,nproma, index3=1,nblks_c
+
 
     !
     ! *** Land-Sea-Mask ***

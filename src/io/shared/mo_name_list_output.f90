@@ -95,15 +95,16 @@ MODULE mo_name_list_output
     &                                     print_timer
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
-  USE mo_master_nml,                ONLY: model_base_dir
+  USE mo_master_config,             ONLY: getModelBaseDir
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
-  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
+  USE mo_gribout_config,            ONLY: gribout_config
+  USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, num_io_procs
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
-  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
-  USE mo_name_list_output_types,    ONLY: t_output_name_list, t_output_file, t_reorder_info,        &
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
+  USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info,                            &
   &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
@@ -136,15 +137,15 @@ MODULE mo_name_list_output
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
     &                                     metainfo_get_size
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
-  USE mo_util_cdi,                  ONLY: set_timedependent_GRIB2_keys
+  USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! post-ops
-  USE mo_post_op,                   ONLY: perform_post_op
 
 #ifndef __NO_ICON_ATMO__
+  USE mo_post_op,                   ONLY: perform_post_op
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
+  USE mo_intp_data_strc,            ONLY: lonlat_grid_list, t_lon_lat_data
 #endif
 
   IMPLICIT NONE
@@ -326,11 +327,11 @@ CONTAINS
   !
   SUBROUTINE write_name_list_output(jstep, opt_lhas_output)
     INTEGER,           INTENT(IN)   :: jstep             !< model step
-    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output   !< (Optional) Flag: .TRUE. if this async I/O PE has written during this step.
+    !> (Optional) Flag: .TRUE. if this async I/O PE has written during this step:
+    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
-    TYPE(t_output_name_list), POINTER :: p_onl
     TYPE(datetime),           POINTER :: io_datetime => NULL()
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
@@ -409,11 +410,9 @@ CONTAINS
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
-        CALL resetCalendar()
+        !rr CALL resetCalendar()
       END IF
 
-
-      p_onl => output_file(i)%name_list
       IF(my_process_is_io()) THEN
 #ifndef NOMPI
         IF(output_file(i)%io_proc_id == p_pe) THEN
@@ -535,7 +534,7 @@ CONTAINS
     CALL deallocateTimedelta(forecast_delta)
 
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(model_base_dir),            keywords)
+    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
     rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))
@@ -593,6 +592,7 @@ CONTAINS
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
+    INTEGER                                     :: var_ref_pos
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -702,6 +702,8 @@ CONTAINS
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
 
+        IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
+          & CALL finish(routine, "internal error")
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
@@ -715,18 +717,61 @@ CONTAINS
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
 
+        var_ref_pos = 3
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(nindex,:,:,1,1)
+          CASE (2)
+            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,nindex,:,1,1)
+          CASE (3)
+            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(nindex,:,:,1,1)
+          CASE (2)
+            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,nindex,:,1,1)
+          CASE (3)
+            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,1,1)
+          CASE (2)
+            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,1,1)
+          CASE (3)
+            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,1,1)
+          CASE (2)
+            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,1,1)
+          CASE (3)
+            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE
           CALL finish(routine, "Internal error!")
         ENDIF
       CASE (3)
+
+        var_ref_pos = 4
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
         ! 3D fields: Here we could just set a pointer to the
         ! array... if there were no post-ops
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1), &
@@ -737,13 +782,57 @@ CONTAINS
           &                                        info%used_dimensions(3)))
 
         IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr = of%var_desc(iv)%r_ptr(nindex,:,:,:,1)
+          CASE (2)
+            r_ptr = of%var_desc(iv)%r_ptr(:,nindex,:,:,1)
+          CASE (3)
+            r_ptr = of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
+          CASE (4)
+            r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr = of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr = of%var_desc(iv)%i_ptr(nindex,:,:,:,1)
+          CASE (2)
+            i_ptr = of%var_desc(iv)%i_ptr(:,nindex,:,:,1)
+          CASE (3)
+            i_ptr = of%var_desc(iv)%i_ptr(:,:,nindex,:,1)
+          CASE (4)
+            i_ptr = of%var_desc(iv)%i_ptr(:,:,:,nindex,1)            
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,:,1)
+          CASE (2)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,:,1)
+          CASE (3)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
+          CASE (4)
+            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)            
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,:,1)
+          CASE (2)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,:,1)
+          CASE (3)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,:,1)
+          CASE (4)
+            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)            
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
         ELSE
           CALL finish(routine, "Internal error!")
         ENDIF
@@ -762,11 +851,15 @@ CONTAINS
       ! Perform post-ops (small arithmetic operations on fields)
       ! --------------------------------------------------------
 
-      IF (of%var_desc(iv)%info%post_op%ipost_op_type == POST_OP_SCALE) THEN
-        IF (idata_type == iINTEGER) CALL finish(routine, "Not yet implemented!")
-        CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
+#ifndef __NO_ICON_ATMO__
+      IF ( ANY((/POST_OP_SCALE, POST_OP_LUC/) == of%var_desc(iv)%info%post_op%ipost_op_type) ) THEN
+        IF (idata_type == iREAL) THEN
+          CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
+        ELSE IF (idata_type == iINTEGER) THEN
+          CALL perform_post_op(of%var_desc(iv)%info%post_op, i_ptr)
+        ENDIF
       END IF
-
+#endif
 
       var_ignore_level_selection = .FALSE.
       IF(info%ndims < 3) THEN
@@ -863,10 +956,12 @@ CONTAINS
             ! pointer "info_ptr" to the variable's info data object and
             ! not the modified copy "info".
             IF  (of%output_type == FILETYPE_GRB2) THEN
-              CALL set_timedependent_GRIB2_keys( &
+              CALL set_GRIB2_timedep_keys( &
                 & of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
                 & of%out_event%output_event%event_data%sim_start,        &
                 & get_current_date(of%out_event))
+              CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID, &
+                & gribout_config(of%phys_patch_id) )
             END IF
           END IF ! my_process_is_mpi_test()
         END IF ! my_process_is_mpi_workroot()
@@ -874,16 +969,11 @@ CONTAINS
 
         ! set missval flag, if applicable
         !
-        IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
-          IF (of%var_desc(iv)%info%lmiss ) THEN
-            nmiss = 1
-          ELSE
-            nmiss = 0
-          ENDIF
-        ELSE  ! i.e. NETCDF
+        IF (of%var_desc(iv)%info%lmiss ) THEN
+          nmiss = 1
+        ELSE
           nmiss = 0
         ENDIF
-
 
         ! For all levels (this needs to be done level-wise in order to reduce 
         !                 memory consumption)
@@ -905,7 +995,6 @@ CONTAINS
             END IF
           ELSE ! n_points
             IF (idata_type == iREAL) THEN
-
               r_out_wp(:)  = 0._wp
 
               lev_idx = lev
@@ -916,10 +1005,10 @@ CONTAINS
                 & (info%ndims > 2)) THEN
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
-              CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:), p_pat)
-            
+              CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
+                &                out_array=r_out_wp(:), gather_pattern=p_pat)
+           
             ELSE IF (idata_type == iINTEGER) THEN
-
               r_out_int(:) = 0
 
               lev_idx = lev
@@ -930,17 +1019,34 @@ CONTAINS
                 & (info%ndims > 2)) THEN
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
-              CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:), p_pat)
+              CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
+                &                out_array=r_out_int(:), gather_pattern=p_pat)
 
             END IF
           END IF ! n_points
 
           IF(my_process_is_mpi_workroot()) THEN
 
-            IF ((.NOT. (use_dp_mpi2io .OR. have_GRIB)) .AND. &
-              & (idata_type == iREAL)) r_out_sp(:) = REAL(r_out_wp(:), sp)
-            IF (idata_type == iINTEGER) r_out_sp(:) = REAL(r_out_int(:), sp)
-          
+            SELECT CASE(idata_type)
+            CASE(iREAL)
+              !
+              ! "r_out_wp" points to double precision. If single precision
+              ! output is desired, we need to perform a type conversion:
+              IF ( (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) ) THEN 
+                r_out_sp(:) = REAL(r_out_wp(:), sp)
+              ENDIF
+
+            CASE(iINTEGER)
+              !
+              IF ( (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) ) THEN
+                r_out_sp(:) = REAL(r_out_int(:), sp)
+              ELSE
+                r_out_dp(:) = REAL(r_out_int(:), dp)
+              ENDIF
+            END SELECT
+
+
+
             ! ------------------
             ! case of a test run
             ! ------------------
@@ -980,11 +1086,11 @@ CONTAINS
           ! ----------
           
           IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-              IF (use_dp_mpi2io .OR. have_GRIB) THEN
-                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
-              ELSE
-                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
-              ENDIF
+            IF (use_dp_mpi2io .OR. have_GRIB) THEN
+              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
+            ELSE
+              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
+            ENDIF
           ENDIF
           
         END DO ! lev = 1, nlevs
@@ -1357,9 +1463,11 @@ CONTAINS
       CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        CALL set_timedependent_GRIB2_keys(of%cdiFileID, info%cdiVarID, updated_info,       &
-          &                               of%out_event%output_event%event_data%sim_start,  &
-          &                               get_current_date(of%out_event))
+        CALL set_GRIB2_timedep_keys(of%cdiFileID, info%cdiVarID, updated_info,       &
+          &                         of%out_event%output_event%event_data%sim_start,  &
+          &                         get_current_date(of%out_event))
+        CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID,     &
+          &                               gribout_config(of%phys_patch_id) )
       END IF
 
       ! set missval flag, if applicable
@@ -1499,6 +1607,8 @@ CONTAINS
         ELSE
 
           IF (have_GRIB) THEN
+            var3_dp(:) = 0._wp
+
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)

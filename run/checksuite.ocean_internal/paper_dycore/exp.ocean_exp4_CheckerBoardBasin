@@ -111,7 +111,7 @@ cat > ${ocean_namelist} << EOF
   threshold_max_T       = 25.0   ! abort due to temperature maximum threshold - max forcing (below) is 16.0
 /
 &ocean_diffusion_nml
-  HORZ_VELOC_DIFF_TYPE = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_type = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
 ! k_veloc_h            = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5   ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC  =    0.0   ! max vertical velocity viscosity for convection used in case of instability

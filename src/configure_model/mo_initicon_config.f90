@@ -66,7 +66,6 @@ MODULE mo_initicon_config
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
   PUBLIC :: rho_incr_filter_wgt
-  PUBLIC :: wgtfac_geobal
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
 
@@ -131,8 +130,6 @@ MODULE mo_initicon_config
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
-  REAL(wp) :: wgtfac_geobal  ! Weighting factor for artificial geostrophic balancing of meridional gradients
-                             ! of pressure increments in the tropical stratosphere
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 

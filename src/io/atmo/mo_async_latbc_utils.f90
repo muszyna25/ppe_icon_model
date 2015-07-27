@@ -89,7 +89,7 @@
          &                            operator(+)
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
                                       streamOpenRead
-    USE mo_master_nml,          ONLY: lrestart
+    USE mo_master_config,       ONLY: isRestart
     USE mo_run_config,          ONLY: nsteps, dtime
 
     IMPLICIT NONE
@@ -262,7 +262,7 @@
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
       INTEGER       :: i, add_delta, end_delta, finish_delta
-      REAL          :: tdiff
+      REAL(wp)      :: tdiff
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
@@ -284,7 +284,7 @@
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
-      tdiff = (0.5*dtime)
+      tdiff = (0.5_wp*dtime)
       CALL get_duration_string_real(tdiff, tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 
@@ -340,7 +340,7 @@
       ! the data from the new date time of restart file. Below the time at which
       ! restart file starts is calculated and added to mtime_read which is the
       ! time step for reading the boundary data
-      IF(lrestart) THEN
+      IF(isRestart()) THEN
          mtime_current => newDatetime(TRIM(sim_cur_read))
          delta_tstep => newTimedelta(latbc_config%dt_latbc)
          delta_tstep = mtime_read - mtime_current

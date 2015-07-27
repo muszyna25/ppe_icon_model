@@ -4,13 +4,12 @@
 \documentclass[10pt,english,a4paper,landscape]{article}
 
 \usepackage[T1]{fontenc}
-
 \usepackage[latin1]{inputenc}
-
 \usepackage{array}
-
 \usepackage[colorlinks=true,bookmarks=true,linkcolor=blue,citecolor=blue]{hyperref}
 \usepackage{longtable}
+\usepackage{amsmath,amssymb}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
 %% Bold symbol macro for standard LaTeX users
 \providecommand{\boldsymbol}[1]{\mbox{\boldmath $#1$}}
@@ -18,6 +17,8 @@
 \providecommand{\tabularnewline}{\\}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
 \makeatletter
+
+\DeclareMathOperator{\atan}{atan}
 
 \usepackage[landscape]{geometry}
 \AtBeginDvi{\special{landscape}}
@@ -94,6 +95,14 @@ Parameter& Type& Default& Unit& Description & Scope
 \newpage{}
 
 \input{icon_nml_tables}
+
+% ------------------------------------------------------
+% APPENDIX
+% ------------------------------------------------------
+\appendix
+% ------------------------------------------------------
+
+\input{mo_expression_doc}
 
 \input{incompatible_changes}
 

@@ -15,7 +15,11 @@ mocVar=var778 #AMOC
 # calculate the moc timeseries in 1000 depth
 # cat, yearmean, netcdf of MOC to moc.ym.nc - grid is 1x180 values, i.e. 1 deg lat-resolution
 files=$(echo $mocPattern | wc -w)
-if [[ $files -gt 1 ]]; then
+if [[ $files -eq 0 ]]; then
+  echo "no file[s] available"
+  exit
+fi
+if [[ $files -ge 1 ]]; then
   cdo -f nc -r -setgrid,r1x180 -yearmean -cat "${mocPattern}"  moc.ym.nc
   mocPattern=moc.ym.nc
 fi

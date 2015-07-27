@@ -935,6 +935,124 @@ Defined and used in: \verb+src/namelists/mo_echam_phy_nml.f90+
 
 
 %------------------------------------------------------------------------------
+% ensemble_pert_nml:
+%------------------------------------------------------------------------------
+\subsection{ensemble\_pert\_nml}
+
+
+\begin{longtab}
+
+
+\hline
+use\_ensemble\_pert&
+L&
+.FALSE.&
+&
+Main switch to activate physics parameter perturbations for ensemble forecasts / ensemble data assimilation; 
+the perturbations are applied via random numbers depending on the perturbationNumber 
+(ensemble member ID) specified in gribout\_nml    &
+run\_nml:iforcing = inwp
+\tabularnewline
+
+
+\hline
+range\_gkwake&
+R&
+0.1666&
+&
+Variability range for low level wake drag constant&
+\tabularnewline
+
+\hline
+range\_gkdrag&
+R&
+0.02&
+&
+Variability range for orographic gravity wave drag constant&
+\tabularnewline
+
+
+\hline
+range\_gfluxlaun&
+R&
+0.50e-3&
+&
+Variability range for non-orographic gravity wave launch momentum flux &
+\tabularnewline
+
+
+\hline
+range\_zvz0i&
+R&
+0.125&
+m/s&
+Variability range for terminal fall velocity of ice&
+inwp\_gscp = 1 or 2
+\tabularnewline
+
+
+\hline
+range\_entrorg&
+R&
+0.125e-3&
+1/m&
+Variability range for entrainment parameter in convection scheme &
+\tabularnewline
+
+
+\hline
+range\_capdcfac\_et&
+R&
+0.1&
+&
+Maximum fraction of CAPE diurnal cycle correction applied in the extratropics &
+icapdcycl = 3
+\tabularnewline
+
+
+\hline
+range\_box\_liq&
+R&
+0.01&
+&
+Variability range for box width scale of liquid clouds in cloud cover scheme &
+inwp\_cldcover = 1
+\tabularnewline
+
+
+\hline
+range\_tkhmin&
+R&
+0.15&
+&
+Variability range for minimum vertical diffusion for heat/moisture &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_tkmmin&
+R&
+0.15&
+&
+Variability range for minimum vertical diffusion for momentum &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_rlam\_heat&
+R&
+1.5&
+&
+Variability range (multiplicative!) of laminar transport resistance parameter &
+inwp\_turb = 1
+\tabularnewline
+
+\end{longtab}
+
+
+Defined and used in: \verb+src/namelists/mo_ensemble_pert_nml.f90+
+
+%------------------------------------------------------------------------------
 % gribout_nml:
 %------------------------------------------------------------------------------
 \subsection{gribout\_nml}
@@ -1638,13 +1756,6 @@ Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_
 rho\_incr\_filter\_wgt &
 R & 0 &  &
 Vertical filtering weight on density increments &
-init\_mode=5,6,8
-\tabularnewline
-
-wgtfac\_geobal &
-R & 0 &  &
-Weighting factor for artificial geostrophic balancing of meridional gradients of DA pressure increments in the tropical stratosphere.
-Use with caution! According to preliminary experience, the weight should not be much larger than 0.1 &
 init\_mode=5,6,8
 \tabularnewline
 
@@ -2677,6 +2788,18 @@ list of meteogram stations (triples with lat, lon, name string)&
 \tabularnewline
 
 %\hline
+var\_list&
+C(:)
+&
+" " &&
+Positive-list of variables (optional). Only variables contained in
+this list are included in the meteogram. If the default list is not
+changed by user input, then all available variables are added to the
+meteogram
+&
+\tabularnewline
+
+%\hline
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_mtgrm_nml.f90+
@@ -3190,7 +3313,7 @@ Please note: These tuning parameters are NOT domain specific.
 \hline
 tune\_gkwake&
 R&
-1.333&
+1.5&
 &
 low level wake drag constant&
 run\_nml:iforcing = inwp
@@ -3199,7 +3322,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_gkdrag&
 R&
-0.1&
+0.075&
 &
 gravity wave drag constant&
 run\_nml:iforcing = inwp
@@ -3296,7 +3419,7 @@ max\_freshsnow\_inc&
 R&
 0.025&
 &
-Maximum allowed freshsnow increment per analysis cycle&
+Maximum allowed freshsnow increment per analysis cycle (positive or negative)&
 init\_mode=5 (MODE\_IAU)
 \tabularnewline
 \end{longtab}
@@ -3774,8 +3897,9 @@ Soon the formatting problem will be resolved and the valid number ranges will be
 
 
 % -------------------------------------------------------------
-\paragraph{Variable Groups:}
+\subsubsection*{Variable Groups}
 % -------------------------------------------------------------
+\paragraph{Keyword \texttt{"group:"}:}
 Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
 sets of common variables can be added to the output:
 \begin{tabbing}
@@ -3801,8 +3925,18 @@ sets of common variables can be added to the output:
 \texttt{group:ART\_AERO\_RADIO}        \>     ART radioactive tracer fields                                         \\
 \texttt{group:ART\_AERO\_DUST}         \>     ART mineral dust aerosol fields                                       \\
 \texttt{group:ART\_AERO\_SEAS}         \>     ART sea salt aerosol fields                                           \\
+\texttt{group:prog\_timemean}          \>     time mean output: temp, u, v, rho                                     \\
+\texttt{group:tracer\_timemean}        \>     time mean output: qv, qc, qi                                          \\
+\texttt{group:echam\_timemean}         \>     time mean output: most echam surface variables                        \\
+\texttt{group:atmo\_timemean}          \>     time mean variables from \texttt{prog\_timemean},\texttt{tracer\_timemean}, \texttt{echam\_timemean}\\                                                  \\
 \end{tabbing}
 
+\paragraph{Keyword \texttt{"tiles:"}:}
+The \texttt{"tiles:"} keyword allows to add all tiles of a specific variable to the output, without the need to specify all 
+tile fields separately. E.g.\ \texttt{"tiles:t\_g"} (read: ``tiles of \texttt{t\_g}'') automatically adds all \texttt{t\_g\_t\_X} 
+fields to the output. Here, \texttt{X} is a placeholder for the tile number. Make sure to specify the name of the aggregated 
+variable rather than the name of the corresponding tile container (i.e.\ in the given example it must be \texttt{t\_g}, and not 
+\texttt{t\_g\_t}!).
 
 \begin{note}
       There exists a special syntax which allows to remove variables from the output list, e.\,g.\ if
@@ -4543,7 +4677,7 @@ L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
 \textbf{ihadv\_tracer}&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & 5& & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
+& & & & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: Miura (2nd order, linear reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -4586,7 +4720,19 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 
 %\hline
 ctracer\_list&
-C& ''& & list of tracer names & run\_nml/ltestcase=.TRUE.
+C& ''& & list of tracer names & ltestcase=.TRUE.
+\tabularnewline
+
+%\hline
+npassive\_tracer&
+I& 0 & & number of additional passive tracers which have no sources and are transparent to any physical process (no effect).\\ 
+Passive tracers are named Qpassive\_ID, where ID is a number between \texttt{ntracer} and \texttt{ntracer}$+$\texttt{npassive\_tracer}.\\ 
+\textbf{NOTE:} By default, limiters are switched of for passive tracers and the scheme $52$ is selected for horizontal advection. & 
+\tabularnewline
+
+%\hline
+init\_formula&
+C& ' ' & & Comma-separated list of initialization formulas for additional passive tracers. & npassive\_tracer > 0
 \tabularnewline
 
 %\hline
@@ -4786,6 +4932,19 @@ Factor for stability correction of turbulent length scale. In case of $a\_stab=0
 a\_hshr &
 R                &     0.20      & 1 &
 Length scale factor for the separated horizontal shear mode. In case of $a\_hshr=0$, this shear mode has no effect.& ltkeshs=.TRUE.
+\tabularnewline
+
+%\hline
+alpha0 &
+R                &     0.0123      & 1 &
+Lower bound of velocity-dependent Charnock parameter & 
+\tabularnewline
+
+%\hline
+alpha0\_max &
+R                &     0.0123      & 1 &
+Upper bound of velocity-dependent Charnock parameter. Setting this parameter to 0.0335 or higher values implies unconstrained 
+velocity dependence & 
 \tabularnewline
 
 %\hline

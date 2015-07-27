@@ -18,7 +18,7 @@ USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
-USE mo_master_control,       ONLY: is_restart_run
+USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
@@ -46,6 +46,8 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
+USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
@@ -142,7 +144,11 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
+      CALL configure_ensemble_pert()
+
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
+
+      CALL configure_synsat()
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
@@ -152,7 +158,7 @@ CONTAINS
     ENDIF
 
     ! initialize ldom_active flag if this is not a restart run
-    IF (.NOT. is_restart_run()) THEN
+    IF (.NOT. isRestart()) THEN
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) - timeshift%dt_shift > 0._wp) THEN
           p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
@@ -199,14 +205,15 @@ CONTAINS
 
     ! Now allocate memory for the states
     DO jg=1,n_dom
-      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl")
+      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl") .OR. &
+        &              is_variable_in_output(first_output_name_list, var_name="psl_m")
       l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")
     END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
-    CALL construct_opt_diag(p_patch(1:), .TRUE.)
+    CALL construct_opt_diag(p_patch(1:), .TRUE.,iforcing==iecham,l_pres_msl=l_pres_msl(1))
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
@@ -234,7 +241,8 @@ CONTAINS
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme ) 
+       &                      idiv_method, itime_scheme,               &
+       &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
 
     !---------------------------------------------------------------------
@@ -268,7 +276,7 @@ CONTAINS
     !
     ! Read restart files (if necessary)
     !
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       ! This is a resumed integration. Read model state from restart file(s).
 
       IF (timers_level > 5) CALL timer_start(timer_read_restart)
@@ -299,7 +307,7 @@ CONTAINS
     !
     ! Initialize model with real atmospheric data if appropriate switches are set
     !
-    IF (.NOT. ltestcase .AND. .NOT. is_restart_run() ) THEN
+    IF (.NOT. ltestcase .AND. .NOT. isRestart() ) THEN
 
       IF (iforcing == inwp) THEN
 
@@ -383,7 +391,7 @@ CONTAINS
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF
@@ -431,8 +439,16 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi") 
-    ENDIF
+        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+
+        atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
+        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+     ENDIF
 
     !----------------------!
     !  Initialize actions  !
@@ -450,11 +466,11 @@ CONTAINS
     IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_plane_torus)THEN
       atm_phy_nwp_config(1)%lcalc_moist_integral_avg = .TRUE.
 
-      IF(is_restart_run()) &
+      IF(isRestart()) &
         CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
                                time_config%sim_time(1), l_rh(1), ldelete=.FALSE.)
 
-      IF(.NOT.is_restart_run()) &
+      IF(.NOT.isRestart()) &
         CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
                                time_config%sim_time(1), l_rh(1), ldelete=.TRUE.)
     END IF

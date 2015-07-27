@@ -76,7 +76,6 @@ atmo_model_equations=1   # equation system
 #
 dict_file="dict.${EXPNAME}"
 cat dict.icoham.mpim > ${dict_file}
-cat dict.echam.mpim >> ${dict_file}
 #
 #-----------------------------------------------------------------------------
 # horizontal grid

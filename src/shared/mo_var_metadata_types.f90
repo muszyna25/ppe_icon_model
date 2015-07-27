@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(44) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(50) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -53,6 +53,10 @@ MODULE mo_var_metadata_types
     &  "CLOUD_DIAG            ",  &
     &  "PBL_VARS              ",  &
     &  "PHYS_TENDENCIES       ",  &
+    &  "PROG_TIMEMEAN         ",  &
+    &  "ECHAM_TIMEMEAN        ",  &
+    &  "TRACER_TIMEMEAN       ",  &
+    &  "ATMO_TIMEMEAN         ",  &
     &  "LAND_VARS             ",  &
     &  "LAND_TILE_VARS        ",  &
     &  "MULTISNOW_VARS        ",  &
@@ -60,6 +64,7 @@ MODULE mo_var_metadata_types
     &  "SNOW_VARS             ",  &
     &  "DWD_FG_ATM_VARS       ",  &  ! DWD First Guess (atmosphere) 
     &  "DWD_FG_SFC_VARS       ",  &  ! DWD First Guess (surface/soil)
+    &  "DWD_FG_SFC_VARS_T     ",  &  ! DWD First Guess (surface/soil) tiles
     &  "MODE_DWD_FG_IN        ",  &  ! Input first guess fields for MODE_DWD
     &  "MODE_DWD_ANA_IN       ",  &  ! Input analysis fields for MODE_DWD
     &  "MODE_IAU_FG_IN        ",  &  ! First guess input for IAU
@@ -85,7 +90,16 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_VOLC         ",  &  ! ICON-ART fields for volcanic ash
     &  "ART_AERO_RADIO        ",  &  ! ICON-ART fields for radioactive tracers
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
-    &  "ART_AERO_SEAS         " /)   ! ICON-ART fields for sea salt aerosol
+    &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
+    &  "RTTOV                 " /)
+
+  ! maximum number of variable groups supported by info state
+  INTEGER, PARAMETER :: MAX_GROUPS = 99
+
+  ! List of dynamic variable groups, which are used for tiles
+  !
+  CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: var_groups_dyn(:)
+
 
   ! list of vertical interpolation types
   ! 
@@ -102,6 +116,15 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_NONE      = -1  !< trivial post-op ("do nothing")
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_SCALE     =  1  !< multiply by scalar factor "arg1"
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_RHO       =  2  !< multiply by rho to get densities instead
+  INTEGER, PARAMETER, PUBLIC   :: POST_OP_LUC       =  3  !< convert landuse classes from internal values 
+                                                          !< to GRIB2 values (table 4.243) and vice versa. 
+
+  ! list of available variable classes
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DEFAULT       = 0
+  INTEGER, PARAMETER, PUBLIC :: CLASS_TILE          = 1   !< variable contains tile-specific information
+  INTEGER, PARAMETER, PUBLIC :: CLASS_TILE_LAND     = 2   !< variable contains tile-specific information
+                                                          !< but is restricted to land-tiles only
+  INTEGER, PARAMETER, PUBLIC :: CLASS_SYNSAT        = 3
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -177,14 +200,16 @@ MODULE mo_var_metadata_types
     LOGICAL                    :: lnew_grib2
     TYPE(t_grib2_var)          :: new_grib2             !< GRIB2 information of modified field
     !
-    REAL(wp)                   :: arg1                  !< post-op argument (e.g. scaling factor)
+    TYPE(t_union_vals)         :: arg1                  !< post-op argument (e.g. scaling factor)
   END TYPE t_post_op_meta
 
 
   TYPE t_var_metadata
     !
     INTEGER                    :: key                   ! hash value of name
-    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name  
+    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name
+    INTEGER                    :: var_class             ! variable type
+    !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information
@@ -206,7 +231,9 @@ MODULE mo_var_metadata_types
     !     
     LOGICAL                    :: lcontainer            ! true, if this is a container
     LOGICAL                    :: lcontained            ! true, if this is in a container
-    INTEGER                    :: ncontained            ! index in container   
+    INTEGER                    :: ncontained            ! index in container
+    INTEGER                    :: maxcontained          ! container size   
+    INTEGER                    :: var_ref_pos           ! for containers: dimension index for references
     !
     INTEGER                    :: hgrid                 ! CDI horizontal grid type
     INTEGER                    :: vgrid                 ! CDI vertical grid type
@@ -244,7 +271,7 @@ MODULE mo_var_metadata_types
     TYPE(t_hor_interp_meta)    :: hor_interp 
     !
     ! meta data containing the groups to which a variable belongs
-    LOGICAL :: in_group(SIZE(var_groups))
+    LOGICAL :: in_group(MAX_GROUPS)
 
     ! Flag: defines, if this field is updated by the internal
     ! post-processing scheduler
@@ -254,6 +281,7 @@ MODULE mo_var_metadata_types
 
   PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: VARNAME_LEN
+  PUBLIC :: MAX_GROUPS
 
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
@@ -263,5 +291,6 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_post_op_meta
 
   PUBLIC :: var_groups
+  PUBLIC :: var_groups_dyn
 
 END MODULE mo_var_metadata_types

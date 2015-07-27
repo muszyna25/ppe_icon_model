@@ -1034,7 +1034,8 @@ endif
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
 
       CALL nwp_seaice(ext_data    , jb          , tcall_sfc_jg,                      &
-                   &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex  , thbs_ex,  &
+                   &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex    , sobs_ex,  &
+                   &  thbs_ex,                                                       &
                    &  shfl_soil_ex, lhfl_soil_ex,                                    &
                    &  t_ice       , h_ice       , t_snow_si   , h_snow_si,           &
                    &  fr_seaice                                                      )
@@ -1097,7 +1098,8 @@ endif
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
   SUBROUTINE nwp_seaice (ext_data    , jb          , dtime       ,                         &
-                      &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex     , thbs_ex,  &
+                      &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex       , sobs_ex,  &
+                      &  thbs_ex,                                                          &
                       &  shfl_soil_ex, lhfl_soil_ex,                                       &
                       &  t_ice_ex    , h_ice_ex    , t_snow_si_ex, h_snow_si_ex,           &
                       &  fr_seaice                                                         )
@@ -1110,6 +1112,7 @@ endif
                   dtime                ! time interval for sea ice
     REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
                   t_g_ex           , & ! weighted surface temperature                  (  K  )
+                  t_s_ex           , & ! weighted surface temperature                  (  K  )
                   qv_s_ex              ! specific humidity at the surface              (kg/kg)
     REAL(wp), DIMENSION(nproma),                           INTENT(IN)    :: &
                   ps_ex                ! surface pressure                              ( pa  )
@@ -1142,6 +1145,7 @@ endif
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
 
+    REAL(wp) :: t_s_dummy(nproma)   ! dummy for surface temperature
     ! Local scalars:
     !
     INTEGER :: jc, ic               !loop indices
@@ -1232,6 +1236,8 @@ endif
         &   hice_old      = h_ice_ex(:),                             &!inout
         &   tice_old      = t_ice_ex(:),                             &!inout
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
+        &   t_s_t_now     = t_s_ex(:,isub_water),                    &!inout  !DR quick hack
+        &   t_s_t_new     = t_s_ex(:,isub_water),                    &!inout
         &   qv_s_t        = qv_s_ex(:,isub_water)                    )!inout
 
 

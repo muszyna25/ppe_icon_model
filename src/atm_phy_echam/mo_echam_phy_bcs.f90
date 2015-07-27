@@ -26,7 +26,7 @@ MODULE mo_echam_phy_bcs
   USE mo_datetime                   ,ONLY: t_datetime, add_time
   USE mo_model_domain               ,ONLY: t_patch
 
-  USE mo_master_nml                 ,ONLY: lrestart
+  USE mo_master_config              ,ONLY: isRestart
   USE mo_echam_phy_config           ,ONLY: echam_phy_config
   USE mo_radiation_config           ,ONLY: ighg, isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero
 
@@ -41,7 +41,7 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_sst_sic                 ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, &
     &                                      bc_sst_sic_time_interpolation
   USE mo_bc_solar_irradiance        ,ONLY: read_bc_solar_irradiance, ssi_time_interpolation
-
+  USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
@@ -73,7 +73,8 @@ CONTAINS
     &                              patch        ,&! in
     &                              dtadv_loc    ,&! in
     &                              ltrig_rad    ,&! out
-    &                              time_radtran ) ! out
+    &                              time_radtran ,&! out
+    &                              datetime_radtran) ! out
 
     ! Arguments
 
@@ -83,10 +84,11 @@ CONTAINS
     REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
     LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
     REAL(wp)                 ,INTENT(out)   :: time_radtran  !< time of day (in radian) at which radiative transfer is computed
+    TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
 
     ! Local variables
 
-    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
+!!$    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
     REAL(wp)         :: dsec              !< [s] time increment of datetime_radtran wrt. datetime
 
 !!$    LOGICAL          :: is_initial_datetime
@@ -109,7 +111,7 @@ CONTAINS
 !!$      is_initial_datetime = (datetime == time_config%ini_datetime) ! here the overloaded == from mo_datetime is used
 !!$      is_radtran_datetime = (MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0)
 !!$      ltrig_rad = ( is_initial_datetime .OR. is_radtran_datetime )
-      ltrig_rad   = ( is_1st_call .AND. (.NOT.lrestart)                             ) .OR. &
+      ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart())                          ) .OR. &
         &           ( MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0 )
 
     ELSE
@@ -197,6 +199,12 @@ CONTAINS
       END IF
       !
     END IF ! ltrig_rad
+
+    CALL pre_psrad_radiation( &
+            & patch,                           datetime_radtran,             &
+            & datetime,                        ltrig_rad,                    &
+            & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
+            & prm_field(jg)%cosmu0_rad,        prm_field(jg)%daylght_frc_rad )
 
     is_1st_call = .FALSE.
 

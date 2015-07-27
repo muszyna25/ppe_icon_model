@@ -38,17 +38,18 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_nml,                        ONLY: model_base_dir
-  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
+  USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
-  USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
+  USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
+    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
-  USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
+  USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, one_of
@@ -76,8 +77,9 @@ MODULE mo_name_list_output_init
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
+  USE mo_extpar_config,                     ONLY: i_lctype
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
 #endif
-
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -96,13 +98,12 @@ MODULE mo_name_list_output_init
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
   ! variable lists
-  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN, var_groups_dyn
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
     &                                             new_var_list,                                   &
     &                                             total_number_of_variables, collect_group,       &
-    &                                             get_var_timelevel, get_var_name,                &
-    &                                             get_var_tileidx
+    &                                             get_var_timelevel, get_var_name
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il
   ! lon-lat interpolation
@@ -132,9 +133,10 @@ MODULE mo_name_list_output_init
     &                                             t_output_file, t_var_desc,                      &
     &                                             t_patch_info, t_reorder_info,                   &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
-    &                                             sfs_name_list, ffs_name_list, second_tos,       &
-    &                                             first_tos, GRP_PREFIX, t_fname_metadata,        &
-    &                                             all_events, t_patch_info_ll
+    &                                             GRP_PREFIX, TILE_PREFIX,                        &
+    &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
+    &                                             GRB2_GRID_INFO, is_grid_info_var,               &
+    &                                             GRB2_GRID_INFO_NAME
   USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2,                             &
     &                                             set_grid_info_netcdf, collect_all_grid_info,    &
     &                                             copy_grid_info, bcast_grid_info,                &
@@ -214,9 +216,9 @@ CONTAINS
   SUBROUTINE read_name_list_output_namelists( filename )
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     ! local variables
-    CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//'::read_name_list_output_namelists'
 
-    INTEGER                               :: istat, i
+    INTEGER                               :: istat, i, j
     TYPE(t_output_name_list), POINTER     :: p_onl
     INTEGER                               :: nnamelists
     LOGICAL                               :: lrewind
@@ -413,6 +415,9 @@ CONTAINS
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) THEN
         CALL finish(routine,'Unsupported value for remap')
       END IF
+      IF ((remap==REMAP_REGULAR_LATLON) .AND. ALL(reg_lon_def(:) == 0.) .AND. ALL(reg_lat_def(:) == 0.)) THEN
+        CALL finish(routine,'Lon-lat output: Grid not specified in namelist!')
+      END IF
       IF ((reg_lon_def(3) >  reg_lon_def(1)) .AND. &
         & (reg_lon_def(2) <= 0._wp)) THEN
         CALL finish(routine,'Illegal LON increment')
@@ -445,7 +450,7 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
@@ -596,6 +601,73 @@ CONTAINS
       
       p_onl%next => NULL()
 
+      ! -- if the namelist switch "output_grid" has been enabled: add
+      !    "clon, "clat", "elon", "elat", etc. to the list of
+      !    variables:
+      !
+      IF (p_onl%output_grid) THEN
+        ! model levels
+        IF (TRIM(p_onl%ml_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+        ! pressure levels
+        IF (TRIM(p_onl%pl_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+        ! height levels
+        IF (TRIM(p_onl%hl_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+        ! isentropic levels
+        IF (TRIM(p_onl%il_varlist(1)) /=  "") THEN
+          SELECT CASE(p_onl%remap)
+          CASE (REMAP_NONE)
+            DO i=1,3
+              DO j=1,2
+                CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(i,j))
+              END DO
+            END DO
+          CASE (REMAP_REGULAR_LATLON)
+            DO j=1,2
+              CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(0,j))
+            END DO
+          END SELECT
+        END IF
+      END IF
+
       ! -- write the contents of the namelist to an ASCII file
 
       IF(my_process_is_stdio()) WRITE(nnml_output,nml=output_nml)
@@ -605,6 +677,27 @@ CONTAINS
     CALL close_nml
 
   END SUBROUTINE read_name_list_output_namelists
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Utility routine: searches for the end of a list of variable name
+  !  and appends another entry.
+  SUBROUTINE append_varname(p_varlist, new_varname)
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: p_varlist(:)
+    CHARACTER(len=*),         INTENT(IN)    :: new_varname
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::append_varname"
+    INTEGER :: ivar
+
+    ! Get the number of variables in varlist
+    DO ivar = 1, SIZE(p_varlist)
+      IF (p_varlist(ivar) == ' ') EXIT ! Last one reached
+    ENDDO
+    IF (ivar > SIZE(p_varlist)) THEN
+      CALL finish(routine, "Insufficient array size!")
+    END IF
+    p_varlist(ivar) = TRIM(tolower(TRIM(new_varname)))
+  END SUBROUTINE append_varname
 
 
   !------------------------------------------------------------------------------------------------
@@ -690,7 +783,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> Looks for variable groups ("group:xyz") and replaces them
+  !> Looks for variable groups ("group:xyz", "tiles:xyz") and replaces them
   !
   !  @note This subroutine cannot be called directly from
   !         "read_name_list_output_namelists" because the latter
@@ -698,9 +791,9 @@ CONTAINS
   !         have been registered through "add_vars".
   !
   !  @note In more detail, this subroutine looks for variable groups
-  !        ("group:xyz") and replaces them by all variables belonging
-  !        to the group. Afterwards, variables can be REMOVED from
-  !        this union set with the syntax "-varname". Note that typos
+  !        ("group:xyz","tiles:xyz") and replaces them by all variables 
+  !        belonging to the group. Afterwards, variables can be REMOVED 
+  !        from this union set with the syntax "-varname". Note that typos
   !        are not detected but that the corresponding variable is
   !        simply not removed!
   !
@@ -747,9 +840,39 @@ CONTAINS
 
         if (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
         varlist((nvars+1):ntotal_vars) = " "
-        ! look for variable groups ("group:xyz") and replace them:
+        ! look for variable groups ("tiles:xyz" and "group:xyz") and replace them:
         DO ivar = 1, nvars
           vname = in_varlist(ivar)
+
+          IF (INDEX(vname, TILE_PREFIX) > 0) THEN
+            ! this is a tile group identifier
+            grp_name = vname((LEN(TRIM(TILE_PREFIX))+1) : LEN(vname))
+            grp_name(len_trim(grp_name)+1:len_trim(grp_name)+3) ="_t"
+            ! loop over all variables and collects the variables names
+            ! corresponding to the group "grp_name"
+            CALL collect_group(grp_name, grp_vars, ngrp_vars, &
+              &               loutputvars_only=.TRUE.,        &
+              &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
+              &               opt_vlevel_type=i_typ)
+            DO i=1,ngrp_vars
+              grp_vars(i) = tolower(grp_vars(i))
+            END DO
+            ! generate varlist where "grp_name" has been replaced;
+            ! duplicates are removed
+            CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
+              &               TRIM(vname),                       &
+              &               grp_vars(1:ngrp_vars), new_varlist)
+            varlist(:) = new_varlist(:)
+
+            ! status output
+            IF (msg_level >= 12) THEN
+              CALL message(routine, "Activating group of variables: "//TRIM(grp_name))
+              DO jvar=1,ngrp_vars
+                CALL message(routine, "   "//TRIM(grp_vars(jvar)))
+              END DO
+            END IF
+          END IF
+
           IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
@@ -806,7 +929,6 @@ CONTAINS
         END DO
         ! remove variables
         CALL difference(in_varlist, nvars, varlist, nsubtract_vars)
-
       END DO ! i_typ = 1,4
       p_onl => p_onl%next
 
@@ -1166,7 +1288,7 @@ CONTAINS
             
             !Special case for very small time steps
             IF(sim_step_info%dtime .LT. 1._wp)THEN
-              CALL get_duration_string_real(REAL(sim_step_info%dtime), &
+              CALL get_duration_string_real(sim_step_info%dtime, &
                 &                           lower_bound_str)
               idummy = 0
             ELSE  
@@ -1485,7 +1607,7 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
@@ -1507,7 +1629,7 @@ CONTAINS
       ! special treatment of ocean model: model_date/run_start is the time at
       ! the beginning of the timestep. Output is written at the end of the
       ! timestep
-      IF (is_restart_run() .AND. my_process_is_ocean()) THEN
+      IF (isRestart() .AND. my_process_is_ocean()) THEN
         IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model with restart!")
         CALL get_datetime_string(p_onl%output_start(1), &
@@ -1576,7 +1698,7 @@ CONTAINS
       ! ------------------------------------------------------------------------------------------
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
-        &                            is_restart_run(), lrecover_open_file=.TRUE.)
+        &                            isRestart(), lrecover_open_file=.TRUE.)
     END DO
 
     ! tell the root I/O process that all output event data structures
@@ -1592,7 +1714,7 @@ CONTAINS
 
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
-      &                            is_restart_run(), lrecover_open_file=.TRUE.)
+      &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. my_process_is_mpi_test()) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
@@ -1662,7 +1784,7 @@ CONTAINS
     CHARACTER(LEN=*),     INTENT(IN)    :: varlist(:)
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    INTEGER                       :: ivar, i, iv, tl, grid_of, grid_var
+    INTEGER                       :: ivar, nvars, i, iv, tl, grid_of, grid_var
     LOGICAL                       :: found
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc),     TARGET  :: var_desc   !< variable descriptor
@@ -1671,15 +1793,17 @@ CONTAINS
 
 
     ! Get the number of variables in varlist
+    nvars = 0
     DO ivar = 1, SIZE(varlist)
       IF(varlist(ivar) == ' ') EXIT ! Last one reached
+      IF (.NOT. is_grid_info_var(varlist(ivar)))  nvars = nvars + 1
     ENDDO
 
     ! Allocate a list of variable descriptors:
-    p_of%max_vars = ivar-1
+    p_of%max_vars = nvars
     p_of%num_vars = 0
     ALLOCATE(p_of%var_desc(p_of%max_vars))
-    DO ivar = 1,(ivar-1)
+    DO ivar = 1,nvars
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
       p_of%var_desc(ivar)%i_ptr => NULL()
@@ -1690,7 +1814,8 @@ CONTAINS
     END DO ! ivar
 
     ! Allocate array of variable descriptions
-    DO ivar = 1,(ivar-1)
+    DO ivar = 1,nvars
+      IF (is_grid_info_var(varlist(ivar)))  CYCLE
 
       found = .FALSE.
       ! Nullify pointers
@@ -1823,7 +1948,7 @@ CONTAINS
       ! append variable descriptor to list
       CALL add_var_desc(p_of, var_desc)
 
-    ENDDO ! ivar = 1,(ivar-1)
+    ENDDO ! ivar = 1,nvars
 
   END SUBROUTINE add_varlist_to_output_file
 
@@ -2450,7 +2575,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
     INTEGER                        :: iv, vlistID, varID, gridID, &
-      &                               zaxisID
+      &                               zaxisID, i
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
     TYPE(t_cf_var), POINTER        :: this_cf
 
@@ -2554,10 +2679,6 @@ CONTAINS
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
 
-!!$        ! GRIB2 Quick hack: Set additional GRIB2 keys
-!!$        CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
-!!$          &                            get_var_tileidx(TRIM(info%name)) )
-
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         !!!          ATTENTION                    !!!
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2566,50 +2687,24 @@ CONTAINS
         ! (i.e. for Ensemble output), that the surface-type information is lost again, if 
         ! these settings are performed prior to "productDefinitionTemplateNumber"  
 
-        ! Re-Set "typeOfSecondFixedSurface" for the following set of variables
-        !
-        ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", xxx), 0);
-        !
-        ! HHL     : typeOfSecondFixedSurface = 101
-        ! HSURF   : typeOfSecondFixedSurface = 101
-        ! HBAS_CON: typeOfSecondFixedSurface = 101
-        ! HTOP_CON: typeOfSecondFixedSurface = 101
-        ! HTOP_DC : typeOfSecondFixedSurface = 101
-        ! HZEROCL : typeOfSecondFixedSurface = 101
-        ! CLCL    : typeOfSecondFixedSurface = 1
-        ! C_T_LK  : typeOfSecondFixedSurface = 162
-        ! H_B1_LK : typeOfSecondFixedSurface = 165
-        ! SNOWLMT : typeOfSecondFixedSurface = 101
-        IF ( one_of(TRIM(info%name),sfs_name_list) /= -1 ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
-            &                    second_tos(one_of(TRIM(info%name),sfs_name_list)))
-        ENDIF
-
-        ! Re-Set "typeOfFirstFixedSurface" for the following set of variables
-        !
-        ! GRIB_CHECK(grib_set_long(gh, "typeOfFirstFixedSurface", xxx), 0);
-        !
-        ! T_MNW_LK: typeOfFirstFixedSurface = 1
-        ! DEPTH_LK: typeOfFirstFixedSurface = 1
-        ! T_WML_LK: typeOfFirstFixedSurface = 1
-        ! H_ML_LK : typeOfFirstFixedSurface = 1
-        !
-        IF ( one_of(TRIM(info%name),ffs_name_list) /= -1 ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", &
-            &                    first_tos(one_of(TRIM(info%name),ffs_name_list)))
-        ENDIF
-
-
-        ! Quick hack: shortName.def should be revised, instead
-        IF ( TRIM(info%name)=='qv_s' ) THEN
-          CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0)
-        ENDIF
-
+        DO i=1,info%grib2%additional_keys%nint_keys
+          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
+            &                    info%grib2%additional_keys%int_key(i)%val)
+        END DO
 
         ! GRIB2 Quick hack: Set additional GRIB2 keys
-        CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
-          &                            get_var_tileidx(TRIM(info%name)) )
+        CALL set_GRIB2_additional_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
+        ! Set ensemble keys in SECTION 4 (if applicable)
+        CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config(of%phys_patch_id))
+
+        ! Set local use SECTION 2
+        CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
+
+#ifndef __NO_ICON_ATMO__
+        ! Set tile-specific GRIB2 keys (if applicable)
+        CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
+#endif
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
@@ -2682,8 +2777,8 @@ CONTAINS
 
 !DR Test
     INTEGER :: nvgrid, ivgrid
-
-
+    INTEGER :: size_tiles
+    INTEGER :: size_var_groups_dyn
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -2812,22 +2907,58 @@ CONTAINS
 
     ENDDO
 
+    ! var_groups_dyn is required in function 'group_id', which is called in 
+    ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
+    size_var_groups_dyn = 0
+    if (allocated(var_groups_dyn)) then
+       size_var_groups_dyn = SIZE(var_groups_dyn)
+    end if
+    CALL p_bcast(size_var_groups_dyn                        , bcast_root, p_comm_work_2_io)
+    if (size_var_groups_dyn > 0) then
+       IF (.NOT. ALLOCATED(var_groups_dyn)) THEN
+          ALLOCATE(var_groups_dyn(size_var_groups_dyn))
+       ENDIF
+       CALL p_bcast(var_groups_dyn                             , bcast_root, p_comm_work_2_io)
+    end if
+
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
     CALL parse_variable_groups()
 
 
+#ifndef __NO_ICON_ATMO__
     ! Go over all output domains
     DO idom = 1, n_dom_out
       CALL p_bcast(gribout_config(idom)%generatingCenter,    bcast_root, p_comm_work_2_io)
       CALL p_bcast(gribout_config(idom)%generatingSubcenter, bcast_root, p_comm_work_2_io)
+      ! from extpar config state
+      CALL p_bcast(i_lctype(idom)                          , bcast_root, p_comm_work_2_io)
     ENDDO
-
+    ! from nwp land config state
+    CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+    size_tiles = 0
+    if (allocated(tiles)) then
+       size_tiles = SIZE(tiles)
+    end if
+    CALL p_bcast(size_tiles                                , bcast_root, p_comm_work_2_io)
+    if (size_tiles > 0) then
+       IF (.NOT. ALLOCATED(tiles)) THEN
+          ALLOCATE(tiles(size_tiles))
+       ENDIF
+       CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
+    end if
+#endif
     ! allocate vgrid_buffer on asynchronous output PEs, for storing 
     ! the vertical grid UUID
     !
     ! get buffer size and broadcast
-    nvgrid = SIZE(vgrid_buffer)
+    IF (ALLOCATED(vgrid_buffer)) THEN
+       nvgrid = SIZE(vgrid_buffer)
+    ELSE
+       nvgrid = 0
+    END IF
     CALL p_bcast(nvgrid, bcast_root, p_comm_work_2_io)
     !
     ! allocate on asynchronous PEs

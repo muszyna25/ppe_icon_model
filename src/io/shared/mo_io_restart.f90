@@ -77,7 +77,7 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
   USE mo_scatter,               ONLY: scatter_array
-  USE mo_datetime,              ONLY: t_datetime,iso8601
+  USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file
@@ -194,7 +194,7 @@ CONTAINS
     ! Read all namelists used in the previous run
     ! and store them in a buffer. These values will overwrite the
     ! model default, and will later be overwritten if the user has
-    ! specified something different for this integraion.
+    ! specified something different for this integration.
     !
     ! Note: We read the namelists only once and assume that these
     !       are identical for all domains.
@@ -1313,6 +1313,8 @@ CONTAINS
                      & nice_class         )! total # of ice classes (sea ice)
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
+    ! in preparation for move to mtime
+    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime)) 
 
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
@@ -1526,6 +1528,7 @@ CONTAINS
     !
     ! variables of derived type used in linked list
     !
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::write_restart_var_list"
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
@@ -1536,7 +1539,7 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     !
     INTEGER :: time_level
-    INTEGER :: jg
+    INTEGER :: jg, var_ref_pos
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
 
     jg = p_patch%id
@@ -1607,39 +1610,70 @@ CONTAINS
         private_n = private_ne
         gather_pattern => p_patch%comm_pat_gather_e
       CASE default
-        CALL finish('out_stream','unknown grid type')
+        CALL finish(routine,'unknown grid type')
       END SELECT
 
       ALLOCATE(r_out_wp(MERGE(private_n, 0, my_process_is_mpi_workroot())))
 
       IF (info%ndims == 1) THEN
-        CALL finish('write_restart_var_list', '1d arrays not handled yet.')
+        CALL finish(routine, '1d arrays not handled yet.')
       ELSE IF (info%ndims == 2) THEN
-        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r_out_wp, &
-          &                gather_pattern)
+        var_ref_pos = 3
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL exchange_data(in_array=element%field%r_ptr(nindex,:,:,1,1), &
+            &                out_array=r_out_wp, gather_pattern=gather_pattern)
+        CASE (2)
+          CALL exchange_data(in_array=element%field%r_ptr(:,nindex,:,1,1), &
+            &                out_array=r_out_wp, gather_pattern=gather_pattern)
+        CASE (3)
+          CALL exchange_data(in_array=element%field%r_ptr(:,:,nindex,1,1), &
+            &                out_array=r_out_wp, gather_pattern=gather_pattern)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
         !
         ! write data
         !
         IF (my_process_is_mpi_workroot()) THEN
-          write (0,*)' ... write ',info%name
+          WRITE (0,*)' ... write ',info%name
           CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
             &                 r_out_wp(:), 0)
         END IF
       ELSE IF (info%ndims == 3) THEN
+        var_ref_pos = 4
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
         IF (my_process_is_mpi_workroot()) &
           write (0,*)' ... write ',info%name
         DO lev = 1, info%used_dimensions(2)
-          CALL exchange_data(element%field%r_ptr(:,lev,:,nindex,1), r_out_wp, &
-            &                gather_pattern)
+
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            CALL exchange_data( in_array=element%field%r_ptr(nindex,:,lev,:,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)            
+          CASE (2)
+            CALL exchange_data( in_array=element%field%r_ptr(:,nindex,lev,:,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE (3)
+            CALL exchange_data( in_array=element%field%r_ptr(:,lev,nindex,:,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE (4)
+            CALL exchange_data( in_array=element%field%r_ptr(:,lev,:,nindex,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+
           IF (my_process_is_mpi_workroot()) &
             CALL streamWriteVarSlice(this_list%p%cdiFileID_restart, &
               &                      info%cdiVarID, lev-1, r_out_wp(:), 0)
         END DO
       ELSE IF (info%ndims > 3) THEN
-        CALL finish('write_restart_var_list', &
-          & 'arrays with more then three dimensions not handled yet.')
+        CALL finish(routine, 'arrays with more then three dimensions not handled yet.')
       ELSE
-        CALL finish('write_restart_var_list','dimension not set.')
+        CALL finish(routine,'dimension not set.')
       END IF
 
       !
@@ -1758,6 +1792,7 @@ CONTAINS
     TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
     ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::read_restart_files"
     !
     TYPE model_search
       CHARACTER(len=8) :: abbreviation
@@ -1771,7 +1806,7 @@ CONTAINS
     INTEGER                        :: fileID, vlistID, gridID, zaxisID, taxisID,    &
       &                                varID, idate, itime, ic, il, n, nfiles, i,   &
       &                                iret, istat, key, vgrid, gdims(5), nindex,   &
-      &                                nmiss, nvars, root_pe
+      &                                nmiss, nvars, root_pe, var_ref_pos
     CHARACTER(len=8)               :: model_type
     REAL(wp), POINTER              :: r2d(:,:), rptr2d(:,:), rptr3d(:,:,:)
     INTEGER, POINTER               :: glb_index(:)
@@ -1903,34 +1938,62 @@ CONTAINS
                 nindex = 1
               ENDIF
               !
+
+              SELECT CASE(info%ndims)
+              CASE (2)
+                var_ref_pos = 3
+                IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+                SELECT CASE(var_ref_pos)
+                CASE (1)
+                  rptr2d => element%field%r_ptr(nindex,:,:,1,1)
+                CASE (2)
+                  rptr2d => element%field%r_ptr(:,nindex,:,1,1)
+                CASE (3)
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+                CASE default
+                  CALL finish(routine, "internal error!")
+                END SELECT
+              CASE (3) 
+                var_ref_pos = 4
+                IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+                SELECT CASE(var_ref_pos)
+                CASE (1)
+                  rptr3d => element%field%r_ptr(nindex,:,:,:,1)
+                CASE (2)
+                  rptr3d => element%field%r_ptr(:,nindex,:,:,1)
+                CASE (3)
+                  rptr3d => element%field%r_ptr(:,:,nindex,:,1)
+                CASE (4)
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+                CASE default
+                  CALL finish(routine, "internal error!")
+                END SELECT
+              CASE DEFAULT
+                CALL finish(routine, "internal error!")
+              END SELECT
+
               SELECT CASE (info%hgrid)
               CASE (GRID_UNSTRUCTURED_CELL)
                 IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
                   CALL scatter_array(r2d(:,1), rptr2d, &
                     &                p_patch%cells%decomp_info%glb_index)
                 ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
                   CALL scatter_array(r2d, rptr3d, &
                     &                p_patch%cells%decomp_info%glb_index)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_VERT)
                 IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
                   CALL scatter_array(r2d(:,1), rptr2d, &
                     &                p_patch%verts%decomp_info%glb_index)
                 ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
                   CALL scatter_array(r2d, rptr3d, &
                     &                p_patch%verts%decomp_info%glb_index)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_EDGE)
                 IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
                   CALL scatter_array(r2d(:,1), rptr2d, &
                     &                p_patch%edges%decomp_info%glb_index)
                 ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
                   CALL scatter_array(r2d, rptr3d, &
                     &                p_patch%edges%decomp_info%glb_index)
                 ENDIF
