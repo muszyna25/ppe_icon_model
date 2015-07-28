@@ -33,10 +33,11 @@ MODULE mo_initicon_utils
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var,                     &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
-  USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
+  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, nlevsoil_in, l_sst_in,       &
     &                               timeshift, initicon_config, ltile_coldstart,        &
-    &                               ana_varnames_map_file, lread_ana,                   &
-    &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana
+    &                               ana_varnames_map_file, lread_ana, lread_vn,         &
+    &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana,&
+    &                               lvert_remap_fg
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMODE, MODE_ICONVREMAP, MODIS,               &
@@ -54,6 +55,7 @@ MODULE mo_initicon_utils
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
+  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_nh_init_utils,       ONLY: hydro_adjust
   USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
@@ -89,6 +91,7 @@ MODULE mo_initicon_utils
   PUBLIC :: create_input_groups
   PUBLIC :: copy_initicon2prog_atm
   PUBLIC :: copy_initicon2prog_sfc
+  PUBLIC :: copy_fg2initicon
   PUBLIC :: allocate_initicon
   PUBLIC :: allocate_extana_atm
   PUBLIC :: allocate_extana_sfc
@@ -1368,7 +1371,7 @@ MODULE mo_initicon_utils
           p_nh_state(jg)%prog(nnew(jg))%w(jc,nlevp1,jb) = initicon(jg)%atm%w(jc,nlevp1,jb)
         ENDDO
 
-        IF (init_mode == MODE_ICONVREMAP) THEN ! copy also TKE field
+        IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN ! copy also TKE field
           DO jk = 1, nlevp1
             DO jc = 1, nlen
               p_nh_state(jg)%prog(ntlr)%tke(jc,jk,jb) = initicon(jg)%atm%tke(jc,jk,jb)
@@ -1397,6 +1400,130 @@ MODULE mo_initicon_utils
   END SUBROUTINE copy_initicon2prog_atm
 
 
+  !>
+  !! SUBROUTINE copy_fg2initicon
+  !! Copies first-guess fields from the assimilation cycle to the initicon state
+  !! in order to prepare subsequent vertical remapping
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2015-07-24)
+  !!
+  !!
+  SUBROUTINE copy_fg2initicon(p_patch, initicon, p_nh_state)
+
+    TYPE(t_patch),          INTENT(IN) :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(IN) :: p_nh_state(:)
+
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+
+
+    INTEGER :: jg, jb, jk, jc, je
+    INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
+
+    REAL(wp) :: exner, tempv
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
+      nblks_e   = p_patch(jg)%nblks_e
+      npromz_e  = p_patch(jg)%npromz_e
+      nlev      = p_patch(jg)%nlev
+      nlevp1    = p_patch(jg)%nlevp1
+      ntl       = nnow(jg)
+      ntlr      = nnow_rcf(jg)
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,nlen) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks_e
+
+        IF (jb /= nblks_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_e
+        ENDIF
+
+        ! Wind speed
+        DO jk = 1, nlev
+          DO je = 1, nlen
+            initicon(jg)%atm_in%vn(je,jk,jb) = p_nh_state(jg)%prog(ntl)%vn(je,jk,jb)
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks_c
+
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+
+        ! 3D fields
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+
+            ! Dynamic prognostic variables on cell points
+            initicon(jg)%atm_in%w_ifc(jc,jk,jb)   = p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)
+            initicon(jg)%atm_in%theta_v(jc,jk,jb) = p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
+            initicon(jg)%atm_in%rho(jc,jk,jb)     = p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb)
+            initicon(jg)%atm_in%tke_ifc(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tke(jc,jk,jb)
+
+            ! Moisture variables
+            initicon(jg)%atm_in%qv(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv)
+            initicon(jg)%atm_in%qc(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc)
+            initicon(jg)%atm_in%qi(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi)
+            initicon(jg)%atm_in%qr(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr)
+            initicon(jg)%atm_in%qs(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs)
+          ENDDO
+        ENDDO
+
+        ! w and TKE at surface level
+        DO jc = 1, nlen
+          initicon(jg)%atm_in%w_ifc(jc,nlevp1,jb)   = p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)
+          initicon(jg)%atm_in%tke_ifc(jc,nlevp1,jb) = p_nh_state(jg)%prog(ntlr)%tke(jc,nlevp1,jb)
+        ENDDO
+
+        ! interpolate half-level variables to full levels and diagnose pressure and temperature 
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+
+            initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
+              &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
+            initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
+              &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+            initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
+              &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
+
+            exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+            tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+
+            initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+            initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+              (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+               initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+
+          ENDDO
+        ENDDO
+
+
+      ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDDO  ! jg
+
+    ! Tell the vertical interpolation routine that vn needs to be processed
+    lread_vn = .TRUE.
+
+  END SUBROUTINE copy_fg2initicon
 
 
   !>
@@ -1838,7 +1965,8 @@ MODULE mo_initicon_utils
                initicon(jg)%grp_vars_ana_default(200)  )
 
       ! Allocate atmospheric output data
-      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED, MODE_ICONVREMAP/)==init_mode) ) THEN
+      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED, MODE_ICONVREMAP/)==init_mode) &
+          .OR. lvert_remap_fg ) THEN
         ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
                  initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
                  initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
@@ -1857,7 +1985,7 @@ MODULE mo_initicon_utils
         initicon(jg)%atm%linitialized = .TRUE.
       ENDIF
 
-      IF ( init_mode == MODE_ICONVREMAP ) THEN
+      IF ( init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
         ALLOCATE(initicon(jg)%atm%tke(nproma,nlevp1,nblks_c))
       ENDIF
 
@@ -1964,8 +2092,12 @@ MODULE mo_initicon_utils
     ! Local variables: loop control and dimensions
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
 
+    INTEGER :: nlev_in
+
+    nlev_in = nlevatm_in(jg)
+
     IF (nlev_in == 0) THEN
-      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+      CALL finish(routine, "Number of input levels <nlevatm_in> not yet initialized.")
     END IF
 
     ! Allocate atmospheric input data
@@ -1986,13 +2118,13 @@ MODULE mo_initicon_utils
       initicon(jg)%atm_in%qr      (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qs      (nproma,nlev_in,nblks_c)    )
 
-    IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP) THEN
+    IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       ALLOCATE( &
         initicon(jg)%atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
         initicon(jg)%atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
     ENDIF
 
-    IF (init_mode == MODE_ICONVREMAP) THEN
+    IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       ALLOCATE( &
         initicon(jg)%atm_in%rho     (nproma,nlev_in  ,nblks_c), &
         initicon(jg)%atm_in%theta_v (nproma,nlev_in  ,nblks_c), &
@@ -2080,7 +2212,7 @@ MODULE mo_initicon_utils
                    initicon(jg)%atm%qs       )
       ENDIF
 
-      IF ( init_mode == MODE_ICONVREMAP ) THEN
+      IF ( init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
         DEALLOCATE(initicon(jg)%atm%tke)
       ENDIF
 
@@ -2160,13 +2292,13 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm_in%qr,      &
                  initicon(jg)%atm_in%qs )
 
-      IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP) THEN
+      IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
         DEALLOCATE( &
                  initicon(jg)%atm_in%z3d_ifc, &
                  initicon(jg)%atm_in%w_ifc    )
       ENDIF
 
-      IF (init_mode == MODE_ICONVREMAP) THEN
+      IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
         DEALLOCATE( &
           initicon(jg)%atm_in%rho,     &
           initicon(jg)%atm_in%theta_v, &

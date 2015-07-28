@@ -43,6 +43,7 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode  => l_coarse2fine_mode,  &
     & config_lp2cintp_incr       => lp2cintp_incr,       &
     & config_lp2cintp_sfcana     => lp2cintp_sfcana,     &
+    & config_lvert_remap_fg      => lvert_remap_fg,      &
     & config_ltile_coldstart     => ltile_coldstart,     &
     & config_ltile_init          => ltile_init,          &
     & config_start_time_avg_fg   => start_time_avg_fg,   &
@@ -89,6 +90,8 @@ MODULE mo_initicon_nml
   LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess with tile-averaged fields
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
+
+  LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -146,7 +149,8 @@ MODULE mo_initicon_nml
                           ana_varnames_map_file, lp2cintp_incr,             &
                           lp2cintp_sfcana, latbc_varnames_map_file,         &
                           start_time_avg_fg, end_time_avg_fg,               &
-                          interval_avg_fg, ltile_coldstart, ltile_init
+                          interval_avg_fg, ltile_coldstart, ltile_init,     &
+                          lvert_remap_fg
                           
 CONTAINS
 
@@ -207,6 +211,7 @@ CONTAINS
   lp2cintp_sfcana(:)    = .FALSE. ! true: perform parent-to-child interpolation of surface analysis data
   ltile_coldstart       = .FALSE. ! true: initialize tile-based surface fields from first guess with tile-averaged fields
   ltile_init            = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
+  lvert_remap_fg        = .FALSE. ! true: perform vertical remapping of first-guess input
 
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
@@ -322,6 +327,7 @@ CONTAINS
   config_lp2cintp_sfcana     = lp2cintp_sfcana
   config_ltile_coldstart     = ltile_coldstart
   config_ltile_init          = ltile_init
+  config_lvert_remap_fg      = lvert_remap_fg
   config_start_time_avg_fg   = start_time_avg_fg
   config_end_time_avg_fg     = end_time_avg_fg
   config_interval_avg_fg     = interval_avg_fg

@@ -35,8 +35,8 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
-    &                               rho_incr_filter_wgt, lread_ana, ltile_init,   &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
+    &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,   &
@@ -65,7 +65,8 @@ MODULE mo_initicon
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
-                                    deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
+                                    deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
+                                    copy_fg2initicon
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
@@ -229,7 +230,7 @@ MODULE mo_initicon
         &                        'incremental analysis update, including snow increments')
 
       ! process DWD atmosphere analysis increments
-      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
       ! process DWD land/surface analysis (increments)
       CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
@@ -240,7 +241,7 @@ MODULE mo_initicon
         &                        'incremental analysis update (retained for backward compat.)')
 
       ! process DWD atmosphere analysis increments
-      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
       ! process DWD land/surface analysis (increments)
       CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
@@ -374,7 +375,7 @@ MODULE mo_initicon
 
       ! Perform vertical interpolation from input ICON grid to output ICON grid
       !
-      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
                            opt_convert_omega2w=.FALSE.)
 
       ! Finally copy the results to the prognostic model variables
@@ -413,11 +414,12 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2014-01-28)
   !!
   !!
-  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
 
 !-------------------------------------------------------------------------
 
@@ -425,6 +427,17 @@ MODULE mo_initicon
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
     CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
+                             ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
+
+      CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
+
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
+                           opt_convert_omega2w=.FALSE.)
+
+      CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+    ENDIF
 
     IF(lread_ana) &   
      CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
@@ -588,7 +601,7 @@ MODULE mo_initicon
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
                          opt_convert_omega2w=lomega_in)
 
     

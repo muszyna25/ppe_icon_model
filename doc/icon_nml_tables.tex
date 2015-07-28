@@ -1850,6 +1850,15 @@ A neighbor search is applied to subgrid-scale ocean points for SST and sea-ice f
 \tabularnewline
 
 %\hline
+lvert\_remap\_fg&
+L & .FALSE.& &
+If true, vertical remapping is applied to the atmospheric first-guess fields, whereas the analysis increments
+remain unchanged. The number of model levels must be the same for input and output fields, and the z\_ifc 
+(alias HHL) field pertaining to the input fields must be appended to the first-guess file. & init\_mode=5,6
+\tabularnewline
+
+
+%\hline
 \textbf{ifs2icon\_filename}&
 C &
 &

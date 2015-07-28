@@ -33,10 +33,11 @@ MODULE mo_initicon_io
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
-  USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
+  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_ana, lread_vn,      &
-    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
+    &                               lvert_remap_fg
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
@@ -473,7 +474,7 @@ MODULE mo_initicon_io
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels
+    INTEGER :: no_cells, no_levels, nlev_in
     INTEGER :: ncid, dimid, varid, mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
@@ -491,11 +492,11 @@ MODULE mo_initicon_io
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
+    nlev_in = 0
 
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
-
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -637,6 +638,8 @@ MODULE mo_initicon_io
       CALL p_bcast(lread_vn,      p_io, mpi_comm)
       CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
       CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
+
+      nlevatm_in(:) = nlev_in
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
@@ -1115,6 +1118,14 @@ MODULE mo_initicon_io
         CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
       END IF
 
+      IF (lvert_remap_fg) THEN
+        ! allocate required data structure
+        nlevatm_in(jg) = nlev
+        CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+
+        CALL read_data_3d (parameters, filetype, 'z_ifc', nlevp1, initicon(jg)%atm_in%z3d_ifc, tileinfo)
+      ENDIF
+
       CALL deleteInputParameters(parameters)
 
       !This call needs its own input parameter object because it's edge based.
@@ -1150,7 +1161,7 @@ MODULE mo_initicon_io
 
     INTEGER :: jg, jk, jc, jb, i_endidx
     INTEGER :: mpi_comm
-    INTEGER :: ngrp_vars_fg, filetype
+    INTEGER :: ngrp_vars_fg, filetype, nlev_in
 
     REAL(wp) :: tempv, exner
     TYPE(t_inputParameters) :: parameters
@@ -1193,6 +1204,7 @@ MODULE mo_initicon_io
         mpi_comm = p_comm_work
       ENDIF
       CALL p_bcast(nlev_in, p_io, mpi_comm)
+      nlevatm_in(jg) = nlev_in
 
       ! allocate data structure for reading input data
       CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
