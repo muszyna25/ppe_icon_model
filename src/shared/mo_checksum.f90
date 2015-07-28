@@ -111,7 +111,7 @@ CONTAINS
 
         IF(VALUE < 0 .OR. VALUE >= 2_C_INT64_T**32) CALL finish(routine, "VALUE range error")
         DO i = 1, 8
-            RESULT(9-i:9-i) = kNibbles(IAND(15, VALUE) + 1)
+            RESULT(9-i:9-i) = kNibbles(IAND(15_C_INT64_T, VALUE) + 1_C_INT64_T)
             VALUE = ISHFT(VALUE, -4)
         END DO
     END FUNCTION checksumString
@@ -132,7 +132,7 @@ CONTAINS
         RESULT = 0
         pseudoRandomBits = 0
         DO i = 1, SIZE(array, 1)
-            RESULT = RESULT + IEOR(pseudoRandomBits, array(i))  !every entry IS xor'ed with a different bit pattern
+            RESULT = RESULT + IEOR(pseudoRandomBits, INT(array(i), C_INT64_T))  !every entry IS xor'ed with a different bit pattern
             RESULT = IAND(mask, RESULT + ISHFT(RESULT, -32))   !reduce back to 32 bits
             pseudoRandomBits = IAND(mask, pseudoRandomBits + prime)
         END DO
