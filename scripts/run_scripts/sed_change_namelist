@@ -1,0 +1,4 @@
+sed -i 's/HORZ_VELOC_DIFF_TYPE/HorizontalViscosity_type/g' exp.*oce*
+sed -i 's/HORZ_VELOC_DIFF_TYPE/HorizontalViscosity_type/g' checksuite.ocean_internal/*/exp.*
+#sed -i 's/k_veloc_h/HorizontalViscosityBackground_Biharmonic/g' exp.* only for the biharmonic setups 
+

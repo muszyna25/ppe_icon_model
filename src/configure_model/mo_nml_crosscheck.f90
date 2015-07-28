@@ -639,14 +639,16 @@ CONTAINS
         iqns = 10        
         iqng = 11        
         iqnh = 12
+        iqnc = 13
+        ininact = 14
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
-        iqt       = 13    !! start index of other tracers not related at all to moisture
+        iqt       = 15    !! start index of other tracers not related at all to moisture
        
-        ntracer = 12
+        ntracer = 14
 
-      CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
+      CASE(5)  ! two-moment scheme with CCN and IN budgets
       
         iqg  = 6
         iqh  = 7
@@ -656,9 +658,9 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
-        inccn = 14
-        ininpot = 15
-        ininact = 16
+        ininact = 14
+        inccn   = 15
+        ininpot = 16
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
@@ -722,6 +724,17 @@ CONTAINS
       WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
                                    'ntracer is automatically reset to ',ntracer
       CALL message(TRIM(method_name),message_text)
+
+      ! take into account additional passive tracers, if present
+      ! iqt is not increased, since passive tracers do not belong to the hydrometeor group.
+      IF ( advection_config(jg)%npassive_tracer > 0) THEN
+        ntracer = ntracer + advection_config(jg)%npassive_tracer
+        WRITE(message_text,'(a,i3,a,i3)') 'Attention: passive tracers have been added, '//&
+                                     'ntracer is increased by ',advection_config(jg)%npassive_tracer, &
+                                     ' to ',ntracer
+        CALL message(TRIM(method_name),message_text)
+      ENDIF
+
 
       IF (lart) THEN
         

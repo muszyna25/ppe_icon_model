@@ -173,11 +173,12 @@ CONTAINS
       &   radiation_date%hour,':', radiation_date%minute,':', radiation_date%second,'Z'
     WRITE(cformat,'(a,i0,a)') '(a,', ghg_no_cfc, 'f7.2)'
     WRITE(ccfc,cformat) ' CFC = ', zcfc(1:ghg_no_cfc)
-    WRITE (message_text,'(a,a, a,e15.6, a,e15.6, a,e15.6, a,e15.6, a,e15.6)') &
-      &   'Greenhouse gas vol.mixing ratios ', TRIM(cdate),                   &
-      &   ' CO2 = ', zco2int, ' CH4 = ', zch4int,' N2O = ', zn2oint,          &
-      &   TRIM(ccfc) 
-    CALL message('', TRIM(message_text))
+   ! writing done in update_opt_nh_acc, too
+   ! WRITE (message_text,'(a,a, a,e15.6, a,e15.6, a,e15.6, a,e15.6, a,e15.6)') &
+   !   &   'Greenhouse gas vol.mixing ratios ', TRIM(cdate),                   &
+   !   &   ' CO2 = ', zco2int, ' CH4 = ', zch4int,' N2O = ', zn2oint,          &
+   !   &   TRIM(ccfc) 
+   ! CALL message('', TRIM(message_text))
 
     ! convert CO2, CH4 and N2O from volume to mass mixing ratio
 
@@ -187,12 +188,7 @@ CONTAINS
     ! Scale CFCs only, keep the volume mixing ratio 
 
     ghg_cfcvmr(:) = zcfc(:)*1.0e-12_wp
-!!$!baustelle+
-!!$write(0,*) 'bc_greenhouse_gases_time_interpolation: ghg_n2ommr=',ghg_n2ommr
-!!$write(0,*) 'bc_greenhouse_gases_time_interpolation: ghg_ch4mmr=',ghg_ch4mmr
-!!$write(0,*) 'bc_greenhouse_gases_time_interpolation: ghg_co2mmr=',ghg_co2mmr
-!!$write(0,*) 'bc_greenhouse_gases_time_interpolation: ghg_cfcvmr(1),ghg_cfcvmr(2)=',ghg_cfcvmr(1),ghg_cfcvmr(2)
-!!$!baustelle-
+
   END SUBROUTINE bc_greenhouse_gases_time_interpolation
 
   SUBROUTINE cleanup_greenhouse_gases

@@ -168,7 +168,7 @@ CONTAINS
     LOGICAL, INTENT(IN) ::   &      !< determines if vertical CFL number shall be printed
       &  lprint_cfl                 !< in routine upwind_vflux_ppm_cfl
 
-    REAL(wp), INTENT(OUT) :: &      !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(INOUT) :: &      !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
@@ -387,7 +387,7 @@ CONTAINS
     REAL(wp), INTENT(IN) ::   &   !< contravariant vertical mass flux
       &  p_mflx_contra_v(:,:,:)   !< dim: (nproma,nlevp1,nblks_c)
 
-    REAL(wp), INTENT(OUT) ::  &   !< vertical tracer flux at half levels
+    REAL(wp), INTENT(INOUT) ::  &   !< vertical tracer flux at half levels
       &  p_upflux(:,:,:)          !< dim: (nproma,nlevp1,nblks_c)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
@@ -556,7 +556,7 @@ CONTAINS
     REAL(wp), INTENT(IN) ::  &    !< layer thickness at cell center at time n
       &  p_cellhgt_mc_now(:,:,:)  !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
+    REAL(wp), INTENT(INOUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
                                   !< dim: (nproma,nlevp1,nblks_c)
 
@@ -1118,7 +1118,7 @@ CONTAINS
     LOGICAL, INTENT(IN) ::   &    !< determines if vertical CFL number shall be written out
       &  lprint_cfl
 
-    REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
+    REAL(wp), INTENT(INOUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
                                   !< dim: (nproma,nlevp1,nblks_c)
 

@@ -358,9 +358,9 @@ CONTAINS
       &                         my_process_is_mpi_workroot()), &
       &                   start_timestep:end_timestep))
     DO timestep = start_timestep, end_timestep
-      CALL exchange_data(write_array(:,:,timestep), &
-        &                output_array(:,timestep), &
-        &                patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=write_array(:,:,timestep), &
+        &                out_array=output_array(:,timestep), &
+        &                gather_pattern=patch%comm_pat_gather_c)
     END DO
 
     !----------------------------------------------------------------------
@@ -432,9 +432,9 @@ CONTAINS
       &                         my_process_is_mpi_workroot()), &
       &                   nlev, start_timestep:end_timestep))
     DO timestep = start_timestep, end_timestep
-      CALL exchange_data(write_array(:,:,:, timestep), &
-        &                output_array(:, :, timestep), &
-        &                patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=write_array(:,:,:, timestep), &
+        &                out_array=output_array(:, :, timestep), &
+        &                gather_pattern=patch%comm_pat_gather_c)
     END DO
 
     !----------------------------------------------------------------------

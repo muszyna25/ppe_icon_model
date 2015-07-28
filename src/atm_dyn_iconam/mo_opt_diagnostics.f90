@@ -51,7 +51,7 @@ MODULE mo_opt_diagnostics
     &                                level_type_hl, level_type_il
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
-  USE mo_grib2,                ONLY: t_grib2_var
+  USE mo_grib2,                ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
     &                                create_vert_interp_metadata,            &
     &                                groups, vintp_types
@@ -293,7 +293,7 @@ CONTAINS
 
     ! PROGS {{{
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'ua_m', p_acc%u,                                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c,                                              &
@@ -302,7 +302,7 @@ CONTAINS
                 & in_group=groups("prog_timemean","atmo_timemean") )
 
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'va_m', p_acc%v,                                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c,                                              &
@@ -311,7 +311,7 @@ CONTAINS
                 & in_group=groups("prog_timemean","atmo_timemean") )
 
     cf_desc    = t_cf_var('air_temperature', 'K', 'Temperature', dataType)
-    grib2_desc = t_grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'ta_m', p_acc%temp,                                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c,                                              &
@@ -321,7 +321,7 @@ CONTAINS
                 & in_group=groups("prog_timemean","atmo_timemean"))
 
     cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'ps_m', p_acc%pres_sfc,                                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
                 &    in_group=groups("prog_timemean","atmo_timemean"),          &
@@ -332,7 +332,7 @@ CONTAINS
       IF (l_pres_msl) THEN
         cf_desc    = t_cf_var('mean sea level pressure', 'Pa',                  &
           &                   'mean sea level pressure (time mean)', dataType)
-        grib2_desc = t_grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( list, 'psl_m', p_acc%pres_msl,                            &
           &           GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,  &
           &              in_group=groups("prog_timemean","atmo_timemean"),      &
@@ -342,7 +342,7 @@ CONTAINS
     END IF
 
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'air density (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'rho_m', p_acc%rho,  &
       &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
       &           ldims=shape3d_c,                                             &
@@ -355,7 +355,7 @@ CONTAINS
     ! support qv,qc,qi because they area always there
     IF (ntracer > 0) THEN
       cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( list, 'tracer', p_acc%tracer,                           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
         &           ldims=shape4d_c ,                                       &
@@ -368,7 +368,7 @@ CONTAINS
           &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
           &  t_cf_var('specific_humidity', 'kg kg-1',                       &
           &           'specific_humidity (time mean)', dataType),           &
-          &  t_grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
+          &  grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
           &  ldims=shape3d_c,                                               &
           &  tlev_source=1,                                                 &
           &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -387,7 +387,7 @@ CONTAINS
           &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
           &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
           &           'specific_cloud_water_content (time mean)', dataType),&
-          &  t_grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),       &
+          &  grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),       &
           &  ldims=shape3d_c,                                               &
           &  tlev_source=1,                                                 &
           &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -407,7 +407,7 @@ CONTAINS
           &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
           &  t_cf_var('specific_cloud_ice_content', 'kg kg-1',              &
           &           'specific_cloud_ice_content (time mean)', dataType),  &
-          &  t_grib2_var(0, 1, 82, ibits, GRID_REFERENCE, GRID_CELL),       &
+          &  grib2_var(0, 1, 82, ibits, GRID_REFERENCE, GRID_CELL),       &
           &  ldims=shape3d_c,                                               &
           &  tlev_source=1,                                                 &
           &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -428,7 +428,7 @@ CONTAINS
     ! ECHAM {{{
     IF (echam_forcing_active) THEN
     cf_desc    = t_cf_var('cosmu0', '', 'cosine of the zenith angle (time mean)', dataType)
-    grib2_desc = t_grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'cosmu0_m', p_acc%cosmu0,                                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d, &
                 & in_group=groups("echam_timemean","atmo_timemean"))
@@ -436,14 +436,14 @@ CONTAINS
     cf_desc    = t_cf_var('rsdt', 'W m-2',                                                    &
                 &         'downward shortwave flux at the top of the atmosphere (time mean)', &
                 &         dataType)
-    grib2_desc = t_grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'rsdt_m', p_acc%flxdwswtoa,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
                 & in_group=groups("echam_timemean","atmo_timemean"), ldims=shape2d )
 
     cf_desc    = t_cf_var('clt', 'm2 m-2', &
                & 'total cloud cover (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'clt_m', p_acc%aclcov,                   &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -452,7 +452,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('prlr', 'kg m-2 s-1',    &
                & 'large-scale precipitation flux (water) (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,1,77, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,77, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'prlr_m', p_acc%rsfl,                    &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -461,7 +461,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('prcr', 'kg m-2 s-1',    &
                & 'convective precipitation flux (water) (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,1,76, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,76, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'prcr_m', p_acc%rsfc,                    &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -470,7 +470,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('prls', 'kg m-2 s-1',    &
                & 'large-scale precipitation flux (snow) (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,1,59, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,59, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'prls_m', p_acc%ssfl,                    &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -479,7 +479,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('prcs', 'kg m-2 s-1',    &
                & 'convective precipitation flux (snow) (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,1,58, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,58, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'prcs_m', p_acc%ssfc,                    &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -489,7 +489,7 @@ CONTAINS
     cf_desc    = t_cf_var('pr', 'kg m-2 s-1',               &
          &                'precipitation flux (time mean)', &
          &                dataType)
-    grib2_desc = t_grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'pr_m', p_acc%totprec,                   &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -498,7 +498,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('total_vapour', 'kg m-2', 'vertically integrated water vapour (time mean)', &
          &                dataType)
-    grib2_desc = t_grib2_var(0,1,64, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'prw_m', p_acc%qvi,                      &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -507,7 +507,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('total_cloud_water', 'kg m-2',&
                & 'vertically integrated cloud water (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,1,69, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,69, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'cllvi_m', p_acc%xlvi,                   &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -516,7 +516,7 @@ CONTAINS
 
     cf_desc    = t_cf_var('total_cloud_ice', 'kg m-2',&
                & 'vertically integrated cloud ice (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,1,70, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,1,70, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'clivi_m', p_acc%xivi,                   &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -524,7 +524,7 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('rsns', 'W m-2', ' shortwave net flux at surface (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'rsns_m', p_acc%swflxsfc,                &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -532,7 +532,7 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT )
         
     cf_desc    = t_cf_var('rsnt', 'W m-2', ' shortwave net flux at TOA (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'rsnt_m', p_acc%swflxtoa,                &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -540,7 +540,7 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT )
         
     cf_desc    = t_cf_var('rlns', 'W m-2', 'longwave net flux at surface (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'rlns_m', p_acc%lwflxsfc,                &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -548,7 +548,7 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA (time mean)', dataType)
-    grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'rlnt_m', p_acc%lwflxtoa,&
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -556,7 +556,7 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('surface_temperature', '', 'surface temperature (time mean)', dataType)
-    grib2_desc = t_grib2_var(0,0,0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,0,0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'ts_m', p_acc%tsfc,                      &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"))
@@ -565,7 +565,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
                 & t_cf_var('evap', 'kg m-2 s-1', 'evaporation (time mean)', &
                 & dataType),                                     &
-                & t_grib2_var(0,1,6,iextbits, GRID_REFERENCE, GRID_CELL), &
+                & grib2_var(0,1,6,iextbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
                 & isteptype=TSTEP_INSTANT                                 )
 
@@ -573,7 +573,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('hfls', 'W m-2 ', 'latent heat flux (time mean)', &
                 & dataType),                                        &
-                & t_grib2_var(0,0,10, ibits, GRID_REFERENCE, GRID_CELL), &
+                & grib2_var(0,0,10, ibits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
                 & isteptype=TSTEP_INSTANT                                 )
 
@@ -581,7 +581,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('hfss', 'W m-2 ', 'sensible heat flux (time mean)', &
                 & dataType),                                        &
-                & t_grib2_var(0,0,11, ibits, GRID_REFERENCE, GRID_CELL), &
+                & grib2_var(0,0,11, ibits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
                 & isteptype=TSTEP_INSTANT                                 )
 
@@ -589,7 +589,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('u_stress', 'N m-2', 'u-momentum flux at the surface (time mean)',          &
                 &          dataType),                                     &
-                & t_grib2_var(0,2,17, ibits, GRID_REFERENCE, GRID_CELL), &
+                & grib2_var(0,2,17, ibits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
                 & isteptype=TSTEP_INSTANT )
 
@@ -597,7 +597,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('v_stress', 'N m-2', 'v-momentum flux at the surface (time mean)',          &
                 &          dataType),                                     &
-                & t_grib2_var(0,2,18, ibits, GRID_REFERENCE, GRID_CELL), &
+                & grib2_var(0,2,18, ibits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
                 & isteptype=TSTEP_INSTANT )
     END IF
@@ -619,7 +619,7 @@ CONTAINS
     INTEGER :: jt
 
     !WRITE(message_text,'(a,i2)') '(pre ): numberOfAccumulations:',acc%numberOfAccumulations
-    CALL message('update_opt_nh_acc', TRIM(message_text))
+    !CALL message('update_opt_nh_acc', TRIM(message_text))
     CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
     CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
     CALL add_fields(acc%temp    , nh_diag%temp    , subset, levels=levels)

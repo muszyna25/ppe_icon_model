@@ -30,7 +30,6 @@ MODULE mo_icon_cpl_def_field
      &                            cpl_field_avg,     &
      &                            cpl_field_acc
 
-  USE mo_icon_cpl_restart, ONLY : cpl_init_restart
   USE mo_coupling_config, ONLY  : config_cpl_fields
   USE mo_icon_cpl_event_manager, ONLY    : event_add
 
@@ -106,7 +105,6 @@ CONTAINS
 
           new_cpl_fields(i)%coupling%cdi_varID    = -1
           new_cpl_fields(i)%coupling%cdi_gridID   = -1
-          new_cpl_fields(i)%coupling%restart_flag = .FALSE.
           new_cpl_fields(i)%coupling%lag          = 0
           new_cpl_fields(i)%coupling%dt_coupling  = 0
           new_cpl_fields(i)%coupling%dt_model     = 0
@@ -207,20 +205,12 @@ CONTAINS
 
     fptr%coupling%cdi_gridID   = -1
     fptr%coupling%cdi_varID    = -1
-    fptr%coupling%restart_flag = .FALSE.
     fptr%coupling%lag          = config_cpl_fields(global_field_id)%lag
     fptr%coupling%dt_coupling  = config_cpl_fields(global_field_id)%dt_coupling
     fptr%coupling%dt_model     = config_cpl_fields(global_field_id)%dt_model
     fptr%coupling%l_activated  = config_cpl_fields(global_field_id)%l_activated
     fptr%coupling%l_diagnostic = config_cpl_fields(global_field_id)%l_diagnostic
   
-    ! -------------------------------------------------------------------
-    ! Prepare the restarting for coupling fields
-    ! -------------------------------------------------------------------
-
-    IF ( fptr%coupling%time_operation /= cpl_field_none ) &
-       call cpl_init_restart ( field_id, ierror )
-
     ! -------------------------------------------------------------------
     ! Signal new coupling event and store event_id in  fptr%event_id
     ! -------------------------------------------------------------------

@@ -23,9 +23,7 @@
 !!
 MODULE mo_gribout_config
 
-  USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_phys_dom
-  USE mo_model_domain,       ONLY: t_patch
 
   IMPLICIT NONE
   PRIVATE

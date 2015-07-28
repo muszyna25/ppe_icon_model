@@ -45,8 +45,10 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & No_Forcing,                                         &
     & MASS_MATRIX_INVERSION_TYPE,NO_INVERSION,            &
     & MASS_MATRIX_INVERSION_ADVECTION,                    &
-    & MASS_MATRIX_INVERSION_ALLTERMS
-  
+    & MASS_MATRIX_INVERSION_ALLTERMS,                     &
+    & physics_parameters_type,                            &
+    & physics_parameters_ICON_PP_Edge_vnPredict_type
+    
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -59,9 +61,9 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & ocean_restart_gmres_singlePrecesicion,ocean_restart_gmres_e2e
   USE mo_exception,                 ONLY: message, finish, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
-  USE mo_ocean_boundcond,           ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
+  USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
-  USE mo_ocean_physics,             ONLY: t_ho_params
+  USE mo_ocean_physics,             ONLY: t_ho_params, update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
@@ -75,7 +77,6 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_ocean_diffusion,           ONLY: velocity_diffusion,&
-    & velocity_diffusion_vertical_implicit,                  &
     & velocity_diffusion_vertical_implicit_onBlock
   USE mo_ocean_types,               ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
@@ -204,7 +205,8 @@ CONTAINS
  !    & ocean_state%p_aux%bc_top_veloc_cc)
     
     ! Apply bot boundary condition for horizontal velocity
-    CALL bot_bound_cond_horz_veloc(patch_3d, ocean_state, p_phys_param, op_coeffs)
+    ! This is done when calculating the vn_pred
+!     CALL bot_bound_cond_horz_veloc(patch_3d, ocean_state, p_phys_param, op_coeffs)
 
     ! CALL dbg_print('bc_top_vn', ocean_state%p_aux%bc_top_vn, str_module, idt_src,  in_subset=owned_edges)
     ! CALL dbg_print('bc_bot_vn', ocean_state%p_aux%bc_bot_vn, str_module, idt_src,  in_subset=owned_edges)
@@ -575,27 +577,36 @@ CONTAINS
        & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
        & ocean_state%p_diag%rho(:,:,:) )
 
-      IF(.NOT.l_partial_cells)THEN      
-        ! calculate hydrostatic pressure from density at timelevel nc
-        CALL calc_internal_press( patch_3d,                  &  ! in
-          & ocean_state%p_diag%rho,                          &  ! in
-          & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,   &  ! in
-          & ocean_state%p_prog(nold(1))%h,                   &  ! in
-          & ocean_state%p_diag%press_hyd)                       ! inout
+!       IF(.NOT.l_partial_cells)THEN      
+!         ! calculate hydrostatic pressure from density at timelevel nc
+!         CALL calc_internal_press( patch_3d,                  &  ! in
+!           & ocean_state%p_diag%rho,                          &  ! in
+!           & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,   &  ! in
+!           & ocean_state%p_prog(nold(1))%h,                   &  ! in
+!           & ocean_state%p_diag%press_hyd)                       ! inout
+!       
+!         ! calculate gradient of hydrostatic pressure in 3D
+!         CALL grad_fd_norm_oce_3d(               &
+!           & ocean_state%p_diag%press_hyd,       &
+!           & patch_3d,                           &
+!           & op_coeffs%grad_coeff,               &
+!           & ocean_state%p_diag%press_grad)
+!       ELSE
+!          CALL calc_internal_press_grad0( patch_3d,&
+!          &                              ocean_state%p_diag%rho,&
+!          &                              op_coeffs%grad_coeff,  &
+!          &                              ocean_state%p_diag%press_grad)
+!       ENDIF
       
-        ! calculate gradient of hydrostatic pressure in 3D
-        CALL grad_fd_norm_oce_3d(               &
-          & ocean_state%p_diag%press_hyd,       &
-          & patch_3d,                           &
-          & op_coeffs%grad_coeff,               &
-          & ocean_state%p_diag%press_grad)
-       ELSE
-         CALL calc_internal_press_grad( patch_3d,&
-         &                              ocean_state%p_diag%rho,&
-         &                              op_coeffs%grad_coeff,  &
-         &                              ocean_state%p_diag%press_grad)
-       ENDIF
-      ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
+      
+     CALL calc_internal_press_grad( patch_3d,&
+         &                          ocean_state%p_diag%rho,&
+         &                          ocean_state%p_diag%press_hyd,&         
+         &                          op_coeffs%grad_coeff,  &
+         &                          ocean_state%p_diag%press_grad)     
+      
+      
+       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
 
       ! calculate vertical velocity advection
       CALL veloc_adv_vert_mimetic(          &
@@ -748,6 +759,11 @@ CONTAINS
       IF ( iswm_oce /= 1) THEN
         CALL calculate_explicit_vn_pred_3D_onBlock( patch_3d, ocean_state, z_gradh_e(:),    &
         & start_edge_index, end_edge_index, blockNo)
+
+        ! calculate vertical friction, ie p_phys_param%a_veloc_v
+        IF (physics_parameters_type == physics_parameters_ICON_PP_Edge_vnPredict_type) &
+          CALL update_physics_parameters_ICON_PP_Edge_vnPredict_scheme(patch_3d, &
+               & blockNo, start_edge_index, end_edge_index, ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
 
         !In 3D case implicit vertical velocity diffusion is chosen
         CALL velocity_diffusion_vertical_implicit_onBlock( &
@@ -913,15 +929,23 @@ CONTAINS
       END DO
     ENDIF!Rigid lid
 
+
+    CALL VelocityBottomBoundaryCondition_onBlock(patch_3d, &
+      & blockNo,start_edge_index, end_edge_index, &
+      & ocean_state%p_prog(nold(1))%vn(:,:,blockNo), &
+      & ocean_state%p_diag%vn_pred(:,:,blockNo),     &
+      & ocean_state%p_aux%bc_bot_vn(:,blockNo))
+
     !IF surface forcing applied as topLevel boundary condition to vertical diffusion
     !The surface forcing is applied as volume forcing at rhs,
     !i.e. if it part of explicit term in momentum and tracer eqs.
     !in this case, topLevel boundary ondition of vertical Laplacians are homogeneous.
     !Below is the code that adds surface forcing to explicit term of momentum eq.
+
     DO je = start_edge_index, end_edge_index
 
       IF(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)>=min_dolic) THEN
-      
+        
         ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
           & + dtime*ocean_state%p_aux%bc_top_vn(je,blockNo)                                  &
           & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) ! Change to prism_thick_e ?

@@ -46,6 +46,8 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
+USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
@@ -80,6 +82,8 @@ USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
+USE mo_master_config,       ONLY: tc_exp_startdate, tc_exp_stopdate, tc_startdate, tc_stopdate
+USE mtime,                  ONLY: datetimeToString
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, action_init  !reset_act
@@ -142,7 +146,11 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
+      CALL configure_ensemble_pert()
+
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
+
+      CALL configure_synsat()
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
@@ -235,7 +243,8 @@ CONTAINS
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme ) 
+       &                      idiv_method, itime_scheme,               &
+       &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
 
     !---------------------------------------------------------------------
@@ -377,11 +386,18 @@ CONTAINS
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
       ! compute sim_start, sim_end
+#ifdef USE_MTIME_LOOP
+      CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
+      CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)
+      CALL datetimeToString(tc_startdate, sim_step_info%run_start)
+      CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
+#else
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
       CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
         &                      INT(time_config%dt_restart))
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+#endif
       sim_step_info%dtime      = dtime
       jstep0 = 0
       IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
@@ -432,8 +448,16 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi") 
-    ENDIF
+        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+
+        atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
+        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+     ENDIF
 
     !----------------------!
     !  Initialize actions  !

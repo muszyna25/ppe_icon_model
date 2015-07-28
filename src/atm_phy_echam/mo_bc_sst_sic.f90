@@ -216,7 +216,7 @@ CONTAINS
       tsw(:,:) = zts(:,:)
     ENDWHERE
 
-    CALL message('','Interpolated sea surface temperature and sea ice cover.')
+    !CALL message('','Interpolated sea surface temperature and sea ice cover.')
 
   END SUBROUTINE bc_sst_sic_time_interpolation
 

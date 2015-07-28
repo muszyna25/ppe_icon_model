@@ -2,43 +2,15 @@
 #=============================================================================
 # Test the coupling of two dummy models
 #=============================================================================
-# This section of the run script defines the experiment.
-# The specifications are passed by namelist to the program.
-# For a complete list see Namelist_overview.pdf
-#
-# Marco Giorgetta, MPI-M, 2011-01-29
-# Hui Wan,         MPI-M, 2010-08-17
-# Leonidas Linardakis, MPI-M, 2011-07-20
-#
-#-----------------------------------------------------------------------------
-#
-# Basic specifications of the simulation
-# --------------------------------------
-#
-# These variables are set in the header section of the completed run script:
-#   EXPNAME = experiment name
-#   nproma  = array blocking length / inner loop length
-# They may be overwritten here
-#
-#-----------------------------------------------------------------------------
-# This test must have available at least 2 MPI processes.
-# If the model runs with mpi_procs=1, then this script exits without error:
-# if [[ ${mpi_procs} = 1 ]] ; then
-#   echo "This test uses at least 2 mpi_procs. Exit test without error"
-#   check_error 0 ${EXPNAME}
-#   exit 0
-# fi
-#-----------------------------------------------------------------------------
-# The following values must be set here as shell variables so that they can be used
-# also in the executing section of the completed run script
-#-----------------------------------------------------------------------------
 # the namelist filename
 testbed_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
-. ./nat_ape.default_values
+start_date="2000-01-01T00:00:00Z"
+  end_date="2000-01-03T00:00:00Z"
 
-
+grids_folder="/pool/data/ICON/oes/grids/AquaPlanets/"
+atmo_dyn_grids="AquaPlanet_Icos_0158km_springOpt.nc"
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
 # input: namelist_filename
@@ -51,46 +23,45 @@ namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
   testbed_model       = 4  ! test_halo_communication 
-  testbed_iterations  = ${nsteps}
+  testbed_iterations  = 100
   calculate_iterations  = 0
 /
 &parallel_nml
- iorder_sendrecv = ${iorder_sendrecv}
- nproma         = ${nproma}
- use_icon_comm   = ${use_icon_comm}
- icon_comm_method = ${icon_comm_method} 
- max_send_recv_buffer_size = ${max_send_recv_buffer_size}
- max_mpi_message_size = ${max_mpi_message_size}
- p_test_run     = ${p_test_run}
- l_test_openmp  = ${l_test_openmp}
- l_log_checks   = ${l_log_checks}
+ iorder_sendrecv = 1
+ nproma          = 16
+ use_icon_comm   = .true.
+ ! icon_comm_method = ${icon_comm_method} 
+ ! max_send_recv_buffer_size = ${max_send_recv_buffer_size}
+ ! max_mpi_message_size = ${max_mpi_message_size}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
  l_fast_sum     = .true.
- division_method=${division_method}
- division_file_name="$division_file_name"
- parallel_radiation_mode=$parallel_radiation_mode
- use_dycore_barrier = ${use_dycore_barrier}
- ntasks_per_node=${ntasks_per_node}
+ ! division_method=1
+ ! division_file_name="$division_file_name"
+ ! parallel_radiation_mode=$parallel_radiation_mode
+ use_dycore_barrier = .false.
  ! test_parallel_radiation = .true.
  ! icon_comm_debug = .true.
 /
 &grid_nml
- ! cell_type is not used = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &gridref_nml
 /
 &run_nml
- num_lev     = ${nlevels},        ! number of full levels of vertical grid
- ntracer     = 0            ! number of tracers
- nsteps      = ${nsteps}    ! [day] length of run
- dtime       = ${dtime}     ! [s] timestep
+ num_lev     = 40,        ! number of full levels of vertical grid
+ ntracer     = 0          ! number of tracers
+ nsteps      = 40         ! [day] length of run
+ dtime       = 300        ! [s] timestep
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .FALSE.      ! transport 
  iforcing    = 0            ! no forcing
  ltestcase   = .TRUE.       ! run testcase
- ltimer = ${ltimer}
- timers_level = ${timers_level}
- activate_sync_timers = ${activate_sync_timers}
+ ltimer = .true.
+ timers_level = 100
+ activate_sync_timers = .true.
+ profiling_output = 2
 /
 &testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
