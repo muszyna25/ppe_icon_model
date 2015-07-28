@@ -166,7 +166,7 @@ CONTAINS
         IF(PRESENT(opt_comm)) communicator = opt_comm
         processCount = p_comm_size(communicator)
         ALLOCATE(processChecksums(processCount))
-        CALL MPI_GATHER(hash, 1, MPI_INT64_T, processChecksums, 1, MPI_INT64_T, 0, communicator, error)
+        CALL MPI_GATHER(hash, 2, MPI_INT32_T, processChecksums, 2, MPI_INT32_T, 0, communicator, error) !XXX: Dirty hack: MPI on AIX does not provide MPI_INT64_T. We work around this by reinterpreting each c_int64_t as two c_int32_t, keeping our fingers crossed that we won't run this on a mixed endian machine or have an optimizer scream "undefined behavior". Can be changed back once we don't have to support AIX anymore.
         IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI_Gather()")
 
         !hash the results of the different processes down to a single VALUE AND print that.
