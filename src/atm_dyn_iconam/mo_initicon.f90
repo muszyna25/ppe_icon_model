@@ -356,7 +356,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     INTEGER :: jg, i
-    CHARACTER(LEN = 256), ALLOCATABLE :: prefix
+    CHARACTER(LEN = 256) :: prefix
 
     IF(msg_level < 12) RETURN
 
