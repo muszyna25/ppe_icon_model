@@ -619,7 +619,7 @@ CONTAINS
     INTEGER :: jt
 
     !WRITE(message_text,'(a,i2)') '(pre ): numberOfAccumulations:',acc%numberOfAccumulations
-    CALL message('update_opt_nh_acc', TRIM(message_text))
+    !CALL message('update_opt_nh_acc', TRIM(message_text))
     CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
     CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
     CALL add_fields(acc%temp    , nh_diag%temp    , subset, levels=levels)

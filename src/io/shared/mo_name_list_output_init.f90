@@ -949,14 +949,8 @@ CONTAINS
     &                              opt_lprintlist, opt_l_is_ocean)
 
 #ifndef NOMPI
-#ifdef  __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
     USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
-! __SUNPRO_F95
-#endif
-! NOMPI
 
     !> Data structure containing all necessary data for mapping an
     !  output time stamp onto a corresponding simulation step index.
