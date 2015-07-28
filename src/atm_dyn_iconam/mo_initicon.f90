@@ -25,7 +25,7 @@ MODULE mo_initicon
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, msg_level
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -357,7 +357,8 @@ MODULE mo_initicon
 
     INTEGER :: jg, i
     CHARACTER(LEN = 256), ALLOCATABLE :: prefix
-    !these are needed to keep the lines below the fortran line limit X-|
+
+    IF(msg_level < 12) RETURN
 
     DO jg = 1, n_dom
         prefix = "checksum of initicon("//TRIM(int2string(jg))//")%"
