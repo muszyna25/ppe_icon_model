@@ -1934,7 +1934,7 @@ MODULE mo_initicon_utils
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
-  !!
+  !! This initalizes all ALLOCATED memory to avoid nondeterministic checksums when ONLY a part of a field IS READ from file due to nonfull blocks.
   SUBROUTINE allocate_initicon (p_patch, initicon)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
@@ -1958,6 +1958,11 @@ MODULE mo_initicon_utils
       ALLOCATE(initicon(jg)%topography_c    (nproma,nblks_c),        &
                initicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
                initicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
+!$OMP PARALLEL WORKSHARE
+      initicon(jg)%topography_c(:,:) = 0._wp
+      initicon(jg)%z_ifc(:,:,:) = 0._wp
+      initicon(jg)%z_mc(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
       ! allocate groups for list of fields that must be read during initialization
       ALLOCATE(initicon(jg)%grp_vars_fg (200)        , &
                initicon(jg)%grp_vars_ana(200)        , &
@@ -1981,17 +1986,38 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
                  initicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
                  initicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
-
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%atm%vn(:,:,:) = 0._wp
+        initicon(jg)%atm%u(:,:,:) = 0._wp
+        initicon(jg)%atm%v(:,:,:) = 0._wp
+        initicon(jg)%atm%w(:,:,:) = 0._wp
+        initicon(jg)%atm%temp(:,:,:) = 0._wp
+        initicon(jg)%atm%exner(:,:,:) = 0._wp
+        initicon(jg)%atm%pres(:,:,:) = 0._wp
+        initicon(jg)%atm%rho(:,:,:) = 0._wp
+        initicon(jg)%atm%theta_v(:,:,:) = 0._wp
+        initicon(jg)%atm%qv(:,:,:) = 0._wp
+        initicon(jg)%atm%qc(:,:,:) = 0._wp
+        initicon(jg)%atm%qi(:,:,:) = 0._wp
+        initicon(jg)%atm%qr(:,:,:) = 0._wp
+        initicon(jg)%atm%qs(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
         initicon(jg)%atm%linitialized = .TRUE.
       ENDIF
 
       IF ( init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
         ALLOCATE(initicon(jg)%atm%tke(nproma,nlevp1,nblks_c))
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%atm%tke(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
       ENDIF
 
       ! Allocate surface output data
       ! always allocate sst (to be on the safe side)
       ALLOCATE(initicon(jg)%sfc%sst(nproma,nblks_c))
+!$OMP PARALLEL WORKSHARE
+      initicon(jg)%sfc%sst(:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
       ! initialize with 0 in order to avoid checks in the parent-to-child interpolation
       ! routine
@@ -2008,6 +2034,18 @@ MODULE mo_initicon_utils
                  initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
                  initicon(jg)%sfc%tsoil    (nproma,0:nlev_soil,nblks_c ), &
                  initicon(jg)%sfc%wsoil    (nproma,  nlev_soil,nblks_c )  )
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%sfc%tskin(:,:) = 0._wp
+        initicon(jg)%sfc%tsnow(:,:) = 0._wp
+        initicon(jg)%sfc%snowalb(:,:) = 0._wp
+        initicon(jg)%sfc%snowweq(:,:) = 0._wp
+        initicon(jg)%sfc%snowdens(:,:) = 0._wp
+        initicon(jg)%sfc%skinres(:,:) = 0._wp
+        initicon(jg)%sfc%ls_mask(:,:) = 0._wp
+        initicon(jg)%sfc%seaice(:,:) = 0._wp
+        initicon(jg)%sfc%tsoil(:,:,:) = 0._wp
+        initicon(jg)%sfc%wsoil(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
                  ! note the flipped dimensions with respect to sfc_in!
         initicon(jg)%sfc%linitialized = .TRUE.
       ENDIF
@@ -2021,7 +2059,14 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm_inc%v    (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%vn   (nproma,nlev,nblks_e      ), &
                  initicon(jg)%atm_inc%qv   (nproma,nlev,nblks_c      )  )
-      
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%atm_inc%temp(:,:,:) = 0._wp
+        initicon(jg)%atm_inc%pres(:,:,:) = 0._wp
+        initicon(jg)%atm_inc%u(:,:,:) = 0._wp
+        initicon(jg)%atm_inc%v(:,:,:) = 0._wp
+        initicon(jg)%atm_inc%vn(:,:,:) = 0._wp
+        initicon(jg)%atm_inc%qv(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
         initicon(jg)%atm_inc%linitialized = .TRUE.
       ENDIF
 
@@ -2086,6 +2131,7 @@ MODULE mo_initicon_utils
   !! SUBROUTINE allocate_extana_atm
   !! Allocates fields for reading in external analysis data
   !!
+  !! This initalizes all ALLOCATED memory to avoid nondeterministic checksums when ONLY a part of a field IS READ from file due to nonfull blocks.
   SUBROUTINE allocate_extana_atm (jg, nblks_c, nblks_e, initicon)
     INTEGER,                INTENT(IN)    :: jg, nblks_c, nblks_e
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
@@ -2117,11 +2163,32 @@ MODULE mo_initicon_utils
       initicon(jg)%atm_in%qi      (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qr      (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qs      (nproma,nlev_in,nblks_c)    )
+!$OMP PARALLEL WORKSHARE
+    initicon(jg)%atm_in%psfc(:,:) = 0._wp
+    initicon(jg)%atm_in%phi_sfc(:,:) = 0._wp
+    initicon(jg)%atm_in%pres(:,:,:) = 0._wp
+    initicon(jg)%atm_in%z3d(:,:,:) = 0._wp
+    initicon(jg)%atm_in%temp(:,:,:) = 0._wp
+    initicon(jg)%atm_in%u(:,:,:) = 0._wp
+    initicon(jg)%atm_in%v(:,:,:) = 0._wp
+    initicon(jg)%atm_in%vn(:,:,:) = 0._wp
+    initicon(jg)%atm_in%w(:,:,:) = 0._wp
+    initicon(jg)%atm_in%omega(:,:,:) = 0._wp
+    initicon(jg)%atm_in%qv(:,:,:) = 0._wp
+    initicon(jg)%atm_in%qc(:,:,:) = 0._wp
+    initicon(jg)%atm_in%qi(:,:,:) = 0._wp
+    initicon(jg)%atm_in%qr(:,:,:) = 0._wp
+    initicon(jg)%atm_in%qs(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
     IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       ALLOCATE( &
         initicon(jg)%atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
         initicon(jg)%atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
+!$OMP PARALLEL WORKSHARE
+      initicon(jg)%atm_in%z3d_ifc(:,:,:) = 0._wp
+      initicon(jg)%atm_in%w_ifc(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
     ENDIF
 
     IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
@@ -2130,6 +2197,12 @@ MODULE mo_initicon_utils
         initicon(jg)%atm_in%theta_v (nproma,nlev_in  ,nblks_c), &
         initicon(jg)%atm_in%tke     (nproma,nlev_in  ,nblks_c), &
         initicon(jg)%atm_in%tke_ifc (nproma,nlev_in+1,nblks_c)  )
+!$OMP PARALLEL WORKSHARE
+      initicon(jg)%atm_in%rho(:,:,:) = 0._wp
+      initicon(jg)%atm_in%theta_v(:,:,:) = 0._wp
+      initicon(jg)%atm_in%tke(:,:,:) = 0._wp
+      initicon(jg)%atm_in%tke_ifc(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
     ENDIF
 
     initicon(jg)%atm_in%linitialized = .TRUE.
