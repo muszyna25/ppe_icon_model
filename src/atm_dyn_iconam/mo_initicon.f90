@@ -70,7 +70,9 @@ MODULE mo_initicon
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
-  USE mo_util_string,         ONLY: one_of                                    
+  USE mo_util_string,         ONLY: one_of, int2string
+  USE mo_checksum,            ONLY: printChecksum
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phyparam_soil,       ONLY: cporv, cadp
 
   IMPLICIT NONE
@@ -318,6 +320,7 @@ MODULE mo_initicon
       CALL finish(TRIM(routine), "Invalid operation mode!")
     END SELECT
 
+    CALL printIniticonChecksums()
 
     ! Deallocate initicon data type
     !
@@ -343,6 +346,99 @@ MODULE mo_initicon
 
   END SUBROUTINE init_icon
 
+
+  !> output checksums of all possible input fields
+  SUBROUTINE printIniticonChecksums()
+    INTEGER :: jg
+    CHARACTER(LEN = 256), ALLOCATABLE :: prefix
+    TYPE(t_initicon_state), POINTER:: curII ! = currentIniticon, we need this to keep the lines below the fortran line limit X-|
+
+    DO jg = 1, n_dom
+        curII => initicon(jg)
+        prefix = "checksum of initicon("//TRIM(int2string(jg))//")%"
+        IF(ALLOCATED(curII%topography_c)) CALL printChecksum(TRIM(prefix)//"topography_c: ", curII%topography_c)
+        IF(ALLOCATED(curII%z_ifc)) CALL printChecksum(TRIM(prefix)//"z_ifc: ", curII%z_ifc)
+        IF(ALLOCATED(curII%z_mc)) CALL printChecksum(TRIM(prefix)//"z_mc: ", curII%z_mc)
+        IF(ASSOCIATED(curII%atm_in%psfc)) CALL printChecksum(TRIM(prefix)//"atm_in%psfc: ", curII%atm_in%psfc)
+        IF(ASSOCIATED(curII%atm_in%phi_sfc)) CALL printChecksum(TRIM(prefix)//"atm_in%phi_sfc: ", curII%atm_in%phi_sfc)
+        IF(ASSOCIATED(curII%atm_in%temp)) CALL printChecksum(TRIM(prefix)//"atm_in%temp: ", curII%atm_in%temp)
+        IF(ASSOCIATED(curII%atm_in%pres)) CALL printChecksum(TRIM(prefix)//"atm_in%pres: ", curII%atm_in%pres)
+        IF(ASSOCIATED(curII%atm_in%z3d_ifc)) CALL printChecksum(TRIM(prefix)//"atm_in%z3d_ifc: ", curII%atm_in%z3d_ifc)
+        IF(ASSOCIATED(curII%atm_in%w_ifc)) CALL printChecksum(TRIM(prefix)//"atm_in%w_ifc: ", curII%atm_in%w_ifc)
+        IF(ASSOCIATED(curII%atm_in%z3d)) CALL printChecksum(TRIM(prefix)//"atm_in%z3d: ", curII%atm_in%z3d)
+        IF(ASSOCIATED(curII%atm_in%u)) CALL printChecksum(TRIM(prefix)//"atm_in%u: ", curII%atm_in%u)
+        IF(ASSOCIATED(curII%atm_in%v)) CALL printChecksum(TRIM(prefix)//"atm_in%v: ", curII%atm_in%v)
+        IF(ASSOCIATED(curII%atm_in%omega)) CALL printChecksum(TRIM(prefix)//"atm_in%omega: ", curII%atm_in%omega)
+        IF(ASSOCIATED(curII%atm_in%w)) CALL printChecksum(TRIM(prefix)//"atm_in%w: ", curII%atm_in%w)
+        IF(ASSOCIATED(curII%atm_in%vn)) CALL printChecksum(TRIM(prefix)//"atm_in%vn: ", curII%atm_in%vn)
+        IF(ASSOCIATED(curII%atm_in%qv)) CALL printChecksum(TRIM(prefix)//"atm_in%qv: ", curII%atm_in%qv)
+        IF(ASSOCIATED(curII%atm_in%qc)) CALL printChecksum(TRIM(prefix)//"atm_in%qc: ", curII%atm_in%qc)
+        IF(ASSOCIATED(curII%atm_in%qi)) CALL printChecksum(TRIM(prefix)//"atm_in%qi: ", curII%atm_in%qi)
+        IF(ASSOCIATED(curII%atm_in%qr)) CALL printChecksum(TRIM(prefix)//"atm_in%qr: ", curII%atm_in%qr)
+        IF(ASSOCIATED(curII%atm_in%qs)) CALL printChecksum(TRIM(prefix)//"atm_in%qs: ", curII%atm_in%qs)
+        IF(ASSOCIATED(curII%atm_in%rho)) CALL printChecksum(TRIM(prefix)//"atm_in%rho: ", curII%atm_in%rho)
+        IF(ASSOCIATED(curII%atm_in%theta_v)) CALL printChecksum(TRIM(prefix)//"atm_in%theta_v: ", curII%atm_in%theta_v)
+        IF(ASSOCIATED(curII%atm_in%tke)) CALL printChecksum(TRIM(prefix)//"atm_in%tke: ", curII%atm_in%tke)
+        IF(ASSOCIATED(curII%atm_in%tke_ifc)) CALL printChecksum(TRIM(prefix)//"atm_in%tke_ifc: ", curII%atm_in%tke_ifc)
+        IF(ALLOCATED(curII%sfc_in%tsnow)) CALL printChecksum(TRIM(prefix)//"sfc_in%tsnow: ", curII%sfc_in%tsnow)
+        IF(ALLOCATED(curII%sfc_in%tskin)) CALL printChecksum(TRIM(prefix)//"sfc_in%tskin: ", curII%sfc_in%tskin)
+        IF(ALLOCATED(curII%sfc_in%sst)) CALL printChecksum(TRIM(prefix)//"sfc_in%sst: ", curII%sfc_in%sst)
+        IF(ALLOCATED(curII%sfc_in%snowalb)) CALL printChecksum(TRIM(prefix)//"sfc_in%snowalb: ", curII%sfc_in%snowalb)
+        IF(ALLOCATED(curII%sfc_in%snowweq)) CALL printChecksum(TRIM(prefix)//"sfc_in%snowweq: ", curII%sfc_in%snowweq)
+        IF(ALLOCATED(curII%sfc_in%snowdens)) CALL printChecksum(TRIM(prefix)//"sfc_in%snowdens: ", curII%sfc_in%snowdens)
+        IF(ALLOCATED(curII%sfc_in%skinres)) CALL printChecksum(TRIM(prefix)//"sfc_in%skinres: ", curII%sfc_in%skinres)
+        IF(ALLOCATED(curII%sfc_in%ls_mask)) CALL printChecksum(TRIM(prefix)//"sfc_in%ls_mask: ", curII%sfc_in%ls_mask)
+        IF(ALLOCATED(curII%sfc_in%seaice)) CALL printChecksum(TRIM(prefix)//"sfc_in%seaice: ", curII%sfc_in%seaice)
+        IF(ALLOCATED(curII%sfc_in%phi)) CALL printChecksum(TRIM(prefix)//"sfc_in%phi: ", curII%sfc_in%phi)
+        IF(ALLOCATED(curII%sfc_in%tsoil)) CALL printChecksum(TRIM(prefix)//"sfc_in%tsoil: ", curII%sfc_in%tsoil)
+        IF(ALLOCATED(curII%sfc_in%wsoil)) CALL printChecksum(TRIM(prefix)//"sfc_in%wsoil: ", curII%sfc_in%wsoil)
+        IF(ALLOCATED(curII%atm%vn)) CALL printChecksum(TRIM(prefix)//"atm%vn: ", curII%atm%vn)
+        IF(ALLOCATED(curII%atm%u)) CALL printChecksum(TRIM(prefix)//"atm%u: ", curII%atm%u)
+        IF(ALLOCATED(curII%atm%v)) CALL printChecksum(TRIM(prefix)//"atm%v: ", curII%atm%v)
+        IF(ALLOCATED(curII%atm%w)) CALL printChecksum(TRIM(prefix)//"atm%w: ", curII%atm%w)
+        IF(ALLOCATED(curII%atm%temp)) CALL printChecksum(TRIM(prefix)//"atm%temp: ", curII%atm%temp)
+        IF(ALLOCATED(curII%atm%theta_v)) CALL printChecksum(TRIM(prefix)//"atm%theta_v: ", curII%atm%theta_v)
+        IF(ALLOCATED(curII%atm%exner)) CALL printChecksum(TRIM(prefix)//"atm%exner: ", curII%atm%exner)
+        IF(ALLOCATED(curII%atm%rho)) CALL printChecksum(TRIM(prefix)//"atm%rho: ", curII%atm%rho)
+        IF(ALLOCATED(curII%atm%pres)) CALL printChecksum(TRIM(prefix)//"atm%pres: ", curII%atm%pres)
+        IF(ALLOCATED(curII%atm%qv)) CALL printChecksum(TRIM(prefix)//"atm%qv: ", curII%atm%qv)
+        IF(ALLOCATED(curII%atm%qc)) CALL printChecksum(TRIM(prefix)//"atm%qc: ", curII%atm%qc)
+        IF(ALLOCATED(curII%atm%qi)) CALL printChecksum(TRIM(prefix)//"atm%qi: ", curII%atm%qi)
+        IF(ALLOCATED(curII%atm%qr)) CALL printChecksum(TRIM(prefix)//"atm%qr: ", curII%atm%qr)
+        IF(ALLOCATED(curII%atm%qs)) CALL printChecksum(TRIM(prefix)//"atm%qs: ", curII%atm%qs)
+        IF(ALLOCATED(curII%atm%tke)) CALL printChecksum(TRIM(prefix)//"atm%tke: ", curII%atm%tke)
+        IF(ALLOCATED(curII%atm_inc%vn)) CALL printChecksum(TRIM(prefix)//"atm_inc%vn: ", curII%atm_inc%vn)
+        IF(ALLOCATED(curII%atm_inc%u)) CALL printChecksum(TRIM(prefix)//"atm_inc%u: ", curII%atm_inc%u)
+        IF(ALLOCATED(curII%atm_inc%v)) CALL printChecksum(TRIM(prefix)//"atm_inc%v: ", curII%atm_inc%v)
+        IF(ALLOCATED(curII%atm_inc%w)) CALL printChecksum(TRIM(prefix)//"atm_inc%w: ", curII%atm_inc%w)
+        IF(ALLOCATED(curII%atm_inc%temp)) CALL printChecksum(TRIM(prefix)//"atm_inc%temp: ", curII%atm_inc%temp)
+        IF(ALLOCATED(curII%atm_inc%theta_v)) CALL printChecksum(TRIM(prefix)//"atm_inc%theta_v: ", curII%atm_inc%theta_v)
+        IF(ALLOCATED(curII%atm_inc%exner)) CALL printChecksum(TRIM(prefix)//"atm_inc%exner: ", curII%atm_inc%exner)
+        IF(ALLOCATED(curII%atm_inc%rho)) CALL printChecksum(TRIM(prefix)//"atm_inc%rho: ", curII%atm_inc%rho)
+        IF(ALLOCATED(curII%atm_inc%pres)) CALL printChecksum(TRIM(prefix)//"atm_inc%pres: ", curII%atm_inc%pres)
+        IF(ALLOCATED(curII%atm_inc%qv)) CALL printChecksum(TRIM(prefix)//"atm_inc%qv: ", curII%atm_inc%qv)
+        IF(ALLOCATED(curII%atm_inc%qc)) CALL printChecksum(TRIM(prefix)//"atm_inc%qc: ", curII%atm_inc%qc)
+        IF(ALLOCATED(curII%atm_inc%qi)) CALL printChecksum(TRIM(prefix)//"atm_inc%qi: ", curII%atm_inc%qi)
+        IF(ALLOCATED(curII%atm_inc%qr)) CALL printChecksum(TRIM(prefix)//"atm_inc%qr: ", curII%atm_inc%qr)
+        IF(ALLOCATED(curII%atm_inc%qs)) CALL printChecksum(TRIM(prefix)//"atm_inc%qs: ", curII%atm_inc%qs)
+        IF(ALLOCATED(curII%atm_inc%tke)) CALL printChecksum(TRIM(prefix)//"atm_inc%tke: ", curII%atm_inc%tke)
+        IF(ALLOCATED(curII%sfc%tsnow)) CALL printChecksum(TRIM(prefix)//"sfc%tsnow: ", curII%sfc%tsnow)
+        IF(ALLOCATED(curII%sfc%tskin)) CALL printChecksum(TRIM(prefix)//"sfc%tskin: ", curII%sfc%tskin)
+        IF(ALLOCATED(curII%sfc%sst)) CALL printChecksum(TRIM(prefix)//"sfc%sst: ", curII%sfc%sst)
+        IF(ALLOCATED(curII%sfc%snowalb)) CALL printChecksum(TRIM(prefix)//"sfc%snowalb: ", curII%sfc%snowalb)
+        IF(ALLOCATED(curII%sfc%snowweq)) CALL printChecksum(TRIM(prefix)//"sfc%snowweq: ", curII%sfc%snowweq)
+        IF(ALLOCATED(curII%sfc%snowdens)) CALL printChecksum(TRIM(prefix)//"sfc%snowdens: ", curII%sfc%snowdens)
+        IF(ALLOCATED(curII%sfc%skinres)) CALL printChecksum(TRIM(prefix)//"sfc%skinres: ", curII%sfc%skinres)
+        IF(ALLOCATED(curII%sfc%ls_mask)) CALL printChecksum(TRIM(prefix)//"sfc%ls_mask: ", curII%sfc%ls_mask)
+        IF(ALLOCATED(curII%sfc%seaice)) CALL printChecksum(TRIM(prefix)//"sfc%seaice: ", curII%sfc%seaice)
+        IF(ALLOCATED(curII%sfc%tsoil)) CALL printChecksum(TRIM(prefix)//"sfc%tsoil: ", curII%sfc%tsoil)
+        IF(ALLOCATED(curII%sfc%wsoil)) CALL printChecksum(TRIM(prefix)//"sfc%wsoil: ", curII%sfc%wsoil)
+        IF(ALLOCATED(curII%sfc%w_so)) CALL printChecksum(TRIM(prefix)//"sfc%w_so: ", curII%sfc%w_so)
+        IF(ALLOCATED(curII%sfc_inc%w_so)) CALL printChecksum(TRIM(prefix)//"sfc_inc%w_so: ", curII%sfc_inc%w_so)
+        IF(ALLOCATED(curII%sfc_inc%h_snow)) CALL printChecksum(TRIM(prefix)//"sfc_inc%h_snow: ", curII%sfc_inc%h_snow)
+        IF(ALLOCATED(curII%sfc_inc%freshsnow)) CALL printChecksum(TRIM(prefix)//"sfc_inc%freshsnow: ", curII%sfc_inc%freshsnow)
+    END DO
+  END SUBROUTINE printIniticonChecksums
 
   !-------------
   !>
