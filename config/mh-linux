@@ -256,7 +256,7 @@ esac
 #
 echo "AC_SITENAME" $ac_sitename
 case "$ac_sitename" in
-   cscs.ch)
+   cscs.ch|cm.cluster)
 	echo The host is:  $HOST
         case "$HOST" in
             *daint*)
@@ -284,7 +284,7 @@ case "$ac_sitename" in
 			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
-                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
+                        NETCDFROOT = /opt/cray/netcdf/4.3.3.1/cray/83
                         ;;
                     cray_gpu)
                         load_modules = "PrgEnv-cray" "cray-netcdf" "cray-hdf5" "${load_modules}"
