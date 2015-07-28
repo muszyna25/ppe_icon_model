@@ -2232,6 +2232,21 @@ MODULE mo_initicon_utils
       initicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
       initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
       initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
+!$OMP PARALLEL WORKSHARE
+    initicon(jg)%sfc_in%phi(:,:) = 0._wp
+    initicon(jg)%sfc_in%tskin(:,:) = 0._wp
+    initicon(jg)%sfc_in%sst(:,:) = 0._wp
+    initicon(jg)%sfc_in%tsnow(:,:) = 0._wp
+    initicon(jg)%sfc_in%snowalb(:,:) = 0._wp
+    initicon(jg)%sfc_in%snowweq(:,:) = 0._wp
+    initicon(jg)%sfc_in%snowdens(:,:) = 0._wp
+    initicon(jg)%sfc_in%skinres(:,:) = 0._wp
+    initicon(jg)%sfc_in%ls_mask(:,:) = 0._wp
+    initicon(jg)%sfc_in%seaice(:,:) = 0._wp
+    initicon(jg)%sfc_in%tsoil(:,:,:) = 0._wp
+    initicon(jg)%sfc_in%wsoil(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
+
     initicon(jg)%sfc_in%linitialized = .TRUE.
   END SUBROUTINE allocate_extana_sfc
 
