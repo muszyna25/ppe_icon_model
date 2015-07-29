@@ -88,8 +88,8 @@ CONTAINS
     entrpen  = 1.0e-4_wp
     entrdd   = 2.0e-4_wp
     !
-    cprcon   = 2.5e-4_wp
-    cmfctop  = 0.2_wp
+    cprcon   = 1.5e-4_wp
+    cmfctop  = 0.23_wp
     cmfdeps  = 0.3_wp
     !
     cminbuoy = 0.2_wp
@@ -100,7 +100,7 @@ CONTAINS
     dlev_land  = 3.0e4_wp
     dlev_ocean = 1.5e4_wp
     !
-    cmftau   = 7200.0_wp
+    cmftau   = 3600.0_wp
 
     !-------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above

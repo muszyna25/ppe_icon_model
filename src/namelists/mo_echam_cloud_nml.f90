@@ -124,19 +124,19 @@ CONTAINS
     cqtmin  = 1.e-12_wp  ! total water minimum
 
     cn1lnd  =  20._wp
-    cn2lnd  = 180._wp
+    cn2lnd  = 120._wp
     cn1sea  =  20._wp
-    cn2sea  =  80._wp
+    cn2sea  =  40._wp
 
     cinhomi = 0.80_wp
-    cinhoml1= 0.80_wp
+    cinhoml1= 0.60_wp
     cinhoml2= 0.40_wp
-    cinhoml3= 0.80_wp
+    cinhoml3= 0.60_wp
 
-    csecfrl = 5.e-6_wp
-    crs     = 0.975_wp   ! Critical relative humidity at surface
-    crt     = 0.75_wp    ! Critical relative humidity aloft
-    cvtfall = 2.5_wp
+    csecfrl = 1.0e-5_wp
+    crs     = 0.999_wp   ! Critical relative humidity at surface
+    crt     = 0.85_wp    ! Critical relative humidity aloft
+    cvtfall = 3.0_wp
     clwprat = 4.0_wp
     csatsc  = 0.7_wp
     nex     = 2          ! Transition parameter for critical relative humidity profile
