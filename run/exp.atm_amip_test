@@ -159,6 +159,8 @@ rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
 /
+&echam_cloud_nml
+/
 &gw_hines_nml
 /
 EOF

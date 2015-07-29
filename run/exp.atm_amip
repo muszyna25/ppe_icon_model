@@ -153,6 +153,8 @@ rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
 /
+&echam_cloud_nml
+/
 &gw_hines_nml
 /
 EOF
@@ -289,6 +291,7 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
+ dt_checkpoint    = ${dt_checkpoint}
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4

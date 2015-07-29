@@ -68,7 +68,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
+ dtime            = 600         ! [s] time step
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -153,16 +153,8 @@ cat > ${atmo_namelist} << EOF
 rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
- entrscv          = 3.0e-3
- entrpen          = 1.0e-4
- cprcon           = 1.5e-4
- cmfctop          = 0.23
 /
 &echam_cloud_nml
- crs              = 0.999
- crt              = 0.750
- cvtfall          = 3.0
- csecfrl          = 1.0e-5
 /
 &gw_hines_nml
 /
