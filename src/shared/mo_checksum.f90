@@ -155,6 +155,12 @@ CONTAINS
         INTEGER(KIND = C_INT64_T), PARAMETER :: mask = 2_C_INT64_T**32 - 1_C_INT64_T
         CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":printChecksum_1d_int32"
 
+        !XXX: These two variables are a workaround for the MPI implementation on AIX, which does NOT provide the constants MPI_INT64_T AND MPI_INT32_T.
+        !So, to make this work without those constants, we implicitly reinterprete a C_INT64_T as an array of fortran INTEGERs during the MPI_Gather() CALL.
+        !Warning: This assumes that the SIZE of a fortran INTEGER is a divisor of eight. Should be TRUE on any sane system, but you never know.
+        INTEGER :: integerMold(1), integersInInt64
+        integersInInt64 = SIZE(TRANSFER(hash, integerMold))
+
         !compute a process local checksum
         printDetails = .FALSE.
         IF(PRESENT(opt_lDetails)) printDetails = opt_lDetails
@@ -166,7 +172,7 @@ CONTAINS
         IF(PRESENT(opt_comm)) communicator = opt_comm
         processCount = p_comm_size(communicator)
         ALLOCATE(processChecksums(processCount))
-        CALL MPI_GATHER(hash, 2, MPI_INT32_T, processChecksums, 2, MPI_INT32_T, 0, communicator, error) !XXX: Dirty hack: MPI on AIX does not provide MPI_INT64_T. We work around this by reinterpreting each c_int64_t as two c_int32_t, keeping our fingers crossed that we won't run this on a mixed endian machine or have an optimizer scream "undefined behavior". Can be changed back once we don't have to support AIX anymore.
+        CALL MPI_GATHER(hash, integersInInt64, MPI_INTEGER, processChecksums, integersInInt64, MPI_INTEGER, 0, communicator, error) !XXX: Dirty hack. See comment on integersInInt64.
         IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI_Gather()")
 
         !hash the results of the different processes down to a single VALUE AND print that.
