@@ -21,10 +21,10 @@ ocean_model_equations=-1     # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 #
-LOC='POOL'
+LOC='othr'
 # grids_folder=/pool/data/ICON/grids/private/leonidas/grids.ocean
 #ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
-grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
+#grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
 ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
 
 #-----------------------------------------------------------------------------
@@ -94,7 +94,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_diffusion_nml
   !k_veloc_h                          = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
-  HORZ_VELOC_DIFF_TYPE = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_type = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v                            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC   = 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h                    = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for temperature

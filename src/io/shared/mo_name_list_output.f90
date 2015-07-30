@@ -144,9 +144,9 @@ MODULE mo_name_list_output
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! post-ops
-  USE mo_post_op,                   ONLY: perform_post_op
 
 #ifndef __NO_ICON_ATMO__
+  USE mo_post_op,                   ONLY: perform_post_op
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
@@ -415,7 +415,7 @@ CONTAINS
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
-        CALL resetCalendar()
+        !rr CALL resetCalendar()
       END IF
 
       IF(my_process_is_io()) THEN
@@ -856,6 +856,7 @@ CONTAINS
       ! Perform post-ops (small arithmetic operations on fields)
       ! --------------------------------------------------------
 
+#ifndef __NO_ICON_ATMO__
       IF ( ANY((/POST_OP_SCALE, POST_OP_LUC/) == of%var_desc(iv)%info%post_op%ipost_op_type) ) THEN
         IF (idata_type == iREAL) THEN
           CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
@@ -863,7 +864,7 @@ CONTAINS
           CALL perform_post_op(of%var_desc(iv)%info%post_op, i_ptr)
         ENDIF
       END IF
-
+#endif
 
       var_ignore_level_selection = .FALSE.
       IF(info%ndims < 3) THEN

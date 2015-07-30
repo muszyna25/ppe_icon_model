@@ -23,7 +23,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea, min_dolic
   USE mo_math_constants,            ONLY: pi, dbl_eps
-  USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_t, b_s, &
+  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv, a_t, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                    &
     & implicit_diffusion,GMRedi_configuration,&
