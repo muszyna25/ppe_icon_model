@@ -40,12 +40,13 @@ start_date="1979-01-01T00:00:00Z"
   end_date="2009-01-01T00:00:00Z"
 
 # restart intervals
-(( dt_checkpoint = 300 * day ))
-(( dt_restart    = 900 * day ))
+checkpoint_interval="P1Y"
+restart_interval="P1Y"
 
 # output intervals
-output_interval="PT6H"
-file_interval="P300D"
+output_interval_3d="PT6H"
+output_interval_2d="PT2H"
+file_interval="P1M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -67,7 +68,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step
+ modelTimeStep    = "PT10M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -291,7 +292,6 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
@@ -315,7 +315,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
@@ -337,7 +337,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
@@ -382,7 +382,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -415,7 +415,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
@@ -439,7 +439,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'

@@ -40,13 +40,13 @@ start_date="1979-01-01T00:00:00Z"
   end_date="1980-01-01T00:00:00Z"
 
 # restart intervals
-(( dt_checkpoint = 365 * day))
-(( dt_restart    = 365 * day))
+checkpoint_interval="P1Y"
+restart_interval="P1Y"
 
 # output intervals
 output_interval_3d="PT6H"
 output_interval_2d="PT2H"
-file_interval="P1Y"
+file_interval="P1M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -68,7 +68,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step
+ modelTimeStep    = "PT10M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -292,7 +292,6 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
