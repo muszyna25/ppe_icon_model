@@ -827,7 +827,7 @@ CONTAINS
     CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
-    CALL resetCalendar()
+    !rr CALL resetCalendar()
     DEALLOCATE(mtime_date_string, mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
