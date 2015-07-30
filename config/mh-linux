@@ -70,22 +70,24 @@ case "$fortran_compiler" in
         compiler_version    = $(gfortran --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
         GRIB_APIBASE=/opt/grib_api
         CFLAGS      = "$CFLAGS" -DpgiFortran -D__SVN_VERSION="${SVNVERSION}"
-        FCPP        = -xf95-cpp-input
-        FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
+        FCPP        = -cpp
+        FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -ffpe-trap=invalid,zero,overflow
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
-        FDEBUG      = -g -fbacktrace
-        FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
+        FDEBUG      = -g -fbacktrace -fstack-protector-all -fbounds-check
+#        FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
+        FCHECK      = 
         FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
-        DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all "$FCHECK"
+        DEBUG_FLAGS = "$FDEBUG" "$FCHECK"
         STD_FLAGS   = -march=native -O2 "$DEBUG_FLAGS" -D__LOOP_EXCHANGE 
         HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE -g
 
         FC          = gfortran
-        FFLAGS      = "$FCPP" "$FLANG" "$FWARN" "$INCLUDES"
         F77         = gfortran
-        F77FLAGS    = -march=native -O0 -ffast-math
+#       ART         = -D__ICON_ART -fall-intrinsics
+        FFLAGS      = "$ART" "$FCPP" "$FLANG" "$FWARN" "$INCLUDES"
+        F77FLAGS    = -march=native -O2 -ffast-math
         LDFLAGS     = "$FOTPTIM"
         OMPFLAG     = -fopenmp
         DEFOPT      = -D
@@ -175,7 +177,8 @@ case "$fortran_compiler" in
 	CC          = cc
         FC          = ftn
         F77         = "$FC"
-        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf,inv
+#       ART         = -D__ICON_ART
+        FFLAGS      = -v "$ART" -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3  -D__SVN_VERSION="${SVNVERSION}"
         F77FLAGS    = "$FFLAGS"
         FCLIBS      = "-v"
@@ -368,7 +371,7 @@ case "$ac_sitename" in
                 make_command="make" "-j" "8"
                 case "$fortran_compiler" in
                     intel*)
-                      load_modules    = "PrgEnv-intel" "netcdf" "cray-mpich" "${load_modules}"
+#                     load_modules    = "PrgEnv-intel" "netcdf" "cray-mpich" "${load_modules}"
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
@@ -380,9 +383,11 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
                       STD_FLAGS       = -D__USE_RTTOV
                       FFLAGS          = ${FFLAGS} -I/e/uhome/rfaulwet/rttov/official/rttov/rttov10.2 -I/e/uhome/rfaulwet/cosmo/libradiance/10.2
+# ... to switch off OpenMP:
+#                     FFLAGS          = -h noomp ${FFLAGS}
                       ;;
                     default|gcc)
-                      load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
+#                     load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
                       FFLAGS          = ${FFLAGS}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
                       ;;
