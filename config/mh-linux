@@ -229,21 +229,17 @@ case "$fortran_compiler" in
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
         CC     =  icc
         CFLAGS      = "$CFLAGS" -DpgiFortran
-        FC          = mpif90 -sox
+        FC          = ifort
         ##FDEBUG      = -check bounds -check pointers -check uninit -debug -g
-        FDEBUG      = -g
-        FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost -g -traceback
-        FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost  -traceback
-        ##FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost -g -traceback
-        ##FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost  -traceback
-        F77         = ifort -sox
+        FFLAGS      = -sox -O1 -fltconsistency -fpp -prec-div -D__ICON_ART -D__LOOP_EXCHANGE -xHost -g -traceback
+        FCLAGS      = -sox -O1 -fltconsistency -fpp -prec-div -D__ICON_ART -D__LOOP_EXCHANGE -xHost -g -traceback
+        F77         = ifort
         F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -openmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -module
-        WLFLAG      = -Wl        
+        MODDIR      = -module  
         WLFLAG      = -Wl        
         ;;
 esac
@@ -591,6 +587,26 @@ case "$ac_sitename" in
                 ;;
         esac
         ;;
+#===============================================
+    kit.edu)
+        case $ac_hostname in
+            ic2*)
+		NETCDFROOT  = /pfs/imk/ICON
+                NETCDFFROOT = /pfs/imk/ICON
+		HDF5ROOT    = /pfs/imk/ICON
+		SZIPROOT    = /pfs/imk/ICON
+		ZLIBROOT    = /usr
+		MPIROOT     = /pfs/imk/ICON
+                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+                config_target=ic2
+                make_command="make" "-j8"
+                submit="sbatch"
+		mpi_startrun="runjob" "--ranks-per-node" "\\\$mpi_procs_pernode" "--envs" "OMP_NUM_THREADS=\\\$OMP_NUM_THREADS" "--exe"
+                ;;
+        esac
+
+	;;		
 #===============================================
     zmaw.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')

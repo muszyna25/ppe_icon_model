@@ -114,6 +114,8 @@ AS_CASE([x"$ac_hostname"],
   [ac_sitename=dkrz.de; ac_hostname=wizard],
   [xbtc*|mlogin*],
   [ac_sitename=dkrz.de; ac_hostname=btc],
+  [xic2*],
+  [ac_sitename=kit.edu; ac_hostname=ic2],
   [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
@@ -549,11 +551,11 @@ if test -n "$NETCDFROOT" ; then
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
            esac         
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
