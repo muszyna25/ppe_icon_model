@@ -56,7 +56,7 @@ MODULE mo_event_manager
 
   INTEGER                :: ierr, id
 
-  PUBLIC :: event_init, event_add, event_check, t_event, events
+  PUBLIC :: event_init, event_add, event_check, event_update, t_event, events
 
 CONTAINS
 
@@ -179,12 +179,13 @@ CONTAINS
 
        ! fast-forward internal event by lag coupling time steps
 
-       events(id)%event_time    = -1 * lag * time_step
+       events(id)%event_time    = lag * time_step
+       events(id)%elapsed_time  = lag * time_step
        events(id)%lag           = lag
 
        ! Update date and time for this event
 
-       seconds = events(id)%time_step
+       seconds = lag * events(id)%time_step
        days    = 0
 
        CALL add_time ( days, seconds, events(id)%current_date )
@@ -199,18 +200,26 @@ CONTAINS
 
     INTEGER, INTENT(in) :: event_id
 
-    INTEGER :: seconds
-    INTEGER :: days
-
     l_action = .FALSE.
-
-    events(event_id)%event_time = &
-    events(event_id)%event_time + events(event_id)%time_step
 
     IF ( events(event_id)%event_time == events(event_id)%delta_time ) THEN
        events(event_id)%event_time = 0
        l_action = .TRUE.
     ENDIF
+
+  END FUNCTION event_check
+
+  ! ---------------------------------------------------------------------
+
+  SUBROUTINE event_update ( event_id )
+
+    INTEGER, INTENT(in) :: event_id
+
+    INTEGER :: seconds
+    INTEGER :: days
+
+    events(event_id)%event_time = &
+    events(event_id)%event_time + events(event_id)%time_step
 
     events(event_id)%elapsed_time = &
     events(event_id)%elapsed_time + events(event_id)%time_step
@@ -222,6 +231,6 @@ CONTAINS
 
     CALL add_time ( days, seconds, events(event_id)%current_date )
 
-  END FUNCTION event_check
+  END SUBROUTINE event_update
 
 END MODULE mo_event_manager

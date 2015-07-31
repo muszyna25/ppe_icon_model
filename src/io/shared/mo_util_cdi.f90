@@ -322,7 +322,10 @@ CONTAINS
         print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
         print*, routine//": list of variables:"
         DO i = 1, SIZE(me%variableNames)
-          print*, routine//":     '"//TRIM(tolower(me%variableNames(i)))//"'"
+          ! the following "tolower" function call should be enclosed
+          ! in a TRIM() intrinsic; however, this throws an (erroneous)
+          ! compiler error on some Cray compiler versions.
+          print*, routine//":     '"//tolower(me%variableNames(i))//"'"
           DO j = 1, SIZE(me%variableTileinfo(i)%tile)
             print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
             &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
