@@ -80,7 +80,7 @@ MODULE mo_name_list_output_init
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
 #endif
   USE mo_extpar_config,                     ONLY: i_lctype
-  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -2939,6 +2939,7 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
     size_tiles = 0
     if (allocated(tiles)) then
        size_tiles = SIZE(tiles)
