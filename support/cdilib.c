@@ -62369,7 +62369,7 @@ void varDefOptGribDbl(int varID, int tile_index, double dval, const char *keywor
         free (vartable[varID].opt_grib_kvpair[idx].keyword);
     }
   vartable[varID].opt_grib_kvpair[idx].data_type     = t_double;
-  vartable[varID].opt_grib_kvpair[idx].dbl_val       = (int) dval;
+  vartable[varID].opt_grib_kvpair[idx].dbl_val       = dval;
   vartable[varID].opt_grib_kvpair[idx].keyword       = strdupx(keyword);
   vartable[varID].opt_grib_kvpair[idx].subtype_index = tile_index;
 }
