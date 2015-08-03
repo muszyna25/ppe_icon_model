@@ -40,6 +40,10 @@ MODULE mo_interface_echam_ocean
 
   USE mo_ext_data_state      ,ONLY: ext_data
 
+#ifndef __NO_JSBACH__
+  USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
+#endif
+
   USE mo_master_control      ,ONLY: get_my_process_name
 
   USE mo_mpi                 ,ONLY: p_pe_work
@@ -54,6 +58,7 @@ MODULE mo_interface_echam_ocean
   USE mo_mtime_extensions    ,ONLY: get_datetime_string
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
+    &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
     &                               yac_finit, yac_fdef_comp,                    &
     &                               yac_fdef_datetime,                           &
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
@@ -86,7 +91,7 @@ MODULE mo_interface_echam_ocean
 
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
 
-  INTEGER, PARAMETER    :: no_of_fields = 10
+  INTEGER, PARAMETER    :: no_of_fields = 9
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -137,6 +142,7 @@ CONTAINS
     INTEGER :: domain_id
     INTEGER :: subdomain_id
     INTEGER :: subdomain_ids(nbr_subdomain_ids)
+    INTEGER :: no_of_fields_total
 
     INTEGER :: mask_checksum
     INTEGER :: nblks
@@ -147,6 +153,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: buffer_lat(:)
     INTEGER,  ALLOCATABLE :: buffer_c(:,:)
     INTEGER,  ALLOCATABLE :: ibuffer(:)
+    INTEGER,  ALLOCATABLE :: field_ids_total(:)
 
     TYPE(t_sim_step_info)   :: sim_step_info  
 
@@ -355,7 +362,6 @@ CONTAINS
     field_name(7) = "eastward_sea_water_velocity"
     field_name(8) = "northward_sea_water_velocity"
     field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
-    field_name(10) = "river_runoff"
 
     DO idx = 1, no_of_fields
       CALL yac_fdef_field (      &
@@ -368,7 +374,16 @@ CONTAINS
         & field_id(idx) )
     ENDDO
 
-    CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
+#ifndef __NO_JSBACH__
+    ! Define additional coupling field(s) for JSBACH/HD
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids)
+#endif
+
+    ! End definition of coupling fields and search
+    CALL yac_fget_nbr_fields(no_of_fields_total)
+    ALLOCATE(field_ids_total(no_of_fields_total))
+    CALL yac_fget_field_ids(no_of_fields_total, field_ids_total)
+    CALL yac_fsearch ( 1, comp_ids, no_of_fields_total, field_ids_total, error_status )
 
 # else
 
