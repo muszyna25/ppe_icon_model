@@ -34,7 +34,7 @@ MODULE mo_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_initicon_types,      ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
@@ -64,7 +64,7 @@ MODULE mo_initicon
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
-                                    copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
+                                    copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
                                     copy_fg2initicon
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
@@ -139,26 +139,12 @@ MODULE mo_initicon
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
-    initicon(:)%atm_in%linitialized  = .FALSE.
-    initicon(:)%sfc_in%linitialized  = .FALSE.
-    initicon(:)%atm%linitialized     = .FALSE.
-    initicon(:)%sfc%linitialized     = .FALSE.
-    initicon(:)%atm_inc%linitialized = .FALSE.
-    initicon(:)%sfc_inc%linitialized = .FALSE.
-
-    ! Allocate memory for init_icon state
-    CALL allocate_initicon (p_patch, initicon)
-
-
-    ! Copy the topography fields and coordinate surfaces to initicon
-    !
     DO jg = 1, n_dom
-      initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
+      CALL construct_initicon(initicon(jg), p_patch(jg), ext_data(jg)%atm%topography_c, p_nh_state(jg)%metrics)
+    END DO
 
-      initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
-      initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
-    ENDDO
-
+    ! Read IN the dictionary for the variable names (IF we need it)
+    CALL initVarnamesDict(ana_varnames_dict)
 
 
     ! -----------------------------------------------
