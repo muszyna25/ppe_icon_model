@@ -301,8 +301,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
               &                       p_patch,                        &
-              &                       jb,istart,iend,nlev,nproma,     &
-              &                       p_nh_state%diag%extra_3d)
+              &                       jb,istart,iend,nlev,nproma)
           ENDDO
         CASE(1)
           DO jb = i_startblk, i_endblk
@@ -313,8 +312,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                     p_nh_state%diag%pres,       &
               &                     ext_data%atm%llsm_atm_c,    &
               &                     p_patch,                    &
-              &                     jb,istart,iend,nlev,nproma, &
-              &                     p_nh_state%diag%extra_3d)
+              &                     jb,istart,iend,nlev,nproma)
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
