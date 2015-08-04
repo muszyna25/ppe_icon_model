@@ -1696,7 +1696,7 @@ CONTAINS
     REAL(wp) :: diffusion_weight, loc_eps
     REAL(wp) :: dv_old, dv_back, dv_rich
     REAL(wp) :: av_old, av_back, av_rich
-    REAL(wp) :: lambda_d_m1, lambda_v_m1
+    REAL(wp) :: onem1_lambda_d, onem1_lambda_v
     REAL(wp) :: grav_rho
     REAL(wp) :: mean_density_differ_edge, mean_richardson_e, fu10_e, conc_e
     REAL(wp) :: vdgfac_bot(n_zlev)
@@ -1721,8 +1721,8 @@ CONTAINS
 
     grav_rho          = grav/OceanReferenceDensity
 
-    lambda_d_m1       = 1.0_wp-lambda_diff
-    lambda_v_m1       = 1.0_wp-lambda_visc
+    onem1_lambda_d    = 1.0_wp-lambda_diff
+    onem1_lambda_v    = 1.0_wp-lambda_visc
     dv_rich           = richardson_tracer
     av_rich           = richardson_veloc
     v10mexp_3         = 1.0_wp/v10m_ref**3
@@ -1796,11 +1796,8 @@ CONTAINS
 
           ! reduced wind-mixing under sea ice, following MPIOM
           IF (use_reduced_mixing_under_ice) THEN
-            ! check wind-mixing with constant 10m/s - use apply_initial_conditions for this before using wind mixing!
-            !dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb)) * 10.0_wp**3
             dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb)) * fu10(jc,jb)**3
           ELSE
-            !dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb))**2 * 10.0_wp**3
             dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb))**2 * fu10(jc,jb)**3
           ENDIF
 
@@ -1838,7 +1835,7 @@ CONTAINS
               dv_old  = params_oce%a_tracer_v(jc,jk,jb,tracer_index)
               dv_back = params_oce%a_tracer_v_back(tracer_index)
               params_oce%a_tracer_v(jc,jk,jb,tracer_index) = &
-                &    lambda_d_m1*MIN(dv_old, dv_rich + dv_wind(jc,jk,jb)) &
+                &    onem1_lambda_d*MIN(dv_old, dv_rich + dv_wind(jc,jk,jb)) &
                 &  + lambda_diff*(dv_rich/((1.0_wp + crd*richardson_no(jc,jk,jb))**3) + dv_back + dv_wind(jc,jk,jb))
 
 
@@ -1944,11 +1941,11 @@ CONTAINS
             av_old  = params_oce%a_veloc_v(je,jk,jb)
             av_back = params_oce%a_veloc_v_back
             params_oce%a_veloc_v(je,jk,jb) = &
-              &    lambda_v_m1*MIN(av_old, av_rich + av_wind(je,jk,jb)) &
+              &    onem1_lambda_v*MIN(av_old, av_rich + av_wind(je,jk,jb)) &
               &  + lambda_visc*(av_rich/((1.0_wp + crv*mean_richardson_e)**2) + av_back + av_wind(je,jk,jb))
 !           ENDIF
 
-          ! turn on convection
+          ! turn on convection - no convection for velocity as in mpiom
 !           IF (use_convection) THEN
 ! 
 !             ! MPIOM style of convection in PP-scheme: viscosity
@@ -2005,7 +2002,8 @@ CONTAINS
     CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,str_module,idt_src,in_subset=p_patch%edges%owned)
     CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,str_module,idt_src,in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    idt_src=2  ! output print levels (1-5, fix)
+    CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,str_module,idt_src,in_subset=p_patch%cells%owned)
+    idt_src=5  ! output print levels (1-5, fix)
     DO tracer_index = 1, no_tracer
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=p_patch%cells%owned)
@@ -2013,6 +2011,7 @@ CONTAINS
     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
+
   END SUBROUTINE update_physics_parameters_MPIOM_PP_scheme
   !-------------------------------------------------------------------------
 
