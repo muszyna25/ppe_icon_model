@@ -71,10 +71,10 @@ case "$fortran_compiler" in
         GRIB_APIBASE=/opt/grib_api
         CFLAGS      = "$CFLAGS" -DpgiFortran -D__SVN_VERSION="${SVNVERSION}"
         FCPP        = -cpp
-        FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -ffpe-trap=invalid,zero,overflow
+        FLANG       = -std=gnu -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -ffpe-trap=invalid,zero,overflow
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
         FDEBUG      = -g -fbacktrace -fstack-protector-all -fbounds-check
-#        FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
+#       FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
         FCHECK      = 
         FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
