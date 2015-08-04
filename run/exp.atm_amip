@@ -158,6 +158,8 @@ rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &gw_hines_nml
 /
+&sea_ice_nml
+/
 EOF
 
 # land surface and soil
