@@ -66,7 +66,7 @@ MODULE mo_initicon
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
-                                    copy_fg2initicon
+                                    copy_fg2initicon, initVarnamesDict
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
