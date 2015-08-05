@@ -391,7 +391,7 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container t_gt
     ALLOCATE(p_prog_lnd%t_gt_ptr(ntiles_total+ntiles_water))
       DO jsfc = 1,ntiles_total+ntiles_water
-        NULLIFY(p_prog_lnd%t_gt_ptr(ntiles_total+jsfc)%p_2d, p_prog_lnd%t_gt_ptr(ntiles_total+jsfc)%p_3d)
+        NULLIFY(p_prog_lnd%t_gt_ptr(jsfc)%p_2d, p_prog_lnd%t_gt_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( prog_list, vname_prefix//'t_g_t'//suffix,                &
                & vname_prefix//'t_g_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
@@ -417,7 +417,7 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container t_s
     ALLOCATE(p_prog_lnd%t_s_ptr(ntiles_total+ntiles_water))
     DO jsfc = 1,ntiles_total+ntiles_water
-      NULLIFY(p_prog_lnd%t_s_ptr(ntiles_total+jsfc)%p_2d, p_prog_lnd%t_s_ptr(ntiles_total+jsfc)%p_3d)
+      NULLIFY(p_prog_lnd%t_s_ptr(jsfc)%p_2d, p_prog_lnd%t_s_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'t_s_t'//suffix,              &
            & vname_prefix//'t_s_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
