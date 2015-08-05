@@ -1377,9 +1377,9 @@ CONTAINS
 
     IF( my_process_is_mpi_workroot()  ) THEN
  
-      write(0,*) "netcdf_get_missValue...", TRIM(variable_name) 
+      ! write(0,*) "netcdf_get_missValue...", TRIM(variable_name) 
       CALL nf(nf_inq_varid(file_id, variable_name, varid), variable_name)
-      write(0,*) TRIM(variable_name), " id=", varid
+      ! write(0,*) TRIM(variable_name), " id=", varid
   
       return_status = nf_get_att_double(file_id, varid, "missing_value", readMissValue)
       IF (return_status == nf_noerr) THEN
@@ -1404,7 +1404,7 @@ CONTAINS
     ENDIF
     missValue = broadcastValue(2)
 
-    write(0,*)  TRIM(variable_name), " miss=", has_missValue, missValue
+    ! write(0,*)  TRIM(variable_name), " miss=", has_missValue, missValue
      
   END SUBROUTINE netcdf_get_missValue
   !-------------------------------------------------------------------------
