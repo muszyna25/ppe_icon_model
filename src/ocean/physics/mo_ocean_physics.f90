@@ -1753,26 +1753,12 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        ! calculate here the density to be used in the dynamics
-        !
-          !  - midth of layer without using elevation h - gradient of height is added separately
-          pressure(1:levels) = patch_3d%p_patch_1d(1)%zlev_m(1:levels) * OceanReferenceDensity * sitodbar
-          !  - #slo# to include partial cells we need another 3-dim variable here: depth_CellMiddle_flat[_sfc]:
-          !pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle_flat(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
-
-        ocean_state%p_diag%rho(jc,1:levels,jb) = &
-            & calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels,jb,1), &
-            & salinity(1:levels), pressure(1:levels), levels)
-        !--------------------------------------------------------
-
-        !--------------------------------------------------------
-        ! calculate here the density for stability-detection for convection parameterization:
+        ! calculate density gradient for stability detection for PP-scheme and convection parameterization:
         !  - pressure at interface between upper and lower layer
         !  - S and T taken from upper and lower level, i.e. 2 times calculation of density per layer
-        !
-          !  - old formulation without including z in reference interface level
-          pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
 
+        !  - old formulation without including z in reference interface level
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
         rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
@@ -1782,7 +1768,7 @@ CONTAINS
           ! division by dz**2 is omitted in this calculation of velocity shear: shear = (d_vn)**2
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          ! d_rho/dz - full density gradient is necessary in this MPIOM-formulation
+          ! d_rho/dz - full density gradient necessary for wind mixing, stability formula, mixed layer depth calculation
           vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) *  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
