@@ -416,15 +416,15 @@ CONTAINS
 
     ENDDO time_loop
 
-!     CALL create_restart_file( patch = patch_2d,       &
-!        & datetime=datetime,      &
-!        & jstep=jstep,            &
-!        & model_type="oce",       &
-!        & opt_sim_time=time_config%sim_time(1),&
-!        & opt_nice_class=1,       &
-!        & ocean_zlevels=n_zlev,                                         &
-!        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-!        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+     CALL create_restart_file( patch = patch_2d,       &
+        & datetime=datetime,      &
+        & jstep=jstep,            &
+        & model_type="oce",       &
+        & opt_sim_time=time_config%sim_time(1),&
+        & opt_nice_class=1,       &
+        & ocean_zlevels=n_zlev,                                         &
+        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
+        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
        
     CALL timer_stop(timer_total)
 

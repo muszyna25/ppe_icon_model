@@ -1136,6 +1136,8 @@ CONTAINS
               ELSE
                 out_value(jc,level,blockNo) = &
                   &  out_value(jc,level,blockNo) / numberOfNeigbors
+            !    write(0,*) "smooth missing value:", out_value(jc,level,blockNo)
+
               ENDIF
             ELSE
               out_value(jc,level,blockNo) = in_value(jc,level,blockNo)
