@@ -748,6 +748,7 @@ with_setup
 with_yac
 with_messy
 with_flags
+with_art
 with_ocean
 with_xml2
 with_lapack
@@ -1392,6 +1393,8 @@ Optional Packages:
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
+  --with-art              enable ART modules via precprocessing directive, if
+                          available for selected compiler
   --with-ocean=no         compile without ocean
   --with-xml2=DIR         Required libxml2
   --with-lapack=DIR       Alternative vendor optimized LAPACK and BLAS library
@@ -2380,6 +2383,19 @@ if test "${with_flags+set}" = set; then :
   withval=$with_flags;
 fi
 
+
+
+# Check whether --with-art was given.
+if test "${with_art+set}" = set; then :
+  withval=$with_art;
+fi
+
+
+if test "x$with_art" = "xyes"; then :
+  use_art="yes"
+else
+  use_art="no"
+fi
 
 case $host in
   i*86-*-linux-*)
@@ -6063,6 +6079,14 @@ if [ "x$use_messy" = xyes ] ; then
     ln -s -t src/ ../externals/messy_interface
     FFLAGS="${FFLAGS} ${DEFOPT}MESSY ${DEFOPT}MESSYTIMER"
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
+fi
+
+if [ "x$use_art" = xyes ] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
 fi
 
 ac_srcdirs=$my_srcdirs
