@@ -1805,6 +1805,10 @@ CONTAINS
           DO jk = 2, levels
 
             decay_wind_depth   = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/z0_wind)
+
+            ! lambda_wind: default changed to 0.05, with 0.03 omip-r2b4 aborted
+            !   - in MPIOM it is 0.05, in Marsland et al. it was 0.03,
+            !   - for strong winds it might be necessary to increase it
             wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)  ! #slo# check
 
             ! vertical interpolation of density gradient
