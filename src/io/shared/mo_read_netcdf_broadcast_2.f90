@@ -1371,7 +1371,7 @@ CONTAINS
     LOGICAL                      :: has_missValue
     REAL(wp)                     :: missValue
 
-    REAL :: readMissValue
+    REAL(dp) :: readMissValue
     REAL(wp) :: broadcastValue(2)    
     INTEGER :: varid, return_status
 
@@ -1381,7 +1381,7 @@ CONTAINS
       CALL nf(nf_inq_varid(file_id, variable_name, varid), variable_name)
       write(0,*) TRIM(variable_name), " id=", varid
   
-      return_status = nf_get_att_real(file_id, varid, "missing_value", readMissValue)
+      return_status = nf_get_att_double(file_id, varid, "missing_value", readMissValue)
       IF (return_status == nf_noerr) THEN
         has_missValue = .true.
         broadcastValue(1) = 1.0_wp

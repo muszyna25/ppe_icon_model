@@ -1193,66 +1193,122 @@ CONTAINS
 
   END SUBROUTINE smooth_onCells_3D
   !-------------------------------------------------------------------------
- 
+  
   !-------------------------------------------------------------------------
   !<Optimize:inUse>
-  SUBROUTINE smooth_onCells_2D( patch_3D, in_value, out_value, smooth_weights)
+  SUBROUTINE smooth_onCells_2D( patch_3D, in_value, out_value, smooth_weights, &
+    & has_missValue, missValue)
 
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
     REAL(wp), INTENT(in)          :: in_value(:,:)  ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)       :: out_value(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)          :: smooth_weights(1:2) ! 1st=weight for this cell, 2nd=weight for the some of the neigbors
+    LOGICAL,  INTENT(in)          :: has_missValue
+    REAL(wp), INTENT(in)          :: missValue
 
 
-    INTEGER :: max_connectivity, blockNo, start_index,end_index, jc, level, neigbor, neigbor_index,neigbor_block
-    REAL(wp) :: numberOfNeigbors, neigbors_weight
+    INTEGER :: max_connectivity, blockNo, start_index,end_index, jc, level, neigbor, neigbor_index,neigbor_block 
+    REAL(wp) :: numberOfNeigbors, neigbors_weight !, minValue, maxValue
     TYPE(t_subset_range), POINTER :: cells_inDomain
     !-----------------------------------------------------------------------
     cells_inDomain => patch_3D%p_patch_2D(1)%cells%owned
     max_connectivity = patch_3D%p_patch_2D(1)%cells%max_connectivity
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, level, neigbor, neigbor_index,neigbor_block, &
+    IF (has_missValue) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc,  neigbor, neigbor_index,neigbor_block, &
 !ICON_OMP numberOfNeigbors, neigbors_weight) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_inDomain%start_block, cells_inDomain%end_block
-      CALL get_index_range(cells_inDomain, blockNo, start_index, end_index)
-      out_value(:,blockNo) = 0.0_wp
+      DO blockNo = cells_inDomain%start_block, cells_inDomain%end_block
+        CALL get_index_range(cells_inDomain, blockNo, start_index, end_index)
+        out_value(:,blockNo) = 0.0_wp
 
-      DO jc = start_index, end_index
-        DO level = 1, MIN(patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo),1)
+        DO jc = start_index, end_index
+          DO level = 1, MIN(patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo), 1)
 
-          ! calculate how many sea negbors we have 
-          numberOfNeigbors = 0.0_wp
-          out_value(jc,blockNo) = 0.0_wp
-          ! now compute out_value, out_value at this point is zero
-          DO neigbor = 1, max_connectivity
-            neigbor_index = patch_3D%p_patch_2D(1)%cells%neighbor_idx(jc,blockNo,neigbor)
-            neigbor_block = patch_3D%p_patch_2D(1)%cells%neighbor_blk(jc,blockNo,neigbor)
+            ! calculate how many sea neigbors we have
+            numberOfNeigbors = 0.0_wp
+            ! now compute out_value, out_value at this point is zeroe
+            DO neigbor = 1, max_connectivity
+              neigbor_index = patch_3D%p_patch_2D(1)%cells%neighbor_idx(jc,blockNo,neigbor)
+              neigbor_block = patch_3D%p_patch_2D(1)%cells%neighbor_blk(jc,blockNo,neigbor)
 
-            IF (patch_3D%p_patch_1d(1)%dolic_c(neigbor_index, neigbor_block) >= level) THEN
-              out_value(jc,blockNo) = out_value(jc,blockNo) + &
-                & in_value(neigbor_index,neigbor_block) 
-                ! & * patch_3D%p_patch_2D(1)%cells%area(neigbor_index,neigbor_block)
-              numberOfNeigbors = numberOfNeigbors + 1.0_wp
+              IF (patch_3D%p_patch_1d(1)%dolic_c(neigbor_index, neigbor_block) >= level .AND. &
+                & in_value(neigbor_index,neigbor_block) /= missValue) THEN
+                
+                out_value(jc,blockNo) = out_value(jc,blockNo) + &
+                  & in_value(neigbor_index,neigbor_block)
+                  ! & * patch_3D%p_patch_2D(1)%cells%area(neigbor_index,neigbor_block)
+                numberOfNeigbors = numberOfNeigbors + 1.0_wp
+                
+              ENDIF
+            ENDDO
+
+            IF (numberOfNeigbors > 0.0_wp) THEN
+              IF (in_value(jc,blockNo) /= missValue ) THEN
+                out_value(jc,blockNo) = &
+                  &  out_value(jc,blockNo) * smooth_weights(2) / numberOfNeigbors + &
+                  &  in_value(jc,blockNo) * smooth_weights(1)
+              ELSE
+                out_value(jc,blockNo) = &
+                  &  out_value(jc,blockNo) / numberOfNeigbors
+            !    write(0,*) "smooth missing value:", out_value(jc,blockNo)
+
+              ENDIF
+            ELSE
+              out_value(jc,blockNo) = in_value(jc,blockNo)
             ENDIF
-          ENDDO
-          
-          IF (numberOfNeigbors > 0.0_wp) THEN
-            neigbors_weight = smooth_weights(2) / numberOfNeigbors
-            out_value(jc,blockNo) = &
-              & out_value(jc,blockNo) * neigbors_weight  + &
-              & in_value(jc,blockNo)  * smooth_weights(1)
-          ELSE
-            out_value(jc,blockNo) = in_value(jc,blockNo)
-          ENDIF
 
-        END DO ! 1 level
+          END DO
+          
+        END DO
       END DO
-    END DO
 !ICON_OMP_END_PARALLEL_DO
+
+    ELSE
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc,  neigbor, neigbor_index,neigbor_block, &
+!ICON_OMP numberOfNeigbors, neigbors_weight) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_inDomain%start_block, cells_inDomain%end_block
+        CALL get_index_range(cells_inDomain, blockNo, start_index, end_index)
+        out_value(:,blockNo) = 0.0_wp
+
+        DO jc = start_index, end_index
+          DO level = 1, MIN(patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo), 1)
+
+            ! calculate how many sea neigbors we have
+            numberOfNeigbors = 0.0_wp
+            ! now compute out_value, out_value at this point is zeroe
+            DO neigbor = 1, max_connectivity
+              neigbor_index = patch_3D%p_patch_2D(1)%cells%neighbor_idx(jc,blockNo,neigbor)
+              neigbor_block = patch_3D%p_patch_2D(1)%cells%neighbor_blk(jc,blockNo,neigbor)
+
+              IF (patch_3D%p_patch_1d(1)%dolic_c(neigbor_index, neigbor_block) >= level) THEN
+                out_value(jc,blockNo) = out_value(jc,blockNo) + &
+                  & in_value(neigbor_index,neigbor_block)
+                  ! & * patch_3D%p_patch_2D(1)%cells%area(neigbor_index,neigbor_block)
+                numberOfNeigbors = numberOfNeigbors + 1.0_wp
+              ENDIF
+            ENDDO
+
+            IF (numberOfNeigbors > 0.0_wp) THEN
+              neigbors_weight = smooth_weights(2) / numberOfNeigbors
+              out_value(jc,blockNo) = &
+                &  out_value(jc,blockNo) * neigbors_weight + &
+                &  in_value(jc,blockNo) * smooth_weights(1)
+            ELSE
+              out_value(jc,blockNo) = in_value(jc,blockNo)
+            ENDIF
+            
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
 
   END SUBROUTINE smooth_onCells_2D
   !-------------------------------------------------------------------------
 
+ 
   !---------------------------------------------------------------------------------
   !>
   !!

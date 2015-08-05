@@ -600,29 +600,38 @@ CONTAINS
   ! we need the shape of the original fill_array. This is determined by
   ! read_dist_REAL_2D_1time.
   SUBROUTINE read_dist_REAL_2D_1time(stream_id, location, variable_name, &
-    &                                fill_array, return_pointer)
+    & fill_array, return_pointer,                                        &
+    & has_missValue, missValue)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     INTEGER, INTENT(IN)              :: location
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
     define_fill_target               :: fill_array(:,:)
-    define_return_pointer            :: return_pointer(:,:)    
+    define_return_pointer            :: return_pointer(:,:)  
+    LOGICAL, OPTIONAL                :: has_missValue
+    REAL(wp), OPTIONAL               :: missValue    
     
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1time'
 
     IF (PRESENT(fill_array)) THEN
       CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-        &                           SHAPE(fill_array), fill_array, &
-        &                           return_pointer)
+        & SHAPE(fill_array), fill_array,                                &
+        & return_pointer,                                               &
+        & has_missValue=has_missValue,                                  &
+        & missValue=missValue)
     ELSE
       CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-        &                           (/0,0/), return_pointer=return_pointer)
+        &  (/0,0/), return_pointer=return_pointer,                      &
+        & has_missValue=has_missValue,                                  &
+        & missValue=missValue)
     END IF
 
   END SUBROUTINE read_dist_REAL_2D_1time
 
+
   SUBROUTINE read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-    &                                 array_shape, fill_array, return_pointer)
+    & array_shape, fill_array, return_pointer,                            &
+    & has_missValue, missValue)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     INTEGER, INTENT(IN)              :: location
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
@@ -630,6 +639,9 @@ CONTAINS
     define_fill_target               :: fill_array(array_shape(1), &
       &                                            array_shape(2), 1)
     define_return_pointer            :: return_pointer(:,:)
+    LOGICAL, OPTIONAL                :: has_missValue
+    REAL(wp), OPTIONAL               :: missValue    
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1time_'
 
@@ -641,7 +653,9 @@ CONTAINS
       CALL read_dist_REAL_2D_extdim( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
         & fill_array=fill_array, return_pointer=return_pointer_, &
-        & start_extdim=1, end_extdim=1, extdim_name="time" )
+        & start_extdim=1, end_extdim=1, extdim_name="time" ,     &
+        & has_missValue=has_missValue,                           &
+        & missValue=missValue)
 
       ALLOCATE(return_pointer(SIZE(return_pointer_,1),SIZE(return_pointer_,2)))
       return_pointer(:,:) = return_pointer_(:,:,1)
@@ -650,7 +664,9 @@ CONTAINS
       CALL read_dist_REAL_2D_extdim( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
         & fill_array=fill_array, start_extdim=1, end_extdim=1, &
-        & extdim_name="time" )
+        & extdim_name="time",                                  &
+        & has_missValue=has_missValue,                           &
+        & missValue=missValue)
     END IF
 
   END SUBROUTINE read_dist_REAL_2D_1time_
@@ -699,6 +715,7 @@ CONTAINS
     define_fill_target               :: fill_array(array_shape(1), 1, &
       &                                            array_shape(2), 1)
     define_return_pointer            :: return_pointer(:,:)
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1lev_1time_'
 
@@ -733,14 +750,20 @@ CONTAINS
   !       fill_array(nproma, blocks, time)
   ! We can map this case to read_dist_REAL_2D_extdim.
   SUBROUTINE read_dist_REAL_2D_time(stream_id, location, variable_name, &
-    &                               fill_array, return_pointer, start_timestep,&
-    &                               end_timestep)
+    &  fill_array, return_pointer, start_timestep,  &
+    &  end_timestep,                                &
+    &  has_missValue, missValue)
+    
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     INTEGER, INTENT(IN)              :: location
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
     define_fill_target               :: fill_array(:,:,:)
     define_return_pointer            :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL    :: start_timestep, end_timestep
+    LOGICAL, OPTIONAL                :: has_missValue
+    REAL(wp), OPTIONAL               :: missValue
+    
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_time'
 
@@ -748,7 +771,9 @@ CONTAINS
       & stream_id=stream_id, location=location, variable_name=variable_name, &
       & fill_array=fill_array, return_pointer=return_pointer, &
       & start_extdim=start_timestep, end_extdim=end_timestep, &
-      & extdim_name="time" )
+      & extdim_name="time",                                   &
+      & has_missValue=has_missValue,                          &
+      & missValue=missValue)
 
   END SUBROUTINE read_dist_REAL_2D_time
   !-------------------------------------------------------------------------
@@ -760,8 +785,9 @@ CONTAINS
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
   SUBROUTINE read_dist_REAL_2D_extdim(stream_id, location, variable_name, &
-    &                                 fill_array, return_pointer, start_extdim,&
-    &                                 end_extdim, extdim_name )
+    &  fill_array, return_pointer, start_extdim,                          &
+    &  end_extdim, extdim_name,                                           &
+    &  has_missValue, missValue)
 
     TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
@@ -770,6 +796,8 @@ CONTAINS
     define_return_pointer                  :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+    LOGICAL, OPTIONAL                      :: has_missValue
+    REAL(wp), OPTIONAL                     :: missValue
 
     REAL(wp), POINTER                      :: tmp_pointer(:,:,:)
     INTEGER                                :: var_dimlen(2), var_start(2), &
@@ -813,6 +841,10 @@ CONTAINS
         &                   ref_var_dim_end=var_end)
     END IF
 
+    IF (PRESENT(has_missValue) .AND. PRESENT(missValue)) THEN
+      CALL netcdf_get_missValue(stream_id%file_id, variable_name_, has_missValue, missValue)
+    ENDIF
+    
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
@@ -914,7 +946,7 @@ CONTAINS
         &                   location, ref_var_dim_start=var_start, &
         &                   ref_var_dim_end=var_end)
     END IF
-
+    
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var

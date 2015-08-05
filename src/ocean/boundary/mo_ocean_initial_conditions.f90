@@ -198,10 +198,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE init_cell_2D_variable_fromFile(patch_3d, variable, name)
+  SUBROUTINE init_cell_2D_variable_fromFile(patch_3d, variable, name, has_missValue, missValue)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), INTENT(inout) :: variable(:,:)
     CHARACTER(LEN=*) :: name
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
     
     INTEGER :: jb, jc, start_cell_index, end_cell_index, level
     TYPE(t_subset_range), POINTER :: all_cells
@@ -222,8 +224,8 @@ CONTAINS
       &                       read_netcdf_broadcast_method)
     
     CALL read_2D_1Time( stream_id=stream_id, location=onCells, &
-      &                variable_name=name, fill_array=variable )
-
+      & variable_name=name, fill_array=variable,               &
+      & has_missValue=has_missValue, missValue=missValue)
 
     CALL closeFile(stream_id)
 
@@ -749,12 +751,16 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
     REAL(wp), ALLOCATABLE :: old_height(:,:)
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
 
     INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
     !-------------------------------------------------------------------------
 
     ocean_height(:,:) = 0.0_wp
+    has_missValue = .false.
+    missValue     = -99999999.0_wp
 
     patch_2d => patch_3d%p_patch_2d(1)
 
@@ -766,8 +772,9 @@ CONTAINS
 
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
-      CALL init_cell_2D_variable_fromFile(patch_3d, variable=ocean_height, name="h")
-      
+      CALL init_cell_2D_variable_fromFile(patch_3d, variable=ocean_height, name="h", &
+         & has_missValue=has_missValue, missValue=missValue)
+     
     CASE (200)
       ! 0 height, this is the initialization value,
       ! so no need to explicilty define this case
@@ -806,7 +813,9 @@ CONTAINS
         CALL message(method_name, "Smoothing initial height...")
         old_height = ocean_height
         CALL smooth_onCells(patch_3D=patch_3d, &
-          & in_value=old_height, out_value=ocean_height, smooth_weights=smooth_initial_height_weights)
+          & in_value=old_height, out_value=ocean_height,  &
+          & smooth_weights=smooth_initial_height_weights, &
+          & has_missValue=has_missValue, missValue=missValue)
         CALL sync_patch_array(sync_c, patch_2D, ocean_height)
       ENDDO
       DEALLOCATE(old_height)
