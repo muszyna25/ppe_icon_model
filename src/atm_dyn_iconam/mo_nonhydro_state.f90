@@ -256,14 +256,12 @@ MODULE mo_nonhydro_state
         &  p_nh_state_lists(jg)%metrics_list, listname )
 
       !
-      ! Build ref state list (not needed so far for real case applications)
+      ! Build ref state list
       ! includes memory allocation
       !
-      IF ( ltestcase ) THEN
-        WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
-        CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
-          &  p_nh_state_lists(jg)%ref_list, listname)
-      ENDIF
+      WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
+      CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
+        &  p_nh_state_lists(jg)%ref_list, listname)
 
     ENDDO ! jg
 
@@ -2450,6 +2448,16 @@ MODULE mo_nonhydro_state
 
     !--------------------------------------------------------------
 
+    !------------------------------
+    ! Ensure that all pointers have a defined association status
+    !------------------------------
+    NULLIFY(p_ref%vn_ref, p_ref%w_ref)
+
+
+    ! We ONLY need the variables IN p_ref for test runs.
+    IF(.NOT. ltestcase ) RETURN
+
+
     !determine size of arrays
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
@@ -2463,12 +2471,6 @@ MODULE mo_nonhydro_state
     ! predefined array shapes
     shape3d_e     = (/nproma, nlev   , nblks_e    /)
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
-
-
-    !------------------------------
-    ! Ensure that all pointers have a defined association status
-    !------------------------------
-    NULLIFY(p_ref%vn_ref, p_ref%w_ref)
 
 
     !
