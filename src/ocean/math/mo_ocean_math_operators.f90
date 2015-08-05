@@ -1166,7 +1166,7 @@ CONTAINS
       out_value(:,blockNo) = 0.0_wp
 
       DO jc = start_index, end_index
-        DO level = 1, MAX(patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo),1)
+        DO level = 1, MIN(patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo),1)
 
           ! calculate how many sea negbors we have 
           numberOfNeigbors = 0.0_wp
