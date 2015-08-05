@@ -78,7 +78,6 @@ MODULE mo_ocean_initial_conditions
   
   IMPLICIT NONE
   PRIVATE
-  INCLUDE 'netcdf.inc'
 
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry !,&
   PUBLIC :: tracer_ConstantSurface, varyTracerVerticallyExponentially
@@ -126,51 +125,20 @@ CONTAINS
     patch_2d => patch_3d%p_patch_2d(1)
     sphere_radius = grid_sphere_radius
     u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
-
-    IF (use_file_initialConditions) THEN
-      CALL finish("apply_initial_conditions", "use_file_initialConditions is oudated. Use the 001 condition for each tracer")
-!      CALL init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
-!       ! store initial salinity and temperature for checking
-!       ALLOCATE(check_temp(nproma,n_zlev, patch_2d%alloc_cell_blocks), &
-!                check_salinity(nproma,n_zlev, patch_2d%alloc_cell_blocks))
-!       check_temp     = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-!       check_salinity = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-!      use_IceInitialization_fromTemperature = .true.
-      
-    ELSE
     
-      ! the bathymetry initialization is called  after read_external_data and before seting up the sea-land mask
-      !CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
-      IF(iswm_oce==1)CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
-      CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
-      CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
+    ! the bathymetry initialization is called  after read_external_data and before seting up the sea-land mask
+    !CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
+    IF(iswm_oce==1)CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
+    
+    CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
+    CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
 
+    IF (no_tracer > 0) &
+      & CALL init_ocean_temperature(patch_3d=patch_3d, ocean_temperature=ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
+    IF (no_tracer > 1) &
+      & CALL init_ocean_salinity(patch_3d=patch_3d, ocean_salinity=ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
 
-      IF (no_tracer > 0) &
-        & CALL init_ocean_temperature(patch_3d=patch_3d, ocean_temperature=ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
-      IF (no_tracer > 1) &
-        & CALL init_ocean_salinity(patch_3d=patch_3d, ocean_salinity=ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
-
-    ENDIF
-
-    ! this is just to check against the init_ocean_fromFile
-!     IF (use_file_initialConditions) THEN
-!       IF (MAXVAL(ABS(check_temp - ocean_state%p_prog(nold(1))%tracer(:,:,:,1))) /= 0.0_wp) &
-!         & CALL finish("apply_initial_conditions", "mismatch in temperature file init")
-!       IF (MAXVAL(ABS(check_salinity - ocean_state%p_prog(nold(1))%tracer(:,:,:,2))) /= 0.0_wp) &
-!         & CALL finish("apply_initial_conditions", "mismatch in salinity file init")
-!     ENDIF
-
-    !---------Debug Diagnostics-------------------------------------------
-!    idt_src=0  ! output print level - 0: print in any case
-!    z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-!    CALL dbg_print  ('applyInitCond: progn - T'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
-!    IF (no_tracer > 1) THEN
-!      z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-!      CALL dbg_print('applyInitCond: progn - S'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
-!    END IF
     !---------------------------------------------------------------------
-
     ! CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
     ! CALL fill_tracer_x_height(patch_3d, ocean_state)
 
@@ -179,16 +147,18 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE init_3D_variable_fromFile(patch_3d, variable, name)
+  SUBROUTINE init_cell_3D_variable_fromFile(patch_3d, variable, name, has_missValue, missValue)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), INTENT(inout) :: variable(:,:,:)
     CHARACTER(LEN=*) :: name
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
 
     TYPE(t_patch),POINTER  :: patch_2d
     TYPE(t_stream_id) :: stream_id
     INTEGER :: jb, jc, start_cell_index, end_cell_index, level
     TYPE(t_subset_range), POINTER :: all_cells
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_3D_variable_fromFile '
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_cell_3D_variable_fromFile '
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -197,13 +167,12 @@ CONTAINS
     CALL message (TRIM(method_name), TRIM(name)//"...")
     ! read temperature
     !  - 2011-11-01, >r7005: read one data set, annual mean only
-    !  - "T": annual mean temperature
-    ! ram: the input has to be POTENTIAL TEMPERATURE!
     stream_id = openInputFile(initialState_InputFileName, patch_2d, &
       &                       read_netcdf_broadcast_method)
 
     CALL read_3D_1Time( stream_id=stream_id, location=onCells, &
-      &                variable_name=name, fill_array=variable )
+      & variable_name=name, fill_array=variable,               &
+      & has_missValue=has_missValue, missValue=missValue)
 
 
     CALL closeFile(stream_id)
@@ -225,11 +194,11 @@ CONTAINS
     CALL sync_patch_array(sync_c, patch_2D, variable)
   
 
-  END SUBROUTINE init_3D_variable_fromFile
+  END SUBROUTINE init_cell_3D_variable_fromFile
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE init_2D_variable_fromFile(patch_3d, variable, name)
+  SUBROUTINE init_cell_2D_variable_fromFile(patch_3d, variable, name)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), INTENT(inout) :: variable(:,:)
     CHARACTER(LEN=*) :: name
@@ -238,7 +207,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_stream_id) :: stream_id
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_2D_variable_fromFile '
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_cell_2D_variable_fromFile '
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -272,7 +241,7 @@ CONTAINS
 
     CALL sync_patch_array(sync_c, patch_2D, variable)
     
-  END SUBROUTINE init_2D_variable_fromFile
+  END SUBROUTINE init_cell_2D_variable_fromFile
   !-------------------------------------------------------------------------
 
 
@@ -331,6 +300,8 @@ CONTAINS
     REAL(wp) , PARAMETER :: sprof_4layerstommel(4) = &
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
 
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
     REAL(wp), ALLOCATABLE :: old_salinity(:,:,:)
     INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_salinity'
@@ -339,7 +310,8 @@ CONTAINS
     IF (no_tracer < 2) RETURN        ! no salinity
 
     ocean_salinity(:,:,:) = 0.0_wp
-
+    has_missValue = .false.
+    missValue     = -99999999.0_wp
 !     IF (initial_salinity_type < 200) RETURN ! not analytic salinity
 
     SELECT CASE (initial_salinity_type)
@@ -349,7 +321,8 @@ CONTAINS
 
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
-      CALL init_3D_variable_fromFile(patch_3d, variable=ocean_salinity, name="S")
+      CALL init_cell_3D_variable_fromFile(patch_3d, variable=ocean_salinity, name="S", &
+        & has_missValue=has_missValue, missValue=missValue)
     
     !------------------------------
     CASE (200)
@@ -437,12 +410,13 @@ CONTAINS
         CALL message(method_name, "Smoothing initial salinity...")
         old_salinity = ocean_salinity
         CALL smooth_onCells(patch_3D=patch_3d, &
-          & in_value=old_salinity, out_value=ocean_salinity, smooth_weights=smooth_initial_salinity_weights)
+          & in_value=old_salinity, out_value=ocean_salinity, &
+          & smooth_weights=smooth_initial_salinity_weights, &
+          & has_missValue=has_missValue, missValue=missValue)
         CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
       ENDDO
       DEALLOCATE(old_salinity)
     ENDIF
-
 
     CALL dbg_print('init_ocean_salinity', ocean_salinity(:,:,:), &
       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
@@ -455,6 +429,8 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
     REAL(wp) :: temperature_profile(n_zlev)
     REAL(wp), ALLOCATABLE :: old_temperature(:,:,:)
     REAL(wp) :: lower_lat
@@ -464,11 +440,10 @@ CONTAINS
 
     IF (no_tracer < 1) RETURN        ! no temperature
 
-
-!     IF (initial_temperature_type < 200) RETURN ! not analytic temperature
-
+    has_missValue = .false.
+    missValue     = -99999999.0_wp
+    
     SELECT CASE (initial_temperature_type)
-
     !------------------------------
     CASE (000)
     
@@ -478,7 +453,10 @@ CONTAINS
 
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
-      CALL init_3D_variable_fromFile(patch_3d, variable=ocean_temperature, name="T")
+      !  - "T": annual mean temperature
+      ! ram: the input has to be POTENTIAL TEMPERATURE!
+      CALL init_cell_3D_variable_fromFile(patch_3d, variable=ocean_temperature, name="T", &
+        & has_missValue=has_missValue, missValue=missValue)
       use_IceInitialization_fromTemperature = .true. ! this should be set in the namelist, here only for safety
 
     !------------------------------
@@ -690,7 +668,9 @@ CONTAINS
         CALL message(method_name, "Smoothing temperature...")
         old_temperature = ocean_temperature
         CALL smooth_onCells(patch_3D=patch_3d, &
-          & in_value=old_temperature, out_value=ocean_temperature,smooth_weights=smooth_initial_temperature_weights)
+          & in_value=old_temperature, out_value=ocean_temperature,  &
+          & smooth_weights=smooth_initial_temperature_weights,      &
+          & has_missValue=has_missValue, missValue=missValue)
         CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
       ENDDO
       DEALLOCATE(old_temperature)
@@ -786,7 +766,7 @@ CONTAINS
 
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
-      CALL init_2D_variable_fromFile(patch_3d, variable=ocean_height, name="h")
+      CALL init_cell_2D_variable_fromFile(patch_3d, variable=ocean_height, name="h")
       
     CASE (200)
       ! 0 height, this is the initialization value,

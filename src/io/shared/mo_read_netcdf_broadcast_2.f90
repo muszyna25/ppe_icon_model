@@ -66,6 +66,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_2D_extdim
   PUBLIC :: netcdf_read_2D_extdim_int
   PUBLIC :: netcdf_read_3D_extdim
+  PUBLIC :: netcdf_get_missValue
   PUBLIC :: t_p_scatterPattern
 
   TYPE t_p_scatterPattern
@@ -1363,6 +1364,28 @@ CONTAINS
   END SUBROUTINE netcdf_inq_var
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE netcdf_get_missValue(file_id, variable_name, has_missValue, missValue)
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    LOGICAL                      :: has_missValue
+    REAL(wp)                     :: missValue
+    
+    INTEGER :: varid, return_status
+    
+    CALL nf(nf_inq_varid(file_id, variable_name, varid), variable_name)
+  
+    return_status = nf_get_att_real(file_id, varid, "missing_value", missValue)
+    IF (return_status /= nf_noerr) THEN
+      has_missValue = .true.
+    ELSE
+      has_missValue = .false.
+    ENDIF
+     
+  END SUBROUTINE netcdf_get_missValue
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS, routine, warnonly, silent)
 
     INTEGER, INTENT(in)           :: STATUS
