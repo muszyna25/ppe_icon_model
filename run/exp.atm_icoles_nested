@@ -146,7 +146,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 1,1 !temporary switched off:two moment microphysics
+inwp_gscp       = 4,4 !temporary switched off:two moment microphysics
 inwp_convection = 0,0
 inwp_radiation  = 1,1
 inwp_cldcover   = 5,5
@@ -158,7 +158,7 @@ inwp_surface    = 1,1
 latm_above_top  = .true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
-dt_rad           = 240.,240.
+dt_rad           = 60.,60.
 /
 &les_nml
  smag_constant     = 0.23
