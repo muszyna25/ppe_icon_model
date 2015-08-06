@@ -44,19 +44,21 @@ MODULE mo_ocean_surface
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
   USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
-    &                               no_tracer, n_zlev, basin_center_lat,                  &
-    &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
-    &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
-    &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
-    &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
-    &                               Coupled_FluxFromAtmo,                                 &
-    &                               i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
-    &                               forcing_set_runoff_to_zero,           &
-    &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
-    &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
-    &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
-    &                               limit_elevation, l_relaxsal_ice, &
-    &                               relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, OceanReferenceDensity
+    &  no_tracer, n_zlev, basin_center_lat,                  &
+    &  basin_center_lon, basin_width_deg, basin_height_deg,  &
+    &  para_surfRelax_Temp, type_surfRelax_Temp,             &
+    &  para_surfRelax_Salt, type_surfRelax_Salt,             &
+    &  No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
+    &  Coupled_FluxFromAtmo,                                 &
+    &  i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
+    &  forcing_set_runoff_to_zero,           &
+    &  atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
+    &  atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
+    &  atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
+    &  limit_elevation, l_relaxsal_ice, &
+    &  relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, &
+    &  OceanReferenceDensity, &
+    &  use_wind_mixing
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -949,6 +951,7 @@ CONTAINS
     !p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
     p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
       &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
+      
     p_as%u(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,13) + &
       &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,13)
     p_as%v(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,14) + &

@@ -50,8 +50,8 @@ MODULE mo_ocean_physics
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
-    &leith_closure, leith_closure_gamma,                      & 
-    &veloc_diffusion_form, biharmonic_const,                  &
+    & leith_closure, leith_closure_gamma,                     & 
+    & veloc_diffusion_form, biharmonic_const,                 &
     & HorizontalViscosity_SpatialSmoothFactor,                &
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & HorizontalViscosity_ScaleWeight

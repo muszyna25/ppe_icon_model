@@ -470,7 +470,7 @@ MODULE mo_ocean_nml
     &  lambda_wind                 ,&
     &  wma_diff                    ,&
     &  wma_visc                    ,&
-    &  use_reduced_mixing_under_ice, &
+    &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
     &  GMRedi_configuration        ,&
     &  tapering_scheme             ,&
