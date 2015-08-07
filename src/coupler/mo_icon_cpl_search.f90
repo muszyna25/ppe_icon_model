@@ -106,7 +106,6 @@ MODULE mo_icon_cpl_search
   INTEGER, ALLOCATABLE :: idx(:)
   INTEGER, ALLOCATABLE :: grid_global_index(:)
   INTEGER, ALLOCATABLE :: grid_global_position(:)
-  INTEGER, ALLOCATABLE :: global_index_rank(:)
 
   INTEGER, POINTER     :: srcbuffer     (:)
   INTEGER, POINTER     :: tgtbuffer     (:)

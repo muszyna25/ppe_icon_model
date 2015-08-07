@@ -28,7 +28,9 @@ MODULE mo_grib2_util
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_TILE_LAND
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
+#ifndef __NO_ICON_ATMO__
   USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, select_tile, t_tile
+#endif
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
@@ -253,6 +255,7 @@ CONTAINS
     TYPE (t_var_metadata),  INTENT(IN) :: info
     INTEGER,                INTENT(IN) :: i_lctype  !< Tile classification
 
+#ifndef __NO_ICON_ATMO__
     ! local
     INTEGER      :: typeOfGeneratingProcess
     INTEGER      :: productDefinitionTemplate        ! Tile template number 
@@ -301,6 +304,7 @@ CONTAINS
 
     ! Set tile attribute
     CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tile%GRIB2_att%tileAttribute)
+#endif
 
   END SUBROUTINE set_GRIB2_tile_keys
 

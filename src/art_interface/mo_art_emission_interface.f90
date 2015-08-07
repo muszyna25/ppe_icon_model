@@ -19,9 +19,8 @@
 !! Modification by Daniel Rieger, KIT (2014-11-12)
 !! - First adaptions for unified use of parameterizations within
 !!   ICON-ART and COSMO-ART. Changes performed for: Mineral dust, Sea salt
-!!
-!!  chemical tracer section
-!!  by Roland Ruhnke (RR), Jennifer Schroeter (JS), KIT (2014-11-27)
+!! Modification by Roland Ruhnke, Jennifer Schroeter, Michael Weimer, KIT (2015-08-06)
+!! - Emission of chemical tracer
 !!
 !! @par Copyright and License
 !!
@@ -297,12 +296,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       p_nh_state%metrics%ddqz_z_full, &
+              &                       p_nh_state%diag%pres_sfc,       &
               &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
               &                       p_patch,                        &
               &                       jb,istart,iend,nlev,nproma,     &
-              &                       p_nh_state%diag%extra_3d)
+              &                       prm_diag%swflx_par_sfc)
           ENDDO
         CASE(1)
           DO jb = i_startblk, i_endblk
@@ -313,8 +312,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                     p_nh_state%diag%pres,       &
               &                     ext_data%atm%llsm_atm_c,    &
               &                     p_patch,                    &
-              &                     jb,istart,iend,nlev,nproma, &
-              &                     p_nh_state%diag%extra_3d)
+              &                     jb,istart,iend,nlev,nproma)
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &

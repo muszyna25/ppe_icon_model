@@ -198,7 +198,7 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
     
-    DO jg= 0,max_dom
+    DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_folder         = TRIM(cart_folder)
       art_config(jg)%iart_ntracer        = iart_ntracer
