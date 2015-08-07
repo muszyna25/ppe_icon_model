@@ -1515,11 +1515,11 @@ CONTAINS
         ! wind-mixing: Marsland et al., 2003
         ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
         wind_mixing(1) =             &
-          & velocity_TopWindMixing * &
-          & (1.0_wp - 0.5_wp *       &
-          &    (SeaIceConcentration(cell_1_idx,cell_1_block) + SeaIceConcentration(cell_2_idx,cell_2_block))) &
+          & velocity_TopWindMixing &
           & *  (0.5_wp * &
           &    (WindAmplitude_at10m(cell_1_idx,cell_1_block) + WindAmplitude_at10m(cell_2_idx,cell_2_block)))**3
+          ! & * (1.0_wp - 0.5_wp *       &
+          ! &    (SeaIceConcentration(cell_1_idx,cell_1_block) + SeaIceConcentration(cell_2_idx,cell_2_block))) &
 
         ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
@@ -1659,8 +1659,8 @@ CONTAINS
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ! wind-mixing: Marsland et al., 2003
           ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
-          wind_mixing(jc,1) = tracer_TopWindMixing * &
-            & (1.0_wp - SeaIceConcentration(jc,jb)) * WindAmplitude_at10m(jc,jb)**3
+          wind_mixing(jc,1) = tracer_TopWindMixing !* &
+            ! & (1.0_wp - SeaIceConcentration(jc,jb)) * WindAmplitude_at10m(jc,jb)**3
 
           ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003
           DO jk = 2, levels
