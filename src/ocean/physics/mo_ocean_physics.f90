@@ -1795,7 +1795,7 @@ CONTAINS
             ! lambda_wind: default changed to 0.05, with 0.03 omip-r2b4 aborted
             !   - in MPIOM it is 0.05, in Marsland et al. it was 0.03,
             !   - for strong winds it might be necessary to increase it
-            wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)  ! #slo# check
+            wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
 
             ! vertical interpolation of density gradient
             !  - at mid-depth jk the density gradients at interfaces from above (jk) and below (jk+1) are used
@@ -1806,6 +1806,12 @@ CONTAINS
             vdensgrad_inter  = 0.5_wp*(vert_density_grad(jc,jk,jb)+vdgfac_bot(jk)*vert_density_grad(jc,jk_max,jb))
 
             dv_wind(jc,jk,jb) =  dv_wind(jc,jk-1,jb)*decay_wind_depth*wind_param / (wind_param + vdensgrad_inter)
+
+            ! cut unphysically negative wind induced mixing
+            dv_wind(jc,jk,jb) =  MAX(dv_wind(jc,jk,jb),0.0_wp)
+            ! cut overshoots more than convection maximum - must not be set to low values
+          ! IF (max_vert_diff_trac .GT. params_oce%a_tracer_v_back(1)) &
+          !   &  dv_wind(jc,jk,jb) =  MIN(dv_wind(jc,jk,jb),0.0_wp)
 
           END DO
 
@@ -1890,7 +1896,7 @@ CONTAINS
           ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003, edges
           DO jk = 2, levels
             decay_wind_depth = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/z0_wind)
-            wind_param       = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
+            wind_param       = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
 
             ! vertical interpolation of density gradient
             !  - at mid-depth jk the density gradients at interfaces from above (jk) and below (jk+1) are used
@@ -1906,6 +1912,12 @@ CONTAINS
             vdensgrad_inter  = 0.5_wp*(densgrad_k + densgrad_kp1)
 
             av_wind(je,jk,jb) =  av_wind(je,jk-1,jb)*decay_wind_depth*wind_param / (wind_param + vdensgrad_inter)
+
+            ! cut unphysically negative wind induced mixing
+            av_wind(je,jk,jb) =  MAX(av_wind(je,jk,jb),0.0_wp)
+            ! cut overshoots more than convection maximum - must not be set to low values
+    !       IF (max_vert_diff_veloc .GT. params_oce%a_veloc_v_back) &
+    !         &  av_wind(je,jk,jb) =  MIN(av_wind(je,jk,jb),max_vert_diff_veloc)
           END DO
 
         END IF  ! use_wind_mixing
