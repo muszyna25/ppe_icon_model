@@ -454,7 +454,9 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: OceanReferenceDensity = rho_ref
-                                 
+  REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
+  REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
+  REAL(wp) :: WindMixingDecayDepth  = 40.0
   
   NAMELIST/ocean_physics_nml/&
     &  CWA                         , &
@@ -476,7 +478,10 @@ MODULE mo_ocean_nml
     &  tapering_scheme             ,&
     &  S_max, S_d, c_speed,         &
     &  LinearThermoExpansionCoefficient, &
-    &  OceanReferenceDensity
+    &  OceanReferenceDensity,       &
+    &  tracer_TopWindMixing,        &
+    &  WindMixingDecayDepth,        &
+    &  velocity_TopWindMixing
 
   ! ------------------------------------------------------------------------
   ! FORCING {
