@@ -134,7 +134,7 @@ cat > ${ocean_namelist} << EOF
   k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
   biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
   k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
+! MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
   k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
   k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
@@ -151,8 +151,8 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3
-  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
-  use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  physics_parameters_type         =   2       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
+  use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
