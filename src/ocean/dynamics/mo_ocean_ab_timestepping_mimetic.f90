@@ -47,7 +47,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & MASS_MATRIX_INVERSION_ADVECTION,                    &
     & MASS_MATRIX_INVERSION_ALLTERMS,                     &
     & physics_parameters_type,                            &
-    & physics_parameters_ICON_PP_Edge_vnPredict_type
+    & physics_parameters_ICON_PP_Edge_vnPredict_type,     &
+    & solver_FirstGuess
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -73,7 +74,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
     & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, &
     & div_oce_2d_sp, grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
-    & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp
+    & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp, &
+    & smooth_onCells
   USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_ocean_diffusion,           ONLY: velocity_diffusion,&
@@ -227,8 +229,19 @@ CONTAINS
       
       
       ! Solve surface equation with ocean_gmres solver
-      z_h_c =0.0_wp!ocean_state%p_prog(nold(1))%h! 0.0_wp !potentially better choice: ocean_state%p_prog(nold(1))%h
-      
+      SELECT CASE (solver_FirstGuess)
+      CASE (1)
+        CALL smooth_onCells(patch_3D=patch_3d,      &
+          & in_value=ocean_state%p_prog(nold(1))%h, & 
+          & out_value=z_h_c,                        &
+          & smooth_weights=(/ 0.5_wp, 0.5_wp /),    &
+          & has_missValue=.false., missValue=-999999.0_wp)
+        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), z_h_c)
+
+      CASE default
+        z_h_c = 0.0_wp
+      END SELECT
+
       CALL dbg_print('bef ocean_gmres: h-old',ocean_state%p_prog(nold(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
 
       SELECT CASE (select_solver)

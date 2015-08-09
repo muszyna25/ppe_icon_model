@@ -291,7 +291,7 @@ MODULE mo_ocean_nml
   INTEGER :: agulhas(100)                = -1
   INTEGER :: agulhas_long(100)           = -1
   INTEGER :: agulhas_longer(100)         = -1
-
+  INTEGER :: solver_FirstGuess           = 0
 
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
@@ -337,7 +337,8 @@ MODULE mo_ocean_nml
     &                 veloc_diffusion_order        , &
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
-    &                 NONLINEAR_CORIOLIS
+    &                 NONLINEAR_CORIOLIS           , &
+    &                 solver_FirstGuess
 
 
   NAMELIST/ocean_tracer_transport_nml/&

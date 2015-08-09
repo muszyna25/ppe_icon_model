@@ -1514,17 +1514,18 @@ CONTAINS
       IF (use_wind_mixing .AND. patch_3d%p_patch_1d(1)%dolic_e(je, blockNo) > 0) THEN
         ! wind-mixing: Marsland et al., 2003
         ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
-        wind_mixing(1) =             &
+        wind_mixing(1) =           &
           & velocity_TopWindMixing &
           & *  (0.5_wp * &
-          &    (WindAmplitude_at10m(cell_1_idx,cell_1_block) + WindAmplitude_at10m(cell_2_idx,cell_2_block)))**3
-          ! & * (1.0_wp - 0.5_wp *       &
-          ! &    (SeaIceConcentration(cell_1_idx,cell_1_block) + SeaIceConcentration(cell_2_idx,cell_2_block))) &
+          &    (WindAmplitude_at10m(cell_1_idx,cell_1_block) + WindAmplitude_at10m(cell_2_idx,cell_2_block)))**3 &
+          & * (1.0_wp - 0.5_wp *       &
+          &    (SeaIceConcentration(cell_1_idx,cell_1_block) + SeaIceConcentration(cell_2_idx,cell_2_block))) 
 
         ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
           wind_mixing(jk) =  wind_mixing(jk-1) * WindMixingDecay(jk) * &
-            & WindMixingLevel(jk) / (WindMixingLevel(jk) + z_vert_density_grad_e(jk)) 
+            & WindMixingLevel(jk) / (WindMixingLevel(jk) + MAX(z_vert_density_grad_e(jk),0.0_wp)) 
+          ! write(0,*) jk, wind_mixing(jk)
         END DO! levels
 
       END IF  ! use_wind_mixing
@@ -1659,13 +1660,13 @@ CONTAINS
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ! wind-mixing: Marsland et al., 2003
           ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
-          wind_mixing(jc,1) = tracer_TopWindMixing !* &
-            ! & (1.0_wp - SeaIceConcentration(jc,jb)) * WindAmplitude_at10m(jc,jb)**3
+          wind_mixing(jc,1) = tracer_TopWindMixing  * WindAmplitude_at10m(jc,jb)**3 * &
+            & (1.0_wp - SeaIceConcentration(jc,jb))
 
           ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003
           DO jk = 2, levels
            wind_mixing(jc,jk) =  wind_mixing(jc,jk-1) * WindMixingDecay(jk) * &
-             & WindMixingLevel(jk) / (WindMixingLevel(jk) + z_vert_density_grad_c(jc,jk,jb))
+             & WindMixingLevel(jk) / (WindMixingLevel(jk) + MAX(z_vert_density_grad_c(jc,jk,jb),0.0_wp))
 
           END DO! levels
           
