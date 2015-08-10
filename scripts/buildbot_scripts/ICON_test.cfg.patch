@@ -1,0 +1,78 @@
+--- ICON.cfg	2015-06-11 13:45:56.115447845 +0200
++++ ICON_test.cfg	2015-06-11 13:52:22.163428089 +0200
+@@ -42,9 +42,10 @@
+ 	           'workdir' : 'default'
+                   }
+ 
+-c['slaves'] = [BuildSlave("blizzard", "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
+-              ,BuildSlave("thunder" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
+-              ,BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
++c['slaves'] = [BuildSlave("blizzard", "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
++              ,BuildSlave("thunder" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
++              ,BuildSlave("thunder_test" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
++              ,BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
+               ]
+ 
+ # to limit to two concurrent builds on a slave, use
+@@ -52,7 +53,7 @@
+ 
+ # 'slavePortnum' defines the TCP port to listen on. This must match the value
+ # configured into the buildslaves (with their --master option)
+-c['slavePortnum'] = 9988
++c['slavePortnum'] = 8988
+ 
+ 
+ ####### CHANGESOURCES
+@@ -162,7 +163,7 @@
+                       ,onlyIfChanged=True
+                       )
+ 
+-c['schedulers'] = [n1]
++c['schedulers'] = []
+ 
+ 
+ ####### BUILDERS
+@@ -774,7 +775,7 @@
+         'slavename':'thunder', 'builddir':'thunder_nag', 'factory':m1,
+         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'thunder_nag'}},
+     {'name':'THUNDER_nag_mtime',
+-        'slavename':'thunder', 'builddir':'thunder_nag_mtime', 'factory':m3,
++        'slavename':'thunder_test', 'builddir':'thunder_nag_mtime', 'factory':m3,
+         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'thunder_nag_mtime'}},
+ 
+     {'name':'DAINT_CPU_cce',
+@@ -798,7 +799,7 @@
+ import exp_plot
+ import reference_page
+ 
+-WEB=html.WebStatus(http_port=8011,allowForce=True)
++WEB=html.WebStatus(http_port=9011,allowForce=True)
+ WEB.putChild('home', MainPage.HomePage())
+ WEB.putChild('reference', reference_page.MainPage())
+ WEB.putChild('plot', exp_plot.EXP_plot())
+@@ -813,7 +814,7 @@
+ # Any failures
+ # ------------
+ 
+-c['status'].append(mail.MailNotifier(fromaddr="help-buildbot@zmaw.de",
++c['status'].append(mail.MailNotifier(fromaddr="karl-hermann.wieners@mpimet.mpg.de",
+                                      mode='failing',
+                                      subject='[BUILDBOT ICON] %(builder)s BUILD FAILED',
+                                      relayhost="smtp.zmaw.de",
+@@ -825,7 +826,7 @@
+ 
+ from buildbot.status import client
+ c['status'].append(
+-    client.PBListener(port = 9998)
++    client.PBListener(port = 8998)
+ )
+ 
+ 
+@@ -867,6 +868,6 @@
+ # with an externally-visible host name which the buildbot cannot figure out
+ # without some help.
+ 
+-c['buildbotURL'] = "http://buildbot.zmaw.de:8011/"
++c['buildbotURL'] = "http://buildbot.zmaw.de/icon_test/"
+ 
+ # vim:ft=python
