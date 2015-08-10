@@ -40,7 +40,6 @@ USE mo_dynamics_config,     ONLY: nnow_rcf
 USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_nonhydro_state,      ONLY: p_nh_state
-USE mo_nonhydro_types,      ONLY: t_nh_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest, dzsoil
 USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1, tmelt
 USE mo_satad,               ONLY: qsat_rho

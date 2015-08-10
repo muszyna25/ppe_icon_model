@@ -481,7 +481,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &  i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (ltestcase .AND. nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN 
+      IF (ltestcase .AND. (nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL') ) THEN 
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = th_cbl(1) 
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 

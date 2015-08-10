@@ -889,6 +889,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then

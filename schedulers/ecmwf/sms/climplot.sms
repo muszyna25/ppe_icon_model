@@ -7,10 +7,11 @@
   - plots difference map against a control and observations,
     zonal means and winds against ERA40
   - plot_opt
-    101 (e.g.)
-    1  : single month means
-     1 : seasons means
-      1: whole experiment mean
+    0110 (e.g.)
+    1   : single month means
+     1  : seasons means
+      1 : annualmean
+       1: whole experiment mean
 %end
 
 ## include the standard header file
@@ -22,7 +23,7 @@
 #metview=metview4_new
 metview=metview4_dev
 
-module swap grib_api grib_api/1.12.3
+module swap grib_api grib_api/1.13.1
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
 export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3-1:/usr/local/apps/grib_api/1.12.3/share/grib_api/definitions"
@@ -70,15 +71,19 @@ LEVELS=91
 INIDATE1=%TIME_LIST%
 BASETIME=%YMD%%INIHOUR%
 FCLENGTH=%FCLENGTH%
-#PLOT_OPT=0101
-PLOT_OPT=0010
+PLOT_OPT=0101               # for one year ensemble (typical climplot)
+#PLOT_OPT=0010              # for multi-year run (e.g. AMIP)
 #-----------------------------------------------------------------------------
 # setup
 
 EXPVER=%SUITE%_%EXPNUM%
 VERFEXP1=%SUITE%_%EXPNUM%
-VERFEXP2=%SUITE2%_%EXPNUM2%
-#VERFEXP2=fycq
+if [[ %SUITE2% = 'ifs' ]] ; then
+  VERFEXP2=%EXPNUM2%
+ #VERFEXP2=fycq
+else
+  VERFEXP2=%SUITE2%_%EXPNUM2%
+fi
 
 exp=${EXPVER}
 ##  if [[ $FSFAMILY = "/climplot" ]] ; then

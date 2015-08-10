@@ -729,12 +729,22 @@ CONTAINS
        cloud%n(:,:) = qnc_const
 
     ELSEIF (nuc_c_typ < 6) THEN
-       IF (isdebug) CALL message(TRIM(routine),'  ... according to SB2006')
-       !CALL cloud_nucleation()
-       CALL ccn_activation_hdcp2(atmo,cloud)
+       IF (isdebug) CALL message(TRIM(routine),'  ... Hande et al CCN activation')
+       IF (PRESENT(n_cn)) THEN
+          CALL finish(TRIM(routine),&
+               & 'Error in two_moment_mcrph: Hande et al activation not supported for progn. aerosol')
+       ELSE
+          CALL ccn_activation_hdcp2(atmo,cloud)
+       END IF
     ELSE
-       IF (isdebug) CALL message(TRIM(routine),'  ... look-up tables according to Segal& Khain')
-       CALL ccn_activation_sk(atmo,cloud,n_cn)
+       IF (isdebug) CALL message(TRIM(routine), &
+            & '  ... CCN activation using look-up tables according to Segal& Khain')
+       IF (PRESENT(n_cn)) THEN
+          CALL ccn_activation_sk(atmo,cloud,n_cn)
+       ELSE
+          CALL finish(TRIM(routine),&
+               & 'Error in two_moment_mcrph: Segal and Khain activation only supported for progn. aerosol')
+       END IF
     END IF
 
     IF (ischeck) CALL check('start',cloud,rain,ice,snow,graupel,hail)
@@ -1950,12 +1960,12 @@ CONTAINS
     REAL(wp)             :: q_i,n_i,x_i,r_i
     REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
 
-    ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
-    LOGICAL              :: use_hdcp2_het = .true.
-
     ! switch for version of Phillips et al. scheme 
     ! (but make sure you have the correct INCLUDE file)
     INTEGER             :: iphillips = 2010
+
+    ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
+    LOGICAL              :: use_hdcp2_het = .false.
 
     ! some more constants needed for homogeneous nucleation scheme
     REAL(wp), PARAMETER ::            &
@@ -1981,6 +1991,8 @@ CONTAINS
   REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
   REAL(wp), PARAMETER :: c_dep = -1.3107_wp
   REAL(wp), PARAMETER :: d_dep =  2.6789_wp
+
+  REAL(wp), PARAMETER :: eps = 1.e-20_wp
 
   ! variables for interpolation in look-up table (real is good enough here)
   REAL      :: xt,xs 
@@ -2010,34 +2022,75 @@ CONTAINS
     CALL message(routine,TRIM(txt))
   END IF
 
+  ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
+  IF (nuc_typ.le.5) use_hdcp2_het = .true.
 
   ! Heterogeneous nucleation using Hande et al. scheme
   IF (use_hdcp2_het) THEN
-     ! for now only Spring of Table 1
-     nin_imm = 1.0259e5
-     alf_imm = 0.2073
-     bet_imm = 1.2873
-     nin_dep = 1.7836e5
-     alf_dep = 0.0075
-     bet_dep = 2.0341
+     IF (nuc_typ.EQ.1) THEN 
+        ! Spring of Table 1
+        nin_imm = 1.5684e5
+        alf_imm = 0.2466
+        bet_imm = 1.2293
+        nin_dep = 1.7836e5
+        alf_dep = 0.0075
+        bet_dep = 2.0341
+     ELSEIF (nuc_typ.EQ.2) THEN 
+        ! Summer
+        nin_imm = 2.9694e4
+        alf_imm = 0.2813
+        bet_imm = 1.1778
+        nin_dep = 2.6543e4
+        alf_dep = 0.0020
+        bet_dep = 2.5128
+     ELSEIF (nuc_typ.EQ.3) THEN 
+        ! Autumn
+        nin_imm = 4.9920e4
+        alf_imm = 0.2622
+        bet_imm = 1.2044
+        nin_dep = 7.7167e4
+        alf_dep = 0.0406
+        bet_dep = 1.4705
+     ELSEIF (nuc_typ.EQ.4) THEN 
+        ! Winter
+        nin_imm = 1.0259e5
+        alf_imm = 0.2073
+        bet_imm = 1.2873
+        nin_dep = 1.1663e4
+        alf_dep = 0.0194
+        bet_dep = 1.6943
+     ELSEIF (nuc_typ.EQ.5) THEN 
+        ! Spring with 95th percentile scaling factor
+        nin_imm = 1.5684e5 * 17.82
+        alf_imm = 0.2466
+        bet_imm = 1.2293
+        nin_dep = 1.7836e5 * 5.87
+        alf_dep = 0.0075
+        bet_dep = 2.0341
+     ELSE
+        CALL finish(TRIM(routine),&
+             & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.true.')
+     END IF
+
   ELSE   
      ! Heterogeneous nucleation using Phillips et al. scheme
      IF (iphillips == 2010) THEN
         ! possible pre-defined choices
-        IF (nuc_typ.EQ.4) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
+        IF (nuc_typ.EQ.6) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
            na_dust  = 160.e4_wp    ! initial number density of dust [1/m3]
            na_soot  =  30.e6_wp    ! initial number density of soot [1/m3]
-           na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]
-        END IF
-        IF (nuc_typ.EQ.5) THEN     ! with some organics and rather high soot, 
+           na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]        
+        ELSEIF (nuc_typ.EQ.7) THEN     ! with some organics and rather high soot, 
            na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
            na_soot  =  25.e6_wp 
            na_orga  =  30.e6_wp 
-        END IF
-        IF (nuc_typ.EQ.6) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
+        ELSEIF (nuc_typ.EQ.8) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
            na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
            na_soot  =   0.e6_wp 
            na_orga  =   0.e6_wp 
+        ELSE
+           CALL finish(TRIM(routine),&
+                & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.false.')
         END IF
      END IF
   END IF
@@ -2050,7 +2103,7 @@ CONTAINS
         e_si = e_es(T_a)
         ssi  = atmo%qv(i,k) * R_d * T_a / e_si
         
-        IF (T_a < T_nuc .AND. T_a > 180.0 .AND. ssi > 1.0_wp  &
+        IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
              & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
 
            IF (cloud%q(i,k) > 0.0_wp) THEN
@@ -2059,9 +2112,8 @@ CONTAINS
 
               IF (use_hdcp2_het) THEN  
                  ! Hande et al. scheme, Eq. (1)
-                 T_a = max(T_a,237.15_wp)
                  if (T_a.lt.261.15_wp) then
-                    ndiag = nin_imm * exp( - alf_imm * exp(bet_imm*log(T_a - 237.15_wp)) )
+                    ndiag = nin_imm * exp( - alf_imm * exp(bet_imm*log(MAX(eps,T_a - 237.15_wp))) )
                  else
                     ndiag = 0.0_wp
                  end if
@@ -2079,9 +2131,8 @@ CONTAINS
 
               IF (use_hdcp2_het) THEN  
                  ! Hande et al. scheme, Eq. (3) with (2) and (1) 
-                 T_a = max(T_a,220.0_wp)
-                 if (T_a.lt.253.0_wp .AND. ssi > 1.0_wp) then
-                    ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(T_a - 220.0_wp)) )
+                 if (T_a.lt.253.0_wp) then
+                    ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(MAX(eps,T_a - 220.0_wp))) )
                     ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
                  else
                     ndiag = 0.0_wp
@@ -5460,7 +5511,7 @@ CONTAINS
         firstcall = 1
      ENDIF
      
-     const1 = ecoll_ic/(D_coll_c - D_crit_c)
+     const1 = ecoll_sc/(D_coll_c - D_crit_c)
 
      DO k = kstart,kend
         DO i = istart,iend
@@ -5928,6 +5979,7 @@ CONTAINS
     REAL(wp)           :: acoeff,bcoeff,ccoeff,dcoeff
     REAL(wp)           :: a_ccn(4),b_ccn(4),c_ccn(4),d_ccn(4)
 
+    ! Data from HDCP2_CCN_params.txt for 20130417
     DATA a_ccn(1),b_ccn(1),c_ccn(1),d_ccn(1) /183230691.161_wp,0.0001984051994_wp,16.2420263911_wp,287736034.13_wp/
     DATA a_ccn(2),b_ccn(2),c_ccn(2),d_ccn(2) /0.10147358938_wp,4.473190485e-05_wp,3.22011836758_wp,0.6258809883_wp/
     DATA a_ccn(3),b_ccn(3),c_ccn(3),d_ccn(3) /-0.2922395814_wp,0.0001843225275_wp,13.8499423719_wp,0.8907491812_wp/
@@ -5951,18 +6003,16 @@ CONTAINS
 
           if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
 
-             ! hard upper limit for number conc that
-             ! eliminates also unrealistic high value
-             ! that would come from the dynamical core
+             ! Based on write-up of Luke Hande of 6 May 2015
              
              acoeff = a_ccn(1) * atan(b_ccn(1) * pres - c_ccn(1)) + d_ccn(1)
              bcoeff = a_ccn(2) * atan(b_ccn(2) * pres - c_ccn(2)) + d_ccn(2)
              ccoeff = a_ccn(3) * atan(b_ccn(3) * pres - c_ccn(3)) + d_ccn(3)
              dcoeff = a_ccn(4) * atan(b_ccn(4) * pres - c_ccn(4)) + d_ccn(4)
 
-             nuc_n = acoeff * atan(bcoeff * log(wcb) + ccoeff) + dcoeff
+             nuc_n = acoeff * atan(bcoeff * log(wcb) + ccoeff) + dcoeff 
 
-             nuc_n = MAX(nuc_n,0.0d0)
+             nuc_n = MAX(MAX(nuc_n,10.0e-6_wp) - n_c,0.0_wp)
 
              nuc_q = MIN(nuc_n * cloud%x_min, atmo%qv(i,k))
              nuc_n = nuc_q / cloud%x_min

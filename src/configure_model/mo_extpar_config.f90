@@ -35,10 +35,24 @@ MODULE mo_extpar_config
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, heightdiff_threshold
-  PUBLIC :: extpar_filename, generate_filename, generate_td_filename
+
+  ! variables
+  PUBLIC :: itopo
+  PUBLIC :: fac_smooth_topo
+  PUBLIC :: n_iter_smooth_topo
+  PUBLIC :: hgtdiff_max_smooth_topo
+  PUBLIC :: l_emiss
+  PUBLIC :: heightdiff_threshold
+  PUBLIC :: extpar_filename
   PUBLIC :: extpar_varnames_map_file
   PUBLIC :: i_lctype
+  PUBLIC :: nclass_lu
+  PUBLIC :: nmonths_ext
+
+  ! subroutines/functions
+  PUBLIC :: generate_filename
+  PUBLIC :: generate_td_filename
+
 
   !>
   !!----------------------------------------------------------------------------
@@ -54,6 +68,7 @@ MODULE mo_extpar_config
 
   REAL(wp) :: fac_smooth_topo
   INTEGER  :: n_iter_smooth_topo(max_dom)
+  REAL(wp) :: hgtdiff_max_smooth_topo(max_dom)
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
   REAL(wp) :: heightdiff_threshold(max_dom)
 
@@ -65,10 +80,17 @@ MODULE mo_extpar_config
   ! onto GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
 
-  ! information read from extpar file
+  ! information read from extpar file (no namelist parameter)
+  !
   INTEGER ::  &           !< stores the landcover classification used for the external parameter data
     &  i_lctype(max_dom)  !< 1: Globcover2009, 2: GLC2000
                           !< defined in mo_ext_data_state:inquire_extpar_file
+
+  INTEGER ::  &           !< number of landuse classes
+    &  nclass_lu(max_dom)
+
+  INTEGER ::  &           !< number of months in external data file
+    &  nmonths_ext(max_dom)
 
   !!----------------------------------------------------------------------------
 
