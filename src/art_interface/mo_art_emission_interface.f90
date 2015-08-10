@@ -107,7 +107,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
   INTEGER                 :: & 
-    &  jg, jb, ijsp, jk,     & !< Patch id, counter for block loop, jsp loop, vertical loop
+    &  jg, jb, ijsp, jk, jc, & !< Patch id, counter for block loop, jsp loop, vertical loop
     &  i_startblk, i_endblk, & !< Start and end of block loop
     &  istart, iend,         & !< Start and end of nproma loop
     &  i_rlstart, i_rlend,   & !< Relaxation start and end
