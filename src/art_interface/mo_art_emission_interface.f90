@@ -114,7 +114,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  i_nchdom,             & !< Number of child domains
     &  nlev                    !< Number of levels (equals index of lowest full level)
   REAL(wp),ALLOCATABLE    :: &
-    &  emiss_rate(:)           !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
+    &  emiss_rate(:),        & !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
+    &  dz(:,:)                 !< Height of model layer
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
@@ -134,6 +135,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   IF (lart) THEN
   
     ALLOCATE(emiss_rate(nproma))
+    ALLOCATE(dz(nproma,nlev))
   
     CALL art_air_properties(p_patch,p_art_data(jg))
        
@@ -142,9 +144,16 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
         
+        ! Get model layer heights
+        DO jk = 1, nlev
+          DO jc = istart, iend
+            dz(jc,jk) = p_nh_state%metrics%z_ifc(jc,jk,jb)-p_nh_state%metrics%z_ifc(jc,jk+1,jb)
+          ENDDO
+        ENDDO
+        
         ! Call the ART diagnostics
         IF (art_config(jg)%lart_diag_out) THEN
-          CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), p_nh_state%metrics%ddqz_z_full(:,:,jb), &
+          CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), dz(:,:),                  &
             &                            istart, iend, nlev, jb, art_config(jg), p_art_data(jg))
         ENDIF
         ! ----------------------------------
@@ -179,29 +188,29 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               select case(TRIM(fields%info%name))
                 case ('seasa')
                   CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                          &
-                    &             p_nh_state%metrics%ddqz_z_full(:,nlev,jb), p_diag_lnd%t_s(:,jb),                    &
+                    &             dz(:,nlev), p_diag_lnd%t_s(:,jb),                                                   &
                     &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),   &
                     &             istart,iend,emiss_rate(:))
                 case ('seasb')
                   CALL art_seas_emiss_monahan(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                             &
-                    &             p_nh_state%metrics%ddqz_z_full(:,nlev,jb), ext_data%atm%fr_land(:,jb),              &
+                    &             dz(:,nlev), ext_data%atm%fr_land(:,jb),                                             &
                     &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
                 case ('seasc')
                   CALL art_seas_emiss_smith(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                               &
-                    &             p_nh_state%metrics%ddqz_z_full(:,nlev,jb), ext_data%atm%fr_land(:,jb),              &
+                    &             dz(:,nlev), ext_data%atm%fr_land(:,jb),                                             &
                     &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
                 case ('dusta')
-                  CALL art_emission_dust(p_nh_state%metrics%ddqz_z_full(:,nlev,jb),                  &
+                  CALL art_emission_dust(dz(:,nlev),                                                 &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dusta',p_art_data(jg)%soil_prop,emiss_rate(:))
                 case ('dustb')
-                  CALL art_emission_dust(p_nh_state%metrics%ddqz_z_full(:,nlev,jb),                  &
+                  CALL art_emission_dust(dz(:,nlev),                                                 &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustb',p_art_data(jg)%soil_prop,emiss_rate(:))
                 case ('dustc')
-                  CALL art_emission_dust(p_nh_state%metrics%ddqz_z_full(:,nlev,jb),                  &
+                  CALL art_emission_dust(dz(:,nlev),                                                 &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:))
@@ -228,6 +237,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
       ENDDO !jb
     
       DEALLOCATE(emiss_rate)
+      DEALLOCATE(dz)
       
       ! START OLD BLOCK: Needs to be realized within jb loop above in the future
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
