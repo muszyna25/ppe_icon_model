@@ -29,7 +29,7 @@
 !! @par Origin
 !!   Adaption of code of echam6.3 to ICON.
 !!   Rewrite and synthesis of ECHAM5 code, merging old ECHAM5 modules
-!!   mo_psrad_orbit and mo_vsop87.  Many subroutines restructured and converted to 
+!!   mo_orbit and mo_vsop87.  Many subroutines restructured and converted to 
 !!   pure functions.  Interface function "orbit" was removed and declination
 !!   now only available through inquiry.  Added bounds checking for input
 !!   time of orbit_vsop87 to insure reasonable output.
