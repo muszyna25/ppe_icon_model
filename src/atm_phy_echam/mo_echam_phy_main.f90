@@ -78,7 +78,7 @@ CONTAINS
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
     &                        datetime,pdtime,psteplen, &
-    &                        ltrig_rad,ptime_radtran,  &
+    &                        ltrig_rad,                &
     &                        datetime_radtran          )
 
     INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
@@ -91,8 +91,6 @@ CONTAINS
     REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
-    REAL(wp)        ,INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
-                                                  !< computation, scaled into radians
     TYPE(t_datetime),INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
 
     ! Local variables
@@ -418,7 +416,7 @@ CONTAINS
           field%tsfc_radt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
 
           ! to do (for implementing seasonal cycle):
-          ! - compute orbit position at ptime_radtran
+          ! - compute orbit position at datetime_radtran
 
         IF(irad_type==1 .OR. irad_type==2) THEN
           SELECT CASE(izenith)
@@ -454,7 +452,7 @@ CONTAINS
 
 !!$            field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
 !!$                                     & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-!!$                                     &      +ptime_radtran )
+!!$                                     &      +2._wp*pi*datetime_radtran%daytim )
 
           CASE(4)
           ! elliptical seasonal orbit,
@@ -588,7 +586,7 @@ CONTAINS
       !----------------------
 
       ! to do:
-      ! - compute orbit position at ptime_radheat
+      ! - compute orbit position at datetime
 
       ! - solar incoming flux at TOA
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat

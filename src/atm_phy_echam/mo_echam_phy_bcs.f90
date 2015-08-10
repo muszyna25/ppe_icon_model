@@ -73,7 +73,6 @@ CONTAINS
     &                              patch        ,&! in
     &                              dtadv_loc    ,&! in
     &                              ltrig_rad    ,&! out
-    &                              time_radtran ,&! out
     &                              datetime_radtran) ! out
 
     ! Arguments
@@ -83,7 +82,6 @@ CONTAINS
     TYPE(t_patch)    ,TARGET ,INTENT(in)    :: patch         !< description of grid jg
     REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
     LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
-    REAL(wp)                 ,INTENT(out)   :: time_radtran  !< time of day (in radian) at which radiative transfer is computed
     TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
 
     ! Local variables
@@ -127,7 +125,6 @@ CONTAINS
       dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
       CALL add_time(dsec,0,0,0,datetime_radtran)          ! datetime_radtran = datetime_radtran + dsec
     END IF
-    time_radtran  = 2._wp*pi * datetime_radtran%daytim  ! time of day in radian
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step

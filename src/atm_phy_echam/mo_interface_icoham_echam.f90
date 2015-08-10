@@ -126,7 +126,6 @@ CONTAINS
 
     LOGICAL  :: any_uv_tend
     LOGICAL  :: ltrig_rad
-    REAL(wp) :: time_radtran
     TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
@@ -264,7 +263,6 @@ CONTAINS
       &                        patch        ,&! in
       &                        pdtime       ,&! in
       &                        ltrig_rad    ,&! out
-      &                        time_radtran ,&! out
       &                        datetime_radtran ) ! out
     !
     !=====================================================================================
@@ -301,7 +299,6 @@ CONTAINS
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
         &                  ltrig_rad    ,&! in
-        &                  time_radtran ,&! in
         &                  datetime_radtran ) ! in
 
     END DO
