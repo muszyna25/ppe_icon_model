@@ -162,7 +162,7 @@ CONTAINS
       !
       ! interpolation weights for linear interpolation
       ! of monthly means onto the radiation time step
-      CALL time_weights_limm(datetime, wi_limm_radt)
+      CALL time_weights_limm(datetime_radtran, wi_limm_radt)
       !
       ! total and spectral solar irradiation at the mean sun earth distance
       IF (isolrad==1) THEN
