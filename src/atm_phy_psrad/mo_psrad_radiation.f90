@@ -57,7 +57,8 @@ MODULE mo_psrad_radiation
   USE mo_kind,            ONLY: wp
   USE mo_model_domain,    ONLY: t_patch
   USE mo_physical_constants,       ONLY: vtmpc1, rae,           &
-       &                        amco2, amch4, amn2o, amo2, amd
+!!$       &                        amco2, amch4, amn2o,            &
+       &                        amo2, amd
 !  USE mo_control,         ONLY: lcouple, lmidatm
 !  USE mo_time_base,       ONLY: get_calendar_type, JULIAN
   USE mo_exception,       ONLY: finish, message, message_text
@@ -73,15 +74,12 @@ MODULE mo_psrad_radiation
 !       &                        prev_radiation_date,get_date_components,      &
 !       &                        lresume, lstart, get_month_len
   USE mo_echam_convect_tables,  ONLY : prepare_ua_index_spline, lookup_ua_spline
-  USE mo_datetime,        ONLY: t_datetime, rdaylen
-  USE mo_get_utc_date_tr, ONLY: get_utc_date_tr
+  USE mo_datetime,        ONLY: t_datetime
 ! amu0_x must now be taken from prm_field (has to be passed to the respect. routines
 !  USE mo_geoloc,          ONLY: coslon_2d, &
 !       &                        sinlon_2d, sinlat_2d, coslat_2d
-  USE mo_model_domain,    ONLY: p_patch
 ! the present mo_orbit is different from the one in echam6
-  USE mo_psrad_orbit,     ONLY: cecc, cobld, clonp, &
-                              & orbit_kepler, orbit_vsop87, &
+  USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
   USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
                               & l_interp_rad_in_time,        &
@@ -106,7 +104,7 @@ MODULE mo_psrad_radiation
   USE mo_radiation_config,           ONLY: ih2o=>irad_h2o,     &
                                            ico2=>irad_co2,     &
                                            ich4=>irad_ch4,     &
-                                           io3=>irad_o3,       &
+!!$                                           io3=>irad_o3,       &
                                            io2=>irad_o2,       &
                                            in2o=>irad_n2o,     &
                                            icfc11=>irad_cfc11, &
@@ -143,8 +141,6 @@ MODULE mo_psrad_radiation
                                      lw_gpts_ts,               &
                                      sw_gpts_ts,               &
                                      rad_perm,                 &
-                                     l_do_sep_clear_sky,       &
-                                     i_overlap,                &
 !!$                                     ih2o,                     &
 !!$                                     ico2,                     &
 !!$                                     ich4,                     &
@@ -174,7 +170,7 @@ MODULE mo_psrad_radiation
                                      ssi_factor,               &
                                      flx_ratio_cur,            &
                                      flx_ratio_rad,            &
-                                     decl_sun_cur,             &
+!!$                                     decl_sun_cur,             &
                                      solar_parameters
 
 ! following module for diagnostic of radiative forcing only
@@ -186,8 +182,7 @@ MODULE mo_psrad_radiation
                              & ssi_RCEdiurnOn, ssi_RCEdiurnOff
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
-  USE mo_psrad_spec_sampling, ONLY : spec_sampling_strategy, &
-                             & set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+  USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
 
   IMPLICIT NONE
   
@@ -221,8 +216,8 @@ MODULE mo_psrad_radiation
     REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:), &
                                         amu0m_x(:,:), rdaylm_x(:,:)
 
-    LOGICAL  :: l_rad_call, l_write_solar
-    INTEGER  :: icurrentyear, icurrentmonth, iprevmonth, i
+!!$    LOGICAL  :: l_rad_call, l_write_solar
+!!$    INTEGER  :: icurrentyear, icurrentmonth, iprevmonth, i
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
     REAL(wp) :: solcm
@@ -274,7 +269,7 @@ MODULE mo_psrad_radiation
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
     IF (phy_config%lrad .AND. ltrig_rad) THEN
-      l_rad_call = .TRUE.
+!!$      l_rad_call = .TRUE.
       CALL get_orbit_times(datetime_radiation, time_of_day , &
            &               orbit_date)
 
@@ -797,10 +792,9 @@ MODULE mo_psrad_radiation
     & qm_vap     ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
     & qm_liq     ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
     & qm_ice     ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
-    & pgeom1     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
     & cdnc       ,&!< in  cloud droplet number concentration
     & cld_frc    ,&!< in  cloud fraction
-    & pxtm1      ,&!< tracer concentration
+!!$    & pxtm1      ,&!< tracer concentration
     & cld_cvr    ,&!< cloud cover in a column
     & vis_frc_sfc,&!< visible (250-680) fraction of net surface radiation
     & par_dn_sfc ,&!< downward Photosynth. Active Radiation (PAR) at surface
@@ -843,10 +837,9 @@ MODULE mo_psrad_radiation
     & qm_vap(kbdim,klev), & !< Water vapor mixing ratio
     & qm_liq(kbdim,klev), & !< Liquid water mixing ratio
     & qm_ice(kbdim,klev), & !< Ice water mixing ratio
-    & pgeom1(kbdim,klev), & !< Geopotential height at t-dt
     & cdnc(kbdim,klev),   & !< Cloud drop number concentration
-    & cld_frc(kbdim,klev),& !< Cloud fraction
-    & pxtm1(kbdim,klev,ktrac)!< non-water tracers
+    & cld_frc(kbdim,klev)!!$,& !< Cloud fraction
+!!$    & pxtm1(kbdim,klev,ktrac)!< non-water tracers
     REAL(wp), INTENT(OUT) ::      &
     & cld_cvr(:),              & !< Cloud cover in a column
     & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
@@ -868,7 +861,7 @@ MODULE mo_psrad_radiation
     REAL(wp)             ::         &
     & cos_mu0(kbdim),               &
     & pp_sfc(kbdim),                &
-    & ppd_hl(kbdim,klev),           &
+!!$    & ppd_hl(kbdim,klev),           &
     & tk_hl(kbdim,klevp1),          &
     & xq_vap(kbdim,klev),           &
     & za(kbdim),                    & !< Spline interpolation arrays for qsat
@@ -907,7 +900,7 @@ MODULE mo_psrad_radiation
     ! --- Pressure (surface and distance between half levels)
     !
     pp_sfc(1:kproma)   = pp_hl(1:kproma,klevp1)
-    ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
+!!$    ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
     !
     ! --- temperature at half levels
     !
@@ -1001,12 +994,12 @@ MODULE mo_psrad_radiation
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
            & jb              ,ktrac           ,ktype           ,nb_sw           ,&
            & loland          ,loglac          ,cemiss          ,cos_mu0         ,&
-           & pgeom1          ,alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,&
+           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif                      ,&
            & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
            & tk_fl           ,tk_hl           ,tk_sfc          ,xq_vap          ,&
            & xq_liq          ,xq_ice          ,cdnc            ,xc_frc          ,&
-           & cld_cvr         ,xm_o3           ,xm_co2          ,xm_ch4          ,&
-           & xm_n2o          ,xm_cfc          ,xm_o2           ,pxtm1           ,&
+           & xm_o3           ,xm_co2          ,xm_ch4                           ,&
+           & xm_n2o          ,xm_cfc          ,xm_o2           ,&!!$pxtm1           ,&
            & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
            & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
            & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&

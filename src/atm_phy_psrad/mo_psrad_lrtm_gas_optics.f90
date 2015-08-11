@@ -26,7 +26,6 @@ MODULE mo_psrad_lrtm_gas_optics
 
   USE mo_kind,        ONLY : wp 
   USE mo_exception,   ONLY : finish
-  USE mo_rrtm_params, ONLY : mg, nbndlw, maxxsec, ngptlw
   USE mo_psrad_lrtm_setup,  ONLY : ngb, ngs, ngc, nspa, nspb
   USE rrlw_planck,    ONLY : chi_mls
 

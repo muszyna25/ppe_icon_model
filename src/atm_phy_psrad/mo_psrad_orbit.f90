@@ -44,7 +44,7 @@ MODULE mo_psrad_orbit
   USE mo_kind,      ONLY : wp
   USE mo_math_constants, ONLY : pi
   USE mo_exception, ONLY : finish
-  USE mo_datetime,  ONLY : t_datetime, print_datetime
+  USE mo_datetime,  ONLY : t_datetime
 
   IMPLICIT NONE
   PRIVATE 

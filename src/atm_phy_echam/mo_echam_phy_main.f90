@@ -26,7 +26,7 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, message
+  USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
@@ -55,7 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_radiation,           ONLY: radiation, radheat
+  USE mo_radiation,           ONLY: radheat
   USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -143,8 +143,6 @@ CONTAINS
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
     REAL(wp) :: zlw_net_clr_bnd(nbdim,2)!< Clear-sky net longwave  at TOA (:,1) and surface (:,2)
     REAL(wp) :: zsw_net_clr_bnd(nbdim,2)!< Clear-sky net shortwave at TOA (:,1) and surface (:,2)
-
-    REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
@@ -527,8 +525,6 @@ CONTAINS
                           & o3_clim=field%o3(:,:,jb)                          )
             END SELECT
 
-        zaedummy(:,:) = 0.0_wp
-
         IF (ltimer) CALL timer_start(timer_radiation)
 
         CALL psrad_radiation(      &
@@ -554,10 +550,9 @@ CONTAINS
         & qm_vap =field%q(:,:,jb,iqv)    ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
         & qm_liq =field%q(:,:,jb,iqc)    ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
         & qm_ice =field%q(:,:,jb,iqi)    ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
-        & pgeom1 =field%geom(:,:,jb)     ,&!< in  pgeom1 = geopotential above ground at t-dt [m2/s2]
         & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
         & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
-        & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
+!!$        & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
         & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
         & vis_frc_sfc=field%visfrcsfc(:,jb),&!< out  visible (250-680nm) fraction of net surface radiation
         & par_dn_sfc=field%partrmdnsfc(:,jb),&!< out  downward photosynthetically active radiation (par) at surface

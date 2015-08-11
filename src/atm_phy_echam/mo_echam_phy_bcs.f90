@@ -21,7 +21,6 @@
 MODULE mo_echam_phy_bcs
 
   USE mo_kind                       ,ONLY: wp
-  USE mo_math_constants             ,ONLY: pi
 !!$  USE mo_datetime                   ,ONLY: t_datetime, add_time , OPERATOR(==) ! for t_datetime typed variables
   USE mo_datetime                   ,ONLY: t_datetime, add_time
   USE mo_model_domain               ,ONLY: t_patch
