@@ -267,6 +267,7 @@ CONTAINS
     CALL dbg_print('on entry: hs     ',p_ice%hs       ,str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('on entry: concSum',p_ice%concSum  ,str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('on entry: SST    ',p_oce_sfc%sst  ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('on entry: TotalHeat', atmos_fluxes%HeatFlux_Total,     str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('ocesfc%windStr-u ',p_oce_sfc%topBC_windStress_u,       str_module,3,in_subset=p_patch%cells%owned)
     CALL dbg_print('sfcflx%windStr-u ',p_sfc_flx%topBoundCond_windStress_u,str_module,3,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
@@ -295,7 +296,7 @@ CONTAINS
 
     ! assign freeboard before sea ice model
     IF (i_sea_ice==0) THEN
-      p_ice%zUnderIce(:,:) = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)+p_os%p_prog(nold(1))%h(:,:))
+      p_ice%zUnderIce(:,:) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:) + p_os%p_prog(nold(1))%h(:,:)
       p_oce_sfc%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
     ENDIF
 
@@ -389,6 +390,7 @@ CONTAINS
     CALL dbg_print('bef.fast:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('bef.fast:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('bef.fast:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:TotalHeat', atmos_fluxes%HeatFlux_Total,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -1728,12 +1730,12 @@ CONTAINS
  !  atmos_fluxes%albvisdirw, albvisdifw, albnirdirw, albnirdifw
  !
  !  OUTPUT variables:  atmos_fluxes - heat fluxes and wind stress over open ocean
- !  atmos_fluxes%LWnetw  : long wave
- !  atmos_fluxes%SWnetw  : long wave
- !  atmos_fluxes%sensw   : sensible
- !  atmos_fluxes%latw    : latent
- !  atmos_fluxes%stress_xw
- !  atmos_fluxes%stress_yw
+ !  atmos_fluxes%LWnetw   : long wave
+ !  atmos_fluxes%SWnetw   : short wave
+ !  atmos_fluxes%sensw    : sensible
+ !  atmos_fluxes%latw     : latent
+ !  atmos_fluxes%stress_xw: zonal stress
+ !  atmos_fluxes%stress_yw: meridional stress
 
  !  Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
@@ -1908,6 +1910,7 @@ CONTAINS
     CALL dbg_print('omipBudOce:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5          , fix)
     CALL dbg_print('omipBudOce:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%SWnetw'      , atmos_fluxes%SWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudOce:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudOce:atmflx%sensw'       , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudOce:atmflx%latw'        , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)

@@ -1778,7 +1778,7 @@ CONTAINS
     REAL(wp) :: diffusion_weight, loc_eps
     REAL(wp) :: dv_old, dv_back, dv_rich
     REAL(wp) :: av_old, av_back, av_rich
-    REAL(wp) :: lambda_d_m1, lambda_v_m1
+    REAL(wp) :: onem1_lambda_d, onem1_lambda_v
     REAL(wp) :: grav_rho
     REAL(wp) :: mean_density_differ_edge, mean_richardson_e, fu10_e, conc_e
     REAL(wp) :: vdgfac_bot(n_zlev)
@@ -1803,8 +1803,8 @@ CONTAINS
 
     grav_rho          = grav/OceanReferenceDensity
 
-    lambda_d_m1       = 1.0_wp-lambda_diff
-    lambda_v_m1       = 1.0_wp-lambda_visc
+    onem1_lambda_d    = 1.0_wp-lambda_diff
+    onem1_lambda_v    = 1.0_wp-lambda_visc
     dv_rich           = richardson_tracer
     av_rich           = richardson_veloc
     v10mexp_3         = 1.0_wp/v10m_ref**3
@@ -1835,26 +1835,12 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        ! calculate here the density to be used in the dynamics
-        !
-          !  - midth of layer without using elevation h - gradient of height is added separately
-          pressure(1:levels) = patch_3d%p_patch_1d(1)%zlev_m(1:levels) * OceanReferenceDensity * sitodbar
-          !  - #slo# to include partial cells we need another 3-dim variable here: depth_CellMiddle_flat[_sfc]:
-          !pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle_flat(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
-
-        ocean_state%p_diag%rho(jc,1:levels,jb) = &
-            & calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels,jb,1), &
-            & salinity(1:levels), pressure(1:levels), levels)
-        !--------------------------------------------------------
-
-        !--------------------------------------------------------
-        ! calculate here the density for stability-detection for convection parameterization:
+        ! calculate density gradient for stability detection for PP-scheme and convection parameterization:
         !  - pressure at interface between upper and lower layer
         !  - S and T taken from upper and lower level, i.e. 2 times calculation of density per layer
-        !
-          !  - old formulation without including z in reference interface level
-          pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
 
+        !  - old formulation without including z in reference interface level
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
         rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
@@ -1864,9 +1850,9 @@ CONTAINS
           ! division by dz**2 is omitted in this calculation of velocity shear: shear = (d_vn)**2
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          ! d_rho/dz
-          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) !*  &
-            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          ! d_rho/dz - full density gradient necessary for wind mixing, stability formula, mixed layer depth calculation
+          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) *  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
           richardson_no(jc,jk,jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
@@ -1878,11 +1864,8 @@ CONTAINS
 
           ! reduced wind-mixing under sea ice, following MPIOM
           IF (use_reduced_mixing_under_ice) THEN
-            ! check wind-mixing with constant 10m/s - use apply_initial_conditions for this before using wind mixing!
-            !dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb)) * 10.0_wp**3
             dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb)) * fu10(jc,jb)**3
           ELSE
-            !dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb))**2 * 10.0_wp**3
             dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb))**2 * fu10(jc,jb)**3
           ENDIF
 
@@ -1890,7 +1873,11 @@ CONTAINS
           DO jk = 2, levels
 
             decay_wind_depth   = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/z0_wind)
-            wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)  ! #slo# check
+
+            ! lambda_wind: default changed to 0.05, with 0.03 omip-r2b4 aborted
+            !   - in MPIOM it is 0.05, in Marsland et al. it was 0.03,
+            !   - for strong winds it might be necessary to increase it
+            wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
 
             ! vertical interpolation of density gradient
             !  - at mid-depth jk the density gradients at interfaces from above (jk) and below (jk+1) are used
@@ -1901,6 +1888,12 @@ CONTAINS
             vdensgrad_inter  = 0.5_wp*(vert_density_grad(jc,jk,jb)+vdgfac_bot(jk)*vert_density_grad(jc,jk_max,jb))
 
             dv_wind(jc,jk,jb) =  dv_wind(jc,jk-1,jb)*decay_wind_depth*wind_param / (wind_param + vdensgrad_inter)
+
+            ! cut unphysically negative wind induced mixing
+            dv_wind(jc,jk,jb) =  MAX(dv_wind(jc,jk,jb),0.0_wp)
+            ! cut overshoots more than convection maximum - must not be set to low values
+          ! IF (max_vert_diff_trac .GT. params_oce%a_tracer_v_back(1)) &
+          !   &  dv_wind(jc,jk,jb) =  MIN(dv_wind(jc,jk,jb),0.0_wp)
 
           END DO
 
@@ -1920,7 +1913,7 @@ CONTAINS
               dv_old  = params_oce%a_tracer_v(jc,jk,jb,tracer_index)
               dv_back = params_oce%a_tracer_v_back(tracer_index)
               params_oce%a_tracer_v(jc,jk,jb,tracer_index) = &
-                &    lambda_d_m1*MIN(dv_old, dv_rich + dv_wind(jc,jk,jb)) &
+                &    onem1_lambda_d*MIN(dv_old, dv_rich + dv_wind(jc,jk,jb)) &
                 &  + lambda_diff*(dv_rich/((1.0_wp + crd*richardson_no(jc,jk,jb))**3) + dv_back + dv_wind(jc,jk,jb))
 
 
@@ -1985,7 +1978,7 @@ CONTAINS
           ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003, edges
           DO jk = 2, levels
             decay_wind_depth = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/z0_wind)
-            wind_param       = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
+            wind_param       = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
 
             ! vertical interpolation of density gradient
             !  - at mid-depth jk the density gradients at interfaces from above (jk) and below (jk+1) are used
@@ -2001,6 +1994,12 @@ CONTAINS
             vdensgrad_inter  = 0.5_wp*(densgrad_k + densgrad_kp1)
 
             av_wind(je,jk,jb) =  av_wind(je,jk-1,jb)*decay_wind_depth*wind_param / (wind_param + vdensgrad_inter)
+
+            ! cut unphysically negative wind induced mixing
+            av_wind(je,jk,jb) =  MAX(av_wind(je,jk,jb),0.0_wp)
+            ! cut overshoots more than convection maximum - must not be set to low values
+    !       IF (max_vert_diff_veloc .GT. params_oce%a_veloc_v_back) &
+    !         &  av_wind(je,jk,jb) =  MIN(av_wind(je,jk,jb),max_vert_diff_veloc)
           END DO
 
         END IF  ! use_wind_mixing
@@ -2026,11 +2025,11 @@ CONTAINS
             av_old  = params_oce%a_veloc_v(je,jk,jb)
             av_back = params_oce%a_veloc_v_back
             params_oce%a_veloc_v(je,jk,jb) = &
-              &    lambda_v_m1*MIN(av_old, av_rich + av_wind(je,jk,jb)) &
+              &    onem1_lambda_v*MIN(av_old, av_rich + av_wind(je,jk,jb)) &
               &  + lambda_visc*(av_rich/((1.0_wp + crv*mean_richardson_e)**2) + av_back + av_wind(je,jk,jb))
 !           ENDIF
 
-          ! turn on convection
+          ! turn on convection - no convection for velocity as in mpiom
 !           IF (use_convection) THEN
 ! 
 !             ! MPIOM style of convection in PP-scheme: viscosity
@@ -2087,7 +2086,8 @@ CONTAINS
     CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,str_module,idt_src,in_subset=p_patch%edges%owned)
     CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,str_module,idt_src,in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    idt_src=2  ! output print levels (1-5, fix)
+    CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,str_module,idt_src,in_subset=p_patch%cells%owned)
+    idt_src=5  ! output print levels (1-5, fix)
     DO tracer_index = 1, no_tracer
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=p_patch%cells%owned)
@@ -2095,6 +2095,7 @@ CONTAINS
     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
+
   END SUBROUTINE update_physics_parameters_MPIOM_PP_scheme
   !-------------------------------------------------------------------------
 
