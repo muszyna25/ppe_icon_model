@@ -889,7 +889,9 @@ CONTAINS
 !     CALL dbg_print('init wind speed'           ,fu10                                  ,str_module,idt_src,in_subset=owned_cells)
 
   END SUBROUTINE init_ocean_WindForcing
+  !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE set_windstress(patch_2D, windstress, &
       &                     control, amplitude, zonal_waveno, meridional_waveno)

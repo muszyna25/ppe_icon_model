@@ -44,6 +44,8 @@ MODULE mo_ocean_ext_data
     & forcing_fluxes_type,       &
     & OMIP_FluxFromFile,         &
     & use_omip_windstress, use_omip_fluxes, use_omip_forcing
+  USE mo_sea_ice_nml,        ONLY: i_ice_dyn
+   
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -294,7 +296,6 @@ CONTAINS
     END IF
 
   END SUBROUTINE new_ext_data_oce_list
-
   !-------------------------------------------------------------------------
 
 
@@ -327,7 +328,7 @@ CONTAINS
       &                          'external data finished')
 
   END SUBROUTINE destruct_ocean_ext_data
-
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -611,13 +612,17 @@ CONTAINS
         CALL read_3D(stream_id, onCells, 'runoff', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-        ! zonal wind speed
-        CALL read_3D(stream_id, onCells, 'u_wind_10m', z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+        IF (i_ice_dyn==1) THEN
+          ! zonal wind speed
+          CALL read_3D(stream_id, onCells, 'u_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
 
-        ! meridional wind speed
-        CALL read_3D(stream_id, onCells, 'v_wind_10m', z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
+          ! meridional wind speed
+          CALL read_3D(stream_id, onCells, 'v_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)          
+        ENDIF
+        
+        
 
       END IF
 
