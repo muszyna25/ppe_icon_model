@@ -222,6 +222,9 @@ MODULE mo_psrad_radiation
     REAL(wp) :: orbit_date
     REAL(wp) :: solcm
     LOGICAL  :: l_orbvsop87
+
+    l_orbvsop87 = .TRUE.
+
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
