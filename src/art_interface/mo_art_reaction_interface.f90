@@ -130,6 +130,15 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
+
+          CALL art_loss_chemtracer(p_patch,           &
+                 & datetime,                          &
+                 & p_dtime,                           &
+                 & p_prog_list,                       &
+                 & p_diag,                            &
+                 & p_metrics,                         &
+                 & p_tracer_now)
+		CASE(1)
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
                  & datetime,                          &
@@ -141,8 +150,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & prm_diag,                          &
                  & p_tracer_now)
-
-          CALL art_loss_chemtracer(p_patch,           &
+		 CALL art_loss_chemtracer(p_patch,           &
                  & datetime,                          &
                  & p_dtime,                           &
                  & p_prog_list,                       &
@@ -150,7 +158,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & p_tracer_now)
 
-        CASE(1)
+        CASE(2)
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
                  & datetime,                          &
