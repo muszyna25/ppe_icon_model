@@ -218,7 +218,7 @@ CONTAINS
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim)
 
-    REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
+    !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
     ! Sea ice
     REAL(wp) :: Tfw(kbdim)
@@ -237,9 +237,9 @@ CONTAINS
     ENDDO
 
     ! Compute factor for conversion temperature to dry static energy
-    DO jsfc=1,ksfc_type
-      zt2s_conv(1:kproma,jsfc) = pcpt_tile(1:kproma,jsfc) / ptsfc_tile(1:kproma,jsfc)
-    END DO
+    !DO jsfc=1,ksfc_type
+    !  zt2s_conv(1:kproma,jsfc) = pcpt_tile(1:kproma,jsfc) / ptsfc_tile(1:kproma,jsfc)
+    !END DO
 
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
