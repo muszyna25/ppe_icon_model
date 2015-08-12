@@ -129,7 +129,6 @@ CONTAINS
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk          !< loop index for blocks and edges, levels
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -161,8 +160,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -285,7 +282,6 @@ CONTAINS
 
     INTEGER  :: jb, je, jk          !< loop index for blocks and edges, levels
     INTEGER  :: ie                  !< index list loop counter
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -317,8 +313,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -436,7 +430,6 @@ CONTAINS
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -468,8 +461,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -631,7 +622,6 @@ CONTAINS
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
     INTEGER  :: ie                  !< index list loop counter
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -663,8 +653,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -821,7 +809,6 @@ CONTAINS
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -853,8 +840,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1015,7 +1000,6 @@ CONTAINS
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -1047,8 +1031,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1226,7 +1208,6 @@ CONTAINS
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
     INTEGER  :: ie                  !< index list loop counter
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -1258,8 +1239,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)

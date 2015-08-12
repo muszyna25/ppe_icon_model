@@ -38,7 +38,9 @@ MODULE mo_icoham_dyn_memory
                                   & delete_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi_constants 
+  USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_FLT32
+  USE mo_cdi_constants,       ONLY: ZA_SURFACE, ZA_HYBRID, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL, GRID_REFERENCE, &
+                                  & GRID_EDGE, GRID_CELL, ZA_HYBRID_HALF, GRID_VERTEX, GRID_UNSTRUCTURED_VERT
 
 
   IMPLICIT NONE

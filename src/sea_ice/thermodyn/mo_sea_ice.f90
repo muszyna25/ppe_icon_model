@@ -55,8 +55,8 @@ MODULE mo_sea_ice
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi_constants,       ONLY: DATATYPE_FLT32, DATATYPE_PACK16,        &
-    &                               GRID_UNSTRUCTURED_CELL, GRID_REFERENCE, &
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_PACK16
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE, &
     &                               GRID_CELL, ZA_GENERIC_ICE, ZA_SURFACE,  &
     &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
     &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE

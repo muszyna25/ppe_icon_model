@@ -94,12 +94,12 @@ MODULE mo_async_latbc
     USE mo_util_string,               ONLY: add_to_list
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
     USE mo_time_config,               ONLY: time_config
-    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,    &
-         &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
+    USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
          &                                  cdiGetStringError
+    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
